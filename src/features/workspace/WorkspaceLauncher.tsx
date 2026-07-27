@@ -7,7 +7,10 @@ export interface WorkspaceLauncherProps {
   projects: WorkspaceProjectView[];
   loading: boolean;
   error: string | null;
+  isCreateDialogOpen: boolean;
   onOpen(project: WorkspaceProjectView): Promise<void> | void;
+  onRequestCreate(): Promise<void> | void;
+  onCancelCreate(): void;
   onCreate(name: string): Promise<void> | void;
   onOpenExisting(): Promise<void> | void;
   onRelocate(project: WorkspaceProjectView): Promise<void> | void;
@@ -21,13 +24,15 @@ export function WorkspaceLauncher({
   projects,
   loading,
   error,
+  isCreateDialogOpen,
   onOpen,
+  onRequestCreate,
+  onCancelCreate,
   onCreate,
   onOpenExisting,
   onRelocate,
   onRemove,
 }: WorkspaceLauncherProps) {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   async function runAction(actionKey: string, action: () => Promise<void> | void) {
@@ -71,7 +76,9 @@ export function WorkspaceLauncher({
             <button
               className={`${actionButtonClassName} bg-amber-300 text-stone-950 hover:bg-amber-200`}
               disabled={Boolean(busyAction)}
-              onClick={() => setIsCreateDialogOpen(true)}
+              onClick={() =>
+                void runAction("request-create", () => onRequestCreate())
+              }
               type="button"
             >
               New project
@@ -143,7 +150,7 @@ export function WorkspaceLauncher({
 
       {isCreateDialogOpen ? (
         <NewProjectDialog
-          onClose={() => setIsCreateDialogOpen(false)}
+          onClose={onCancelCreate}
           onCreate={onCreate}
         />
       ) : null}

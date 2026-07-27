@@ -2,11 +2,20 @@ import type { PropsWithChildren } from "react";
 
 const tools = ["Canvas", "Assets", "Copywriting", "Export"];
 
-export function AppShell({ children }: PropsWithChildren) {
+interface AppShellProps extends PropsWithChildren {
+  projectName?: string;
+}
+
+export function AppShell({ children, projectName }: AppShellProps) {
   return (
     <div className="flex min-h-screen flex-col bg-stone-950 text-stone-100">
       <header className="flex h-16 items-center border-b border-white/10 px-6">
-        <h1 className="text-lg font-semibold tracking-wide">Preshot</h1>
+        <div>
+          <h1 className="text-lg font-semibold tracking-wide">Preshot</h1>
+          {projectName ? (
+            <p className="text-sm text-stone-300">{projectName}</p>
+          ) : null}
+        </div>
         <span className="ml-3 text-sm text-stone-400">
           Photography planning
         </span>

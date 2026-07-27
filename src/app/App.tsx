@@ -1,10 +1,15 @@
-import { AppShell } from "./layout/AppShell";
-import { Workspace } from "./layout/Workspace";
+import { WorkspaceProvider } from "./workspace/WorkspaceProvider";
+import {
+  createWorkspaceDependencies,
+  type WorkspaceDependencies,
+} from "./workspace/dependencies";
 
-export function App() {
-  return (
-    <AppShell>
-      <Workspace />
-    </AppShell>
-  );
+const defaultWorkspaceDependencies = createWorkspaceDependencies();
+
+interface AppProps {
+  dependencies?: WorkspaceDependencies;
+}
+
+export function App({ dependencies = defaultWorkspaceDependencies }: AppProps) {
+  return <WorkspaceProvider dependencies={dependencies} />;
 }

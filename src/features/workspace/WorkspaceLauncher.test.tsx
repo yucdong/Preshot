@@ -1,5 +1,12 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { WorkspaceLauncher } from "./WorkspaceLauncher";
@@ -8,7 +15,10 @@ interface RenderOptions {
   projects?: WorkspaceProjectView[];
   loading?: boolean;
   error?: string | null;
+  isCreateDialogOpen?: boolean;
   onOpen?: (project: WorkspaceProjectView) => Promise<void> | void;
+  onRequestCreate?: () => Promise<void> | void;
+  onCancelCreate?: () => void;
   onCreate?: (name: string) => Promise<void> | void;
   onOpenExisting?: () => Promise<void> | void;
   onRelocate?: (project: WorkspaceProjectView) => Promise<void> | void;
@@ -46,25 +56,55 @@ function makeProject(
 
 function renderLauncher(options: RenderOptions = {}) {
   const onOpen = vi.fn(options.onOpen ?? (() => undefined));
+  const onRequestCreate = vi.fn(options.onRequestCreate ?? (() => undefined));
+  const onCancelCreate = vi.fn(options.onCancelCreate ?? (() => undefined));
   const onCreate = vi.fn(options.onCreate ?? (() => undefined));
   const onOpenExisting = vi.fn(options.onOpenExisting ?? (() => undefined));
   const onRelocate = vi.fn(options.onRelocate ?? (() => undefined));
   const onRemove = vi.fn(options.onRemove ?? (() => undefined));
 
-  render(
-    <WorkspaceLauncher
-      error={options.error ?? null}
-      loading={options.loading ?? false}
-      onCreate={onCreate}
-      onOpen={onOpen}
-      onOpenExisting={onOpenExisting}
-      onRelocate={onRelocate}
-      onRemove={onRemove}
-      projects={options.projects ?? []}
-    />,
-  );
+  function Harness() {
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(
+      options.isCreateDialogOpen ?? false,
+    );
 
-  return { onOpen, onCreate, onOpenExisting, onRelocate, onRemove };
+    return (
+      <WorkspaceLauncher
+        error={options.error ?? null}
+        isCreateDialogOpen={isCreateDialogOpen}
+        loading={options.loading ?? false}
+        onCancelCreate={() => {
+          onCancelCreate();
+          setIsCreateDialogOpen(false);
+        }}
+        onCreate={async (name) => {
+          await onCreate(name);
+          setIsCreateDialogOpen(false);
+        }}
+        onOpen={onOpen}
+        onOpenExisting={onOpenExisting}
+        onRelocate={onRelocate}
+        onRemove={onRemove}
+        onRequestCreate={async () => {
+          await onRequestCreate();
+          setIsCreateDialogOpen(true);
+        }}
+        projects={options.projects ?? []}
+      />
+    );
+  }
+
+  render(<Harness />);
+
+  return {
+    onOpen,
+    onRequestCreate,
+    onCancelCreate,
+    onCreate,
+    onOpenExisting,
+    onRelocate,
+    onRemove,
+  };
 }
 
 function mockRailLayout(rail: HTMLElement, layout: RailLayoutFixture) {
@@ -146,7 +186,7 @@ describe("WorkspaceLauncher", () => {
 
   it("shows empty-state actions and keeps them available with a recoverable error", async () => {
     const user = userEvent.setup();
-    const { onOpenExisting } = renderLauncher({
+    const { onOpenExisting, onRequestCreate } = renderLauncher({
       error: "Could not refresh recent projects.",
     });
 
@@ -158,6 +198,7 @@ describe("WorkspaceLauncher", () => {
     expect(onOpenExisting).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("button", { name: "New project" }));
+    expect(onRequestCreate).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("dialog")).toBeVisible();
   });
 
@@ -410,10 +451,11 @@ describe("WorkspaceLauncher", () => {
 
   it("opens the create dialog with form semantics, trims names, and resets after cancel or success", async () => {
     const user = userEvent.setup();
-    const { onCreate } = renderLauncher();
+    const { onCreate, onRequestCreate } = renderLauncher();
     const trigger = screen.getByRole("button", { name: "New project" });
 
     await user.click(trigger);
+    expect(onRequestCreate).toHaveBeenCalledTimes(1);
 
     const dialog = screen.getByRole("dialog");
     const input = within(dialog).getByLabelText("Project name");

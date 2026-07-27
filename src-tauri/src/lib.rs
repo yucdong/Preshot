@@ -1,4 +1,5 @@
 mod error;
+mod menu;
 mod workspace;
 
 #[derive(Debug, PartialEq, serde::Serialize)]
@@ -20,7 +21,14 @@ fn platform_info() -> PlatformInfo {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .manage(workspace::PendingProjectRollbacks::default())
+        .setup(|app| {
+            menu::install(app.handle())?;
+            menu::register_handlers(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             platform_info,
             workspace::create_project,
