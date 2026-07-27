@@ -36,7 +36,7 @@ exit /b 7
         throw "Expected init.ps1 to fail when pnpm install exits with code 7. Output: $output"
     }
 
-    if ($output -notmatch "pnpm install failed with\s+exit code 7") {
+    if ($output -notmatch "pnpm install failed with\s+exit\s+code\s+7") {
         throw "Expected an actionable pnpm failure message. Output: $output"
     }
 
@@ -92,7 +92,7 @@ exit /b 0
         throw "Expected the pnpm fixture to fail after Node.js v20.19.0 was accepted. Output: $acceptedOutput"
     }
 
-    if ($acceptedOutput -notmatch "pnpm install failed with\s+exit code 7") {
+    if ($acceptedOutput -notmatch "pnpm install failed with\s+exit\s+code\s+7") {
         throw "Expected Node.js v20.19.0 to pass version validation. Output: $acceptedOutput"
     }
 
@@ -120,7 +120,7 @@ exit /b 0
         throw "Expected the pnpm fixture to fail after Node.js v23.0.0 was accepted. Output: $newerOutput"
     }
 
-    if ($newerOutput -notmatch "pnpm install failed with\s+exit code 7") {
+    if ($newerOutput -notmatch "pnpm install failed with\s+exit\s+code\s+7") {
         throw "Expected Node.js v23.0.0 to pass version validation. Output: $newerOutput"
     }
 
