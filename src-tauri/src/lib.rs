@@ -1,3 +1,6 @@
+mod error;
+mod workspace;
+
 #[derive(Debug, PartialEq, serde::Serialize)]
 struct PlatformInfo {
     os: &'static str,
@@ -17,7 +20,12 @@ fn platform_info() -> PlatformInfo {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![platform_info])
+        .invoke_handler(tauri::generate_handler![
+            platform_info,
+            workspace::create_project,
+            workspace::inspect_project,
+            workspace::remove_created_project,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running Preshot");
 }
