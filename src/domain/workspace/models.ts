@@ -40,6 +40,11 @@ export interface InspectedProject {
   coverDataUrl: string | null;
 }
 
+export interface CreatedProject {
+  project: InspectedProject;
+  rollbackToken: string;
+}
+
 export const EMPTY_WORKSPACE: WorkspaceMetadata = {
   schemaVersion: 1,
   projects: [],

@@ -1,7 +1,10 @@
 use std::{
+    collections::HashMap,
     fs,
     io::ErrorKind,
     path::{Component, Path, PathBuf},
+    sync::{Mutex, MutexGuard},
+    time::{Duration, Instant},
 };
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -13,6 +16,7 @@ use crate::error::CommandError;
 const MANIFEST_FILE_NAME: &str = ".preshot";
 const MANIFEST_TEMP_FILE_NAME: &str = ".preshot.tmp";
 const MAX_COVER_BYTES: u64 = 16 * 1024 * 1024;
+const PENDING_ROLLBACK_TTL: Duration = Duration::from_secs(60);
 const RESERVED_WINDOWS_NAMES: [&str; 22] = [
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
     "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
@@ -40,11 +44,80 @@ pub struct InspectedProject {
     pub cover_data_url: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatedProject {
+    pub project: InspectedProject,
+    pub rollback_token: String,
+}
+
 #[derive(Debug, Clone)]
 struct ResolvedCover {
     absolute_path: PathBuf,
     relative_path: String,
     mime: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingProjectRollback {
+    project_path: PathBuf,
+    project_id: String,
+    created_at: Instant,
+}
+
+#[derive(Debug, Default)]
+pub struct PendingProjectRollbacks {
+    entries: Mutex<HashMap<String, PendingProjectRollback>>,
+}
+
+impl PendingProjectRollbacks {
+    fn register(&self, project_path: PathBuf, project_id: String) -> String {
+        self.register_with_instant(project_path, project_id, Instant::now())
+    }
+
+    fn register_with_instant(
+        &self,
+        project_path: PathBuf,
+        project_id: String,
+        created_at: Instant,
+    ) -> String {
+        let token = Uuid::new_v4().to_string();
+        let mut entries = self.lock_entries();
+        purge_expired_rollbacks(&mut entries, Instant::now());
+        entries.insert(
+            token.clone(),
+            PendingProjectRollback {
+                project_path,
+                project_id,
+                created_at,
+            },
+        );
+        token
+    }
+
+    fn take(&self, rollback_token: &str) -> Result<PendingProjectRollback, CommandError> {
+        let mut entries = self.lock_entries();
+        purge_expired_rollbacks(&mut entries, Instant::now());
+        entries
+            .remove(rollback_token)
+            .ok_or_else(rollback_not_authorized)
+    }
+
+    fn forget(&self, rollback_token: &str) -> Result<(), CommandError> {
+        let mut entries = self.lock_entries();
+        purge_expired_rollbacks(&mut entries, Instant::now());
+        entries
+            .remove(rollback_token)
+            .map(|_| ())
+            .ok_or_else(rollback_not_authorized)
+    }
+
+    fn lock_entries(&self) -> MutexGuard<'_, HashMap<String, PendingProjectRollback>> {
+        match self.entries.lock() {
+            Ok(entries) => entries,
+            Err(poisoned) => poisoned.into_inner(),
+        }
+    }
 }
 
 fn deserialize_cover_image<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
@@ -413,18 +486,141 @@ fn encode_cover_data_url(cover: &ResolvedCover) -> Result<String, CommandError> 
     ))
 }
 
-pub fn remove_created_project_directory(path: &Path, project_id: &str) -> Result<(), CommandError> {
+pub fn rollback_created_project_directory(
+    path: &Path,
+    project_id: &str,
+) -> Result<(), CommandError> {
+    rollback_created_project_directory_with_hook(path, project_id, &|_| {})
+}
+
+fn rollback_created_project_directory_with_hook<F>(
+    path: &Path,
+    project_id: &str,
+    after_quarantine: &F,
+) -> Result<(), CommandError>
+where
+    F: Fn(&Path),
+{
     let project_path = canonicalize_directory(path, "project_not_found", "project_not_directory")?;
     let inspected = inspect_project_directory(&project_path)?;
 
     if inspected.manifest.id != project_id {
-        return Err(CommandError::new(
-            "rollback_id_mismatch",
-            "The project ID does not match the requested rollback target",
-        ));
+        return Err(rollback_id_mismatch());
     }
 
-    let mut entries = fs::read_dir(&project_path).map_err(|error| {
+    ensure_marker_only_directory(&project_path)?;
+
+    let quarantine_path = unique_quarantine_path(&project_path);
+    fs::rename(&project_path, &quarantine_path).map_err(|error| {
+        CommandError::new(
+            "rollback_quarantine_failed",
+            format!("Unable to move the project directory into rollback quarantine: {error}"),
+        )
+    })?;
+
+    after_quarantine(&quarantine_path);
+
+    let mut manifest_bytes = None;
+    let rollback_result = (|| {
+        let bytes = read_manifest_bytes(&quarantine_path)?;
+        ensure_manifest_matches_project_id(&bytes, project_id)?;
+        ensure_marker_only_directory(&quarantine_path)?;
+        manifest_bytes = Some(bytes);
+
+        fs::remove_file(quarantine_path.join(MANIFEST_FILE_NAME)).map_err(|error| {
+            CommandError::new(
+                "remove_manifest_failed",
+                format!("Unable to remove the project manifest: {error}"),
+            )
+        })?;
+        fs::remove_dir(&quarantine_path).map_err(|error| {
+            CommandError::new(
+                "remove_directory_failed",
+                format!("Unable to remove the project directory: {error}"),
+            )
+        })
+    })();
+
+    match rollback_result {
+        Ok(()) => Ok(()),
+        Err(error) => restore_quarantined_project(
+            &project_path,
+            &quarantine_path,
+            manifest_bytes.as_deref(),
+            error,
+        ),
+    }
+}
+
+fn rollback_created_project_with_token(
+    pending_rollbacks: &PendingProjectRollbacks,
+    rollback_token: &str,
+) -> Result<(), CommandError> {
+    let pending = pending_rollbacks.take(rollback_token)?;
+    rollback_created_project_directory(&pending.project_path, &pending.project_id)
+}
+
+#[tauri::command]
+pub fn create_project(
+    pending_rollbacks: tauri::State<'_, PendingProjectRollbacks>,
+    parent_path: String,
+    name: String,
+) -> Result<CreatedProject, CommandError> {
+    let project = create_project_in(Path::new(&parent_path), &name)?;
+    let rollback_token =
+        pending_rollbacks.register(PathBuf::from(&project.path), project.manifest.id.clone());
+
+    Ok(CreatedProject {
+        project,
+        rollback_token,
+    })
+}
+
+#[tauri::command]
+pub fn inspect_project(path: String) -> Result<InspectedProject, CommandError> {
+    inspect_project_directory(Path::new(&path))
+}
+
+#[tauri::command]
+pub fn rollback_created_project(
+    pending_rollbacks: tauri::State<'_, PendingProjectRollbacks>,
+    rollback_token: String,
+) -> Result<(), CommandError> {
+    rollback_created_project_with_token(&pending_rollbacks, &rollback_token)
+}
+
+#[tauri::command]
+pub fn forget_created_project(
+    pending_rollbacks: tauri::State<'_, PendingProjectRollbacks>,
+    rollback_token: String,
+) -> Result<(), CommandError> {
+    pending_rollbacks.forget(&rollback_token)
+}
+
+fn purge_expired_rollbacks(entries: &mut HashMap<String, PendingProjectRollback>, now: Instant) {
+    entries.retain(|_, pending| {
+        now.checked_duration_since(pending.created_at)
+            .map(|age| age <= PENDING_ROLLBACK_TTL)
+            .unwrap_or(true)
+    });
+}
+
+fn rollback_not_authorized() -> CommandError {
+    CommandError::new(
+        "rollback_not_authorized",
+        "Rollback is not authorized for this project",
+    )
+}
+
+fn rollback_id_mismatch() -> CommandError {
+    CommandError::new(
+        "rollback_id_mismatch",
+        "The project ID does not match the requested rollback target",
+    )
+}
+
+fn ensure_marker_only_directory(project_path: &Path) -> Result<(), CommandError> {
+    let mut entries = fs::read_dir(project_path).map_err(|error| {
         CommandError::new(
             "project_read_failed",
             format!("Unable to enumerate the project directory: {error}"),
@@ -446,33 +642,84 @@ pub fn remove_created_project_directory(path: &Path, project_id: &str) -> Result
         }
     }
 
-    fs::remove_file(project_path.join(MANIFEST_FILE_NAME)).map_err(|error| {
+    Ok(())
+}
+
+fn unique_quarantine_path(project_path: &Path) -> PathBuf {
+    let parent = project_path
+        .parent()
+        .expect("canonical project path should always have a parent directory");
+    let project_name = project_path
+        .file_name()
+        .expect("canonical project path should always have a terminal component")
+        .to_string_lossy();
+
+    parent.join(format!(
+        ".preshot-rollback-{project_name}-{}",
+        Uuid::new_v4()
+    ))
+}
+
+fn read_manifest_bytes(project_path: &Path) -> Result<Vec<u8>, CommandError> {
+    fs::read(project_path.join(MANIFEST_FILE_NAME)).map_err(|error| {
         CommandError::new(
-            "remove_manifest_failed",
-            format!("Unable to remove the project manifest: {error}"),
-        )
-    })?;
-    fs::remove_dir(&project_path).map_err(|error| {
-        CommandError::new(
-            "remove_directory_failed",
-            format!("Unable to remove the project directory: {error}"),
+            "manifest_read_failed",
+            format!("Unable to read the project manifest: {error}"),
         )
     })
 }
 
-#[tauri::command]
-pub fn create_project(parent_path: String, name: String) -> Result<InspectedProject, CommandError> {
-    create_project_in(Path::new(&parent_path), &name)
+fn ensure_manifest_matches_project_id(
+    manifest_bytes: &[u8],
+    project_id: &str,
+) -> Result<(), CommandError> {
+    let manifest: ProjectManifest = serde_json::from_slice(manifest_bytes).map_err(|error| {
+        CommandError::new(
+            "manifest_decode_failed",
+            format!("Unable to decode the project manifest: {error}"),
+        )
+    })?;
+    validate_manifest(&manifest)?;
+
+    if manifest.id != project_id {
+        return Err(rollback_id_mismatch());
+    }
+
+    Ok(())
 }
 
-#[tauri::command]
-pub fn inspect_project(path: String) -> Result<InspectedProject, CommandError> {
-    inspect_project_directory(Path::new(&path))
-}
+fn restore_quarantined_project(
+    project_path: &Path,
+    quarantine_path: &Path,
+    manifest_bytes: Option<&[u8]>,
+    rollback_error: CommandError,
+) -> Result<(), CommandError> {
+    if let Some(manifest_bytes) = manifest_bytes {
+        let manifest_path = quarantine_path.join(MANIFEST_FILE_NAME);
+        if !manifest_path.exists() {
+            fs::write(&manifest_path, manifest_bytes).map_err(|error| {
+                CommandError::new(
+                    "rollback_restore_failed",
+                    format!(
+                        "{}; restoration failed: unable to restore the project manifest: {error}",
+                        rollback_error.message
+                    ),
+                )
+            })?;
+        }
+    }
 
-#[tauri::command]
-pub fn remove_created_project(path: String, project_id: String) -> Result<(), CommandError> {
-    remove_created_project_directory(Path::new(&path), &project_id)
+    fs::rename(quarantine_path, project_path).map_err(|error| {
+        CommandError::new(
+            "rollback_restore_failed",
+            format!(
+                "{}; restoration failed: unable to restore the project directory: {error}",
+                rollback_error.message
+            ),
+        )
+    })?;
+
+    Err(rollback_error)
 }
 
 fn canonicalize_directory(
@@ -554,7 +801,11 @@ mod tests {
     use super::*;
     use chrono::DateTime;
     use serde_json::json;
-    use std::{fs, path::Path};
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        time::{Duration, Instant},
+    };
     use tempfile::TempDir;
     use uuid::Uuid;
 
@@ -792,7 +1043,7 @@ mod tests {
         let created = create_project_in(parent.path(), "Rollback").unwrap();
         let project_path = parent.path().join("Rollback");
 
-        remove_created_project_directory(&project_path, &created.manifest.id).unwrap();
+        rollback_created_project_directory(&project_path, &created.manifest.id).unwrap();
 
         assert!(!project_path.exists());
     }
@@ -803,15 +1054,107 @@ mod tests {
         let created = create_project_in(parent.path(), "Protected").unwrap();
         let project_path = parent.path().join("Protected");
 
-        let error =
-            remove_created_project_directory(&project_path, "00000000-0000-0000-0000-000000000000")
-                .unwrap_err();
+        let error = rollback_created_project_directory(
+            &project_path,
+            "00000000-0000-0000-0000-000000000000",
+        )
+        .unwrap_err();
         assert_eq!(error.code, "rollback_id_mismatch");
 
         fs::write(project_path.join("notes.txt"), "keep me").unwrap();
         let error =
-            remove_created_project_directory(&project_path, &created.manifest.id).unwrap_err();
+            rollback_created_project_directory(&project_path, &created.manifest.id).unwrap_err();
         assert_eq!(error.code, "rollback_not_empty");
+    }
+
+    #[test]
+    fn pending_rollbacks_refuse_unknown_reused_and_expired_tokens_and_take_once() {
+        let pending = PendingProjectRollbacks::default();
+        let unknown = pending.take("missing").unwrap_err();
+        assert_eq!(unknown.code, "rollback_not_authorized");
+
+        let project_path = PathBuf::from(r"C:\projects\Preshot\workspace");
+        let token = pending.register_with_instant(
+            project_path.clone(),
+            "project-1".to_string(),
+            Instant::now(),
+        );
+
+        let authorized = pending.take(&token).unwrap();
+        assert_eq!(authorized.project_path, project_path);
+        assert_eq!(authorized.project_id, "project-1");
+
+        let reused = pending.take(&token).unwrap_err();
+        assert_eq!(reused.code, "rollback_not_authorized");
+
+        let expired_token = pending.register_with_instant(
+            PathBuf::from(r"C:\projects\Preshot\expired"),
+            "project-expired".to_string(),
+            Instant::now() - PENDING_ROLLBACK_TTL - Duration::from_secs(1),
+        );
+        let expired = pending.take(&expired_token).unwrap_err();
+        assert_eq!(expired.code, "rollback_not_authorized");
+    }
+
+    #[test]
+    fn token_rollback_refuses_an_inspected_project_id_without_the_matching_token() {
+        let parent = tempfile::tempdir().unwrap();
+        let created = create_project_in(parent.path(), "Protected").unwrap();
+        let pending = PendingProjectRollbacks::default();
+        let token = pending.register_with_instant(
+            PathBuf::from(&created.path),
+            created.manifest.id.clone(),
+            Instant::now(),
+        );
+
+        let error =
+            rollback_created_project_with_token(&pending, &created.manifest.id).unwrap_err();
+
+        assert_eq!(error.code, "rollback_not_authorized");
+        assert!(Path::new(&created.path).exists());
+
+        let stored = pending.take(&token).unwrap();
+        assert_eq!(stored.project_id, created.manifest.id);
+    }
+
+    #[test]
+    fn rollback_restores_the_original_directory_when_a_file_appears_after_quarantine() {
+        let parent = tempfile::tempdir().unwrap();
+        let created = create_project_in(parent.path(), "Protected").unwrap();
+        let project_path = parent.path().join("Protected");
+
+        let error = rollback_created_project_directory_with_hook(
+            &project_path,
+            &created.manifest.id,
+            &|quarantine_path| {
+                fs::write(quarantine_path.join("notes.txt"), "keep me").unwrap();
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "rollback_not_empty");
+        let restored = inspect_project_directory(&project_path).unwrap();
+        assert_eq!(restored.manifest.id, created.manifest.id);
+        assert_eq!(
+            fs::read_to_string(project_path.join("notes.txt")).unwrap(),
+            "keep me"
+        );
+    }
+
+    #[test]
+    fn successful_token_rollback_removes_a_marker_only_project() {
+        let parent = tempfile::tempdir().unwrap();
+        let created = create_project_in(parent.path(), "Rollback").unwrap();
+        let pending = PendingProjectRollbacks::default();
+        let token = pending.register_with_instant(
+            PathBuf::from(&created.path),
+            created.manifest.id.clone(),
+            Instant::now(),
+        );
+
+        rollback_created_project_with_token(&pending, &token).unwrap();
+
+        assert!(!Path::new(&created.path).exists());
     }
 
     #[test]

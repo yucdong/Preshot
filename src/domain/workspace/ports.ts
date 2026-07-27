@@ -1,4 +1,5 @@
 import type {
+  CreatedProject,
   InspectedProject,
   WorkspaceMetadata,
   WorkspaceProjectRecord,
@@ -12,11 +13,13 @@ export interface WorkspaceRegistry {
 }
 
 export interface NativeWorkspace {
-  createProject(parentPath: string, name: string): Promise<InspectedProject>;
+  createProject(parentPath: string, name: string): Promise<CreatedProject>;
 
   inspectProject(path: string): Promise<InspectedProject>;
 
-  removeCreatedProject(path: string, projectId: string): Promise<void>;
+  rollbackCreatedProject(rollbackToken: string): Promise<void>;
+
+  forgetCreatedProject(rollbackToken: string): Promise<void>;
 
   onMenuAction(
     handler: (action: WorkspaceMenuAction) => void,

@@ -20,11 +20,13 @@ fn platform_info() -> PlatformInfo {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(workspace::PendingProjectRollbacks::default())
         .invoke_handler(tauri::generate_handler![
             platform_info,
             workspace::create_project,
             workspace::inspect_project,
-            workspace::remove_created_project,
+            workspace::rollback_created_project,
+            workspace::forget_created_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Preshot");

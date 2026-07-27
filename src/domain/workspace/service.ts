@@ -254,10 +254,12 @@ export function createWorkspaceService({
     const currentProjects = await ensureLoadedProjectsInternal();
 
     let createdProject: WorkspaceProjectView;
+    let rollbackToken: string;
 
     try {
-      const inspected = await native.createProject(parentPath, name);
-      createdProject = inspectedToProject(inspected, clock.now());
+      const created = await native.createProject(parentPath, name);
+      createdProject = inspectedToProject(created.project, clock.now());
+      rollbackToken = created.rollbackToken;
     } catch (error) {
       throw contextualError("Unable to create workspace project", error);
     }
@@ -268,10 +270,7 @@ export function createWorkspaceService({
       );
     } catch (saveError) {
       try {
-        await native.removeCreatedProject(
-          createdProject.path,
-          createdProject.projectId,
-        );
+        await native.rollbackCreatedProject(rollbackToken);
       } catch (rollbackError) {
         logger.error("Workspace project rollback failed", {
           projectId: createdProject.projectId,
@@ -287,6 +286,15 @@ export function createWorkspaceService({
       }
 
       throw saveError;
+    }
+
+    try {
+      await native.forgetCreatedProject(rollbackToken);
+    } catch (forgetError) {
+      logger.error("Workspace project rollback token forget failed", {
+        projectId: createdProject.projectId,
+        reason: message(forgetError),
+      });
     }
 
     logger.info("Workspace project created", {

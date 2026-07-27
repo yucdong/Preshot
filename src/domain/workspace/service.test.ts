@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceService } from "./service";
 import type {
+  CreatedProject,
   InspectedProject,
   WorkspaceMetadata,
   WorkspaceProjectRecord,
@@ -47,6 +48,16 @@ const inspected = (
   resolvedCoverImage: `${projectId}-resolved.png`,
   coverDataUrl: `data:image/png;base64,${projectId}`,
   ...overrides,
+});
+
+const createdProject = (
+  projectId: string,
+  rollbackToken: string,
+  path = `C:\\shoots\\${projectId}`,
+  overrides: Partial<InspectedProject> = {},
+): CreatedProject => ({
+  project: inspected(projectId, path, overrides),
+  rollbackToken,
 });
 
 const findSaveCallForProject = (
@@ -105,9 +116,8 @@ const deferred = <T>() => {
 describe("createWorkspaceService", () => {
   let createProjectMock: ReturnType<typeof vi.fn<NativeWorkspace["createProject"]>>;
   let inspectProjectMock: ReturnType<typeof vi.fn<NativeWorkspace["inspectProject"]>>;
-  let removeCreatedProjectMock: ReturnType<
-    typeof vi.fn<NativeWorkspace["removeCreatedProject"]>
-  >;
+  let rollbackCreatedProjectMock: ReturnType<typeof vi.fn<(rollbackToken: string) => Promise<void>>>;
+  let forgetCreatedProjectMock: ReturnType<typeof vi.fn<(rollbackToken: string) => Promise<void>>>;
   let onMenuActionMock: ReturnType<typeof vi.fn<NativeWorkspace["onMenuAction"]>>;
   let debugMock: ReturnType<typeof vi.fn<WorkspaceLogger["debug"]>>;
   let infoMock: ReturnType<typeof vi.fn<WorkspaceLogger["info"]>>;
@@ -132,14 +142,16 @@ describe("createWorkspaceService", () => {
 
     createProjectMock = vi.fn<NativeWorkspace["createProject"]>();
     inspectProjectMock = vi.fn<NativeWorkspace["inspectProject"]>();
-    removeCreatedProjectMock = vi
-      .fn<NativeWorkspace["removeCreatedProject"]>()
+    rollbackCreatedProjectMock = vi.fn<(rollbackToken: string) => Promise<void>>()
+      .mockResolvedValue(undefined);
+    forgetCreatedProjectMock = vi.fn<(rollbackToken: string) => Promise<void>>()
       .mockResolvedValue(undefined);
     onMenuActionMock = vi.fn<NativeWorkspace["onMenuAction"]>();
     native = {
       createProject: createProjectMock,
       inspectProject: inspectProjectMock,
-      removeCreatedProject: removeCreatedProjectMock,
+      rollbackCreatedProject: rollbackCreatedProjectMock,
+      forgetCreatedProject: forgetCreatedProjectMock,
       onMenuAction: onMenuActionMock,
     };
 
@@ -162,7 +174,7 @@ describe("createWorkspaceService", () => {
   it("rolls back a newly created project when registry persistence fails", async () => {
     registry.save.mockRejectedValue(new Error("disk full"));
     createProjectMock.mockResolvedValue(
-      inspected("project-1", "C:\\shoots\\Editorial"),
+      createdProject("project-1", "rollback-token-1", "C:\\shoots\\Editorial"),
     );
     const service = createWorkspaceService({ registry, native, clock, logger });
 
@@ -170,19 +182,17 @@ describe("createWorkspaceService", () => {
       service.createProject("C:\\shoots", "Editorial"),
     ).rejects.toThrow("Unable to save workspace metadata: disk full");
 
-    expect(removeCreatedProjectMock).toHaveBeenCalledWith(
-      "C:\\shoots\\Editorial",
-      "project-1",
-    );
+    expect(rollbackCreatedProjectMock).toHaveBeenCalledWith("rollback-token-1");
+    expect(forgetCreatedProjectMock).not.toHaveBeenCalled();
     expect(errorMock).not.toHaveBeenCalled();
   });
 
   it("reports both persistence and rollback failures when rollback also fails", async () => {
     registry.save.mockRejectedValue(new Error("disk full"));
     createProjectMock.mockResolvedValue(
-      inspected("project-1", "C:\\shoots\\Editorial"),
+      createdProject("project-1", "rollback-token-1", "C:\\shoots\\Editorial"),
     );
-    removeCreatedProjectMock.mockRejectedValue(new Error("access denied"));
+    rollbackCreatedProjectMock.mockRejectedValue(new Error("access denied"));
     const service = createWorkspaceService({ registry, native, clock, logger });
 
     await expect(
@@ -198,6 +208,57 @@ describe("createWorkspaceService", () => {
         reason: "access denied",
       }),
     );
+  });
+
+  it("rolls back a newly created project with its rollback token when registry persistence fails", async () => {
+    registry.save.mockRejectedValue(new Error("disk full"));
+    createProjectMock.mockResolvedValue(
+      createdProject("project-1", "rollback-token-1", "C:\\shoots\\Editorial"),
+    );
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await expect(
+      service.createProject("C:\\shoots", "Editorial"),
+    ).rejects.toThrow("Unable to save workspace metadata: disk full");
+
+    expect(rollbackCreatedProjectMock).toHaveBeenCalledWith("rollback-token-1");
+    expect(forgetCreatedProjectMock).not.toHaveBeenCalled();
+  });
+
+  it("forgets a rollback token after successful metadata persistence and never rolls back", async () => {
+    createProjectMock.mockResolvedValue(
+      createdProject("project-1", "rollback-token-1", "C:\\shoots\\Editorial"),
+    );
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await expect(service.createProject("C:\\shoots", "Editorial")).resolves.toEqual(
+      viewed("project-1", NOW, "C:\\shoots\\Editorial"),
+    );
+    expect(forgetCreatedProjectMock).toHaveBeenCalledWith("rollback-token-1");
+    expect(rollbackCreatedProjectMock).not.toHaveBeenCalled();
+    expect(rollbackCreatedProjectMock).not.toHaveBeenCalled();
+  });
+
+  it("logs rollback token forget failures without deleting the durable project", async () => {
+    createProjectMock.mockResolvedValue(
+      createdProject("project-1", "rollback-token-1", "C:\\shoots\\Editorial"),
+    );
+    forgetCreatedProjectMock.mockRejectedValue(new Error("bridge unavailable"));
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await expect(service.createProject("C:\\shoots", "Editorial")).resolves.toEqual(
+      viewed("project-1", NOW, "C:\\shoots\\Editorial"),
+    );
+
+    expect(errorMock).toHaveBeenCalledWith(
+      "Workspace project rollback token forget failed",
+      {
+        projectId: "project-1",
+        reason: "bridge unavailable",
+      },
+    );
+    expect(rollbackCreatedProjectMock).not.toHaveBeenCalled();
+    expect(JSON.stringify(errorMock.mock.calls)).not.toContain("rollback-token-1");
   });
 
   it("wraps create failures even when the native message already starts with unable to", async () => {
@@ -237,7 +298,7 @@ describe("createWorkspaceService", () => {
       projects: [],
     });
     createProjectMock.mockResolvedValue(
-      inspected("project-1", "C:\\shoots\\Editorial"),
+      createdProject("project-1", "rollback-token-1", "C:\\shoots\\Editorial"),
     );
     const service = createWorkspaceService({ registry, native, clock, logger });
 
@@ -282,7 +343,7 @@ describe("createWorkspaceService", () => {
       projectId: "project-1",
     });
     expect(infoMock.mock.calls.at(-1)?.[1]).not.toHaveProperty("coverDataUrl");
-    expect(removeCreatedProjectMock).not.toHaveBeenCalled();
+    expect(rollbackCreatedProjectMock).not.toHaveBeenCalled();
   });
 
   it("keeps missing registered projects as unavailable", async () => {
@@ -524,7 +585,7 @@ describe("createWorkspaceService", () => {
       },
     ]);
 
-    expect(removeCreatedProjectMock).not.toHaveBeenCalled();
+    expect(rollbackCreatedProjectMock).not.toHaveBeenCalled();
     expect(infoMock).toHaveBeenCalledWith("Workspace project removed", {
       projectId: "remove",
     });
@@ -573,7 +634,7 @@ describe("createWorkspaceService", () => {
       return Promise.resolve(inspected("newer", path));
     });
     createProjectMock.mockResolvedValue(
-      inspected("fresh", "C:\\shoots\\Fresh"),
+      createdProject("fresh", "rollback-token-fresh", "C:\\shoots\\Fresh"),
     );
     const service = createWorkspaceService({ registry, native, clock, logger });
 
@@ -635,8 +696,8 @@ describe("createWorkspaceService", () => {
   });
 
   it("keeps both concurrent createProject results in persistence and cache", async () => {
-    const firstCreated = deferred<InspectedProject>();
-    const secondCreated = deferred<InspectedProject>();
+    const firstCreated = deferred<CreatedProject>();
+    const secondCreated = deferred<CreatedProject>();
     createProjectMock
       .mockImplementationOnce(() => firstCreated.promise)
       .mockImplementationOnce(() => secondCreated.promise);
@@ -652,8 +713,12 @@ describe("createWorkspaceService", () => {
     const firstCreate = service.createProject("C:\\shoots", "Alpha");
     const secondCreate = service.createProject("C:\\shoots", "Beta");
 
-    firstCreated.resolve(inspected("alpha", "C:\\shoots\\alpha"));
-    secondCreated.resolve(inspected("beta", "C:\\shoots\\beta"));
+    firstCreated.resolve(
+      createdProject("alpha", "rollback-token-alpha", "C:\\shoots\\alpha"),
+    );
+    secondCreated.resolve(
+      createdProject("beta", "rollback-token-beta", "C:\\shoots\\beta"),
+    );
 
     await expect(Promise.all([firstCreate, secondCreate])).resolves.toEqual([
       viewed("alpha", NOW, "C:\\shoots\\alpha"),
@@ -681,7 +746,7 @@ describe("createWorkspaceService", () => {
     });
     inspectProjectMock.mockResolvedValue(inspected("keep"));
     createProjectMock.mockResolvedValue(
-      inspected("fresh", "C:\\shoots\\fresh"),
+      createdProject("fresh", "rollback-token-fresh", "C:\\shoots\\fresh"),
     );
     const service = createWorkspaceService({ registry, native, clock, logger });
 
@@ -775,8 +840,8 @@ describe("createWorkspaceService", () => {
   });
 
   it("continues queued workspace operations after a rejected operation", async () => {
-    const firstCreated = deferred<InspectedProject>();
-    const secondCreated = deferred<InspectedProject>();
+    const firstCreated = deferred<CreatedProject>();
+    const secondCreated = deferred<CreatedProject>();
     createProjectMock
       .mockImplementationOnce(() => firstCreated.promise)
       .mockImplementationOnce(() => secondCreated.promise);
@@ -789,7 +854,9 @@ describe("createWorkspaceService", () => {
     expect(createProjectMock).toHaveBeenCalledTimes(1);
 
     firstCreated.reject(new Error("Unable to access folder"));
-    secondCreated.resolve(inspected("recovered", "C:\\shoots\\recovered"));
+    secondCreated.resolve(
+      createdProject("recovered", "rollback-token-recovered", "C:\\shoots\\recovered"),
+    );
 
     await expect(rejectedCreate).rejects.toThrow(
       "Unable to create workspace project: Unable to access folder",
