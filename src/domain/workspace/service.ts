@@ -121,6 +121,29 @@ function toPersistedRecord(project: WorkspaceProjectView): WorkspaceProjectRecor
   };
 }
 
+function cloneProjectRecord(project: WorkspaceProjectRecord): WorkspaceProjectRecord {
+  return {
+    ...project,
+  };
+}
+
+function cloneProjectView(project: WorkspaceProjectView): WorkspaceProjectView {
+  return {
+    ...project,
+  };
+}
+
+function cloneMetadata(metadata: WorkspaceMetadata): WorkspaceMetadata {
+  return {
+    schemaVersion: 1,
+    projects: metadata.projects.map((project) => cloneProjectRecord(project)),
+  };
+}
+
+function cloneProjects(projects: WorkspaceProjectView[]): WorkspaceProjectView[] {
+  return projects.map((project) => cloneProjectView(project));
+}
+
 export function createWorkspaceService({
   registry,
   native,
@@ -129,55 +152,69 @@ export function createWorkspaceService({
 }: Dependencies): WorkspaceService {
   let metadataCache: WorkspaceMetadata | null = null;
   let projectCache: WorkspaceProjectView[] | null = null;
+  let operationQueue: Promise<void> = Promise.resolve();
 
-  async function readMetadata(): Promise<WorkspaceMetadata> {
+  function queueOperation<T>(operation: () => Promise<T>): Promise<T> {
+    const queuedOperation = operationQueue.then(operation, operation);
+    operationQueue = queuedOperation.then(
+      () => undefined,
+      () => undefined,
+    );
+
+    return queuedOperation;
+  }
+
+  async function readMetadataInternal(): Promise<WorkspaceMetadata> {
     if (metadataCache !== null) {
-      return metadataCache;
+      return cloneMetadata(metadataCache);
     }
 
     try {
       const loaded: unknown = await registry.load();
       const validated = validateWorkspaceMetadata(loaded);
 
-      metadataCache = validated;
-      return validated;
+      metadataCache = cloneMetadata(validated);
+      return cloneMetadata(metadataCache);
     } catch (error) {
       throw contextualError("Unable to load workspace metadata", error);
     }
   }
 
-  async function persistProjects(projects: WorkspaceProjectView[]): Promise<void> {
+  async function persistProjectsInternal(
+    projects: WorkspaceProjectView[],
+  ): Promise<void> {
+    const ownedProjects = cloneProjects(projects);
     const nextMetadata: WorkspaceMetadata = {
       schemaVersion: 1,
-      projects: projects.map((project) => toPersistedRecord(project)),
+      projects: ownedProjects.map((project) => toPersistedRecord(project)),
     };
 
     try {
-      await registry.save(nextMetadata);
-      metadataCache = nextMetadata;
-      projectCache = projects;
+      await registry.save(cloneMetadata(nextMetadata));
+      metadataCache = cloneMetadata(nextMetadata);
+      projectCache = cloneProjects(ownedProjects);
     } catch (error) {
       throw contextualError("Unable to save workspace metadata", error);
     }
   }
 
-  async function ensureLoadedProjects(): Promise<WorkspaceProjectView[]> {
+  async function ensureLoadedProjectsInternal(): Promise<WorkspaceProjectView[]> {
     if (projectCache !== null) {
-      return projectCache;
+      return cloneProjects(projectCache);
     }
 
-    const metadata = await readMetadata();
+    const metadata = await readMetadataInternal();
 
     if (metadata.projects.length === 0) {
       projectCache = [];
-      return projectCache;
+      return [];
     }
 
-    return loadProjects();
+    return loadProjectsInternal();
   }
 
-  async function loadProjects(): Promise<WorkspaceProjectView[]> {
-    const metadata = await readMetadata();
+  async function loadProjectsInternal(): Promise<WorkspaceProjectView[]> {
+    const metadata = await readMetadataInternal();
     const validatedProjects = await Promise.all(
       metadata.projects.map(async (project) => {
         try {
@@ -206,15 +243,15 @@ export function createWorkspaceService({
     );
     const sortedProjects = sortProjects(validatedProjects);
 
-    await persistProjects(sortedProjects);
-    return sortedProjects;
+    await persistProjectsInternal(sortedProjects);
+    return cloneProjects(sortedProjects);
   }
 
-  async function createProject(
+  async function createProjectInternal(
     parentPath: string,
     name: string,
   ): Promise<WorkspaceProjectView> {
-    const currentProjects = await ensureLoadedProjects();
+    const currentProjects = await ensureLoadedProjectsInternal();
 
     let createdProject: WorkspaceProjectView;
 
@@ -226,7 +263,9 @@ export function createWorkspaceService({
     }
 
     try {
-      await persistProjects(upsertProject(currentProjects, createdProject));
+      await persistProjectsInternal(
+        upsertProject(cloneProjects(currentProjects), cloneProjectView(createdProject)),
+      );
     } catch (saveError) {
       try {
         await native.removeCreatedProject(
@@ -253,11 +292,11 @@ export function createWorkspaceService({
     logger.info("Workspace project created", {
       projectId: createdProject.projectId,
     });
-    return createdProject;
+    return cloneProjectView(createdProject);
   }
 
-  async function openProject(path: string): Promise<WorkspaceProjectView> {
-    const currentProjects = await ensureLoadedProjects();
+  async function openProjectInternal(path: string): Promise<WorkspaceProjectView> {
+    const currentProjects = await ensureLoadedProjectsInternal();
 
     let openedProject: WorkspaceProjectView;
 
@@ -268,14 +307,16 @@ export function createWorkspaceService({
       throw contextualError("Unable to open workspace project", error);
     }
 
-    await persistProjects(upsertProject(currentProjects, openedProject));
+    await persistProjectsInternal(
+      upsertProject(cloneProjects(currentProjects), cloneProjectView(openedProject)),
+    );
     logger.info("Workspace project opened", {
       projectId: openedProject.projectId,
     });
-    return openedProject;
+    return cloneProjectView(openedProject);
   }
 
-  async function relocateProject(
+  async function relocateProjectInternal(
     currentProject: WorkspaceProjectRecord,
     path: string,
   ): Promise<WorkspaceProjectView> {
@@ -291,23 +332,55 @@ export function createWorkspaceService({
       throw contextualError("Unable to relocate workspace project", error);
     }
 
-    const currentProjects = await ensureLoadedProjects();
-    await persistProjects(upsertProject(currentProjects, relocatedProject));
+    const currentProjects = await ensureLoadedProjectsInternal();
+    await persistProjectsInternal(
+      upsertProject(cloneProjects(currentProjects), cloneProjectView(relocatedProject)),
+    );
     logger.info("Workspace project relocated", {
       projectId: relocatedProject.projectId,
     });
-    return relocatedProject;
+    return cloneProjectView(relocatedProject);
+  }
+
+  async function removeRecordInternal(
+    projectId: string,
+  ): Promise<WorkspaceProjectView[]> {
+    const currentProjects = await ensureLoadedProjectsInternal();
+    const nextProjects = sortProjects(
+      cloneProjects(currentProjects).filter(
+        (project) => project.projectId !== projectId,
+      ),
+    );
+
+    await persistProjectsInternal(nextProjects);
+    logger.info("Workspace project removed", { projectId });
+    return cloneProjects(nextProjects);
+  }
+
+  async function loadProjects(): Promise<WorkspaceProjectView[]> {
+    return queueOperation(() => loadProjectsInternal());
+  }
+
+  async function createProject(
+    parentPath: string,
+    name: string,
+  ): Promise<WorkspaceProjectView> {
+    return queueOperation(() => createProjectInternal(parentPath, name));
+  }
+
+  async function openProject(path: string): Promise<WorkspaceProjectView> {
+    return queueOperation(() => openProjectInternal(path));
+  }
+
+  async function relocateProject(
+    currentProject: WorkspaceProjectRecord,
+    path: string,
+  ): Promise<WorkspaceProjectView> {
+    return queueOperation(() => relocateProjectInternal(currentProject, path));
   }
 
   async function removeRecord(projectId: string): Promise<WorkspaceProjectView[]> {
-    const currentProjects = await ensureLoadedProjects();
-    const nextProjects = sortProjects(
-      currentProjects.filter((project) => project.projectId !== projectId),
-    );
-
-    await persistProjects(nextProjects);
-    logger.info("Workspace project removed", { projectId });
-    return nextProjects;
+    return queueOperation(() => removeRecordInternal(projectId));
   }
 
   return {

@@ -56,6 +56,52 @@ const findSaveCallForProject = (
   metadata.projects.some((project) => project.projectId === projectId),
 );
 
+const viewed = (
+  projectId: string,
+  lastOpenedAt: string,
+  path = `C:\\shoots\\${projectId}`,
+): WorkspaceProjectView => ({
+  projectId,
+  path,
+  name: `Project ${projectId}`,
+  coverImage: `${projectId}-resolved.png`,
+  coverDataUrl: `data:image/png;base64,${projectId}`,
+  status: "available",
+  createdAt: "2026-07-01T00:00:00.000Z",
+  updatedAt: "2026-07-04T00:00:00.000Z",
+  lastOpenedAt,
+});
+
+const persisted = (
+  project: WorkspaceProjectView,
+): WorkspaceProjectRecord => ({
+  projectId: project.projectId,
+  path: project.path,
+  name: project.name,
+  coverImage: project.coverImage,
+  status: project.status,
+  createdAt: project.createdAt,
+  updatedAt: project.updatedAt,
+  lastOpenedAt: project.lastOpenedAt,
+});
+
+const lastSavedMetadata = (calls: Array<[WorkspaceMetadata]>) => calls.at(-1)?.[0];
+
+const deferred = <T>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return {
+    promise,
+    resolve,
+    reject,
+  };
+};
+
 describe("createWorkspaceService", () => {
   let createProjectMock: ReturnType<typeof vi.fn<NativeWorkspace["createProject"]>>;
   let inspectProjectMock: ReturnType<typeof vi.fn<NativeWorkspace["inspectProject"]>>;
@@ -586,5 +632,171 @@ describe("createWorkspaceService", () => {
       ],
     });
     expect(createSaveCall?.[0].projects[0]).not.toHaveProperty("coverDataUrl");
+  });
+
+  it("keeps both concurrent createProject results in persistence and cache", async () => {
+    const firstCreated = deferred<InspectedProject>();
+    const secondCreated = deferred<InspectedProject>();
+    createProjectMock
+      .mockImplementationOnce(() => firstCreated.promise)
+      .mockImplementationOnce(() => secondCreated.promise);
+    inspectProjectMock.mockImplementation((path: string) => {
+      if (path.endsWith("\\alpha")) {
+        return Promise.resolve(inspected("alpha", path));
+      }
+
+      return Promise.resolve(inspected("beta", path));
+    });
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    const firstCreate = service.createProject("C:\\shoots", "Alpha");
+    const secondCreate = service.createProject("C:\\shoots", "Beta");
+
+    firstCreated.resolve(inspected("alpha", "C:\\shoots\\alpha"));
+    secondCreated.resolve(inspected("beta", "C:\\shoots\\beta"));
+
+    await expect(Promise.all([firstCreate, secondCreate])).resolves.toEqual([
+      viewed("alpha", NOW, "C:\\shoots\\alpha"),
+      viewed("beta", NOW, "C:\\shoots\\beta"),
+    ]);
+    await expect(service.loadProjects()).resolves.toEqual([
+      viewed("alpha", NOW, "C:\\shoots\\alpha"),
+      viewed("beta", NOW, "C:\\shoots\\beta"),
+    ]);
+
+    expect(lastSavedMetadata(registry.save.mock.calls)).toEqual({
+      schemaVersion: 1,
+      projects: [
+        persisted(viewed("alpha", NOW, "C:\\shoots\\alpha")),
+        persisted(viewed("beta", NOW, "C:\\shoots\\beta")),
+      ],
+    });
+  });
+
+  it("does not let mutated loadProjects results corrupt a later createProject save", async () => {
+    const keepProject = viewed("keep", "2026-07-05T00:00:00.000Z");
+    registry.load.mockResolvedValue({
+      schemaVersion: 1,
+      projects: [record("keep", { lastOpenedAt: keepProject.lastOpenedAt })],
+    });
+    inspectProjectMock.mockResolvedValue(inspected("keep"));
+    createProjectMock.mockResolvedValue(
+      inspected("fresh", "C:\\shoots\\fresh"),
+    );
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    const loadedProjects = await service.loadProjects();
+    loadedProjects[0]!.name = "Corrupted Keep";
+    loadedProjects[0]!.path = "C:\\corrupted\\keep";
+    loadedProjects[0]!.coverImage = "corrupted.png";
+    loadedProjects[0]!.coverDataUrl = "data:image/png;base64,corrupted";
+    loadedProjects.push(viewed("rogue", "2026-07-06T00:00:00.000Z"));
+
+    await expect(service.createProject("C:\\shoots", "Fresh")).resolves.toEqual(
+      viewed("fresh", NOW, "C:\\shoots\\fresh"),
+    );
+
+    expect(lastSavedMetadata(registry.save.mock.calls)).toEqual({
+      schemaVersion: 1,
+      projects: [
+        persisted(viewed("fresh", NOW, "C:\\shoots\\fresh")),
+        persisted(keepProject),
+      ],
+    });
+  });
+
+  it("does not let mutated loadProjects results corrupt a later openProject save", async () => {
+    const keepProject = viewed("keep", "2026-07-05T00:00:00.000Z");
+    registry.load.mockResolvedValue({
+      schemaVersion: 1,
+      projects: [record("keep", { lastOpenedAt: keepProject.lastOpenedAt })],
+    });
+    inspectProjectMock.mockImplementation((path: string) => {
+      if (path === "D:\\opened\\opened") {
+        return Promise.resolve(inspected("opened", path));
+      }
+
+      return Promise.resolve(inspected("keep", path));
+    });
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    const loadedProjects = await service.loadProjects();
+    loadedProjects[0]!.name = "Corrupted Keep";
+    loadedProjects[0]!.path = "C:\\corrupted\\keep";
+    loadedProjects[0]!.coverImage = "corrupted.png";
+    loadedProjects[0]!.coverDataUrl = "data:image/png;base64,corrupted";
+    loadedProjects.push(viewed("rogue", "2026-07-06T00:00:00.000Z"));
+
+    await expect(service.openProject("D:\\opened\\opened")).resolves.toEqual(
+      viewed("opened", NOW, "D:\\opened\\opened"),
+    );
+
+    expect(lastSavedMetadata(registry.save.mock.calls)).toEqual({
+      schemaVersion: 1,
+      projects: [
+        persisted(viewed("opened", NOW, "D:\\opened\\opened")),
+        persisted(keepProject),
+      ],
+    });
+  });
+
+  it("does not let mutated loadProjects results corrupt a later removeRecord save", async () => {
+    const keepProject = viewed("keep", "2026-07-05T00:00:00.000Z");
+    const removeProject = viewed("remove", "2026-07-04T00:00:00.000Z");
+    registry.load.mockResolvedValue({
+      schemaVersion: 1,
+      projects: [
+        record("keep", { lastOpenedAt: keepProject.lastOpenedAt }),
+        record("remove", { lastOpenedAt: removeProject.lastOpenedAt }),
+      ],
+    });
+    inspectProjectMock.mockImplementation((path: string) => {
+      if (path.endsWith("\\remove")) {
+        return Promise.resolve(inspected("remove", path));
+      }
+
+      return Promise.resolve(inspected("keep", path));
+    });
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    const loadedProjects = await service.loadProjects();
+    loadedProjects[0]!.name = "Corrupted Keep";
+    loadedProjects[0]!.path = "C:\\corrupted\\keep";
+    loadedProjects[0]!.coverImage = "corrupted.png";
+    loadedProjects[0]!.coverDataUrl = "data:image/png;base64,corrupted";
+    loadedProjects.push(viewed("rogue", "2026-07-06T00:00:00.000Z"));
+
+    await expect(service.removeRecord("remove")).resolves.toEqual([keepProject]);
+
+    expect(lastSavedMetadata(registry.save.mock.calls)).toEqual({
+      schemaVersion: 1,
+      projects: [persisted(keepProject)],
+    });
+  });
+
+  it("continues queued workspace operations after a rejected operation", async () => {
+    const firstCreated = deferred<InspectedProject>();
+    const secondCreated = deferred<InspectedProject>();
+    createProjectMock
+      .mockImplementationOnce(() => firstCreated.promise)
+      .mockImplementationOnce(() => secondCreated.promise);
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    const rejectedCreate = service.createProject("C:\\shoots", "Broken");
+    const recoveredCreate = service.createProject("C:\\shoots", "Recovered");
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(createProjectMock).toHaveBeenCalledTimes(1);
+
+    firstCreated.reject(new Error("Unable to access folder"));
+    secondCreated.resolve(inspected("recovered", "C:\\shoots\\recovered"));
+
+    await expect(rejectedCreate).rejects.toThrow(
+      "Unable to create workspace project: Unable to access folder",
+    );
+    await expect(recoveredCreate).resolves.toEqual(
+      viewed("recovered", NOW, "C:\\shoots\\recovered"),
+    );
+    expect(createProjectMock).toHaveBeenCalledTimes(2);
   });
 });
