@@ -114,6 +114,34 @@ describe("createTauriWorkspace", () => {
     });
   });
 
+  it("accepts an empty manifest coverImage while preserving the manifest response", async () => {
+    const result = inspectedProject({
+      manifest: {
+        schemaVersion: 1,
+        id: "project-1",
+        name: "Project 1",
+        createdAt: "2026-07-01T00:00:00.000Z",
+        updatedAt: "2026-07-02T00:00:00.000Z",
+        coverImage: "",
+      },
+      resolvedCoverImage: "cover.png",
+      coverDataUrl: "data:image/png;base64,preview",
+    });
+    invokeCommand.mockResolvedValue(result);
+    const workspace = createTauriWorkspace({
+      invokeCommand,
+      listenForEvent,
+      logger,
+    });
+
+    await expect(workspace.inspectProject("C:\\shoots\\project-1")).resolves.toEqual(
+      result,
+    );
+    expect(invokeCommand).toHaveBeenCalledWith("inspect_project", {
+      path: "C:\\shoots\\project-1",
+    });
+  });
+
   it("wraps structured native failures with operation context and code", async () => {
     const failure = {
       code: "manifest_missing",

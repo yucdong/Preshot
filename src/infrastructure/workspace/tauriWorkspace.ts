@@ -65,17 +65,16 @@ function readRequiredString(
   return candidate;
 }
 
-function readOptionalString(
+function readOptionalManifestCoverImage(
   value: Record<string, unknown>,
-  key: string,
 ): string | undefined {
-  if (!hasOwn(value, key)) {
+  if (!hasOwn(value, "coverImage")) {
     return undefined;
   }
 
-  const candidate = value[key];
+  const candidate = value.coverImage;
 
-  if (typeof candidate !== "string" || candidate.length === 0) {
+  if (typeof candidate !== "string") {
     throw new Error("Malformed native response");
   }
 
@@ -109,7 +108,7 @@ function validateProjectManifest(value: unknown): ProjectManifest {
     throw new Error("Malformed native response");
   }
 
-  const coverImage = readOptionalString(value, "coverImage");
+  const coverImage = readOptionalManifestCoverImage(value);
 
   return {
     schemaVersion: 1,
