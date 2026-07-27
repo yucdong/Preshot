@@ -17,6 +17,33 @@ function clampOffset(offset: number, projects: WorkspaceProjectView[]) {
   return Math.max(0, Math.min(offset, Math.max(0, projects.length - visibleCardCount)));
 }
 
+function getCardScrollStep(rail: HTMLDivElement | null) {
+  if (!rail) {
+    return cardScrollStep;
+  }
+
+  const firstCard = rail.firstElementChild as HTMLElement | null;
+  if (!firstCard) {
+    return cardScrollStep;
+  }
+
+  const styles = window.getComputedStyle(rail);
+  const measuredGap = Number.parseFloat(styles.columnGap || styles.gap || "0");
+  const gap = Number.isFinite(measuredGap) ? measuredGap : 0;
+  const measuredStep = firstCard.getBoundingClientRect().width + gap;
+
+  return measuredStep > 0 ? measuredStep : cardScrollStep;
+}
+
+function getOffsetFromScrollLeft(
+  rail: HTMLDivElement | null,
+  scrollLeft: number,
+  projects: WorkspaceProjectView[],
+) {
+  const step = getCardScrollStep(rail);
+  return clampOffset(Math.round(scrollLeft / step), projects);
+}
+
 export function ProjectRail({
   projects,
   disabled = false,
@@ -42,6 +69,10 @@ export function ProjectRail({
       left: delta * cardScrollStep,
       behavior: "smooth",
     });
+  }
+
+  function syncOffsetFromScrollPosition(scrollLeft: number) {
+    setOffset(getOffsetFromScrollLeft(railRef.current, scrollLeft, projects));
   }
 
   function moveOffset(nextOffset: number) {
@@ -148,17 +179,19 @@ export function ProjectRail({
           }
         }}
         onWheel={(event) => {
-          const left = event.deltaX || event.deltaY;
-
-          if (!left) {
+          if (event.deltaX) {
             return;
           }
 
-          if (!event.deltaX && event.deltaY) {
-            event.preventDefault();
+          if (!event.deltaY) {
+            return;
           }
 
-          railRef.current?.scrollBy({ left, behavior: "auto" });
+          event.preventDefault();
+          railRef.current?.scrollBy({ left: event.deltaY, behavior: "auto" });
+        }}
+        onScroll={(event) => {
+          syncOffsetFromScrollPosition(event.currentTarget.scrollLeft);
         }}
         ref={railRef}
         role="region"

@@ -55,7 +55,7 @@ export function WorkspaceLauncher({
   }
 
   return (
-    <main className="min-h-screen min-w-[960px] bg-stone-950 px-8 py-10 text-stone-100">
+    <main className="min-h-screen bg-stone-950 px-8 py-10 text-stone-100">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-7xl flex-col rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.12),_transparent_45%),linear-gradient(180deg,_rgba(28,25,23,0.98),_rgba(12,10,9,1))] p-8 shadow-2xl shadow-black/30">
         <header className="flex flex-wrap items-start justify-between gap-6 border-b border-white/10 pb-8">
           <div className="max-w-2xl">

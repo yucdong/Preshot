@@ -233,6 +233,71 @@ describe("WorkspaceLauncher", () => {
     );
   });
 
+  it("ignores horizontal touchpad wheel movement so native scrolling owns it", () => {
+    renderLauncher({
+      projects: [makeProject(1), makeProject(2), makeProject(3), makeProject(4)],
+    });
+
+    const rail = screen.getByRole("region", { name: "Recent projects" });
+    const wheelEvent = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaX: 120,
+    });
+
+    const dispatchResult = rail.dispatchEvent(wheelEvent);
+
+    expect(dispatchResult).toBe(true);
+    expect(wheelEvent.defaultPrevented).toBe(false);
+    expect(HTMLElement.prototype.scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("syncs rail controls when native horizontal scrolling changes scrollLeft", () => {
+    renderLauncher({
+      projects: [
+        makeProject(1),
+        makeProject(2),
+        makeProject(3),
+        makeProject(4),
+        makeProject(5),
+      ],
+    });
+
+    const rail = screen.getByRole("region", { name: "Recent projects" });
+    const previousButton = screen.getByRole("button", { name: "Previous projects" });
+    const nextButton = screen.getByRole("button", { name: "Next projects" });
+
+    expect(previousButton).toBeDisabled();
+    expect(nextButton).toBeEnabled();
+
+    Object.defineProperty(rail, "scrollLeft", {
+      configurable: true,
+      value: 672,
+      writable: true,
+    });
+    fireEvent.scroll(rail);
+
+    expect(previousButton).toBeEnabled();
+    expect(nextButton).toBeDisabled();
+
+    Object.defineProperty(rail, "scrollLeft", {
+      configurable: true,
+      value: 0,
+      writable: true,
+    });
+    fireEvent.scroll(rail);
+
+    expect(previousButton).toBeDisabled();
+    expect(nextButton).toBeEnabled();
+  });
+
+  it("does not enforce a fixed minimum width on the launcher shell", () => {
+    renderLauncher();
+
+    expect(screen.getByRole("main")).toHaveClass("min-h-screen");
+    expect(screen.getByRole("main")).not.toHaveClass("min-w-[960px]");
+  });
+
   it("opens the create dialog with form semantics, trims names, and resets after cancel or success", async () => {
     const user = userEvent.setup();
     const { onCreate } = renderLauncher();
