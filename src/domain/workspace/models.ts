@@ -14,12 +14,14 @@ export interface WorkspaceProjectRecord {
   path: string;
   name: string;
   coverImage: string | null;
-  /** Runtime-only preview; adapters must not persist coverDataUrl. */
-  coverDataUrl?: string | null;
   status: ProjectAvailability;
   createdAt: string;
   updatedAt: string;
   lastOpenedAt: string;
+}
+
+export interface WorkspaceProjectView extends WorkspaceProjectRecord {
+  coverDataUrl: string | null;
 }
 
 export interface WorkspaceMetadata {

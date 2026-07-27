@@ -1,11 +1,12 @@
 import type {
   InspectedProject,
   WorkspaceProjectRecord,
+  WorkspaceProjectView,
 } from "./models";
 
-export function sortProjects(
-  projects: WorkspaceProjectRecord[],
-): WorkspaceProjectRecord[] {
+export function sortProjects<T extends WorkspaceProjectRecord>(
+  projects: T[],
+): T[] {
   return projects
     .map((project, index) => ({ project, index }))
     .sort((left, right) => {
@@ -23,22 +24,20 @@ export function sortProjects(
 }
 
 export function upsertProject(
-  projects: WorkspaceProjectRecord[],
-  project: WorkspaceProjectRecord,
-): WorkspaceProjectRecord[] {
-  const hasProject = projects.some(({ projectId }) => projectId === project.projectId);
-  const nextProjects = hasProject
-    ? projects.map((current) =>
-        current.projectId === project.projectId ? project : current,
-      )
-    : [...projects, project];
+  projects: WorkspaceProjectView[],
+  project: WorkspaceProjectView,
+): WorkspaceProjectView[] {
+  const nextProjects = [
+    ...projects.filter(({ projectId }) => projectId !== project.projectId),
+    project,
+  ];
 
   return sortProjects(nextProjects);
 }
 
 export function markProjectUnavailable(
   project: WorkspaceProjectRecord,
-): WorkspaceProjectRecord {
+): WorkspaceProjectView {
   return {
     ...project,
     status: "unavailable",
@@ -46,10 +45,10 @@ export function markProjectUnavailable(
   };
 }
 
-export function inspectedToRecord(
+export function inspectedToProject(
   inspected: InspectedProject,
   lastOpenedAt: string,
-): WorkspaceProjectRecord {
+): WorkspaceProjectView {
   return {
     projectId: inspected.manifest.id,
     path: inspected.path,
@@ -65,8 +64,8 @@ export function inspectedToRecord(
 
 export function relocateProject(
   current: WorkspaceProjectRecord,
-  replacement: WorkspaceProjectRecord,
-): WorkspaceProjectRecord {
+  replacement: WorkspaceProjectView,
+): WorkspaceProjectView {
   if (current.projectId !== replacement.projectId) {
     throw new Error("Selected folder belongs to a different Preshot project");
   }

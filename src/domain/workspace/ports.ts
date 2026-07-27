@@ -2,6 +2,7 @@ import type {
   InspectedProject,
   WorkspaceMetadata,
   WorkspaceProjectRecord,
+  WorkspaceProjectView,
 } from "./models";
 
 export interface WorkspaceRegistry {
@@ -43,19 +44,19 @@ export interface WorkspaceLogger {
 export type WorkspaceMenuAction = "new-project" | "open-project";
 
 export interface WorkspaceService {
-  loadProjects(): Promise<WorkspaceProjectRecord[]>;
+  loadProjects(): Promise<WorkspaceProjectView[]>;
 
   createProject(
     parentPath: string,
     name: string,
-  ): Promise<WorkspaceProjectRecord>;
+  ): Promise<WorkspaceProjectView>;
 
-  openProject(path: string): Promise<WorkspaceProjectRecord>;
+  openProject(path: string): Promise<WorkspaceProjectView>;
 
   relocateProject(
     record: WorkspaceProjectRecord,
     path: string,
-  ): Promise<WorkspaceProjectRecord>;
+  ): Promise<WorkspaceProjectView>;
 
-  removeRecord(projectId: string): Promise<WorkspaceProjectRecord[]>;
+  removeRecord(projectId: string): Promise<WorkspaceProjectView[]>;
 }

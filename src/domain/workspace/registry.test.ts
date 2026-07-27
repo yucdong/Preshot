@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_WORKSPACE } from "./models";
 import {
-  inspectedToRecord,
+  inspectedToProject,
   markProjectUnavailable,
   relocateProject,
   sortProjects,
   upsertProject,
 } from "./registry";
-import type { InspectedProject, WorkspaceProjectRecord } from "./models";
+import type {
+  InspectedProject,
+  WorkspaceMetadata,
+  WorkspaceProjectRecord,
+  WorkspaceProjectView,
+} from "./models";
 
 const project = (
   projectId: string,
@@ -17,12 +22,35 @@ const project = (
   path: `C:\\shoots\\${projectId}`,
   name: projectId,
   coverImage: "cover.png",
-  coverDataUrl: "data:image/png;base64,cover",
   status: "available",
   createdAt: "2026-07-01T00:00:00.000Z",
   updatedAt: "2026-07-01T00:00:00.000Z",
   lastOpenedAt,
 });
+
+const viewedProject = (
+  projectId: string,
+  lastOpenedAt: string,
+): WorkspaceProjectView => ({
+  ...project(projectId, lastOpenedAt),
+  coverDataUrl: "data:image/png;base64,cover",
+});
+
+const persistedProject = {
+  projectId: "persisted",
+  path: "C:\\shoots\\persisted",
+  name: "Persisted",
+  coverImage: null,
+  status: "available",
+  createdAt: "2026-07-01T00:00:00.000Z",
+  updatedAt: "2026-07-01T00:00:00.000Z",
+  lastOpenedAt: "2026-07-02T00:00:00.000Z",
+} satisfies WorkspaceProjectRecord;
+
+const workspaceMetadata = {
+  schemaVersion: 1,
+  projects: [persistedProject],
+} satisfies WorkspaceMetadata;
 
 const inspectedProject = (
   overrides: Partial<InspectedProject> = {},
@@ -44,13 +72,17 @@ const inspectedProject = (
 describe("workspace registry", () => {
   it("exports an empty workspace", () => {
     expect(EMPTY_WORKSPACE).toEqual({ schemaVersion: 1, projects: [] });
+    expect(workspaceMetadata).toEqual({
+      schemaVersion: 1,
+      projects: [persistedProject],
+    });
   });
 
   it("sorts projects by most recently opened and preserves ties", () => {
     const input = [
-      project("older", "2026-07-01T00:00:00.000Z"),
-      project("same-a", "2026-07-02T00:00:00.000Z"),
-      project("same-b", "2026-07-02T00:00:00.000Z"),
+      viewedProject("older", "2026-07-01T00:00:00.000Z"),
+      viewedProject("same-a", "2026-07-02T00:00:00.000Z"),
+      viewedProject("same-b", "2026-07-02T00:00:00.000Z"),
     ];
 
     const result = sortProjects(input);
@@ -70,8 +102,8 @@ describe("workspace registry", () => {
 
   it("upserts by project ID without mutating the input", () => {
     const existing = [
-      project("same-id", "2026-07-01T00:00:00.000Z"),
-      project("other", "2026-07-03T00:00:00.000Z"),
+      viewedProject("same-id", "2026-07-01T00:00:00.000Z"),
+      viewedProject("other", "2026-07-03T00:00:00.000Z"),
     ];
     const moved = {
       ...existing[0],
@@ -87,9 +119,31 @@ describe("workspace registry", () => {
       existing[1],
     ]);
     expect(existing).toEqual([
-      project("same-id", "2026-07-01T00:00:00.000Z"),
-      project("other", "2026-07-03T00:00:00.000Z"),
+      viewedProject("same-id", "2026-07-01T00:00:00.000Z"),
+      viewedProject("other", "2026-07-03T00:00:00.000Z"),
     ]);
+  });
+
+  it("collapses duplicate project IDs into one replacement", () => {
+    const existing = [
+      viewedProject("same-id", "2026-07-01T00:00:00.000Z"),
+      {
+        ...viewedProject("same-id", "2026-07-02T00:00:00.000Z"),
+        path: "D:\\shoots\\same-id-copy",
+      },
+      viewedProject("other", "2026-07-03T00:00:00.000Z"),
+    ];
+    const replacement = {
+      ...existing[0],
+      path: "E:\\shoots\\same-id",
+      lastOpenedAt: "2026-07-04T00:00:00.000Z",
+    };
+
+    const result = upsertProject(existing, replacement);
+
+    expect(result).toEqual([replacement, existing[2]]);
+    expect(result).toHaveLength(2);
+    expect(existing).toHaveLength(3);
   });
 
   it("retains known metadata when a project becomes unavailable", () => {
@@ -104,7 +158,7 @@ describe("workspace registry", () => {
 
   it("maps inspected projects into available records", () => {
     expect(
-      inspectedToRecord(inspectedProject(), "2026-07-05T00:00:00.000Z"),
+      inspectedToProject(inspectedProject(), "2026-07-05T00:00:00.000Z"),
     ).toEqual({
       projectId: "project-a",
       path: "C:\\shoots\\project-a",
@@ -120,9 +174,9 @@ describe("workspace registry", () => {
 
   it("allows relocation when project IDs match", () => {
     const current = markProjectUnavailable(
-      project("expected", "2026-07-01T00:00:00.000Z"),
+      viewedProject("expected", "2026-07-01T00:00:00.000Z"),
     );
-    const replacement: WorkspaceProjectRecord = {
+    const replacement: WorkspaceProjectView = {
       ...current,
       path: "D:\\shoots\\expected",
       status: "available",
@@ -138,7 +192,7 @@ describe("workspace registry", () => {
     );
 
     expect(() =>
-      relocateProject(existing, project("different", existing.lastOpenedAt)),
+      relocateProject(existing, viewedProject("different", existing.lastOpenedAt)),
     ).toThrow("Selected folder belongs to a different Preshot project");
   });
 });
