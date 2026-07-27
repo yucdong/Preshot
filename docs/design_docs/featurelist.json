@@ -13,8 +13,16 @@
         "页面的菜单栏有文件下拉菜单，可以选择新建、关闭、打开，打开新窗口等，打开新项目就会让你重新选择一个项目所在的目录",
         "每个项目文件夹下面有一个.preshot的文件表示这是一个preshot项目，打开项目必须检索到这个文件才能支持打开"
       ],
-      "status": "not started",
-      "decisions":[
+      "status": "in progress",
+      "decisions": [
+        "Use TypeScript domain use cases with narrow Tauri adapters and Rust filesystem commands.",
+        "Store workspace metadata in AppData through Tauri Store.",
+        "Use a versioned JSON .preshot manifest with project identity and timestamps.",
+        "Create projects by selecting a parent directory and entering a project name.",
+        "Use an editorial horizontal gallery showing three recent projects at a time.",
+        "Resolve covers from manifest coverImage, then the first supported root image.",
+        "Keep invalid projects visible and require matching project IDs for relocation.",
+        "Use a native Tauri File menu; new windows open the project launcher."
       ]
     }
   ]
