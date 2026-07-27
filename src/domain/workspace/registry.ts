@@ -4,7 +4,11 @@ import type {
   WorkspaceProjectView,
 } from "./models";
 
-export function sortProjects<T extends WorkspaceProjectRecord>(
+type SortableProject = {
+  lastOpenedAt: string;
+};
+
+export function sortProjects<T extends SortableProject>(
   projects: T[],
 ): T[] {
   return projects
@@ -36,7 +40,7 @@ export function upsertProject(
 }
 
 export function markProjectUnavailable(
-  project: WorkspaceProjectRecord,
+  project: WorkspaceProjectRecord | WorkspaceProjectView,
 ): WorkspaceProjectView {
   return {
     ...project,
@@ -63,7 +67,7 @@ export function inspectedToProject(
 }
 
 export function relocateProject(
-  current: WorkspaceProjectRecord,
+  current: WorkspaceProjectRecord | WorkspaceProjectView,
   replacement: WorkspaceProjectView,
 ): WorkspaceProjectView {
   if (current.projectId !== replacement.projectId) {

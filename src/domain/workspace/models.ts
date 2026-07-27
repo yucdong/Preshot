@@ -18,11 +18,15 @@ export interface WorkspaceProjectRecord {
   createdAt: string;
   updatedAt: string;
   lastOpenedAt: string;
+  readonly coverDataUrl?: never;
 }
 
-export interface WorkspaceProjectView extends WorkspaceProjectRecord {
+export type WorkspaceProjectView = Omit<
+  WorkspaceProjectRecord,
+  "coverDataUrl"
+> & {
   coverDataUrl: string | null;
-}
+};
 
 export interface WorkspaceMetadata {
   schemaVersion: 1;

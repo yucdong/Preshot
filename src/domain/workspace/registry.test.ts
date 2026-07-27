@@ -70,6 +70,13 @@ const inspectedProject = (
 });
 
 describe("workspace registry", () => {
+  it("forbids persisting preview data at the record boundary", () => {
+    const expectRecord = (_record: WorkspaceProjectRecord) => _record;
+
+    // @ts-expect-error WorkspaceProjectView must not be assignable to WorkspaceProjectRecord.
+    expectRecord(viewedProject("preview", "2026-07-01T00:00:00.000Z"));
+  });
+
   it("exports an empty workspace", () => {
     expect(EMPTY_WORKSPACE).toEqual({ schemaVersion: 1, projects: [] });
     expect(workspaceMetadata).toEqual({
