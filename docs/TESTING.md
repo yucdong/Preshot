@@ -15,7 +15,7 @@ Preshot is building toward this test pyramid:
 | Command | Purpose |
 | --- | --- |
 | `pnpm test` | Run all Vitest tests once. |
-| `pnpm test:init` | Test the initializer's native-command failure path. |
+| `pnpm test:init` | Test initializer failures and toolchain version boundaries. |
 | `pnpm test:watch` | Run Vitest in watch mode. |
 | `pnpm test:e2e` | Run Playwright smoke tests in Microsoft Edge (Chromium). |
 | `pnpm typecheck` | Check frontend and tooling TypeScript projects. |

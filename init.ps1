@@ -102,8 +102,13 @@ try {
 
     $nodeVersionText = Invoke-NativeCommandOutput "node" @("--version")
     $nodeVersion = [version]($nodeVersionText.TrimStart("v").Split("-")[0])
-    if ($nodeVersion.Major -lt 20 -or $nodeVersion.Major % 2 -ne 0) {
-        throw "Node.js $nodeVersionText is not a supported LTS release. Install Node.js 20, 22, 24, or a newer even-numbered LTS release."
+    $isSupportedNodeVersion = `
+        ($nodeVersion.Major -eq 20 -and $nodeVersion -ge [version]"20.19.0") -or `
+        ($nodeVersion.Major -eq 22 -and $nodeVersion -ge [version]"22.12.0") -or `
+        ($nodeVersion.Major -ge 24 -and $nodeVersion.Major % 2 -eq 0)
+
+    if (-not $isSupportedNodeVersion) {
+        throw "Node.js $nodeVersionText is unsupported. Install Node.js 20.19.0 or newer in 20.x, Node.js 22.12.0 or newer, or a newer even-numbered LTS release."
     }
 
     $pnpmVersionText = Invoke-NativeCommandOutput "pnpm" @("--version")
