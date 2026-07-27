@@ -27,6 +27,14 @@ interface RenderOptions {
 const originalScrollBy = HTMLElement.prototype.scrollBy;
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 
+interface RailLayoutFixture {
+  cardWidth: number;
+  gap: number;
+  clientWidth: number;
+  scrollWidth: number;
+  scrollLeft?: number;
+}
+
 function makeProject(
   index: number,
   overrides: Partial<ProjectFixture> = {},
@@ -64,6 +72,53 @@ function renderLauncher(options: RenderOptions = {}) {
   return { onOpen, onCreate, onOpenExisting, onRelocate, onRemove };
 }
 
+function mockRailLayout(rail: HTMLElement, layout: RailLayoutFixture) {
+  const firstCard = rail.firstElementChild as HTMLElement | null;
+
+  if (!firstCard) {
+    throw new Error("Expected the rail to render at least one project card.");
+  }
+
+  rail.style.columnGap = `${layout.gap}px`;
+  rail.style.gap = `${layout.gap}px`;
+
+  vi.spyOn(firstCard, "getBoundingClientRect").mockReturnValue(
+    new DOMRect(0, 0, layout.cardWidth, 240),
+  );
+
+  Object.defineProperty(rail, "clientWidth", {
+    configurable: true,
+    value: layout.clientWidth,
+  });
+  Object.defineProperty(rail, "scrollWidth", {
+    configurable: true,
+    value: layout.scrollWidth,
+  });
+  Object.defineProperty(rail, "scrollLeft", {
+    configurable: true,
+    value: layout.scrollLeft ?? 0,
+    writable: true,
+  });
+
+  return {
+    setClientWidth(value: number) {
+      Object.defineProperty(rail, "clientWidth", {
+        configurable: true,
+        value,
+      });
+    },
+    setScrollLeft(value: number) {
+      rail.scrollLeft = value;
+    },
+    setScrollWidth(value: number) {
+      Object.defineProperty(rail, "scrollWidth", {
+        configurable: true,
+        value,
+      });
+    },
+  };
+}
+
 describe("WorkspaceLauncher", () => {
   beforeEach(() => {
     Object.defineProperty(HTMLElement.prototype, "scrollBy", {
@@ -77,6 +132,7 @@ describe("WorkspaceLauncher", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     Object.defineProperty(HTMLElement.prototype, "scrollBy", {
       configurable: true,
       value: originalScrollBy,
@@ -198,13 +254,24 @@ describe("WorkspaceLauncher", () => {
     const rail = screen.getByRole("region", { name: "Recent projects" });
     const nextButton = screen.getByRole("button", { name: "Next projects" });
     const previousButton = screen.getByRole("button", { name: "Previous projects" });
+    mockRailLayout(rail, {
+      cardWidth: 384,
+      clientWidth: 1280,
+      gap: 16,
+      scrollWidth: 2000,
+    });
 
     rail.focus();
     await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}");
 
     expect(screen.getByRole("button", { name: "Open project Project 5" })).toHaveFocus();
-    expect(HTMLElement.prototype.scrollBy).toHaveBeenCalledWith(
-      expect.objectContaining({ left: expect.any(Number) }),
+    expect(HTMLElement.prototype.scrollBy).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ left: 400 }),
+    );
+    expect(HTMLElement.prototype.scrollBy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ left: 400 }),
     );
     expect(nextButton).toBeDisabled();
     expect(previousButton).toBeEnabled();
@@ -218,6 +285,27 @@ describe("WorkspaceLauncher", () => {
       expect.objectContaining({ left: expect.any(Number) }),
     );
     expect(previousButton).toBeDisabled();
+  });
+
+  it("uses the measured card width plus gap when the next button scrolls the rail", async () => {
+    const user = userEvent.setup();
+    renderLauncher({
+      projects: [makeProject(1), makeProject(2), makeProject(3), makeProject(4)],
+    });
+
+    const rail = screen.getByRole("region", { name: "Recent projects" });
+    mockRailLayout(rail, {
+      cardWidth: 384,
+      clientWidth: 1280,
+      gap: 16,
+      scrollWidth: 1600,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Next projects" }));
+
+    expect(HTMLElement.prototype.scrollBy).toHaveBeenCalledWith(
+      expect.objectContaining({ behavior: "smooth", left: 400 }),
+    );
   });
 
   it("translates mouse-wheel movement into horizontal scrolling", () => {
@@ -252,7 +340,7 @@ describe("WorkspaceLauncher", () => {
     expect(HTMLElement.prototype.scrollBy).not.toHaveBeenCalled();
   });
 
-  it("syncs rail controls when native horizontal scrolling changes scrollLeft", () => {
+  it("syncs rail controls to measured rail boundaries during scroll and resize", async () => {
     renderLauncher({
       projects: [
         makeProject(1),
@@ -266,25 +354,36 @@ describe("WorkspaceLauncher", () => {
     const rail = screen.getByRole("region", { name: "Recent projects" });
     const previousButton = screen.getByRole("button", { name: "Previous projects" });
     const nextButton = screen.getByRole("button", { name: "Next projects" });
+    const layout = mockRailLayout(rail, {
+      cardWidth: 384,
+      clientWidth: 1280,
+      gap: 16,
+      scrollWidth: 2000,
+    });
 
     expect(previousButton).toBeDisabled();
     expect(nextButton).toBeEnabled();
 
-    Object.defineProperty(rail, "scrollLeft", {
-      configurable: true,
-      value: 672,
-      writable: true,
-    });
+    layout.setScrollLeft(700);
     fireEvent.scroll(rail);
 
     expect(previousButton).toBeEnabled();
+    expect(nextButton).toBeEnabled();
+
+    layout.setClientWidth(1299);
+    fireEvent(window, new Event("resize"));
+
+    await waitFor(() => {
+      expect(nextButton).toBeDisabled();
+    });
+
+    layout.setClientWidth(1280);
+    layout.setScrollLeft(720);
+    fireEvent.scroll(rail);
+
     expect(nextButton).toBeDisabled();
 
-    Object.defineProperty(rail, "scrollLeft", {
-      configurable: true,
-      value: 0,
-      writable: true,
-    });
+    layout.setScrollLeft(0);
     fireEvent.scroll(rail);
 
     expect(previousButton).toBeDisabled();

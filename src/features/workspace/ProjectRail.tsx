@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ProjectCard } from "./ProjectCard";
 import type { WorkspaceProjectView } from "./WorkspaceLauncher";
 
@@ -12,6 +12,12 @@ interface ProjectRailProps {
 
 const visibleCardCount = 3;
 const cardScrollStep = 336;
+const railBoundaryTolerance = 1;
+
+interface RailBoundaryState {
+  isAtEnd: boolean;
+  isAtStart: boolean;
+}
 
 function clampOffset(offset: number, projects: WorkspaceProjectView[]) {
   return Math.max(0, Math.min(offset, Math.max(0, projects.length - visibleCardCount)));
@@ -41,7 +47,27 @@ function getOffsetFromScrollLeft(
   projects: WorkspaceProjectView[],
 ) {
   const step = getCardScrollStep(rail);
-  return clampOffset(Math.round(scrollLeft / step), projects);
+  const boundaries = getRailBoundaryState(rail, scrollLeft);
+
+  if (boundaries?.isAtEnd) {
+    return clampOffset(projects.length - visibleCardCount, projects);
+  }
+
+  return clampOffset(Math.floor((scrollLeft + railBoundaryTolerance) / step), projects);
+}
+
+function getRailBoundaryState(
+  rail: HTMLDivElement | null,
+  scrollLeft = rail?.scrollLeft ?? 0,
+) {
+  if (!rail || rail.clientWidth <= 0 || rail.scrollWidth <= 0) {
+    return null;
+  }
+
+  return {
+    isAtEnd: scrollLeft + rail.clientWidth >= rail.scrollWidth - railBoundaryTolerance,
+    isAtStart: scrollLeft <= railBoundaryTolerance,
+  } satisfies RailBoundaryState;
 }
 
 export function ProjectRail({
@@ -52,7 +78,9 @@ export function ProjectRail({
   onRemove,
 }: ProjectRailProps) {
   const [offset, setOffset] = useState(0);
+  const [railBoundaries, setRailBoundaries] = useState<RailBoundaryState | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
+  const lastKnownScrollLeftRef = useRef(0);
   const primaryActionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const maxOffset = useMemo(
     () => Math.max(0, projects.length - visibleCardCount),
@@ -60,19 +88,74 @@ export function ProjectRail({
   );
   const safeOffset = clampOffset(offset, projects);
 
+  const syncRailBoundaries = useCallback((scrollLeft = railRef.current?.scrollLeft ?? 0) => {
+    lastKnownScrollLeftRef.current = scrollLeft;
+    const nextBoundaries = getRailBoundaryState(railRef.current, scrollLeft);
+
+    setRailBoundaries((currentBoundaries) => {
+      if (
+        currentBoundaries?.isAtEnd === nextBoundaries?.isAtEnd &&
+        currentBoundaries?.isAtStart === nextBoundaries?.isAtStart
+      ) {
+        return currentBoundaries;
+      }
+
+      return nextBoundaries;
+    });
+  }, []);
+
+  const syncRailStateFromScrollPosition = useCallback(
+    (scrollLeft = railRef.current?.scrollLeft ?? 0) => {
+      syncRailBoundaries(scrollLeft);
+      setOffset(getOffsetFromScrollLeft(railRef.current, scrollLeft, projects));
+    },
+    [projects, syncRailBoundaries],
+  );
+
+  useLayoutEffect(() => {
+    syncRailStateFromScrollPosition();
+
+    function handleResize() {
+      syncRailStateFromScrollPosition();
+    }
+
+    window.addEventListener("resize", handleResize);
+
+    if (typeof ResizeObserver === "undefined" || !railRef.current) {
+      return () => {
+        window.removeEventListener("resize", handleResize);
+      };
+    }
+
+    const observer = new ResizeObserver(() => {
+      syncRailStateFromScrollPosition();
+    });
+
+    observer.observe(railRef.current);
+
+    const firstCard = railRef.current.firstElementChild;
+    if (firstCard) {
+      observer.observe(firstCard);
+    }
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      observer.disconnect();
+    };
+  }, [projects.length, syncRailStateFromScrollPosition]);
+
   function scrollRail(delta: number) {
     if (!delta) {
       return;
     }
 
+    const step = getCardScrollStep(railRef.current);
+    const nextScrollLeft = lastKnownScrollLeftRef.current + delta * step;
+    syncRailBoundaries(nextScrollLeft);
     railRef.current?.scrollBy({
-      left: delta * cardScrollStep,
+      left: delta * step,
       behavior: "smooth",
     });
-  }
-
-  function syncOffsetFromScrollPosition(scrollLeft: number) {
-    setOffset(getOffsetFromScrollLeft(railRef.current, scrollLeft, projects));
   }
 
   function moveOffset(nextOffset: number) {
@@ -143,7 +226,7 @@ export function ProjectRail({
           <button
             aria-label="Previous projects"
             className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-stone-200 transition hover:border-white/25 hover:bg-white/8 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={disabled || safeOffset <= 0}
+            disabled={disabled || (railBoundaries ? railBoundaries.isAtStart : safeOffset <= 0)}
             onClick={() => moveOffset(safeOffset - 1)}
             type="button"
           >
@@ -152,7 +235,7 @@ export function ProjectRail({
           <button
             aria-label="Next projects"
             className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-stone-200 transition hover:border-white/25 hover:bg-white/8 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={disabled || safeOffset >= maxOffset}
+            disabled={disabled || (railBoundaries ? railBoundaries.isAtEnd : safeOffset >= maxOffset)}
             onClick={() => moveOffset(safeOffset + 1)}
             type="button"
           >
@@ -191,7 +274,7 @@ export function ProjectRail({
           railRef.current?.scrollBy({ left: event.deltaY, behavior: "auto" });
         }}
         onScroll={(event) => {
-          syncOffsetFromScrollPosition(event.currentTarget.scrollLeft);
+          syncRailStateFromScrollPosition(event.currentTarget.scrollLeft);
         }}
         ref={railRef}
         role="region"
