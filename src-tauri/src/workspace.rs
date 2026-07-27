@@ -26,6 +26,7 @@ pub struct ProjectManifest {
     pub name: String,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(default, deserialize_with = "deserialize_cover_image")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cover_image: Option<String>,
 }
@@ -44,6 +45,50 @@ struct ResolvedCover {
     absolute_path: PathBuf,
     relative_path: String,
     mime: &'static str,
+}
+
+fn deserialize_cover_image<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct CoverImageVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for CoverImageVisitor {
+        type Value = Option<String>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("an optional string cover image path")
+        }
+
+        fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            Ok(Some(<String as serde::Deserialize>::deserialize(
+                deserializer,
+            )?))
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Err(E::custom(
+                "invalid type: null, expected an optional string cover image path",
+            ))
+        }
+
+        fn visit_unit<E>(self) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Err(E::custom(
+                "invalid type: null, expected an optional string cover image path",
+            ))
+        }
+    }
+
+    deserializer.deserialize_option(CoverImageVisitor)
 }
 
 fn validate_project_name(name: &str) -> Result<(), CommandError> {
@@ -613,6 +658,26 @@ mod tests {
     }
 
     #[test]
+    fn rejects_explicit_null_cover_image_with_a_stable_decode_error() {
+        let project = project_fixture("Null Cover", None);
+        write_manifest(
+            project.path(),
+            json!({
+                "schemaVersion": 1,
+                "id": "487cbc59-e196-4900-80d3-7221e64eb181",
+                "name": "Null Cover",
+                "createdAt": "2026-07-27T17:00:00.000Z",
+                "updatedAt": "2026-07-27T17:00:00.000Z",
+                "coverImage": null
+            }),
+        );
+
+        let error = inspect_project_directory(project.path()).unwrap_err();
+
+        assert_eq!(error.code, "manifest_decode_failed");
+    }
+
+    #[test]
     fn explicit_valid_cover_wins() {
         let project = project_fixture("Explicit Cover", Some("z.jpg"));
         write_file(project.path(), "a.png", SMALL_PNG);
@@ -773,17 +838,20 @@ mod tests {
 
     fn project_fixture(name: &str, cover_image: Option<&str>) -> TempDir {
         let project = tempfile::tempdir().unwrap();
-        write_manifest(
-            project.path(),
-            json!({
-                "schemaVersion": 1,
-                "id": "487cbc59-e196-4900-80d3-7221e64eb181",
-                "name": name,
-                "createdAt": "2026-07-27T17:00:00.000Z",
-                "updatedAt": "2026-07-27T17:00:00.000Z",
-                "coverImage": cover_image,
-            }),
-        );
+        let mut manifest = serde_json::Map::from_iter([
+            ("schemaVersion".to_string(), json!(1)),
+            (
+                "id".to_string(),
+                json!("487cbc59-e196-4900-80d3-7221e64eb181"),
+            ),
+            ("name".to_string(), json!(name)),
+            ("createdAt".to_string(), json!("2026-07-27T17:00:00.000Z")),
+            ("updatedAt".to_string(), json!("2026-07-27T17:00:00.000Z")),
+        ]);
+        if let Some(cover_image) = cover_image {
+            manifest.insert("coverImage".to_string(), json!(cover_image));
+        }
+        write_manifest(project.path(), serde_json::Value::Object(manifest));
         project
     }
 
