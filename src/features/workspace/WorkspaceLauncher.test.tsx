@@ -1,27 +1,18 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { WorkspaceLauncher } from "./WorkspaceLauncher";
 
-type ProjectStatus = "available" | "unavailable";
-
-interface ProjectFixture {
-  id: string;
-  name: string;
-  path: string;
-  status: ProjectStatus;
-  coverDataUrl: string | null;
-}
-
 interface RenderOptions {
-  projects?: ProjectFixture[];
+  projects?: WorkspaceProjectView[];
   loading?: boolean;
   error?: string | null;
-  onOpen?: (project: ProjectFixture) => Promise<void> | void;
+  onOpen?: (project: WorkspaceProjectView) => Promise<void> | void;
   onCreate?: (name: string) => Promise<void> | void;
   onOpenExisting?: () => Promise<void> | void;
-  onRelocate?: (project: ProjectFixture) => Promise<void> | void;
-  onRemove?: (project: ProjectFixture) => Promise<void> | void;
+  onRelocate?: (project: WorkspaceProjectView) => Promise<void> | void;
+  onRemove?: (project: WorkspaceProjectView) => Promise<void> | void;
 }
 
 const originalScrollBy = HTMLElement.prototype.scrollBy;
@@ -37,14 +28,18 @@ interface RailLayoutFixture {
 
 function makeProject(
   index: number,
-  overrides: Partial<ProjectFixture> = {},
-): ProjectFixture {
+  overrides: Partial<WorkspaceProjectView> = {},
+): WorkspaceProjectView {
   return {
-    id: `project-${index}`,
-    name: `Project ${index}`,
+    projectId: `project-${index}`,
     path: `C:\\Projects\\Project ${index}`,
-    status: "available",
+    name: `Project ${index}`,
+    coverImage: null,
     coverDataUrl: null,
+    status: "available",
+    createdAt: "2026-07-01T00:00:00.000Z",
+    updatedAt: "2026-07-02T00:00:00.000Z",
+    lastOpenedAt: "2026-07-03T00:00:00.000Z",
     ...overrides,
   };
 }
@@ -164,6 +159,22 @@ describe("WorkspaceLauncher", () => {
 
     await user.click(screen.getByRole("button", { name: "New project" }));
     expect(screen.getByRole("dialog")).toBeVisible();
+  });
+
+  it("renders canonical workspace project views without React key warnings", () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    renderLauncher({
+      projects: [makeProject(1), makeProject(2)],
+    });
+
+    expect(consoleErrorSpy.mock.calls).not.toEqual(
+      expect.arrayContaining([
+        expect.arrayContaining([
+          expect.stringContaining('Each child in a list should have a unique "key" prop'),
+        ]),
+      ]),
+    );
   });
 
   it("renders all recent projects and the rail controls", async () => {
@@ -400,8 +411,9 @@ describe("WorkspaceLauncher", () => {
   it("opens the create dialog with form semantics, trims names, and resets after cancel or success", async () => {
     const user = userEvent.setup();
     const { onCreate } = renderLauncher();
+    const trigger = screen.getByRole("button", { name: "New project" });
 
-    await user.click(screen.getByRole("button", { name: "New project" }));
+    await user.click(trigger);
 
     const dialog = screen.getByRole("dialog");
     const input = within(dialog).getByLabelText("Project name");
@@ -418,8 +430,9 @@ describe("WorkspaceLauncher", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
+    expect(trigger).toHaveFocus();
 
-    await user.click(screen.getByRole("button", { name: "New project" }));
+    await user.click(trigger);
     const reopenedDialog = screen.getByRole("dialog");
     const reopenedInput = within(reopenedDialog).getByLabelText("Project name");
     expect(reopenedInput).toHaveValue("");
@@ -427,19 +440,69 @@ describe("WorkspaceLauncher", () => {
     await user.type(reopenedInput, "Temporary");
     await user.click(within(reopenedDialog).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
 
-    await user.click(screen.getByRole("button", { name: "New project" }));
+    await user.click(trigger);
     expect(screen.getByLabelText("Project name")).toHaveValue("");
   });
 
-  it("closes the create dialog on Escape", async () => {
+  it("traps Tab and Shift+Tab within the create dialog", async () => {
     const user = userEvent.setup();
     renderLauncher();
 
     await user.click(screen.getByRole("button", { name: "New project" }));
+    const dialog = screen.getByRole("dialog");
+    const input = within(dialog).getByLabelText("Project name");
+    const cancelButton = within(dialog).getByRole("button", { name: "Cancel" });
+    const createButton = within(dialog).getByRole("button", { name: "Create project" });
+
+    await user.type(input, "Editorial");
+    await user.tab();
+    expect(cancelButton).toHaveFocus();
+    await user.tab();
+    expect(createButton).toHaveFocus();
+    await user.tab();
+    expect(input).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(createButton).toHaveFocus();
+  });
+
+  it("closes the create dialog on Escape even when focus moves outside the dialog", async () => {
+    const user = userEvent.setup();
+    renderLauncher();
+
+    const trigger = screen.getByRole("button", { name: "New project" });
+    await user.click(trigger);
+    screen.getByRole("button", { name: "Open project" }).focus();
+
     await user.keyboard("{Escape}");
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("restores focus to the original trigger when the create dialog closes with Cancel", async () => {
+    const user = userEvent.setup();
+    renderLauncher();
+
+    const trigger = screen.getByRole("button", { name: "New project" });
+    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("restores focus to the original trigger when the create dialog closes with Escape", async () => {
+    const user = userEvent.setup();
+    renderLauncher();
+
+    const trigger = screen.getByRole("button", { name: "New project" });
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 
   it("keeps the create dialog open with the trimmed value when creation fails", async () => {

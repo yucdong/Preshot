@@ -8,16 +8,98 @@ interface NewProjectDialogProps {
 const buttonClassName =
   "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50";
 
+const focusableSelector = [
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[href]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(", ");
+
+function getFocusableElements(container: HTMLElement | null) {
+  if (!container) {
+    return [];
+  }
+
+  return Array.from(container.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+    (element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true",
+  );
+}
+
 export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
   const [value, setValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isSubmittingRef = useRef(isSubmitting);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const trimmedValue = value.trim();
 
   useEffect(() => {
+    isSubmittingRef.current = isSubmitting;
+  }, [isSubmitting]);
+
+  useEffect(() => {
+    triggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     inputRef.current?.focus();
-  }, []);
+
+    function handleDocumentKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (isSubmittingRef.current) {
+          return;
+        }
+
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusableElements = getFocusableElements(dialogRef.current);
+      if (!focusableElements.length) {
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const isFocusInsideDialog =
+        activeElement !== null && dialogRef.current?.contains(activeElement);
+
+      if (!isFocusInsideDialog) {
+        event.preventDefault();
+        (event.shiftKey ? lastElement : firstElement).focus();
+        return;
+      }
+
+      if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+        return;
+      }
+
+      if (event.shiftKey && activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+      if (triggerRef.current?.isConnected) {
+        triggerRef.current.focus();
+      }
+    };
+  }, [onClose]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,12 +133,7 @@ export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
         aria-labelledby={`${inputId}-title`}
         aria-modal="true"
         className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-stone-950 p-6 shadow-2xl shadow-black/50"
-        onKeyDown={(event) => {
-          if (event.key === "Escape" && !isSubmitting) {
-            event.preventDefault();
-            onClose();
-          }
-        }}
+        ref={dialogRef}
         role="dialog"
       >
         <div className="flex items-start justify-between gap-4">

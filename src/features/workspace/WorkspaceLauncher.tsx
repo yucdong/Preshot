@@ -1,14 +1,7 @@
 import { useState } from "react";
+import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectRail } from "./ProjectRail";
-
-export interface WorkspaceProjectView {
-  id: string;
-  name: string;
-  path: string;
-  status: "available" | "unavailable";
-  coverDataUrl: string | null;
-}
 
 export interface WorkspaceLauncherProps {
   projects: WorkspaceProjectView[];
@@ -121,13 +114,13 @@ export function WorkspaceLauncher({
             <ProjectRail
               disabled={Boolean(busyAction)}
               onOpen={(project) =>
-                runAction(`open:${project.id}`, () => onOpen(project))
+                runAction(`open:${project.projectId}`, () => onOpen(project))
               }
               onRelocate={(project) =>
-                runAction(`relocate:${project.id}`, () => onRelocate(project))
+                runAction(`relocate:${project.projectId}`, () => onRelocate(project))
               }
               onRemove={(project) =>
-                runAction(`remove:${project.id}`, () => onRemove(project))
+                runAction(`remove:${project.projectId}`, () => onRemove(project))
               }
               projects={projects}
             />

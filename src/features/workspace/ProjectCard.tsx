@@ -1,4 +1,4 @@
-import type { WorkspaceProjectView } from "./WorkspaceLauncher";
+import type { WorkspaceProjectView } from "../../domain/workspace/models";
 
 interface ProjectCardProps {
   project: WorkspaceProjectView;

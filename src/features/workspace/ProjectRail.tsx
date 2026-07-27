@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { ProjectCard } from "./ProjectCard";
-import type { WorkspaceProjectView } from "./WorkspaceLauncher";
 
 interface ProjectRailProps {
   projects: WorkspaceProjectView[];
@@ -283,7 +283,7 @@ export function ProjectRail({
         {projects.map((project, index) => (
           <ProjectCard
             disabled={disabled}
-            key={project.id}
+            key={project.projectId}
             onOpen={onOpen}
             onRelocate={onRelocate}
             onRemove={onRemove}
