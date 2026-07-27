@@ -23,7 +23,30 @@
         "Resolve covers from manifest coverImage, then the first supported root image.",
         "Keep invalid projects visible and require matching project IDs for relocation.",
         "Use a native Tauri File menu; new windows open the project launcher."
-      ]
+      ],
+      "progress": {
+        "pausedAt": "2026-07-27",
+        "lastImplementationCommit": "717524bc4af94a69c37fdaac25619000b6fc8121",
+        "completed": [
+          "Enabled Tauri Store and Dialog dependencies, permissions, and CSP.",
+          "Implemented typed workspace registry rules and serialized workspace use cases.",
+          "Implemented guarded Rust project creation, inspection, cover resolution, and token-authorized rollback.",
+          "Implemented Store, Dialog, native command, menu event, and structured logging adapters.",
+          "Implemented the accessible three-card recent-project launcher and new-project dialog.",
+          "Integrated WorkspaceProvider, explicit production/E2E dependencies, native File menu, and multi-window launcher behavior."
+        ],
+        "lastVerified": [
+          "109 frontend tests passed.",
+          "21 Rust tests passed.",
+          "TypeScript typecheck, ESLint, Cargo formatting/checks, and diff checks passed."
+        ],
+        "remaining": [
+          "Handle native menu action failures without unhandled promise rejections.",
+          "Fail closed if the memory workspace adapter is requested outside E2E mode.",
+          "Prevent a busy create submission from closing the dialog without creating a project.",
+          "Complete Task 8 E2E flow, architecture/testing/reliability documentation, full desktop build verification, and set status to completed."
+        ]
+      }
     }
   ]
 }
