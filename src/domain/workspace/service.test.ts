@@ -49,6 +49,13 @@ const inspected = (
   ...overrides,
 });
 
+const findSaveCallForProject = (
+  calls: Array<[WorkspaceMetadata]>,
+  projectId: string,
+) => calls.find(([metadata]) =>
+  metadata.projects.some((project) => project.projectId === projectId),
+);
+
 describe("createWorkspaceService", () => {
   let createProjectMock: ReturnType<typeof vi.fn<NativeWorkspace["createProject"]>>;
   let inspectProjectMock: ReturnType<typeof vi.fn<NativeWorkspace["inspectProject"]>>;
@@ -156,6 +163,80 @@ describe("createWorkspaceService", () => {
     ).rejects.toThrow(
       "Unable to create workspace project: Unable to access folder",
     );
+  });
+
+  it("reports contextual metadata save failures after load validation succeeds", async () => {
+    registry.load.mockResolvedValue({
+      schemaVersion: 1,
+      projects: [record("project-1")],
+    });
+    inspectProjectMock.mockResolvedValue(inspected("project-1"));
+    const saveError = new Error("disk full");
+    registry.save.mockRejectedValue(saveError);
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    const loadProjectsPromise = service.loadProjects();
+
+    await expect(loadProjectsPromise).rejects.toMatchObject({
+      message: "Unable to save workspace metadata: disk full",
+      cause: saveError,
+    });
+    expect(registry.save).toHaveBeenCalledTimes(1);
+    expect(infoMock).not.toHaveBeenCalled();
+  });
+
+  it("creates projects with persisted metadata and logs the project without preview data", async () => {
+    registry.load.mockResolvedValue({
+      schemaVersion: 1,
+      projects: [],
+    });
+    createProjectMock.mockResolvedValue(
+      inspected("project-1", "C:\\shoots\\Editorial"),
+    );
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await expect(service.loadProjects()).resolves.toEqual([]);
+    await expect(service.createProject("C:\\shoots", "Editorial")).resolves.toEqual(
+      {
+        projectId: "project-1",
+        path: "C:\\shoots\\Editorial",
+        name: "Project project-1",
+        coverImage: "project-1-resolved.png",
+        coverDataUrl: "data:image/png;base64,project-1",
+        status: "available",
+        createdAt: "2026-07-01T00:00:00.000Z",
+        updatedAt: "2026-07-04T00:00:00.000Z",
+        lastOpenedAt: NOW,
+      } satisfies WorkspaceProjectView,
+    );
+
+    const createSaveCall = findSaveCallForProject(
+      registry.save.mock.calls,
+      "project-1",
+    );
+
+    expect(registry.load).toHaveBeenCalledTimes(1);
+    expect(createSaveCall?.[0]).toEqual({
+      schemaVersion: 1,
+      projects: [
+        {
+          projectId: "project-1",
+          path: "C:\\shoots\\Editorial",
+          name: "Project project-1",
+          coverImage: "project-1-resolved.png",
+          status: "available",
+          createdAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-04T00:00:00.000Z",
+          lastOpenedAt: NOW,
+        },
+      ],
+    });
+    expect(createSaveCall?.[0].projects[0]).not.toHaveProperty("coverDataUrl");
+    expect(infoMock).toHaveBeenCalledWith("Workspace project created", {
+      projectId: "project-1",
+    });
+    expect(infoMock.mock.calls.at(-1)?.[1]).not.toHaveProperty("coverDataUrl");
+    expect(removeCreatedProjectMock).not.toHaveBeenCalled();
   });
 
   it("keeps missing registered projects as unavailable", async () => {
@@ -464,9 +545,24 @@ describe("createWorkspaceService", () => {
     await service.createProject("C:\\shoots", "Fresh");
 
     expect(registry.load).toHaveBeenCalledTimes(1);
-    expect(registry.save.mock.calls[0]?.[0]).toEqual({
+    const createSaveCall = findSaveCallForProject(
+      registry.save.mock.calls,
+      "fresh",
+    );
+
+    expect(createSaveCall?.[0]).toEqual({
       schemaVersion: 1,
       projects: [
+        {
+          projectId: "fresh",
+          path: "C:\\shoots\\Fresh",
+          name: "Project fresh",
+          coverImage: "fresh-resolved.png",
+          status: "available",
+          createdAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-04T00:00:00.000Z",
+          lastOpenedAt: NOW,
+        },
         {
           projectId: "newer",
           path: "C:\\shoots\\newer",
@@ -489,8 +585,6 @@ describe("createWorkspaceService", () => {
         },
       ],
     });
-    expect(registry.save.mock.calls[0]?.[0].projects[0]).not.toHaveProperty(
-      "coverDataUrl",
-    );
+    expect(createSaveCall?.[0].projects[0]).not.toHaveProperty("coverDataUrl");
   });
 });
