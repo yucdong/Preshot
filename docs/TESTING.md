@@ -2,9 +2,9 @@
 
 ## Strategy
 
-Preshot uses a test pyramid:
+Preshot is building toward this test pyramid:
 
-1. Pure domain unit tests form the majority.
+1. Pure domain unit tests should form the majority as capabilities are added.
 2. React component tests cover accessible, user-visible behavior.
 3. A small Playwright layer verifies that the browser application starts.
 4. Rust unit tests cover native logic without launching a desktop window.
@@ -15,20 +15,16 @@ Preshot uses a test pyramid:
 | Command | Purpose |
 | --- | --- |
 | `pnpm test` | Run all Vitest tests once. |
+| `pnpm test:init` | Test the initializer's native-command failure path. |
 | `pnpm test:watch` | Run Vitest in watch mode. |
-| `pnpm test:e2e` | Run Playwright Chromium smoke tests. |
+| `pnpm test:e2e` | Run Playwright smoke tests in Microsoft Edge (Chromium). |
 | `pnpm typecheck` | Check frontend and tooling TypeScript projects. |
 | `pnpm lint` | Run ESLint. |
 | `cargo test --manifest-path src-tauri\Cargo.toml` | Run Rust tests. |
 | `pnpm build` | Type-check and build the frontend. |
 
-Install the Playwright browser once with:
-
-```powershell
-pnpm exec playwright install chromium
-```
-
-`init.ps1` performs this installation unless `-SkipBrowserInstall` is passed.
+Playwright uses the Microsoft Edge installation provided with supported
+Windows versions, so project initialization does not download another browser.
 
 ## Unit and Domain Tests
 
@@ -77,6 +73,7 @@ Run:
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:init
 pnpm test:e2e
 cargo test --manifest-path src-tauri\Cargo.toml
 pnpm build

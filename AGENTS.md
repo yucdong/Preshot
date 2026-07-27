@@ -42,6 +42,7 @@ pnpm tauri:dev
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:init
 pnpm test:e2e
 cargo test --manifest-path src-tauri\Cargo.toml
 pnpm build

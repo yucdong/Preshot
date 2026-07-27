@@ -1,8 +1,3 @@
-[CmdletBinding()]
-param(
-    [switch]$SkipBrowserInstall
-)
-
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 $locationPushed = $false
@@ -17,6 +12,35 @@ function Assert-Command {
 
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
         throw "Missing required command '$Name'. $InstallHint"
+    }
+}
+
+function Invoke-NativeCommandOutput {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name,
+        [string[]]$Arguments = @()
+    )
+
+    $output = & $Name @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Name $($Arguments -join ' ') failed with exit code $LASTEXITCODE."
+    }
+
+    return ($output | Out-String).Trim()
+}
+
+function Invoke-NativeCommand {
+    param(
+        [Parameter(Mandatory)]
+        [scriptblock]$Command,
+        [Parameter(Mandatory)]
+        [string]$Description
+    )
+
+    & $Command
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Description failed with exit code $LASTEXITCODE."
     }
 }
 
@@ -75,6 +99,24 @@ try {
     Assert-Command "pnpm" "Run 'corepack enable' and 'corepack prepare pnpm@10.15.0 --activate'."
     Assert-Command "rustc" "Install Rust with rustup from https://rustup.rs/."
     Assert-Command "cargo" "Install Rust with rustup from https://rustup.rs/."
+
+    $nodeVersionText = Invoke-NativeCommandOutput "node" @("--version")
+    $nodeVersion = [version]($nodeVersionText.TrimStart("v").Split("-")[0])
+    if ($nodeVersion.Major -lt 20 -or $nodeVersion.Major % 2 -ne 0) {
+        throw "Node.js $nodeVersionText is not a supported LTS release. Install Node.js 20, 22, 24, or a newer even-numbered LTS release."
+    }
+
+    $pnpmVersionText = Invoke-NativeCommandOutput "pnpm" @("--version")
+    $pnpmVersion = [version]($pnpmVersionText.Split("-")[0])
+    if ($pnpmVersion -ne [version]"10.15.0") {
+        throw "pnpm $pnpmVersionText is unsupported. Install the project-pinned pnpm 10.15.0 release."
+    }
+
+    $rustVersionDetails = Invoke-NativeCommandOutput "rustc" @("-vV")
+    if ($rustVersionDetails -notmatch "(?m)^host:\s+\S+-windows-msvc\s*$") {
+        throw "The active Rust toolchain is not a Windows MSVC target. Run 'rustup default stable-x86_64-pc-windows-msvc'."
+    }
+
     Assert-VisualCppBuildTools
 
     if (-not (Test-WebView2)) {
@@ -83,11 +125,9 @@ try {
 
     Push-Location $PSScriptRoot
     $locationPushed = $true
-    pnpm install --frozen-lockfile
-
-    if (-not $SkipBrowserInstall) {
-        pnpm exec playwright install chromium
-    }
+    Invoke-NativeCommand `
+        -Description "pnpm install" `
+        -Command { pnpm install --frozen-lockfile }
 
     Write-Host "Preshot is ready. Run 'pnpm tauri:dev' to start the desktop app." -ForegroundColor Green
 }

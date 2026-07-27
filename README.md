@@ -55,11 +55,7 @@ winget install --id Rustlang.Rustup --exact
 ```
 
 脚本会检查 Node.js、pnpm、Rust、Cargo、Visual C++ Build Tools 和 WebView2，
-随后安装项目依赖与 Playwright Chromium。仅跳过浏览器安装时可使用：
-
-```powershell
-.\init.ps1 -SkipBrowserInstall
-```
+随后安装项目依赖。端到端测试使用 Windows 自带的 Microsoft Edge。
 
 ## 启动
 
@@ -84,6 +80,7 @@ pnpm dev
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:init
 pnpm test:e2e
 cargo test --manifest-path src-tauri\Cargo.toml
 pnpm build
