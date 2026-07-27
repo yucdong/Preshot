@@ -103,6 +103,19 @@ describe("createWorkspaceStore", () => {
     );
   });
 
+  it("rejects persisted metadata with an extra top-level key", async () => {
+    store.get.mockResolvedValue({
+      schemaVersion: 1,
+      projects: [persistedRecord()],
+      unexpectedField: "unexpected",
+    });
+    const registry = createWorkspaceStore({ loadStore });
+
+    await expect(registry.load()).rejects.toThrow(
+      "Unable to load workspace metadata: Workspace metadata is malformed",
+    );
+  });
+
   it("rejects persisted metadata that contains runtime-only coverDataUrl values", async () => {
     store.get.mockResolvedValue({
       schemaVersion: 1,
@@ -110,6 +123,23 @@ describe("createWorkspaceStore", () => {
         {
           ...persistedRecord(),
           coverDataUrl: "data:image/png;base64,preview",
+        },
+      ],
+    });
+    const registry = createWorkspaceStore({ loadStore });
+
+    await expect(registry.load()).rejects.toThrow(
+      "Unable to load workspace metadata: Workspace metadata is malformed",
+    );
+  });
+
+  it("rejects persisted project records with unknown extra keys", async () => {
+    store.get.mockResolvedValue({
+      schemaVersion: 1,
+      projects: [
+        {
+          ...persistedRecord(),
+          unexpectedField: "unexpected",
         },
       ],
     });

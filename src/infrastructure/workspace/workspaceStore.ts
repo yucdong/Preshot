@@ -23,6 +23,15 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function isPlainObjectRecord(value: unknown): value is Record<string, unknown> {
+  if (!isObjectRecord(value) || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 function hasOwn(value: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(value, key);
 }
@@ -65,12 +74,30 @@ function cloneMetadata(metadata: WorkspaceMetadata): WorkspaceMetadata {
   };
 }
 
-function validateProjectRecord(value: unknown): WorkspaceProjectRecord {
-  if (!isObjectRecord(value)) {
-    throw new Error("Workspace metadata is malformed");
-  }
+const WORKSPACE_METADATA_KEYS = ["schemaVersion", "projects"] as const;
 
-  if (hasOwn(value, "coverDataUrl")) {
+const WORKSPACE_PROJECT_KEYS = [
+  "projectId",
+  "path",
+  "name",
+  "coverImage",
+  "status",
+  "createdAt",
+  "updatedAt",
+  "lastOpenedAt",
+] as const;
+
+function hasExactOwnKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const ownKeys = Object.keys(value);
+
+  return ownKeys.length === keys.length && keys.every((key) => hasOwn(value, key));
+}
+
+function validateProjectRecord(value: unknown): WorkspaceProjectRecord {
+  if (!isPlainObjectRecord(value) || !hasExactOwnKeys(value, WORKSPACE_PROJECT_KEYS)) {
     throw new Error("Workspace metadata is malformed");
   }
 
@@ -100,7 +127,7 @@ function validateProjectRecord(value: unknown): WorkspaceProjectRecord {
 }
 
 function validateWorkspaceMetadata(value: unknown): WorkspaceMetadata {
-  if (!isObjectRecord(value)) {
+  if (!isPlainObjectRecord(value)) {
     throw new Error("Workspace metadata is malformed");
   }
 
@@ -109,6 +136,10 @@ function validateWorkspaceMetadata(value: unknown): WorkspaceMetadata {
       throw new Error(`Unsupported workspace schema ${value.schemaVersion}`);
     }
 
+    throw new Error("Workspace metadata is malformed");
+  }
+
+  if (!hasExactOwnKeys(value, WORKSPACE_METADATA_KEYS)) {
     throw new Error("Workspace metadata is malformed");
   }
 
