@@ -20,7 +20,7 @@ Preshot 是一个面向摄影前期策划的桌面应用。它将用于整理参
 ## Windows 前置条件
 
 1. Windows 10 1803 或更高版本
-2. Node.js LTS（20.x 需 20.19.0+，22.x 需 22.12.0+，或更新的偶数 LTS）
+2. Node.js（20.x 需 20.19.0+，或使用 22.12.0+；优先选择 LTS）
 3. pnpm 10.15.0
 4. Rust stable MSVC 工具链
 5. Visual Studio 2022 Build Tools，并勾选 **Desktop development with C++**

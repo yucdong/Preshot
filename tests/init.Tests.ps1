@@ -97,6 +97,34 @@ exit /b 0
     }
 
     Write-Host "init.ps1 accepted Node.js boundary test passed."
+
+    @"
+@echo off
+echo v23.0.0
+exit /b 0
+"@ | Set-Content (Join-Path $fixtureDirectory "node.cmd") -Encoding Ascii
+
+    $newerStdoutPath = Join-Path $fixtureDirectory "newer-stdout.log"
+    $newerStderrPath = Join-Path $fixtureDirectory "newer-stderr.log"
+    $newerProcess = Start-Process `
+        -FilePath $powerShellHost `
+        -ArgumentList "-NoProfile", "-Command", $command `
+        -Wait `
+        -PassThru `
+        -RedirectStandardOutput $newerStdoutPath `
+        -RedirectStandardError $newerStderrPath
+
+    $newerOutput = (Get-Content $newerStdoutPath, $newerStderrPath -ErrorAction SilentlyContinue) -join [Environment]::NewLine
+
+    if ($newerProcess.ExitCode -eq 0) {
+        throw "Expected the pnpm fixture to fail after Node.js v23.0.0 was accepted. Output: $newerOutput"
+    }
+
+    if ($newerOutput -notmatch "pnpm install failed with\s+exit code 7") {
+        throw "Expected Node.js v23.0.0 to pass version validation. Output: $newerOutput"
+    }
+
+    Write-Host "init.ps1 newer Node.js version test passed."
 }
 finally {
     if (Test-Path $fixtureDirectory) {
