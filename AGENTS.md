@@ -92,4 +92,6 @@ Run `.\init.ps1` on a new Windows checkout.
 - Avoid snapshots for dynamic canvas output.
 - Add a regression test before fixing a defect.
 
-See `docs/ARCHITECTURE.md` and `docs/TESTING.md` for detailed guidance.
+See `docs/ARCHITECTURE.md` and `docs/TESTING.md` and `docs/RELIABILITY.md` for detailed guidance.
+See `docs/design_docs` for design documents, specifically, see `docs/design_docs/featurelist.json` for
+the status of the feature development, feature status should include description、status、key decisions, updated by coding agents during development.

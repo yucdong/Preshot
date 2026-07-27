@@ -1,0 +1,21 @@
+{
+  "project": "Preshot",
+  "description": "Photographic preparation desktop tool",
+  "features": [
+    {
+      "name": "Workspace Setup",
+      "feature_descriptions": [
+        "app有一个自己的metadata存储，对于windows可以放在用户的appdata目录",
+        "metadata存储记录了用户的信息，比如projects",
+        "用户的projects是一个一个的文件夹，里面包含了每个拍摄项目相关的文件",
+        "项目打开界面将会显示所有的projects，显示前三个，并且用一个滑块拖动查看后面的项目，项目用一张图片（如果项目中有图片）展示，如果没有图片，则显示项目名字",
+        "点击项目后可以打开这个主界面",
+        "页面的菜单栏有文件下拉菜单，可以选择新建、关闭、打开，打开新窗口等，打开新项目就会让你重新选择一个项目所在的目录",
+        "每个项目文件夹下面有一个.preshot的文件表示这是一个preshot项目，打开项目必须检索到这个文件才能支持打开"
+      ],
+      "status": "not started",
+      "decisions":[
+      ]
+    }
+  ]
+}
