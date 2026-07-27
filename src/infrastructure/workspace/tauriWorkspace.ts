@@ -204,7 +204,7 @@ export function createTauriWorkspace({
 
     async rollbackCreatedProject(rollbackToken: string): Promise<void> {
       try {
-        await invokeCommand("remove_created_project", { rollbackToken });
+        await invokeCommand("rollback_created_project", { rollbackToken });
       } catch (error) {
         throw wrapNativeError(
           "Unable to roll back created Preshot project",

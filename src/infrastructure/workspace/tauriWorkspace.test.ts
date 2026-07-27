@@ -186,7 +186,7 @@ describe("createTauriWorkspace", () => {
     await expect(
       workspace.rollbackCreatedProject("rollback-token-1"),
     ).resolves.toBeUndefined();
-    expect(invokeCommand).toHaveBeenCalledWith("remove_created_project", {
+    expect(invokeCommand).toHaveBeenCalledWith("rollback_created_project", {
       rollbackToken: "rollback-token-1",
     });
   });
@@ -206,6 +206,71 @@ describe("createTauriWorkspace", () => {
       rollbackToken: "rollback-token-1",
     });
   });
+
+  it.each([
+    [
+      "createProject",
+      "create_project",
+      () => createTauriWorkspace({ invokeCommand, listenForEvent, logger }).createProject(
+        "C:\\shoots",
+        "Project 1",
+      ),
+      {
+        parentPath: "C:\\shoots",
+        name: "Project 1",
+      },
+      createdProject(),
+    ],
+    [
+      "inspectProject",
+      "inspect_project",
+      () =>
+        createTauriWorkspace({ invokeCommand, listenForEvent, logger }).inspectProject(
+          "C:\\shoots\\project-1",
+        ),
+      {
+        path: "C:\\shoots\\project-1",
+      },
+      inspectedProject(),
+    ],
+    [
+      "rollbackCreatedProject",
+      "rollback_created_project",
+      () =>
+        createTauriWorkspace({
+          invokeCommand,
+          listenForEvent,
+          logger,
+        }).rollbackCreatedProject("rollback-token-1"),
+      {
+        rollbackToken: "rollback-token-1",
+      },
+      undefined,
+    ],
+    [
+      "forgetCreatedProject",
+      "forget_created_project",
+      () =>
+        createTauriWorkspace({
+          invokeCommand,
+          listenForEvent,
+          logger,
+        }).forgetCreatedProject("rollback-token-1"),
+      {
+        rollbackToken: "rollback-token-1",
+      },
+      undefined,
+    ],
+  ])(
+    "invokes %s using the backend-registered %s command",
+    async (_methodName, command, invokeWorkspaceMethod, args, expectedResult) => {
+      invokeCommand.mockResolvedValue(expectedResult);
+
+      await expect(invokeWorkspaceMethod()).resolves.toEqual(expectedResult);
+
+      expect(invokeCommand).toHaveBeenCalledWith(command, args);
+    },
+  );
 
   it("maps supported menu events and returns the unlisten function", async () => {
     const unlisten = vi.fn<() => void>();
