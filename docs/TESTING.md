@@ -55,15 +55,38 @@ Do not add test-only methods to production modules.
 
 ## Browser Smoke Tests
 
-Playwright starts the Vite server defined in `playwright.config.ts`. Keep this
-suite limited to high-value startup and cross-feature flows. Component-level
-variations belong in Vitest.
+Playwright starts the Vite server defined in `playwright.config.ts` with
+`pnpm dev --mode e2e`, which loads `.env.e2e` and sets
+`VITE_WORKSPACE_ADAPTER=memory`. That selects the in-memory workspace adapter
+(`src/infrastructure/workspace/browserWorkspace.ts`), so the browser suite runs
+without Tauri against a single seeded "Editorial Demo" project. The adapter fails
+closed in production builds. Keep this suite limited to high-value startup and
+cross-feature flows; component-level variations belong in Vitest.
 
 ## Rust Tests
 
 Keep pure helper functions separate from `#[tauri::command]` wrappers and test
 the helper directly. Run Cargo from a Visual Studio Developer PowerShell when
 another application has placed a conflicting `link.exe` earlier in PATH.
+
+## Workspace Setup Coverage
+
+- **Domain**: `registry.test.ts`, `service.test.ts`, and `models.test.ts` cover
+  pure rules -- sorting, upsert, availability, relocation authorization, and the
+  serialized create/open/relocate/remove flows with rollback -- using typed fakes
+  only.
+- **Adapters**: `workspaceStore.test.ts`, `workspaceDialog.test.ts`,
+  `tauriWorkspace.test.ts`, and `tauriDesktop.test.ts` mock only the Tauri
+  boundary (`invoke`, Store `load`, dialog `open`) and assert command names,
+  serialized inputs, validated responses, and contextual failures.
+- **Rust**: `src-tauri/src/workspace.rs` tests exercise real manifest creation,
+  inspection, cover resolution, and rollback inside `tempfile::tempdir`
+  fixtures; `menu.rs` tests cover menu-ID routing and window labels.
+- **Components**: `WorkspaceLauncher`, `WorkspaceProvider`, `dependencies`, and
+  `App` tests query by accessible role and name, and cover the busy-action guard,
+  the native menu flow, and the fail-closed adapter selection.
+- **Browser**: `e2e/workspace.spec.ts` opens the seeded project from the
+  launcher.
 
 ## Before a Change Is Complete
 

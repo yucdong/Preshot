@@ -41,6 +41,12 @@ function createProductionWorkspaceDependencies(): WorkspaceDependencies {
 
 export function createWorkspaceDependencies(): WorkspaceDependencies {
   if (import.meta.env.VITE_WORKSPACE_ADAPTER === "memory") {
+    if (import.meta.env.PROD) {
+      throw new Error(
+        "The in-memory workspace adapter is only available in end-to-end mode and must never run in a production build.",
+      );
+    }
+
     return browserWorkspaceDependencies;
   }
 

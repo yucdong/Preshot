@@ -13,7 +13,7 @@
         "页面的菜单栏有文件下拉菜单，可以选择新建、关闭、打开，打开新窗口等，打开新项目就会让你重新选择一个项目所在的目录",
         "每个项目文件夹下面有一个.preshot的文件表示这是一个preshot项目，打开项目必须检索到这个文件才能支持打开"
       ],
-      "status": "in progress",
+      "status": "completed",
       "decisions": [
         "Use TypeScript domain use cases with narrow Tauri adapters and Rust filesystem commands.",
         "Store workspace metadata in AppData through Tauri Store.",
@@ -25,27 +25,27 @@
         "Use a native Tauri File menu; new windows open the project launcher."
       ],
       "progress": {
-        "pausedAt": "2026-07-27",
-        "lastImplementationCommit": "717524bc4af94a69c37fdaac25619000b6fc8121",
+        "completedAt": "2026-07-28",
         "completed": [
           "Enabled Tauri Store and Dialog dependencies, permissions, and CSP.",
           "Implemented typed workspace registry rules and serialized workspace use cases.",
           "Implemented guarded Rust project creation, inspection, cover resolution, and token-authorized rollback.",
           "Implemented Store, Dialog, native command, menu event, and structured logging adapters.",
           "Implemented the accessible three-card recent-project launcher and new-project dialog.",
-          "Integrated WorkspaceProvider, explicit production/E2E dependencies, native File menu, and multi-window launcher behavior."
+          "Integrated WorkspaceProvider, explicit production/E2E dependencies, native File menu, and multi-window launcher behavior.",
+          "Hardened the native menu callback so guarded-action failures never surface as unhandled promise rejections.",
+          "Made the in-memory workspace adapter fail closed in production builds so it stays end-to-end only.",
+          "Prevented a busy create submission from closing the dialog without creating a project.",
+          "Added the memory-adapter E2E browser flow and documented workspace architecture, testing, and reliability."
         ],
         "lastVerified": [
-          "109 frontend tests passed.",
+          "114 frontend tests passed (Vitest).",
           "21 Rust tests passed.",
-          "TypeScript typecheck, ESLint, Cargo formatting/checks, and diff checks passed."
+          "Playwright browser smoke test and init.ps1 harness test passed.",
+          "ESLint, TypeScript typecheck, and cargo fmt --check passed.",
+          "pnpm build and pnpm tauri:build succeeded, producing MSI and NSIS bundles."
         ],
-        "remaining": [
-          "Handle native menu action failures without unhandled promise rejections.",
-          "Fail closed if the memory workspace adapter is requested outside E2E mode.",
-          "Prevent a busy create submission from closing the dialog without creating a project.",
-          "Complete Task 8 E2E flow, architecture/testing/reliability documentation, full desktop build verification, and set status to completed."
-        ]
+        "remaining": []
       }
     }
   ]

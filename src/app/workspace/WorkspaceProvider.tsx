@@ -70,15 +70,19 @@ export function WorkspaceProvider({
   );
 
   const runGuardedAction = useCallback(
-    async (actionName: string, action: () => Promise<void>) => {
+    async (
+      actionName: string,
+      action: () => Promise<void>,
+    ): Promise<boolean> => {
       if (isBusyRef.current || !isMountedRef.current) {
-        return;
+        return false;
       }
 
       isBusyRef.current = true;
 
       try {
         await action();
+        return true;
       } catch (error) {
         reportActionError(actionName, error);
         throw error;
@@ -101,7 +105,7 @@ export function WorkspaceProvider({
   );
 
   const requestCreate = useCallback(async () => {
-    return runGuardedAction("Unable to prepare project creation", async () => {
+    await runGuardedAction("Unable to prepare project creation", async () => {
       const parentPath = await dependencies.directoryPicker.pickDirectory(
         CREATE_PARENT_DIRECTORY_TITLE,
       );
@@ -134,17 +138,26 @@ export function WorkspaceProvider({
         throw error;
       }
 
-      return runGuardedAction("Unable to create workspace project", async () => {
-        const project = await dependencies.service.createProject(
-          createParentPath,
-          name,
-        );
+      const created = await runGuardedAction(
+        "Unable to create workspace project",
+        async () => {
+          const project = await dependencies.service.createProject(
+            createParentPath,
+            name,
+          );
 
-        setMountedState(() => {
-          setCreateParentPath(null);
-        });
-        showProject(project);
-      });
+          setMountedState(() => {
+            setCreateParentPath(null);
+          });
+          showProject(project);
+        },
+      );
+
+      if (!created) {
+        throw new Error(
+          "Another workspace action is in progress. Try creating the project again.",
+        );
+      }
     },
     [
       createParentPath,
@@ -158,7 +171,7 @@ export function WorkspaceProvider({
 
   const openProject = useCallback(
     async (path: string) => {
-      return runGuardedAction("Unable to open workspace project", async () => {
+      await runGuardedAction("Unable to open workspace project", async () => {
         const project = await dependencies.service.openProject(path);
         showProject(project);
       });
@@ -174,7 +187,7 @@ export function WorkspaceProvider({
   );
 
   const openExistingProject = useCallback(async () => {
-    return runGuardedAction("Unable to open workspace project", async () => {
+    await runGuardedAction("Unable to open workspace project", async () => {
       const projectPath = await dependencies.directoryPicker.pickDirectory(
         OPEN_PROJECT_DIRECTORY_TITLE,
       );
@@ -190,7 +203,7 @@ export function WorkspaceProvider({
 
   const relocateProject = useCallback(
     async (project: WorkspaceProjectView) => {
-      return runGuardedAction(
+      await runGuardedAction(
         "Unable to relocate workspace project",
         async () => {
           const projectPath = await dependencies.directoryPicker.pickDirectory(
@@ -220,7 +233,7 @@ export function WorkspaceProvider({
 
   const removeProject = useCallback(
     async (project: WorkspaceProjectView) => {
-      return runGuardedAction(
+      await runGuardedAction(
         "Unable to remove workspace project from recents",
         async () => {
           const nextProjects = await dependencies.service.removeRecord(
@@ -293,7 +306,10 @@ export function WorkspaceProvider({
 
     dependencies.native
       .onMenuAction((action) => {
-        void handleMountedMenuAction(action);
+        void handleMountedMenuAction(action).catch(() => {
+          // Guarded actions already log and surface their own failures; swallow
+          // here so a native menu action never becomes an unhandled rejection.
+        });
       })
       .then((unlisten) => {
         if (!isMountedRef.current) {

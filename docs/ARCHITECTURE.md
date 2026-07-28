@@ -49,20 +49,28 @@ not a replacement for normal error states.
 ### `src/features`
 
 Each capability owns its UI, local orchestration, and feature-specific tests.
-Planned capabilities are canvas, asset ingestion, copywriting, and export.
-Create a feature directory only when that capability is implemented.
+`workspace` is the first implemented capability: the recent-project launcher and
+the new-project dialog. Planned capabilities are canvas, asset ingestion,
+copywriting, and export. Create a feature directory only when that capability is
+implemented.
 
 ### `src/domain`
 
-Contains pure TypeScript models and ports. `Project`, `Board`, `Asset`, and
-`TextBlock` define the initial planning vocabulary. `ProjectRepository`,
-`PdfExporter`, and `DesktopFileSystem` define future integration boundaries.
+Contains pure TypeScript models, ports, and use cases. `src/domain/workspace`
+defines the workspace vocabulary (`WorkspaceProjectRecord`, `ProjectManifest`,
+`WorkspaceMetadata`), the platform ports (`WorkspaceRegistry`, `NativeWorkspace`,
+`WorkspaceDirectoryPicker`, `WorkspaceLogger`), and the `WorkspaceService` use
+case that serializes every mutation. Future planning models and their
+integration ports will live here too, staying free of React, Tauri, and browser
+APIs.
 
 ### `src/infrastructure`
 
 Implements domain ports. This is the only frontend area allowed to import
 `@tauri-apps/api`. Adapters add operation context to native or browser errors
-before returning them to callers.
+before returning them to callers. `src/infrastructure/workspace` provides the
+Tauri Store, Dialog, and native-command adapters, plus an in-memory browser
+adapter used only by end-to-end tests.
 
 ### `src/shared`
 
@@ -79,6 +87,51 @@ the domain layer.
 The current `platform_info` command and its TypeScript adapter demonstrate the
 boundary. Add permissions only when a command requires them; keep Tauri
 capabilities least-privilege.
+
+## Workspace Setup
+
+Workspace Setup is the first end-to-end vertical slice and demonstrates the
+intended layering: React UI -> `WorkspaceService` use case -> domain port ->
+infrastructure adapter -> Tauri command -> Windows filesystem.
+
+### Metadata and manifests
+
+Two independent, versioned stores back the feature:
+
+- **`workspace.json`** lives in the platform AppData directory and is owned by
+  the Tauri Store adapter (`src/infrastructure/workspace/workspaceStore.ts`). It
+  records the user's recent projects as a `schemaVersion: 1` document. The
+  adapter and the domain service both reject unknown or malformed schemas rather
+  than guessing.
+- **`.preshot`** is a per-project manifest written into each project folder by
+  the Rust `create_project` command. It is also `schemaVersion: 1` and carries
+  the project identity (`id`, `name`, timestamps, optional `coverImage`). A
+  folder is a Preshot project only if it contains a readable `.preshot`
+  manifest, which keeps projects portable: moving a folder preserves its
+  identity, and relocation is authorized only when the manifest ID matches the
+  stored record.
+
+### Boundaries
+
+- The domain `WorkspaceService` owns all rules and serializes every mutation
+  through an internal queue so concurrent actions cannot interleave.
+- The Store adapter only loads and saves `workspace.json`.
+- The Dialog adapter only selects a directory.
+- The native-command adapter (`tauriWorkspace.ts`) wraps the Rust
+  `create_project`, `inspect_project`, `rollback_created_project`, and
+  `forget_created_project` commands and validates every response shape.
+- Rust commands stay narrow: filesystem work, atomic manifest writes
+  (write-temp-then-rename), cover resolution, and token-authorized rollback of a
+  just-created project. They hold no UI or business rules.
+
+### Native menu flow
+
+The Rust File menu (`src-tauri/src/menu.rs`) owns New Project, Open Project,
+Open New Window, and Close. New Project and Open Project emit a `workspace://menu`
+event to the focused webview; the `tauriWorkspace.onMenuAction` adapter validates
+the payload and forwards it to `WorkspaceProvider`, which runs the same guarded
+flows as the launcher buttons. Open New Window and Close are handled entirely in
+Rust, and new windows open the launcher.
 
 ## Future Capabilities
 

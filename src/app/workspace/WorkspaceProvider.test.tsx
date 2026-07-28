@@ -244,6 +244,33 @@ describe("WorkspaceProvider", () => {
     expect(screen.getByLabelText("Project name")).toHaveValue("Editorial Retry");
   });
 
+  it("keeps the create dialog open when a create submission is skipped because another action is busy", async () => {
+    const user = userEvent.setup();
+    const { dependencies, emitMenuAction, pickDirectory, service } =
+      createDependencies();
+    vi.mocked(pickDirectory)
+      .mockResolvedValueOnce("C:\\shoots")
+      .mockReturnValueOnce(new Promise<string | null>(() => undefined));
+
+    render(<WorkspaceProvider dependencies={dependencies} />);
+
+    await user.click(await screen.findByRole("button", { name: "New project" }));
+    await screen.findByRole("dialog");
+
+    await act(async () => {
+      emitMenuAction("open-project");
+    });
+
+    await user.type(screen.getByLabelText("Project name"), "Editorial");
+    await user.click(
+      screen.getByRole("button", { name: "Create project" }),
+    );
+
+    expect(service.createProject).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeVisible();
+    expect(screen.getByLabelText("Project name")).toHaveValue("Editorial");
+  });
+
   it("does nothing when opening an existing project is cancelled", async () => {
     const user = userEvent.setup();
     const { dependencies, service } = createDependencies();
@@ -345,6 +372,43 @@ describe("WorkspaceProvider", () => {
       expect(service.openProject).toHaveBeenCalledWith(project.path);
     });
     expect(await screen.findByText("Editorial")).toBeVisible();
+  });
+
+  it("reports a failing native menu action without leaving an unhandled rejection", async () => {
+    const { dependencies, emitMenuAction, pickDirectory, service } =
+      createDependencies();
+    vi.mocked(pickDirectory).mockResolvedValueOnce("C:\\shoots\\Broken");
+    vi.mocked(service.openProject).mockRejectedValueOnce(
+      new Error("project vanished"),
+    );
+
+    const unhandledReasons: unknown[] = [];
+    const captureUnhandled = (reason: unknown) => {
+      unhandledReasons.push(reason);
+    };
+    process.on("unhandledRejection", captureUnhandled);
+
+    try {
+      render(<WorkspaceProvider dependencies={dependencies} />);
+
+      await screen.findByRole("button", { name: "New project" });
+
+      await act(async () => {
+        emitMenuAction("open-project");
+      });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "project vanished",
+      );
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+
+      expect(unhandledReasons).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", captureUnhandled);
+    }
   });
 
   it("uses the same parent-first dialog flow for a native new-project menu action", async () => {
