@@ -9,6 +9,7 @@ import {
   renameGroup as renameGroupInPlan,
   setColumns as setColumnsInPlan,
   setDescription as setDescriptionInPlan,
+  setPhotographyPlan as setPhotographyPlanInPlan,
 } from "./plan";
 import type { PlanRepository, ReferenceImageStore } from "./ports";
 import type { WorkspaceLogger } from "../workspace/ports";
@@ -33,6 +34,7 @@ export interface PlanService {
   addGroup(plan: ProjectPlan, title: string): Promise<ProjectPlan>;
   renameGroup(plan: ProjectPlan, groupId: string, title: string): Promise<ProjectPlan>;
   setDescription(plan: ProjectPlan, groupId: string, description: string): Promise<ProjectPlan>;
+  setPhotographyPlan(plan: ProjectPlan, html: string): Promise<ProjectPlan>;
   setColumns(plan: ProjectPlan, groupId: string, columns: number): Promise<ProjectPlan>;
   deleteGroup(projectPath: string, plan: ProjectPlan, groupId: string): Promise<ProjectPlan>;
   importImage(projectPath: string, plan: ProjectPlan, groupId: string, sourcePath: string): Promise<ImportImageResult>;
@@ -99,6 +101,9 @@ export function createPlanService({
     },
     setDescription(plan, groupId, description) {
       return Promise.resolve(setDescriptionInPlan(plan, groupId, description));
+    },
+    setPhotographyPlan(plan, html) {
+      return Promise.resolve(setPhotographyPlanInPlan(plan, html));
     },
     setColumns(plan, groupId, columns) {
       return Promise.resolve(setColumnsInPlan(plan, groupId, columns));

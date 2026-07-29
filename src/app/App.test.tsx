@@ -29,12 +29,13 @@ function makeProject(
 function planDeps(): PlanDependencies {
   return {
     service: {
-      loadPlan: vi.fn().mockResolvedValue({ referenceGroups: [] }),
+      loadPlan: vi.fn().mockResolvedValue({ photographyPlan: "", referenceGroups: [] }),
       loadImage: vi.fn().mockResolvedValue(""),
       savePlan: vi.fn(),
       addGroup: vi.fn(),
       renameGroup: vi.fn(),
       setDescription: vi.fn(),
+      setPhotographyPlan: vi.fn(),
       deleteGroup: vi.fn(),
       setColumns: vi.fn(),
       importImage: vi.fn(),

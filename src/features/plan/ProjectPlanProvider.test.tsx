@@ -6,7 +6,7 @@ import { createPlanService, type PlanService } from "../../domain/plan/service";
 import { ProjectPlanProvider, type PlanDependencies } from "./ProjectPlanProvider";
 
 function deps(): { dependencies: PlanDependencies; service: PlanService; pick: ReturnType<typeof vi.fn> } {
-  const plan = { referenceGroups: [{ id: "g1", title: "Lookbook", description: "Warm editorial mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] }] };
+  const plan = { photographyPlan: "", referenceGroups: [{ id: "g1", title: "Lookbook", description: "Warm editorial mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] }] };
   const service: PlanService = {
     loadPlan: vi.fn().mockResolvedValue(plan),
     loadImage: vi.fn().mockResolvedValue("data:image/png;base64,AA"),
@@ -14,10 +14,11 @@ function deps(): { dependencies: PlanDependencies; service: PlanService; pick: R
     addGroup: vi.fn(),
     renameGroup: vi.fn(),
     setDescription: vi.fn(),
+    setPhotographyPlan: vi.fn(),
     deleteGroup: vi.fn(),
     setColumns: vi.fn(),
     importImage: vi.fn().mockResolvedValue({
-      plan: { referenceGroups: [{ id: "g1", title: "Lookbook", description: "Warm editorial mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }, { id: "i2", file: "references/0002.png" }] }] },
+      plan: { photographyPlan: "", referenceGroups: [{ id: "g1", title: "Lookbook", description: "Warm editorial mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }, { id: "i2", file: "references/0002.png" }] }] },
       image: { id: "i2", file: "references/0002.png" },
       dataUrl: "data:image/png;base64,BB",
     }),
@@ -35,6 +36,7 @@ function autoSaveDeps() {
   const savePlan = vi.fn().mockResolvedValue(undefined);
   const repository: PlanRepository = {
     loadPlan: vi.fn().mockResolvedValue({
+      photographyPlan: "",
       referenceGroups: [{ id: "g1", title: "Lookbook", description: "", columnsPerRow: 3, images: [] }],
     }),
     savePlan,

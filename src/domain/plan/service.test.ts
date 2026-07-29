@@ -66,7 +66,10 @@ describe("createPlanService", () => {
     vi.mocked(d.repository.savePlan).mockImplementation(async () => { order.push("save"); });
     vi.mocked(d.imageStore.removeImage).mockImplementation(async () => { order.push("delete"); });
     const service = createPlanService(d);
-    const base = { referenceGroups: [{ id: "g1", title: "L", description: "", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }] };
+    const base = {
+      photographyPlan: "",
+      referenceGroups: [{ id: "g1", title: "L", description: "", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }],
+    };
 
     const next = await service.removeImage("C:\\p", base, "g1", "i1");
 
@@ -83,6 +86,16 @@ describe("createPlanService", () => {
     const next = await service.setDescription(base, "g1", "Backlit, film grain");
 
     expect(next.referenceGroups[0].description).toBe("Backlit, film grain");
+    expect(d.repository.savePlan).not.toHaveBeenCalled();
+  });
+
+  it("sets the photography plan in memory without persisting", async () => {
+    const d = deps();
+    const service = createPlanService(d);
+
+    const next = await service.setPhotographyPlan(EMPTY_PLAN, "<p>Notes</p>");
+
+    expect(next.photographyPlan).toBe("<p>Notes</p>");
     expect(d.repository.savePlan).not.toHaveBeenCalled();
   });
 
