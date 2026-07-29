@@ -91,7 +91,7 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder }: RichT
           }}
         />
       </div>
-      <EditorContent editor={editor} placeholder={placeholder} />
+      <EditorContent editor={editor} />
     </div>
   );
 }

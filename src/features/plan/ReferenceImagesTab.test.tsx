@@ -92,6 +92,8 @@ describe("ReferenceImagesTab", () => {
       expect(h.onSetDescription).toHaveBeenCalled();
     });
     expect(h.onSetDescription.mock.calls.at(-1)?.[0]).toBe("g1");
-    expect(h.onSetDescription.mock.calls.at(-1)?.[1]).toContain("Cool blue tones");
+    const html = h.onSetDescription.mock.calls.at(-1)?.[1];
+    expect(html).toContain("Cool blue tones");
+    expect(html).toMatch(/<p[ >]/i);
   });
 });
