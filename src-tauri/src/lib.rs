@@ -1,5 +1,6 @@
 mod error;
 mod menu;
+mod plan;
 mod workspace;
 
 #[derive(Debug, PartialEq, serde::Serialize)]
@@ -35,6 +36,11 @@ pub fn run() {
             workspace::inspect_project,
             workspace::rollback_created_project,
             workspace::forget_created_project,
+            plan::save_project_plan,
+            plan::read_project_plan,
+            plan::import_reference_image,
+            plan::load_reference_image,
+            plan::remove_reference_image,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Preshot");

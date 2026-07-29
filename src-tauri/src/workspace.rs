@@ -750,7 +750,7 @@ fn restore_quarantined_project(
     Err(rollback_error)
 }
 
-fn canonicalize_directory(
+pub(crate) fn canonicalize_directory(
     path: &Path,
     not_found_code: &str,
     not_directory_code: &str,
