@@ -96,28 +96,43 @@ another application has placed a conflicting `link.exe` earlier in PATH.
   and the guarded mutation flows -- using typed fakes only. `service.test.ts`
   also asserts that pure-metadata use cases do not persist, that
   `setPhotographyPlan` stays in-memory until saved, and that `savePlan` is the
-  explicit persistence path.
+  explicit persistence path. `domain/plan/pdf/geometry.test.ts`,
+  `document.test.ts`, and `export.test.ts` cover the pure A4 geometry helpers,
+  square contain-fit calculations, `buildExportDocument` section ordering, and
+  contextual export wrapping.
 - **Adapters**: `tauriPlan.test.ts` and `browserPlan.test.ts` mock the Tauri
   boundary (`invoke`) and assert command names (`save_project_plan`,
   `read_project_plan`, `import_reference_image`, `load_reference_image`,
   `remove_reference_image`), serialized inputs, validated responses, and
-  contextual failures. The browser adapter seeds "Editorial Demo" for E2E.
+  contextual failures. `infrastructure/pdf/htmlToBlocks.test.ts` covers HTML
+  parsing for headings, emphasis, lists, fallback paragraphs, and links;
+  `pdfLibExporter.test.ts` generates a real A4 PDF with CJK text and a
+  letterboxed image using bundled Noto Sans SC; `tauriPdfSave.test.ts` covers
+  dialog cancellation and the `save_pdf` command payload. The browser adapter
+  seeds "Editorial Demo" for E2E.
 - **Rust**: `src-tauri/src/plan.rs` tests exercise atomic manifest writes,
   validated imports with move semantics and renumbering, base64 data URL
   encoding, and file removal inside `tempfile::tempdir` fixtures.
+  `src-tauri/src/pdf.rs` separately verifies that `save_pdf` decodes base64 and
+  writes the requested PDF bytes.
 - **Components**: `ReferenceImagesTab`, `ProjectPlanProvider`, and `PlanPanel`
   tests query by accessible role and name, and cover the guarded action flows,
   the rich-text plan body and per-group description editors (high-contrast text,
   in-memory edits, auto-saved HTML), the single tab-free panel, image rendering,
   lightbox open/close, and error states. `ProjectPlanProvider` also uses fake
   timers to assert the 5-second auto-save flushes a changed plan once and writes
-  nothing when unchanged.
+  nothing when unchanged, and it covers the export handoff from `Export PDF`
+  through `PdfExporter` to `PdfSaveTarget`. `PlanPanel.test.tsx` keeps the
+  button wiring explicit.
   `RichTextEditor.test.tsx` covers the shared TipTap toolbar, placeholder
   rendering, and emitted HTML for the supported schema-safe subset; these tests
   use a deterministic jsdom editing approach so selection and formatting
   assertions stay stable without a real browser.
 - **Browser**: `e2e/plan.spec.ts` opens the seeded project, verifies reference
-  images render, and tests the lightbox flow.
+  images render, tests the lightbox flow, and clicks `Export PDF` to exercise
+  the real browser `pdfLibExporter` plus the browser save target. The export
+  smoke test waits for the busy label to return to `Export PDF` and asserts no
+  error banner appears.
 
 ## Before a Change Is Complete
 

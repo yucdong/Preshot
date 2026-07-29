@@ -49,10 +49,10 @@ not a replacement for normal error states.
 ### `src/features`
 
 Each capability owns its UI, local orchestration, and feature-specific tests.
-`workspace` is the first implemented capability: the project switcher shell, the
-recent-project launcher, and the new-project dialog. Planned capabilities are
-canvas, asset ingestion,
-copywriting, and export. Create a feature directory only when that capability is
+`workspace` and `plan` are the currently implemented capabilities: the project
+switcher shell, recent-project launcher, in-project plan editing, and PDF
+export flow. Planned capabilities still include canvas, asset ingestion, and
+copywriting. Create a feature directory only when that capability is
 implemented.
 
 ### `src/domain`
@@ -201,6 +201,33 @@ same schedule:
   `Unsaved changes` / `All changes saved`), and `Ctrl`/`Cmd`+`S` flushes pending
   changes immediately instead of waiting for the interval.
 
+### PDF export
+
+PDF export keeps the same layering: the header button in `PlanPanel` triggers a
+pure domain transform (`buildExportDocument`) plus pure A4 geometry helpers
+(`contentBox`, `squareSlotGrid`, `containSize`) before crossing any platform
+boundary. The domain output is a serializable `PdfExportDocument`, and the UI
+hands that document plus already-loaded image data to the `PdfExporter` port;
+writing bytes to disk is isolated behind the separate `PdfSaveTarget` port.
+
+`src/infrastructure/pdf/pdfLibExporter.ts` implements `PdfExporter` with
+`pdf-lib` and `@pdf-lib/fontkit`. It fetches bundled Noto Sans SC font files
+through Vite `?url` imports, embeds subset Regular/Bold fonts, parses the
+schema-safe plan HTML into PDF blocks, and lays out each image row into square
+slots with contain-fit letterboxing. Rows are page-atomic: if one row does not
+fit beneath the current cursor, the exporter starts a new page before drawing
+that whole row. v1 keeps italic text styled in the parsed model but renders it
+with the regular font in the PDF, and links are styled blue/underlined without
+adding clickable PDF annotations.
+
+`src/infrastructure/pdf/tauriPdfSave.ts` implements `PdfSaveTarget` for desktop
+builds by opening the Tauri save dialog (`dialog:allow-save`) and then calling
+the narrow Rust `save_pdf` command. `src-tauri/src/pdf.rs` decodes the base64
+payload, writes a temporary sibling file, and renames it into place for an
+atomic save. End-to-end browser tests swap in `browserPdfSaveTarget`, which
+resolves success without showing an OS dialog while still exercising the real
+`pdfLibExporter`.
+
 ### Boundaries
 
 - The domain `PlanService` owns plan rules (group management, per-group
@@ -234,8 +261,8 @@ same schedule:
 - Copywriting remains a platform-independent domain capability.
 - Project persistence implements `ProjectRepository` without changing feature
   consumers.
-- PDF generation implements `PdfExporter` with pdf-lib and receives a domain
-  project rather than reading UI state directly.
+- Broader export workflows can reuse `PdfExporter` and `PdfSaveTarget` ports
+  without reading UI state directly.
 
 ## Mobile Evolution
 

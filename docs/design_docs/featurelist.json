@@ -61,7 +61,8 @@
         "摄影计划与每组描述支持富文本编辑（HTML），基于 TipTap，向后兼容旧的纯文本",
         "每组参考样图带有一个可编辑的描述文本框，标题与描述使用黑色高对比字体",
         "project状态每隔5秒自动保存：检测到变化才写入.preshot，无变化则跳过",
-        "面板顶部显示保存状态（保存中/未保存/已保存），支持 Ctrl/Cmd+S 立即保存"
+        "面板顶部显示保存状态（保存中/未保存/已保存），支持 Ctrl/Cmd+S 立即保存",
+        "将方案与参考样图排版导出为 A4 PDF；图片按每行数量以正方形站位等比留白填充"
       ],
       "status": "completed",
       "decisions": [
@@ -74,7 +75,8 @@
         "Merge Photography Plan and Reference Images into one scrollable panel (no tabs) for a WYSIWYG plan view.",
         "Give each reference group an editable description (persisted on blur) with high-contrast black title and description text; ReferenceGroup.description defaults to empty for older manifests.",
         "Store TipTap schema-safe HTML in .preshot, keep edits in memory with 5-second auto-save flushing, and stay backward-compatible with legacy plain-text content.",
-        "Auto-save the plan every 5s from ProjectPlanProvider with JSON change detection (skip writes when unchanged); pure-metadata edits defer to the loop while file side-effect ops (import/remove/delete-group) save immediately, plus an unmount flush. PlanService.savePlan is the single persistence use case."
+        "Auto-save the plan every 5s from ProjectPlanProvider with JSON change detection (skip writes when unchanged); pure-metadata edits defer to the loop while file side-effect ops (import/remove/delete-group) save immediately, plus an unmount flush. PlanService.savePlan is the single persistence use case.",
+        "Use native pdf-lib + fontkit export with bundled Noto Sans SC, square contain-fit image slots, and saving via the dialog + save_pdf command."
       ],
       "progress": {
         "designApprovedAt": "2026-07-29",
@@ -91,11 +93,12 @@
           "Added the E2E browser flow and documented the feature in ARCHITECTURE and TESTING.",
           "Merged Photography Plan and Reference Images into one tab-free scrollable panel, upgraded the Photography Plan body and per-group descriptions to shared rich-text editing, and kept title/description contrast black.",
           "Added a 5s change-detected auto-save in ProjectPlanProvider (metadata edits deferred, file ops immediate, unmount flush) backed by a new PlanService.savePlan use case.",
-          "Added a live SaveStatus indicator (saving/unsaved/saved) in the PlanPanel header and a Ctrl/Cmd+S shortcut that flushes immediately."
+          "Added a live SaveStatus indicator (saving/unsaved/saved) in the PlanPanel header and a Ctrl/Cmd+S shortcut that flushes immediately.",
+          "Added A4 PDF export (pure domain export document + geometry, pdf-lib/fontkit with bundled Noto Sans SC, dialog/save_pdf save path) and covered it with browser smoke + docs."
         ],
         "lastVerified": [
           "151 frontend tests passed (Vitest), including fake-timer auto-save, save-status, and Ctrl+S tests.",
-          "Playwright workspace + plan browser flows passed.",
+          "Playwright workspace + plan + export browser flows passed (3 tests).",
           "ESLint and TypeScript typecheck passed.",
           "pnpm build succeeded."
         ],
