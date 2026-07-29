@@ -25,15 +25,25 @@ function deps() {
 }
 
 describe("createPlanService", () => {
-  it("adds a group, persists it, and returns the next plan", async () => {
+  it("adds a group and returns the next plan without persisting", async () => {
     const d = deps();
     const service = createPlanService(d);
 
-    const next = await service.addGroup("C:\\p", EMPTY_PLAN, "Lookbook");
+    const next = await service.addGroup(EMPTY_PLAN, "Lookbook");
 
     expect(next.referenceGroups).toHaveLength(1);
     expect(next.referenceGroups[0]).toMatchObject({ id: "id-1", title: "Lookbook", columnsPerRow: 3 });
-    expect(d.repository.savePlan).toHaveBeenCalledWith("C:\\p", next);
+    expect(d.repository.savePlan).not.toHaveBeenCalled();
+  });
+
+  it("persists the current plan through savePlan", async () => {
+    const d = deps();
+    const service = createPlanService(d);
+    const base = addGroup(EMPTY_PLAN, createGroup("g1", "Lookbook", 3));
+
+    await service.savePlan("C:\\p", base);
+
+    expect(d.repository.savePlan).toHaveBeenCalledWith("C:\\p", base);
   });
 
   it("imports an image into a group, persists, and returns its data URL", async () => {
@@ -56,7 +66,7 @@ describe("createPlanService", () => {
     vi.mocked(d.repository.savePlan).mockImplementation(async () => { order.push("save"); });
     vi.mocked(d.imageStore.removeImage).mockImplementation(async () => { order.push("delete"); });
     const service = createPlanService(d);
-    const base = { referenceGroups: [{ id: "g1", title: "L", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }] };
+    const base = { referenceGroups: [{ id: "g1", title: "L", description: "", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }] };
 
     const next = await service.removeImage("C:\\p", base, "g1", "i1");
 
@@ -65,12 +75,23 @@ describe("createPlanService", () => {
     expect(order).toEqual(["save", "delete"]);
   });
 
+  it("updates a group description in memory without persisting", async () => {
+    const d = deps();
+    const service = createPlanService(d);
+    const base = addGroup(EMPTY_PLAN, createGroup("g1", "Lookbook", 3));
+
+    const next = await service.setDescription(base, "g1", "Backlit, film grain");
+
+    expect(next.referenceGroups[0].description).toBe("Backlit, film grain");
+    expect(d.repository.savePlan).not.toHaveBeenCalled();
+  });
+
   it("wraps repository failures with operation context", async () => {
     const d = deps();
     vi.mocked(d.repository.savePlan).mockRejectedValueOnce(new Error("disk full"));
     const service = createPlanService(d);
 
-    await expect(service.addGroup("C:\\p", EMPTY_PLAN, "L")).rejects.toThrow(
+    await expect(service.savePlan("C:\\p", EMPTY_PLAN)).rejects.toThrow(
       /Unable to save the project plan: disk full/,
     );
   });

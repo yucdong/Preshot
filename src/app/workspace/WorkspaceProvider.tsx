@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   WorkspaceProjectRecord,
   WorkspaceProjectView,
 } from "../../domain/workspace/models";
-import { upsertProject } from "../../domain/workspace/registry";
+import { sortProjectsByRecentEdit, upsertProject } from "../../domain/workspace/registry";
 import type { WorkspaceMenuAction } from "../../domain/workspace/ports";
 import type { PlanDependencies } from "../../features/plan/ProjectPlanProvider";
 import { WorkspaceLauncher } from "../../features/workspace/WorkspaceLauncher";
@@ -56,6 +56,7 @@ export function WorkspaceProvider({
   const isMountedRef = useRef(false);
   const isBusyRef = useRef(false);
   const unlistenRef = useRef<(() => void) | null>(null);
+  const activeProjectRef = useRef<WorkspaceProjectView | null>(null);
 
   const setMountedState = useCallback((update: () => void) => {
     if (isMountedRef.current) {
@@ -102,6 +103,7 @@ export function WorkspaceProvider({
   const showProject = useCallback(
     (project: WorkspaceProjectView) => {
       setMountedState(() => {
+        activeProjectRef.current = project;
         setProjects((currentProjects) => upsertProject(currentProjects, project));
         setAlert(null);
         setView({ kind: "project", project });
@@ -131,6 +133,9 @@ export function WorkspaceProvider({
   const cancelCreate = useCallback(() => {
     setMountedState(() => {
       setCreateParentPath(null);
+      if (activeProjectRef.current) {
+        setView({ kind: "project", project: activeProjectRef.current });
+      }
     });
   }, [setMountedState]);
 
@@ -190,6 +195,25 @@ export function WorkspaceProvider({
       return openProject(project.path);
     },
     [openProject],
+  );
+
+  const selectProject = useCallback(
+    (project: WorkspaceProjectView) => {
+      if (project.status === "unavailable") {
+        setMountedState(() => {
+          setAlert(null);
+          setView({ kind: "launcher" });
+        });
+        return;
+      }
+
+      if (activeProjectRef.current?.projectId === project.projectId) {
+        return;
+      }
+
+      void openProject(project.path);
+    },
+    [openProject, setMountedState],
   );
 
   const openExistingProject = useCallback(async () => {
@@ -280,6 +304,15 @@ export function WorkspaceProvider({
 
         setProjects(loadedProjects);
         setAlert(null);
+
+        const [mostRecentlyEdited] = sortProjectsByRecentEdit(
+          loadedProjects.filter((project) => project.status === "available"),
+        );
+
+        if (mostRecentlyEdited) {
+          activeProjectRef.current = mostRecentlyEdited;
+          setView({ kind: "project", project: mostRecentlyEdited });
+        }
       } catch (error) {
         reportStartupError("Unable to load workspace projects", error);
         if (!isMountedRef.current) {
@@ -336,10 +369,30 @@ export function WorkspaceProvider({
     };
   }, [dependencies, openExistingProject, requestCreate]);
 
+  const orderedProjects = useMemo(
+    () => sortProjectsByRecentEdit(projects),
+    [projects],
+  );
+
   if (view.kind === "project") {
     return (
-      <AppShell projectName={view.project.name}>
-        <Workspace dependencies={planDependencies} projectPath={view.project.path} />
+      <AppShell
+        currentProjectId={view.project.projectId}
+        error={alert}
+        onNewProject={() => {
+          void requestCreate();
+        }}
+        onOpenProject={() => {
+          void openExistingProject();
+        }}
+        onSelectProject={selectProject}
+        projects={orderedProjects}
+      >
+        <Workspace
+          dependencies={planDependencies}
+          key={view.project.projectId}
+          projectPath={view.project.path}
+        />
       </AppShell>
     );
   }

@@ -91,8 +91,11 @@ another application has placed a conflicting `link.exe` earlier in PATH.
 ## Plan Coverage
 
 - **Domain**: `reducer.test.ts` and `service.test.ts` cover pure plan rules --
-  adding/renaming/deleting groups, setting columns (clamped 1..=6), importing/
+  adding/renaming/deleting groups, editing group descriptions, setting columns
+  (clamped 1..=6), importing/
   removing images, and the guarded mutation flows -- using typed fakes only.
+  `service.test.ts` also asserts that pure-metadata use cases do not persist and
+  that `savePlan` is the explicit persistence path.
 - **Adapters**: `tauriPlan.test.ts` and `browserPlan.test.ts` mock the Tauri
   boundary (`invoke`) and assert command names (`save_project_plan`,
   `read_project_plan`, `import_reference_image`, `load_reference_image`,
@@ -103,7 +106,10 @@ another application has placed a conflicting `link.exe` earlier in PATH.
   encoding, and file removal inside `tempfile::tempdir` fixtures.
 - **Components**: `ReferenceImagesTab`, `ProjectPlanProvider`, and `PlanPanel`
   tests query by accessible role and name, and cover the guarded action flows,
-  image rendering, lightbox open/close, and error states.
+  the per-group description field (high-contrast text, blur-persisted edits), the
+  single tab-free panel, image rendering, lightbox open/close, and error states.
+  `ProjectPlanProvider` also uses fake timers to assert the 5-second auto-save
+  flushes a changed plan once and writes nothing when unchanged.
 - **Browser**: `e2e/plan.spec.ts` opens the seeded project, verifies reference
   images render, and tests the lightbox flow.
 

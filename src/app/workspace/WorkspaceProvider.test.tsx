@@ -30,8 +30,10 @@ function planDeps(): PlanDependencies {
     service: {
       loadPlan: vi.fn().mockResolvedValue({ referenceGroups: [] }),
       loadImage: vi.fn().mockResolvedValue(""),
+      savePlan: vi.fn(),
       addGroup: vi.fn(),
       renameGroup: vi.fn(),
+      setDescription: vi.fn(),
       deleteGroup: vi.fn(),
       setColumns: vi.fn(),
       importImage: vi.fn(),
@@ -123,7 +125,7 @@ function createDependencies() {
 }
 
 describe("WorkspaceProvider", () => {
-  it("shows initial loading and then renders launcher projects", async () => {
+  it("shows initial loading and then auto-opens the most recently edited project", async () => {
     const project = makeProject();
     const { promise, resolve } = deferred<WorkspaceProjectView[]>();
     const { dependencies, service, native } = createDependencies();
@@ -139,34 +141,56 @@ describe("WorkspaceProvider", () => {
       resolve([project]);
     });
 
+    const nav = await screen.findByRole("navigation", { name: "Projects" });
     expect(
-      await screen.findByRole("button", { name: "Open project Editorial" }),
-    ).toBeVisible();
+      within(nav).getByRole("button", { name: "Open project Editorial" }),
+    ).toHaveAttribute("aria-current", "page");
     expect(native.onMenuAction).toHaveBeenCalledTimes(1);
   });
 
-  it("opens an available project through the service and shows the workspace view", async () => {
+  it("auto-opens the most recently edited project and switches via the sidebar", async () => {
     const user = userEvent.setup();
-    const project = makeProject();
-    const openedProject = makeProject({
-      lastOpenedAt: "2026-07-04T00:00:00.000Z",
+    const current = makeProject({
+      projectId: "editorial",
+      name: "Editorial",
+      updatedAt: "2026-07-09T00:00:00.000Z",
+    });
+    const other = makeProject({
+      projectId: "sunset",
+      name: "Sunset Shanghai",
+      path: "C:\\shoots\\Sunset",
+      updatedAt: "2026-07-02T00:00:00.000Z",
+    });
+    const openedOther = makeProject({
+      projectId: "sunset",
+      name: "Sunset Shanghai",
+      path: "C:\\shoots\\Sunset",
+      lastOpenedAt: "2026-07-10T00:00:00.000Z",
     });
     const { dependencies, service } = createDependencies();
-    vi.mocked(service.loadProjects).mockResolvedValue([project]);
-    vi.mocked(service.openProject).mockResolvedValue(openedProject);
+    vi.mocked(service.loadProjects).mockResolvedValue([other, current]);
+    vi.mocked(service.openProject).mockResolvedValue(openedOther);
 
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
-    await user.click(
+    expect(
       await screen.findByRole("button", { name: "Open project Editorial" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      await screen.findByRole("button", { name: "Add reference group" }),
+    ).toBeVisible();
+    expect(screen.getByRole("navigation", { name: "Projects" })).toBeVisible();
+
+    await user.click(
+      screen.getByRole("button", { name: "Open project Sunset Shanghai" }),
     );
 
-    expect(service.openProject).toHaveBeenCalledWith(project.path);
-    expect(await screen.findByText("Editorial")).toBeVisible();
-    expect(await screen.findByRole("button", { name: "Add reference group" })).toBeVisible();
-    expect(
-      screen.getByRole("navigation", { name: "Planning tools" }),
-    ).toBeVisible();
+    expect(service.openProject).toHaveBeenCalledWith(other.path);
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Open project Sunset Shanghai" }),
+      ).toHaveAttribute("aria-current", "page");
+    });
   });
 
   it("shows a recoverable load error while keeping the open action enabled", async () => {

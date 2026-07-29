@@ -339,6 +339,7 @@ mod tests {
             reference_groups: vec![ReferenceGroup {
                 id: "g1".into(),
                 title: "Lookbook".into(),
+                description: "Warm editorial mood".into(),
                 columns_per_row: 3,
                 images: vec![ReferenceImage {
                     id: "i1".into(),
@@ -349,6 +350,10 @@ mod tests {
 
         let manifest = save_project_plan_in(&project_path, plan.clone()).unwrap();
         assert_eq!(manifest.plan.as_ref().unwrap().reference_groups.len(), 1);
+        assert_eq!(
+            manifest.plan.as_ref().unwrap().reference_groups[0].description,
+            "Warm editorial mood"
+        );
         assert_ne!(manifest.updated_at, before);
         assert_eq!(read_project_plan_in(&project_path).unwrap(), plan);
     }

@@ -8,6 +8,7 @@ import {
   removeImage as removeImageFromPlan,
   renameGroup as renameGroupInPlan,
   setColumns as setColumnsInPlan,
+  setDescription as setDescriptionInPlan,
 } from "./plan";
 import type { PlanRepository, ReferenceImageStore } from "./ports";
 import type { WorkspaceLogger } from "../workspace/ports";
@@ -28,10 +29,12 @@ export interface ImportImageResult {
 export interface PlanService {
   loadPlan(projectPath: string): Promise<ProjectPlan>;
   loadImage(projectPath: string, file: string): Promise<string>;
-  addGroup(projectPath: string, plan: ProjectPlan, title: string): Promise<ProjectPlan>;
-  renameGroup(projectPath: string, plan: ProjectPlan, groupId: string, title: string): Promise<ProjectPlan>;
+  savePlan(projectPath: string, plan: ProjectPlan): Promise<void>;
+  addGroup(plan: ProjectPlan, title: string): Promise<ProjectPlan>;
+  renameGroup(plan: ProjectPlan, groupId: string, title: string): Promise<ProjectPlan>;
+  setDescription(plan: ProjectPlan, groupId: string, description: string): Promise<ProjectPlan>;
+  setColumns(plan: ProjectPlan, groupId: string, columns: number): Promise<ProjectPlan>;
   deleteGroup(projectPath: string, plan: ProjectPlan, groupId: string): Promise<ProjectPlan>;
-  setColumns(projectPath: string, plan: ProjectPlan, groupId: string, columns: number): Promise<ProjectPlan>;
   importImage(projectPath: string, plan: ProjectPlan, groupId: string, sourcePath: string): Promise<ImportImageResult>;
   removeImage(projectPath: string, plan: ProjectPlan, groupId: string, imageId: string): Promise<ProjectPlan>;
 }
@@ -83,20 +86,22 @@ export function createPlanService({
         throw contextualError("Unable to load a reference image", error);
       }
     },
-    addGroup(projectPath, plan, title) {
-      return enqueue(async () => {
-        const next = addGroupToPlan(plan, createGroup(createId(), title, DEFAULT_COLUMNS));
-        await persist(projectPath, next);
-        logger.info("Reference group added", { groups: next.referenceGroups.length });
-        return next;
-      });
+    savePlan(projectPath, plan) {
+      return enqueue(() => persist(projectPath, plan));
     },
-    renameGroup(projectPath, plan, groupId, title) {
-      return enqueue(async () => {
-        const next = renameGroupInPlan(plan, groupId, title);
-        await persist(projectPath, next);
-        return next;
-      });
+    addGroup(plan, title) {
+      const next = addGroupToPlan(plan, createGroup(createId(), title, DEFAULT_COLUMNS));
+      logger.info("Reference group added", { groups: next.referenceGroups.length });
+      return Promise.resolve(next);
+    },
+    renameGroup(plan, groupId, title) {
+      return Promise.resolve(renameGroupInPlan(plan, groupId, title));
+    },
+    setDescription(plan, groupId, description) {
+      return Promise.resolve(setDescriptionInPlan(plan, groupId, description));
+    },
+    setColumns(plan, groupId, columns) {
+      return Promise.resolve(setColumnsInPlan(plan, groupId, columns));
     },
     deleteGroup(projectPath, plan, groupId) {
       return enqueue(async () => {
@@ -111,13 +116,6 @@ export function createPlanService({
           }
         }
         logger.info("Reference group deleted", { groupId });
-        return next;
-      });
-    },
-    setColumns(projectPath, plan, groupId, columns) {
-      return enqueue(async () => {
-        const next = setColumnsInPlan(plan, groupId, columns);
-        await persist(projectPath, next);
         return next;
       });
     },

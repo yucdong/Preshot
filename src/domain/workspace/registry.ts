@@ -27,6 +27,29 @@ export function sortProjects<T extends SortableProject>(
     .map(({ project }) => project);
 }
 
+type RecentlyEditedProject = {
+  updatedAt: string;
+};
+
+export function sortProjectsByRecentEdit<T extends RecentlyEditedProject>(
+  projects: T[],
+): T[] {
+  return projects
+    .map((project, index) => ({ project, index }))
+    .sort((left, right) => {
+      const updatedAtOrder = right.project.updatedAt.localeCompare(
+        left.project.updatedAt,
+      );
+
+      if (updatedAtOrder !== 0) {
+        return updatedAtOrder;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ project }) => project);
+}
+
 export function upsertProject(
   projects: WorkspaceProjectView[],
   project: WorkspaceProjectView,

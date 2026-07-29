@@ -5,6 +5,7 @@ import {
   markProjectUnavailable,
   relocateProject,
   sortProjects,
+  sortProjectsByRecentEdit,
   upsertProject,
 } from "./registry";
 import type {
@@ -104,6 +105,28 @@ describe("workspace registry", () => {
       "older",
       "same-a",
       "same-b",
+    ]);
+  });
+
+  it("sorts projects by most recent edit (updatedAt) and preserves ties without mutating", () => {
+    const input = [
+      { ...viewedProject("stale", "2026-07-09T00:00:00.000Z"), updatedAt: "2026-07-01T00:00:00.000Z" },
+      { ...viewedProject("fresh-a", "2026-07-02T00:00:00.000Z"), updatedAt: "2026-07-05T00:00:00.000Z" },
+      { ...viewedProject("fresh-b", "2026-07-03T00:00:00.000Z"), updatedAt: "2026-07-05T00:00:00.000Z" },
+    ];
+
+    const result = sortProjectsByRecentEdit(input);
+
+    expect(result).not.toBe(input);
+    expect(result.map(({ projectId }) => projectId)).toEqual([
+      "fresh-a",
+      "fresh-b",
+      "stale",
+    ]);
+    expect(input.map(({ projectId }) => projectId)).toEqual([
+      "stale",
+      "fresh-a",
+      "fresh-b",
     ]);
   });
 

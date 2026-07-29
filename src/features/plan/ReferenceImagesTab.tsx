@@ -7,7 +7,7 @@ function GroupTitleInput({ title, onRename }: { title: string; onRename(value: s
   return (
     <input
       aria-label="Group title"
-      className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-lg font-medium"
+      className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-lg font-medium text-stone-900"
       onBlur={() => {
         if (value !== title) {
           onRename(value);
@@ -25,11 +25,38 @@ function GroupTitleInput({ title, onRename }: { title: string; onRename(value: s
   );
 }
 
+function GroupDescriptionInput({
+  description,
+  onChangeDescription,
+}: {
+  description: string;
+  onChangeDescription(value: string): void;
+}) {
+  const [value, setValue] = useState(description);
+
+  return (
+    <textarea
+      aria-label="Group description"
+      className="mt-3 w-full resize-y rounded-lg border border-black/10 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400"
+      onBlur={() => {
+        if (value !== description) {
+          onChangeDescription(value);
+        }
+      }}
+      onChange={(event) => setValue(event.target.value)}
+      placeholder="Describe this set of references — mood, lighting, styling, or notes…"
+      rows={2}
+      value={value}
+    />
+  );
+}
+
 export interface ReferenceImagesTabProps {
   groups: ReferenceGroup[];
   imageSrc(file: string): string | undefined;
   onAddGroup(): void;
   onRenameGroup(groupId: string, title: string): void;
+  onSetDescription(groupId: string, description: string): void;
   onDeleteGroup(groupId: string): void;
   onSetColumns(groupId: string, columns: number): void;
   onAddImage(groupId: string): void;
@@ -50,6 +77,7 @@ export function ReferenceImagesTab({
   imageSrc,
   onAddGroup,
   onRenameGroup,
+  onSetDescription,
   onDeleteGroup,
   onSetColumns,
   onAddImage,
@@ -58,7 +86,13 @@ export function ReferenceImagesTab({
 }: ReferenceImagesTabProps) {
   return (
     <div className="space-y-8 p-6">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.24em] text-amber-700">
+            Reference Images
+          </p>
+          <h3 className="mt-1 text-xl font-semibold text-stone-900">Sample sets</h3>
+        </div>
         <button
           className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700"
           onClick={onAddGroup}
@@ -105,6 +139,12 @@ export function ReferenceImagesTab({
               Delete group
             </button>
           </div>
+
+          <GroupDescriptionInput
+            key={`description-${group.description}`}
+            description={group.description}
+            onChangeDescription={(value) => onSetDescription(group.id, value)}
+          />
 
           <div
             className="mt-4 grid gap-3"

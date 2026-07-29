@@ -6,6 +6,7 @@ export interface ReferenceImage {
 export interface ReferenceGroup {
   id: string;
   title: string;
+  description: string;
   columnsPerRow: number;
   images: ReferenceImage[];
 }

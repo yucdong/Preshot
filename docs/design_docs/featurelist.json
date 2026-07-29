@@ -11,7 +11,8 @@
         "项目打开界面将会显示所有的projects，显示前三个，并且用一个滑块拖动查看后面的项目，项目用一张图片（如果项目中有图片）展示，如果没有图片，则显示项目名字",
         "点击项目后可以打开这个主界面",
         "页面的菜单栏有文件下拉菜单，可以选择新建、关闭、打开，打开新窗口等，打开新项目就会让你重新选择一个项目所在的目录",
-        "每个项目文件夹下面有一个.preshot的文件表示这是一个preshot项目，打开项目必须检索到这个文件才能支持打开"
+        "每个项目文件夹下面有一个.preshot的文件表示这是一个preshot项目，打开项目必须检索到这个文件才能支持打开",
+        "打开app后直接进入最近编辑的项目（无需先显示所有项目的开始页），最左侧栏显示按最后编辑时间排序（最新在最上）的项目列表，点击列表中的项目即可切换项目"
       ],
       "status": "completed",
       "decisions": [
@@ -22,7 +23,8 @@
         "Use an editorial horizontal gallery showing three recent projects at a time.",
         "Resolve covers from manifest coverImage, then the first supported root image.",
         "Keep invalid projects visible and require matching project IDs for relocation.",
-        "Use a native Tauri File menu; new windows open the project launcher."
+        "Use a native Tauri File menu; new windows start the same auto-open flow.",
+        "Auto-open the most recently edited available project on startup into a left project-switcher rail (sorted by updatedAt desc); show the launcher only when no available project exists, and route unavailable-project clicks there to recover them."
       ],
       "progress": {
         "completedAt": "2026-07-28",
@@ -54,7 +56,11 @@
         "project打开后，首先最重要的一栏是方案",
         "点击方案，右侧会显示几个tab，分别是摄影计划、参考样图",
         "参考样图可以添加多组，每组可以编辑每行显示的图片数量，然后按照这个去排版",
-        "显示的时候将每张图压缩到1:1放入一行，鼠标点击之后，显示这个图片的完整内容"
+        "显示的时候将每张图压缩到1:1放入一行，鼠标点击之后，显示这个图片的完整内容",
+        "摄影计划和参考样图显示在同一个面板中（无需切换tab），所见即所得",
+        "每组参考样图带有一个可编辑的描述文本框，标题与描述使用黑色高对比字体",
+        "project状态每隔5秒自动保存：检测到变化才写入.preshot，无变化则跳过",
+        "面板顶部显示保存状态（保存中/未保存/已保存），支持 Ctrl/Cmd+S 立即保存"
       ],
       "status": "completed",
       "decisions": [
@@ -63,7 +69,10 @@
         "Move imported images into a references/ subfolder, renumbered; accept only jpg/png up to 16MB.",
         "Render reference images as on-demand base64 data URLs via narrow Rust commands, not the asset protocol.",
         "Display images as 1:1 squares in configurable per-row grids; clicking expands a lightbox.",
-        "Reuse the workspace layering: pure domain PlanService use cases, Tauri adapters, and narrow Rust commands."
+        "Reuse the workspace layering: pure domain PlanService use cases, Tauri adapters, and narrow Rust commands.",
+        "Merge Photography Plan and Reference Images into one scrollable panel (no tabs) for a WYSIWYG plan view.",
+        "Give each reference group an editable description (persisted on blur) with high-contrast black title and description text; ReferenceGroup.description defaults to empty for older manifests.",
+        "Auto-save the plan every 5s from ProjectPlanProvider with JSON change detection (skip writes when unchanged); pure-metadata edits defer to the loop while file side-effect ops (import/remove/delete-group) save immediately, plus an unmount flush. PlanService.savePlan is the single persistence use case."
       ],
       "progress": {
         "designApprovedAt": "2026-07-29",
@@ -77,14 +86,16 @@
           "Added narrow Rust commands (save/read plan, import/load/remove reference image) storing plan in the .preshot manifest and images under references/.",
           "Added Tauri and in-memory plan adapters plus fail-closed dependency composition.",
           "Built the Plan panel, Reference Images gallery, and lightbox UI, wired into the opened project.",
-          "Added the E2E browser flow and documented the feature in ARCHITECTURE and TESTING."
+          "Added the E2E browser flow and documented the feature in ARCHITECTURE and TESTING.",
+          "Merged Photography Plan and Reference Images into one tab-free scrollable panel, added a per-group description textarea, and raised title/description contrast to black.",
+          "Added a 5s change-detected auto-save in ProjectPlanProvider (metadata edits deferred, file ops immediate, unmount flush) backed by a new PlanService.savePlan use case.",
+          "Added a live SaveStatus indicator (saving/unsaved/saved) in the PlanPanel header and a Ctrl/Cmd+S shortcut that flushes immediately."
         ],
         "lastVerified": [
-          "137 frontend tests passed (Vitest).",
-          "27 Rust tests passed.",
-          "Playwright workspace + plan browser flows and the init.ps1 harness passed.",
-          "ESLint, TypeScript typecheck, and cargo fmt --check passed.",
-          "pnpm build and pnpm tauri:build succeeded, producing MSI and NSIS bundles."
+          "151 frontend tests passed (Vitest), including fake-timer auto-save, save-status, and Ctrl+S tests.",
+          "Playwright workspace + plan browser flows passed.",
+          "ESLint and TypeScript typecheck passed.",
+          "pnpm build succeeded."
         ],
         "remaining": []
       }

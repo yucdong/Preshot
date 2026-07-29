@@ -33,6 +33,7 @@ function validateGroup(value: unknown): ReferenceGroup {
   return {
     id: requireString(value.id),
     title: typeof value.title === "string" ? value.title : "",
+    description: typeof value.description === "string" ? value.description : "",
     columnsPerRow: value.columnsPerRow,
     images: value.images.map((image) => {
       if (!isRecord(image)) {

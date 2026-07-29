@@ -1,16 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-test("opens a recent project from the launcher", async ({ page }) => {
+test("auto-opens the most recently edited project into the workspace", async ({ page }) => {
   await page.goto("/");
 
+  const nav = page.getByRole("navigation", { name: "Projects" });
   await expect(
-    page.getByRole("heading", { name: "Recent projects" }),
+    nav.getByRole("button", { name: "Open project Editorial Demo" }),
+  ).toHaveAttribute("aria-current", "page");
+
+  await expect(
+    page.getByRole("button", { name: "Add reference group" }),
   ).toBeVisible();
-
-  await page
-    .getByRole("button", { name: "Open project Editorial Demo" })
-    .click();
-
-  await expect(page.getByText("Editorial Demo")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add reference group" })).toBeVisible();
 });

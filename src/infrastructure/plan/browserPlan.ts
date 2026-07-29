@@ -11,6 +11,7 @@ const SEEDED_PLAN: ProjectPlan = {
     {
       id: "seed-group",
       title: "Lookbook",
+      description: "Mood, lighting, and posing references for the editorial set.",
       columnsPerRow: 3,
       images: [
         { id: "seed-1", file: "references/0001.png" },

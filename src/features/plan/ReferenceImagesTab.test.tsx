@@ -7,6 +7,7 @@ function handlers() {
   return {
     onAddGroup: vi.fn(),
     onRenameGroup: vi.fn(),
+    onSetDescription: vi.fn(),
     onDeleteGroup: vi.fn(),
     onSetColumns: vi.fn(),
     onAddImage: vi.fn(),
@@ -16,7 +17,7 @@ function handlers() {
 }
 
 const groups = [
-  { id: "g1", title: "Lookbook", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] },
+  { id: "g1", title: "Lookbook", description: "Warm editorial mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] },
 ];
 
 describe("ReferenceImagesTab", () => {
@@ -68,5 +69,32 @@ describe("ReferenceImagesTab", () => {
     await user.tab();
     expect(h.onRenameGroup).toHaveBeenCalledTimes(1);
     expect(h.onRenameGroup).toHaveBeenCalledWith("g1", "Summer Set");
+  });
+
+  it("shows a high-contrast description field and persists edits on blur", async () => {
+    const user = userEvent.setup();
+    const h = handlers();
+    render(
+      <ReferenceImagesTab
+        groups={groups}
+        imageSrc={() => "data:image/png;base64,AA"}
+        {...h}
+      />,
+    );
+
+    const group = screen.getByRole("group", { name: "Reference group: Lookbook" });
+    const description = within(group).getByRole("textbox", { name: "Group description" });
+
+    expect(description).toHaveValue("Warm editorial mood");
+    expect(description).toHaveClass("text-stone-900");
+    expect(within(group).getByRole("textbox", { name: "Group title" })).toHaveClass("text-stone-900");
+
+    await user.clear(description);
+    await user.type(description, "Cool blue tones");
+    expect(h.onSetDescription).not.toHaveBeenCalled();
+
+    await user.tab();
+    expect(h.onSetDescription).toHaveBeenCalledTimes(1);
+    expect(h.onSetDescription).toHaveBeenCalledWith("g1", "Cool blue tones");
   });
 });

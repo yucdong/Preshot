@@ -19,7 +19,7 @@ export function createGroup(
   title: string,
   columnsPerRow: number = DEFAULT_COLUMNS,
 ): ReferenceGroup {
-  return { id, title, columnsPerRow: clampColumns(columnsPerRow), images: [] };
+  return { id, title, description: "", columnsPerRow: clampColumns(columnsPerRow), images: [] };
 }
 
 export function findGroup(
@@ -46,6 +46,18 @@ export function renameGroup(
   return {
     referenceGroups: plan.referenceGroups.map((group) =>
       group.id === groupId ? { ...group, title } : group,
+    ),
+  };
+}
+
+export function setDescription(
+  plan: ProjectPlan,
+  groupId: string,
+  description: string,
+): ProjectPlan {
+  return {
+    referenceGroups: plan.referenceGroups.map((group) =>
+      group.id === groupId ? { ...group, description } : group,
     ),
   };
 }

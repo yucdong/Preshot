@@ -1,5 +1,4 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceProjectView } from "../domain/workspace/models";
 import type {
@@ -32,8 +31,10 @@ function planDeps(): PlanDependencies {
     service: {
       loadPlan: vi.fn().mockResolvedValue({ referenceGroups: [] }),
       loadImage: vi.fn().mockResolvedValue(""),
+      savePlan: vi.fn(),
       addGroup: vi.fn(),
       renameGroup: vi.fn(),
+      setDescription: vi.fn(),
       deleteGroup: vi.fn(),
       setColumns: vi.fn(),
       importImage: vi.fn(),
@@ -72,24 +73,19 @@ function createDependencies(project: WorkspaceProjectView): WorkspaceDependencie
 }
 
 describe("App", () => {
-  it("renders through injected workspace dependencies without invoking Tauri APIs", async () => {
-    const user = userEvent.setup();
+  it("auto-opens the most recently edited project and renders the project switcher", async () => {
     const project = makeProject();
 
     render(<App dependencies={createDependencies(project)} planDependencies={planDeps()} />);
 
-    await user.click(
-      await screen.findByRole("button", { name: "Open project Editorial" }),
-    );
-
-    expect(await screen.findByText("Editorial")).toBeVisible();
-    expect(
-      screen.getByRole("navigation", { name: "Planning tools" }),
-    ).toBeVisible();
     expect(await screen.findByRole("button", { name: "Add reference group" })).toBeVisible();
-    expect(screen.getByText("Canvas")).toBeVisible();
-    expect(screen.getByText("Assets")).toBeVisible();
-    expect(screen.getByText("Copywriting")).toBeVisible();
-    expect(screen.getByText("Export")).toBeVisible();
+
+    const nav = screen.getByRole("navigation", { name: "Projects" });
+    expect(
+      within(nav).getByRole("button", { name: "Open project Editorial" }),
+    ).toHaveAttribute("aria-current", "page");
+
+    expect(screen.queryByText("Canvas")).not.toBeInTheDocument();
+    expect(screen.queryByText("Copywriting")).not.toBeInTheDocument();
   });
 });

@@ -23,12 +23,23 @@ describe("createTauriPlan", () => {
 
   it("reads and validates a plan", async () => {
     const invokeCommand = vi.fn().mockResolvedValue({
-      referenceGroups: [{ id: "g1", title: "L", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }],
+      referenceGroups: [{ id: "g1", title: "L", description: "Warm tones", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }],
     });
     const plan = createTauriPlan({ invokeCommand });
 
     await expect(plan.loadPlan("C:\\p")).resolves.toEqual({
-      referenceGroups: [{ id: "g1", title: "L", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }],
+      referenceGroups: [{ id: "g1", title: "L", description: "Warm tones", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }],
+    });
+  });
+
+  it("defaults a missing description to an empty string", async () => {
+    const invokeCommand = vi.fn().mockResolvedValue({
+      referenceGroups: [{ id: "g1", title: "L", columnsPerRow: 3, images: [] }],
+    });
+    const plan = createTauriPlan({ invokeCommand });
+
+    await expect(plan.loadPlan("C:\\p")).resolves.toEqual({
+      referenceGroups: [{ id: "g1", title: "L", description: "", columnsPerRow: 3, images: [] }],
     });
   });
 });

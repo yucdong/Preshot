@@ -1,20 +1,23 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { PlanService } from "../../domain/plan/service";
+import type { PlanRepository, ReferenceImageStore } from "../../domain/plan/ports";
+import { createPlanService, type PlanService } from "../../domain/plan/service";
 import { ProjectPlanProvider, type PlanDependencies } from "./ProjectPlanProvider";
 
 function deps(): { dependencies: PlanDependencies; service: PlanService; pick: ReturnType<typeof vi.fn> } {
-  const plan = { referenceGroups: [{ id: "g1", title: "Lookbook", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] }] };
+  const plan = { referenceGroups: [{ id: "g1", title: "Lookbook", description: "Warm editorial mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] }] };
   const service: PlanService = {
     loadPlan: vi.fn().mockResolvedValue(plan),
     loadImage: vi.fn().mockResolvedValue("data:image/png;base64,AA"),
+    savePlan: vi.fn().mockResolvedValue(undefined),
     addGroup: vi.fn(),
     renameGroup: vi.fn(),
+    setDescription: vi.fn(),
     deleteGroup: vi.fn(),
     setColumns: vi.fn(),
     importImage: vi.fn().mockResolvedValue({
-      plan: { referenceGroups: [{ id: "g1", title: "Lookbook", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }, { id: "i2", file: "references/0002.png" }] }] },
+      plan: { referenceGroups: [{ id: "g1", title: "Lookbook", description: "Warm editorial mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }, { id: "i2", file: "references/0002.png" }] }] },
       image: { id: "i2", file: "references/0002.png" },
       dataUrl: "data:image/png;base64,BB",
     }),
@@ -26,6 +29,25 @@ function deps(): { dependencies: PlanDependencies; service: PlanService; pick: R
     pick,
     dependencies: { service, picker: { pickImageFile: pick }, logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
   };
+}
+
+function autoSaveDeps() {
+  const savePlan = vi.fn().mockResolvedValue(undefined);
+  const repository: PlanRepository = {
+    loadPlan: vi.fn().mockResolvedValue({
+      referenceGroups: [{ id: "g1", title: "Lookbook", description: "", columnsPerRow: 3, images: [] }],
+    }),
+    savePlan,
+  };
+  const imageStore: ReferenceImageStore = {
+    importImage: vi.fn(),
+    loadImage: vi.fn().mockResolvedValue("data:image/png;base64,AA"),
+    removeImage: vi.fn(),
+  };
+  const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+  const service = createPlanService({ repository, imageStore, createId: () => "id", logger });
+  const dependencies: PlanDependencies = { service, picker: { pickImageFile: vi.fn() }, logger };
+  return { savePlan, dependencies };
 }
 
 describe("ProjectPlanProvider", () => {
@@ -45,5 +67,74 @@ describe("ProjectPlanProvider", () => {
 
     await user.click(screen.getByRole("button", { name: "Open reference image 1" }));
     expect(await screen.findByRole("dialog")).toBeVisible();
+  });
+
+  it("auto-saves changed plan state every 5 seconds and reflects the save status", async () => {
+    vi.useFakeTimers();
+    try {
+      const { savePlan, dependencies } = autoSaveDeps();
+
+      render(<ProjectPlanProvider projectPath={String.raw`C:\demo`} dependencies={dependencies} />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
+
+      // A pure-metadata edit updates in-memory state but is not persisted yet.
+      fireEvent.change(screen.getByRole("combobox", { name: "Images per row" }), {
+        target: { value: "4" },
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(savePlan).not.toHaveBeenCalled();
+      expect(screen.getByRole("status")).toHaveTextContent("Unsaved changes");
+
+      // The 5s auto-save flushes the change exactly once and returns to "saved".
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(savePlan).toHaveBeenCalledTimes(1);
+      expect(savePlan.mock.calls[0][1].referenceGroups[0].columnsPerRow).toBe(4);
+      expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
+
+      // With no further change, the next tick writes nothing.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(savePlan).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("flushes pending changes immediately on Ctrl+S", async () => {
+    vi.useFakeTimers();
+    try {
+      const { savePlan, dependencies } = autoSaveDeps();
+
+      render(<ProjectPlanProvider projectPath={String.raw`C:\demo`} dependencies={dependencies} />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      fireEvent.change(screen.getByRole("combobox", { name: "Images per row" }), {
+        target: { value: "5" },
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(savePlan).not.toHaveBeenCalled();
+
+      // Ctrl+S saves now, without waiting for the 5s interval.
+      await act(async () => {
+        fireEvent.keyDown(document.body, { key: "s", ctrlKey: true });
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(savePlan).toHaveBeenCalledTimes(1);
+      expect(savePlan.mock.calls[0][1].referenceGroups[0].columnsPerRow).toBe(5);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

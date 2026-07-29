@@ -49,6 +49,8 @@ pub struct ReferenceImage {
 pub struct ReferenceGroup {
     pub id: String,
     pub title: String,
+    #[serde(default)]
+    pub description: String,
     pub columns_per_row: u32,
     #[serde(default)]
     pub images: Vec<ReferenceImage>,
@@ -1263,6 +1265,7 @@ mod tests {
         let plan = inspected.manifest.plan.unwrap();
 
         assert_eq!(plan.reference_groups.len(), 1);
+        assert_eq!(plan.reference_groups[0].description, "");
         assert_eq!(
             plan.reference_groups[0].images[0].file,
             "references/0001.jpg"

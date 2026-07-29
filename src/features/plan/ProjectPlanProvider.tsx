@@ -5,6 +5,7 @@ import type { PlanService } from "../../domain/plan/service";
 import type { WorkspaceLogger } from "../../domain/workspace/ports";
 import { PlanPanel } from "./PlanPanel";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
+import type { SaveState } from "./SaveStatus";
 
 export interface PlanDependencies {
   service: PlanService;
@@ -21,19 +22,63 @@ function detail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const AUTO_SAVE_INTERVAL_MS = 5000;
+
 export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanProviderProps) {
   const { service, picker, logger } = dependencies;
   const [plan, setPlan] = useState<ProjectPlan>(EMPTY_PLAN);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("saved");
   const mountedRef = useRef(false);
   const busyRef = useRef(false);
   const planRef = useRef(plan);
+  const savingRef = useRef(false);
+  const lastSavedRef = useRef(JSON.stringify(EMPTY_PLAN));
 
-  useEffect(() => {
-    planRef.current = plan;
-  }, [plan]);
+  const syncSaveState = useCallback(() => {
+    setSaveState(
+      savingRef.current
+        ? "saving"
+        : JSON.stringify(planRef.current) === lastSavedRef.current
+          ? "saved"
+          : "unsaved",
+    );
+  }, []);
+
+  const applyPlan = useCallback(
+    (next: ProjectPlan) => {
+      planRef.current = next;
+      setPlan(next);
+      syncSaveState();
+    },
+    [syncSaveState],
+  );
+
+  const markSaved = useCallback(
+    (saved: ProjectPlan) => {
+      lastSavedRef.current = JSON.stringify(saved);
+      syncSaveState();
+    },
+    [syncSaveState],
+  );
+
+  const persisting = useCallback(
+    async (action: () => Promise<void>) => {
+      savingRef.current = true;
+      syncSaveState();
+      try {
+        await action();
+      } finally {
+        savingRef.current = false;
+        if (mountedRef.current) {
+          syncSaveState();
+        }
+      }
+    },
+    [syncSaveState],
+  );
 
   const report = useCallback(
     (message: string, err: unknown) => {
@@ -62,13 +107,41 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
     [report],
   );
 
+  const flush = useCallback(async () => {
+    if (busyRef.current || savingRef.current) {
+      return;
+    }
+    const planToSave = planRef.current;
+    const snapshot = JSON.stringify(planToSave);
+    if (snapshot === lastSavedRef.current) {
+      return;
+    }
+    savingRef.current = true;
+    syncSaveState();
+    try {
+      await service.savePlan(projectPath, planToSave);
+      lastSavedRef.current = snapshot;
+      if (mountedRef.current) {
+        setError(null);
+      }
+    } catch (err) {
+      report("Unable to auto-save the project plan", err);
+    } finally {
+      savingRef.current = false;
+      if (mountedRef.current) {
+        syncSaveState();
+      }
+    }
+  }, [projectPath, report, service, syncSaveState]);
+
   useEffect(() => {
     mountedRef.current = true;
     async function load() {
       try {
         const loaded = await service.loadPlan(projectPath);
         if (!mountedRef.current) return;
-        setPlan(loaded);
+        applyPlan(loaded);
+        markSaved(loaded);
         setError(null);
         for (const group of loaded.referenceGroups) {
           for (const image of group.images) {
@@ -89,62 +162,94 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
     return () => {
       mountedRef.current = false;
     };
-  }, [projectPath, service, report]);
+  }, [applyPlan, markSaved, projectPath, service, report]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void flush();
+    }, AUTO_SAVE_INTERVAL_MS);
+    return () => {
+      clearInterval(timer);
+      void flush();
+    };
+  }, [flush]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && (event.key === "s" || event.key === "S")) {
+        event.preventDefault();
+        void flush();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [flush]);
 
   const addGroup = useCallback(() => {
     void guard("Unable to add a reference group", async () => {
-      const next = await service.addGroup(projectPath, planRef.current, "New group");
+      const next = await service.addGroup(planRef.current, "New group");
       if (mountedRef.current) {
-        setPlan(next);
+        applyPlan(next);
         setError(null);
       }
     });
-  }, [guard, projectPath, service]);
+  }, [applyPlan, guard, service]);
 
   const renameGroup = useCallback(
     (groupId: string, title: string) => {
       void guard("Unable to rename the reference group", async () => {
-        const next = await service.renameGroup(projectPath, planRef.current, groupId, title);
+        const next = await service.renameGroup(planRef.current, groupId, title);
         if (mountedRef.current) {
-          setPlan(next);
+          applyPlan(next);
           setError(null);
         }
       });
     },
-    [guard, projectPath, service],
+    [applyPlan, guard, service],
+  );
+
+  const setDescription = useCallback(
+    (groupId: string, description: string) => {
+      void guard("Unable to update the reference group description", async () => {
+        const next = await service.setDescription(planRef.current, groupId, description);
+        if (mountedRef.current) {
+          applyPlan(next);
+          setError(null);
+        }
+      });
+    },
+    [applyPlan, guard, service],
   );
 
   const deleteGroup = useCallback(
     (groupId: string) => {
-      void guard("Unable to delete the reference group", async () => {
-        const next = await service.deleteGroup(projectPath, planRef.current, groupId);
-        if (mountedRef.current) {
-          setPlan(next);
-          setError(null);
-        }
-      });
+      void guard("Unable to delete the reference group", () =>
+        persisting(async () => {
+          const next = await service.deleteGroup(projectPath, planRef.current, groupId);
+          if (mountedRef.current) {
+            applyPlan(next);
+            markSaved(next);
+            setError(null);
+          }
+        }),
+      );
     },
-    [guard, projectPath, service],
+    [applyPlan, guard, markSaved, persisting, projectPath, service],
   );
 
   const setColumns = useCallback(
     (groupId: string, columns: number) => {
-      if (!mountedRef.current) {
-        return;
-      }
-      void (async () => {
-        try {
-          const next = await service.setColumns(projectPath, planRef.current, groupId, columns);
-          if (mountedRef.current) {
-            setPlan(next);
-            setError(null);
-          }
-        } catch (err) {
-          report("Unable to change the layout", err);
+      void guard("Unable to change the layout", async () => {
+        const next = await service.setColumns(planRef.current, groupId, columns);
+        if (mountedRef.current) {
+          applyPlan(next);
+          setError(null);
         }
-      })();
+      });
     },
-    [projectPath, report, service],
+    [applyPlan, guard, service],
   );
 
   const addImage = useCallback(
@@ -152,27 +257,33 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
       void guard("Unable to import the reference image", async () => {
         const sourcePath = await picker.pickImageFile("Select a JPG or PNG reference image");
         if (sourcePath === null) return;
-        const result = await service.importImage(projectPath, planRef.current, groupId, sourcePath);
-        if (!mountedRef.current) return;
-        setImageSrc((current) => ({ ...current, [result.image.file]: result.dataUrl }));
-        setPlan(result.plan);
-        setError(null);
+        await persisting(async () => {
+          const result = await service.importImage(projectPath, planRef.current, groupId, sourcePath);
+          if (!mountedRef.current) return;
+          setImageSrc((current) => ({ ...current, [result.image.file]: result.dataUrl }));
+          applyPlan(result.plan);
+          markSaved(result.plan);
+          setError(null);
+        });
       });
     },
-    [guard, picker, projectPath, service],
+    [applyPlan, guard, markSaved, persisting, picker, projectPath, service],
   );
 
   const removeImage = useCallback(
     (groupId: string, imageId: string) => {
-      void guard("Unable to remove the reference image", async () => {
-        const next = await service.removeImage(projectPath, planRef.current, groupId, imageId);
-        if (mountedRef.current) {
-          setPlan(next);
-          setError(null);
-        }
-      });
+      void guard("Unable to remove the reference image", () =>
+        persisting(async () => {
+          const next = await service.removeImage(projectPath, planRef.current, groupId, imageId);
+          if (mountedRef.current) {
+            applyPlan(next);
+            markSaved(next);
+            setError(null);
+          }
+        }),
+      );
     },
-    [guard, projectPath, service],
+    [applyPlan, guard, markSaved, persisting, projectPath, service],
   );
 
   return (
@@ -188,6 +299,8 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
         onRemoveImage={removeImage}
         onRenameGroup={renameGroup}
         onSetColumns={setColumns}
+        onSetDescription={setDescription}
+        saveState={saveState}
       />
       {lightbox && imageSrc[lightbox] ? (
         <ReferenceImageLightbox

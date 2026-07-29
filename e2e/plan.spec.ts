@@ -1,8 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-test("opens a project and browses reference images", async ({ page }) => {
+test("browses reference images in the auto-opened project", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Open project Editorial Demo" }).click();
 
   const group = page.getByRole("group", { name: "Reference group: Lookbook" });
   await expect(group.getByRole("img", { name: "Reference image 1" })).toBeVisible();

@@ -49,8 +49,9 @@ not a replacement for normal error states.
 ### `src/features`
 
 Each capability owns its UI, local orchestration, and feature-specific tests.
-`workspace` is the first implemented capability: the recent-project launcher and
-the new-project dialog. Planned capabilities are canvas, asset ingestion,
+`workspace` is the first implemented capability: the project switcher shell, the
+recent-project launcher, and the new-project dialog. Planned capabilities are
+canvas, asset ingestion,
 copywriting, and export. Create a feature directory only when that capability is
 implemented.
 
@@ -111,6 +112,19 @@ Two independent, versioned stores back the feature:
   identity, and relocation is authorized only when the manifest ID matches the
   stored record.
 
+### Navigation shell
+
+On startup `WorkspaceProvider` loads the registry and, when at least one
+available project exists, auto-opens the most recently edited one
+(`updatedAt` descending) straight into the `AppShell` — the launcher is not a
+mandatory start page. The `AppShell` left rail is a project switcher: it lists
+every project sorted by most recent edit, highlights the current one
+(`aria-current="page"`), and switches projects through the same
+`WorkspaceService.openProject` flow when clicked. Its footer exposes New Project
+and Open Project. The `WorkspaceLauncher` (recent-project gallery, relocate, and
+remove) is shown only when no available project exists, and clicking an
+unavailable project in the rail returns there to recover it.
+
 ### Boundaries
 
 - The domain `WorkspaceService` owns all rules and serializes every mutation
@@ -130,8 +144,8 @@ The Rust File menu (`src-tauri/src/menu.rs`) owns New Project, Open Project,
 Open New Window, and Close. New Project and Open Project emit a `workspace://menu`
 event to the focused webview; the `tauriWorkspace.onMenuAction` adapter validates
 the payload and forwards it to `WorkspaceProvider`, which runs the same guarded
-flows as the launcher buttons. Open New Window and Close are handled entirely in
-Rust, and new windows open the launcher.
+flows as the shell and launcher buttons. Open New Window and Close are handled
+entirely in Rust, and new windows start the same auto-open flow.
 
 ## Basic Plan Editing
 
@@ -142,7 +156,10 @@ domain port -> infrastructure adapter -> Tauri command -> project filesystem.
 ### Plan storage
 
 The project plan lives in the `.preshot` manifest as an optional `plan` field
-(same `schemaVersion: 1`). Reference images are stored in a `references/`
+(same `schemaVersion: 1`). Each reference group carries an `id`, `title`, an
+editable `description`, a `columnsPerRow` count, and its images; `description`
+defaults to empty so manifests written before this field still load. Reference
+images are stored in a `references/`
 subdirectory as `NNNN.ext` (4-digit zero-padded, sequential jpg/png only, ≤ 16 MB
 each). Imported files are **moved** (source removed): same-volume rename or
 cross-volume copy+delete.
@@ -161,10 +178,34 @@ cross-volume copy+delete.
 All commands serialize cleanly and return contextual errors. Reference images
 are loaded on demand to avoid bloating the initial plan-load payload.
 
+### Auto-save
+
+`ProjectPlanProvider` owns the in-memory plan and persists it with a debounced
+auto-save instead of writing on every keystroke:
+
+- Pure-metadata edits (add/rename/delete group, description, columns) update
+  in-memory state only and mark it dirty.
+- A 5-second interval flushes to `.preshot` **only when the serialized plan
+  differs** from the last saved snapshot, so an idle project performs no writes.
+- Operations with filesystem side effects (image import/remove, group delete)
+  still save immediately to keep `references/` and the manifest consistent, and
+  they refresh the saved snapshot.
+- The provider flushes any pending changes on unmount (project switch or close),
+  and `PlanService.savePlan` is the single persistence use case the loop calls.
+- The `PlanPanel` header shows a live `SaveStatus` pill (`Saving…` /
+  `Unsaved changes` / `All changes saved`), and `Ctrl`/`Cmd`+`S` flushes pending
+  changes immediately instead of waiting for the interval.
+
 ### Boundaries
 
-- The domain `PlanService` owns plan rules (group management, column clamping
-  1..=6, reference ordering) and validates all mutations.
+- The domain `PlanService` owns plan rules (group management, per-group
+  description edits, column clamping 1..=6, reference ordering); pure-metadata
+  use cases compute the next plan without persisting, while `savePlan`,
+  `importImage`, `removeImage`, and `deleteGroup` persist through a serialized
+  queue.
+- The `PlanPanel` renders one scrollable, tab-free view: the Photography Plan
+  placeholder stacked above the Reference Images groups (WYSIWYG). Group titles
+  and descriptions use high-contrast text and persist on blur.
 - The Tauri plan adapter (`src/infrastructure/plan/tauriPlan.ts`) wraps the five
   commands and validates response shapes.
 - The browser plan adapter (`src/infrastructure/plan/browserPlan.ts`) seeds an

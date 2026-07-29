@@ -9,6 +9,7 @@ import {
   removeImage,
   renameGroup,
   setColumns,
+  setDescription,
 } from "./plan";
 
 describe("plan reducers", () => {
@@ -34,6 +35,16 @@ describe("plan reducers", () => {
     expect(renameGroup(base, "g1", "New").referenceGroups[0].title).toBe("New");
     expect(setColumns(base, "g1", 42).referenceGroups[0].columnsPerRow).toBe(MAX_COLUMNS);
     expect(deleteGroup(base, "g1").referenceGroups).toEqual([]);
+  });
+
+  it("creates groups with an empty description and updates it immutably", () => {
+    const base = addGroup(EMPTY_PLAN, createGroup("g1", "Lookbook", 3));
+    expect(base.referenceGroups[0].description).toBe("");
+
+    const next = setDescription(base, "g1", "Golden hour, warm tones");
+
+    expect(next.referenceGroups[0].description).toBe("Golden hour, warm tones");
+    expect(base.referenceGroups[0].description).toBe("");
   });
 
   it("adds and removes images within a group", () => {
