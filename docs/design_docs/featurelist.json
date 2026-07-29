@@ -47,6 +47,37 @@
         ],
         "remaining": []
       }
+    },
+    {
+      "name": "基础方案编辑",
+      "feature_descriptions": [
+        "project打开后，首先最重要的一栏是方案",
+        "点击方案，右侧会显示几个tab，分别是摄影计划、参考样图",
+        "参考样图可以添加多组，每组可以编辑每行显示的图片数量，然后按照这个去排版",
+        "显示的时候将每张图压缩到1:1放入一行，鼠标点击之后，显示这个图片的完整内容"
+      ],
+      "status": "in progress",
+      "decisions": [
+        "Focus this iteration on the Reference Images tab; Photography Plan stays a placeholder.",
+        "Store plan data inside the versioned .preshot manifest as an optional plan field (schemaVersion 1).",
+        "Move imported images into a references/ subfolder, renumbered; accept only jpg/png up to 16MB.",
+        "Render reference images as on-demand base64 data URLs via narrow Rust commands, not the asset protocol.",
+        "Display images as 1:1 squares in configurable per-row grids; clicking expands a lightbox.",
+        "Reuse the workspace layering: pure domain PlanService use cases, Tauri adapters, and narrow Rust commands."
+      ],
+      "progress": {
+        "designApprovedAt": "2026-07-29",
+        "designSpec": "docs/superpowers/specs/2026-07-29-basic-plan-editing-design.md",
+        "completed": [
+          "Brainstormed intent and scope, approved the design, and committed the spec."
+        ],
+        "remaining": [
+          "Write the implementation plan.",
+          "Implement domain models/use cases, Tauri and browser adapters, and narrow Rust commands with TDD.",
+          "Build the Plan panel, Reference Images gallery, and lightbox UI.",
+          "Run the full verification matrix and set status to completed."
+        ]
+      }
     }
   ]
 }
