@@ -46,4 +46,27 @@ describe("ReferenceImagesTab", () => {
     await user.click(screen.getByRole("button", { name: "Add reference group" }));
     expect(h.onAddGroup).toHaveBeenCalled();
   });
+
+  it("persists a renamed group title once, on blur", async () => {
+    const user = userEvent.setup();
+    const h = handlers();
+    render(
+      <ReferenceImagesTab
+        groups={groups}
+        imageSrc={() => "data:image/png;base64,AA"}
+        {...h}
+      />,
+    );
+
+    const group = screen.getByRole("group", { name: "Reference group: Lookbook" });
+    const input = within(group).getByRole("textbox", { name: "Group title" });
+
+    await user.clear(input);
+    await user.type(input, "Summer Set");
+    expect(h.onRenameGroup).not.toHaveBeenCalled();
+
+    await user.tab();
+    expect(h.onRenameGroup).toHaveBeenCalledTimes(1);
+    expect(h.onRenameGroup).toHaveBeenCalledWith("g1", "Summer Set");
+  });
 });

@@ -1,4 +1,29 @@
+import { useState } from "react";
 import { MAX_COLUMNS, MIN_COLUMNS, type ReferenceGroup } from "../../domain/plan/models";
+
+function GroupTitleInput({ title, onRename }: { title: string; onRename(value: string): void }) {
+  const [value, setValue] = useState(title);
+
+  return (
+    <input
+      aria-label="Group title"
+      className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-lg font-medium"
+      onBlur={() => {
+        if (value !== title) {
+          onRename(value);
+        }
+      }}
+      onChange={(event) => setValue(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+      value={value}
+    />
+  );
+}
 
 export interface ReferenceImagesTabProps {
   groups: ReferenceGroup[];
@@ -51,11 +76,10 @@ export function ReferenceImagesTab({
           role="group"
         >
           <div className="flex flex-wrap items-center gap-3">
-            <input
-              aria-label="Group title"
-              className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-lg font-medium"
-              onChange={(event) => onRenameGroup(group.id, event.target.value)}
-              value={group.title}
+            <GroupTitleInput
+              key={group.title}
+              title={group.title}
+              onRename={(value) => onRenameGroup(group.id, value)}
             />
             <label className="flex items-center gap-2 text-sm text-stone-600">
               Images per row

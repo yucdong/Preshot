@@ -105,7 +105,10 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
     (groupId: string, title: string) => {
       void guard("Unable to rename the reference group", async () => {
         const next = await service.renameGroup(projectPath, planRef.current, groupId, title);
-        if (mountedRef.current) setPlan(next);
+        if (mountedRef.current) {
+          setPlan(next);
+          setError(null);
+        }
       });
     },
     [guard, projectPath, service],
@@ -115,7 +118,10 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
     (groupId: string) => {
       void guard("Unable to delete the reference group", async () => {
         const next = await service.deleteGroup(projectPath, planRef.current, groupId);
-        if (mountedRef.current) setPlan(next);
+        if (mountedRef.current) {
+          setPlan(next);
+          setError(null);
+        }
       });
     },
     [guard, projectPath, service],
@@ -123,12 +129,22 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
 
   const setColumns = useCallback(
     (groupId: string, columns: number) => {
-      void guard("Unable to change the layout", async () => {
-        const next = await service.setColumns(projectPath, planRef.current, groupId, columns);
-        if (mountedRef.current) setPlan(next);
-      });
+      if (!mountedRef.current) {
+        return;
+      }
+      void (async () => {
+        try {
+          const next = await service.setColumns(projectPath, planRef.current, groupId, columns);
+          if (mountedRef.current) {
+            setPlan(next);
+            setError(null);
+          }
+        } catch (err) {
+          report("Unable to change the layout", err);
+        }
+      })();
     },
-    [guard, projectPath, service],
+    [projectPath, report, service],
   );
 
   const addImage = useCallback(
@@ -150,7 +166,10 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
     (groupId: string, imageId: string) => {
       void guard("Unable to remove the reference image", async () => {
         const next = await service.removeImage(projectPath, planRef.current, groupId, imageId);
-        if (mountedRef.current) setPlan(next);
+        if (mountedRef.current) {
+          setPlan(next);
+          setError(null);
+        }
       });
     },
     [guard, projectPath, service],
