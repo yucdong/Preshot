@@ -1,14 +1,13 @@
 import Link from "@tiptap/extension-link";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 interface RichTextEditorProps {
   html: string;
   onChange(html: string): void;
   ariaLabel: string;
   placeholder?: string;
-  editorRef?: React.MutableRefObject<Editor | null>;
 }
 
 const toolbarButton =
@@ -33,14 +32,17 @@ function ToolbarButton({
   );
 }
 
-export function RichTextEditor({ html, onChange, ariaLabel, placeholder, editorRef }: RichTextEditorProps) {
+export function RichTextEditor({ html, onChange, ariaLabel, placeholder }: RichTextEditorProps) {
+  const [, forceUpdate] = useState(0);
+  
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2] } }),
+      StarterKit.configure({ heading: { levels: [1, 2] }, link: false }),
       Link.configure({ openOnClick: false }),
     ],
     content: html,
     onUpdate: ({ editor: current }) => onChange(current.getHTML()),
+    onTransaction: () => forceUpdate((n) => n + 1),
     editorProps: {
       attributes: {
         "aria-label": ariaLabel,
@@ -58,12 +60,6 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder, editorR
     }
   }, [editor, html]);
 
-  useEffect(() => {
-    if (editor && editorRef) {
-      editorRef.current = editor;
-    }
-  }, [editor, editorRef]);
-
   if (!editor) {
     return null;
   }
@@ -71,12 +67,12 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder, editorR
   return (
     <div>
       <div className="mb-2 flex flex-wrap gap-1" role="toolbar" aria-label={`${ariaLabel} formatting`}>
-        <ToolbarButton editor={editor} isActive={editor.isActive("bold")} label="Bold" onClick={() => editor.chain().focus().toggleBold().run()} />
-        <ToolbarButton editor={editor} isActive={editor.isActive("italic")} label="Italic" onClick={() => editor.chain().focus().toggleItalic().run()} />
-        <ToolbarButton editor={editor} isActive={editor.isActive("heading", { level: 1 })} label="Heading 1" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} />
-        <ToolbarButton editor={editor} isActive={editor.isActive("heading", { level: 2 })} label="Heading 2" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} />
-        <ToolbarButton editor={editor} isActive={editor.isActive("bulletList")} label="Bullet list" onClick={() => editor.chain().focus().toggleBulletList().run()} />
-        <ToolbarButton editor={editor} isActive={editor.isActive("orderedList")} label="Numbered list" onClick={() => editor.chain().focus().toggleOrderedList().run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("bold")} label="Bold" onClick={() => editor.chain().toggleBold().run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("italic")} label="Italic" onClick={() => editor.chain().toggleItalic().run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("heading", { level: 1 })} label="Heading 1" onClick={() => editor.chain().toggleHeading({ level: 1 }).run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("heading", { level: 2 })} label="Heading 2" onClick={() => editor.chain().toggleHeading({ level: 2 }).run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("bulletList")} label="Bullet list" onClick={() => editor.chain().toggleBulletList().run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("orderedList")} label="Numbered list" onClick={() => editor.chain().toggleOrderedList().run()} />
         <ToolbarButton
           editor={editor}
           isActive={editor.isActive("link")}
@@ -86,10 +82,10 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder, editorR
             const url = window.prompt("Link URL", previous ?? "https://");
             if (url === null) return;
             if (url === "") {
-              editor.chain().focus().unsetLink().run();
+              editor.chain().unsetLink().run();
               return;
             }
-            editor.chain().focus().setLink({ href: url }).run();
+            editor.chain().setLink({ href: url }).run();
           }}
         />
       </div>

@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import type { Editor } from "@tiptap/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { RichTextEditor } from "./RichTextEditor";
 
@@ -22,7 +22,7 @@ describe("RichTextEditor", () => {
     textbox.dispatchEvent(new Event("input", { bubbles: true }));
 
     // Wait for TipTap to process the change
-    await waitFor(() => {
+    await vi.waitFor(() => {
       expect(onChange).toHaveBeenCalled();
     });
     
@@ -30,43 +30,28 @@ describe("RichTextEditor", () => {
   });
 
   it("toggles bold via the toolbar and reflects active state", async () => {
-    const onChange = vi.fn();
-    const editorRef = { current: null } as React.MutableRefObject<Editor | null>;
-    
-    // Start with all text bold to test if aria-pressed reflects the bold state
-    render(
-      <RichTextEditor ariaLabel="Notes" html="<p><strong>bold text</strong></p>" onChange={onChange} editorRef={editorRef} />
-    );
+    const user = userEvent.setup();
+    render(<RichTextEditor ariaLabel="Notes" html="" onChange={vi.fn()} />);
 
+    const textbox = screen.getByRole("textbox", { name: "Notes" });
     const boldButton = screen.getByRole("button", { name: "Bold" });
-    
-    // Wait for editor to fully initialize
-    await waitFor(() => expect(editorRef.current).not.toBeNull(), { timeout: 1000 });
 
-    // Place cursor in the bold text by selecting all (which selects the bold region)
-    editorRef.current?.commands.selectAll();
-    
-    // Give React time to potentially update the button state
-    await waitFor(() => {
-      // When cursor/selection is in bold text, button should show pressed
-      // This tests that aria-pressed CAN reflect editor state
-      const pressed = boldButton.getAttribute("aria-pressed");
-      // In jsdom, this might not update, so we test what we CAN: the toggle functionality
-      return pressed !== null;
-    }, { timeout: 500 });
+    // Focus the editor first
+    textbox.focus();
 
-    // The key test: clicking Bold should toggle the formatting
-    // We'll verify via onChange output since aria-pressed may not update in jsdom
-    editorRef.current?.chain().focus().toggleBold().run();
+    // Initially, bold should not be active
+    expect(boldButton).toHaveAttribute("aria-pressed", "false");
 
-    await waitFor(() => {
-      expect(onChange).toHaveBeenCalled();
-    });
+    // Click to toggle bold on
+    await user.click(boldButton);
 
-    // Verify bold was toggled (removed in this case since it was initially bold)
-    const finalHtml = onChange.mock.calls.at(-1)?.[0];
-    // After toggling off bold, text should be plain
-    expect(finalHtml).not.toContain("<strong>");
-    expect(finalHtml).toContain("bold text");
+    // Bold should now be active
+    expect(boldButton).toHaveAttribute("aria-pressed", "true");
+
+    // Click again to toggle off
+    await user.click(boldButton);
+
+    // Bold should be inactive
+    expect(boldButton).toHaveAttribute("aria-pressed", "false");
   });
 });
