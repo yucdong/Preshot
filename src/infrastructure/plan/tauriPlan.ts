@@ -48,7 +48,10 @@ function validatePlan(value: unknown): ProjectPlan {
   if (!isRecord(value) || !Array.isArray(value.referenceGroups)) {
     throw new Error("Malformed native response");
   }
-  return { referenceGroups: value.referenceGroups.map(validateGroup) };
+  return {
+    photographyPlan: typeof value.photographyPlan === "string" ? value.photographyPlan : "",
+    referenceGroups: value.referenceGroups.map(validateGroup),
+  };
 }
 
 function validateImported(value: unknown): ImportedImage {

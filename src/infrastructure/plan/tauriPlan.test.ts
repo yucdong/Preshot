@@ -16,7 +16,7 @@ describe("createTauriPlan", () => {
     const invokeCommand = vi.fn().mockRejectedValue({ message: "boom" });
     const plan = createTauriPlan({ invokeCommand });
 
-    await expect(plan.savePlan("C:\\p", { referenceGroups: [] })).rejects.toThrow(
+    await expect(plan.savePlan("C:\\p", { photographyPlan: "", referenceGroups: [] })).rejects.toThrow(
       /Unable to save the project plan: boom/,
     );
   });
@@ -28,6 +28,7 @@ describe("createTauriPlan", () => {
     const plan = createTauriPlan({ invokeCommand });
 
     await expect(plan.loadPlan("C:\\p")).resolves.toEqual({
+      photographyPlan: "",
       referenceGroups: [{ id: "g1", title: "L", description: "Warm tones", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }],
     });
   });
@@ -39,7 +40,18 @@ describe("createTauriPlan", () => {
     const plan = createTauriPlan({ invokeCommand });
 
     await expect(plan.loadPlan("C:\\p")).resolves.toEqual({
+      photographyPlan: "",
       referenceGroups: [{ id: "g1", title: "L", description: "", columnsPerRow: 3, images: [] }],
+    });
+  });
+
+  it("defaults a missing photographyPlan to an empty string", async () => {
+    const invokeCommand = vi.fn().mockResolvedValue({ referenceGroups: [] });
+    const plan = createTauriPlan({ invokeCommand });
+
+    await expect(plan.loadPlan("C:\\p")).resolves.toEqual({
+      photographyPlan: "",
+      referenceGroups: [],
     });
   });
 });

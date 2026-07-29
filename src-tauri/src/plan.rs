@@ -232,6 +232,7 @@ pub fn read_project_plan_in(project_path: &Path) -> Result<ProjectPlan, CommandE
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
     Ok(read_manifest(&project_path)?.plan.unwrap_or(ProjectPlan {
+        photography_plan: String::new(),
         reference_groups: Vec::new(),
     }))
 }
@@ -271,6 +272,7 @@ pub fn read_project_plan(project_path: String) -> Result<ProjectPlan, CommandErr
 mod tests {
     use super::*;
     use crate::workspace::{ReferenceGroup, ReferenceImage};
+    use serde_json::json;
 
     fn project() -> tempfile::TempDir {
         let parent = tempfile::tempdir().unwrap();
@@ -336,6 +338,7 @@ mod tests {
         let before = read_manifest(&project_path).unwrap().updated_at;
         std::thread::sleep(std::time::Duration::from_millis(2));
         let plan = ProjectPlan {
+            photography_plan: "<p>Warm editorial mood</p>".into(),
             reference_groups: vec![ReferenceGroup {
                 id: "g1".into(),
                 title: "Lookbook".into(),
@@ -349,6 +352,10 @@ mod tests {
         };
 
         let manifest = save_project_plan_in(&project_path, plan.clone()).unwrap();
+        assert_eq!(
+            manifest.plan.as_ref().unwrap().photography_plan,
+            "<p>Warm editorial mood</p>"
+        );
         assert_eq!(manifest.plan.as_ref().unwrap().reference_groups.len(), 1);
         assert_eq!(
             manifest.plan.as_ref().unwrap().reference_groups[0].description,
@@ -359,11 +366,40 @@ mod tests {
     }
 
     #[test]
+    fn read_plan_preserves_photography_plan_from_manifest() {
+        let parent = project();
+        let project_path = parent.path().join("Shoot");
+        let manifest_path = project_path.join(".preshot");
+        let mut manifest = serde_json::to_value(read_manifest(&project_path).unwrap()).unwrap();
+        manifest["plan"] = json!({
+            "photographyPlan": "<p>Golden hour</p>",
+            "referenceGroups": [],
+        });
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            serde_json::to_value(read_project_plan_in(&project_path).unwrap()).unwrap(),
+            json!({
+                "photographyPlan": "<p>Golden hour</p>",
+                "referenceGroups": [],
+            })
+        );
+    }
+
+    #[test]
     fn read_plan_defaults_to_empty_groups() {
         let parent = project();
-        assert!(read_project_plan_in(&parent.path().join("Shoot"))
-            .unwrap()
-            .reference_groups
-            .is_empty());
+        assert_eq!(
+            serde_json::to_value(read_project_plan_in(&parent.path().join("Shoot")).unwrap())
+                .unwrap(),
+            json!({
+                "photographyPlan": "",
+                "referenceGroups": [],
+            })
+        );
     }
 }

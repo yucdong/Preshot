@@ -60,6 +60,8 @@ pub struct ReferenceGroup {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectPlan {
     #[serde(default)]
+    pub photography_plan: String,
+    #[serde(default)]
     pub reference_groups: Vec<ReferenceGroup>,
 }
 

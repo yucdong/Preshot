@@ -7,6 +7,8 @@ const TINY_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 const SEEDED_PLAN: ProjectPlan = {
+  photographyPlan:
+    "<h2>Sunset Editorial</h2><p>Golden hour on the waterfront. Bring the 85mm.</p>",
   referenceGroups: [
     {
       id: "seed-group",
