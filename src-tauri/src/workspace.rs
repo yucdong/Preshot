@@ -33,6 +33,32 @@ pub struct ProjectManifest {
     #[serde(default, deserialize_with = "deserialize_cover_image")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cover_image: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<ProjectPlan>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceImage {
+    pub id: String,
+    pub file: String,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceGroup {
+    pub id: String,
+    pub title: String,
+    pub columns_per_row: u32,
+    #[serde(default)]
+    pub images: Vec<ReferenceImage>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectPlan {
+    #[serde(default)]
+    pub reference_groups: Vec<ReferenceGroup>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -232,6 +258,7 @@ where
         created_at: now.clone(),
         updated_at: now,
         cover_image: None,
+        plan: None,
     };
 
     if let Err(error) = manifest_writer(&project, &manifest) {
@@ -242,7 +269,7 @@ where
     inspect_project_directory(&project)
 }
 
-fn write_manifest_atomically(
+pub(crate) fn write_manifest_atomically(
     project: &Path,
     manifest: &ProjectManifest,
 ) -> Result<(), CommandError> {
@@ -274,27 +301,23 @@ fn write_manifest_atomically(
     Ok(())
 }
 
-pub fn inspect_project_directory(path: &Path) -> Result<InspectedProject, CommandError> {
-    let project_path = canonicalize_directory(path, "project_not_found", "project_not_directory")?;
+pub(crate) fn read_manifest(project_path: &Path) -> Result<ProjectManifest, CommandError> {
     let manifest_path = project_path.join(MANIFEST_FILE_NAME);
     let manifest_metadata = fs::metadata(&manifest_path).map_err(|error| match error.kind() {
-        ErrorKind::NotFound => CommandError::new(
-            "manifest_missing",
-            "Preshot projects must contain a .preshot manifest",
-        ),
+        ErrorKind::NotFound => {
+            CommandError::new("manifest_missing", "Preshot projects must contain a .preshot manifest")
+        }
         _ => CommandError::new(
             "manifest_read_failed",
             format!("Unable to access the project manifest: {error}"),
         ),
     })?;
-
     if !manifest_metadata.is_file() {
         return Err(CommandError::new(
             "manifest_not_file",
             "The .preshot manifest must be a regular file",
         ));
     }
-
     let manifest_bytes = fs::read(&manifest_path).map_err(|error| {
         CommandError::new(
             "manifest_read_failed",
@@ -307,8 +330,13 @@ pub fn inspect_project_directory(path: &Path) -> Result<InspectedProject, Comman
             format!("Unable to decode the project manifest: {error}"),
         )
     })?;
-
     validate_manifest(&manifest)?;
+    Ok(manifest)
+}
+
+pub fn inspect_project_directory(path: &Path) -> Result<InspectedProject, CommandError> {
+    let project_path = canonicalize_directory(path, "project_not_found", "project_not_directory")?;
+    let manifest = read_manifest(&project_path)?;
 
     let resolved_cover = resolve_cover_path(&project_path, &manifest)?;
     let cover_data_url = match &resolved_cover {
@@ -1216,5 +1244,24 @@ mod tests {
 
     fn canonical_string(path: &Path) -> String {
         path.canonicalize().unwrap().to_string_lossy().into_owned()
+    }
+
+    #[test]
+    fn inspect_reads_a_plan_from_the_manifest() {
+        let project = tempfile::tempdir().unwrap();
+        let manifest = concat!(
+            "{\"schemaVersion\":1,\"id\":\"3f8d1c2e-0000-4000-8000-000000000001\",",
+            "\"name\":\"Planned\",\"createdAt\":\"2026-07-29T00:00:00.000Z\",",
+            "\"updatedAt\":\"2026-07-29T00:00:00.000Z\",",
+            "\"plan\":{\"referenceGroups\":[{\"id\":\"g1\",\"title\":\"Lookbook\",",
+            "\"columnsPerRow\":3,\"images\":[{\"id\":\"i1\",\"file\":\"references/0001.jpg\"}]}]}}"
+        );
+        fs::write(project.path().join(".preshot"), manifest).unwrap();
+
+        let inspected = inspect_project_directory(project.path()).unwrap();
+        let plan = inspected.manifest.plan.unwrap();
+
+        assert_eq!(plan.reference_groups.len(), 1);
+        assert_eq!(plan.reference_groups[0].images[0].file, "references/0001.jpg");
     }
 }
