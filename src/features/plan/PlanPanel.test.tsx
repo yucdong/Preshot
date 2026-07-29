@@ -15,17 +15,50 @@ const noop = {
 
 describe("PlanPanel", () => {
   it("shows the photography plan, reference images, and save status without tabs", () => {
-    render(<PlanPanel groups={[]} imageSrc={() => undefined} saveState="saved" {...noop} />);
+    render(
+      <PlanPanel
+        groups={[]}
+        imageSrc={() => undefined}
+        onSetPhotographyPlan={vi.fn()}
+        photographyPlan=""
+        saveState="saved"
+        {...noop}
+      />,
+    );
 
     expect(screen.queryByRole("tab")).toBeNull();
-    expect(screen.getByText(/coming soon/i)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Shot notes" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Sample sets" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Add reference group" })).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
   });
 
+  it("renders the photography plan editor", () => {
+    render(
+      <PlanPanel
+        groups={[]}
+        imageSrc={() => undefined}
+        onSetPhotographyPlan={vi.fn()}
+        photographyPlan="<p>Plan body</p>"
+        saveState="saved"
+        {...noop}
+      />,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Photography plan" })).toHaveTextContent("Plan body");
+  });
+
   it("reflects the current save state", () => {
-    render(<PlanPanel groups={[]} imageSrc={() => undefined} saveState="saving" {...noop} />);
+    render(
+      <PlanPanel
+        groups={[]}
+        imageSrc={() => undefined}
+        onSetPhotographyPlan={vi.fn()}
+        photographyPlan=""
+        saveState="saving"
+        {...noop}
+      />,
+    );
 
     expect(screen.getByRole("status")).toHaveTextContent("Saving…");
   });
@@ -36,6 +69,8 @@ describe("PlanPanel", () => {
         error="Unable to load the project plan"
         groups={[]}
         imageSrc={() => undefined}
+        onSetPhotographyPlan={vi.fn()}
+        photographyPlan=""
         saveState="unsaved"
         {...noop}
       />,

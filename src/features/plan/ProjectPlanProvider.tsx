@@ -223,6 +223,19 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
     [applyPlan, guard, service],
   );
 
+  const setPhotographyPlan = useCallback(
+    (html: string) => {
+      void guard("Unable to update the photography plan", async () => {
+        const next = await service.setPhotographyPlan(planRef.current, html);
+        if (mountedRef.current) {
+          applyPlan(next);
+          setError(null);
+        }
+      });
+    },
+    [applyPlan, guard, service],
+  );
+
   const deleteGroup = useCallback(
     (groupId: string) => {
       void guard("Unable to delete the reference group", () =>
@@ -298,8 +311,10 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
         onOpenImage={(file) => setLightbox(file)}
         onRemoveImage={removeImage}
         onRenameGroup={renameGroup}
+        onSetPhotographyPlan={setPhotographyPlan}
         onSetColumns={setColumns}
         onSetDescription={setDescription}
+        photographyPlan={plan.photographyPlan}
         saveState={saveState}
       />
       {lightbox && imageSrc[lightbox] ? (

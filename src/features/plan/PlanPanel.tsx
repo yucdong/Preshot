@@ -5,9 +5,11 @@ import { SaveStatus, type SaveState } from "./SaveStatus";
 interface PlanPanelProps extends ReferenceImagesTabProps {
   error?: string | null;
   saveState: SaveState;
+  photographyPlan: string;
+  onSetPhotographyPlan(html: string): void;
 }
 
-export function PlanPanel({ error, saveState, ...referenceProps }: PlanPanelProps) {
+export function PlanPanel({ error, saveState, photographyPlan, onSetPhotographyPlan, ...referenceProps }: PlanPanelProps) {
   return (
     <section aria-label="Plan" className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-end border-b border-black/10 px-6 py-2">
@@ -21,7 +23,7 @@ export function PlanPanel({ error, saveState, ...referenceProps }: PlanPanelProp
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <PhotographyPlanTab />
+        <PhotographyPlanTab html={photographyPlan} onChange={onSetPhotographyPlan} />
         <ReferenceImagesTab {...referenceProps} />
       </div>
     </section>
