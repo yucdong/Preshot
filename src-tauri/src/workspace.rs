@@ -304,9 +304,10 @@ pub(crate) fn write_manifest_atomically(
 pub(crate) fn read_manifest(project_path: &Path) -> Result<ProjectManifest, CommandError> {
     let manifest_path = project_path.join(MANIFEST_FILE_NAME);
     let manifest_metadata = fs::metadata(&manifest_path).map_err(|error| match error.kind() {
-        ErrorKind::NotFound => {
-            CommandError::new("manifest_missing", "Preshot projects must contain a .preshot manifest")
-        }
+        ErrorKind::NotFound => CommandError::new(
+            "manifest_missing",
+            "Preshot projects must contain a .preshot manifest",
+        ),
         _ => CommandError::new(
             "manifest_read_failed",
             format!("Unable to access the project manifest: {error}"),
@@ -1262,6 +1263,9 @@ mod tests {
         let plan = inspected.manifest.plan.unwrap();
 
         assert_eq!(plan.reference_groups.len(), 1);
-        assert_eq!(plan.reference_groups[0].images[0].file, "references/0001.jpg");
+        assert_eq!(
+            plan.reference_groups[0].images[0].file,
+            "references/0001.jpg"
+        );
     }
 }
