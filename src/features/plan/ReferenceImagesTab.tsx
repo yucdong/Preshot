@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { MAX_COLUMNS, MIN_COLUMNS, type ReferenceGroup } from "../../domain/plan/models";
+import { RichTextEditor } from "./RichTextEditor";
 
 function GroupTitleInput({ title, onRename }: { title: string; onRename(value: string): void }) {
   const [value, setValue] = useState(title);
@@ -20,32 +21,6 @@ function GroupTitleInput({ title, onRename }: { title: string; onRename(value: s
           event.currentTarget.blur();
         }
       }}
-      value={value}
-    />
-  );
-}
-
-function GroupDescriptionInput({
-  description,
-  onChangeDescription,
-}: {
-  description: string;
-  onChangeDescription(value: string): void;
-}) {
-  const [value, setValue] = useState(description);
-
-  return (
-    <textarea
-      aria-label="Group description"
-      className="mt-3 w-full resize-y rounded-lg border border-black/10 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400"
-      onBlur={() => {
-        if (value !== description) {
-          onChangeDescription(value);
-        }
-      }}
-      onChange={(event) => setValue(event.target.value)}
-      placeholder="Describe this set of references — mood, lighting, styling, or notes…"
-      rows={2}
       value={value}
     />
   );
@@ -140,11 +115,15 @@ export function ReferenceImagesTab({
             </button>
           </div>
 
-          <GroupDescriptionInput
-            key={`description-${group.description}`}
-            description={group.description}
-            onChangeDescription={(value) => onSetDescription(group.id, value)}
-          />
+          <div className="mt-3">
+            <RichTextEditor
+              key={`description-${group.id}`}
+              ariaLabel="Group description"
+              html={group.description}
+              onChange={(value) => onSetDescription(group.id, value)}
+              placeholder="Describe this set of references — mood, lighting, styling, or notes…"
+            />
+          </div>
 
           <div
             className="mt-4 grid gap-3"

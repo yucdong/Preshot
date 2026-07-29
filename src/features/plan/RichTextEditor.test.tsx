@@ -10,6 +10,23 @@ describe("RichTextEditor", () => {
     expect(box).toHaveTextContent("Hello");
   });
 
+  it("exposes placeholder metadata for empty content", () => {
+    const { container } = render(
+      <RichTextEditor
+        ariaLabel="Photography plan"
+        html=""
+        onChange={vi.fn()}
+        placeholder="Describe this set of references — mood, lighting, styling, or notes…"
+      />,
+    );
+
+    expect(
+      container.querySelector(
+        '[data-placeholder="Describe this set of references — mood, lighting, styling, or notes…"]',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("emits html when the user types", async () => {
     const onChange = vi.fn();
     render(<RichTextEditor ariaLabel="Notes" html="" onChange={onChange} />);

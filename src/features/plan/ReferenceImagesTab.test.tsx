@@ -17,7 +17,7 @@ function handlers() {
 }
 
 const groups = [
-  { id: "g1", title: "Lookbook", description: "Warm editorial mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] },
+  { id: "g1", title: "Lookbook", description: "<p>Warm editorial mood</p>", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] },
 ];
 
 describe("ReferenceImagesTab", () => {
@@ -71,8 +71,7 @@ describe("ReferenceImagesTab", () => {
     expect(h.onRenameGroup).toHaveBeenCalledWith("g1", "Summer Set");
   });
 
-  it("shows a high-contrast description field and persists edits on blur", async () => {
-    const user = userEvent.setup();
+  it("shows a rich-text description editor and emits html on edit", async () => {
     const h = handlers();
     render(
       <ReferenceImagesTab
@@ -83,18 +82,16 @@ describe("ReferenceImagesTab", () => {
     );
 
     const group = screen.getByRole("group", { name: "Reference group: Lookbook" });
-    const description = within(group).getByRole("textbox", { name: "Group description" });
+    const editor = within(group).getByRole("textbox", { name: "Group description" });
+    expect(editor).toHaveTextContent("Warm editorial mood");
 
-    expect(description).toHaveValue("Warm editorial mood");
-    expect(description).toHaveClass("text-stone-900");
-    expect(within(group).getByRole("textbox", { name: "Group title" })).toHaveClass("text-stone-900");
+    editor.textContent = "Cool blue tones";
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
 
-    await user.clear(description);
-    await user.type(description, "Cool blue tones");
-    expect(h.onSetDescription).not.toHaveBeenCalled();
-
-    await user.tab();
-    expect(h.onSetDescription).toHaveBeenCalledTimes(1);
-    expect(h.onSetDescription).toHaveBeenCalledWith("g1", "Cool blue tones");
+    await vi.waitFor(() => {
+      expect(h.onSetDescription).toHaveBeenCalled();
+    });
+    expect(h.onSetDescription.mock.calls.at(-1)?.[0]).toBe("g1");
+    expect(h.onSetDescription.mock.calls.at(-1)?.[1]).toContain("Cool blue tones");
   });
 });

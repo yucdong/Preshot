@@ -1,4 +1,5 @@
 import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useState } from "react";
@@ -39,6 +40,7 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder }: RichT
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2] }, link: false }),
       Link.configure({ openOnClick: false }),
+      Placeholder.configure({ placeholder: placeholder ?? "" }),
     ],
     content: html,
     onUpdate: ({ editor: current }) => onChange(current.getHTML()),

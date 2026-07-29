@@ -25,3 +25,11 @@ input,
 textarea {
   font: inherit;
 }
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #a8a29e;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
