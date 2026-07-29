@@ -141,11 +141,16 @@ function sanitizeData(data: Record<string, unknown> | undefined): JsonObject {
   return sanitizeObject(data, 0);
 }
 
-function write(level: LogLevel, message: string, data?: Record<string, unknown>) {
+function write(
+  service: string,
+  level: LogLevel,
+  message: string,
+  data?: Record<string, unknown>,
+) {
   const entry = JSON.stringify({
     timestamp: new Date().toISOString(),
     level,
-    service: "workspace-service",
+    service,
     message,
     data: sanitizeData(data),
   });
@@ -166,17 +171,23 @@ function write(level: LogLevel, message: string, data?: Record<string, unknown>)
   }
 }
 
-export const workspaceLogger: WorkspaceLogger = {
-  debug(message, data) {
-    write("DEBUG", message, data);
-  },
-  info(message, data) {
-    write("INFO", message, data);
-  },
-  warn(message, data) {
-    write("WARN", message, data);
-  },
-  error(message, data) {
-    write("ERROR", message, data);
-  },
-};
+export function createLogger(service: string): WorkspaceLogger {
+  return {
+    debug(message, data) {
+      write(service, "DEBUG", message, data);
+    },
+    info(message, data) {
+      write(service, "INFO", message, data);
+    },
+    warn(message, data) {
+      write(service, "WARN", message, data);
+    },
+    error(message, data) {
+      write(service, "ERROR", message, data);
+    },
+  };
+}
+
+export const workspaceLogger: WorkspaceLogger = createLogger("workspace-service");
+
+export const planLogger: WorkspaceLogger = createLogger("plan-service");

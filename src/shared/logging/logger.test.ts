@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { workspaceLogger } from "./logger";
+import { workspaceLogger, planLogger } from "./logger";
 
 function parseLoggedEntry(spy: ReturnType<typeof vi.spyOn>) {
   expect(spy).toHaveBeenCalledTimes(1);
@@ -104,5 +104,27 @@ describe("workspaceLogger", () => {
     ).not.toContain("data:image/png;base64");
     expect(JSON.stringify(entry)).not.toContain("secret-token");
     expect(JSON.stringify(entry)).not.toContain("stack");
+  });
+});
+
+describe("planLogger", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T10:00:00.000Z"));
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("tags entries with the plan-service name", () => {
+    planLogger.info("Plan event", { groupId: "g1" });
+    const [entry] = (console.info as ReturnType<typeof vi.spyOn>).mock.calls[0] ?? [];
+    expect(JSON.parse(String(entry))).toMatchObject({
+      service: "plan-service",
+      message: "Plan event",
+      data: { groupId: "g1" },
+    });
   });
 });
