@@ -12,6 +12,7 @@ export interface ReferenceGroup {
 }
 
 export interface ProjectPlan {
+  photographyPlan: string;
   referenceGroups: ReferenceGroup[];
 }
 
@@ -25,5 +26,6 @@ export const MAX_COLUMNS = 6;
 export const DEFAULT_COLUMNS = 3;
 
 export const EMPTY_PLAN: ProjectPlan = {
+  photographyPlan: "",
   referenceGroups: [],
 };

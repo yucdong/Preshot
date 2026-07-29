@@ -31,6 +31,7 @@ export function findGroup(
 
 export function addGroup(plan: ProjectPlan, group: ReferenceGroup): ProjectPlan {
   return {
+    ...plan,
     referenceGroups: [
       ...plan.referenceGroups,
       { ...group, columnsPerRow: clampColumns(group.columnsPerRow) },
@@ -44,6 +45,7 @@ export function renameGroup(
   title: string,
 ): ProjectPlan {
   return {
+    ...plan,
     referenceGroups: plan.referenceGroups.map((group) =>
       group.id === groupId ? { ...group, title } : group,
     ),
@@ -56,14 +58,20 @@ export function setDescription(
   description: string,
 ): ProjectPlan {
   return {
+    ...plan,
     referenceGroups: plan.referenceGroups.map((group) =>
       group.id === groupId ? { ...group, description } : group,
     ),
   };
 }
 
+export function setPhotographyPlan(plan: ProjectPlan, html: string): ProjectPlan {
+  return { ...plan, photographyPlan: html };
+}
+
 export function deleteGroup(plan: ProjectPlan, groupId: string): ProjectPlan {
   return {
+    ...plan,
     referenceGroups: plan.referenceGroups.filter((group) => group.id !== groupId),
   };
 }
@@ -74,6 +82,7 @@ export function setColumns(
   columns: number,
 ): ProjectPlan {
   return {
+    ...plan,
     referenceGroups: plan.referenceGroups.map((group) =>
       group.id === groupId
         ? { ...group, columnsPerRow: clampColumns(columns) }
@@ -88,6 +97,7 @@ export function addImage(
   image: ReferenceImage,
 ): ProjectPlan {
   return {
+    ...plan,
     referenceGroups: plan.referenceGroups.map((group) =>
       group.id === groupId
         ? { ...group, images: [...group.images, image] }
@@ -102,6 +112,7 @@ export function removeImage(
   imageId: string,
 ): ProjectPlan {
   return {
+    ...plan,
     referenceGroups: plan.referenceGroups.map((group) =>
       group.id === groupId
         ? { ...group, images: group.images.filter((image) => image.id !== imageId) }

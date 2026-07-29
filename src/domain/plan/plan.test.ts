@@ -10,6 +10,7 @@ import {
   renameGroup,
   setColumns,
   setDescription,
+  setPhotographyPlan,
 } from "./plan";
 
 describe("plan reducers", () => {
@@ -47,6 +48,14 @@ describe("plan reducers", () => {
     expect(base.referenceGroups[0].description).toBe("");
   });
 
+  it("sets the photography plan html immutably and defaults to empty", () => {
+    expect(EMPTY_PLAN.photographyPlan).toBe("");
+    const next = setPhotographyPlan(EMPTY_PLAN, "<h1>Shoot</h1>");
+    expect(next.photographyPlan).toBe("<h1>Shoot</h1>");
+    expect(next.referenceGroups).toBe(EMPTY_PLAN.referenceGroups);
+    expect(EMPTY_PLAN.photographyPlan).toBe("");
+  });
+
   it("adds and removes images within a group", () => {
     const base = addGroup(EMPTY_PLAN, createGroup("g1", "Lookbook", 3));
     const withImage = addImage(base, "g1", { id: "i1", file: "references/0001.jpg" });
@@ -56,5 +65,17 @@ describe("plan reducers", () => {
     ]);
     expect(removeImage(withImage, "g1", "i1").referenceGroups[0].images).toEqual([]);
     expect(base.referenceGroups[0].images).toEqual([]);
+  });
+
+  it("preserves photography plan when other reducers update groups", () => {
+    const base = setPhotographyPlan(EMPTY_PLAN, "<p>Storyboard</p>");
+    const withGroup = addGroup(base, createGroup("g1", "Lookbook", 3));
+
+    expect(renameGroup(withGroup, "g1", "Updated").photographyPlan).toBe("<p>Storyboard</p>");
+    expect(setDescription(withGroup, "g1", "Warm tones").photographyPlan).toBe("<p>Storyboard</p>");
+    expect(setColumns(withGroup, "g1", 4).photographyPlan).toBe("<p>Storyboard</p>");
+    expect(addImage(withGroup, "g1", { id: "i1", file: "references/0001.jpg" }).photographyPlan)
+      .toBe("<p>Storyboard</p>");
+    expect(deleteGroup(withGroup, "g1").photographyPlan).toBe("<p>Storyboard</p>");
   });
 });
