@@ -124,9 +124,12 @@ structured logs consistent with the workspace layer.
 - `save_project_plan(projectPath, plan) -> ProjectManifest`
   Read the manifest, set `plan`, refresh `updatedAt`, and write atomically
   (write-temp-then-rename), returning the updated manifest.
+- `read_project_plan(projectPath) -> ProjectPlan`
+  Read only the manifest's `plan` (empty groups when absent), so the Plan panel
+  loads independently of the workspace launcher's model.
 
-`inspect_project` already returns the manifest; once the manifest type carries
-`plan`, opening a project surfaces the plan structure automatically.
+`create_project` and `inspect_project` preserve the `plan` field but do not need
+to surface it to the launcher; the Plan panel uses `read_project_plan`.
 
 ### Image rendering decision
 
@@ -141,6 +144,7 @@ produces the 1:1 squares from full images.
 
 ```ts
 interface PlanRepository {
+  loadPlan(projectPath: string): Promise<ProjectPlan>;
   savePlan(projectPath: string, plan: ProjectPlan): Promise<void>;
 }
 
@@ -173,8 +177,8 @@ file; a failed file delete surfaces as an actionable error.
 
 Flow:
 
-1. Open project → `PlanPanel` reads `plan` from the opened project's manifest →
-   for each image calls `loadImage` → shows squares.
+1. Open project → `PlanPanel` calls `loadPlan` (`read_project_plan`) → for each
+   image calls `loadImage` → shows squares.
 2. `+` → file picker filtered to jpg/png → `importImage` moves +
    renumbers → `PlanService.addImage` updates the plan → `savePlan` persists →
    the new square appears using the returned data URL.
