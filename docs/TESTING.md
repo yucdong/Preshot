@@ -88,6 +88,25 @@ another application has placed a conflicting `link.exe` earlier in PATH.
 - **Browser**: `e2e/workspace.spec.ts` opens the seeded project from the
   launcher.
 
+## Plan Coverage
+
+- **Domain**: `reducer.test.ts` and `service.test.ts` cover pure plan rules --
+  adding/renaming/deleting groups, setting columns (clamped 1..=6), importing/
+  removing images, and the guarded mutation flows -- using typed fakes only.
+- **Adapters**: `tauriPlan.test.ts` and `browserPlan.test.ts` mock the Tauri
+  boundary (`invoke`) and assert command names (`save_project_plan`,
+  `read_project_plan`, `import_reference_image`, `load_reference_image`,
+  `remove_reference_image`), serialized inputs, validated responses, and
+  contextual failures. The browser adapter seeds "Editorial Demo" for E2E.
+- **Rust**: `src-tauri/src/plan.rs` tests exercise atomic manifest writes,
+  validated imports with move semantics and renumbering, base64 data URL
+  encoding, and file removal inside `tempfile::tempdir` fixtures.
+- **Components**: `ReferenceImagesTab`, `ProjectPlanProvider`, and `PlanPanel`
+  tests query by accessible role and name, and cover the guarded action flows,
+  image rendering, lightbox open/close, and error states.
+- **Browser**: `e2e/plan.spec.ts` opens the seeded project, verifies reference
+  images render, and tests the lightbox flow.
+
 ## Before a Change Is Complete
 
 Run:

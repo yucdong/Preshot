@@ -133,6 +133,47 @@ the payload and forwards it to `WorkspaceProvider`, which runs the same guarded
 flows as the launcher buttons. Open New Window and Close are handled entirely in
 Rust, and new windows open the launcher.
 
+## Basic Plan Editing
+
+Basic Plan Editing is the second vertical slice and demonstrates the same clean
+layering applied to in-project data: React UI -> `PlanService` use case ->
+domain port -> infrastructure adapter -> Tauri command -> project filesystem.
+
+### Plan storage
+
+The project plan lives in the `.preshot` manifest as an optional `plan` field
+(same `schemaVersion: 1`). Reference images are stored in a `references/`
+subdirectory as `NNNN.ext` (4-digit zero-padded, sequential jpg/png only, ≤ 16 MB
+each). Imported files are **moved** (source removed): same-volume rename or
+cross-volume copy+delete.
+
+### Tauri commands
+
+- **`save_project_plan`**: atomically writes the updated plan JSON into the
+  `.preshot` manifest.
+- **`read_project_plan`**: reads and validates the plan from `.preshot`.
+- **`import_reference_image`**: validates, moves, and renumbers the source file
+  into `references/`.
+- **`load_reference_image`**: reads a reference file and returns a base64 data
+  URL for on-demand rendering.
+- **`remove_reference_image`**: deletes a reference file from `references/`.
+
+All commands serialize cleanly and return contextual errors. Reference images
+are loaded on demand to avoid bloating the initial plan-load payload.
+
+### Boundaries
+
+- The domain `PlanService` owns plan rules (group management, column clamping
+  1..=6, reference ordering) and validates all mutations.
+- The Tauri plan adapter (`src/infrastructure/plan/tauriPlan.ts`) wraps the five
+  commands and validates response shapes.
+- The browser plan adapter (`src/infrastructure/plan/browserPlan.ts`) seeds an
+  in-memory "Editorial Demo" project for E2E tests and fails closed in production
+  builds.
+- Rust commands (`src-tauri/src/plan.rs`) handle atomic manifest updates,
+  validated imports, base64 encoding, and file removal without holding UI or
+  business rules.
+
 ## Future Capabilities
 
 - Canvas UI belongs in `src/features/canvas`; Konva-specific code stays behind

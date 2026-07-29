@@ -12,5 +12,5 @@ test("opens a recent project from the launcher", async ({ page }) => {
     .click();
 
   await expect(page.getByText("Editorial Demo")).toBeVisible();
-  await expect(page.getByText("Start your photography plan")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add reference group" })).toBeVisible();
 });
