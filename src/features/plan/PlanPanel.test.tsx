@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { PlanPanel } from "./PlanPanel";
 
@@ -17,8 +18,10 @@ describe("PlanPanel", () => {
   it("shows the photography plan, reference images, and save status without tabs", () => {
     render(
       <PlanPanel
+        exporting={false}
         groups={[]}
         imageSrc={() => undefined}
+        onExport={vi.fn()}
         onSetPhotographyPlan={vi.fn()}
         photographyPlan=""
         saveState="saved"
@@ -36,8 +39,10 @@ describe("PlanPanel", () => {
   it("renders the photography plan editor", () => {
     render(
       <PlanPanel
+        exporting={false}
         groups={[]}
         imageSrc={() => undefined}
+        onExport={vi.fn()}
         onSetPhotographyPlan={vi.fn()}
         photographyPlan="<p>Plan body</p>"
         saveState="saved"
@@ -51,8 +56,10 @@ describe("PlanPanel", () => {
   it("reflects the current save state", () => {
     render(
       <PlanPanel
+        exporting={false}
         groups={[]}
         imageSrc={() => undefined}
+        onExport={vi.fn()}
         onSetPhotographyPlan={vi.fn()}
         photographyPlan=""
         saveState="saving"
@@ -67,8 +74,10 @@ describe("PlanPanel", () => {
     render(
       <PlanPanel
         error="Unable to load the project plan"
+        exporting={false}
         groups={[]}
         imageSrc={() => undefined}
+        onExport={vi.fn()}
         onSetPhotographyPlan={vi.fn()}
         photographyPlan=""
         saveState="unsaved"
@@ -77,5 +86,24 @@ describe("PlanPanel", () => {
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent("Unable to load the project plan");
+  });
+
+  it("invokes onExport when Export PDF is clicked", async () => {
+    const user = userEvent.setup();
+    const onExport = vi.fn();
+    render(
+      <PlanPanel
+        exporting={false}
+        groups={[]}
+        imageSrc={() => undefined}
+        onExport={onExport}
+        onSetPhotographyPlan={vi.fn()}
+        photographyPlan=""
+        saveState="saved"
+        {...noop}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+    expect(onExport).toHaveBeenCalledTimes(1);
   });
 });

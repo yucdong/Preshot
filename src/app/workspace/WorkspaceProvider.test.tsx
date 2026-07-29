@@ -42,6 +42,8 @@ function planDeps(): PlanDependencies {
     },
     picker: { pickImageFile: vi.fn().mockResolvedValue(null) },
     logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    exporter: { export: vi.fn() },
+    saver: { save: vi.fn() },
   };
 }
 

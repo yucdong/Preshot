@@ -28,7 +28,13 @@ function deps(): { dependencies: PlanDependencies; service: PlanService; pick: R
   return {
     service,
     pick,
-    dependencies: { service, picker: { pickImageFile: pick }, logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
+    dependencies: {
+      service,
+      picker: { pickImageFile: pick },
+      logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      exporter: { export: vi.fn().mockResolvedValue(new Uint8Array([37, 80, 68, 70])) },
+      saver: { save: vi.fn().mockResolvedValue(true) },
+    },
   };
 }
 
@@ -48,7 +54,13 @@ function autoSaveDeps() {
   };
   const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const service = createPlanService({ repository, imageStore, createId: () => "id", logger });
-  const dependencies: PlanDependencies = { service, picker: { pickImageFile: vi.fn() }, logger };
+  const dependencies: PlanDependencies = {
+    service,
+    picker: { pickImageFile: vi.fn() },
+    logger,
+    exporter: { export: vi.fn().mockResolvedValue(new Uint8Array([37, 80, 68, 70])) },
+    saver: { save: vi.fn().mockResolvedValue(true) },
+  };
   return { savePlan, dependencies };
 }
 
@@ -57,7 +69,7 @@ describe("ProjectPlanProvider", () => {
     const user = userEvent.setup();
     const { dependencies, service } = deps();
 
-    render(<ProjectPlanProvider projectPath={String.raw`C:\demo`} dependencies={dependencies} />);
+    render(<ProjectPlanProvider dependencies={dependencies} projectName="Demo" projectPath={String.raw`C:\demo`} />);
 
     const group = await screen.findByRole("group", { name: "Reference group: Lookbook" });
     expect(service.loadImage).toHaveBeenCalledWith(String.raw`C:\demo`, "references/0001.png");
@@ -76,7 +88,7 @@ describe("ProjectPlanProvider", () => {
     try {
       const { savePlan, dependencies } = autoSaveDeps();
 
-      render(<ProjectPlanProvider projectPath={String.raw`C:\demo`} dependencies={dependencies} />);
+      render(<ProjectPlanProvider dependencies={dependencies} projectName="Demo" projectPath={String.raw`C:\demo`} />);
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
@@ -115,7 +127,7 @@ describe("ProjectPlanProvider", () => {
     try {
       const { savePlan, dependencies } = autoSaveDeps();
 
-      render(<ProjectPlanProvider projectPath={String.raw`C:\demo`} dependencies={dependencies} />);
+      render(<ProjectPlanProvider dependencies={dependencies} projectName="Demo" projectPath={String.raw`C:\demo`} />);
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
@@ -138,5 +150,17 @@ describe("ProjectPlanProvider", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("exports the plan to pdf and saves it", async () => {
+    const user = userEvent.setup();
+    const { dependencies } = deps();
+    render(<ProjectPlanProvider dependencies={dependencies} projectName="Sunset" projectPath={String.raw`C:\demo`} />);
+
+    await screen.findByRole("group", { name: "Reference group: Lookbook" });
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+
+    await waitFor(() => expect(dependencies.exporter.export).toHaveBeenCalled());
+    await waitFor(() => expect(dependencies.saver.save).toHaveBeenCalledWith(expect.any(Uint8Array), "Sunset.pdf"));
   });
 });

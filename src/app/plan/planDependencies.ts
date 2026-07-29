@@ -4,6 +4,12 @@ import { browserPlanDependencies } from "../../infrastructure/plan/browserPlan";
 import { planImagePicker } from "../../infrastructure/plan/planDialog";
 import { tauriPlan } from "../../infrastructure/plan/tauriPlan";
 import { planLogger } from "../../shared/logging/logger";
+import { createPdfLibExporter } from "../../infrastructure/pdf/pdfLibExporter";
+import { loadNotoSansSc } from "../../infrastructure/pdf/fontAssets";
+import { tauriPdfSaveTarget } from "../../infrastructure/pdf/tauriPdfSave";
+import { browserPdfSaveTarget } from "../../infrastructure/pdf/browserPdfSave";
+
+const pdfExporter = createPdfLibExporter(loadNotoSansSc);
 
 function createProductionPlanDependencies(): PlanDependencies {
   return {
@@ -15,6 +21,8 @@ function createProductionPlanDependencies(): PlanDependencies {
     }),
     picker: planImagePicker,
     logger: planLogger,
+    exporter: pdfExporter,
+    saver: tauriPdfSaveTarget,
   };
 }
 
@@ -25,7 +33,12 @@ export function createPlanDependencies(): PlanDependencies {
         "The in-memory plan adapter is only available in end-to-end mode and must never run in a production build.",
       );
     }
-    return { ...browserPlanDependencies, logger: planLogger };
+    return {
+      ...browserPlanDependencies,
+      logger: planLogger,
+      exporter: pdfExporter,
+      saver: browserPdfSaveTarget,
+    };
   }
   return createProductionPlanDependencies();
 }

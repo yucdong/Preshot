@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EMPTY_PLAN, type ProjectPlan } from "../../domain/plan/models";
 import type { PlanImagePicker } from "../../domain/plan/ports";
 import type { PlanService } from "../../domain/plan/service";
+import { exportPlanToPdf } from "../../domain/plan/pdf/export";
+import type { PdfExporter, PdfSaveTarget } from "../../domain/plan/pdf/ports";
 import type { WorkspaceLogger } from "../../domain/workspace/ports";
 import { PlanPanel } from "./PlanPanel";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
@@ -11,10 +13,13 @@ export interface PlanDependencies {
   service: PlanService;
   picker: PlanImagePicker;
   logger: WorkspaceLogger;
+  exporter: PdfExporter;
+  saver: PdfSaveTarget;
 }
 
 interface ProjectPlanProviderProps {
   projectPath: string;
+  projectName: string;
   dependencies: PlanDependencies;
 }
 
@@ -24,16 +29,18 @@ function detail(error: unknown): string {
 
 const AUTO_SAVE_INTERVAL_MS = 5000;
 
-export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanProviderProps) {
-  const { service, picker, logger } = dependencies;
+export function ProjectPlanProvider({ projectPath, projectName, dependencies }: ProjectPlanProviderProps) {
+  const { service, picker, logger, exporter, saver } = dependencies;
   const [plan, setPlan] = useState<ProjectPlan>(EMPTY_PLAN);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [exporting, setExporting] = useState(false);
   const mountedRef = useRef(false);
   const busyRef = useRef(false);
   const planRef = useRef(plan);
+  const imageSrcRef = useRef(imageSrc);
   const savingRef = useRef(false);
   const lastSavedRef = useRef(JSON.stringify(EMPTY_PLAN));
 
@@ -163,6 +170,10 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
       mountedRef.current = false;
     };
   }, [applyPlan, markSaved, projectPath, service, report]);
+
+  useEffect(() => {
+    imageSrcRef.current = imageSrc;
+  }, [imageSrc]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -299,15 +310,30 @@ export function ProjectPlanProvider({ projectPath, dependencies }: ProjectPlanPr
     [applyPlan, guard, markSaved, persisting, projectPath, service],
   );
 
+  const exportPdf = useCallback(() => {
+    void guard("Unable to export the PDF", async () => {
+      setExporting(true);
+      try {
+        const bytes = await exportPlanToPdf(exporter, planRef.current, projectName, imageSrcRef.current);
+        await saver.save(bytes, `${projectName}.pdf`);
+        if (mountedRef.current) setError(null);
+      } finally {
+        if (mountedRef.current) setExporting(false);
+      }
+    });
+  }, [exporter, guard, projectName, saver]);
+
   return (
     <>
       <PlanPanel
         error={error}
+        exporting={exporting}
         groups={plan.referenceGroups}
         imageSrc={(file) => imageSrc[file]}
         onAddGroup={addGroup}
         onAddImage={addImage}
         onDeleteGroup={deleteGroup}
+        onExport={exportPdf}
         onOpenImage={(file) => setLightbox(file)}
         onRemoveImage={removeImage}
         onRenameGroup={renameGroup}

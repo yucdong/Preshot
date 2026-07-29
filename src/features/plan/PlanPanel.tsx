@@ -7,12 +7,22 @@ interface PlanPanelProps extends ReferenceImagesTabProps {
   saveState: SaveState;
   photographyPlan: string;
   onSetPhotographyPlan(html: string): void;
+  exporting: boolean;
+  onExport(): void;
 }
 
-export function PlanPanel({ error, saveState, photographyPlan, onSetPhotographyPlan, ...referenceProps }: PlanPanelProps) {
+export function PlanPanel({ error, saveState, photographyPlan, onSetPhotographyPlan, exporting, onExport, ...referenceProps }: PlanPanelProps) {
   return (
     <section aria-label="Plan" className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-end border-b border-black/10 px-6 py-2">
+      <div className="flex items-center justify-end gap-3 border-b border-black/10 px-6 py-2">
+        <button
+          className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-white hover:bg-stone-700 disabled:opacity-50"
+          disabled={exporting}
+          onClick={onExport}
+          type="button"
+        >
+          {exporting ? "Exporting…" : "Export PDF"}
+        </button>
         <SaveStatus state={saveState} />
       </div>
 
