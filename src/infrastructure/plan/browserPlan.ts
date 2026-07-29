@@ -25,7 +25,7 @@ function createMemoryStores(): { repository: PlanRepository; imageStore: Referen
   let counter = 2;
   return {
     repository: {
-      async loadPlan() {
+      async loadPlan(_projectPath: string) {
         return structuredClone(plan);
       },
       async savePlan(_projectPath, nextPlan) {
@@ -33,14 +33,14 @@ function createMemoryStores(): { repository: PlanRepository; imageStore: Referen
       },
     },
     imageStore: {
-      async importImage() {
+      async importImage(_projectPath: string, _sourcePath: string) {
         counter += 1;
         return { file: `references/${String(counter).padStart(4, "0")}.png`, dataUrl: TINY_PNG };
       },
-      async loadImage() {
+      async loadImage(_projectPath: string, _file: string) {
         return TINY_PNG;
       },
-      async removeImage() {
+      async removeImage(_projectPath: string, _file: string) {
         return undefined;
       },
     },
@@ -48,7 +48,7 @@ function createMemoryStores(): { repository: PlanRepository; imageStore: Referen
 }
 
 const memoryPicker: PlanImagePicker = {
-  async pickImageFile() {
+  async pickImageFile(_title: string) {
     return "C:\\memory\\import.png";
   },
 };
