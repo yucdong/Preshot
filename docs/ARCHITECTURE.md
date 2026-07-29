@@ -156,10 +156,13 @@ domain port -> infrastructure adapter -> Tauri command -> project filesystem.
 ### Plan storage
 
 The project plan lives in the `.preshot` manifest as an optional `plan` field
-(same `schemaVersion: 1`). Each reference group carries an `id`, `title`, an
-editable `description`, a `columnsPerRow` count, and its images; `description`
-defaults to empty so manifests written before this field still load. Reference
-images are stored in a `references/`
+(same `schemaVersion: 1`). `ProjectPlan.photographyPlan` stores the Photography
+Plan body as HTML and defaults to an empty string; the Rust manifest mirror uses
+`photography_plan` with `#[serde(default)]` so older manifests still load. Each
+reference group carries an `id`, `title`, an editable HTML `description`, a
+`columnsPerRow` count, and its images; old plain-text descriptions still render
+as a paragraph everywhere for backward compatibility. Reference images are
+stored in a `references/`
 subdirectory as `NNNN.ext` (4-digit zero-padded, sequential jpg/png only, ≤ 16 MB
 each). Imported files are **moved** (source removed): same-volume rename or
 cross-volume copy+delete.
@@ -181,10 +184,12 @@ are loaded on demand to avoid bloating the initial plan-load payload.
 ### Auto-save
 
 `ProjectPlanProvider` owns the in-memory plan and persists it with a debounced
-auto-save instead of writing on every keystroke:
+auto-save instead of writing on every keystroke. The Photography Plan body and
+group descriptions are edited in memory as HTML and flushed to `.preshot` on the
+same schedule:
 
-- Pure-metadata edits (add/rename/delete group, description, columns) update
-  in-memory state only and mark it dirty.
+- Pure-metadata edits (Photography Plan body, add/rename/delete group,
+  descriptions, columns) update in-memory state only and mark it dirty.
 - A 5-second interval flushes to `.preshot` **only when the serialized plan
   differs** from the last saved snapshot, so an idle project performs no writes.
 - Operations with filesystem side effects (image import/remove, group delete)
@@ -199,13 +204,18 @@ auto-save instead of writing on every keystroke:
 ### Boundaries
 
 - The domain `PlanService` owns plan rules (group management, per-group
-  description edits, column clamping 1..=6, reference ordering); pure-metadata
-  use cases compute the next plan without persisting, while `savePlan`,
+  description edits, photography-plan edits, column clamping 1..=6, reference
+  ordering); pure-metadata use cases compute the next plan without persisting,
+  while `savePlan`,
   `importImage`, `removeImage`, and `deleteGroup` persist through a serialized
   queue.
 - The `PlanPanel` renders one scrollable, tab-free view: the Photography Plan
-  placeholder stacked above the Reference Images groups (WYSIWYG). Group titles
-  and descriptions use high-contrast text and persist on blur.
+  editor stacked above the Reference Images groups (WYSIWYG). Both the plan body
+  and group descriptions share `src/features/plan/RichTextEditor.tsx`, a TipTap
+  wrapper that emits a bounded, schema-safe HTML subset (paragraphs, H1/H2,
+  bold, italic, bullet/ordered lists, and links) and supports placeholder copy.
+  Group titles use high-contrast text, while rich-text edits stay in memory
+  until the 5-second auto-save or an explicit flush.
 - The Tauri plan adapter (`src/infrastructure/plan/tauriPlan.ts`) wraps the five
   commands and validates response shapes.
 - The browser plan adapter (`src/infrastructure/plan/browserPlan.ts`) seeds an

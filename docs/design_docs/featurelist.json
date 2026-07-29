@@ -58,13 +58,14 @@
         "参考样图可以添加多组，每组可以编辑每行显示的图片数量，然后按照这个去排版",
         "显示的时候将每张图压缩到1:1放入一行，鼠标点击之后，显示这个图片的完整内容",
         "摄影计划和参考样图显示在同一个面板中（无需切换tab），所见即所得",
+        "摄影计划与每组描述支持富文本编辑（HTML），基于 TipTap，向后兼容旧的纯文本",
         "每组参考样图带有一个可编辑的描述文本框，标题与描述使用黑色高对比字体",
         "project状态每隔5秒自动保存：检测到变化才写入.preshot，无变化则跳过",
         "面板顶部显示保存状态（保存中/未保存/已保存），支持 Ctrl/Cmd+S 立即保存"
       ],
       "status": "completed",
       "decisions": [
-        "Focus this iteration on the Reference Images tab; Photography Plan stays a placeholder.",
+        "Implement Photography Plan and per-group description rich-text editing with a shared TipTap editor.",
         "Store plan data inside the versioned .preshot manifest as an optional plan field (schemaVersion 1).",
         "Move imported images into a references/ subfolder, renumbered; accept only jpg/png up to 16MB.",
         "Render reference images as on-demand base64 data URLs via narrow Rust commands, not the asset protocol.",
@@ -72,6 +73,7 @@
         "Reuse the workspace layering: pure domain PlanService use cases, Tauri adapters, and narrow Rust commands.",
         "Merge Photography Plan and Reference Images into one scrollable panel (no tabs) for a WYSIWYG plan view.",
         "Give each reference group an editable description (persisted on blur) with high-contrast black title and description text; ReferenceGroup.description defaults to empty for older manifests.",
+        "Store TipTap schema-safe HTML in .preshot, keep edits in memory with 5-second auto-save flushing, and stay backward-compatible with legacy plain-text content.",
         "Auto-save the plan every 5s from ProjectPlanProvider with JSON change detection (skip writes when unchanged); pure-metadata edits defer to the loop while file side-effect ops (import/remove/delete-group) save immediately, plus an unmount flush. PlanService.savePlan is the single persistence use case."
       ],
       "progress": {
@@ -87,7 +89,7 @@
           "Added Tauri and in-memory plan adapters plus fail-closed dependency composition.",
           "Built the Plan panel, Reference Images gallery, and lightbox UI, wired into the opened project.",
           "Added the E2E browser flow and documented the feature in ARCHITECTURE and TESTING.",
-          "Merged Photography Plan and Reference Images into one tab-free scrollable panel, added a per-group description textarea, and raised title/description contrast to black.",
+          "Merged Photography Plan and Reference Images into one tab-free scrollable panel, upgraded the Photography Plan body and per-group descriptions to shared rich-text editing, and kept title/description contrast black.",
           "Added a 5s change-detected auto-save in ProjectPlanProvider (metadata edits deferred, file ops immediate, unmount flush) backed by a new PlanService.savePlan use case.",
           "Added a live SaveStatus indicator (saving/unsaved/saved) in the PlanPanel header and a Ctrl/Cmd+S shortcut that flushes immediately."
         ],
