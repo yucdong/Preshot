@@ -6,6 +6,7 @@ import type {
   WorkspaceLogger,
   WorkspaceService,
 } from "../domain/workspace/ports";
+import type { PlanDependencies } from "../features/plan/ProjectPlanProvider";
 import { App } from "./App";
 import type { WorkspaceDependencies } from "./workspace/dependencies";
 
@@ -23,6 +24,23 @@ function makeProject(
     updatedAt: "2026-07-02T00:00:00.000Z",
     lastOpenedAt: "2026-07-03T00:00:00.000Z",
     ...overrides,
+  };
+}
+
+function planDeps(): PlanDependencies {
+  return {
+    service: {
+      loadPlan: vi.fn().mockResolvedValue({ referenceGroups: [] }),
+      loadImage: vi.fn().mockResolvedValue(""),
+      addGroup: vi.fn(),
+      renameGroup: vi.fn(),
+      deleteGroup: vi.fn(),
+      setColumns: vi.fn(),
+      importImage: vi.fn(),
+      removeImage: vi.fn(),
+    },
+    picker: { pickImageFile: vi.fn().mockResolvedValue(null) },
+    logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   };
 }
 
@@ -58,7 +76,7 @@ describe("App", () => {
     const user = userEvent.setup();
     const project = makeProject();
 
-    render(<App dependencies={createDependencies(project)} />);
+    render(<App dependencies={createDependencies(project)} planDependencies={planDeps()} />);
 
     await user.click(
       await screen.findByRole("button", { name: "Open project Editorial" }),
@@ -68,7 +86,7 @@ describe("App", () => {
     expect(
       screen.getByRole("navigation", { name: "Planning tools" }),
     ).toBeVisible();
-    expect(screen.getByText("Start your photography plan")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Add reference group" })).toBeVisible();
     expect(screen.getByText("Canvas")).toBeVisible();
     expect(screen.getByText("Assets")).toBeVisible();
     expect(screen.getByText("Copywriting")).toBeVisible();

@@ -1,6 +1,12 @@
 import type { PropsWithChildren } from "react";
 
-const tools = ["Canvas", "Assets", "Copywriting", "Export"];
+const tools = [
+  { label: "Plan", active: true },
+  { label: "Canvas", active: false },
+  { label: "Assets", active: false },
+  { label: "Copywriting", active: false },
+  { label: "Export", active: false },
+];
 
 interface AppShellProps extends PropsWithChildren {
   projectName?: string;
@@ -28,10 +34,11 @@ export function AppShell({ children, projectName }: AppShellProps) {
           <ul className="space-y-1">
             {tools.map((tool) => (
               <li
-                key={tool}
-                className="rounded-lg px-3 py-2 text-sm text-stone-300"
+                aria-current={tool.active ? "page" : undefined}
+                className={`rounded-lg px-3 py-2 text-sm ${tool.active ? "bg-white/10 text-white" : "text-stone-500"}`}
+                key={tool.label}
               >
-                {tool}
+                {tool.label}
               </li>
             ))}
           </ul>

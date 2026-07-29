@@ -5,9 +5,11 @@ import type {
 } from "../../domain/workspace/models";
 import { upsertProject } from "../../domain/workspace/registry";
 import type { WorkspaceMenuAction } from "../../domain/workspace/ports";
+import type { PlanDependencies } from "../../features/plan/ProjectPlanProvider";
 import { WorkspaceLauncher } from "../../features/workspace/WorkspaceLauncher";
 import { AppShell } from "../layout/AppShell";
 import { Workspace } from "../layout/Workspace";
+import { createPlanDependencies } from "../plan/planDependencies";
 import type { WorkspaceDependencies } from "./dependencies";
 
 type AppView =
@@ -16,7 +18,10 @@ type AppView =
 
 interface WorkspaceProviderProps {
   dependencies: WorkspaceDependencies;
+  planDependencies?: PlanDependencies;
 }
+
+const defaultPlanDependencies = createPlanDependencies();
 
 const CREATE_PARENT_DIRECTORY_TITLE =
   "Select parent folder for the new Preshot project";
@@ -41,6 +46,7 @@ function toRecord(project: WorkspaceProjectView): WorkspaceProjectRecord {
 
 export function WorkspaceProvider({
   dependencies,
+  planDependencies = defaultPlanDependencies,
 }: WorkspaceProviderProps) {
   const [view, setView] = useState<AppView>({ kind: "launcher" });
   const [projects, setProjects] = useState<WorkspaceProjectView[]>([]);
@@ -333,7 +339,7 @@ export function WorkspaceProvider({
   if (view.kind === "project") {
     return (
       <AppShell projectName={view.project.name}>
-        <Workspace />
+        <Workspace dependencies={planDependencies} projectPath={view.project.path} />
       </AppShell>
     );
   }

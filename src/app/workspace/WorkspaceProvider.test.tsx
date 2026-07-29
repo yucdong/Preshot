@@ -10,6 +10,7 @@ import type {
   WorkspaceMenuAction,
   WorkspaceService,
 } from "../../domain/workspace/ports";
+import type { PlanDependencies } from "../../features/plan/ProjectPlanProvider";
 import type { WorkspaceDependencies } from "./dependencies";
 import { WorkspaceProvider } from "./WorkspaceProvider";
 
@@ -22,6 +23,23 @@ function deferred<T>() {
   });
 
   return { promise, resolve, reject };
+}
+
+function planDeps(): PlanDependencies {
+  return {
+    service: {
+      loadPlan: vi.fn().mockResolvedValue({ referenceGroups: [] }),
+      loadImage: vi.fn().mockResolvedValue(""),
+      addGroup: vi.fn(),
+      renameGroup: vi.fn(),
+      deleteGroup: vi.fn(),
+      setColumns: vi.fn(),
+      importImage: vi.fn(),
+      removeImage: vi.fn(),
+    },
+    picker: { pickImageFile: vi.fn().mockResolvedValue(null) },
+    logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  };
 }
 
 function makeProject(
@@ -111,7 +129,7 @@ describe("WorkspaceProvider", () => {
     const { dependencies, service, native } = createDependencies();
     vi.mocked(service.loadProjects).mockReturnValueOnce(promise);
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     expect(screen.getByRole("status")).toHaveTextContent(
       "Loading recent projects",
@@ -137,7 +155,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(service.loadProjects).mockResolvedValue([project]);
     vi.mocked(service.openProject).mockResolvedValue(openedProject);
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(
       await screen.findByRole("button", { name: "Open project Editorial" }),
@@ -145,7 +163,7 @@ describe("WorkspaceProvider", () => {
 
     expect(service.openProject).toHaveBeenCalledWith(project.path);
     expect(await screen.findByText("Editorial")).toBeVisible();
-    expect(screen.getByText("Start your photography plan")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Add reference group" })).toBeVisible();
     expect(
       screen.getByRole("navigation", { name: "Planning tools" }),
     ).toBeVisible();
@@ -157,7 +175,7 @@ describe("WorkspaceProvider", () => {
       new Error("metadata corrupt"),
     );
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "metadata corrupt",
@@ -169,7 +187,7 @@ describe("WorkspaceProvider", () => {
     const user = userEvent.setup();
     const { dependencies, pickDirectory, service } = createDependencies();
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "New project" }));
 
@@ -188,7 +206,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(pickDirectory).mockReturnValueOnce(promise);
     vi.mocked(service.createProject).mockResolvedValue(project);
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "New project" }));
 
@@ -220,7 +238,7 @@ describe("WorkspaceProvider", () => {
       new Error("name already exists"),
     );
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "New project" }));
     const dialog = await screen.findByRole("dialog");
@@ -252,7 +270,7 @@ describe("WorkspaceProvider", () => {
       .mockResolvedValueOnce("C:\\shoots")
       .mockReturnValueOnce(new Promise<string | null>(() => undefined));
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "New project" }));
     await screen.findByRole("dialog");
@@ -275,7 +293,7 @@ describe("WorkspaceProvider", () => {
     const user = userEvent.setup();
     const { dependencies, service } = createDependencies();
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "Open project" }));
 
@@ -290,7 +308,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(pickDirectory).mockResolvedValueOnce(project.path);
     vi.mocked(service.openProject).mockResolvedValue(project);
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "Open project" }));
 
@@ -323,7 +341,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(service.relocateProject).mockResolvedValue(relocatedProject);
     vi.mocked(service.removeRecord).mockResolvedValue([relocatedProject]);
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(
       await screen.findByRole("button", {
@@ -360,7 +378,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(pickDirectory).mockResolvedValueOnce(project.path);
     vi.mocked(service.openProject).mockResolvedValue(project);
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await screen.findByRole("button", { name: "New project" });
 
@@ -389,7 +407,7 @@ describe("WorkspaceProvider", () => {
     process.on("unhandledRejection", captureUnhandled);
 
     try {
-      render(<WorkspaceProvider dependencies={dependencies} />);
+      render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
       await screen.findByRole("button", { name: "New project" });
 
@@ -420,7 +438,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(pickDirectory).mockReturnValueOnce(promise);
     vi.mocked(service.createProject).mockResolvedValue(project);
 
-    render(<WorkspaceProvider dependencies={dependencies} />);
+    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await screen.findByRole("button", { name: "New project" });
 
@@ -450,7 +468,7 @@ describe("WorkspaceProvider", () => {
       createDependencies();
     vi.mocked(service.loadProjects).mockReturnValueOnce(promise);
 
-    const { unmount } = render(<WorkspaceProvider dependencies={dependencies} />);
+    const { unmount } = render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await waitFor(() => {
       expect(native.onMenuAction).toHaveBeenCalledTimes(1);
