@@ -67,12 +67,12 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder }: RichT
   return (
     <div>
       <div className="mb-2 flex flex-wrap gap-1" role="toolbar" aria-label={`${ariaLabel} formatting`}>
-        <ToolbarButton editor={editor} isActive={editor.isActive("bold")} label="Bold" onClick={() => editor.chain().toggleBold().run()} />
-        <ToolbarButton editor={editor} isActive={editor.isActive("italic")} label="Italic" onClick={() => editor.chain().toggleItalic().run()} />
-        <ToolbarButton editor={editor} isActive={editor.isActive("heading", { level: 1 })} label="Heading 1" onClick={() => editor.chain().toggleHeading({ level: 1 }).run()} />
-        <ToolbarButton editor={editor} isActive={editor.isActive("heading", { level: 2 })} label="Heading 2" onClick={() => editor.chain().toggleHeading({ level: 2 }).run()} />
-        <ToolbarButton editor={editor} isActive={editor.isActive("bulletList")} label="Bullet list" onClick={() => editor.chain().toggleBulletList().run()} />
-        <ToolbarButton editor={editor} isActive={editor.isActive("orderedList")} label="Numbered list" onClick={() => editor.chain().toggleOrderedList().run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("bold")} label="Bold" onClick={() => editor.chain().focus().toggleBold().run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("italic")} label="Italic" onClick={() => editor.chain().focus().toggleItalic().run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("heading", { level: 1 })} label="Heading 1" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("heading", { level: 2 })} label="Heading 2" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("bulletList")} label="Bullet list" onClick={() => editor.chain().focus().toggleBulletList().run()} />
+        <ToolbarButton editor={editor} isActive={editor.isActive("orderedList")} label="Numbered list" onClick={() => editor.chain().focus().toggleOrderedList().run()} />
         <ToolbarButton
           editor={editor}
           isActive={editor.isActive("link")}
@@ -82,10 +82,10 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder }: RichT
             const url = window.prompt("Link URL", previous ?? "https://");
             if (url === null) return;
             if (url === "") {
-              editor.chain().unsetLink().run();
+              editor.chain().focus().unsetLink().run();
               return;
             }
-            editor.chain().setLink({ href: url }).run();
+            editor.chain().focus().setLink({ href: url }).run();
           }}
         />
       </div>
