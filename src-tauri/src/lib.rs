@@ -1,5 +1,6 @@
 mod error;
 mod menu;
+mod pdf;
 mod plan;
 mod workspace;
 
@@ -41,6 +42,7 @@ pub fn run() {
             plan::import_reference_image,
             plan::load_reference_image,
             plan::remove_reference_image,
+            pdf::save_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Preshot");
