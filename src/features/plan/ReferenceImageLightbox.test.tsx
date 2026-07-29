@@ -18,4 +18,15 @@ describe("ReferenceImageLightbox", () => {
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it("closes when the backdrop is clicked", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<ReferenceImageLightbox src="data:image/png;base64,AA" alt="Reference image 1" onClose={onClose} />);
+
+    const backdrop = screen.getByRole("dialog").parentElement as HTMLElement;
+    await user.click(backdrop);
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
