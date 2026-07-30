@@ -161,6 +161,6 @@ describe("ProjectPlanProvider", () => {
     await user.click(screen.getByRole("button", { name: "Export PDF" }));
 
     await waitFor(() => expect(dependencies.exporter.export).toHaveBeenCalled());
-    await waitFor(() => expect(dependencies.saver.save).toHaveBeenCalledWith(expect.any(Uint8Array), "Sunset.pdf"));
+    await waitFor(() => expect(dependencies.saver.save).toHaveBeenCalledWith(expect.any(Uint8Array), String.raw`C:\demo\output.pdf`));
   });
 });

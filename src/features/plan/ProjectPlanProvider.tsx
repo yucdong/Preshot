@@ -315,13 +315,15 @@ export function ProjectPlanProvider({ projectPath, projectName, dependencies }: 
       setExporting(true);
       try {
         const bytes = await exportPlanToPdf(exporter, planRef.current, projectName, imageSrcRef.current);
-        await saver.save(bytes, `${projectName}.pdf`);
+        const separator = projectPath.includes("\\") ? "\\" : "/";
+        const defaultPath = `${projectPath.replace(/[\\/]+$/, "")}${separator}output.pdf`;
+        await saver.save(bytes, defaultPath);
         if (mountedRef.current) setError(null);
       } finally {
         if (mountedRef.current) setExporting(false);
       }
     });
-  }, [exporter, guard, projectName, saver]);
+  }, [exporter, guard, projectName, projectPath, saver]);
 
   return (
     <>

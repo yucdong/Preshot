@@ -126,8 +126,8 @@ export function ReferenceImagesTab({
           </div>
 
           <div
-            className="mt-4 grid gap-3"
-            style={{ gridTemplateColumns: `repeat(${group.columnsPerRow}, minmax(0, 1fr))` }}
+            className="mt-4 grid justify-start gap-3"
+            style={{ gridTemplateColumns: `repeat(${group.columnsPerRow}, minmax(0, 160px))` }}
           >
             {group.images.map((image, index) => {
               const src = imageSrc(image.file);

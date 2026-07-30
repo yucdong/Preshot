@@ -105,9 +105,11 @@ another application has placed a conflicting `link.exe` earlier in PATH.
   `read_project_plan`, `import_reference_image`, `load_reference_image`,
   `remove_reference_image`), serialized inputs, validated responses, and
   contextual failures. `infrastructure/pdf/htmlToBlocks.test.ts` covers HTML
-  parsing for headings, emphasis, lists, fallback paragraphs, and links;
-  `pdfLibExporter.test.ts` generates a real A4 PDF with CJK text and a
-  letterboxed image using bundled Noto Sans SC; `tauriPdfSave.test.ts` covers
+  parsing for headings, emphasis, lists, fallback paragraphs, links, and the
+  underline/strikethrough/color/font-size marks;
+  `pdfLibExporter.test.ts` generates a real A4 PDF with CJK text, styled runs,
+  and a framed letterboxed image slot using bundled Noto Sans SC;
+  `tauriPdfSave.test.ts` covers
   dialog cancellation and the `save_pdf` command payload. The browser adapter
   seeds "Editorial Demo" for E2E.
 - **Rust**: `src-tauri/src/plan.rs` tests exercise atomic manifest writes,
@@ -122,9 +124,14 @@ another application has placed a conflicting `link.exe` earlier in PATH.
   lightbox open/close, and error states. `ProjectPlanProvider` also uses fake
   timers to assert the 5-second auto-save flushes a changed plan once and writes
   nothing when unchanged, and it covers the export handoff from `Export PDF`
-  through `PdfExporter` to `PdfSaveTarget`. `PlanPanel.test.tsx` keeps the
-  button wiring explicit.
-  `RichTextEditor.test.tsx` covers the shared TipTap toolbar, placeholder
+  through `PdfExporter` to `PdfSaveTarget`, asserting the save target receives
+  the `<project>\output.pdf` default path. `PlanPanel.test.tsx` keeps the
+  button wiring explicit. `AppShell.test.tsx` asserts the three-column shell
+  (project switcher, plan workspace, and Assistant panel) with children, and
+  `AgentPanel.test.tsx` verifies the disabled Assistant preview input and Send
+  button.
+  `RichTextEditor.test.tsx` covers the shared TipTap toolbar (bold, italic,
+  underline, strikethrough, headings, lists, font size, and color), placeholder
   rendering, and emitted HTML for the supported schema-safe subset; these tests
   use a deterministic jsdom editing approach so selection and formatting
   assertions stay stable without a real browser.

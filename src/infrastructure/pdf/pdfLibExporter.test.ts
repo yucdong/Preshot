@@ -19,7 +19,7 @@ describe("createPdfLibExporter", () => {
     const doc: PdfExportDocument = {
       title: "拍摄计划",
       sections: [
-        { html: "<h1>山景</h1><p>晨雾 <strong>逆光</strong> and Latin</p><ul><li>晨曦</li></ul>" },
+        { html: '<h1>山景</h1><p>晨雾 <strong>逆光</strong> <u>underline</u> <s>strike</s> <span style="color: #ff0000; font-size: 20px">colored</span> and Latin</p><ul><li>晨曦</li></ul>' },
         { heading: "水景", html: "<p>日落倒影</p>", imageGrid: { columns: 2, files: ["references/0001.png"] } },
       ],
     };

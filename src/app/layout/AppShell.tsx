@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from "react";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
+import { AgentPanel } from "../../features/agent/AgentPanel";
 
 interface AppShellProps extends PropsWithChildren {
   projects: WorkspaceProjectView[];
@@ -28,10 +29,10 @@ export function AppShell({
         <h1 className="text-lg font-semibold tracking-wide">Preshot</h1>
         <span className="text-sm text-stone-400">Photography planning</span>
       </header>
-      <div className="flex min-h-0 flex-1">
+      <div className="grid min-h-0 flex-1 grid-cols-[15fr_60fr_25fr]">
         <nav
           aria-label="Projects"
-          className="flex w-64 flex-col border-r border-white/10"
+          className="flex min-h-0 min-w-0 flex-col border-r border-white/10"
         >
           <p className="px-4 pb-2 pt-4 text-xs font-medium uppercase tracking-[0.24em] text-stone-500">
             Projects
@@ -86,7 +87,7 @@ export function AppShell({
             </button>
           </div>
         </nav>
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-col">
           {error ? (
             <div
               className="border-b border-rose-400/40 bg-rose-500/10 px-6 py-3 text-sm text-rose-100"
@@ -97,6 +98,7 @@ export function AppShell({
           ) : null}
           {children}
         </div>
+        <AgentPanel />
       </div>
     </div>
   );

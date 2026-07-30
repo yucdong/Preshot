@@ -28,4 +28,17 @@ describe("parseHtmlToBlocks", () => {
     expect(parseHtmlToBlocks("hello")).toEqual([{ type: "paragraph", runs: [{ text: "hello" }] }]);
     expect(parseHtmlToBlocks("<div>x</div>")).toEqual([{ type: "paragraph", runs: [{ text: "x" }] }]);
   });
+
+  it("parses underline, strikethrough, color, and font-size marks", () => {
+    const [block] = parseHtmlToBlocks(
+      '<p><u>u</u><s>s</s><span style="color: #ff0000; font-size: 20px">c</span></p>',
+    );
+    expect(block.type).toBe("paragraph");
+    const runs = block.type === "paragraph" ? block.runs : [];
+    expect(runs[0]).toMatchObject({ text: "u", underline: true });
+    expect(runs[1]).toMatchObject({ text: "s", strike: true });
+    expect(runs[2]?.text).toBe("c");
+    expect(runs[2]?.color).toBeTruthy();
+    expect(runs[2]?.size).toBe(20);
+  });
 });

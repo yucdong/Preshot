@@ -71,4 +71,28 @@ describe("RichTextEditor", () => {
     // Bold should be inactive
     expect(boldButton).toHaveAttribute("aria-pressed", "false");
   });
+
+  it("toggles underline and strikethrough via the toolbar", async () => {
+    const user = userEvent.setup();
+    render(<RichTextEditor ariaLabel="Notes" html="" onChange={vi.fn()} />);
+
+    screen.getByRole("textbox", { name: "Notes" }).focus();
+    const underline = screen.getByRole("button", { name: "Underline" });
+    const strike = screen.getByRole("button", { name: "Strikethrough" });
+
+    expect(underline).toHaveAttribute("aria-pressed", "false");
+    await user.click(underline);
+    expect(underline).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(strike);
+    expect(strike).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("exposes font-size and color controls", () => {
+    render(<RichTextEditor ariaLabel="Notes" html="" onChange={vi.fn()} />);
+
+    expect(screen.getByRole("combobox", { name: "Font size" })).toBeVisible();
+    const color = screen.getByLabelText("Text color");
+    expect(color).toHaveAttribute("type", "color");
+  });
 });

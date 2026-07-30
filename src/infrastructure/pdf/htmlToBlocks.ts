@@ -2,7 +2,11 @@ export interface Run {
   text: string;
   bold?: boolean;
   italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
   link?: string;
+  color?: string;
+  size?: number;
 }
 
 export type Block =
@@ -13,7 +17,11 @@ export type Block =
 interface Marks {
   bold?: boolean;
   italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
   link?: string;
+  color?: string;
+  size?: number;
 }
 
 function collectRuns(node: Node, marks: Marks, runs: Run[]): void {
@@ -25,7 +33,11 @@ function collectRuns(node: Node, marks: Marks, runs: Run[]): void {
           text,
           ...(marks.bold ? { bold: true } : {}),
           ...(marks.italic ? { italic: true } : {}),
+          ...(marks.underline ? { underline: true } : {}),
+          ...(marks.strike ? { strike: true } : {}),
           ...(marks.link ? { link: marks.link } : {}),
+          ...(marks.color ? { color: marks.color } : {}),
+          ...(marks.size ? { size: marks.size } : {}),
         });
       }
       continue;
@@ -42,13 +54,29 @@ function collectRuns(node: Node, marks: Marks, runs: Run[]): void {
     if (tag === "strong" || tag === "b") {
       next.bold = true;
     }
-
     if (tag === "em" || tag === "i") {
       next.italic = true;
     }
-
+    if (tag === "u") {
+      next.underline = true;
+    }
+    if (tag === "s" || tag === "del" || tag === "strike") {
+      next.strike = true;
+    }
     if (tag === "a") {
       next.link = element.getAttribute("href") ?? marks.link;
+    }
+
+    const color = element.style?.color;
+    if (color) {
+      next.color = color;
+    }
+    const fontSize = element.style?.fontSize;
+    if (fontSize) {
+      const parsed = Number.parseFloat(fontSize);
+      if (!Number.isNaN(parsed)) {
+        next.size = parsed;
+      }
     }
 
     collectRuns(element, next, runs);

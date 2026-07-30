@@ -121,7 +121,10 @@ mandatory start page. The `AppShell` left rail is a project switcher: it lists
 every project sorted by most recent edit, highlights the current one
 (`aria-current="page"`), and switches projects through the same
 `WorkspaceService.openProject` flow when clicked. Its footer exposes New Project
-and Open Project. The `WorkspaceLauncher` (recent-project gallery, relocate, and
+and Open Project. Below the header, `AppShell` lays out three columns — the
+project switcher rail (~15%), the plan workspace (~60%), and a right `AgentPanel`
+Assistant preview (~25%) whose disabled bottom input is reserved for a future
+planning agent. The `WorkspaceLauncher` (recent-project gallery, relocate, and
 remove) is shown only when no available project exists, and clicking an
 unavailable project in the rail returns there to recover it.
 
@@ -213,20 +216,22 @@ writing bytes to disk is isolated behind the separate `PdfSaveTarget` port.
 `src/infrastructure/pdf/pdfLibExporter.ts` implements `PdfExporter` with
 `pdf-lib` and `@pdf-lib/fontkit`. It fetches bundled Noto Sans SC font files
 through Vite `?url` imports, embeds subset Regular/Bold fonts, parses the
-schema-safe plan HTML into PDF blocks, and lays out each image row into square
-slots with contain-fit letterboxing. Rows are page-atomic: if one row does not
+schema-safe plan HTML into PDF blocks, and lays out each image row into fixed
+square slots — drawing a light-gray frame around every slot and contain-fit
+letterboxing each image inside it. Rows are page-atomic: if one row does not
 fit beneath the current cursor, the exporter starts a new page before drawing
-that whole row. v1 keeps italic text styled in the parsed model but renders it
-with the regular font in the PDF, and links are styled blue/underlined without
-adding clickable PDF annotations.
+that whole row. Underline, strikethrough, text color, and font size are honored
+per run; italic is kept in the parsed model but rendered with the regular font,
+and links are styled blue/underlined without adding clickable PDF annotations.
 
 `src/infrastructure/pdf/tauriPdfSave.ts` implements `PdfSaveTarget` for desktop
 builds by opening the Tauri save dialog (`dialog:allow-save`) and then calling
-the narrow Rust `save_pdf` command. `src-tauri/src/pdf.rs` decodes the base64
-payload, writes a temporary sibling file, and renames it into place for an
-atomic save. End-to-end browser tests swap in `browserPdfSaveTarget`, which
-resolves success without showing an OS dialog while still exercising the real
-`pdfLibExporter`.
+the narrow Rust `save_pdf` command. The export defaults that dialog to
+`output.pdf` in the current project directory. `src-tauri/src/pdf.rs` decodes
+the base64 payload, writes a temporary sibling file, and renames it into place
+for an atomic save. End-to-end browser tests swap in `browserPdfSaveTarget`,
+which resolves success without showing an OS dialog while still exercising the
+real `pdfLibExporter`.
 
 ### Boundaries
 
@@ -239,10 +244,12 @@ resolves success without showing an OS dialog while still exercising the real
 - The `PlanPanel` renders one scrollable, tab-free view: the Photography Plan
   editor stacked above the Reference Images groups (WYSIWYG). Both the plan body
   and group descriptions share `src/features/plan/RichTextEditor.tsx`, a TipTap
-  wrapper that emits a bounded, schema-safe HTML subset (paragraphs, H1/H2,
-  bold, italic, bullet/ordered lists, and links) and supports placeholder copy.
-  Group titles use high-contrast text, while rich-text edits stay in memory
-  until the 5-second auto-save or an explicit flush.
+  wrapper with a formatting toolbar (bold, italic, underline, strikethrough,
+  H1/H2, bullet/ordered lists, font size, text color, and links) that emits a
+  bounded, schema-safe HTML subset and supports placeholder copy. Group titles
+  use high-contrast text, reference thumbnails are capped at ~160px squares so
+  the gallery stays bounded, and rich-text edits stay in memory until the
+  5-second auto-save or an explicit flush.
 - The Tauri plan adapter (`src/infrastructure/plan/tauriPlan.ts`) wraps the five
   commands and validates response shapes.
 - The browser plan adapter (`src/infrastructure/plan/browserPlan.ts`) seeds an
