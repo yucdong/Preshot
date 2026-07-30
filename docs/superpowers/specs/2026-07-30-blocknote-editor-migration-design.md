@@ -140,24 +140,24 @@ embedding, per-run underline/strike/color rendering, light-gray image frame) is
 **unchanged**. Only `src/infrastructure/pdf/htmlToBlocks.ts` is extended to map
 BlockNote's lossy HTML into the existing `Block`/`Run` model:
 
-- **Palette colors:** BlockNote encodes text/background color as named palette
-  values. The parser reads `data-text-color` / `data-background-color`
-  attributes (and inline `style="color: …"`) and maps palette names → hex via a
-  `BLOCKNOTE_COLORS` table, populating the existing `Run.color`. Background/
-  highlight color maps to `Run.color` only if trivial to support; otherwise it is
-  ignored at today's fidelity (documented).
-- **Checklists:** rendered as **bullet lists** (checkbox state is dropped).
+- **Palette colors:** BlockNote's `blocksToHTMLLossy` emits inline styles with
+  resolved values (e.g. `<span style="color: #dd3333">`), not `data-*`
+  attributes. The exporter's existing inline-`style` reader already turns this
+  into `Run.color`, so **text color needs no parser change**. Highlight
+  (background) color is emitted as `background-color` and is ignored at today's
+  fidelity (documented).
+- **Checklists:** rendered as **bullet lists** (checkbox `<input>` carries no
+  text, so list-item labels parse cleanly).
 - **Code blocks (`<pre>`/`<code>`):** rendered as a **preformatted paragraph**
   preserving line breaks, using the regular font (no true monospace face is
   embedded — documented).
-- **Tables (`<table>`):** **flattened to text** (row/cell text joined); full
+- **Tables (`<table>`):** **flattened to text**, one paragraph per row; full
   table geometry is deferred.
 - Headings (`h1`/`h2`/`h3`), paragraphs, and bullet/numbered lists keep their
   current handling (`h3` → level 2).
 
-The exact lossy-HTML shapes (color attributes vs inline style, checklist/code/
-table markup) are pinned by unit tests generated from real `blocksToHTMLLossy`
-output during implementation.
+The exact lossy-HTML shapes are pinned by unit tests in
+`htmlToBlocks.test.ts`.
 
 ## Testing
 
