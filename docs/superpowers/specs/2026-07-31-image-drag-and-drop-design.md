@@ -139,8 +139,8 @@ append) are pinned by unit tests in the implementation plan.
   end-of-grid accept drops.
 - `PointerSensor` with `activationConstraint: { distance: 6 }` — a click below the
   threshold opens the lightbox; the × button stops pointer propagation so it never
-  starts a drag.
-- `KeyboardSensor` is included for accessibility (free with dnd-kit).
+  starts a drag. Image dragging is mouse/pointer only; tiles remain
+  keyboard-focusable and can be opened (Enter/Space) and removed.
 - A `DragOverlay` renders a copy of the dragged image following the cursor; the
   source tile shows a dimmed placeholder; the hovered group animates a gap.
 - On `onDragEnd`, call `resolveImageMove`; if non-null, `onMoveImage(params)`.
@@ -171,10 +171,9 @@ append) are pinned by unit tests in the implementation plan.
   `onMoveImage` with the expected params. Full pointer-drag simulation is
   unreliable in jsdom, so interactive DnD relies on the pure resolver plus this
   wiring test.
-- **E2E:** a Playwright drag is added only if it proves non-flaky (dnd-kit's
-  keyboard sensor is the more reliable path); otherwise DnD stays covered by the
-  unit + component layers, consistent with how the editor's real interaction is
-  covered.
+- **E2E:** DnD is mouse/pointer only; keyboard-open is covered by the existing
+  "browses reference images" test that clicks "Open reference image 1" → lightbox.
+  Drag-and-drop stays covered by the unit + component layers.
 - Reuse the existing jsdom shims (`ResizeObserver`, etc.) added for BlockNote;
   add any dnd-kit-specific shim only if a mount error requires it.
 

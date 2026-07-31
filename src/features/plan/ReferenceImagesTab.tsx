@@ -1,16 +1,14 @@
 import { useState } from "react";
 import {
-  closestCenter,
+  closestCorners,
   DndContext,
   DragOverlay,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { MAX_COLUMNS, MIN_COLUMNS, type MoveImageParams, type ReferenceGroup } from "../../domain/plan/models";
 import { GroupImageGrid } from "./GroupImageGrid";
 import { handleImageDragEnd } from "./resolveImageMove";
@@ -75,7 +73,6 @@ export function ReferenceImagesTab({
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   const activeImage = activeId
@@ -107,7 +104,7 @@ export function ReferenceImagesTab({
       </div>
 
       <DndContext
-        collisionDetection={closestCenter}
+        collisionDetection={closestCorners}
         onDragCancel={() => setActiveId(null)}
         onDragEnd={onDragEnd}
         onDragStart={onDragStart}

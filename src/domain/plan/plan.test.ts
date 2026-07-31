@@ -146,6 +146,11 @@ describe("moveImage", () => {
     expect(moveImage(p, { fromGroupId: "g1", imageId: "a", toGroupId: "g1", toIndex: 0 })).toBe(p);
   });
 
+  it("returns the same plan reference when an image is dropped at its own end position", () => {
+    const p = plan();
+    expect(moveImage(p, { fromGroupId: "g1", imageId: "c", toGroupId: "g1", toIndex: 3 })).toBe(p);
+  });
+
   it("does not mutate the input plan", () => {
     const p = plan();
     moveImage(p, { fromGroupId: "g1", imageId: "a", toGroupId: "g2", toIndex: 0 });

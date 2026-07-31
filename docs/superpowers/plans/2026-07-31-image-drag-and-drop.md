@@ -743,14 +743,12 @@ import {
   closestCenter,
   DndContext,
   DragOverlay,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { GroupImageGrid } from "./GroupImageGrid";
 import { handleImageDragEnd } from "./resolveImageMove";
 ```
@@ -759,7 +757,6 @@ Remove the now-unused `squareButton` constant (it moved to `SortableImageTile`).
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   const activeImage = activeId
