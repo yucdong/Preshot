@@ -93,10 +93,14 @@ another application has placed a conflicting `link.exe` earlier in PATH.
 - **Domain**: `reducer.test.ts` and `service.test.ts` cover pure plan rules --
   adding/renaming/deleting groups, editing group descriptions, setting columns
   (clamped 1..=6), setting `photographyPlan` HTML, importing/removing images,
-  and the guarded mutation flows -- using typed fakes only. `service.test.ts`
-  also asserts that pure-metadata use cases do not persist, that
-  `setPhotographyPlan` stays in-memory until saved, and that `savePlan` is the
-  explicit persistence path. `domain/plan/pdf/geometry.test.ts`,
+  `moveImage` (within/cross-group, append, clamp, no-op, immutability), and the
+  guarded mutation flows -- using typed fakes only. `service.test.ts`
+  also asserts that pure-metadata use cases (including `moveImage`) do not
+  persist, that `setPhotographyPlan` stays in-memory until saved, and that
+  `savePlan` is the explicit persistence path.
+  `features/plan/dnd/resolveImageMove.test.ts` covers drop resolution
+  including invalid drop → null, same-tile no-op, cross-group, group-container
+  append, and the `handleImageDragEnd` helper. `domain/plan/pdf/geometry.test.ts`,
   `document.test.ts`, and `export.test.ts` cover the pure A4 geometry helpers,
   square contain-fit calculations, `buildExportDocument` section ordering, and
   contextual export wrapping.
@@ -123,7 +127,13 @@ another application has placed a conflicting `link.exe` earlier in PATH.
   tests query by accessible role and name, and cover the guarded action flows,
   the rich-text plan body and per-group description editors (high-contrast text,
   in-memory edits, auto-saved HTML), the single tab-free panel, image rendering,
-  lightbox open/close, and error states. `ProjectPlanProvider` also uses fake
+  lightbox open/close, and error states. `GroupImageGrid.test.tsx` covers
+  sortable tiles rendering and verifies that click-open, add, and remove
+  behaviors are preserved alongside the drag-and-drop wiring (using
+  `fireEvent.click` because dnd-kit's PointerSensor suppresses userEvent's
+  synthetic click in jsdom). Real pointer-drag interaction is not simulated in
+  jsdom — drop logic is covered by the pure `resolveImageMove` tests, so no
+  DnD e2e is added. `ProjectPlanProvider` also uses fake
   timers to assert the 5-second auto-save flushes a changed plan once and writes
   nothing when unchanged, and it covers the export handoff from `Export PDF`
   through `PdfExporter` to `PdfSaveTarget`, asserting the save target receives

@@ -243,12 +243,25 @@ for an atomic save. End-to-end browser tests swap in `browserPdfSaveTarget`,
 which resolves success without showing an OS dialog while still exercising the
 real `pdfLibExporter`.
 
+### Drag-and-drop reordering
+
+Reference images support drag-and-drop reordering within and across groups via
+`@dnd-kit` (confined to `src/features/plan`). A pure `moveImage(plan, {
+fromGroupId, imageId, toGroupId, toIndex })` reducer computes the next plan
+with adjusted image arrays, and a non-persisting `PlanService.moveImage` use
+case defers to the 5-second auto-save instead of writing immediately; moves
+produce no file I/O. A pure `resolveImageMove(groups, activeId, overId)` helper
+maps a dnd-kit drop event to move parameters or null (cancel on invalid drop).
+The `DndContext` lives in `ReferenceImagesTab`, with `GroupImageGrid` as a
+droppable per group and `SortableImageTile` wrapping each tile. The pointer
+activation distance preserves click-to-open behavior on tiles.
+
 ### Boundaries
 
 - The domain `PlanService` owns plan rules (group management, per-group
   description edits, photography-plan edits, column clamping 1..=6, reference
-  ordering); pure-metadata use cases compute the next plan without persisting,
-  while `savePlan`,
+  ordering); pure-metadata use cases (including `moveImage`) compute the next
+  plan without persisting, while `savePlan`,
   `importImage`, `removeImage`, and `deleteGroup` persist through a serialized
   queue.
 - The `PlanPanel` renders one scrollable, tab-free view: the Photography Plan
