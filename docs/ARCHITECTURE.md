@@ -137,6 +137,14 @@ unavailable project in the rail returns there to recover it.
 - The native-command adapter (`tauriWorkspace.ts`) wraps the Rust
   `create_project`, `inspect_project`, `rollback_created_project`, and
   `forget_created_project` commands and validates every response shape.
+- `RichTextEditor` is the shared rich-text editor, now wrapping **BlockNote**
+  (`useCreateBlockNote` + `@blocknote/mantine` `BlockNoteView`) in place of
+  TipTap. It converts HTML at the boundary (`tryParseHTMLToBlocks` /
+  `blocksToHTMLLossy`) so the `.preshot` manifest still stores HTML, supports
+  native block types (headings, checklists, tables, code blocks) and BlockNote's
+  palette colors, and renders a `compact` variant (no side menu) for group
+  descriptions. The font-size dropdown and arbitrary-hex color picker were
+  removed in favor of BlockNote's native formatting model.
 - Rust commands stay narrow: filesystem work, atomic manifest writes
   (write-temp-then-rename), cover resolution, and token-authorized rollback of a
   just-created project. They hold no UI or business rules.
@@ -220,9 +228,11 @@ schema-safe plan HTML into PDF blocks, and lays out each image row into fixed
 square slots — drawing a light-gray frame around every slot and contain-fit
 letterboxing each image inside it. Rows are page-atomic: if one row does not
 fit beneath the current cursor, the exporter starts a new page before drawing
-that whole row. Underline, strikethrough, text color, and font size are honored
-per run; italic is kept in the parsed model but rendered with the regular font,
-and links are styled blue/underlined without adding clickable PDF annotations.
+that whole row. Text color still flows through inline `style`; BlockNote
+checklists render as bullet lists, code blocks as preformatted paragraphs
+(regular font), and tables are flattened to text (one paragraph per row).
+Italic is kept in the parsed model but rendered with the regular font, and
+links are styled blue/underlined without adding clickable PDF annotations.
 
 `src/infrastructure/pdf/tauriPdfSave.ts` implements `PdfSaveTarget` for desktop
 builds by opening the Tauri save dialog (`dialog:allow-save`) and then calling

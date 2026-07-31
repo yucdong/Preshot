@@ -67,7 +67,8 @@
         "主界面采用三栏布局：左侧项目栏约15%、中间方案区约60%、右侧约25%为预留的对话/agent面板（底部含输入框占位）",
         "参考样图缩略图限定为固定尺寸（最大约160px方格），避免占比过大",
         "富文本编辑器提供工具栏：加粗、斜体、下划线、删除线、标题、列表、字号、颜色、链接，所见即所得",
-        "导出的 PDF 中每张图片占据固定正方形站位并带浅灰色外框标示范围，图片按尺寸在框内留白；文本渲染支持下划线、删除线、颜色与字号"
+        "导出的 PDF 中每张图片占据固定正方形站位并带浅灰色外框标示范围，图片按尺寸在框内留白；文本渲染支持下划线、删除线、颜色与字号",
+        "富文本编辑器改用 BlockNote，提供 Notion 风格的块编辑（斜杠菜单、拖拽块、清单/表格/代码块），方案与每组描述统一；持久化仍为 HTML，向后兼容旧内容"
       ],
       "status": "completed",
       "decisions": [
@@ -86,7 +87,8 @@
         "Adopt a three-column app shell (15% projects / 60% plan / 25% Assistant preview) with a disabled bottom input reserved for a future agent.",
         "Cap reference thumbnails at ~160px squares (grid minmax(0,160px), left-aligned) so the gallery stays bounded.",
         "Extend the shared rich-text toolbar with underline, strikethrough, font-size (custom TextStyle FontSize extension), and color, rendered WYSIWYG via .ProseMirror styles.",
-        "Render underline/strikethrough/color/font-size runs in the exported PDF and draw a light-gray frame around every square image slot."
+        "Render underline/strikethrough/color/font-size runs in the exported PDF and draw a light-gray frame around every square image slot.",
+        "Replace TipTap with BlockNote (0.52, Mantine) in both the plan body and group descriptions; keep HTML persistence via tryParseHTMLToBlocks/blocksToHTMLLossy (no migration); adopt native BlockNote formatting (drop font-size/hex); PDF renders checklists as bullets, code as preformatted text, tables flattened; editor coverage shifts to e2e with mocked component tests."
       ],
       "progress": {
         "designApprovedAt": "2026-07-29",
@@ -105,12 +107,13 @@
           "Added a 5s change-detected auto-save in ProjectPlanProvider (metadata edits deferred, file ops immediate, unmount flush) backed by a new PlanService.savePlan use case.",
           "Added a live SaveStatus indicator (saving/unsaved/saved) in the PlanPanel header and a Ctrl/Cmd+S shortcut that flushes immediately.",
           "Added A4 PDF export (pure domain export document + geometry, pdf-lib/fontkit with bundled Noto Sans SC, dialog/save_pdf save path) and covered it with browser smoke + docs.",
-          "Optimized the plan workflow: PDF export defaults to <project>/output.pdf via the save dialog; the main window uses a 15/60/25 three-column shell with an Assistant preview panel and a disabled bottom input; reference thumbnails are capped at ~160px squares; the rich-text toolbar gained underline/strikethrough/font-size/color WYSIWYG controls; and the PDF renders those marks plus a light-gray frame around each square image slot."
+          "Optimized the plan workflow: PDF export defaults to <project>/output.pdf via the save dialog; the main window uses a 15/60/25 three-column shell with an Assistant preview panel and a disabled bottom input; reference thumbnails are capped at ~160px squares; the rich-text toolbar gained underline/strikethrough/font-size/color WYSIWYG controls; and the PDF renders those marks plus a light-gray frame around each square image slot.",
+          "Migrated the shared rich-text editor from TipTap to BlockNote (Notion-style block editing) with a compact description variant, HTML-boundary conversion, jsdom shims + mocked component tests, an e2e editing smoke, and PDF handling for BlockNote block types."
         ],
         "lastVerified": [
-          "179 frontend tests passed (Vitest), including editor toolbar, PDF marks, and Assistant panel tests.",
+          "180 frontend tests passed (Vitest).",
           "30 Rust tests passed.",
-          "Playwright workspace + plan + export browser flows passed (3 tests).",
+          "4 Playwright e2e tests passed.",
           "ESLint and TypeScript typecheck passed.",
           "pnpm build succeeded."
         ],

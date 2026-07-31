@@ -105,8 +105,10 @@ another application has placed a conflicting `link.exe` earlier in PATH.
   `read_project_plan`, `import_reference_image`, `load_reference_image`,
   `remove_reference_image`), serialized inputs, validated responses, and
   contextual failures. `infrastructure/pdf/htmlToBlocks.test.ts` covers HTML
-  parsing for headings, emphasis, lists, fallback paragraphs, links, and the
-  underline/strikethrough/color/font-size marks;
+  parsing for headings, emphasis, lists, fallback paragraphs, links, the
+  underline/strikethrough/color marks, and the BlockNote block-type cases
+  (checklists as bullets, code blocks as preformatted paragraphs, and tables
+  flattened to one paragraph per row);
   `pdfLibExporter.test.ts` generates a real A4 PDF with CJK text, styled runs,
   and a framed letterboxed image slot using bundled Noto Sans SC;
   `tauriPdfSave.test.ts` covers
@@ -130,11 +132,12 @@ another application has placed a conflicting `link.exe` earlier in PATH.
   (project switcher, plan workspace, and Assistant panel) with children, and
   `AgentPanel.test.tsx` verifies the disabled Assistant preview input and Send
   button.
-  `RichTextEditor.test.tsx` covers the shared TipTap toolbar (bold, italic,
-  underline, strikethrough, headings, lists, font size, and color), placeholder
-  rendering, and emitted HTML for the supported schema-safe subset; these tests
-  use a deterministic jsdom editing approach so selection and formatting
-  assertions stay stable without a real browser.
+  `RichTextEditor.test.tsx` is now a thin jsdom smoke test (labelled region,
+  HTML hydration) because BlockNote needs real browser APIs; the higher-level
+  suites (`PlanPanel`, `ReferenceImagesTab`, `ProjectPlanProvider`, and
+  `WorkspaceProvider`) mock `RichTextEditor` as a labelled textarea, and
+  `App.test.tsx` keeps the real editor. Real editing is covered by a Playwright
+  e2e in `e2e/plan.spec.ts`.
 - **Browser**: `e2e/plan.spec.ts` opens the seeded project, verifies reference
   images render, tests the lightbox flow, and clicks `Export PDF` to exercise
   the real browser `pdfLibExporter` plus the browser save target. The export
