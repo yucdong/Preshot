@@ -110,7 +110,7 @@ describe("ProjectPlanProvider", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
-      expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
+      expect(screen.getByTestId("save-status")).toHaveTextContent("All changes saved");
 
       // A pure-metadata edit updates in-memory state but is not persisted yet.
       fireEvent.change(screen.getByRole("combobox", { name: "Images per row" }), {
@@ -120,7 +120,7 @@ describe("ProjectPlanProvider", () => {
         await vi.advanceTimersByTimeAsync(0);
       });
       expect(savePlan).not.toHaveBeenCalled();
-      expect(screen.getByRole("status")).toHaveTextContent("Unsaved changes");
+      expect(screen.getByTestId("save-status")).toHaveTextContent("Unsaved changes");
 
       // The 5s auto-save flushes the change exactly once and returns to "saved".
       await act(async () => {
@@ -128,7 +128,7 @@ describe("ProjectPlanProvider", () => {
       });
       expect(savePlan).toHaveBeenCalledTimes(1);
       expect(savePlan.mock.calls[0][1].referenceGroups[0].columnsPerRow).toBe(4);
-      expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
+      expect(screen.getByTestId("save-status")).toHaveTextContent("All changes saved");
 
       // With no further change, the next tick writes nothing.
       await act(async () => {

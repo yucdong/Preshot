@@ -51,7 +51,7 @@ describe("PlanPanel", () => {
     expect(screen.getByRole("heading", { name: "Shot notes" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Sample sets" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Add reference group" })).toBeVisible();
-    expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
+    expect(screen.getByTestId("save-status")).toHaveTextContent("All changes saved");
   });
 
   it("renders the photography plan editor", () => {
@@ -85,7 +85,7 @@ describe("PlanPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("Saving…");
+    expect(screen.getByTestId("save-status")).toHaveTextContent("Saving…");
   });
 
   it("renders a contextual error banner when provided", () => {
