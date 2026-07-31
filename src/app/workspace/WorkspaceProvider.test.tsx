@@ -14,6 +14,22 @@ import type { PlanDependencies } from "../../features/plan/ProjectPlanProvider";
 import type { WorkspaceDependencies } from "./dependencies";
 import { WorkspaceProvider } from "./WorkspaceProvider";
 
+vi.mock("../../features/plan/RichTextEditor", () => ({
+  RichTextEditor: ({ html, onChange, ariaLabel, placeholder }: {
+    html: string;
+    onChange(html: string): void;
+    ariaLabel: string;
+    placeholder?: string;
+  }) => (
+    <textarea
+      aria-label={ariaLabel}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      value={html}
+    />
+  ),
+}));
+
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;

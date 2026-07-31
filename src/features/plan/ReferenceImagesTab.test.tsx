@@ -2,6 +2,23 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ReferenceImagesTab } from "./ReferenceImagesTab";
+import { fireEvent } from "@testing-library/react";
+
+vi.mock("./RichTextEditor", () => ({
+  RichTextEditor: ({ html, onChange, ariaLabel, placeholder }: {
+    html: string;
+    onChange(html: string): void;
+    ariaLabel: string;
+    placeholder?: string;
+  }) => (
+    <textarea
+      aria-label={ariaLabel}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      value={html}
+    />
+  ),
+}));
 
 function handlers() {
   return {
@@ -83,17 +100,9 @@ describe("ReferenceImagesTab", () => {
 
     const group = screen.getByRole("group", { name: "Reference group: Lookbook" });
     const editor = within(group).getByRole("textbox", { name: "Group description" });
-    expect(editor).toHaveTextContent("Warm editorial mood");
+    expect(editor).toHaveValue("<p>Warm editorial mood</p>");
 
-    editor.textContent = "Cool blue tones";
-    editor.dispatchEvent(new Event("input", { bubbles: true }));
-
-    await vi.waitFor(() => {
-      expect(h.onSetDescription).toHaveBeenCalled();
-    });
-    expect(h.onSetDescription.mock.calls.at(-1)?.[0]).toBe("g1");
-    const html = h.onSetDescription.mock.calls.at(-1)?.[1];
-    expect(html).toContain("Cool blue tones");
-    expect(html).toMatch(/<p[ >]/i);
+    fireEvent.change(editor, { target: { value: "<p>Cool blue tones</p>" } });
+    expect(h.onSetDescription).toHaveBeenCalledWith("g1", "<p>Cool blue tones</p>");
   });
 });

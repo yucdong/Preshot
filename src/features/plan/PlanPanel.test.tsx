@@ -3,6 +3,22 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { PlanPanel } from "./PlanPanel";
 
+vi.mock("./RichTextEditor", () => ({
+  RichTextEditor: ({ html, onChange, ariaLabel, placeholder }: {
+    html: string;
+    onChange(html: string): void;
+    ariaLabel: string;
+    placeholder?: string;
+  }) => (
+    <textarea
+      aria-label={ariaLabel}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      value={html}
+    />
+  ),
+}));
+
 const noop = {
   onAddGroup: vi.fn(),
   onRenameGroup: vi.fn(),
@@ -50,7 +66,7 @@ describe("PlanPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("textbox", { name: "Photography plan" })).toHaveTextContent("Plan body");
+    expect(screen.getByRole("textbox", { name: "Photography plan" })).toHaveValue("<p>Plan body</p>");
   });
 
   it("reflects the current save state", () => {

@@ -5,6 +5,22 @@ import type { PlanRepository, ReferenceImageStore } from "../../domain/plan/port
 import { createPlanService, type PlanService } from "../../domain/plan/service";
 import { ProjectPlanProvider, type PlanDependencies } from "./ProjectPlanProvider";
 
+vi.mock("./RichTextEditor", () => ({
+  RichTextEditor: ({ html, onChange, ariaLabel, placeholder }: {
+    html: string;
+    onChange(html: string): void;
+    ariaLabel: string;
+    placeholder?: string;
+  }) => (
+    <textarea
+      aria-label={ariaLabel}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      value={html}
+    />
+  ),
+}));
+
 function deps(): { dependencies: PlanDependencies; service: PlanService; pick: ReturnType<typeof vi.fn> } {
   const plan = { photographyPlan: "", referenceGroups: [{ id: "g1", title: "Lookbook", description: "Warm editorial mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] }] };
   const service: PlanService = {
