@@ -20,3 +20,11 @@ test("exports the plan to a pdf", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeVisible({ timeout: 30000 });
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
+
+test("edits the photography plan with the block editor", async ({ page }) => {
+  await page.goto("/");
+  const editor = page.getByRole("group", { name: "Photography plan" }).locator("[contenteditable='true']");
+  await editor.click();
+  await page.keyboard.type("Sunrise call time 5am");
+  await expect(page.getByText("Sunrise call time 5am")).toBeVisible();
+});
