@@ -13,11 +13,18 @@ describe("RichTextEditor", () => {
     expect(await screen.findByText("Shot list")).toBeVisible();
   });
 
-  it("emits html shortly after mounting non-empty content", async () => {
+  it("does not emit onChange while hydrating non-empty html", async () => {
     const onChange = vi.fn();
     render(<RichTextEditor ariaLabel="Notes" html="<p>Seed</p>" onChange={onChange} />);
     await screen.findByText("Seed");
-    // Editing is validated in e2e; here we only assert the wrapper is interactive.
-    expect(screen.getByRole("group", { name: "Notes" })).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("does not emit onChange while hydrating empty html", async () => {
+    const onChange = vi.fn();
+    render(<RichTextEditor ariaLabel="Notes" html="" onChange={onChange} />);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
