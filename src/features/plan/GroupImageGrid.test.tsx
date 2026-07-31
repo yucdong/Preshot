@@ -40,13 +40,18 @@ describe("GroupImageGrid", () => {
     expect(within(open).getByRole("img", { name: "Reference image 1" })).toBeVisible();
   });
 
-  it("opens an image on plain click", async () => {
+  // dnd-kit's PointerSensor listeners suppress userEvent's synthetic
+  // pointer->click sequence in jsdom, so these use fireEvent.click.
+  // Real click-vs-drag coexistence is covered by e2e (plan.spec.ts
+  // "Open reference image 1" opens the lightbox with the tile wired).
+
+  it("opens an image on plain click", () => {
     const props = renderGrid();
     fireEvent.click(screen.getByRole("button", { name: "Open reference image 1" }));
     expect(props.onOpenImage).toHaveBeenCalledWith("references/0001.png");
   });
 
-  it("removes and adds images through the tile and add button", async () => {
+  it("removes and adds images through the tile and add button", () => {
     const props = renderGrid();
     fireEvent.click(screen.getByRole("button", { name: "Remove reference image 2" }));
     expect(props.onRemoveImage).toHaveBeenCalledWith("g1", "i2");
