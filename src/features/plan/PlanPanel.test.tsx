@@ -9,6 +9,7 @@ vi.mock("./RichTextEditor", () => ({
     onChange(html: string): void;
     ariaLabel: string;
     placeholder?: string;
+    compact?: boolean;
   }) => (
     <textarea
       aria-label={ariaLabel}

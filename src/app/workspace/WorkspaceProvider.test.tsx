@@ -20,6 +20,7 @@ vi.mock("../../features/plan/RichTextEditor", () => ({
     onChange(html: string): void;
     ariaLabel: string;
     placeholder?: string;
+    compact?: boolean;
   }) => (
     <textarea
       aria-label={ariaLabel}
