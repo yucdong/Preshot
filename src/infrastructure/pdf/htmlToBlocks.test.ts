@@ -66,16 +66,21 @@ describe("parseHtmlToBlocks", () => {
     const [block] = parseHtmlToBlocks("<pre><code>line1\nline2</code></pre>");
     expect(block.type).toBe("paragraph");
     const text = block.type === "paragraph" ? block.runs.map((run) => run.text).join("") : "";
-    expect(text).toContain("line1");
-    expect(text).toContain("line2");
+    expect(text).toBe("line1\nline2");
   });
 
-  it("flattens a table to text", () => {
-    const blocks = parseHtmlToBlocks("<table><tbody><tr><td>A1</td><td>B1</td></tr></tbody></table>");
-    const joined = blocks
-      .flatMap((block) => (block.type === "paragraph" ? block.runs.map((run) => run.text) : []))
-      .join(" ");
-    expect(joined).toContain("A1");
-    expect(joined).toContain("B1");
+  it("flattens a table to one paragraph per row", () => {
+    const blocks = parseHtmlToBlocks(
+      "<table><tbody><tr><td>A1</td><td>B1</td></tr><tr><td>A2</td><td>B2</td></tr></tbody></table>",
+    );
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].type).toBe("paragraph");
+    expect(blocks[1].type).toBe("paragraph");
+    const text0 = blocks[0].type === "paragraph" ? blocks[0].runs.map((run) => run.text).join("") : "";
+    const text1 = blocks[1].type === "paragraph" ? blocks[1].runs.map((run) => run.text).join("") : "";
+    expect(text0).toContain("A1");
+    expect(text0).toContain("B1");
+    expect(text1).toContain("A2");
+    expect(text1).toContain("B2");
   });
 });
