@@ -28,7 +28,7 @@ test("edits the photography plan with the block editor", async ({ page }) => {
   // assertion reflects a fully loaded editor rather than the default first-paint state.
   await expect(page.getByText("Golden hour on the waterfront. Bring the 85mm.")).toBeVisible();
 
-  const saveStatus = page.getByRole("region", { name: "Plan" }).getByRole("status");
+  const saveStatus = page.getByTestId("save-status");
   // Opening a project must stay clean: hydrating the editor from stored HTML must not
   // emit normalized (lossy) HTML that flips the plan to unsaved (the critical fix). The
   // timeout stays under the 5s auto-save interval so a buggy dirty flip is caught before

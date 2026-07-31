@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EMPTY_PLAN, type ProjectPlan } from "../../domain/plan/models";
+import { EMPTY_PLAN, type MoveImageParams, type ProjectPlan } from "../../domain/plan/models";
 import type { PlanImagePicker } from "../../domain/plan/ports";
 import type { PlanService } from "../../domain/plan/service";
 import { exportPlanToPdf } from "../../domain/plan/pdf/export";
@@ -310,6 +310,19 @@ export function ProjectPlanProvider({ projectPath, projectName, dependencies }: 
     [applyPlan, guard, markSaved, persisting, projectPath, service],
   );
 
+  const moveImage = useCallback(
+    (params: MoveImageParams) => {
+      void guard("Unable to reorder the reference image", async () => {
+        const next = await service.moveImage(planRef.current, params);
+        if (mountedRef.current) {
+          applyPlan(next);
+          setError(null);
+        }
+      });
+    },
+    [applyPlan, guard, service],
+  );
+
   const exportPdf = useCallback(() => {
     void guard("Unable to export the PDF", async () => {
       setExporting(true);
@@ -336,6 +349,7 @@ export function ProjectPlanProvider({ projectPath, projectName, dependencies }: 
         onAddImage={addImage}
         onDeleteGroup={deleteGroup}
         onExport={exportPdf}
+        onMoveImage={moveImage}
         onOpenImage={(file) => setLightbox(file)}
         onRemoveImage={removeImage}
         onRenameGroup={renameGroup}

@@ -1,5 +1,19 @@
 import { useState } from "react";
-import { MAX_COLUMNS, MIN_COLUMNS, type ReferenceGroup } from "../../domain/plan/models";
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { MAX_COLUMNS, MIN_COLUMNS, type MoveImageParams, type ReferenceGroup } from "../../domain/plan/models";
+import { GroupImageGrid } from "./GroupImageGrid";
+import { handleImageDragEnd } from "./resolveImageMove";
 import { RichTextEditor } from "./RichTextEditor";
 
 function GroupTitleInput({ title, onRename }: { title: string; onRename(value: string): void }) {
@@ -37,15 +51,13 @@ export interface ReferenceImagesTabProps {
   onAddImage(groupId: string): void;
   onRemoveImage(groupId: string, imageId: string): void;
   onOpenImage(file: string): void;
+  onMoveImage(params: MoveImageParams): void;
 }
 
 const columnOptions = Array.from(
   { length: MAX_COLUMNS - MIN_COLUMNS + 1 },
   (_unused, index) => MIN_COLUMNS + index,
 );
-
-const squareButton =
-  "group relative block aspect-square w-full overflow-hidden rounded-xl border border-black/10 bg-stone-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500";
 
 export function ReferenceImagesTab({
   groups,
@@ -58,7 +70,24 @@ export function ReferenceImagesTab({
   onAddImage,
   onRemoveImage,
   onOpenImage,
+  onMoveImage,
 }: ReferenceImagesTabProps) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const activeImage = activeId
+    ? groups.flatMap((group) => group.images).find((image) => image.id === activeId)
+    : undefined;
+
+  const onDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id));
+  const onDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
+    handleImageDragEnd(groups, event, onMoveImage);
+  };
+
   return (
     <div className="space-y-8 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -77,7 +106,14 @@ export function ReferenceImagesTab({
         </button>
       </div>
 
-      {groups.map((group) => (
+      <DndContext
+        collisionDetection={closestCenter}
+        onDragCancel={() => setActiveId(null)}
+        onDragEnd={onDragEnd}
+        onDragStart={onDragStart}
+        sensors={sensors}
+      >
+        {groups.map((group) => (
         <section
           aria-label={`Reference group: ${group.title || "Untitled"}`}
           className="rounded-2xl border border-black/10 bg-white p-5"
@@ -126,55 +162,25 @@ export function ReferenceImagesTab({
             />
           </div>
 
-          <div
-            className="mt-4 grid justify-start gap-3"
-            style={{ gridTemplateColumns: `repeat(${group.columnsPerRow}, minmax(0, 160px))` }}
-          >
-            {group.images.map((image, index) => {
-              const src = imageSrc(image.file);
-              return (
-                <div className="relative" key={image.id}>
-                  <button
-                    aria-label={`Open reference image ${index + 1}`}
-                    className={squareButton}
-                    onClick={() => onOpenImage(image.file)}
-                    type="button"
-                  >
-                    {src ? (
-                      <img
-                        alt={`Reference image ${index + 1}`}
-                        className="h-full w-full object-cover"
-                        src={src}
-                      />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center text-xs text-stone-400">
-                        Loading…
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    aria-label={`Remove reference image ${index + 1}`}
-                    className="absolute right-1 top-1 rounded-full bg-black/60 px-2 text-xs text-white"
-                    onClick={() => onRemoveImage(group.id, image.id)}
-                    type="button"
-                  >
-                    ×
-                  </button>
-                </div>
-              );
-            })}
-
-            <button
-              aria-label="Add reference image"
-              className="flex aspect-square w-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600"
-              onClick={() => onAddImage(group.id)}
-              type="button"
-            >
-              +
-            </button>
-          </div>
+          <GroupImageGrid
+            group={group}
+            imageSrc={imageSrc}
+            onAddImage={onAddImage}
+            onOpenImage={onOpenImage}
+            onRemoveImage={onRemoveImage}
+          />
         </section>
-      ))}
+        ))}
+        <DragOverlay>
+          {activeImage ? (
+            <div className="aspect-square w-40 overflow-hidden rounded-xl border border-black/10 bg-stone-200">
+              {imageSrc(activeImage.file) ? (
+                <img alt="" className="h-full w-full object-cover" src={imageSrc(activeImage.file)} />
+              ) : null}
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }

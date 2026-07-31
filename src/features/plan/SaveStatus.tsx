@@ -13,6 +13,7 @@ export function SaveStatus({ state }: { state: SaveState }) {
     <span
       aria-live="polite"
       className="inline-flex items-center gap-2 text-xs text-stone-500"
+      data-testid="save-status"
       role="status"
     >
       <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dot}`} />

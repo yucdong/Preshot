@@ -29,6 +29,7 @@ const noop = {
   onAddImage: vi.fn(),
   onRemoveImage: vi.fn(),
   onOpenImage: vi.fn(),
+  onMoveImage: vi.fn(),
 };
 
 describe("PlanPanel", () => {

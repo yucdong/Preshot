@@ -30,6 +30,7 @@ function handlers() {
     onAddImage: vi.fn(),
     onRemoveImage: vi.fn(),
     onOpenImage: vi.fn(),
+    onMoveImage: vi.fn(),
   };
 }
 
@@ -104,5 +105,19 @@ describe("ReferenceImagesTab", () => {
 
     fireEvent.change(editor, { target: { value: "<p>Cool blue tones</p>" } });
     expect(h.onSetDescription).toHaveBeenCalledWith("g1", "<p>Cool blue tones</p>");
+  });
+
+  it("renders images inside a sortable, droppable grid", () => {
+    render(
+      <ReferenceImagesTab
+        groups={groups}
+        imageSrc={(file) => (file === "references/0001.png" ? "data:image/png;base64,AA" : undefined)}
+        {...handlers()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Open reference image 1" })).toHaveAttribute(
+      "aria-roledescription",
+      "sortable",
+    );
   });
 });
