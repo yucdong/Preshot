@@ -80,3 +80,14 @@ textarea {
 .ProseMirror s {
   text-decoration: line-through;
 }
+
+/* BlockNote (Mantine) theming to fit the stone/amber palette. */
+.bn-wrap .bn-editor {
+  background: #ffffff;
+  color: #1c1917;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 0.5rem;
+}
+.bn-wrap.bn-compact .bn-editor {
+  padding-inline: 0.25rem;
+}
