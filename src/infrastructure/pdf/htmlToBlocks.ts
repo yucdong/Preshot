@@ -122,6 +122,18 @@ export function parseHtmlToBlocks(html: string): Block[] {
     } else if (tag === "ul" || tag === "ol") {
       const items = Array.from(element.querySelectorAll(":scope > li")).map((item) => runsOf(item));
       blocks.push({ type: "list", ordered: tag === "ol", items });
+    } else if (tag === "pre") {
+      const runs = runsOf(element);
+      if (runs.some((run) => run.text.trim() !== "")) {
+        blocks.push({ type: "paragraph", runs });
+      }
+    } else if (tag === "table") {
+      for (const row of Array.from(element.querySelectorAll("tr"))) {
+        const runs = runsOf(row);
+        if (runs.some((run) => run.text.trim() !== "")) {
+          blocks.push({ type: "paragraph", runs });
+        }
+      }
     } else {
       pushParagraph(runsOf(element));
     }
