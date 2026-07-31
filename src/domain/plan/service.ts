@@ -1,10 +1,11 @@
-import { DEFAULT_COLUMNS, type ProjectPlan, type ReferenceImage } from "./models";
+import { DEFAULT_COLUMNS, type MoveImageParams, type ProjectPlan, type ReferenceImage } from "./models";
 import {
   addGroup as addGroupToPlan,
   addImage as addImageToPlan,
   createGroup,
   deleteGroup as deleteGroupFromPlan,
   findGroup,
+  moveImage as moveImageInPlan,
   removeImage as removeImageFromPlan,
   renameGroup as renameGroupInPlan,
   setColumns as setColumnsInPlan,
@@ -36,6 +37,7 @@ export interface PlanService {
   setDescription(plan: ProjectPlan, groupId: string, description: string): Promise<ProjectPlan>;
   setPhotographyPlan(plan: ProjectPlan, html: string): Promise<ProjectPlan>;
   setColumns(plan: ProjectPlan, groupId: string, columns: number): Promise<ProjectPlan>;
+  moveImage(plan: ProjectPlan, params: MoveImageParams): Promise<ProjectPlan>;
   deleteGroup(projectPath: string, plan: ProjectPlan, groupId: string): Promise<ProjectPlan>;
   importImage(projectPath: string, plan: ProjectPlan, groupId: string, sourcePath: string): Promise<ImportImageResult>;
   removeImage(projectPath: string, plan: ProjectPlan, groupId: string, imageId: string): Promise<ProjectPlan>;
@@ -107,6 +109,9 @@ export function createPlanService({
     },
     setColumns(plan, groupId, columns) {
       return Promise.resolve(setColumnsInPlan(plan, groupId, columns));
+    },
+    moveImage(plan, params) {
+      return Promise.resolve(moveImageInPlan(plan, params));
     },
     deleteGroup(projectPath, plan, groupId) {
       return enqueue(async () => {

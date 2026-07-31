@@ -54,6 +54,7 @@ function planDeps(): PlanDependencies {
       setPhotographyPlan: vi.fn(),
       deleteGroup: vi.fn(),
       setColumns: vi.fn(),
+      moveImage: vi.fn(),
       importImage: vi.fn(),
       removeImage: vi.fn(),
     },

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceLogger } from "../workspace/ports";
-import { EMPTY_PLAN } from "./models";
+import { EMPTY_PLAN, type ProjectPlan } from "./models";
 import { addGroup, createGroup } from "./plan";
 import type { PlanRepository, ReferenceImageStore } from "./ports";
 import { createPlanService } from "./service";
@@ -96,6 +96,23 @@ describe("createPlanService", () => {
     const next = await service.setPhotographyPlan(EMPTY_PLAN, "<p>Notes</p>");
 
     expect(next.photographyPlan).toBe("<p>Notes</p>");
+    expect(d.repository.savePlan).not.toHaveBeenCalled();
+  });
+
+  it("moveImage resolves to the reordered plan without persisting", async () => {
+    const d = deps();
+    const service = createPlanService(d);
+    const plan: ProjectPlan = {
+      photographyPlan: "",
+      referenceGroups: [
+        { id: "g1", title: "A", description: "", columnsPerRow: 3, images: [
+          { id: "a", file: "references/a.png" },
+          { id: "b", file: "references/b.png" },
+        ] },
+      ],
+    };
+    const next = await service.moveImage(plan, { fromGroupId: "g1", imageId: "a", toGroupId: "g1", toIndex: 1 });
+    expect(next.referenceGroups[0].images.map((image) => image.id)).toEqual(["b", "a"]);
     expect(d.repository.savePlan).not.toHaveBeenCalled();
   });
 

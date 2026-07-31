@@ -34,6 +34,7 @@ function deps(): { dependencies: PlanDependencies; service: PlanService; pick: R
     setPhotographyPlan: vi.fn(),
     deleteGroup: vi.fn(),
     setColumns: vi.fn(),
+    moveImage: vi.fn(),
     importImage: vi.fn().mockResolvedValue({
       plan: { photographyPlan: "", referenceGroups: [{ id: "g1", title: "Lookbook", description: "Warm editorial mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }, { id: "i2", file: "references/0002.png" }] }] },
       image: { id: "i2", file: "references/0002.png" },
