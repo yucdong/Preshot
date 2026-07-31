@@ -14,7 +14,10 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder, compact
   const editor = useCreateBlockNote();
   const lastHtmlRef = useRef<string | null>(null);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     if (html === lastHtmlRef.current) {

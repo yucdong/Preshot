@@ -29,30 +29,6 @@ importers:
       '@tauri-apps/plugin-store':
         specifier: 2.4.4
         version: 2.4.4
-      '@tiptap/core':
-        specifier: ^3.28.0
-        version: 3.28.0(@tiptap/pm@3.28.0)
-      '@tiptap/extension-color':
-        specifier: ^3.28.0
-        version: 3.28.0(@tiptap/extension-text-style@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0)))
-      '@tiptap/extension-link':
-        specifier: ^3.28.0
-        version: 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-      '@tiptap/extension-placeholder':
-        specifier: ^3.28.0
-        version: 3.28.0(@tiptap/extensions@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))
-      '@tiptap/extension-text-style':
-        specifier: ^3.28.0
-        version: 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/pm':
-        specifier: ^3.28.0
-        version: 3.28.0
-      '@tiptap/react':
-        specifier: ^3.28.0
-        version: 3.28.0(@floating-ui/dom@1.8.0)(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@tiptap/starter-kit':
-        specifier: ^3.28.0
-        version: 3.28.0
       konva:
         specifier: ^10.3.0
         version: 10.3.0
@@ -995,12 +971,6 @@ packages:
     peerDependencies:
       '@tiptap/pm': 3.28.0
 
-  '@tiptap/extension-blockquote@3.28.0':
-    resolution: {integrity: sha1-+BjrpKea5n2xgHmveCngNMarbps=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-blockquote/-/extension-blockquote-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/core': 3.28.0
-      '@tiptap/pm': 3.28.0
-
   '@tiptap/extension-bold@3.28.0':
     resolution: {integrity: sha1-Zmuq1nQZ30TUSrhYwnrotYplyuA=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-bold/-/extension-bold-3.28.0.tgz}
     peerDependencies:
@@ -1012,36 +982,10 @@ packages:
       '@tiptap/core': 3.28.0
       '@tiptap/pm': 3.28.0
 
-  '@tiptap/extension-bullet-list@3.28.0':
-    resolution: {integrity: sha1-/96Hk5mPW0F9hP4Qjq9MUnbrKnc=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-bullet-list/-/extension-bullet-list-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/extension-list': 3.28.0
-
-  '@tiptap/extension-code-block@3.28.0':
-    resolution: {integrity: sha1-Zrxgp0qOx2qnbhYbC/uhzbh2sIo=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-code-block/-/extension-code-block-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/core': 3.28.0
-      '@tiptap/pm': 3.28.0
-
   '@tiptap/extension-code@3.28.0':
     resolution: {integrity: sha1-POS0GNhUg1dj9yQ4H4lohT16bi0=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-code/-/extension-code-3.28.0.tgz}
     peerDependencies:
       '@tiptap/core': 3.28.0
-
-  '@tiptap/extension-color@3.28.0':
-    resolution: {integrity: sha1-6TWYNyTbl6Fw8j9RD/CFJdM+hWQ=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-color/-/extension-color-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/extension-text-style': 3.28.0
-
-  '@tiptap/extension-document@3.28.0':
-    resolution: {integrity: sha1-BIPmB6PkKwbT8JlNYdastFPMTck=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-document/-/extension-document-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/core': 3.28.0
-
-  '@tiptap/extension-dropcursor@3.28.0':
-    resolution: {integrity: sha1-hD8KzTSH5TPPh/ER9ptwVb/5tjU=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-dropcursor/-/extension-dropcursor-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/extensions': 3.28.0
 
   '@tiptap/extension-floating-menu@3.28.0':
     resolution: {integrity: sha1-MLnF1MUmh/UzdfU5bZJwHOO3W94=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-floating-menu/-/extension-floating-menu-3.28.0.tgz}
@@ -1050,76 +994,13 @@ packages:
       '@tiptap/core': 3.28.0
       '@tiptap/pm': 3.28.0
 
-  '@tiptap/extension-gapcursor@3.28.0':
-    resolution: {integrity: sha1-xEm5TBVze7W2D6JHxgWfOJRu2yM=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-gapcursor/-/extension-gapcursor-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/extensions': 3.28.0
-
-  '@tiptap/extension-hard-break@3.28.0':
-    resolution: {integrity: sha1-A0NoQsZ1GWUwgqb7HnLDvBGbWEI=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-hard-break/-/extension-hard-break-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/core': 3.28.0
-
-  '@tiptap/extension-heading@3.28.0':
-    resolution: {integrity: sha1-eQXgc8D+XLDOqN/8cZtH8fzD9qU=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-heading/-/extension-heading-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/core': 3.28.0
-
-  '@tiptap/extension-horizontal-rule@3.28.0':
-    resolution: {integrity: sha1-+W16hv1U3SgwTjP8kFICdvTo6u0=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-horizontal-rule/-/extension-horizontal-rule-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/core': 3.28.0
-      '@tiptap/pm': 3.28.0
-
   '@tiptap/extension-italic@3.28.0':
     resolution: {integrity: sha1-hbM1Vzo7Cs2NaEHj2AvIgzBaIME=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-italic/-/extension-italic-3.28.0.tgz}
     peerDependencies:
       '@tiptap/core': 3.28.0
 
-  '@tiptap/extension-link@3.28.0':
-    resolution: {integrity: sha1-zrDSdbPJtrzUJApt/yqs1h0Ft24=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-link/-/extension-link-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/core': 3.28.0
-      '@tiptap/pm': 3.28.0
-
-  '@tiptap/extension-list-item@3.28.0':
-    resolution: {integrity: sha1-kKMz/VoFHugZxiB210lVaTsmeVE=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-list-item/-/extension-list-item-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/extension-list': 3.28.0
-
-  '@tiptap/extension-list-keymap@3.28.0':
-    resolution: {integrity: sha1-b1C0RYzU3oLlY6HzengIgrMqE9A=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-list-keymap/-/extension-list-keymap-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/extension-list': 3.28.0
-
-  '@tiptap/extension-list@3.28.0':
-    resolution: {integrity: sha1-RQcbnOAN/XHY+/2XPzAntb9JagE=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-list/-/extension-list-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/core': 3.28.0
-      '@tiptap/pm': 3.28.0
-
-  '@tiptap/extension-ordered-list@3.28.0':
-    resolution: {integrity: sha1-WsjyEeDXzjmwP69E9RRqHHGBVuc=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-ordered-list/-/extension-ordered-list-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/extension-list': 3.28.0
-
-  '@tiptap/extension-paragraph@3.28.0':
-    resolution: {integrity: sha1-aBJK78Q/IPvzj59D+uaX2mze9Pc=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-paragraph/-/extension-paragraph-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/core': 3.28.0
-
-  '@tiptap/extension-placeholder@3.28.0':
-    resolution: {integrity: sha1-4kkRvargw+XQwIVfSJYppQT1RV4=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-placeholder/-/extension-placeholder-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/extensions': 3.28.0
-
   '@tiptap/extension-strike@3.28.0':
     resolution: {integrity: sha1-qvr/cLEqE3QXTLuV08Eq174xVFI=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-strike/-/extension-strike-3.28.0.tgz}
-    peerDependencies:
-      '@tiptap/core': 3.28.0
-
-  '@tiptap/extension-text-style@3.28.0':
-    resolution: {integrity: sha1-ne0fuc6ncdriy/f7FneHpCNh4es=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/extension-text-style/-/extension-text-style-3.28.0.tgz}
     peerDependencies:
       '@tiptap/core': 3.28.0
 
@@ -1152,11 +1033,8 @@ packages:
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  '@tiptap/starter-kit@3.28.0':
-    resolution: {integrity: sha1-dUpfM7LDv0OLqlIjMXkIMpnzDwk=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@tiptap/starter-kit/-/starter-kit-3.28.0.tgz}
-
   '@types/aria-query@5.0.4':
-    resolution: {integrity: sha1-GjHD03iFDSd42rtjdNA23LpLpwg=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@types/aria-query/-/aria-query-5.0.4.tgz}
+    resolution: {integrity: sha1-GjHD03iFDSd42rtjdNA23LpLpwg=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@types/aria-query/-/aria-query-5.0.4.tgz}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha1-PfFfJ7qFMZyqB7oI0HIYibs5wBc=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@types/babel__core/-/babel__core-7.20.5.tgz}
@@ -1323,7 +1201,7 @@ packages:
     resolution: {integrity: sha1-B+mCx0YmFnqnoklcU4F4ktcTlJI=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ajv/-/ajv-6.15.0.tgz}
 
   ansi-regex@5.0.1:
-    resolution: {integrity: sha1-CCyyyJyf6GWaMRpTvWpNxTAdswQ=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ansi-regex/-/ansi-regex-5.0.1.tgz}
+    resolution: {integrity: sha1-CCyyyJyf6GWaMRpTvWpNxTAdswQ=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ansi-regex/-/ansi-regex-5.0.1.tgz}
     engines: {node: '>=8'}
 
   ansi-styles@4.3.0:
@@ -1331,7 +1209,7 @@ packages:
     engines: {node: '>=8'}
 
   ansi-styles@5.2.0:
-    resolution: {integrity: sha1-B0SWkK1Fd30ZJKwquy/IiV26g2s=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ansi-styles/-/ansi-styles-5.2.0.tgz}
+    resolution: {integrity: sha1-B0SWkK1Fd30ZJKwquy/IiV26g2s=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ansi-styles/-/ansi-styles-5.2.0.tgz}
     engines: {node: '>=10'}
 
   argparse@2.0.1:
@@ -1440,7 +1318,7 @@ packages:
     resolution: {integrity: sha1-pvLc5hL63S7x9Rm3NVHxfoUZmDE=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/deep-is/-/deep-is-0.1.4.tgz}
 
   dequal@2.0.3:
-    resolution: {integrity: sha1-JkQhTxmX057Q7g7OcjNUkKesZ74=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/dequal/-/dequal-2.0.3.tgz}
+    resolution: {integrity: sha1-JkQhTxmX057Q7g7OcjNUkKesZ74=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/dequal/-/dequal-2.0.3.tgz}
     engines: {node: '>=6'}
 
   detect-libc@2.1.2:
@@ -1451,7 +1329,7 @@ packages:
     resolution: {integrity: sha1-FjrN9kMzDKoLTNfCHn7ndV1vpJM=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/detect-node-es/-/detect-node-es-1.1.0.tgz}
 
   dom-accessibility-api@0.5.16:
-    resolution: {integrity: sha1-WnQp5gZus2ZNkR4z+w5F3o6whFM=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/dom-accessibility-api/-/dom-accessibility-api-0.5.16.tgz}
+    resolution: {integrity: sha1-WnQp5gZus2ZNkR4z+w5F3o6whFM=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/dom-accessibility-api/-/dom-accessibility-api-0.5.16.tgz}
 
   dom-accessibility-api@0.6.3:
     resolution: {integrity: sha1-mT6SXMHXPyxmLn113VpURSWaj9g=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/dom-accessibility-api/-/dom-accessibility-api-0.6.3.tgz}
@@ -1609,7 +1487,7 @@ packages:
     engines: {node: '>=6.9.0'}
 
   get-nonce@1.0.1:
-    resolution: {integrity: sha1-/fPwJ4Bzgg0s6UJsGPB0gbHgzfM=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/get-nonce/-/get-nonce-1.0.1.tgz}
+    resolution: {integrity: sha1-/fPwJ4Bzgg0s6UJsGPB0gbHgzfM=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/get-nonce/-/get-nonce-1.0.1.tgz}
     engines: {node: '>=6'}
 
   glob-parent@5.1.2:
@@ -1815,9 +1693,6 @@ packages:
     resolution: {integrity: sha1-uFqulkhtyxv0mnyFcSISc/Tx5Kk=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lightningcss/-/lightningcss-1.32.0.tgz}
     engines: {node: '>= 12.0.0'}
 
-  linkifyjs@4.3.3:
-    resolution: {integrity: sha1-2gjw7rTYmiRUHQlZH73MIR64/vA=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/linkifyjs/-/linkifyjs-4.3.3.tgz}
-
   locate-path@6.0.0:
     resolution: {integrity: sha1-VTIeswn+u8WcSAHZMackUqaB0oY=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/locate-path/-/locate-path-6.0.0.tgz}
     engines: {node: '>=10'}
@@ -1833,7 +1708,7 @@ packages:
     resolution: {integrity: sha1-HaJ+ZxAnGUdpXa9oSOhH8B2EuSA=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lru-cache/-/lru-cache-5.1.1.tgz}
 
   lz-string@1.5.0:
-    resolution: {integrity: sha1-watQ93iHtxJiEgG6n9Tjpu0JmUE=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lz-string/-/lz-string-1.5.0.tgz}
+    resolution: {integrity: sha1-watQ93iHtxJiEgG6n9Tjpu0JmUE=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lz-string/-/lz-string-1.5.0.tgz}
     hasBin: true
 
   magic-string@0.30.21:
@@ -2055,7 +1930,7 @@ packages:
       react-dom: ^19.2.0
 
   react-number-format@5.4.5:
-    resolution: {integrity: sha1-WFXyrk5BU+YjHTo2tjXDi+aCTIo=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-number-format/-/react-number-format-5.4.5.tgz}
+    resolution: {integrity: sha1-WFXyrk5BU+YjHTo2tjXDi+aCTIo=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-number-format/-/react-number-format-5.4.5.tgz}
     peerDependencies:
       react: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -2081,7 +1956,7 @@ packages:
         optional: true
 
   react-remove-scroll@2.7.2:
-    resolution: {integrity: sha1-ZELaVnkRF2YZeK6ZzSm+kCb+zKA=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-remove-scroll/-/react-remove-scroll-2.7.2.tgz}
+    resolution: {integrity: sha1-ZELaVnkRF2YZeK6ZzSm+kCb+zKA=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-remove-scroll/-/react-remove-scroll-2.7.2.tgz}
     engines: {node: '>=10'}
     peerDependencies:
       '@types/react': '*'
@@ -2091,7 +1966,7 @@ packages:
         optional: true
 
   react-style-singleton@2.2.3:
-    resolution: {integrity: sha1-QmVgi+aaTXDP4wR/LGyIssOs44g=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-style-singleton/-/react-style-singleton-2.2.3.tgz}
+    resolution: {integrity: sha1-QmVgi+aaTXDP4wR/LGyIssOs44g=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-style-singleton/-/react-style-singleton-2.2.3.tgz}
     engines: {node: '>=10'}
     peerDependencies:
       '@types/react': '*'
@@ -2241,14 +2116,14 @@ packages:
     resolution: {integrity: sha1-zy04vcNKE0vK8QkcQfZhni9nLQA=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tslib/-/tslib-1.14.1.tgz}
 
   tslib@2.8.1:
-    resolution: {integrity: sha1-YS7+TtI11Wfoq6Xypfq3AoCt6D8=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tslib/-/tslib-2.8.1.tgz}
+    resolution: {integrity: sha1-YS7+TtI11Wfoq6Xypfq3AoCt6D8=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tslib/-/tslib-2.8.1.tgz}
 
   type-check@0.4.0:
     resolution: {integrity: sha1-B7ggO/pwVsBlcFDjzNLDdzC6uPE=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/type-check/-/type-check-0.4.0.tgz}
     engines: {node: '>= 0.8.0'}
 
   type-fest@5.8.0:
-    resolution: {integrity: sha1-bVF5mCV8MxWdtNTabxjvozvUffM=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/type-fest/-/type-fest-5.8.0.tgz}
+    resolution: {integrity: sha1-bVF5mCV8MxWdtNTabxjvozvUffM=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/type-fest/-/type-fest-5.8.0.tgz}
     engines: {node: '>=20'}
 
   typescript-eslint@8.43.0:
@@ -2280,7 +2155,7 @@ packages:
     resolution: {integrity: sha1-mxpSWVIlhZ5V9mnZKPiMbFfyp34=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/uri-js/-/uri-js-4.4.1.tgz}
 
   use-callback-ref@1.3.3:
-    resolution: {integrity: sha1-mNn6sGcHWEHFssaFIJDV0P6r4r8=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/use-callback-ref/-/use-callback-ref-1.3.3.tgz}
+    resolution: {integrity: sha1-mNn6sGcHWEHFssaFIJDV0P6r4r8=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/use-callback-ref/-/use-callback-ref-1.3.3.tgz}
     engines: {node: '>=10'}
     peerDependencies:
       '@types/react': '*'
@@ -3197,11 +3072,6 @@ snapshots:
     dependencies:
       '@tiptap/pm': 3.28.0
 
-  '@tiptap/extension-blockquote@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-      '@tiptap/pm': 3.28.0
-
   '@tiptap/extension-bold@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))':
     dependencies:
       '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
@@ -3213,30 +3083,9 @@ snapshots:
       '@tiptap/pm': 3.28.0
     optional: true
 
-  '@tiptap/extension-bullet-list@3.28.0(@tiptap/extension-list@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/extension-list': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-code-block@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-      '@tiptap/pm': 3.28.0
-
   '@tiptap/extension-code@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))':
     dependencies:
       '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-color@3.28.0(@tiptap/extension-text-style@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0)))':
-    dependencies:
-      '@tiptap/extension-text-style': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-
-  '@tiptap/extension-document@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-dropcursor@3.28.0(@tiptap/extensions@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/extensions': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
 
   '@tiptap/extension-floating-menu@3.28.0(@floating-ui/dom@1.8.0)(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)':
     dependencies:
@@ -3245,63 +3094,11 @@ snapshots:
       '@tiptap/pm': 3.28.0
     optional: true
 
-  '@tiptap/extension-gapcursor@3.28.0(@tiptap/extensions@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/extensions': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-hard-break@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-heading@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-horizontal-rule@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-      '@tiptap/pm': 3.28.0
-
   '@tiptap/extension-italic@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))':
     dependencies:
       '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
 
-  '@tiptap/extension-link@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-      '@tiptap/pm': 3.28.0
-      linkifyjs: 4.3.3
-
-  '@tiptap/extension-list-item@3.28.0(@tiptap/extension-list@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/extension-list': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-list-keymap@3.28.0(@tiptap/extension-list@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/extension-list': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-list@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-      '@tiptap/pm': 3.28.0
-
-  '@tiptap/extension-ordered-list@3.28.0(@tiptap/extension-list@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/extension-list': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-paragraph@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-placeholder@3.28.0(@tiptap/extensions@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/extensions': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-
   '@tiptap/extension-strike@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-
-  '@tiptap/extension-text-style@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))':
     dependencies:
       '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
 
@@ -3350,33 +3147,6 @@ snapshots:
       '@tiptap/extension-floating-menu': 3.28.0(@floating-ui/dom@1.8.0)(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
     transitivePeerDependencies:
       - '@floating-ui/dom'
-
-  '@tiptap/starter-kit@3.28.0':
-    dependencies:
-      '@tiptap/core': 3.28.0(@tiptap/pm@3.28.0)
-      '@tiptap/extension-blockquote': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-      '@tiptap/extension-bold': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/extension-bullet-list': 3.28.0(@tiptap/extension-list@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))
-      '@tiptap/extension-code': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/extension-code-block': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-      '@tiptap/extension-document': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/extension-dropcursor': 3.28.0(@tiptap/extensions@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))
-      '@tiptap/extension-gapcursor': 3.28.0(@tiptap/extensions@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))
-      '@tiptap/extension-hard-break': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/extension-heading': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/extension-horizontal-rule': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-      '@tiptap/extension-italic': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/extension-link': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-      '@tiptap/extension-list': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-      '@tiptap/extension-list-item': 3.28.0(@tiptap/extension-list@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))
-      '@tiptap/extension-list-keymap': 3.28.0(@tiptap/extension-list@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))
-      '@tiptap/extension-ordered-list': 3.28.0(@tiptap/extension-list@3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0))
-      '@tiptap/extension-paragraph': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/extension-strike': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/extension-text': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/extension-underline': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))
-      '@tiptap/extensions': 3.28.0(@tiptap/core@3.28.0(@tiptap/pm@3.28.0))(@tiptap/pm@3.28.0)
-      '@tiptap/pm': 3.28.0
 
   '@types/aria-query@5.0.4': {}
 
@@ -4067,8 +3837,6 @@ snapshots:
       lightningcss-linux-x64-musl: 1.32.0
       lightningcss-win32-arm64-msvc: 1.32.0
       lightningcss-win32-x64-msvc: 1.32.0
-
-  linkifyjs@4.3.3: {}
 
   locate-path@6.0.0:
     dependencies:
