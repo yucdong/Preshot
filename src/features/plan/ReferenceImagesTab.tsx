@@ -117,6 +117,7 @@ export function ReferenceImagesTab({
 
           <div className="mt-3">
             <RichTextEditor
+              compact
               key={`description-${group.id}`}
               ariaLabel="Group description"
               html={group.description}
