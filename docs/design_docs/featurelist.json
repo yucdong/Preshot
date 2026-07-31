@@ -108,10 +108,11 @@
           "Added a live SaveStatus indicator (saving/unsaved/saved) in the PlanPanel header and a Ctrl/Cmd+S shortcut that flushes immediately.",
           "Added A4 PDF export (pure domain export document + geometry, pdf-lib/fontkit with bundled Noto Sans SC, dialog/save_pdf save path) and covered it with browser smoke + docs.",
           "Optimized the plan workflow: PDF export defaults to <project>/output.pdf via the save dialog; the main window uses a 15/60/25 three-column shell with an Assistant preview panel and a disabled bottom input; reference thumbnails are capped at ~160px squares; the rich-text toolbar gained underline/strikethrough/font-size/color WYSIWYG controls; and the PDF renders those marks plus a light-gray frame around each square image slot.",
-          "Migrated the shared rich-text editor from TipTap to BlockNote (Notion-style block editing) with a compact description variant, HTML-boundary conversion, jsdom shims + mocked component tests, an e2e editing smoke, and PDF handling for BlockNote block types."
+          "Migrated the shared rich-text editor from TipTap to BlockNote (Notion-style block editing) with a compact description variant, HTML-boundary conversion, jsdom shims + mocked component tests, an e2e editing smoke, and PDF handling for BlockNote block types.",
+          "Fixed a hydration echo where BlockNote emitted onChange on programmatic load, which flipped a project to unsaved on open and rewrote .preshot into normalized HTML; the editor now suppresses the load echo so existing content loads unchanged."
         ],
         "lastVerified": [
-          "180 frontend tests passed (Vitest).",
+          "181 frontend tests passed (Vitest).",
           "30 Rust tests passed.",
           "4 Playwright e2e tests passed.",
           "ESLint and TypeScript typecheck passed.",
