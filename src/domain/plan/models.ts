@@ -21,6 +21,13 @@ export interface ImportedImage {
   dataUrl: string;
 }
 
+export interface MoveImageParams {
+  fromGroupId: string;
+  imageId: string;
+  toGroupId: string;
+  toIndex: number;
+}
+
 export const MIN_COLUMNS = 1;
 export const MAX_COLUMNS = 6;
 export const DEFAULT_COLUMNS = 3;

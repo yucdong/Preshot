@@ -2,6 +2,7 @@ import {
   DEFAULT_COLUMNS,
   MAX_COLUMNS,
   MIN_COLUMNS,
+  type MoveImageParams,
   type ProjectPlan,
   type ReferenceGroup,
   type ReferenceImage,
@@ -118,5 +119,44 @@ export function removeImage(
         ? { ...group, images: group.images.filter((image) => image.id !== imageId) }
         : group,
     ),
+  };
+}
+
+export function moveImage(plan: ProjectPlan, params: MoveImageParams): ProjectPlan {
+  const { fromGroupId, imageId, toGroupId, toIndex } = params;
+  const source = findGroup(plan, fromGroupId);
+  const target = findGroup(plan, toGroupId);
+  if (!source || !target) {
+    return plan;
+  }
+  const image = source.images.find((item) => item.id === imageId);
+  if (!image) {
+    return plan;
+  }
+
+  const sourceImages = source.images.filter((item) => item.id !== imageId);
+  const base = fromGroupId === toGroupId ? sourceImages : target.images;
+  const index = Math.max(0, Math.min(toIndex, base.length));
+  const targetImages = [...base.slice(0, index), image, ...base.slice(index)];
+
+  if (
+    fromGroupId === toGroupId &&
+    targetImages.length === source.images.length &&
+    targetImages.every((item, position) => item.id === source.images[position].id)
+  ) {
+    return plan;
+  }
+
+  return {
+    ...plan,
+    referenceGroups: plan.referenceGroups.map((group) => {
+      if (group.id === toGroupId) {
+        return { ...group, images: targetImages };
+      }
+      if (group.id === fromGroupId) {
+        return { ...group, images: sourceImages };
+      }
+      return group;
+    }),
   };
 }

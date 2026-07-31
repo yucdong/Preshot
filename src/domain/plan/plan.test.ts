@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_PLAN, MAX_COLUMNS, MIN_COLUMNS } from "./models";
+import type { ProjectPlan } from "./models";
 import {
   addGroup,
   addImage,
   clampColumns,
   createGroup,
   deleteGroup,
+  moveImage,
   removeImage,
   renameGroup,
   setColumns,
@@ -77,5 +79,77 @@ describe("plan reducers", () => {
     expect(addImage(withGroup, "g1", { id: "i1", file: "references/0001.jpg" }).photographyPlan)
       .toBe("<p>Storyboard</p>");
     expect(deleteGroup(withGroup, "g1").photographyPlan).toBe("<p>Storyboard</p>");
+  });
+});
+
+describe("moveImage", () => {
+  const plan = (): ProjectPlan => ({
+    photographyPlan: "",
+    referenceGroups: [
+      {
+        id: "g1",
+        title: "A",
+        description: "",
+        columnsPerRow: 3,
+        images: [
+          { id: "a", file: "references/a.png" },
+          { id: "b", file: "references/b.png" },
+          { id: "c", file: "references/c.png" },
+        ],
+      },
+      {
+        id: "g2",
+        title: "B",
+        description: "",
+        columnsPerRow: 3,
+        images: [{ id: "x", file: "references/x.png" }],
+      },
+    ],
+  });
+
+  const ids = (p: ProjectPlan, groupId: string) =>
+    p.referenceGroups.find((g) => g.id === groupId)!.images.map((i) => i.id);
+
+  it("reorders within a group forward (lands after the target slot)", () => {
+    const next = moveImage(plan(), { fromGroupId: "g1", imageId: "a", toGroupId: "g1", toIndex: 2 });
+    expect(ids(next, "g1")).toEqual(["b", "c", "a"]);
+  });
+
+  it("reorders within a group backward (lands at the target slot)", () => {
+    const next = moveImage(plan(), { fromGroupId: "g1", imageId: "c", toGroupId: "g1", toIndex: 1 });
+    expect(ids(next, "g1")).toEqual(["a", "c", "b"]);
+  });
+
+  it("moves an image across groups at a given index", () => {
+    const next = moveImage(plan(), { fromGroupId: "g1", imageId: "b", toGroupId: "g2", toIndex: 0 });
+    expect(ids(next, "g1")).toEqual(["a", "c"]);
+    expect(ids(next, "g2")).toEqual(["b", "x"]);
+  });
+
+  it("appends when toIndex is beyond the end (clamped)", () => {
+    const next = moveImage(plan(), { fromGroupId: "g1", imageId: "a", toGroupId: "g2", toIndex: 99 });
+    expect(ids(next, "g2")).toEqual(["x", "a"]);
+  });
+
+  it("returns the same plan reference for an unknown image", () => {
+    const p = plan();
+    expect(moveImage(p, { fromGroupId: "g1", imageId: "zz", toGroupId: "g2", toIndex: 0 })).toBe(p);
+  });
+
+  it("returns the same plan reference for an unknown group", () => {
+    const p = plan();
+    expect(moveImage(p, { fromGroupId: "g1", imageId: "a", toGroupId: "nope", toIndex: 0 })).toBe(p);
+  });
+
+  it("returns the same plan reference for a no-op reorder", () => {
+    const p = plan();
+    expect(moveImage(p, { fromGroupId: "g1", imageId: "a", toGroupId: "g1", toIndex: 0 })).toBe(p);
+  });
+
+  it("does not mutate the input plan", () => {
+    const p = plan();
+    moveImage(p, { fromGroupId: "g1", imageId: "a", toGroupId: "g2", toIndex: 0 });
+    expect(ids(p, "g1")).toEqual(["a", "b", "c"]);
+    expect(ids(p, "g2")).toEqual(["x"]);
   });
 });
