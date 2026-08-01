@@ -258,9 +258,7 @@ cross-group, and empty-group insertion. The v1 `resolveImageMove` /
 fromGroupId, imageId, toGroupId, toIndex })` reducer computes the next plan
 with adjusted image arrays, and a non-persisting `PlanService.moveImage` use
 case defers to the 5-second auto-save instead of writing immediately; moves
-produce no file I/O. A pure `resolveImageMove(groups, activeId, overId)` helper
-maps a dnd-kit drop event to move parameters or null (cancel on invalid drop).
-The `DndContext` lives in `ReferenceImagesTab`, with `GroupImageGrid` as a
+produce no file I/O. The `DndContext` lives in `ReferenceImagesTab`, with `GroupImageGrid` as a
 droppable per group and `SortableImageTile` wrapping each tile. The pointer
 activation distance preserves click-to-open behavior on tiles.
 
