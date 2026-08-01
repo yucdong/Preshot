@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   closestCorners,
   DndContext,
@@ -74,6 +74,7 @@ export function ReferenceImagesTab({
 }: ReferenceImagesTabProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [preview, setPreview] = useState<ReferenceGroup[] | null>(null);
+  const lastKeyRef = useRef<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
@@ -97,16 +98,31 @@ export function ReferenceImagesTab({
 
   const onDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
+    lastKeyRef.current = null;
     setPreview(groups);
   };
   const onDragOver = (event: DragOverEvent) => {
     const params = paramsFor(event);
-    setPreview(params ? moveImage(planOf(groups), params).referenceGroups : groups);
+    // No valid new target (dropped over nothing or over the dragged tile's own
+    // previewed slot): keep the current preview. Reverting here would snap the
+    // tile back and, over an empty group, cause an infinite measuring flip.
+    if (!params) {
+      return;
+    }
+    const key = `${params.toGroupId}:${params.toIndex}`;
+    // Unchanged target: do not setState, or dnd-kit's measuring re-fires
+    // onDragOver on the resulting layout change and loops.
+    if (key === lastKeyRef.current) {
+      return;
+    }
+    lastKeyRef.current = key;
+    setPreview(moveImage(planOf(groups), params).referenceGroups);
   };
   const onDragEnd = (event: DragEndEvent) => {
     const params = paramsFor(event);
     setActiveId(null);
     setPreview(null);
+    lastKeyRef.current = null;
     if (params) {
       onMoveImage(params);
     }
@@ -114,6 +130,7 @@ export function ReferenceImagesTab({
   const onDragCancel = () => {
     setActiveId(null);
     setPreview(null);
+    lastKeyRef.current = null;
   };
 
   return (
