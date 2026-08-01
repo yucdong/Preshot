@@ -77,16 +77,19 @@ test("drags a reference image into a newly-added empty group", async ({ page }) 
   const sourceGroup = page.getByRole("group", { name: "Reference group: Lookbook" });
   const targetGroup = page.getByRole("group", { name: "Reference group: New group" });
   const tile = sourceGroup.getByRole("button", { name: "Open reference image 1" });
+  const slot = targetGroup.getByRole("button", { name: "Add reference image" });
 
   const from = await tile.boundingBox();
-  const targetBox = await targetGroup.boundingBox();
-  if (!from || !targetBox) throw new Error("drag elements not visible");
+  const drop = await slot.boundingBox();
+  if (!from || !drop) throw new Error("drag elements not visible");
 
   // dnd-kit PointerSensor needs movement > 6px and intermediate moves to start a drag.
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
   await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2, { steps: 3 });
-  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 8 });
+  // Release on the empty group's slot — where the previewed tile lands and where a
+  // user naturally drops (the dragged tile then sits under the pointer).
+  await page.mouse.move(drop.x + drop.width / 2, drop.y + drop.height / 2, { steps: 8 });
   await page.mouse.up();
 
   // Assert the cross-group move committed

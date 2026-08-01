@@ -117,7 +117,8 @@
           "Added drag-and-drop reordering of reference images within and across groups (dnd-kit) backed by a pure moveImage reducer/use case and a pure drop resolver, with deferred auto-save persistence.",
           "Kept image tiles keyboard-openable by using a pointer-only sensor (dragging is mouse/pointer only) and used closestCorners collision for precise slot insertion.",
           "Added WYSIWYG live-reflow preview for reference-image dragging (tiles reflow to the insertion point across groups incl. empty), reusing the moveImage reducer so the preview matches the committed move; drop-target math is pure and unit-tested with an e2e drag.",
-          "Fixed an infinite render loop when dragging into an empty group: onDragOver now only updates the preview for a valid, changed target and never reverts mid-drag (dnd-kit re-fires onDragOver on measuring changes)."
+          "Fixed an infinite render loop when dragging into an empty group: onDragOver now only updates the preview for a valid, changed target and never reverts mid-drag (dnd-kit re-fires onDragOver on measuring changes).",
+          "Fixed reference-image drops silently not committing into empty/other groups: onDragEnd now commits the release-time target and falls back to the last previewed target when the pointer is released over the dragged tile's own previewed slot (over === activeId → null), so both within-group reordering and cross/empty-group drops commit."
         ],
         "lastVerified": [
           "203 frontend tests passed (Vitest).",

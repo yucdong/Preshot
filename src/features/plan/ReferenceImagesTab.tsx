@@ -6,8 +6,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  type DragEndEvent,
   type DragOverEvent,
+  type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { MAX_COLUMNS, MIN_COLUMNS, type MoveImageParams, type ProjectPlan, type ReferenceGroup } from "../../domain/plan/models";
@@ -74,7 +74,7 @@ export function ReferenceImagesTab({
 }: ReferenceImagesTabProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [preview, setPreview] = useState<ReferenceGroup[] | null>(null);
-  const lastKeyRef = useRef<string | null>(null);
+  const lastParamsRef = useRef<MoveImageParams | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
@@ -98,31 +98,38 @@ export function ReferenceImagesTab({
 
   const onDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
-    lastKeyRef.current = null;
+    lastParamsRef.current = null;
     setPreview(groups);
   };
   const onDragOver = (event: DragOverEvent) => {
     const params = paramsFor(event);
-    // No valid new target (dropped over nothing or over the dragged tile's own
-    // previewed slot): keep the current preview. Reverting here would snap the
-    // tile back and, over an empty group, cause an infinite measuring flip.
+    // No valid new target (over nothing, or over the dragged tile's own previewed
+    // slot): keep the current preview. Reverting here would snap the tile back and,
+    // over an empty group, cause an infinite measuring flip.
     if (!params) {
       return;
     }
-    const key = `${params.toGroupId}:${params.toIndex}`;
-    // Unchanged target: do not setState, or dnd-kit's measuring re-fires
-    // onDragOver on the resulting layout change and loops.
-    if (key === lastKeyRef.current) {
+    const last = lastParamsRef.current;
+    // Unchanged target: do not setState, or dnd-kit's measuring re-fires onDragOver
+    // on the resulting layout change and loops.
+    if (last && last.toGroupId === params.toGroupId && last.toIndex === params.toIndex) {
       return;
     }
-    lastKeyRef.current = key;
+    lastParamsRef.current = params;
     setPreview(moveImage(planOf(groups), params).referenceGroups);
   };
   const onDragEnd = (event: DragEndEvent) => {
-    const params = paramsFor(event);
+    // Prefer the release-moment geometry: only at release is the dragged tile's
+    // translated center guaranteed to be past the target tile's center, so the
+    // insert-before/after decision (and thus within-group reordering) is correct.
+    // But when the pointer is released over the dragged tile's own previewed slot
+    // (over === activeId, e.g. dropping into an empty/other group where the preview
+    // already relocated the tile), the recompute is null — fall back to the last
+    // previewed target so the WYSIWYG move still commits.
+    const params = paramsFor(event) ?? lastParamsRef.current;
     setActiveId(null);
     setPreview(null);
-    lastKeyRef.current = null;
+    lastParamsRef.current = null;
     if (params) {
       onMoveImage(params);
     }
@@ -130,7 +137,7 @@ export function ReferenceImagesTab({
   const onDragCancel = () => {
     setActiveId(null);
     setPreview(null);
-    lastKeyRef.current = null;
+    lastParamsRef.current = null;
   };
 
   return (
