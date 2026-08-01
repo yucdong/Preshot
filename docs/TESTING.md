@@ -136,8 +136,10 @@ another application has placed a conflicting `link.exe` earlier in PATH.
   behaviors are preserved alongside the drag-and-drop wiring (using
   `fireEvent.click` because dnd-kit's PointerSensor suppresses userEvent's
   synthetic click in jsdom). Real pointer-drag interaction is not simulated in
-  jsdom — drop logic is covered by the pure `resolveImageMove` tests, so no
-  DnD e2e is added. `ProjectPlanProvider` also uses fake
+  jsdom — drop logic is covered by `dropTarget.test.ts`
+  (`computeDropTarget`/`dropTargetFromEvent`), and a Playwright e2e drags
+  within a group and into a new empty group to assert the committed move.
+  `ProjectPlanProvider` also uses fake
   timers to assert the 5-second auto-save flushes a changed plan once and writes
   nothing when unchanged, and it covers the export handoff from `Export PDF`
   through `PdfExporter` to `PdfSaveTarget`, asserting the save target receives

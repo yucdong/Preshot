@@ -45,6 +45,7 @@ test("edits the photography plan with the block editor", async ({ page }) => {
 
 test("reorders a reference image by dragging and commits the move", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
 
   const group = page.getByRole("group", { name: "Reference group: Lookbook" });
   const first = group.getByRole("button", { name: "Open reference image 1" });
@@ -63,5 +64,33 @@ test("reorders a reference image by dragging and commits the move", async ({ pag
 
   // A committed move flips the plan to unsaved (auto-save handles persistence).
   await expect(page.getByTestId("save-status")).toHaveText("Unsaved changes", { timeout: 3000 });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("drags a reference image into a newly-added empty group", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
+
+  // Add a new empty reference group
+  await page.getByRole("button", { name: "Add reference group" }).click();
+
+  const sourceGroup = page.getByRole("group", { name: "Reference group: Lookbook" });
+  const targetGroup = page.getByRole("group", { name: "Reference group: New group" });
+  const tile = sourceGroup.getByRole("button", { name: "Open reference image 1" });
+
+  const from = await tile.boundingBox();
+  const targetBox = await targetGroup.boundingBox();
+  if (!from || !targetBox) throw new Error("drag elements not visible");
+
+  // dnd-kit PointerSensor needs movement > 6px and intermediate moves to start a drag.
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2, { steps: 3 });
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 8 });
+  await page.mouse.up();
+
+  // Assert the cross-group move committed
+  await expect(page.getByTestId("save-status")).toHaveText("Unsaved changes", { timeout: 3000 });
+  await expect(targetGroup.getByRole("button", { name: "Open reference image 1" })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
