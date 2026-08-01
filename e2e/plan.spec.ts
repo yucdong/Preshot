@@ -97,3 +97,39 @@ test("drags a reference image into a newly-added empty group", async ({ page }) 
   await expect(targetGroup.getByRole("button", { name: "Open reference image 1" })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
+
+test("drops an image onto an empty group's slot even next to a large group", async ({ page }) => {
+  // A tall viewport keeps the source tile and the empty target visible without
+  // scrolling; the point of this test is the collision target, not auto-scroll.
+  await page.setViewportSize({ width: 1280, height: 2200 });
+  await page.goto("/");
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
+
+  // Layout: Lookbook (source) / empty target group / large neighbour group below it.
+  await page.getByRole("button", { name: "Add reference group" }).click();
+  await page.getByRole("button", { name: "Add reference group" }).click();
+  const targetGroup = page.getByRole("group", { name: "Reference group: New group" }).nth(0);
+  const neighbour = page.getByRole("group", { name: "Reference group: New group" }).nth(1);
+  for (let i = 0; i < 8; i++) {
+    await neighbour.getByRole("button", { name: "Add reference image" }).click();
+  }
+
+  const sourceGroup = page.getByRole("group", { name: "Reference group: Lookbook" });
+  const tile = sourceGroup.getByRole("button", { name: "Open reference image 1" });
+  const slot = targetGroup.getByRole("button", { name: "Add reference image" });
+  const from = await tile.boundingBox();
+  const drop = await slot.boundingBox();
+  if (!from || !drop) throw new Error("drag elements not visible");
+
+  // Release on the empty group's "+" slot — the pointer-within collision must
+  // target that group, not the larger neighbour below.
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2, { steps: 3 });
+  await page.mouse.move(drop.x + drop.width / 2, drop.y + drop.height / 2, { steps: 10 });
+  await page.mouse.up();
+
+  await expect(page.getByTestId("save-status")).toHaveText("Unsaved changes", { timeout: 3000 });
+  await expect(targetGroup.getByRole("button", { name: "Open reference image 1" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});

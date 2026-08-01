@@ -1,11 +1,13 @@
 import { useRef, useState } from "react";
 import {
   closestCorners,
+  pointerWithin,
   DndContext,
   DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragOverEvent,
   type DragEndEvent,
   type DragStartEvent,
@@ -15,6 +17,16 @@ import { GroupImageGrid } from "./GroupImageGrid";
 import { dropTargetFromEvent } from "./dropTarget";
 import { moveImage } from "../../domain/plan/plan";
 import { RichTextEditor } from "./RichTextEditor";
+
+// Prefer the droppable the pointer is actually inside, so releasing on a group's
+// area — including an empty group's "+" slot — reliably targets that group even
+// when a larger neighbouring group is nearby (closest-corners is a distance
+// heuristic that can favour a big neighbour over a small empty container). Fall
+// back to closest-corners only when the pointer is in a gap between droppables.
+const collisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
+};
 
 function GroupTitleInput({ title, onRename }: { title: string; onRename(value: string): void }) {
   const [value, setValue] = useState(title);
@@ -159,7 +171,7 @@ export function ReferenceImagesTab({
       </div>
 
       <DndContext
-        collisionDetection={closestCorners}
+        collisionDetection={collisionDetection}
         onDragCancel={onDragCancel}
         onDragEnd={onDragEnd}
         onDragOver={onDragOver}
