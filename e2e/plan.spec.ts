@@ -42,3 +42,26 @@ test("edits the photography plan with the block editor", async ({ page }) => {
   // A genuine edit must still propagate, so the provider marks the plan unsaved.
   await expect(saveStatus).toHaveText("Unsaved changes");
 });
+
+test("reorders a reference image by dragging and commits the move", async ({ page }) => {
+  await page.goto("/");
+
+  const group = page.getByRole("group", { name: "Reference group: Lookbook" });
+  const first = group.getByRole("button", { name: "Open reference image 1" });
+  const second = group.getByRole("button", { name: "Open reference image 2" });
+
+  const from = await first.boundingBox();
+  const to = await second.boundingBox();
+  if (!from || !to) throw new Error("reference tiles not visible");
+
+  // dnd-kit PointerSensor needs movement > 6px and intermediate moves to start a drag.
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2, { steps: 3 });
+  await page.mouse.move(to.x + to.width * 0.75, to.y + to.height / 2, { steps: 6 });
+  await page.mouse.up();
+
+  // A committed move flips the plan to unsaved (auto-save handles persistence).
+  await expect(page.getByTestId("save-status")).toHaveText("Unsaved changes", { timeout: 3000 });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
