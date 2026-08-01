@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext } from "@dnd-kit/sortable";
 import type { ReferenceGroup } from "../../domain/plan/models";
-import { groupDroppableId } from "./resolveImageMove";
+import { groupDroppableId } from "./dropTarget";
 import { SortableImageTile } from "./SortableImageTile";
 
 interface GroupImageGridProps {

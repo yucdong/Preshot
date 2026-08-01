@@ -7,11 +7,13 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { MAX_COLUMNS, MIN_COLUMNS, type MoveImageParams, type ReferenceGroup } from "../../domain/plan/models";
+import { MAX_COLUMNS, MIN_COLUMNS, type MoveImageParams, type ProjectPlan, type ReferenceGroup } from "../../domain/plan/models";
 import { GroupImageGrid } from "./GroupImageGrid";
-import { handleImageDragEnd } from "./resolveImageMove";
+import { dropTargetFromEvent } from "./dropTarget";
+import { moveImage } from "../../domain/plan/plan";
 import { RichTextEditor } from "./RichTextEditor";
 
 function GroupTitleInput({ title, onRename }: { title: string; onRename(value: string): void }) {
@@ -71,18 +73,47 @@ export function ReferenceImagesTab({
   onMoveImage,
 }: ReferenceImagesTabProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ReferenceGroup[] | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
+  const view = preview ?? groups;
   const activeImage = activeId
     ? groups.flatMap((group) => group.images).find((image) => image.id === activeId)
     : undefined;
 
-  const onDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id));
+  const planOf = (source: ReferenceGroup[]): ProjectPlan => ({ photographyPlan: "", referenceGroups: source });
+
+  const paramsFor = (event: DragOverEvent | DragEndEvent): MoveImageParams | null => {
+    const id = String(event.active.id);
+    const from = groups.find((group) => group.images.some((image) => image.id === id));
+    const target = dropTargetFromEvent(groups, event);
+    if (!from || !target) {
+      return null;
+    }
+    return { fromGroupId: from.id, imageId: id, toGroupId: target.toGroupId, toIndex: target.toIndex };
+  };
+
+  const onDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+    setPreview(groups);
+  };
+  const onDragOver = (event: DragOverEvent) => {
+    const params = paramsFor(event);
+    setPreview(params ? moveImage(planOf(groups), params).referenceGroups : groups);
+  };
   const onDragEnd = (event: DragEndEvent) => {
+    const params = paramsFor(event);
     setActiveId(null);
-    handleImageDragEnd(groups, event, onMoveImage);
+    setPreview(null);
+    if (params) {
+      onMoveImage(params);
+    }
+  };
+  const onDragCancel = () => {
+    setActiveId(null);
+    setPreview(null);
   };
 
   return (
@@ -105,12 +136,13 @@ export function ReferenceImagesTab({
 
       <DndContext
         collisionDetection={closestCorners}
-        onDragCancel={() => setActiveId(null)}
+        onDragCancel={onDragCancel}
         onDragEnd={onDragEnd}
+        onDragOver={onDragOver}
         onDragStart={onDragStart}
         sensors={sensors}
       >
-        {groups.map((group) => (
+        {view.map((group) => (
         <section
           aria-label={`Reference group: ${group.title || "Untitled"}`}
           className="rounded-2xl border border-black/10 bg-white p-5"
