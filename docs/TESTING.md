@@ -98,9 +98,13 @@ another application has placed a conflicting `link.exe` earlier in PATH.
   also asserts that pure-metadata use cases (including `moveImage`) do not
   persist, that `setPhotographyPlan` stays in-memory until saved, and that
   `savePlan` is the explicit persistence path.
-  `features/plan/dnd/resolveImageMove.test.ts` covers drop resolution
-  including invalid drop → null, same-tile no-op, cross-group, group-container
-  append, and the `handleImageDragEnd` helper. `domain/plan/pdf/geometry.test.ts`,
+  `features/plan/dropTarget.test.ts` exhaustively covers the drop-target math
+  (front/middle/end, cross-group, empty-group append, self/none → null) and
+  `dropTargetFromEvent`'s pointer-center `insertAfter`; preview correctness
+  follows from reusing the already-tested `moveImage` reducer. A Playwright e2e
+  performs a real drag and asserts the move commits (plan becomes dirty). Real
+  pointer drags remain non-simulable in jsdom, so component tests still assert
+  render/click-open/add/remove only. `domain/plan/pdf/geometry.test.ts`,
   `document.test.ts`, and `export.test.ts` cover the pure A4 geometry helpers,
   square contain-fit calculations, `buildExportDocument` section ordering, and
   contextual export wrapping.

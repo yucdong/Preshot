@@ -246,7 +246,15 @@ real `pdfLibExporter`.
 ### Drag-and-drop reordering
 
 Reference images support drag-and-drop reordering within and across groups via
-`@dnd-kit` (confined to `src/features/plan`). A pure `moveImage(plan, {
+`@dnd-kit` (confined to `src/features/plan`). Dragging now previews the
+post-drop layout live: `ReferenceImagesTab` holds an optimistic `preview`
+computed by the domain `moveImage` reducer on each `onDragOver` (so the preview
+equals the committed result), renders from `preview ?? groups`, and commits the
+same params via `onMoveImage` on `onDragEnd` (revert on cancel/invalid). A pure
+`computeDropTarget`/`dropTargetFromEvent` (`src/features/plan/dropTarget.ts`)
+maps a dnd-kit event to `{ toGroupId, toIndex }` supporting front/middle/end,
+cross-group, and empty-group insertion. The v1 `resolveImageMove` /
+`handleImageDragEnd` helpers were replaced. A pure `moveImage(plan, {
 fromGroupId, imageId, toGroupId, toIndex })` reducer computes the next plan
 with adjusted image arrays, and a non-persisting `PlanService.moveImage` use
 case defers to the 5-second auto-save instead of writing immediately; moves
