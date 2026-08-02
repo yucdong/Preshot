@@ -24,3 +24,26 @@ test("keeps the sidebar project actions fixed while the plan is tall", async ({ 
   await expect(newProject).toBeVisible();
   await expect(page.getByRole("button", { name: "Open project", exact: true })).toBeVisible();
 });
+
+test("scrolls the middle plan panel to reach groups below the fold", async ({ page }) => {
+  await page.goto("/");
+
+  // Add enough reference groups that the plan overflows the panel height.
+  for (let i = 0; i < 8; i++) {
+    await page.getByRole("button", { name: "Add reference group" }).click();
+  }
+
+  // The plan panel itself must be the scroll container (not clipped by the shell).
+  const scroller = page.locator('section[aria-label="Plan"] > div.overflow-y-auto');
+  const metrics = await scroller.evaluate((el) => ({
+    scrollH: el.scrollHeight,
+    clientH: el.clientHeight,
+  }));
+  expect(metrics.scrollH).toBeGreaterThan(metrics.clientH);
+
+  // Scrolling the panel must reveal the last group (below the fold initially).
+  await scroller.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  await page.waitForTimeout(150);
+  const lastGroup = page.getByRole("group", { name: "Reference group: New group" }).last();
+  await expect(lastGroup.getByRole("button", { name: "Add reference image" })).toBeInViewport();
+});
