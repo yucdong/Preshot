@@ -36,9 +36,17 @@ export function computeDropTarget(
   if (!target) {
     return null;
   }
-  const withoutActive =
-    target.id === fromGroup.id ? target.images.filter((image) => image.id !== activeId) : target.images;
-  const overPos = withoutActive.findIndex((image) => image.id === overId);
+
+  if (target.id === fromGroup.id) {
+    // Same group: move the active image into the over tile's slot as soon as it
+    // becomes the drop target (array-move semantics). A drag then only needs to
+    // overlap a neighbour most, not travel past its centre, so `insertAfter` is
+    // unused here. moveImage removes the active image first, so inserting at the
+    // over tile's original index reproduces arrayMove(activeIndex, overIndex).
+    return { toGroupId: target.id, toIndex: target.images.findIndex((image) => image.id === overId) };
+  }
+
+  const overPos = target.images.findIndex((image) => image.id === overId);
   if (overPos === -1) {
     return null;
   }

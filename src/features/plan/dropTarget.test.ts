@@ -26,15 +26,18 @@ describe("computeDropTarget", () => {
     expect(computeDropTarget(groups, "a", groupDroppableId("nope"), false)).toBeNull();
   });
 
-  it("inserts before/after the over tile within a group (post-removal index)", () => {
-    // active a removed -> [b,c]; over c at index 1
-    expect(computeDropTarget(groups, "a", "c", false)).toEqual({ toGroupId: "g1", toIndex: 1 });
+  it("moves the active image into the over tile's slot within a group (array-move)", () => {
+    // Same group: the active image takes the over tile's position as soon as it is
+    // the drop target, regardless of insertAfter (a partial overlap is enough).
+    // active a removed -> [b,c]; over c is originally at index 2 -> a lands there.
+    expect(computeDropTarget(groups, "a", "c", false)).toEqual({ toGroupId: "g1", toIndex: 2 });
     expect(computeDropTarget(groups, "a", "c", true)).toEqual({ toGroupId: "g1", toIndex: 2 });
   });
 
-  it("supports front insertion (before the first tile)", () => {
-    // active c removed -> [a,b]; over a at index 0, before -> 0
+  it("supports front insertion (drag onto the first tile), ignoring insertAfter", () => {
+    // active c dragged onto a (index 0) -> c lands at the front, either way.
     expect(computeDropTarget(groups, "c", "a", false)).toEqual({ toGroupId: "g1", toIndex: 0 });
+    expect(computeDropTarget(groups, "c", "a", true)).toEqual({ toGroupId: "g1", toIndex: 0 });
   });
 
   it("inserts before/after the over tile across groups", () => {
@@ -54,10 +57,18 @@ describe("dropTargetFromEvent", () => {
     expect(dropTargetFromEvent(groups, event(null, 0, 0))).toBeNull();
   });
 
-  it("derives insertAfter from the pointer/tile centers", () => {
-    // active center 250 > over center 150 -> insertAfter true -> after c (index 2)
+  it("targets the over tile's slot for same-group drags regardless of pointer center", () => {
+    // Same group (active a, over c): array-move puts a in c's slot either way, so a
+    // partial overlap is enough — the pointer need not travel past the tile center.
     expect(dropTargetFromEvent(groups, event("c", 200, 100))).toEqual({ toGroupId: "g1", toIndex: 2 });
-    // active center 50 < over center 150 -> insertAfter false -> before c (index 1)
-    expect(dropTargetFromEvent(groups, event("c", 0, 100))).toEqual({ toGroupId: "g1", toIndex: 1 });
+    expect(dropTargetFromEvent(groups, event("c", 0, 100))).toEqual({ toGroupId: "g1", toIndex: 2 });
+  });
+
+  it("derives insertAfter from the pointer/tile centers across groups", () => {
+    // Cross group (active a, over x in g2): the pointer center decides before/after.
+    // active center 250 > over center 150 -> insertAfter -> after x (index 1)
+    expect(dropTargetFromEvent(groups, event("x", 200, 100))).toEqual({ toGroupId: "g2", toIndex: 1 });
+    // active center 50 < over center 150 -> before x (index 0)
+    expect(dropTargetFromEvent(groups, event("x", 0, 100))).toEqual({ toGroupId: "g2", toIndex: 0 });
   });
 });

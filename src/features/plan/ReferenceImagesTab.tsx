@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import {
   closestCorners,
   pointerWithin,
+  rectIntersection,
   DndContext,
   DragOverlay,
   PointerSensor,
@@ -14,16 +15,23 @@ import {
 } from "@dnd-kit/core";
 import { MAX_COLUMNS, MIN_COLUMNS, type MoveImageParams, type ProjectPlan, type ReferenceGroup } from "../../domain/plan/models";
 import { GroupImageGrid } from "./GroupImageGrid";
-import { dropTargetFromEvent } from "./dropTarget";
+import { dropTargetFromEvent, GROUP_PREFIX } from "./dropTarget";
 import { moveImage } from "../../domain/plan/plan";
 import { RichTextEditor } from "./RichTextEditor";
 
-// Prefer the droppable the pointer is actually inside, so releasing on a group's
-// area — including an empty group's "+" slot — reliably targets that group even
-// when a larger neighbouring group is nearby (closest-corners is a distance
-// heuristic that can favour a big neighbour over a small empty container). Fall
-// back to closest-corners only when the pointer is in a gap between droppables.
+// Target the image tile the dragged image overlaps most, so a drag only needs to
+// overlap a neighbour (not fully cover it) to move into that tile's slot. Group
+// containers are skipped here so tile-level positioning wins over "append to group"
+// (a container's overlap area is larger than any single tile's). When nothing
+// overlaps a tile — an empty group's "+" slot or a gap — fall back to the group the
+// pointer is inside, then the nearest droppable.
 const collisionDetection: CollisionDetection = (args) => {
+  const tileHit = rectIntersection(args).find(
+    (collision) => !String(collision.id).startsWith(GROUP_PREFIX),
+  );
+  if (tileHit) {
+    return [tileHit];
+  }
   const pointerCollisions = pointerWithin(args);
   return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
 };

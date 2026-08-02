@@ -67,6 +67,32 @@ test("reorders a reference image by dragging and commits the move", async ({ pag
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
+test("commits a reorder from a partial overlap (no need to fully cover the tile)", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
+
+  const group = page.getByRole("group", { name: "Reference group: Lookbook" });
+  const first = group.getByRole("button", { name: "Open reference image 1" });
+  const second = group.getByRole("button", { name: "Open reference image 2" });
+
+  const from = await first.boundingBox();
+  const to = await second.boundingBox();
+  if (!from || !to) throw new Error("reference tiles not visible");
+
+  // Release just inside the second tile's left edge — a partial overlap that is well
+  // short of its centre. The dragged image overlaps the second tile most, so the
+  // largest-intersection collision + array-move commits the swap without the pointer
+  // having to travel past the tile centre.
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2, { steps: 3 });
+  await page.mouse.move(to.x + 12, to.y + to.height / 2, { steps: 6 });
+  await page.mouse.up();
+
+  await expect(page.getByTestId("save-status")).toHaveText("Unsaved changes", { timeout: 3000 });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
 test("drags a reference image into a newly-added empty group", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
