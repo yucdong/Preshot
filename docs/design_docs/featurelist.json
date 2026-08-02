@@ -120,12 +120,13 @@
           "Fixed an infinite render loop when dragging into an empty group: onDragOver now only updates the preview for a valid, changed target and never reverts mid-drag (dnd-kit re-fires onDragOver on measuring changes).",
           "Fixed reference-image drops silently not committing into empty/other groups: onDragEnd now commits the release-time target and falls back to the last previewed target when the pointer is released over the dragged tile's own previewed slot (over === activeId → null), so both within-group reordering and cross/empty-group drops commit.",
           "Made dropping onto an empty group reliable by switching dnd-kit collision detection to pointer-within (fallback closest-corners): the droppable the pointer is inside — including an empty group's '+' slot — is targeted directly, instead of a distance heuristic that could favour a larger neighbouring group over a small empty container.",
-          "Made dragging more sensitive: collision detection now uses rect-intersection (the image tile the dragged image overlaps most wins, group containers skipped so tile positioning beats append; pointer-within/closest-corners remain the fallback for empty groups and gaps), and same-group drop math uses array-move semantics so the active image takes the over tile's slot as soon as it overlaps it most — no longer requiring the pointer to travel past the tile's centre. Empty-group drops keep working via the fallback."
+          "Made dragging more sensitive: collision detection now uses rect-intersection (the image tile the dragged image overlaps most wins, group containers skipped so tile positioning beats append; pointer-within/closest-corners remain the fallback for empty groups and gaps), and same-group drop math uses array-move semantics so the active image takes the over tile's slot as soon as it overlaps it most — no longer requiring the pointer to travel past the tile's centre. Empty-group drops keep working via the fallback.",
+          "Fixed the left project rail: the app shell is now a fixed-height flex column (h-screen + overflow-hidden) so only the middle plan panel scrolls internally and the New/Open project actions stay pinned in the sidebar instead of scrolling away with the page. The projects list is capped at ~15 rows (max-h-[38rem] + overflow-y-auto, shrinks on short viewports) with a scrollbar beyond 15, and the actions are anchored to the bottom via a flex spacer."
         ],
         "lastVerified": [
           "204 frontend tests passed (Vitest).",
           "30 Rust tests passed.",
-          "8 Playwright e2e tests passed.",
+          "9 Playwright e2e tests passed.",
           "ESLint and TypeScript typecheck passed.",
           "pnpm build succeeded."
         ],

@@ -24,7 +24,7 @@ export function AppShell({
   onOpenProject,
 }: AppShellProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-stone-950 text-stone-100">
+    <div className="flex h-screen flex-col overflow-hidden bg-stone-950 text-stone-100">
       <header className="flex h-16 items-center gap-3 border-b border-white/10 px-6">
         <h1 className="text-lg font-semibold tracking-wide">Preshot</h1>
         <span className="text-sm text-stone-400">Photography planning</span>
@@ -34,10 +34,10 @@ export function AppShell({
           aria-label="Projects"
           className="flex min-h-0 min-w-0 flex-col border-r border-white/10"
         >
-          <p className="px-4 pb-2 pt-4 text-xs font-medium uppercase tracking-[0.24em] text-stone-500">
+          <p className="shrink-0 px-4 pb-2 pt-4 text-xs font-medium uppercase tracking-[0.24em] text-stone-500">
             Projects
           </p>
-          <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
+          <ul className="min-h-0 max-h-[38rem] space-y-1 overflow-y-auto px-3 pb-3">
             {projects.map((project) => {
               const isCurrent = project.projectId === currentProjectId;
               const isAvailable = project.status === "available";
@@ -70,7 +70,8 @@ export function AppShell({
               );
             })}
           </ul>
-          <div className="space-y-2 border-t border-white/10 p-3">
+          <div aria-hidden className="min-h-0 flex-1" />
+          <div className="shrink-0 space-y-2 border-t border-white/10 p-3">
             <button
               className={`${railButtonClassName} bg-amber-300 text-stone-950 hover:bg-amber-200`}
               onClick={onNewProject}
