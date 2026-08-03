@@ -2,13 +2,13 @@ import { expect, test } from "@playwright/test";
 
 test("keeps the sidebar project actions fixed while the plan is tall", async ({ page }) => {
   await page.goto("/");
-  const newProject = page.getByRole("button", { name: "New project", exact: true });
+  const newProject = page.getByRole("button", { name: "新建项目", exact: true });
   await expect(newProject).toBeVisible();
 
   // Grow the plan so its content exceeds the viewport height and the middle panel
   // must scroll internally (rather than the whole page).
   for (let i = 0; i < 6; i++) {
-    await page.getByRole("button", { name: "Add reference group" }).click();
+    await page.getByRole("button", { name: "添加参考分组" }).click();
   }
 
   const before = await newProject.boundingBox();
@@ -22,7 +22,7 @@ test("keeps the sidebar project actions fixed while the plan is tall", async ({ 
   const after = await newProject.boundingBox();
   expect(after?.y).toBeCloseTo(before?.y ?? -1, 0);
   await expect(newProject).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open project", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "打开项目", exact: true })).toBeVisible();
 });
 
 test("scrolls the middle plan panel to reach groups below the fold", async ({ page }) => {
@@ -30,7 +30,7 @@ test("scrolls the middle plan panel to reach groups below the fold", async ({ pa
 
   // Add enough reference groups that the plan overflows the panel height.
   for (let i = 0; i < 8; i++) {
-    await page.getByRole("button", { name: "Add reference group" }).click();
+    await page.getByRole("button", { name: "添加参考分组" }).click();
   }
 
   // The plan panel itself must be the scroll container (not clipped by the shell).
@@ -44,6 +44,6 @@ test("scrolls the middle plan panel to reach groups below the fold", async ({ pa
   // Scrolling the panel must reveal the last group (below the fold initially).
   await scroller.evaluate((el) => el.scrollTo(0, el.scrollHeight));
   await page.waitForTimeout(150);
-  const lastGroup = page.getByRole("group", { name: "Reference group: New group" }).last();
-  await expect(lastGroup.getByRole("button", { name: "Add reference image" })).toBeInViewport();
+  const lastGroup = page.getByRole("group", { name: "参考分组：新建分组" }).last();
+  await expect(lastGroup.getByRole("button", { name: "添加参考图" })).toBeInViewport();
 });

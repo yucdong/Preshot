@@ -15,12 +15,12 @@ import type {
 } from "../../domain/workspace/ports";
 import { workspaceLogger } from "../../shared/logging/logger";
 
-export const EDITORIAL_DEMO_PATH = "C:\\Preshot Demo\\Editorial Demo";
+export const EDITORIAL_DEMO_PATH = "C:\\Preshot Demo\\编辑大片示例";
 
 const DEMO_PROJECT_RECORD: WorkspaceProjectRecord = {
   projectId: "editorial-demo",
   path: EDITORIAL_DEMO_PATH,
-  name: "Editorial Demo",
+  name: "编辑大片示例",
   coverImage: null,
   status: "available",
   createdAt: "2026-07-01T00:00:00.000Z",

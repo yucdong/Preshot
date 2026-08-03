@@ -133,6 +133,52 @@
         ],
         "remaining": []
       }
+    },
+    {
+      "name": "Internationalization Foundation",
+      "feature_descriptions": [
+        "Application defaults to Chinese (zh) language across the entire UI",
+        "Implemented react-i18next with typed translation keys for type-safe localization",
+        "All user-facing strings use localized translation keys (shell, agent, plan, reference, workspace, dialogs, errors)",
+        "Chinese demo seed content: photography plan '日落大片' and reference group '造型参考'",
+        "BlockNote editor configured with Chinese dictionary for block menu and UI elements",
+        "Generic error banners display Chinese messages",
+        "Browser demo seed and e2e tests updated to Chinese strings",
+        "Full Chinese UI covers: project launcher, workspace navigation, plan editing, reference images, save status, PDF export, BlockNote editor, lightbox, dialogs, and error boundaries"
+      ],
+      "status": "completed",
+      "decisions": [
+        "Use react-i18next (v15.3) with typed keys via TranslationKeys utility type for compile-time safety",
+        "Store Chinese translations in src/shared/i18n/locales/zh.ts as a const object for type inference",
+        "Configure i18next with lng: 'zh', fallbackLng: 'zh' so the app defaults to Chinese without browser language detection",
+        "Localize BlockNote editor with a manually extracted Chinese dictionary (BlockNote does not expose types for its zh dictionary export)",
+        "Use t() in all React components for UI strings; app chrome, reference labels, save status, workspace launcher, and error messages all go through i18n",
+        "Update browser demo seed to Chinese (static data, not i18n keys) so the seeded project displays Chinese content on first launch",
+        "Update all e2e Playwright queries to Chinese strings to match the localized UI (role/text queries for buttons, save status, group names, etc.)",
+        "Keep structural aria-labels (e.g., PlanPanel outer 'Plan') unlocalised when they are not user-visible"
+      ],
+      "progress": {
+        "completedAt": "2026-08-03",
+        "completed": [
+          "Installed react-i18next (v15.3) and i18next; configured i18next with lng: 'zh', fallbackLng: 'zh', and typed resources",
+          "Built a typed zh translation dictionary covering all UI surfaces: shell (projects, tagline, actions), agent (preview, input), plan (export, tab labels, block editor), reference (add/remove/open image, groups), save status (saving/unsaved/saved), workspace (launcher intro, cards, dialogs), errors (workspace/plan generic messages, error boundary)",
+          "Wrapped App with I18nextProvider and tested i18n initialization",
+          "Localized AppShell (tagline, projects nav), AgentPanel (title, preview, input), PlanPanel (export button, save status), PhotographyPlanTab (section label), ReferenceImagesTab (heading, add group button), ReferenceGroup (title/description labels, delete/add image), SortableImageTile (open/remove image aria-labels), ReferenceImageLightbox (close button), SaveStatus (statuses), WorkspaceLauncher (intro, actions, empty state), ProjectRail (recent projects, previous/next hints), ProjectCard (open/relocate/remove actions, unavailable hint), CreateProjectDialog (eyebrow, title, labels, cancel/create), GenericErrorBanner (workspace/plan messages), and AppErrorBoundary (title, body)",
+          "Configured BlockNote editor with a manually extracted Chinese dictionary (defaultBlockSpecs labels, slash menu items, link toolbar, formatting shortcuts) for Notion-style block editing in zh",
+          "Updated browser demo seed (browserPlan.ts SEEDED_PLAN) to Chinese: '日落大片' photography plan, '造型参考' reference group title/description; updated browserWorkspace.ts demo project name to '编辑大片示例'; updated corresponding test assertions",
+          "Updated all e2e Playwright queries to Chinese: plan.spec.ts ('参考分组：造型参考', '打开参考图 X', '添加参考图', '添加参考分组', '导出 PDF', '正在导出…', '关闭图片', '已保存所有更改', '有未保存的更改', '摄影计划'), layout.spec.ts ('新建项目', '打开项目', '添加参考分组', '参考分组：新建分组', '添加参考图', and PlanPanel structural 'Plan' kept as-is), workspace.spec.ts ('项目', '打开项目 编辑大片示例', '添加参考分组')",
+          "Ran full validation matrix: pnpm typecheck (clean), pnpm lint (clean), pnpm test (207 tests passed), pnpm test:e2e (10 e2e tests passed), pnpm build (succeeded)"
+        ],
+        "lastVerified": {
+          "date": "2026-08-03",
+          "typecheck": "clean",
+          "lint": "clean",
+          "unitTests": "207 passed",
+          "e2eTests": "10 passed",
+          "build": "succeeded"
+        },
+        "remaining": []
+      }
     }
   ]
 }

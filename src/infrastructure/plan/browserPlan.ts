@@ -8,12 +8,12 @@ const TINY_PNG =
 
 const SEEDED_PLAN: ProjectPlan = {
   photographyPlan:
-    "<h2>Sunset Editorial</h2><p>Golden hour on the waterfront. Bring the 85mm.</p>",
+    "<h2>日落大片</h2><p>海滨的黄金时刻。记得带 85mm 镜头。</p>",
   referenceGroups: [
     {
       id: "seed-group",
-      title: "Lookbook",
-      description: "Mood, lighting, and posing references for the editorial set.",
+      title: "造型参考",
+      description: "这组大片的氛围、光线与姿势参考。",
       columnsPerRow: 3,
       images: [
         { id: "seed-1", file: "references/0001.png" },

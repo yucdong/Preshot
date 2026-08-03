@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createBrowserWorkspaceDependencies, EDITORIAL_DEMO_PATH } from "./browserWorkspace";
 
 describe("createBrowserWorkspaceDependencies", () => {
-  it("seeds Editorial Demo, opens it deterministically, and clones returned state", async () => {
+  it("seeds 编辑大片示例, opens it deterministically, and clones returned state", async () => {
     const dependencies = createBrowserWorkspaceDependencies();
 
     const loadedProjects = await dependencies.service.loadProjects();
@@ -11,7 +11,7 @@ describe("createBrowserWorkspaceDependencies", () => {
       expect.objectContaining({
         projectId: "editorial-demo",
         path: EDITORIAL_DEMO_PATH,
-        name: "Editorial Demo",
+        name: "编辑大片示例",
         status: "available",
         coverImage: null,
         coverDataUrl: null,
@@ -30,9 +30,9 @@ describe("createBrowserWorkspaceDependencies", () => {
     );
     const reloadedProjects = await dependencies.service.loadProjects();
 
-    expect(openedProject.name).toBe("Editorial Demo");
+    expect(openedProject.name).toBe("编辑大片示例");
     expect(openedProject.coverDataUrl).toBeNull();
-    expect(reloadedProjects[0].name).toBe("Editorial Demo");
+    expect(reloadedProjects[0].name).toBe("编辑大片示例");
     expect(reloadedProjects[0].coverDataUrl).toBeNull();
   });
 });
