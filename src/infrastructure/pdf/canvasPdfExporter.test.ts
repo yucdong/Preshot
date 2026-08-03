@@ -161,4 +161,42 @@ describe("createCanvasPdfExporter", () => {
     const parsed = await PDFDocument.load(bytes);
     expect(parsed.getPageCount()).toBe(1);
   }, 20000);
+
+  it("renders per-image captions when showCaptions is true", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const plan: ProjectPlan = {
+      schemaVersion: 2,
+      components: [
+        {
+          id: "r1",
+          type: "reference",
+          widthFraction: "1",
+          height: 360,
+          title: "照片集",
+          description: "带说明的参考照片",
+          columnsPerRow: 2,
+          showCaptions: true,
+          images: [
+            { id: "img1", file: "photo1.png", caption: "日出 — 黄金时段" },
+            { id: "img2", file: "photo2.png", caption: "中午 — 强光" },
+            { id: "img3", file: "photo3.png", caption: "黄昏 — 蓝调时段" },
+          ],
+        },
+      ],
+    };
+
+    const bytes = await exporter.export(plan, {
+      "photo1.png": TINY_PNG,
+      "photo2.png": TINY_PNG,
+      "photo3.png": TINY_PNG,
+    });
+
+    // Assert PDF is produced without throwing and has the expected page count
+    expect(bytes[0]).toBe(0x25); // %
+    expect(bytes[1]).toBe(0x50); // P
+    expect(bytes[2]).toBe(0x44); // D
+    expect(bytes[3]).toBe(0x46); // F
+    const parsed = await PDFDocument.load(bytes);
+    expect(parsed.getPageCount()).toBe(1);
+  }, 20000);
 });

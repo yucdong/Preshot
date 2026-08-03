@@ -111,6 +111,27 @@ describe("reference image slots", () => {
     expect(slotCaptionSplit(slot, false)).toEqual({ image: slot, caption: { x: 1, y: 12, width: 10, height: 0 } });
   });
 
+  it("splits a square slot so the image portion is larger and ~square when captions are on", () => {
+    // For a tile with slotSize width, when captions are on, referenceImageSlots makes
+    // the tile height = round(slotSize*4/3), then slotCaptionSplit gives caption ~1/4
+    // of that tile height, so the image portion gets ~3/4 and stays ~square.
+    const slotSize = 120;
+    const tileHeight = Math.round((slotSize * 4) / 3); // 160
+    const slot = { x: 0, y: 0, width: slotSize, height: tileHeight };
+    const { image, caption } = slotCaptionSplit(slot, true);
+    // Caption reserves ~1/4 of the tile height; image gets the rest
+    expect(caption.height).toBeGreaterThan(0);
+    expect(image.height).toBeGreaterThan(caption.height); // image is the dominant band
+    expect(image.height + caption.height).toBe(slot.height); // bands fill the slot
+    // Caption band starts directly below the image band
+    expect(caption.y).toBe(image.y + image.height);
+    expect(caption.x).toBe(image.x);
+    expect(caption.width).toBe(image.width);
+    // With tile height = slotSize*4/3 and caption = round(height/4),
+    // image height should be ~slotSize (stays ~square with width)
+    expect(Math.abs(image.width - image.height)).toBeLessThanOrEqual(1);
+  });
+
   it("populates imageSlots on reference placements via layoutPlan", () => {
     const result = layoutPlan([reference()]);
     expect(result.placements[0].imageSlots).toBeDefined();
