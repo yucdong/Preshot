@@ -30,4 +30,8 @@ describe("canvas geometry", () => {
     // tall slot, landscape image -> limited by width
     expect(containSize(100, 200, 200, 100)).toEqual({ width: 100, height: 50, offsetX: 0, offsetY: 75 });
   });
+
+  it("containSize handles zero/negative image dimensions without division by zero", () => {
+    expect(containSize(100, 100, 0, 0)).toEqual({ width: 0, height: 0, offsetX: 50, offsetY: 50 });
+  });
 });

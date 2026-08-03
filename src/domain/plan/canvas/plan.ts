@@ -141,12 +141,18 @@ export function setImageCaption(
   plan: ProjectPlan,
   params: { componentId: string; imageId: string; caption: string },
 ): ProjectPlan {
-  return mapReference(plan, params.componentId, (component) => ({
-    ...component,
-    images: component.images.map((image) =>
-      image.id === params.imageId ? { ...image, caption: params.caption } : image,
-    ),
-  }));
+  return mapReference(plan, params.componentId, (component) => {
+    const target = component.images.find((image) => image.id === params.imageId);
+    if (!target || target.caption === params.caption) {
+      return component;
+    }
+    return {
+      ...component,
+      images: component.images.map((image) =>
+        image.id === params.imageId ? { ...image, caption: params.caption } : image,
+      ),
+    };
+  });
 }
 
 export function moveImage(plan: ProjectPlan, params: MoveImageParams): ProjectPlan {

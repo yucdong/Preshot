@@ -48,7 +48,7 @@ export function containSize(
   imageWidth: number,
   imageHeight: number,
 ): { width: number; height: number; offsetX: number; offsetY: number } {
-  const scale = Math.min(slotWidth / imageWidth, slotHeight / imageHeight);
+  const scale = imageWidth <= 0 || imageHeight <= 0 ? 0 : Math.min(slotWidth / imageWidth, slotHeight / imageHeight);
   const width = imageWidth * scale;
   const height = imageHeight * scale;
   return { width, height, offsetX: (slotWidth - width) / 2, offsetY: (slotHeight - height) / 2 };

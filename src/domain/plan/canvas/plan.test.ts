@@ -89,6 +89,19 @@ describe("canvas reducers", () => {
     expect((next.components[0] as ReferenceComponent).images[0].caption).toBe("sunset");
   });
 
+  it("setImageCaption returns same plan reference when caption is unchanged", () => {
+    const plan = withComponents([reference("r", ["i1"])]);
+    const withCaption = setImageCaption(plan, { componentId: "r", imageId: "i1", caption: "sunset" });
+    const reapplied = setImageCaption(withCaption, { componentId: "r", imageId: "i1", caption: "sunset" });
+    expect(reapplied).toBe(withCaption);
+  });
+
+  it("setImageCaption returns same plan reference when imageId not found", () => {
+    const plan = withComponents([reference("r", ["i1"])]);
+    const result = setImageCaption(plan, { componentId: "r", imageId: "unknown", caption: "sunset" });
+    expect(result).toBe(plan);
+  });
+
   it("moves an image across reference components", () => {
     const plan = withComponents([reference("r1", ["i1", "i2"]), reference("r2", [])]);
     const next = moveImage(plan, { fromComponentId: "r1", imageId: "i1", toComponentId: "r2", toIndex: 0 });
