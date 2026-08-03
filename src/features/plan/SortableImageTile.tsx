@@ -40,7 +40,7 @@ export function SortableImageTile({ image, index, src, onOpen, onRemove, compone
     : {};
 
   return (
-    <div className="relative" ref={setNodeRef} style={style}>
+    <div className="relative" ref={setNodeRef} style={style} data-image-id={image.id}>
       <button
         aria-label={t("reference.openImage", { index: index + 1 })}
         className={squareButton}
