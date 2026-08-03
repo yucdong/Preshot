@@ -84,9 +84,9 @@ describe("App", () => {
 
     expect(await screen.findByRole("button", { name: "Add reference group" })).toBeVisible();
 
-    const nav = screen.getByRole("navigation", { name: "Projects" });
+    const nav = screen.getByRole("navigation", { name: "项目" });
     expect(
-      within(nav).getByRole("button", { name: "Open project Editorial" }),
+      within(nav).getByRole("button", { name: "打开项目 Editorial" }),
     ).toHaveAttribute("aria-current", "page");
 
     expect(screen.queryByText("Canvas")).not.toBeInTheDocument();

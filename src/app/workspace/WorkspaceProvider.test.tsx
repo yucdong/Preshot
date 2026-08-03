@@ -162,9 +162,9 @@ describe("WorkspaceProvider", () => {
       resolve([project]);
     });
 
-    const nav = await screen.findByRole("navigation", { name: "Projects" });
+    const nav = await screen.findByRole("navigation", { name: "项目" });
     expect(
-      within(nav).getByRole("button", { name: "Open project Editorial" }),
+      within(nav).getByRole("button", { name: "打开项目 Editorial" }),
     ).toHaveAttribute("aria-current", "page");
     expect(native.onMenuAction).toHaveBeenCalledTimes(1);
   });
@@ -195,21 +195,21 @@ describe("WorkspaceProvider", () => {
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     expect(
-      await screen.findByRole("button", { name: "Open project Editorial" }),
+      await screen.findByRole("button", { name: "打开项目 Editorial" }),
     ).toHaveAttribute("aria-current", "page");
     expect(
       await screen.findByRole("button", { name: "Add reference group" }),
     ).toBeVisible();
-    expect(screen.getByRole("navigation", { name: "Projects" })).toBeVisible();
+    expect(screen.getByRole("navigation", { name: "项目" })).toBeVisible();
 
     await user.click(
-      screen.getByRole("button", { name: "Open project Sunset Shanghai" }),
+      screen.getByRole("button", { name: "打开项目 Sunset Shanghai" }),
     );
 
     expect(service.openProject).toHaveBeenCalledWith(other.path);
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: "Open project Sunset Shanghai" }),
+        screen.getByRole("button", { name: "打开项目 Sunset Shanghai" }),
       ).toHaveAttribute("aria-current", "page");
     });
   });
