@@ -73,6 +73,11 @@ test("drags to reorder two components and commits the move", async ({ page }) =>
   // Wait for unsaved state to settle
   await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
 
+  // Capture the order before drag
+  const before = await page.locator('[data-component-frame="true"]').evaluateAll(els => 
+    els.map(e => (e as HTMLElement).dataset.componentId)
+  );
+
   // Get the move handles (top drag handle)
   const frames = page.locator('[data-component-frame="true"]');
   const first = frames.nth(0);
@@ -86,20 +91,40 @@ test("drags to reorder two components and commits the move", async ({ page }) =>
   if (!firstBox || !secondBox) throw new Error("components not visible");
 
   // dnd-kit PointerSensor needs movement > 6px and intermediate moves to start a drag
+  // Drag the first component to hover over the center-bottom area of the second component
   await page.mouse.move(firstBox.x + firstBox.width / 2, firstBox.y + firstBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(firstBox.x + firstBox.width / 2 + 12, firstBox.y + firstBox.height / 2, {
     steps: 3,
   });
+  // Move to the lower half of the second component to trigger "insert after"
   await page.mouse.move(
     secondBox.x + secondBox.width / 2,
-    secondBox.y + secondBox.height + 30,
+    secondBox.y + (secondBox.height * 0.75),
     { steps: 6 }
   );
   await page.mouse.up();
 
+  // Wait for the optimistic commit and capture the order after drag
+  // Use a retry loop to poll until the order changes
+  let after: (string | undefined)[] = [];
+  for (let i = 0; i < 10; i++) {
+    after = await page.locator('[data-component-frame="true"]').evaluateAll(els => 
+      els.map(e => (e as HTMLElement).dataset.componentId)
+    );
+    if (JSON.stringify(after) !== JSON.stringify(before)) {
+      break;
+    }
+    await page.waitForTimeout(300);
+  }
+
+  // Assert the drag actually reordered components
+  expect([...after].sort()).toEqual([...before].sort()); // Same set of components
+  expect(after).not.toEqual(before); // Order changed
+  expect(after.indexOf(before[0])).not.toBe(0); // Dragged component moved from index 0
+
   // A committed move keeps the status unsaved
-  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改", { timeout: 3000 });
+  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 

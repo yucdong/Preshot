@@ -108,6 +108,7 @@ export function ComponentFrame({
       ref={setDropRef}
       className="absolute"
       data-component-frame="true"
+      data-component-id={id}
       style={{
         left: `${(MARGIN + rect.x) * scale}px`,
         top: `${(MARGIN + rect.y) * scale}px`,
