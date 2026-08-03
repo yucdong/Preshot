@@ -52,6 +52,7 @@ export const zh = {
     imageAlt: "参考图",
     loading: "加载中…",
     captions: "显示说明",
+    captionAria: "图片说明 {{index}}",
   },
   lightbox: {
     close: "关闭图片",
@@ -97,6 +98,7 @@ export const zh = {
     newGroupTitle: "新建分组",
     untitledGroup: "未命名分组",
     planTemplate: "<p>拍摄时间：</p><p>拍摄地点：</p><p>道具和服装：</p><p>器材：</p>",
+    captionPlaceholder: "补充拍摄说明…",
   },
   errors: {
     workspace: "操作未能完成，请重试。",

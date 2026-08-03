@@ -13,6 +13,7 @@ interface ReferenceComponentViewProps {
   onRemoveImage: (componentId: string, imageId: string) => void;
   onOpenImage: (file: string) => void;
   onToggleCaptions?: (id: string) => void;
+  onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
 }
 
 export function ReferenceComponentView({
@@ -25,6 +26,7 @@ export function ReferenceComponentView({
   onRemoveImage,
   onOpenImage,
   onToggleCaptions,
+  onSetImageCaption,
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
 
@@ -94,6 +96,8 @@ export function ReferenceComponentView({
           onAddImage={onAddImage}
           onOpenImage={onOpenImage}
           onRemoveImage={onRemoveImage}
+          showCaptions={component.showCaptions}
+          onSetCaption={onSetImageCaption ? (imageId, caption) => onSetImageCaption(component.id, imageId, caption) : undefined}
         />
       </div>
     </div>

@@ -6,7 +6,7 @@ import { GroupImageGrid } from "./GroupImageGrid";
 interface GroupLike {
   id: string;
   columnsPerRow: number;
-  images: Array<{ id: string; file: string }>;
+  images: Array<{ id: string; file: string; caption?: string }>;
 }
 
 const group: GroupLike = {
@@ -68,5 +68,63 @@ describe("GroupImageGrid", () => {
     expect(props.onRemoveImage).toHaveBeenCalledWith("g1", "i2");
     fireEvent.click(screen.getByRole("button", { name: "添加参考图" }));
     expect(props.onAddImage).toHaveBeenCalledWith("g1");
+  });
+
+  it("renders caption textareas when showCaptions is true", () => {
+    const groupWithCaptions: GroupLike = {
+      id: "g1",
+      columnsPerRow: 2,
+      images: [
+        { id: "i1", file: "references/0001.png", caption: "Existing caption" },
+        { id: "i2", file: "references/0002.png", caption: "" },
+        { id: "i3", file: "references/0003.png" },
+      ],
+    };
+    const props = renderGrid({ group: groupWithCaptions, showCaptions: true, onSetCaption: vi.fn() });
+
+    // Each image should have a caption textarea
+    const caption1 = screen.getByRole("textbox", { name: "图片说明 1" });
+    expect(caption1).toHaveValue("Existing caption");
+
+    const caption2 = screen.getByRole("textbox", { name: "图片说明 2" });
+    expect(caption2).toHaveValue("");
+
+    const caption3 = screen.getByRole("textbox", { name: "图片说明 3" });
+    expect(caption3).toHaveValue("");
+
+    // Typing should call onSetCaption
+    fireEvent.change(caption1, { target: { value: "Updated caption" } });
+    expect(props.onSetCaption).toHaveBeenCalledWith("i1", "Updated caption");
+  });
+
+  it("does not render caption textareas when showCaptions is false or undefined", () => {
+    const groupWithCaptions: GroupLike = {
+      id: "g1",
+      columnsPerRow: 2,
+      images: [
+        { id: "i1", file: "references/0001.png", caption: "Some caption" },
+        { id: "i2", file: "references/0002.png" },
+      ],
+    };
+    renderGrid({ group: groupWithCaptions, showCaptions: false });
+
+    // No caption textareas should render
+    expect(screen.queryByRole("textbox", { name: /图片说明/ })).not.toBeInTheDocument();
+  });
+
+  it("caption textarea does not trigger image open on pointer or click", () => {
+    const groupWithCaptions: GroupLike = {
+      id: "g1",
+      columnsPerRow: 2,
+      images: [{ id: "i1", file: "references/0001.png", caption: "" }],
+    };
+    const props = renderGrid({ group: groupWithCaptions, showCaptions: true, onSetCaption: vi.fn() });
+
+    const caption = screen.getByRole("textbox", { name: "图片说明 1" });
+
+    // Clicking/typing on the caption should NOT open the image
+    fireEvent.pointerDown(caption);
+    fireEvent.click(caption);
+    expect(props.onOpenImage).not.toHaveBeenCalled();
   });
 });

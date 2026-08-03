@@ -69,6 +69,7 @@ export function PlanCanvas({
   onMoveComponent,
   onResize,
   onToggleCaptions,
+  onSetImageCaption,
 }: PlanCanvasProps) {
   const [_activeId, setActiveId] = useState<string | null>(null);
   const [preview, setPreview] = useState<PlanComponent[] | null>(null);
@@ -205,6 +206,7 @@ export function PlanCanvas({
                         onSetDescription={onSetDescription}
                         onSetTitle={onSetTitle}
                         onToggleCaptions={onToggleCaptions}
+                        onSetImageCaption={onSetImageCaption}
                       />
                     )}
                   </ComponentFrame>

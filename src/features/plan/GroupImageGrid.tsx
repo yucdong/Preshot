@@ -7,7 +7,7 @@ import { SortableImageTile } from "./SortableImageTile";
 interface GroupLike {
   id: string;
   columnsPerRow: number;
-  images: Array<{ id: string; file: string }>;
+  images: Array<{ id: string; file: string; caption?: string }>;
 }
 
 interface GroupImageGridProps {
@@ -18,9 +18,11 @@ interface GroupImageGridProps {
   onOpenImage(file: string): void;
   droppableId?: string;
   enableReorder?: boolean;
+  showCaptions?: boolean;
+  onSetCaption?: (imageId: string, caption: string) => void;
 }
 
-export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onOpenImage, droppableId, enableReorder = false }: GroupImageGridProps) {
+export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onOpenImage, droppableId, enableReorder = false, showCaptions = false, onSetCaption }: GroupImageGridProps) {
   const { t } = useTranslation();
   const { setNodeRef } = useDroppable({ id: droppableId ?? `droppable-${group.id}` });
 
@@ -35,6 +37,8 @@ export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onO
           onRemove={(imageId) => onRemoveImage(group.id, imageId)}
           src={imageSrc(image.file)}
           draggable={enableReorder}
+          showCaptions={showCaptions}
+          onSetCaption={onSetCaption}
         />
       ))}
       <button
