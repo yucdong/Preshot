@@ -166,7 +166,7 @@ export function PlanCanvas({
       onDragStart={onDragStart}
       sensors={sensors}
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4" data-testid="plan-canvas">
         {Array.from({ length: layout.pageCount }, (_unused, pageIndex) => {
           const placements = placementsByPage.get(pageIndex) || [];
           return (

@@ -8,7 +8,6 @@ test("auto-opens the most recently edited project into the workspace", async ({ 
     nav.getByRole("button", { name: "打开项目 编辑大片示例" }),
   ).toHaveAttribute("aria-current", "page");
 
-  await expect(
-    page.getByRole("button", { name: "添加参考分组" }),
-  ).toBeVisible();
+  // Assert the canvas is rendered (not the old plan panel)
+  await expect(page.getByTestId("plan-canvas")).toBeVisible();
 });

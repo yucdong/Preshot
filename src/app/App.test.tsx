@@ -5,9 +5,13 @@ import type {
   WorkspaceLogger,
   WorkspaceService,
 } from "../domain/workspace/ports";
-import type { PlanDependencies } from "../features/plan/ProjectPlanProvider";
+import type { CanvasPlanDependencies } from "../features/plan/ProjectCanvasProvider";
 import { App } from "./App";
 import type { WorkspaceDependencies } from "./workspace/dependencies";
+
+vi.mock("../features/plan/canvas/PlanCanvas", () => ({
+  PlanCanvas: () => <div data-testid="plan-canvas">Canvas Mock</div>,
+}));
 
 function makeProject(
   overrides: Partial<WorkspaceProjectView> = {},
@@ -26,19 +30,13 @@ function makeProject(
   };
 }
 
-function planDeps(): PlanDependencies {
+function planDeps(): CanvasPlanDependencies {
   return {
     service: {
-      loadPlan: vi.fn().mockResolvedValue({ photographyPlan: "", referenceGroups: [] }),
+      loadPlan: vi.fn().mockResolvedValue({ components: [] }),
       loadImage: vi.fn().mockResolvedValue(""),
       savePlan: vi.fn(),
-      addGroup: vi.fn(),
-      renameGroup: vi.fn(),
-      setDescription: vi.fn(),
-      setPhotographyPlan: vi.fn(),
-      deleteGroup: vi.fn(),
-      setColumns: vi.fn(),
-      moveImage: vi.fn(),
+      removeComponent: vi.fn(),
       importImage: vi.fn(),
       removeImage: vi.fn(),
     },
@@ -82,7 +80,7 @@ describe("App", () => {
 
     render(<App dependencies={createDependencies(project)} planDependencies={planDeps()} />);
 
-    expect(await screen.findByRole("button", { name: "添加参考分组" })).toBeVisible();
+    expect(await screen.findByTestId("plan-canvas")).toBeVisible();
 
     const nav = screen.getByRole("navigation", { name: "项目" });
     expect(

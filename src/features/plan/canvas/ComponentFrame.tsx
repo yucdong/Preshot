@@ -107,6 +107,7 @@ export function ComponentFrame({
     <div
       ref={setDropRef}
       className="absolute"
+      data-component-frame="true"
       style={{
         left: `${(MARGIN + rect.x) * scale}px`,
         top: `${(MARGIN + rect.y) * scale}px`,
@@ -153,6 +154,7 @@ export function ComponentFrame({
       <div
         className="absolute right-0 top-1/2 h-8 w-2 -translate-y-1/2 cursor-ew-resize bg-stone-300 opacity-0 hover:opacity-100"
         data-resize="width"
+        data-resize-handle="width"
         onPointerDown={onPointerDownResize("width")}
         onPointerMove={onPointerMoveResize}
         onPointerUp={onPointerUpResize}
@@ -160,6 +162,7 @@ export function ComponentFrame({
       <div
         className="absolute bottom-0 left-1/2 h-2 w-8 -translate-x-1/2 cursor-ns-resize bg-stone-300 opacity-0 hover:opacity-100"
         data-resize="height"
+        data-resize-handle="height"
         onPointerDown={onPointerDownResize("height")}
         onPointerMove={onPointerMoveResize}
         onPointerUp={onPointerUpResize}
@@ -167,6 +170,7 @@ export function ComponentFrame({
       <div
         className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize bg-stone-300 opacity-0 hover:opacity-100"
         data-resize="both"
+        data-resize-handle="both"
         onPointerDown={onPointerDownResize("both")}
         onPointerMove={onPointerMoveResize}
         onPointerUp={onPointerUpResize}

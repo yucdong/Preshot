@@ -5,7 +5,7 @@ import type {
 } from "../../domain/workspace/models";
 import { sortProjectsByRecentEdit, upsertProject } from "../../domain/workspace/registry";
 import type { WorkspaceMenuAction } from "../../domain/workspace/ports";
-import type { PlanDependencies } from "../../features/plan/ProjectPlanProvider";
+import type { CanvasPlanDependencies } from "../../features/plan/ProjectCanvasProvider";
 import { WorkspaceLauncher } from "../../features/workspace/WorkspaceLauncher";
 import { AppShell } from "../layout/AppShell";
 import { Workspace } from "../layout/Workspace";
@@ -18,7 +18,7 @@ type AppView =
 
 interface WorkspaceProviderProps {
   dependencies: WorkspaceDependencies;
-  planDependencies?: PlanDependencies;
+  planDependencies?: CanvasPlanDependencies;
 }
 
 const defaultPlanDependencies = createPlanDependencies();

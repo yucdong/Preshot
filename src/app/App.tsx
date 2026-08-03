@@ -4,14 +4,14 @@ import {
   type WorkspaceDependencies,
 } from "./workspace/dependencies";
 import { createPlanDependencies } from "./plan/planDependencies";
-import type { PlanDependencies } from "../features/plan/ProjectPlanProvider";
+import type { CanvasPlanDependencies } from "../features/plan/ProjectCanvasProvider";
 
 const defaultWorkspaceDependencies = createWorkspaceDependencies();
 const defaultPlanDependencies = createPlanDependencies();
 
 interface AppProps {
   dependencies?: WorkspaceDependencies;
-  planDependencies?: PlanDependencies;
+  planDependencies?: CanvasPlanDependencies;
 }
 
 export function App({

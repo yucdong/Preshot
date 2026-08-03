@@ -10,25 +10,12 @@ import type {
   WorkspaceMenuAction,
   WorkspaceService,
 } from "../../domain/workspace/ports";
-import type { PlanDependencies } from "../../features/plan/ProjectPlanProvider";
+import type { CanvasPlanDependencies } from "../../features/plan/ProjectCanvasProvider";
 import type { WorkspaceDependencies } from "./dependencies";
 import { WorkspaceProvider } from "./WorkspaceProvider";
 
-vi.mock("../../features/plan/RichTextEditor", () => ({
-  RichTextEditor: ({ html, onChange, ariaLabel, placeholder }: {
-    html: string;
-    onChange(html: string): void;
-    ariaLabel: string;
-    placeholder?: string;
-    compact?: boolean;
-  }) => (
-    <textarea
-      aria-label={ariaLabel}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder={placeholder}
-      value={html}
-    />
-  ),
+vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
+  PlanCanvas: () => <div data-testid="plan-canvas">Canvas Mock</div>,
 }));
 
 function deferred<T>() {
@@ -42,19 +29,13 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function planDeps(): PlanDependencies {
+function planDeps(): CanvasPlanDependencies {
   return {
     service: {
-      loadPlan: vi.fn().mockResolvedValue({ photographyPlan: "", referenceGroups: [] }),
+      loadPlan: vi.fn().mockResolvedValue({ components: [] }),
       loadImage: vi.fn().mockResolvedValue(""),
       savePlan: vi.fn(),
-      addGroup: vi.fn(),
-      renameGroup: vi.fn(),
-      setDescription: vi.fn(),
-      setPhotographyPlan: vi.fn(),
-      deleteGroup: vi.fn(),
-      setColumns: vi.fn(),
-      moveImage: vi.fn(),
+      removeComponent: vi.fn(),
       importImage: vi.fn(),
       removeImage: vi.fn(),
     },
@@ -198,7 +179,7 @@ describe("WorkspaceProvider", () => {
       await screen.findByRole("button", { name: "打开项目 Editorial" }),
     ).toHaveAttribute("aria-current", "page");
     expect(
-      await screen.findByRole("button", { name: "添加参考分组" }),
+      await screen.findByTestId("plan-canvas"),
     ).toBeVisible();
     expect(screen.getByRole("navigation", { name: "项目" })).toBeVisible();
 
