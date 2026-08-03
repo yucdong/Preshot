@@ -82,7 +82,7 @@ describe("App", () => {
 
     render(<App dependencies={createDependencies(project)} planDependencies={planDeps()} />);
 
-    expect(await screen.findByRole("button", { name: "Add reference group" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "添加参考分组" })).toBeVisible();
 
     const nav = screen.getByRole("navigation", { name: "项目" });
     expect(

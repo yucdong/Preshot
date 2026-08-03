@@ -50,19 +50,19 @@ describe("ReferenceImagesTab", () => {
       />,
     );
 
-    const group = screen.getByRole("group", { name: "Reference group: Lookbook" });
-    expect(within(group).getByRole("img", { name: "Reference image 1" })).toBeVisible();
+    const group = screen.getByRole("group", { name: "参考分组：Lookbook" });
+    expect(within(group).getByRole("img", { name: "参考图" })).toBeVisible();
 
-    await user.click(within(group).getByRole("button", { name: "Add reference image" }));
+    await user.click(within(group).getByRole("button", { name: "添加参考图" }));
     expect(h.onAddImage).toHaveBeenCalledWith("g1");
 
-    await user.click(within(group).getByRole("button", { name: "Open reference image 1" }));
+    await user.click(within(group).getByRole("button", { name: "打开参考图 1" }));
     expect(h.onOpenImage).toHaveBeenCalledWith("references/0001.png");
 
-    await user.selectOptions(within(group).getByRole("combobox", { name: "Images per row" }), "4");
+    await user.selectOptions(within(group).getByRole("combobox", { name: "每行图片数" }), "4");
     expect(h.onSetColumns).toHaveBeenCalledWith("g1", 4);
 
-    await user.click(screen.getByRole("button", { name: "Add reference group" }));
+    await user.click(screen.getByRole("button", { name: "添加参考分组" }));
     expect(h.onAddGroup).toHaveBeenCalled();
   });
 
@@ -77,8 +77,8 @@ describe("ReferenceImagesTab", () => {
       />,
     );
 
-    const group = screen.getByRole("group", { name: "Reference group: Lookbook" });
-    const input = within(group).getByRole("textbox", { name: "Group title" });
+    const group = screen.getByRole("group", { name: "参考分组：Lookbook" });
+    const input = within(group).getByRole("textbox", { name: "分组标题" });
 
     await user.clear(input);
     await user.type(input, "Summer Set");
@@ -99,8 +99,8 @@ describe("ReferenceImagesTab", () => {
       />,
     );
 
-    const group = screen.getByRole("group", { name: "Reference group: Lookbook" });
-    const editor = within(group).getByRole("textbox", { name: "Group description" });
+    const group = screen.getByRole("group", { name: "参考分组：Lookbook" });
+    const editor = within(group).getByRole("textbox", { name: "分组描述" });
     expect(editor).toHaveValue("<p>Warm editorial mood</p>");
 
     fireEvent.change(editor, { target: { value: "<p>Cool blue tones</p>" } });
@@ -115,7 +115,7 @@ describe("ReferenceImagesTab", () => {
         {...handlers()}
       />,
     );
-    expect(screen.getByRole("button", { name: "Open reference image 1" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "打开参考图 1" })).toHaveAttribute(
       "aria-roledescription",
       "sortable",
     );

@@ -49,8 +49,8 @@ describe("PlanPanel", () => {
 
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.getByRole("heading", { name: "拍摄笔记" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Sample sets" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Add reference group" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "样片集" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "添加参考分组" })).toBeVisible();
     expect(screen.getByTestId("save-status")).toHaveTextContent("已保存所有更改");
   });
 

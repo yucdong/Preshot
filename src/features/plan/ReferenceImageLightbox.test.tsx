@@ -7,12 +7,12 @@ describe("ReferenceImageLightbox", () => {
   it("shows the image and closes via button and Escape", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<ReferenceImageLightbox src="data:image/png;base64,AA" alt="Reference image 1" onClose={onClose} />);
+    render(<ReferenceImageLightbox src="data:image/png;base64,AA" alt="参考图" onClose={onClose} />);
 
     expect(screen.getByRole("dialog")).toBeVisible();
-    expect(screen.getByRole("img", { name: "Reference image 1" })).toBeVisible();
+    expect(screen.getByRole("img", { name: "参考图" })).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Close image" }));
+    await user.click(screen.getByRole("button", { name: "关闭图片" }));
     expect(onClose).toHaveBeenCalledTimes(1);
 
     await user.keyboard("{Escape}");
@@ -22,7 +22,7 @@ describe("ReferenceImageLightbox", () => {
   it("closes when the backdrop is clicked", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<ReferenceImageLightbox src="data:image/png;base64,AA" alt="Reference image 1" onClose={onClose} />);
+    render(<ReferenceImageLightbox src="data:image/png;base64,AA" alt="参考图" onClose={onClose} />);
 
     const backdrop = screen.getByRole("dialog").parentElement as HTMLElement;
     await user.click(backdrop);

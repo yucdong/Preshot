@@ -1,5 +1,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext } from "@dnd-kit/sortable";
+import { useTranslation } from "react-i18next";
 import type { ReferenceGroup } from "../../domain/plan/models";
 import { groupDroppableId } from "./dropTarget";
 import { SortableImageTile } from "./SortableImageTile";
@@ -13,6 +14,7 @@ interface GroupImageGridProps {
 }
 
 export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onOpenImage }: GroupImageGridProps) {
+  const { t } = useTranslation();
   const { setNodeRef } = useDroppable({ id: groupDroppableId(group.id) });
 
   return (
@@ -34,7 +36,7 @@ export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onO
         ))}
       </SortableContext>
       <button
-        aria-label="Add reference image"
+        aria-label={t("reference.addImage")}
         className="flex aspect-square w-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600"
         onClick={() => onAddImage(group.id)}
         type="button"

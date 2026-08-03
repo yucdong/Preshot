@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ReferenceImageLightboxProps {
   src: string;
@@ -7,6 +8,7 @@ interface ReferenceImageLightboxProps {
 }
 
 export function ReferenceImageLightbox({ src, alt, onClose }: ReferenceImageLightboxProps) {
+  const { t } = useTranslation();
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -35,13 +37,13 @@ export function ReferenceImageLightbox({ src, alt, onClose }: ReferenceImageLigh
       >
         <img alt={alt} className="max-h-[85vh] max-w-[90vw] object-contain" src={src} />
         <button
-          aria-label="Close image"
+          aria-label={t("lightbox.close")}
           className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
           onClick={onClose}
           ref={closeRef}
           type="button"
         >
-          Close
+          {t("lightbox.closeButton")}
         </button>
       </div>
     </div>

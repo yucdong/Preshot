@@ -198,7 +198,7 @@ describe("WorkspaceProvider", () => {
       await screen.findByRole("button", { name: "打开项目 Editorial" }),
     ).toHaveAttribute("aria-current", "page");
     expect(
-      await screen.findByRole("button", { name: "Add reference group" }),
+      await screen.findByRole("button", { name: "添加参考分组" }),
     ).toBeVisible();
     expect(screen.getByRole("navigation", { name: "项目" })).toBeVisible();
 

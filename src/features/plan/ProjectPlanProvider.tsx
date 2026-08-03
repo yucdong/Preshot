@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { EMPTY_PLAN, type MoveImageParams, type ProjectPlan } from "../../domain/plan/models";
 import type { PlanImagePicker } from "../../domain/plan/ports";
 import type { PlanService } from "../../domain/plan/service";
@@ -30,6 +31,7 @@ function detail(error: unknown): string {
 const AUTO_SAVE_INTERVAL_MS = 5000;
 
 export function ProjectPlanProvider({ projectPath, projectName, dependencies }: ProjectPlanProviderProps) {
+  const { t } = useTranslation();
   const { service, picker, logger, exporter, saver } = dependencies;
   const [plan, setPlan] = useState<ProjectPlan>(EMPTY_PLAN);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
@@ -200,13 +202,13 @@ export function ProjectPlanProvider({ projectPath, projectName, dependencies }: 
 
   const addGroup = useCallback(() => {
     void guard("Unable to add a reference group", async () => {
-      const next = await service.addGroup(planRef.current, "New group");
+      const next = await service.addGroup(planRef.current, t("content.newGroupTitle"));
       if (mountedRef.current) {
         applyPlan(next);
         setError(null);
       }
     });
-  }, [applyPlan, guard, service]);
+  }, [applyPlan, guard, service, t]);
 
   const renameGroup = useCallback(
     (groupId: string, title: string) => {
@@ -361,7 +363,7 @@ export function ProjectPlanProvider({ projectPath, projectName, dependencies }: 
       />
       {lightbox && imageSrc[lightbox] ? (
         <ReferenceImageLightbox
-          alt="Reference image"
+          alt={t("reference.imageAlt")}
           onClose={() => setLightbox(null)}
           src={imageSrc[lightbox]}
         />

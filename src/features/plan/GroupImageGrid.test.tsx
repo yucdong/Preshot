@@ -35,9 +35,9 @@ function renderGrid(overrides: Partial<Parameters<typeof GroupImageGrid>[0]> = {
 describe("GroupImageGrid", () => {
   it("renders each image as a sortable tile", () => {
     renderGrid();
-    const open = screen.getByRole("button", { name: "Open reference image 1" });
+    const open = screen.getByRole("button", { name: "打开参考图 1" });
     expect(open).toHaveAttribute("aria-roledescription", "sortable");
-    expect(within(open).getByRole("img", { name: "Reference image 1" })).toBeVisible();
+    expect(within(open).getByRole("img", { name: "参考图" })).toBeVisible();
   });
 
   // dnd-kit's PointerSensor listeners suppress userEvent's synthetic
@@ -47,15 +47,15 @@ describe("GroupImageGrid", () => {
 
   it("opens an image on plain click", () => {
     const props = renderGrid();
-    fireEvent.click(screen.getByRole("button", { name: "Open reference image 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "打开参考图 1" }));
     expect(props.onOpenImage).toHaveBeenCalledWith("references/0001.png");
   });
 
   it("removes and adds images through the tile and add button", () => {
     const props = renderGrid();
-    fireEvent.click(screen.getByRole("button", { name: "Remove reference image 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "移除参考图 2" }));
     expect(props.onRemoveImage).toHaveBeenCalledWith("g1", "i2");
-    fireEvent.click(screen.getByRole("button", { name: "Add reference image" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加参考图" }));
     expect(props.onAddImage).toHaveBeenCalledWith("g1");
   });
 });

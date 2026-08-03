@@ -89,15 +89,15 @@ describe("ProjectPlanProvider", () => {
 
     render(<ProjectPlanProvider dependencies={dependencies} projectName="Demo" projectPath={String.raw`C:\demo`} />);
 
-    const group = await screen.findByRole("group", { name: "Reference group: Lookbook" });
+    const group = await screen.findByRole("group", { name: "参考分组：Lookbook" });
     expect(service.loadImage).toHaveBeenCalledWith(String.raw`C:\demo`, "references/0001.png");
-    expect(await screen.findByRole("img", { name: "Reference image 1" })).toBeVisible();
+    expect((await screen.findAllByRole("img", { name: "参考图" }))[0]).toBeVisible();
 
-    await user.click(within(group).getByRole("button", { name: "Add reference image" }));
+    await user.click(within(group).getByRole("button", { name: "添加参考图" }));
     await waitFor(() => expect(service.importImage).toHaveBeenCalledWith(String.raw`C:\demo`, expect.anything(), "g1", String.raw`C:\src\b.png`));
-    expect(await screen.findByRole("img", { name: "Reference image 2" })).toBeVisible();
+    expect((await screen.findAllByRole("img", { name: "参考图" })).length).toBeGreaterThanOrEqual(2);
 
-    await user.click(screen.getByRole("button", { name: "Open reference image 1" }));
+    await user.click(screen.getByRole("button", { name: "打开参考图 1" }));
     expect(await screen.findByRole("dialog")).toBeVisible();
   });
 
@@ -113,7 +113,7 @@ describe("ProjectPlanProvider", () => {
       expect(screen.getByTestId("save-status")).toHaveTextContent("已保存所有更改");
 
       // A pure-metadata edit updates in-memory state but is not persisted yet.
-      fireEvent.change(screen.getByRole("combobox", { name: "Images per row" }), {
+      fireEvent.change(screen.getByRole("combobox", { name: "每行图片数" }), {
         target: { value: "4" },
       });
       await act(async () => {
@@ -150,7 +150,7 @@ describe("ProjectPlanProvider", () => {
         await vi.advanceTimersByTimeAsync(0);
       });
 
-      fireEvent.change(screen.getByRole("combobox", { name: "Images per row" }), {
+      fireEvent.change(screen.getByRole("combobox", { name: "每行图片数" }), {
         target: { value: "5" },
       });
       await act(async () => {
@@ -175,7 +175,7 @@ describe("ProjectPlanProvider", () => {
     const { dependencies } = deps();
     render(<ProjectPlanProvider dependencies={dependencies} projectName="Sunset" projectPath={String.raw`C:\demo`} />);
 
-    await screen.findByRole("group", { name: "Reference group: Lookbook" });
+    await screen.findByRole("group", { name: "参考分组：Lookbook" });
     await user.click(screen.getByRole("button", { name: "导出 PDF" }));
 
     await waitFor(() => expect(dependencies.exporter.export).toHaveBeenCalled());

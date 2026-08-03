@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   closestCorners,
   pointerWithin,
@@ -37,11 +38,12 @@ const collisionDetection: CollisionDetection = (args) => {
 };
 
 function GroupTitleInput({ title, onRename }: { title: string; onRename(value: string): void }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState(title);
 
   return (
     <input
-      aria-label="Group title"
+      aria-label={t("reference.groupTitleAria")}
       className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-lg font-medium text-stone-900"
       onBlur={() => {
         if (value !== title) {
@@ -92,6 +94,7 @@ export function ReferenceImagesTab({
   onOpenImage,
   onMoveImage,
 }: ReferenceImagesTabProps) {
+  const { t } = useTranslation();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [preview, setPreview] = useState<ReferenceGroup[] | null>(null);
   const lastParamsRef = useRef<MoveImageParams | null>(null);
@@ -165,16 +168,16 @@ export function ReferenceImagesTab({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.24em] text-amber-700">
-            Reference Images
+            {t("reference.heading")}
           </p>
-          <h3 className="mt-1 text-xl font-semibold text-stone-900">Sample sets</h3>
+          <h3 className="mt-1 text-xl font-semibold text-stone-900">{t("reference.sampleSets")}</h3>
         </div>
         <button
           className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700"
           onClick={onAddGroup}
           type="button"
         >
-          Add reference group
+          {t("reference.addGroup")}
         </button>
       </div>
 
@@ -188,7 +191,7 @@ export function ReferenceImagesTab({
       >
         {view.map((group) => (
         <section
-          aria-label={`Reference group: ${group.title || "Untitled"}`}
+          aria-label={t("reference.groupAria", { title: group.title || t("content.untitledGroup") })}
           className="rounded-2xl border border-black/10 bg-white p-5"
           key={group.id}
           role="group"
@@ -200,9 +203,9 @@ export function ReferenceImagesTab({
               onRename={(value) => onRenameGroup(group.id, value)}
             />
             <label className="flex items-center gap-2 text-sm text-stone-600">
-              Images per row
+              {t("reference.imagesPerRow")}
               <select
-                aria-label="Images per row"
+                aria-label={t("reference.imagesPerRow")}
                 className="rounded-lg border border-black/10 px-2 py-1"
                 onChange={(event) => onSetColumns(group.id, Number(event.target.value))}
                 value={group.columnsPerRow}
@@ -215,12 +218,12 @@ export function ReferenceImagesTab({
               </select>
             </label>
             <button
-              aria-label="Delete group"
+              aria-label={t("reference.deleteGroup")}
               className="rounded-lg border border-black/10 px-3 py-2 text-sm text-stone-600 hover:bg-stone-100"
               onClick={() => onDeleteGroup(group.id)}
               type="button"
             >
-              Delete group
+              {t("reference.deleteGroup")}
             </button>
           </div>
 
@@ -228,10 +231,10 @@ export function ReferenceImagesTab({
             <RichTextEditor
               compact
               key={`description-${group.id}`}
-              ariaLabel="Group description"
+              ariaLabel={t("reference.descriptionAria")}
               html={group.description}
               onChange={(value) => onSetDescription(group.id, value)}
-              placeholder="Describe this set of references — mood, lighting, styling, or notes…"
+              placeholder={t("reference.descriptionPlaceholder")}
             />
           </div>
 

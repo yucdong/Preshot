@@ -1,5 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useTranslation } from "react-i18next";
 import type { ReferenceImage } from "../../domain/plan/models";
 
 const squareButton =
@@ -14,6 +15,7 @@ interface SortableImageTileProps {
 }
 
 export function SortableImageTile({ image, index, src, onOpen, onRemove }: SortableImageTileProps) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: image.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -24,7 +26,7 @@ export function SortableImageTile({ image, index, src, onOpen, onRemove }: Sorta
   return (
     <div className="relative" ref={setNodeRef} style={style}>
       <button
-        aria-label={`Open reference image ${index + 1}`}
+        aria-label={t("reference.openImage", { index: index + 1 })}
         className={squareButton}
         onClick={() => onOpen(image.file)}
         type="button"
@@ -32,13 +34,13 @@ export function SortableImageTile({ image, index, src, onOpen, onRemove }: Sorta
         {...listeners}
       >
         {src ? (
-          <img alt={`Reference image ${index + 1}`} className="h-full w-full object-cover" src={src} />
+          <img alt={t("reference.imageAlt")} className="h-full w-full object-cover" src={src} />
         ) : (
           <span className="flex h-full w-full items-center justify-center text-xs text-stone-400">Loading…</span>
         )}
       </button>
       <button
-        aria-label={`Remove reference image ${index + 1}`}
+        aria-label={t("reference.removeImage", { index: index + 1 })}
         className="absolute right-1 top-1 rounded-full bg-black/60 px-2 text-xs text-white"
         onClick={() => onRemove(image.id)}
         onPointerDown={(event) => event.stopPropagation()}
