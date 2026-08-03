@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ImportedImage, ProjectPlan, ReferenceGroup } from "../../domain/plan/models";
 import type { PlanRepository, ReferenceImageStore } from "../../domain/plan/ports";
+import type { CanvasPlanRepository } from "../../domain/plan/canvas/ports";
+import type { ProjectPlan as CanvasPlan } from "../../domain/plan/canvas/models";
 
 type InvokeCommand = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 
@@ -62,7 +64,8 @@ function validateImported(value: unknown): ImportedImage {
 }
 
 export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): PlanRepository &
-  ReferenceImageStore {
+  ReferenceImageStore &
+  CanvasPlanRepository {
   return {
     async loadPlan(projectPath) {
       try {
@@ -100,6 +103,20 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         await invokeCommand("remove_reference_image", { projectPath, file });
       } catch (error) {
         throw new Error(`Unable to remove the reference image: ${detail(error)}`, { cause: error });
+      }
+    },
+    async loadRawPlan(projectPath) {
+      try {
+        return (await invokeCommand("read_project_plan", { projectPath })) ?? null;
+      } catch (error) {
+        throw new Error(`Unable to read the project plan: ${detail(error)}`, { cause: error });
+      }
+    },
+    async saveRawPlan(projectPath, plan: CanvasPlan) {
+      try {
+        await invokeCommand("save_project_plan", { projectPath, plan });
+      } catch (error) {
+        throw new Error(`Unable to save the project plan: ${detail(error)}`, { cause: error });
       }
     },
   };

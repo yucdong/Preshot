@@ -1,0 +1,106 @@
+import { describe, expect, it, vi } from "vitest";
+import { createCanvasPlanService } from "./service";
+import { EMPTY_PLAN, type ProjectPlan, type ReferenceComponent } from "./models";
+
+function fakes(initialRaw: unknown) {
+  let raw = initialRaw;
+  const repository = {
+    loadRawPlan: vi.fn(async () => raw),
+    saveRawPlan: vi.fn(async (_p: string, plan: ProjectPlan) => {
+      raw = plan;
+    }),
+  };
+  const removed: string[] = [];
+  const imageStore = {
+    importImage: vi.fn(async () => ({
+      file: "references/0009.png",
+      dataUrl: "data:image/png;base64,AA",
+    })),
+    loadImage: vi.fn(async () => "data:image/png;base64,AA"),
+    removeImage: vi.fn(async (_p: string, file: string) => {
+      removed.push(file);
+    }),
+  };
+  return { repository, imageStore, removed };
+}
+
+const refPlan: ProjectPlan = {
+  schemaVersion: 2,
+  components: [
+    {
+      id: "r",
+      type: "reference",
+      widthFraction: "1",
+      height: 300,
+      title: "T",
+      description: "",
+      columnsPerRow: 3,
+      showCaptions: false,
+      images: [{ id: "i1", file: "references/0001.png" }],
+    },
+  ],
+};
+
+describe("canvas plan service", () => {
+  it("migrates a v1 raw plan on load", async () => {
+    const { repository, imageStore } = fakes({
+      photographyPlan: "<p>x</p>",
+      referenceGroups: [],
+    });
+    const service = createCanvasPlanService({
+      repository,
+      imageStore,
+      createId: () => "id",
+      logger: silentLogger(),
+    });
+    const plan = await service.loadPlan("C:/p");
+    expect(plan.schemaVersion).toBe(2);
+    expect(plan.components[0]).toMatchObject({ type: "plan" });
+  });
+
+  it("returns EMPTY_PLAN for a null raw plan", async () => {
+    const { repository, imageStore } = fakes(null);
+    const service = createCanvasPlanService({
+      repository,
+      imageStore,
+      createId: () => "id",
+      logger: silentLogger(),
+    });
+    expect(await service.loadPlan("C:/p")).toEqual(EMPTY_PLAN);
+  });
+
+  it("imports an image into a reference component and persists", async () => {
+    const { repository, imageStore } = fakes(refPlan);
+    const service = createCanvasPlanService({
+      repository,
+      imageStore,
+      createId: () => "i2",
+      logger: silentLogger(),
+    });
+    const { plan } = await service.importImage("C:/p", refPlan, "r", "C:/src.png");
+    expect((plan.components[0] as ReferenceComponent).images).toHaveLength(2);
+    expect(repository.saveRawPlan).toHaveBeenCalled();
+  });
+
+  it("removes an image and deletes its file", async () => {
+    const { repository, imageStore, removed } = fakes(refPlan);
+    const service = createCanvasPlanService({
+      repository,
+      imageStore,
+      createId: () => "x",
+      logger: silentLogger(),
+    });
+    await service.removeImage("C:/p", refPlan, "r", "i1");
+    expect(removed).toContain("references/0001.png");
+    expect(repository.saveRawPlan).toHaveBeenCalled();
+  });
+});
+
+function silentLogger() {
+  return {
+    debug() {},
+    info() {},
+    warn() {},
+    error() {},
+  };
+}
