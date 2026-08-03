@@ -1,7 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { I18nextProvider } from "react-i18next";
 import { App } from "./app/App";
 import { ErrorBoundary } from "./app/ErrorBoundary";
+import i18n from "./shared/i18n/config";
 import "@blocknote/mantine/style.css";
 import "./styles.css";
 
@@ -14,7 +16,9 @@ if (!root) {
 createRoot(root).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <I18nextProvider i18n={i18n}>
+        <App />
+      </I18nextProvider>
     </ErrorBoundary>
   </StrictMode>,
 );
