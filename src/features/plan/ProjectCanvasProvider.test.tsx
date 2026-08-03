@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
@@ -175,6 +175,51 @@ describe("ProjectCanvasProvider", () => {
 
     await waitFor(() => expect(screen.getByTestId("component-count")).toHaveTextContent("3"));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("有未保存的更改"));
+  });
+
+  it("auto-saves changed plan state every 5 seconds and reflects the save status", async () => {
+    vi.useFakeTimers();
+    try {
+      const { dependencies, savePlan } = deps();
+
+      render(
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Demo"
+          projectPath={String.raw`C:\demo`}
+        />,
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+
+      // An edit updates in-memory state but is not persisted yet.
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(savePlan).not.toHaveBeenCalled();
+      expect(screen.getByRole("status")).toHaveTextContent("有未保存的更改");
+
+      // The 5s auto-save flushes the change exactly once and returns to "saved".
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(savePlan).toHaveBeenCalledTimes(1);
+      expect(savePlan.mock.calls[0][1].components.find((c: { id: string }) => c.id === "plan-1")).toMatchObject({
+        html: "<p>edited</p>",
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+
+      // With no further change, the next tick writes nothing.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(savePlan).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
