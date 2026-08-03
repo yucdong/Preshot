@@ -40,6 +40,8 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onAddImage: vi.fn(),
     onRemoveImage: vi.fn(),
     onOpenImage: vi.fn(),
+    onMoveComponent: vi.fn(),
+    onResize: vi.fn(),
     ...overrides,
   };
   render(
