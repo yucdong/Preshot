@@ -46,6 +46,7 @@ export const zh = {
     groupAria: "参考分组：{{title}}",
     descriptionAria: "分组描述",
     descriptionPlaceholder: "描述这组参考——氛围、光线、造型或备注…",
+    addDescription: "添加描述",
     addImage: "添加参考图",
     openImage: "打开参考图 {{index}}",
     removeImage: "移除参考图 {{index}}",

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
 import { RichTextEditor } from "../RichTextEditor";
@@ -29,6 +30,7 @@ export function ReferenceComponentView({
   onSetImageCaption,
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
+  const [showDescription, setShowDescription] = useState(false);
 
   return (
     <div className="flex h-full flex-col">
@@ -76,7 +78,7 @@ export function ReferenceComponentView({
       </div>
 
       {/* Optional description editor */}
-      {component.description.trim() && (
+      {(component.description.trim() || showDescription) && (
         <div className="mb-2">
           <RichTextEditor
             ariaLabel={t("reference.descriptionAria")}
@@ -85,6 +87,19 @@ export function ReferenceComponentView({
             onChange={(html) => onSetDescription(component.id, html)}
             placeholder={t("reference.descriptionPlaceholder")}
           />
+        </div>
+      )}
+
+      {/* Add description button */}
+      {!component.description.trim() && !showDescription && (
+        <div className="mb-2">
+          <button
+            className="text-sm text-amber-600 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1"
+            onClick={() => setShowDescription(true)}
+            type="button"
+          >
+            {t("reference.addDescription")}
+          </button>
         </div>
       )}
 

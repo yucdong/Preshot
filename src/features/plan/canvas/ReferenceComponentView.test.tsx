@@ -92,4 +92,64 @@ describe("ReferenceComponentView", () => {
     expect(onToggleCaptions).toHaveBeenCalledWith("ref-1");
     expect(onToggleCaptions).toHaveBeenCalledTimes(1);
   });
+
+  it("renders 添加描述 button when description is empty and no editor", () => {
+    render(
+      <ReferenceComponentView
+        component={mockComponent}
+        imageSrc={() => undefined}
+        onSetTitle={vi.fn()}
+        onSetDescription={vi.fn()}
+        onSetColumns={vi.fn()}
+        onAddImage={vi.fn()}
+        onRemoveImage={vi.fn()}
+        onOpenImage={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "添加描述" });
+    expect(button).toBeInTheDocument();
+    expect(screen.queryByTestId("rich-text-editor")).not.toBeInTheDocument();
+  });
+
+  it("reveals editor when 添加描述 button is clicked", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ReferenceComponentView
+        component={mockComponent}
+        imageSrc={() => undefined}
+        onSetTitle={vi.fn()}
+        onSetDescription={vi.fn()}
+        onSetColumns={vi.fn()}
+        onAddImage={vi.fn()}
+        onRemoveImage={vi.fn()}
+        onOpenImage={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "添加描述" });
+    await user.click(button);
+
+    expect(screen.getByTestId("rich-text-editor")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "添加描述" })).not.toBeInTheDocument();
+  });
+
+  it("renders editor when description is non-empty and no button", () => {
+    render(
+      <ReferenceComponentView
+        component={{ ...mockComponent, description: "<p>Some description</p>" }}
+        imageSrc={() => undefined}
+        onSetTitle={vi.fn()}
+        onSetDescription={vi.fn()}
+        onSetColumns={vi.fn()}
+        onAddImage={vi.fn()}
+        onRemoveImage={vi.fn()}
+        onOpenImage={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("rich-text-editor")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "添加描述" })).not.toBeInTheDocument();
+  });
 });
