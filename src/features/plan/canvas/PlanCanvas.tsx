@@ -37,6 +37,8 @@ export interface PlanCanvasProps {
   onOpenImage: (file: string) => void;
   onMoveComponent?: (id: string, toIndex: number) => void;
   onResize?: (id: string, params: { widthFraction?: WidthFraction; height?: number }) => void;
+  onToggleCaptions?: (id: string) => void;
+  onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
 }
 
 // Target component frames, not image draggables inside reference components
@@ -66,6 +68,7 @@ export function PlanCanvas({
   onOpenImage,
   onMoveComponent,
   onResize,
+  onToggleCaptions,
 }: PlanCanvasProps) {
   const [_activeId, setActiveId] = useState<string | null>(null);
   const [preview, setPreview] = useState<PlanComponent[] | null>(null);
@@ -201,6 +204,7 @@ export function PlanCanvas({
                         onSetColumns={onSetColumns}
                         onSetDescription={onSetDescription}
                         onSetTitle={onSetTitle}
+                        onToggleCaptions={onToggleCaptions}
                       />
                     )}
                   </ComponentFrame>

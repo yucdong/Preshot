@@ -12,6 +12,7 @@ interface ReferenceComponentViewProps {
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
   onOpenImage: (file: string) => void;
+  onToggleCaptions?: (id: string) => void;
 }
 
 export function ReferenceComponentView({
@@ -23,6 +24,7 @@ export function ReferenceComponentView({
   onAddImage,
   onRemoveImage,
   onOpenImage,
+  onToggleCaptions,
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
 
@@ -37,23 +39,38 @@ export function ReferenceComponentView({
         value={component.title}
       />
 
-      {/* Columns select */}
-      <div className="mb-2 flex items-center gap-2">
-        <label className="text-sm text-stone-600" htmlFor={`columns-${component.id}`}>
-          {t("reference.imagesPerRow")}:
-        </label>
-        <select
-          className="rounded border border-stone-300 px-2 py-1 text-sm"
-          id={`columns-${component.id}`}
-          onChange={(e) => onSetColumns(component.id, Number(e.target.value))}
-          value={component.columnsPerRow}
-        >
-          {[1, 2, 3, 4, 5, 6].map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+      {/* Columns select and caption toggle */}
+      <div className="mb-2 flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-stone-600" htmlFor={`columns-${component.id}`}>
+            {t("reference.imagesPerRow")}:
+          </label>
+          <select
+            className="rounded border border-stone-300 px-2 py-1 text-sm"
+            id={`columns-${component.id}`}
+            onChange={(e) => onSetColumns(component.id, Number(e.target.value))}
+            value={component.columnsPerRow}
+          >
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Caption toggle */}
+        {onToggleCaptions && (
+          <label className="flex items-center gap-2 text-sm text-stone-600">
+            <input
+              checked={component.showCaptions}
+              className="rounded"
+              onChange={() => onToggleCaptions(component.id)}
+              type="checkbox"
+            />
+            {t("reference.captions")}
+          </label>
+        )}
       </div>
 
       {/* Optional description editor */}

@@ -21,6 +21,8 @@ import {
   setReferenceTitle,
   setReferenceDescription,
   setReferenceColumns,
+  toggleReferenceCaptions,
+  setImageCaption,
 } from "../../domain/plan/canvas/plan";
 import { PlanCanvas } from "./canvas/PlanCanvas";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
@@ -329,6 +331,22 @@ export function ProjectCanvasProvider({
     [applyPlan],
   );
 
+  const handleToggleCaptions = useCallback(
+    (id: string) => {
+      const next = toggleReferenceCaptions(planRef.current, id);
+      applyPlan(next);
+    },
+    [applyPlan],
+  );
+
+  const handleSetImageCaption = useCallback(
+    (componentId: string, imageId: string, caption: string) => {
+      const next = setImageCaption(planRef.current, { componentId, imageId, caption });
+      applyPlan(next);
+    },
+    [applyPlan],
+  );
+
   const handleAddImage = useCallback(
     (componentId: string) => {
       void guard("Unable to import the reference image", async () => {
@@ -416,6 +434,8 @@ export function ProjectCanvasProvider({
           onSetColumns={handleSetColumns}
           onSetDescription={handleSetDescription}
           onSetTitle={handleSetTitle}
+          onToggleCaptions={handleToggleCaptions}
+          onSetImageCaption={handleSetImageCaption}
           scale={scale}
         />
       </div>
