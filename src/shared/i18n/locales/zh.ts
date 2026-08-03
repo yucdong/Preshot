@@ -43,6 +43,7 @@ export const zh = {
     openImage: "打开参考图 {{index}}",
     removeImage: "移除参考图 {{index}}",
     imageAlt: "参考图",
+    loading: "加载中…",
   },
   lightbox: {
     close: "关闭图片",

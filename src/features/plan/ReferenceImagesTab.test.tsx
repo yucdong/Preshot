@@ -120,4 +120,15 @@ describe("ReferenceImagesTab", () => {
       "sortable",
     );
   });
+
+  it("shows Chinese loading text when an image src is not yet resolved", () => {
+    render(
+      <ReferenceImagesTab
+        groups={groups}
+        imageSrc={() => undefined}
+        {...handlers()}
+      />,
+    );
+    expect(screen.getByText("加载中…")).toBeVisible();
+  });
 });

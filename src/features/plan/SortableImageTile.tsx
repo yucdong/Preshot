@@ -36,7 +36,7 @@ export function SortableImageTile({ image, index, src, onOpen, onRemove }: Sorta
         {src ? (
           <img alt={t("reference.imageAlt")} className="h-full w-full object-cover" src={src} />
         ) : (
-          <span className="flex h-full w-full items-center justify-center text-xs text-stone-400">Loading…</span>
+          <span className="flex h-full w-full items-center justify-center text-xs text-stone-400">{t("reference.loading")}</span>
         )}
       </button>
       <button
