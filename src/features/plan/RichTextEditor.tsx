@@ -25,7 +25,6 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder, compact
     if (html === lastPropHtmlRef.current) {
       return;
     }
-    lastPropHtmlRef.current = html;
     let cancelled = false;
     void (async () => {
       try {
@@ -34,6 +33,11 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder, compact
           return;
         }
         editor.replaceBlocks(editor.document, blocks);
+        // Mark this html as loaded only AFTER it is applied. A cancelled StrictMode/double-
+        // invoke pass (its cleanup runs before this async resolves) must not "claim" the html
+        // by advancing the ref early, or the surviving pass would early-return above and leave
+        // the editor empty.
+        lastPropHtmlRef.current = html;
         // Record the serialization of the just-loaded document as the emit baseline,
         // synchronously relative to replaceBlocks. replaceBlocks makes BlockNote fire
         // onChange, but handleChange only compares after awaiting blocksToHTMLLossy, so

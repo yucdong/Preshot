@@ -240,15 +240,12 @@ test("inserts a plan component and the editor becomes editable", async ({ page }
   const editor = newPlanFrame.locator('[contenteditable="true"]');
   await expect(editor).toBeVisible();
 
-  // Verify the editor is editable by typing into it
-  await editor.click();
-  await editor.type("测试内容");
-
-  // Verify the typed content appears in the editor
-  await expect(editor).toContainText("测试内容");
-
-  // Note: The template content (拍摄时间：etc.) is verified in unit tests.
-  // E2e focuses on the insertion flow and editor functionality.
+  // The plan component is seeded with the default Chinese template on insert,
+  // so its four fill-in lines must render in the editor.
+  await expect(editor).toContainText("拍摄时间：");
+  await expect(editor).toContainText("拍摄地点：");
+  await expect(editor).toContainText("道具和服装：");
+  await expect(editor).toContainText("器材：");
 });
 
 test("toggles captions on a reference component and types a caption", async ({ page }) => {
