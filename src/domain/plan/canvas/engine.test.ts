@@ -137,4 +137,13 @@ describe("reference image slots", () => {
     expect(result.placements[0].imageSlots).toBeDefined();
     expect(result.placements[0].imageSlots).toHaveLength(4);
   });
+
+  it("fits all slots inside the gutter-inset content box (no horizontal overflow)", () => {
+    const rect = { x: 0, y: 0, width: 300, height: 300 };
+    const slots = referenceImageSlots(rect, reference());
+    // The rightmost slot's right edge must not exceed the content width (rect.width - gutter)
+    const contentWidth = rect.width - DEFAULT_PAGE_GEOMETRY.gutter;
+    const maxRight = Math.max(...slots.map((slot) => slot.x + slot.width));
+    expect(maxRight).toBeLessThanOrEqual(contentWidth);
+  });
 });

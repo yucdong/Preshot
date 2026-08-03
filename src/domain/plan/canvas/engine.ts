@@ -27,7 +27,7 @@ export function referenceImageSlots(
   geometry: PageGeometry = DEFAULT_PAGE_GEOMETRY,
 ): Rect[] {
   const top = TITLE_BAND + (component.description.trim() ? DESCRIPTION_BAND : 0);
-  const innerWidth = rect.width;
+  const innerWidth = rect.width - geometry.gutter;
   const { slotSize, xOffsets } = squareSlotGrid(innerWidth, component.columnsPerRow, geometry.gutter);
   // Captions on: tile = round(slotSize*4/3) so slotCaptionSplit's round(height/4) caption band is ~1/4 of the tile (= ~1/3 of the image) and the image portion stays ~square.
   const tileHeight = component.showCaptions ? Math.round((slotSize * 4) / 3) : slotSize;
