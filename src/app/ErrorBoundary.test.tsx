@@ -21,7 +21,7 @@ describe("ErrorBoundary", () => {
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Preshot could not render this view",
+      "Preshot 无法渲染此视图",
     );
   });
 });

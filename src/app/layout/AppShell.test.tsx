@@ -42,10 +42,10 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    const nav = screen.getByRole("navigation", { name: "Projects" });
-    expect(within(nav).getByRole("button", { name: "Open project Sunset Shanghai" })).toBeVisible();
+    const nav = screen.getByRole("navigation", { name: "项目" });
+    expect(within(nav).getByRole("button", { name: "打开项目 Sunset Shanghai" })).toBeVisible();
 
-    const current = within(nav).getByRole("button", { name: "Open project Editorial" });
+    const current = within(nav).getByRole("button", { name: "打开项目 Editorial" });
     expect(current).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("Plan content")).toBeVisible();
   });
@@ -64,13 +64,13 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Open project Sunset Shanghai" }));
+    await user.click(screen.getByRole("button", { name: "打开项目 Sunset Shanghai" }));
     expect(h.onSelectProject).toHaveBeenCalledWith(projects[0]);
 
-    await user.click(screen.getByRole("button", { name: "New project" }));
+    await user.click(screen.getByRole("button", { name: "新建项目" }));
     expect(h.onNewProject).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole("button", { name: "Open project" }));
+    await user.click(screen.getByRole("button", { name: "打开项目" }));
     expect(h.onOpenProject).toHaveBeenCalledTimes(1);
   });
 
@@ -91,9 +91,9 @@ describe("AppShell", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "Missing Archive (unavailable)" }),
+      screen.getByRole("button", { name: "Missing Archive（不可用）" }),
     ).toBeVisible();
-    expect(screen.getByText("Unavailable")).toBeVisible();
-    expect(screen.getByRole("alert")).toHaveTextContent("Unable to open workspace project");
+    expect(screen.getByText("不可用")).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent("操作未能完成，请重试。");
   });
 });

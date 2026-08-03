@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type PropsWithChildren } from "react";
+import i18n from "../shared/i18n/config";
 
 interface ErrorBoundaryState {
   failed: boolean;
@@ -24,11 +25,10 @@ export class ErrorBoundary extends Component<
         <main className="grid min-h-screen place-items-center bg-stone-950 p-8 text-stone-100">
           <section role="alert" className="max-w-md text-center">
             <h1 className="text-2xl font-semibold">
-              Preshot could not render this view
+              {i18n.t("errors.boundaryTitle")}
             </h1>
             <p className="mt-3 text-stone-400">
-              Restart the application. If the problem continues, preserve the
-              project files and report the error.
+              {i18n.t("errors.boundaryBody")}
             </p>
           </section>
         </main>

@@ -1,4 +1,5 @@
 import type { PropsWithChildren } from "react";
+import { useTranslation } from "react-i18next";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { AgentPanel } from "../../features/agent/AgentPanel";
 
@@ -23,19 +24,21 @@ export function AppShell({
   onNewProject,
   onOpenProject,
 }: AppShellProps) {
+  const { t } = useTranslation();
+  
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-stone-950 text-stone-100">
       <header className="flex h-16 items-center gap-3 border-b border-white/10 px-6">
         <h1 className="text-lg font-semibold tracking-wide">Preshot</h1>
-        <span className="text-sm text-stone-400">Photography planning</span>
+        <span className="text-sm text-stone-400">{t("shell.tagline")}</span>
       </header>
       <div className="grid min-h-0 flex-1 grid-cols-[15fr_60fr_25fr]">
         <nav
-          aria-label="Projects"
+          aria-label={t("shell.projects")}
           className="flex min-h-0 min-w-0 flex-col border-r border-white/10"
         >
           <p className="shrink-0 px-4 pb-2 pt-4 text-xs font-medium uppercase tracking-[0.24em] text-stone-500">
-            Projects
+            {t("shell.projects")}
           </p>
           <ul className="min-h-0 max-h-[38rem] space-y-1 overflow-y-auto px-3 pb-3">
             {projects.map((project) => {
@@ -48,8 +51,8 @@ export function AppShell({
                     aria-current={isCurrent ? "page" : undefined}
                     aria-label={
                       isAvailable
-                        ? `Open project ${project.name}`
-                        : `${project.name} (unavailable)`
+                        ? t("shell.openProjectNamed", { name: project.name })
+                        : t("shell.projectUnavailableNamed", { name: project.name })
                     }
                     className={`${railButtonClassName} flex flex-col items-start gap-0.5 text-left ${
                       isCurrent
@@ -62,7 +65,7 @@ export function AppShell({
                     <span className="w-full truncate">{project.name}</span>
                     {!isAvailable ? (
                       <span className="text-xs font-normal text-amber-300/80">
-                        Unavailable
+                        {t("shell.unavailable")}
                       </span>
                     ) : null}
                   </button>
@@ -77,14 +80,14 @@ export function AppShell({
               onClick={onNewProject}
               type="button"
             >
-              New project
+              {t("shell.newProject")}
             </button>
             <button
               className={`${railButtonClassName} border border-white/10 bg-white/[0.03] text-stone-100 hover:border-white/20 hover:bg-white/10`}
               onClick={onOpenProject}
               type="button"
             >
-              Open project
+              {t("shell.openProject")}
             </button>
           </div>
         </nav>
@@ -94,7 +97,7 @@ export function AppShell({
               className="border-b border-rose-400/40 bg-rose-500/10 px-6 py-3 text-sm text-rose-100"
               role="alert"
             >
-              {error}
+              {t("errors.workspace")}
             </div>
           ) : null}
           {children}
