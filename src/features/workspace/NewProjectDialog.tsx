@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface NewProjectDialogProps {
   onClose(): void;
@@ -28,6 +29,7 @@ function getFocusableElements(container: HTMLElement | null) {
 }
 
 export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
+  const { t } = useTranslation();
   const [value, setValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputId = useId();
@@ -139,16 +141,16 @@ export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-stone-400">
-              New project
+              {t("dialog.eyebrow")}
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white" id={`${inputId}-title`}>
-              Create a Preshot workspace
+              {t("dialog.title")}
             </h2>
           </div>
         </div>
         <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
           <label className="block text-sm font-medium text-stone-200" htmlFor={inputId}>
-            Project name
+            {t("dialog.projectName")}
           </label>
           <input
             className="mt-2 w-full rounded-2xl border border-white/10 bg-stone-900 px-4 py-3 text-base text-white outline-none transition placeholder:text-stone-500 focus:border-amber-300 focus:ring-2 focus:ring-amber-300/30"
@@ -165,14 +167,14 @@ export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
               onClick={onClose}
               type="button"
             >
-              Cancel
+              {t("dialog.cancel")}
             </button>
             <button
               className={`${buttonClassName} bg-amber-300 text-stone-950 hover:bg-amber-200`}
               disabled={!trimmedValue || isSubmitting}
               type="submit"
             >
-              {isSubmitting ? "Creating..." : "Create project"}
+              {isSubmitting ? t("dialog.creating") : t("dialog.create")}
             </button>
           </div>
         </form>

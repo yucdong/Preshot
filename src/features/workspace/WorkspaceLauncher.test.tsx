@@ -181,7 +181,7 @@ describe("WorkspaceLauncher", () => {
   it("shows an accessible loading state", () => {
     renderLauncher({ loading: true });
 
-    expect(screen.getByRole("status")).toHaveTextContent("Loading recent projects");
+    expect(screen.getByRole("status")).toHaveTextContent("正在加载最近的项目");
   });
 
   it("shows empty-state actions and keeps them available with a recoverable error", async () => {
@@ -191,13 +191,13 @@ describe("WorkspaceLauncher", () => {
     });
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Could not refresh recent projects.",
+      "操作未能完成，请重试。",
     );
 
-    await user.click(screen.getByRole("button", { name: "Open project" }));
+    await user.click(screen.getByRole("button", { name: "打开项目" }));
     expect(onOpenExisting).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole("button", { name: "New project" }));
+    await user.click(screen.getByRole("button", { name: "新建项目" }));
     expect(onRequestCreate).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("dialog")).toBeVisible();
   });
@@ -229,13 +229,13 @@ describe("WorkspaceLauncher", () => {
     const { onOpen } = renderLauncher({ projects });
 
     expect(screen.getByRole("heading", { name: "Preshot" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Recent projects" })).toBeVisible();
-    expect(screen.getAllByRole("button", { name: /Open project / })).toHaveLength(4);
-    expect(screen.getByRole("region", { name: "Recent projects" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Previous projects" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Next projects" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "最近项目" })).toBeVisible();
+    expect(screen.getAllByRole("button", { name: /打开项目 / })).toHaveLength(4);
+    expect(screen.getByRole("region", { name: "最近项目" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "上一批项目" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "下一批项目" })).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Open project Studio" }));
+    await user.click(screen.getByRole("button", { name: "打开项目 Studio" }));
     expect(onOpen).toHaveBeenCalledWith(projects[3]);
   });
 
@@ -250,13 +250,13 @@ describe("WorkspaceLauncher", () => {
       ],
     });
 
-    expect(screen.getByAltText("Editorial cover")).toHaveAttribute(
+    expect(screen.getByAltText("Editorial 封面")).toHaveAttribute(
       "src",
       "data:image/png;base64,ZmFrZS1pbWFnZQ==",
     );
 
     const fallbackCard = screen
-      .getByRole("button", { name: "Open project Monochrome" })
+      .getByRole("button", { name: "打开项目 Monochrome" })
       .closest("article");
 
     expect(fallbackCard).not.toBeNull();
@@ -274,19 +274,19 @@ describe("WorkspaceLauncher", () => {
       projects: [unavailableProject],
     });
 
-    expect(screen.queryByRole("button", { name: "Open project Missing Archive" })).not.toBeInTheDocument();
-    expect(screen.getByText("Unavailable")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "打开项目 Missing Archive" })).not.toBeInTheDocument();
+    expect(screen.getByText("不可用")).toBeVisible();
 
     await user.click(
       screen.getByRole("button", {
-        name: "Relocate project Missing Archive",
+        name: "重新定位项目 Missing Archive",
       }),
     );
     expect(onRelocate).toHaveBeenCalledWith(unavailableProject);
 
     await user.click(
       screen.getByRole("button", {
-        name: "Remove Missing Archive from recent projects",
+        name: "将 Missing Archive 从最近项目中移除",
       }),
     );
     expect(onRemove).toHaveBeenCalledWith(unavailableProject);
@@ -303,9 +303,9 @@ describe("WorkspaceLauncher", () => {
     ];
     renderLauncher({ projects });
 
-    const rail = screen.getByRole("region", { name: "Recent projects" });
-    const nextButton = screen.getByRole("button", { name: "Next projects" });
-    const previousButton = screen.getByRole("button", { name: "Previous projects" });
+    const rail = screen.getByRole("region", { name: "最近项目" });
+    const nextButton = screen.getByRole("button", { name: "下一批项目" });
+    const previousButton = screen.getByRole("button", { name: "上一批项目" });
     mockRailLayout(rail, {
       cardWidth: 384,
       clientWidth: 1280,
@@ -316,7 +316,7 @@ describe("WorkspaceLauncher", () => {
     rail.focus();
     await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}");
 
-    expect(screen.getByRole("button", { name: "Open project Project 5" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "打开项目 Project 5" })).toHaveFocus();
     expect(HTMLElement.prototype.scrollBy).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ left: 400 }),
@@ -332,7 +332,7 @@ describe("WorkspaceLauncher", () => {
 
     await user.keyboard("{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}");
 
-    expect(screen.getByRole("button", { name: "Open project Project 1" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "打开项目 Project 1" })).toHaveFocus();
     expect(HTMLElement.prototype.scrollBy).toHaveBeenCalledWith(
       expect.objectContaining({ left: expect.any(Number) }),
     );
@@ -345,7 +345,7 @@ describe("WorkspaceLauncher", () => {
       projects: [makeProject(1), makeProject(2), makeProject(3), makeProject(4)],
     });
 
-    const rail = screen.getByRole("region", { name: "Recent projects" });
+    const rail = screen.getByRole("region", { name: "最近项目" });
     mockRailLayout(rail, {
       cardWidth: 384,
       clientWidth: 1280,
@@ -353,7 +353,7 @@ describe("WorkspaceLauncher", () => {
       scrollWidth: 1600,
     });
 
-    await user.click(screen.getByRole("button", { name: "Next projects" }));
+    await user.click(screen.getByRole("button", { name: "下一批项目" }));
 
     expect(HTMLElement.prototype.scrollBy).toHaveBeenCalledWith(
       expect.objectContaining({ behavior: "smooth", left: 400 }),
@@ -365,7 +365,7 @@ describe("WorkspaceLauncher", () => {
       projects: [makeProject(1), makeProject(2), makeProject(3), makeProject(4)],
     });
 
-    const rail = screen.getByRole("region", { name: "Recent projects" });
+    const rail = screen.getByRole("region", { name: "最近项目" });
     fireEvent.wheel(rail, { deltaY: 120 });
 
     expect(HTMLElement.prototype.scrollBy).toHaveBeenCalledWith(
@@ -378,7 +378,7 @@ describe("WorkspaceLauncher", () => {
       projects: [makeProject(1), makeProject(2), makeProject(3), makeProject(4)],
     });
 
-    const rail = screen.getByRole("region", { name: "Recent projects" });
+    const rail = screen.getByRole("region", { name: "最近项目" });
     const wheelEvent = new WheelEvent("wheel", {
       bubbles: true,
       cancelable: true,
@@ -403,9 +403,9 @@ describe("WorkspaceLauncher", () => {
       ],
     });
 
-    const rail = screen.getByRole("region", { name: "Recent projects" });
-    const previousButton = screen.getByRole("button", { name: "Previous projects" });
-    const nextButton = screen.getByRole("button", { name: "Next projects" });
+    const rail = screen.getByRole("region", { name: "最近项目" });
+    const previousButton = screen.getByRole("button", { name: "上一批项目" });
+    const nextButton = screen.getByRole("button", { name: "下一批项目" });
     const layout = mockRailLayout(rail, {
       cardWidth: 384,
       clientWidth: 1280,
@@ -452,15 +452,15 @@ describe("WorkspaceLauncher", () => {
   it("opens the create dialog with form semantics, trims names, and resets after cancel or success", async () => {
     const user = userEvent.setup();
     const { onCreate, onRequestCreate } = renderLauncher();
-    const trigger = screen.getByRole("button", { name: "New project" });
+    const trigger = screen.getByRole("button", { name: "新建项目" });
 
     await user.click(trigger);
     expect(onRequestCreate).toHaveBeenCalledTimes(1);
 
     const dialog = screen.getByRole("dialog");
-    const input = within(dialog).getByLabelText("Project name");
+    const input = within(dialog).getByLabelText("项目名称");
     const createButton = within(dialog).getByRole("button", {
-      name: "Create project",
+      name: "创建项目",
     });
 
     expect(input).toHaveFocus();
@@ -476,27 +476,27 @@ describe("WorkspaceLauncher", () => {
 
     await user.click(trigger);
     const reopenedDialog = screen.getByRole("dialog");
-    const reopenedInput = within(reopenedDialog).getByLabelText("Project name");
+    const reopenedInput = within(reopenedDialog).getByLabelText("项目名称");
     expect(reopenedInput).toHaveValue("");
 
     await user.type(reopenedInput, "Temporary");
-    await user.click(within(reopenedDialog).getByRole("button", { name: "Cancel" }));
+    await user.click(within(reopenedDialog).getByRole("button", { name: "取消" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
 
     await user.click(trigger);
-    expect(screen.getByLabelText("Project name")).toHaveValue("");
+    expect(screen.getByLabelText("项目名称")).toHaveValue("");
   });
 
   it("traps Tab and Shift+Tab within the create dialog", async () => {
     const user = userEvent.setup();
     renderLauncher();
 
-    await user.click(screen.getByRole("button", { name: "New project" }));
+    await user.click(screen.getByRole("button", { name: "新建项目" }));
     const dialog = screen.getByRole("dialog");
-    const input = within(dialog).getByLabelText("Project name");
-    const cancelButton = within(dialog).getByRole("button", { name: "Cancel" });
-    const createButton = within(dialog).getByRole("button", { name: "Create project" });
+    const input = within(dialog).getByLabelText("项目名称");
+    const cancelButton = within(dialog).getByRole("button", { name: "取消" });
+    const createButton = within(dialog).getByRole("button", { name: "创建项目" });
 
     await user.type(input, "Editorial");
     await user.tab();
@@ -513,9 +513,9 @@ describe("WorkspaceLauncher", () => {
     const user = userEvent.setup();
     renderLauncher();
 
-    const trigger = screen.getByRole("button", { name: "New project" });
+    const trigger = screen.getByRole("button", { name: "新建项目" });
     await user.click(trigger);
-    screen.getByRole("button", { name: "Open project" }).focus();
+    screen.getByRole("button", { name: "打开项目" }).focus();
 
     await user.keyboard("{Escape}");
 
@@ -527,9 +527,9 @@ describe("WorkspaceLauncher", () => {
     const user = userEvent.setup();
     renderLauncher();
 
-    const trigger = screen.getByRole("button", { name: "New project" });
+    const trigger = screen.getByRole("button", { name: "新建项目" });
     await user.click(trigger);
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "取消" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
@@ -539,7 +539,7 @@ describe("WorkspaceLauncher", () => {
     const user = userEvent.setup();
     renderLauncher();
 
-    const trigger = screen.getByRole("button", { name: "New project" });
+    const trigger = screen.getByRole("button", { name: "新建项目" });
     await user.click(trigger);
     await user.keyboard("{Escape}");
 
@@ -553,17 +553,17 @@ describe("WorkspaceLauncher", () => {
       onCreate: () => Promise.reject(new Error("retry")),
     });
 
-    await user.click(screen.getByRole("button", { name: "New project" }));
+    await user.click(screen.getByRole("button", { name: "新建项目" }));
     const dialog = screen.getByRole("dialog");
-    const input = within(dialog).getByLabelText("Project name");
+    const input = within(dialog).getByLabelText("项目名称");
 
     await user.type(input, "  Retry me  ");
     await user.click(
-      within(dialog).getByRole("button", { name: "Create project" }),
+      within(dialog).getByRole("button", { name: "创建项目" }),
     );
 
     expect(onCreate).toHaveBeenCalledWith("Retry me");
     expect(screen.getByRole("dialog")).toBeVisible();
-    expect(screen.getByLabelText("Project name")).toHaveValue("Retry me");
+    expect(screen.getByLabelText("项目名称")).toHaveValue("Retry me");
   });
 });

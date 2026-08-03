@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 
 interface ProjectCardProps {
@@ -20,6 +21,7 @@ function getNameGradient(name: string) {
 }
 
 function ProjectArt({ project, dimmed = false }: { project: WorkspaceProjectView; dimmed?: boolean }) {
+  const { t } = useTranslation();
   const sharedClassName =
     "relative flex aspect-[4/5] w-full items-end overflow-hidden rounded-[2rem] border border-white/10 bg-stone-900";
 
@@ -27,7 +29,7 @@ function ProjectArt({ project, dimmed = false }: { project: WorkspaceProjectView
     return (
       <div className={sharedClassName}>
         <img
-          alt={`${project.name} cover`}
+          alt={t("card.coverAlt", { name: project.name })}
           className={`h-full w-full object-cover ${dimmed ? "opacity-35" : ""}`}
           src={project.coverDataUrl}
         />
@@ -57,17 +59,18 @@ export function ProjectCard({
   onRemove,
   primaryActionRef,
 }: ProjectCardProps) {
+  const { t } = useTranslation();
   const details = (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-6 text-left">
       <p className="text-xs uppercase tracking-[0.24em] text-stone-300">
-        {project.status === "available" ? "Recent project" : "Unavailable"}
+        {project.status === "available" ? t("card.recentProject") : t("card.unavailable")}
       </p>
       <h3 className="mt-3 text-2xl font-semibold text-white">{project.name}</h3>
       {project.status === "available" ? (
-        <p className="mt-2 text-sm text-stone-300">Open your photography workspace.</p>
+        <p className="mt-2 text-sm text-stone-300">{t("card.openHint")}</p>
       ) : (
         <p className="mt-2 text-sm text-stone-300">
-          This project moved or is missing from its last known location.
+          {t("card.movedHint")}
         </p>
       )}
     </div>
@@ -77,7 +80,7 @@ export function ProjectCard({
     return (
       <article className="relative min-w-0">
         <button
-          aria-label={`Open project ${project.name}`}
+          aria-label={t("card.openAria", { name: project.name })}
           className="group relative block w-full rounded-[2rem] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={disabled}
           onClick={() => onOpen(project)}
@@ -99,23 +102,23 @@ export function ProjectCard({
       </div>
       <div className="mt-4 flex flex-wrap gap-3">
         <button
-          aria-label={`Relocate project ${project.name}`}
+          aria-label={t("card.relocateAria", { name: project.name })}
           className={actionButtonClassName}
           disabled={disabled}
           onClick={() => onRelocate(project)}
           ref={primaryActionRef}
           type="button"
         >
-          Relocate project
+          {t("card.relocate")}
         </button>
         <button
-          aria-label={`Remove ${project.name} from recent projects`}
+          aria-label={t("card.removeAria", { name: project.name })}
           className={actionButtonClassName}
           disabled={disabled}
           onClick={() => onRemove(project)}
           type="button"
         >
-          Remove from recent projects
+          {t("card.remove")}
         </button>
       </div>
     </article>

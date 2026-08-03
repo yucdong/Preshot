@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectRail } from "./ProjectRail";
@@ -33,6 +34,7 @@ export function WorkspaceLauncher({
   onRelocate,
   onRemove,
 }: WorkspaceLauncherProps) {
+  const { t } = useTranslation();
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   async function runAction(actionKey: string, action: () => Promise<void> | void) {
@@ -64,12 +66,10 @@ export function WorkspaceLauncher({
               Preshot
             </h1>
             <p className="mt-4 text-base leading-7 text-stone-300">
-              Launch a recent workspace, create a fresh production, or open an
-              existing project from your desktop library.
+              {t("workspace.intro")}
             </p>
             <p className="mt-3 text-sm text-stone-500">
-              File menu actions stay in sync with the launcher for new windows and
-              quick reopening.
+              {t("workspace.menuHint")}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -81,7 +81,7 @@ export function WorkspaceLauncher({
               }
               type="button"
             >
-              New project
+              {t("workspace.newProject")}
             </button>
             <button
               className={`${actionButtonClassName} border border-white/10 bg-white/[0.03] text-stone-100 hover:border-white/20 hover:bg-white/8`}
@@ -91,7 +91,7 @@ export function WorkspaceLauncher({
               }
               type="button"
             >
-              Open project
+              {t("workspace.openProject")}
             </button>
           </div>
         </header>
@@ -104,7 +104,7 @@ export function WorkspaceLauncher({
               role="status"
             >
               <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-              Loading recent projects
+              {t("workspace.loading")}
             </div>
           ) : null}
 
@@ -113,7 +113,7 @@ export function WorkspaceLauncher({
               className="mb-6 rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
               role="alert"
             >
-              {error}
+              {t("errors.workspace")}
             </div>
           ) : null}
 
@@ -134,14 +134,13 @@ export function WorkspaceLauncher({
           ) : (
             <section className="rounded-[2rem] border border-dashed border-white/15 bg-white/[0.02] p-10 text-center">
               <p className="text-xs uppercase tracking-[0.24em] text-stone-400">
-                Workspace launcher
+                {t("workspace.launcherEyebrow")}
               </p>
               <h2 className="mt-4 text-3xl font-semibold text-white">
-                Start your next photography plan
+                {t("workspace.emptyTitle")}
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-stone-300">
-                Create a new Preshot project or open one that already lives on this
-                PC.
+                {t("workspace.emptyBody")}
               </p>
             </section>
           )}

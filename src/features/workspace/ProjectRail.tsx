@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { ProjectCard } from "./ProjectCard";
 
@@ -77,6 +78,7 @@ export function ProjectRail({
   onRelocate,
   onRemove,
 }: ProjectRailProps) {
+  const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
   const [railBoundaries, setRailBoundaries] = useState<RailBoundaryState | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
@@ -216,15 +218,15 @@ export function ProjectRail({
             className="text-3xl font-semibold tracking-tight text-white"
             id="recent-projects-heading"
           >
-            Recent projects
+            {t("rail.recentProjects")}
           </h2>
           <p className="mt-2 text-sm text-stone-400">
-            Browse your latest work and keep editing without reopening folders.
+            {t("rail.recentProjectsHint")}
           </p>
         </div>
         <div className="flex gap-2">
           <button
-            aria-label="Previous projects"
+            aria-label={t("rail.previous")}
             className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-stone-200 transition hover:border-white/25 hover:bg-white/8 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={disabled || (railBoundaries ? railBoundaries.isAtStart : safeOffset <= 0)}
             onClick={() => moveOffset(safeOffset - 1)}
@@ -233,7 +235,7 @@ export function ProjectRail({
             ←
           </button>
           <button
-            aria-label="Next projects"
+            aria-label={t("rail.next")}
             className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-stone-200 transition hover:border-white/25 hover:bg-white/8 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={disabled || (railBoundaries ? railBoundaries.isAtEnd : safeOffset >= maxOffset)}
             onClick={() => moveOffset(safeOffset + 1)}
@@ -244,7 +246,7 @@ export function ProjectRail({
         </div>
       </div>
       <div
-        aria-label="Recent projects"
+        aria-label={t("rail.recentProjects")}
         className="grid auto-cols-[calc((100%-2rem)/3)] grid-flow-col gap-4 overflow-x-auto scroll-smooth pb-4 pr-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
         onKeyDown={(event) => {
           if (event.key === "ArrowRight") {

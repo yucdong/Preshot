@@ -155,7 +155,7 @@ describe("WorkspaceProvider", () => {
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Loading recent projects",
+      "正在加载最近的项目",
     );
 
     await act(async () => {
@@ -223,9 +223,9 @@ describe("WorkspaceProvider", () => {
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "metadata corrupt",
+      "操作未能完成，请重试。",
     );
-    expect(screen.getByRole("button", { name: "Open project" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "打开项目" })).toBeEnabled();
   });
 
   it("does not open the project-name dialog when parent selection is cancelled", async () => {
@@ -234,7 +234,7 @@ describe("WorkspaceProvider", () => {
 
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
-    await user.click(await screen.findByRole("button", { name: "New project" }));
+    await user.click(await screen.findByRole("button", { name: "新建项目" }));
 
     expect(pickDirectory).toHaveBeenCalledWith(
       "Select parent folder for the new Preshot project",
@@ -253,7 +253,7 @@ describe("WorkspaceProvider", () => {
 
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
-    await user.click(await screen.findByRole("button", { name: "New project" }));
+    await user.click(await screen.findByRole("button", { name: "新建项目" }));
 
     expect(pickDirectory).toHaveBeenCalledWith(
       "Select parent folder for the new Preshot project",
@@ -265,9 +265,9 @@ describe("WorkspaceProvider", () => {
     });
 
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText("Project name"), "  Editorial  ");
+    await user.type(within(dialog).getByLabelText("项目名称"), "  Editorial  ");
     await user.click(
-      within(dialog).getByRole("button", { name: "Create project" }),
+      within(dialog).getByRole("button", { name: "创建项目" }),
     );
 
     expect(service.createProject).toHaveBeenCalledWith("C:\\shoots", "Editorial");
@@ -285,15 +285,15 @@ describe("WorkspaceProvider", () => {
 
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
-    await user.click(await screen.findByRole("button", { name: "New project" }));
+    await user.click(await screen.findByRole("button", { name: "新建项目" }));
     const dialog = await screen.findByRole("dialog");
 
     await user.type(
-      within(dialog).getByLabelText("Project name"),
+      within(dialog).getByLabelText("项目名称"),
       "  Editorial Retry  ",
     );
     await user.click(
-      within(dialog).getByRole("button", { name: "Create project" }),
+      within(dialog).getByRole("button", { name: "创建项目" }),
     );
 
     expect(service.createProject).toHaveBeenCalledWith(
@@ -301,10 +301,10 @@ describe("WorkspaceProvider", () => {
       "Editorial Retry",
     );
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "name already exists",
+      "操作未能完成，请重试。",
     );
     expect(screen.getByRole("dialog")).toBeVisible();
-    expect(screen.getByLabelText("Project name")).toHaveValue("Editorial Retry");
+    expect(screen.getByLabelText("项目名称")).toHaveValue("Editorial Retry");
   });
 
   it("keeps the create dialog open when a create submission is skipped because another action is busy", async () => {
@@ -317,21 +317,21 @@ describe("WorkspaceProvider", () => {
 
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
-    await user.click(await screen.findByRole("button", { name: "New project" }));
+    await user.click(await screen.findByRole("button", { name: "新建项目" }));
     await screen.findByRole("dialog");
 
     await act(async () => {
       emitMenuAction("open-project");
     });
 
-    await user.type(screen.getByLabelText("Project name"), "Editorial");
+    await user.type(screen.getByLabelText("项目名称"), "Editorial");
     await user.click(
-      screen.getByRole("button", { name: "Create project" }),
+      screen.getByRole("button", { name: "创建项目" }),
     );
 
     expect(service.createProject).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeVisible();
-    expect(screen.getByLabelText("Project name")).toHaveValue("Editorial");
+    expect(screen.getByLabelText("项目名称")).toHaveValue("Editorial");
   });
 
   it("does nothing when opening an existing project is cancelled", async () => {
@@ -340,10 +340,10 @@ describe("WorkspaceProvider", () => {
 
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
-    await user.click(await screen.findByRole("button", { name: "Open project" }));
+    await user.click(await screen.findByRole("button", { name: "打开项目" }));
 
     expect(service.openProject).not.toHaveBeenCalled();
-    expect(screen.getByText("Start your next photography plan")).toBeVisible();
+    expect(screen.getByText("开始你的下一个摄影计划")).toBeVisible();
   });
 
   it("opens an existing project selected from the directory picker", async () => {
@@ -355,7 +355,7 @@ describe("WorkspaceProvider", () => {
 
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
-    await user.click(await screen.findByRole("button", { name: "Open project" }));
+    await user.click(await screen.findByRole("button", { name: "打开项目" }));
 
     expect(service.openProject).toHaveBeenCalledWith(project.path);
     expect(await screen.findByText("Editorial")).toBeVisible();
@@ -390,7 +390,7 @@ describe("WorkspaceProvider", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: "Relocate project Missing Archive",
+        name: "重新定位项目 Missing Archive",
       }),
     );
 
@@ -399,19 +399,19 @@ describe("WorkspaceProvider", () => {
       "D:\\restored\\missing",
     );
     expect(
-      await screen.findByRole("button", { name: "Open project Missing Archive" }),
+      await screen.findByRole("button", { name: "打开项目 Missing Archive" }),
     ).toBeVisible();
 
     await user.click(
       screen.getByRole("button", {
-        name: "Remove Stale Archive from recent projects",
+        name: "将 Stale Archive 从最近项目中移除",
       }),
     );
 
     expect(service.removeRecord).toHaveBeenCalledWith("stale");
     await waitFor(() => {
       expect(
-        screen.queryByRole("button", { name: "Relocate project Stale Archive" }),
+        screen.queryByRole("button", { name: "重新定位项目 Stale Archive" }),
       ).not.toBeInTheDocument();
     });
   });
@@ -425,7 +425,7 @@ describe("WorkspaceProvider", () => {
 
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
-    await screen.findByRole("button", { name: "New project" });
+    await screen.findByRole("button", { name: "新建项目" });
 
     await act(async () => {
       emitMenuAction("open-project");
@@ -454,14 +454,14 @@ describe("WorkspaceProvider", () => {
     try {
       render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
-      await screen.findByRole("button", { name: "New project" });
+      await screen.findByRole("button", { name: "新建项目" });
 
       await act(async () => {
         emitMenuAction("open-project");
       });
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "project vanished",
+        "操作未能完成，请重试。",
       );
 
       await act(async () => {
@@ -485,7 +485,7 @@ describe("WorkspaceProvider", () => {
 
     render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
-    await screen.findByRole("button", { name: "New project" });
+    await screen.findByRole("button", { name: "新建项目" });
 
     await act(async () => {
       emitMenuAction("new-project");
@@ -498,9 +498,9 @@ describe("WorkspaceProvider", () => {
     });
 
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText("Project name"), "Editorial");
+    await user.type(within(dialog).getByLabelText("项目名称"), "Editorial");
     await user.click(
-      within(dialog).getByRole("button", { name: "Create project" }),
+      within(dialog).getByRole("button", { name: "创建项目" }),
     );
 
     expect(service.createProject).toHaveBeenCalledWith("C:\\shoots", "Editorial");
