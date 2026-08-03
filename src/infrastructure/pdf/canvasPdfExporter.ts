@@ -106,14 +106,23 @@ function drawRichText(
   let cursorY = rect.y + rect.height;
 
   const drawRuns = (runs: Run[], defaultSize: number, boldDefault: boolean, indent = 0) => {
+    // Early check: if we're already past the bottom, don't process at all
+    if (cursorY - defaultSize * LINE < rect.y) return;
+    
     const maxWidth = rect.width - indent;
     const tokens = runs.flatMap((run) => tokenizeRun(run, run.bold || boldDefault ? bold : regular, run.size ?? defaultSize));
     let line: Token[] = [];
     let width = 0;
     const flushLine = () => {
+      if (line.length === 0) return;
       const lineSize = line.reduce((max, t) => Math.max(max, t.size), defaultSize);
       const lineHeight = lineSize * LINE;
-      if (cursorY - lineHeight < rect.y) return; // clipped
+      if (cursorY - lineHeight < rect.y) {
+        // Clipped: discard without drawing (don't pollute font subset)
+        line = [];
+        width = 0;
+        return;
+      }
       let x = rect.x + indent;
       const baseline = cursorY - lineSize;
       for (const t of line) {
@@ -141,7 +150,7 @@ function drawRichText(
       line.push(t);
       width += w;
     }
-    if (line.length > 0) flushLine();
+    flushLine();
   };
 
   for (const block of blocks) {
@@ -178,8 +187,12 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
       }
 
       const fonts = await loadFonts();
-      const regular = await pdf.embedFont(fonts.regular, { subset: true });
-      const bold = await pdf.embedFont(fonts.bold, { subset: true });
+      // Use subset: false to avoid @pdf-lib/fontkit CFF subsetting bug when content clips.
+      // Calling font.widthOfTextAtSize() registers glyphs in the subset, but if we then
+      // clip without drawing (when cursorY < rect.y), fontkit's CFFSubset.encode throws
+      // RangeError. v1 exporter avoids this by creating new pages instead of clipping.
+      const regular = await pdf.embedFont(fonts.regular, { subset: false });
+      const bold = await pdf.embedFont(fonts.bold, { subset: false });
 
       const embedded = new Map<string, PDFImage>();
 

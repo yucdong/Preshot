@@ -73,7 +73,7 @@ describe("createCanvasPdfExporter", () => {
     expect(parsed.getPageCount()).toBe(1);
   }, 20000);
 
-  it.skip("produces multi-page PDF when components span pages (skipped: fontkit subsetting issue)", async () => {
+  it("produces multi-page PDF when components span pages", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
       schemaVersion: 2,
@@ -97,9 +97,13 @@ describe("createCanvasPdfExporter", () => {
 
     const bytes = await exporter.export(plan, {});
 
+    expect(bytes[0]).toBe(0x25); // %
+    expect(bytes[1]).toBe(0x50); // P
+    expect(bytes[2]).toBe(0x44); // D
+    expect(bytes[3]).toBe(0x46); // F
     const parsed = await PDFDocument.load(bytes);
     expect(parsed.getPageCount()).toBe(2);
-  }, 30000);
+  }, 20000);
 
   it("renders mixed component types correctly", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
