@@ -16,6 +16,7 @@ import type { PdfSaveTarget } from "../../domain/plan/canvas/ports";
 import {
   addComponent,
   moveComponent,
+  moveImage,
   resizeComponent,
   updatePlanHtml,
   setReferenceTitle,
@@ -23,6 +24,7 @@ import {
   setReferenceColumns,
   toggleReferenceCaptions,
   setImageCaption,
+  type MoveImageParams,
 } from "../../domain/plan/canvas/plan";
 import { PlanCanvas } from "./canvas/PlanCanvas";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
@@ -291,6 +293,14 @@ export function ProjectCanvasProvider({
     [applyPlan],
   );
 
+  const handleMoveImage = useCallback(
+    (params: MoveImageParams) => {
+      const next = moveImage(planRef.current, params);
+      applyPlan(next);
+    },
+    [applyPlan],
+  );
+
   const handleResize = useCallback(
     (id: string, params: { widthFraction?: WidthFraction; height?: number }) => {
       const next = resizeComponent(planRef.current, { id, ...params });
@@ -427,6 +437,7 @@ export function ProjectCanvasProvider({
           onAddImage={handleAddImage}
           onChangeHtml={handleChangeHtml}
           onMoveComponent={handleMoveComponent}
+          onMoveImage={handleMoveImage}
           onOpenImage={(file) => setLightbox(file)}
           onRemoveComponent={handleRemoveComponent}
           onRemoveImage={handleRemoveImage}

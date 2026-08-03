@@ -15,6 +15,7 @@ interface ReferenceComponentViewProps {
   onOpenImage: (file: string) => void;
   onToggleCaptions?: (id: string) => void;
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
+  enableReorder?: boolean;
 }
 
 export function ReferenceComponentView({
@@ -28,6 +29,7 @@ export function ReferenceComponentView({
   onOpenImage,
   onToggleCaptions,
   onSetImageCaption,
+  enableReorder = false,
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
   const [showDescription, setShowDescription] = useState(false);
@@ -106,6 +108,7 @@ export function ReferenceComponentView({
       {/* Image grid (reuse GroupImageGrid) */}
       <div className="flex-1 overflow-auto">
         <GroupImageGrid
+          enableReorder={enableReorder}
           group={component}
           imageSrc={imageSrc}
           onAddImage={onAddImage}

@@ -1,6 +1,7 @@
 import { DndContext } from "@dnd-kit/core";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { imageGroupDroppableId } from "./canvas/imageDropTarget";
 import { GroupImageGrid } from "./GroupImageGrid";
 
 interface GroupLike {
@@ -126,5 +127,11 @@ describe("GroupImageGrid", () => {
     fireEvent.pointerDown(caption);
     fireEvent.click(caption);
     expect(props.onOpenImage).not.toHaveBeenCalled();
+  });
+
+  it("uses imageGroupDroppableId for the group droppable when enableReorder is true", () => {
+    const container = renderGrid({ enableReorder: true }).group;
+    const expectedDroppableId = imageGroupDroppableId(container.id);
+    expect(expectedDroppableId).toBe("imagegroup:g1");
   });
 });

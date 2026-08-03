@@ -17,14 +17,18 @@ interface SortableImageTileProps {
   src: string | undefined;
   onOpen(file: string): void;
   onRemove(imageId: string): void;
+  componentId: string;
   draggable?: boolean;
   showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
 }
 
-export function SortableImageTile({ image, index, src, onOpen, onRemove, draggable = true, showCaptions = false, onSetCaption }: SortableImageTileProps) {
+export function SortableImageTile({ image, index, src, onOpen, onRemove, componentId, draggable = true, showCaptions = false, onSetCaption }: SortableImageTileProps) {
   const { t } = useTranslation();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: image.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+    id: image.id,
+    data: { type: "image", componentId }
+  });
 
   // When draggable is false, don't apply transform or drag styles
   const style = draggable
