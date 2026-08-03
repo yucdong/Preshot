@@ -105,6 +105,30 @@ describe("createCanvasPdfExporter", () => {
     expect(parsed.getPageCount()).toBe(2);
   }, 20000);
 
+  it("subsets fonts so clipped CJK overflow stays small and does not throw", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    // A short component whose CJK text overflows its rect, drawn with only non-bold text so
+    // the bold weight's subset would be EMPTY — the exact case that makes fontkit's
+    // CFFSubset.encode throw under subset: true. Priming keeps both subsets non-empty, so the
+    // exporter must still produce a small, valid PDF.
+    const longCjk =
+      "拍摄计划详细说明：在清晨的黄金时段前往山顶记录云海与日出的层次变化，注意保留高光细节。".repeat(60);
+    const plan: ProjectPlan = {
+      schemaVersion: 2,
+      components: [
+        { id: "p1", type: "plan", widthFraction: "1", height: 160, html: `<p>${longCjk}</p>` },
+      ],
+    };
+
+    const bytes = await exporter.export(plan, {});
+
+    expect(bytes[0]).toBe(0x25); // %PDF — did not throw during save
+    const parsed = await PDFDocument.load(bytes);
+    expect(parsed.getPageCount()).toBe(1);
+    // Full-font embeds of both Noto Sans SC weights are ~16 MB; a real subset is well under 2 MB.
+    expect(bytes.length).toBeLessThan(2_000_000);
+  }, 20000);
+
   it("renders mixed component types correctly", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {

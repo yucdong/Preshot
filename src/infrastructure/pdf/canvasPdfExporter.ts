@@ -188,12 +188,12 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
       }
 
       const fonts = await loadFonts();
-      // Use subset: false to avoid @pdf-lib/fontkit CFF subsetting bug when content clips.
-      // Calling font.widthOfTextAtSize() registers glyphs in the subset, but if we then
-      // clip without drawing (when cursorY < rect.y), fontkit's CFFSubset.encode throws
-      // RangeError. v1 exporter avoids this by creating new pages instead of clipping.
-      const regular = await pdf.embedFont(fonts.regular, { subset: false });
-      const bold = await pdf.embedFont(fonts.bold, { subset: false });
+      // Embed with subset: true for small output (full-font embeds are ~16 MB). fontkit's
+      // CFFSubset.encode throws on an EMPTY subset, so a font that is embedded but never
+      // drawn (e.g. no bold text in the document) would crash at save — the fonts are primed
+      // with an invisible glyph below to guarantee both subsets are non-empty.
+      const regular = await pdf.embedFont(fonts.regular, { subset: true });
+      const bold = await pdf.embedFont(fonts.bold, { subset: true });
 
       const embedded = new Map<string, PDFImage>();
 
@@ -205,6 +205,12 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
       const pages: PDFPage[] = [];
       for (let i = 0; i < layout.pageCount; i += 1) {
         pages.push(pdf.addPage([595.28, 841.89]));
+      }
+
+      // Prime both fonts with an invisible space so neither CFF subset is ever empty
+      // (an unused subset:true font otherwise makes fontkit's CFFSubset.encode throw).
+      for (const font of [regular, bold]) {
+        pages[0].drawText(" ", { x: 0, y: 0, size: 1, font, color: rgb(1, 1, 1) });
       }
 
       for (const placement of layout.placements) {
