@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
-import { layoutPlan } from "./engine";
-import type { PlanComponent, WidthFraction } from "./models";
+import { layoutPlan, referenceImageSlots, slotCaptionSplit, TITLE_BAND } from "./engine";
+import type { PlanComponent, WidthFraction, ReferenceComponent } from "./models";
 
 const content = contentSize(DEFAULT_PAGE_GEOMETRY);
 
@@ -58,5 +58,62 @@ describe("layoutPlan placement", () => {
 
   it("returns one empty page for no components", () => {
     expect(layoutPlan([])).toEqual({ pageCount: 1, placements: [] });
+  });
+});
+
+function reference(overrides: Partial<ReferenceComponent> = {}): ReferenceComponent {
+  return {
+    id: "r",
+    type: "reference",
+    widthFraction: "1",
+    height: 300,
+    title: "T",
+    description: "",
+    columnsPerRow: 3,
+    showCaptions: false,
+    images: [
+      { id: "i1", file: "references/0001.png" },
+      { id: "i2", file: "references/0002.png" },
+      { id: "i3", file: "references/0003.png" },
+      { id: "i4", file: "references/0004.png" },
+    ],
+    ...overrides,
+  };
+}
+
+describe("reference image slots", () => {
+  it("lays out square slots row-major below the title band", () => {
+    const rect = { x: 0, y: 0, width: 300, height: 300 };
+    const slots = referenceImageSlots(rect, reference());
+    expect(slots).toHaveLength(4);
+    // three columns on the first row, all at the same y (>= title band)
+    expect(slots[0].y).toBeGreaterThanOrEqual(TITLE_BAND);
+    expect(slots[0].y).toBe(slots[1].y);
+    expect(slots[1].x).toBeGreaterThan(slots[0].x);
+    expect(slots[0].width).toBeCloseTo(slots[0].height, 5); // square when captions off
+    // fourth image wraps to the next row
+    expect(slots[3].x).toBe(slots[0].x);
+    expect(slots[3].y).toBeGreaterThan(slots[0].y);
+  });
+
+  it("adds a caption band to each tile when captions are on", () => {
+    const rect = { x: 0, y: 0, width: 300, height: 400 };
+    const slots = referenceImageSlots(rect, reference({ showCaptions: true }));
+    const { image, caption } = slotCaptionSplit(slots[0], true);
+    expect(caption.height).toBeCloseTo(slots[0].height - image.height, 5);
+    expect(caption.height).toBeGreaterThan(0);
+    expect(image.width).toBe(slots[0].width);
+    expect(caption.y).toBeCloseTo(image.y + image.height, 5);
+  });
+
+  it("returns the whole slot as the image when captions are off", () => {
+    const slot = { x: 1, y: 2, width: 10, height: 10 };
+    expect(slotCaptionSplit(slot, false)).toEqual({ image: slot, caption: { x: 1, y: 12, width: 10, height: 0 } });
+  });
+
+  it("populates imageSlots on reference placements via layoutPlan", () => {
+    const result = layoutPlan([reference()]);
+    expect(result.placements[0].imageSlots).toBeDefined();
+    expect(result.placements[0].imageSlots).toHaveLength(4);
   });
 });
