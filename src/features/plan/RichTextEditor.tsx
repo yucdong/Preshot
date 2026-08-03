@@ -1,5 +1,6 @@
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
+import { zh } from "@blocknote/core/locales";
 import { useEffect, useRef } from "react";
 
 interface RichTextEditorProps {
@@ -11,7 +12,7 @@ interface RichTextEditorProps {
 }
 
 export function RichTextEditor({ html, onChange, ariaLabel, placeholder, compact }: RichTextEditorProps) {
-  const editor = useCreateBlockNote();
+  const editor = useCreateBlockNote({ dictionary: zh });
   const lastEmitRef = useRef<string | null>(null);
   const lastPropHtmlRef = useRef<string | null>(null);
   const onChangeRef = useRef(onChange);
