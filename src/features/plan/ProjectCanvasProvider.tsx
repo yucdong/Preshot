@@ -1,0 +1,431 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  EMPTY_PLAN,
+  DEFAULT_PLAN_HEIGHT,
+  DEFAULT_REFERENCE_HEIGHT,
+  DEFAULT_COLUMNS,
+  type ProjectPlan,
+  type WidthFraction,
+} from "../../domain/plan/canvas/models";
+import { A4 } from "../../domain/plan/canvas/geometry";
+import type { PlanImagePicker } from "../../domain/plan/ports";
+import type { CanvasPlanService } from "../../domain/plan/canvas/service";
+import type { WorkspaceLogger } from "../../domain/workspace/ports";
+import type { PdfSaveTarget } from "../../domain/plan/pdf/ports";
+import {
+  addComponent,
+  moveComponent,
+  resizeComponent,
+  updatePlanHtml,
+  setReferenceTitle,
+  setReferenceDescription,
+  setReferenceColumns,
+} from "../../domain/plan/canvas/plan";
+import { PlanCanvas } from "./canvas/PlanCanvas";
+import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
+import { InsertComponentMenu } from "./canvas/InsertComponentMenu";
+import { SaveStatus, type SaveState } from "./SaveStatus";
+
+export interface CanvasPlanDependencies {
+  service: CanvasPlanService;
+  picker: PlanImagePicker;
+  logger: WorkspaceLogger;
+  exporter: { export(plan: ProjectPlan, images: Record<string, string>): Promise<Uint8Array> };
+  saver: PdfSaveTarget;
+}
+
+interface ProjectCanvasProviderProps {
+  projectPath: string;
+  projectName: string;
+  dependencies: CanvasPlanDependencies;
+}
+
+function detail(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+const AUTO_SAVE_INTERVAL_MS = 5000;
+
+export function ProjectCanvasProvider({
+  projectPath,
+  projectName: _projectName,
+  dependencies,
+}: ProjectCanvasProviderProps) {
+  const { t } = useTranslation();
+  const { service, picker, logger, exporter, saver } = dependencies;
+  const [plan, setPlan] = useState<ProjectPlan>(EMPTY_PLAN);
+  const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [exporting, setExporting] = useState(false);
+  const [scale, setScale] = useState(0.5);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef(false);
+  const busyRef = useRef(false);
+  const planRef = useRef(plan);
+  const imageSrcRef = useRef(imageSrc);
+  const savingRef = useRef(false);
+  const lastSavedRef = useRef(JSON.stringify(EMPTY_PLAN));
+
+  const syncSaveState = useCallback(() => {
+    setSaveState(
+      savingRef.current
+        ? "saving"
+        : JSON.stringify(planRef.current) === lastSavedRef.current
+          ? "saved"
+          : "unsaved",
+    );
+  }, []);
+
+  const applyPlan = useCallback(
+    (next: ProjectPlan) => {
+      planRef.current = next;
+      setPlan(next);
+      syncSaveState();
+    },
+    [syncSaveState],
+  );
+
+  const markSaved = useCallback(
+    (saved: ProjectPlan) => {
+      lastSavedRef.current = JSON.stringify(saved);
+      syncSaveState();
+    },
+    [syncSaveState],
+  );
+
+  const persisting = useCallback(
+    async (action: () => Promise<void>) => {
+      savingRef.current = true;
+      syncSaveState();
+      try {
+        await action();
+      } finally {
+        savingRef.current = false;
+        if (mountedRef.current) {
+          syncSaveState();
+        }
+      }
+    },
+    [syncSaveState],
+  );
+
+  const report = useCallback(
+    (message: string, err: unknown) => {
+      logger.error(message, { error: err });
+      if (mountedRef.current) {
+        setError(detail(err));
+      }
+    },
+    [logger],
+  );
+
+  const guard = useCallback(
+    async (message: string, action: () => Promise<void>) => {
+      if (busyRef.current || !mountedRef.current) {
+        return;
+      }
+      busyRef.current = true;
+      try {
+        await action();
+      } catch (err) {
+        report(message, err);
+      } finally {
+        busyRef.current = false;
+      }
+    },
+    [report],
+  );
+
+  const flush = useCallback(async () => {
+    if (busyRef.current || savingRef.current) {
+      return;
+    }
+    const planToSave = planRef.current;
+    const snapshot = JSON.stringify(planToSave);
+    if (snapshot === lastSavedRef.current) {
+      return;
+    }
+    savingRef.current = true;
+    syncSaveState();
+    try {
+      await service.savePlan(projectPath, planToSave);
+      lastSavedRef.current = snapshot;
+      if (mountedRef.current) {
+        setError(null);
+      }
+    } catch (err) {
+      report("Unable to auto-save the project plan", err);
+    } finally {
+      savingRef.current = false;
+      if (mountedRef.current) {
+        syncSaveState();
+      }
+    }
+  }, [projectPath, report, service, syncSaveState]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    async function load() {
+      try {
+        const loaded = await service.loadPlan(projectPath);
+        if (!mountedRef.current) return;
+        applyPlan(loaded);
+        markSaved(loaded);
+        setError(null);
+        const imageFiles = loaded.components
+          .filter((c): c is Extract<typeof c, { type: "reference" }> => c.type === "reference")
+          .flatMap((c) => c.images.map((img) => img.file));
+        for (const file of imageFiles) {
+          try {
+            const src = await service.loadImage(projectPath, file);
+            if (!mountedRef.current) return;
+            setImageSrc((current) => ({ ...current, [file]: src }));
+          } catch (err) {
+            report("Unable to load a reference image", err);
+          }
+        }
+      } catch (err) {
+        report("Unable to load the project plan", err);
+      }
+    }
+    void load();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [applyPlan, markSaved, projectPath, service, report]);
+
+  useEffect(() => {
+    imageSrcRef.current = imageSrc;
+  }, [imageSrc]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void flush();
+    }, AUTO_SAVE_INTERVAL_MS);
+    return () => {
+      clearInterval(timer);
+      void flush();
+    };
+  }, [flush]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && (event.key === "s" || event.key === "S")) {
+        event.preventDefault();
+        void flush();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [flush]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) {
+        setScale(width / A4.width);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const handleInsert = useCallback(
+    (type: "plan" | "reference") => {
+      if (type === "plan") {
+        const newComponent = {
+          id: crypto.randomUUID(),
+          type: "plan" as const,
+          widthFraction: "1" as WidthFraction,
+          height: DEFAULT_PLAN_HEIGHT,
+          html: "",
+        };
+        applyPlan(addComponent(planRef.current, newComponent));
+      } else {
+        const newComponent = {
+          id: crypto.randomUUID(),
+          type: "reference" as const,
+          widthFraction: "1" as WidthFraction,
+          height: DEFAULT_REFERENCE_HEIGHT,
+          title: t("content.newGroupTitle"),
+          description: "",
+          columnsPerRow: DEFAULT_COLUMNS,
+          showCaptions: false,
+          images: [],
+        };
+        applyPlan(addComponent(planRef.current, newComponent));
+      }
+    },
+    [applyPlan, t],
+  );
+
+  const handleRemoveComponent = useCallback(
+    (id: string) => {
+      void guard("Unable to remove the component", () =>
+        persisting(async () => {
+          const next = await service.removeComponent(projectPath, planRef.current, id);
+          if (mountedRef.current) {
+            applyPlan(next);
+            markSaved(next);
+            setError(null);
+          }
+        }),
+      );
+    },
+    [applyPlan, guard, markSaved, persisting, projectPath, service],
+  );
+
+  const handleMoveComponent = useCallback(
+    (id: string, toIndex: number) => {
+      const next = moveComponent(planRef.current, { id, toIndex });
+      applyPlan(next);
+    },
+    [applyPlan],
+  );
+
+  const handleResize = useCallback(
+    (id: string, params: { widthFraction?: WidthFraction; height?: number }) => {
+      const next = resizeComponent(planRef.current, { id, ...params });
+      applyPlan(next);
+    },
+    [applyPlan],
+  );
+
+  const handleChangeHtml = useCallback(
+    (id: string, html: string) => {
+      const next = updatePlanHtml(planRef.current, { id, html });
+      applyPlan(next);
+    },
+    [applyPlan],
+  );
+
+  const handleSetTitle = useCallback(
+    (id: string, title: string) => {
+      const next = setReferenceTitle(planRef.current, id, title);
+      applyPlan(next);
+    },
+    [applyPlan],
+  );
+
+  const handleSetDescription = useCallback(
+    (id: string, description: string) => {
+      const next = setReferenceDescription(planRef.current, id, description);
+      applyPlan(next);
+    },
+    [applyPlan],
+  );
+
+  const handleSetColumns = useCallback(
+    (id: string, columns: number) => {
+      const next = setReferenceColumns(planRef.current, id, columns);
+      applyPlan(next);
+    },
+    [applyPlan],
+  );
+
+  const handleAddImage = useCallback(
+    (componentId: string) => {
+      void guard("Unable to import the reference image", async () => {
+        const sourcePath = await picker.pickImageFile("Select a JPG or PNG reference image");
+        if (sourcePath === null) return;
+        await persisting(async () => {
+          const result = await service.importImage(
+            projectPath,
+            planRef.current,
+            componentId,
+            sourcePath,
+          );
+          if (!mountedRef.current) return;
+          setImageSrc((current) => ({ ...current, [result.image.file]: result.dataUrl }));
+          applyPlan(result.plan);
+          markSaved(result.plan);
+          setError(null);
+        });
+      });
+    },
+    [applyPlan, guard, markSaved, persisting, picker, projectPath, service],
+  );
+
+  const handleRemoveImage = useCallback(
+    (componentId: string, imageId: string) => {
+      void guard("Unable to remove the reference image", () =>
+        persisting(async () => {
+          const next = await service.removeImage(projectPath, planRef.current, componentId, imageId);
+          if (mountedRef.current) {
+            applyPlan(next);
+            markSaved(next);
+            setError(null);
+          }
+        }),
+      );
+    },
+    [applyPlan, guard, markSaved, persisting, projectPath, service],
+  );
+
+  const exportPdf = useCallback(() => {
+    void guard("Unable to export the PDF", async () => {
+      setExporting(true);
+      try {
+        const bytes = await exporter.export(planRef.current, imageSrcRef.current);
+        const separator = projectPath.includes("\\") ? "\\" : "/";
+        const defaultPath = `${projectPath.replace(/[\\/]+$/, "")}${separator}output.pdf`;
+        await saver.save(bytes, defaultPath);
+        if (mountedRef.current) setError(null);
+      } finally {
+        if (mountedRef.current) setExporting(false);
+      }
+    });
+  }, [exporter, guard, projectPath, saver]);
+
+  return (
+    <div className="flex h-full flex-col">
+      {error && (
+        <div className="bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      <div className="flex items-center gap-4 border-b border-stone-200 bg-white px-6 py-3">
+        <button
+          className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={exporting}
+          onClick={exportPdf}
+          type="button"
+        >
+          {exporting ? t("plan.exporting") : t("plan.exportPdf")}
+        </button>
+        <InsertComponentMenu onInsert={handleInsert} />
+        <SaveStatus state={saveState} />
+      </div>
+      <div className="flex-1 overflow-auto bg-stone-100 p-6" ref={containerRef}>
+        <PlanCanvas
+          components={plan.components}
+          imageSrc={(file) => imageSrc[file]}
+          onAddImage={handleAddImage}
+          onChangeHtml={handleChangeHtml}
+          onMoveComponent={handleMoveComponent}
+          onOpenImage={(file) => setLightbox(file)}
+          onRemoveComponent={handleRemoveComponent}
+          onRemoveImage={handleRemoveImage}
+          onResize={handleResize}
+          onSetColumns={handleSetColumns}
+          onSetDescription={handleSetDescription}
+          onSetTitle={handleSetTitle}
+          scale={scale}
+        />
+      </div>
+      {lightbox && imageSrc[lightbox] ? (
+        <ReferenceImageLightbox
+          alt={t("reference.imageAlt")}
+          onClose={() => setLightbox(null)}
+          src={imageSrc[lightbox]}
+        />
+      ) : null}
+    </div>
+  );
+}

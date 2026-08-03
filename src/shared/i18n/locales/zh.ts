@@ -27,6 +27,9 @@ export const zh = {
   canvas: {
     moveComponent: "移动组件",
     removeComponent: "移除组件",
+    insert: "插入组件",
+    insertPlan: "摄影计划",
+    insertReference: "参考图组",
   },
   save: {
     saving: "正在保存…",
