@@ -48,10 +48,10 @@ describe("PlanPanel", () => {
     );
 
     expect(screen.queryByRole("tab")).toBeNull();
-    expect(screen.getByRole("heading", { name: "Shot notes" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "拍摄笔记" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Sample sets" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Add reference group" })).toBeVisible();
-    expect(screen.getByTestId("save-status")).toHaveTextContent("All changes saved");
+    expect(screen.getByTestId("save-status")).toHaveTextContent("已保存所有更改");
   });
 
   it("renders the photography plan editor", () => {
@@ -68,7 +68,7 @@ describe("PlanPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("textbox", { name: "Photography plan" })).toHaveValue("<p>Plan body</p>");
+    expect(screen.getByRole("textbox", { name: "摄影计划" })).toHaveValue("<p>Plan body</p>");
   });
 
   it("reflects the current save state", () => {
@@ -85,7 +85,7 @@ describe("PlanPanel", () => {
       />,
     );
 
-    expect(screen.getByTestId("save-status")).toHaveTextContent("Saving…");
+    expect(screen.getByTestId("save-status")).toHaveTextContent("正在保存…");
   });
 
   it("renders a contextual error banner when provided", () => {
@@ -103,7 +103,7 @@ describe("PlanPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Unable to load the project plan");
+    expect(screen.getByRole("alert")).toHaveTextContent("操作未能完成，请重试。");
   });
 
   it("invokes onExport when Export PDF is clicked", async () => {
@@ -121,7 +121,7 @@ describe("PlanPanel", () => {
         {...noop}
       />,
     );
-    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+    await user.click(screen.getByRole("button", { name: "导出 PDF" }));
     expect(onExport).toHaveBeenCalledTimes(1);
   });
 });

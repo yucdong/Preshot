@@ -1,14 +1,21 @@
+import { useTranslation } from "react-i18next";
+
 export type SaveState = "saved" | "unsaved" | "saving";
 
-const STATUS: Record<SaveState, { label: string; dot: string }> = {
-  saving: { label: "Saving…", dot: "bg-amber-400 animate-pulse" },
-  unsaved: { label: "Unsaved changes", dot: "bg-stone-400" },
-  saved: { label: "All changes saved", dot: "bg-emerald-500" },
+const DOT: Record<SaveState, string> = {
+  saving: "bg-amber-400 animate-pulse",
+  unsaved: "bg-stone-400",
+  saved: "bg-emerald-500",
+};
+
+const LABEL_KEY: Record<SaveState, "save.saving" | "save.unsaved" | "save.saved"> = {
+  saving: "save.saving",
+  unsaved: "save.unsaved",
+  saved: "save.saved",
 };
 
 export function SaveStatus({ state }: { state: SaveState }) {
-  const { label, dot } = STATUS[state];
-
+  const { t } = useTranslation();
   return (
     <span
       aria-live="polite"
@@ -16,8 +23,8 @@ export function SaveStatus({ state }: { state: SaveState }) {
       data-testid="save-status"
       role="status"
     >
-      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dot}`} />
-      {label}
+      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${DOT[state]}`} />
+      {t(LABEL_KEY[state])}
     </span>
   );
 }

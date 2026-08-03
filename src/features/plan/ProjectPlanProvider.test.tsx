@@ -110,7 +110,7 @@ describe("ProjectPlanProvider", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
-      expect(screen.getByTestId("save-status")).toHaveTextContent("All changes saved");
+      expect(screen.getByTestId("save-status")).toHaveTextContent("已保存所有更改");
 
       // A pure-metadata edit updates in-memory state but is not persisted yet.
       fireEvent.change(screen.getByRole("combobox", { name: "Images per row" }), {
@@ -120,7 +120,7 @@ describe("ProjectPlanProvider", () => {
         await vi.advanceTimersByTimeAsync(0);
       });
       expect(savePlan).not.toHaveBeenCalled();
-      expect(screen.getByTestId("save-status")).toHaveTextContent("Unsaved changes");
+      expect(screen.getByTestId("save-status")).toHaveTextContent("有未保存的更改");
 
       // The 5s auto-save flushes the change exactly once and returns to "saved".
       await act(async () => {
@@ -128,7 +128,7 @@ describe("ProjectPlanProvider", () => {
       });
       expect(savePlan).toHaveBeenCalledTimes(1);
       expect(savePlan.mock.calls[0][1].referenceGroups[0].columnsPerRow).toBe(4);
-      expect(screen.getByTestId("save-status")).toHaveTextContent("All changes saved");
+      expect(screen.getByTestId("save-status")).toHaveTextContent("已保存所有更改");
 
       // With no further change, the next tick writes nothing.
       await act(async () => {
@@ -176,7 +176,7 @@ describe("ProjectPlanProvider", () => {
     render(<ProjectPlanProvider dependencies={dependencies} projectName="Sunset" projectPath={String.raw`C:\demo`} />);
 
     await screen.findByRole("group", { name: "Reference group: Lookbook" });
-    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+    await user.click(screen.getByRole("button", { name: "导出 PDF" }));
 
     await waitFor(() => expect(dependencies.exporter.export).toHaveBeenCalled());
     await waitFor(() => expect(dependencies.saver.save).toHaveBeenCalledWith(expect.any(Uint8Array), String.raw`C:\demo\output.pdf`));

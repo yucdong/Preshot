@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { PhotographyPlanTab } from "./PhotographyPlanTab";
 import { ReferenceImagesTab, type ReferenceImagesTabProps } from "./ReferenceImagesTab";
 import { SaveStatus, type SaveState } from "./SaveStatus";
@@ -12,6 +13,7 @@ interface PlanPanelProps extends ReferenceImagesTabProps {
 }
 
 export function PlanPanel({ error, saveState, photographyPlan, onSetPhotographyPlan, exporting, onExport, ...referenceProps }: PlanPanelProps) {
+  const { t } = useTranslation();
   return (
     <section aria-label="Plan" className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-end gap-3 border-b border-black/10 px-6 py-2">
@@ -21,14 +23,14 @@ export function PlanPanel({ error, saveState, photographyPlan, onSetPhotographyP
           onClick={onExport}
           type="button"
         >
-          {exporting ? "Exporting…" : "Export PDF"}
+          {exporting ? t("plan.exporting") : t("plan.exportPdf")}
         </button>
         <SaveStatus state={saveState} />
       </div>
 
       {error ? (
         <div className="mx-6 mt-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm text-rose-700" role="alert">
-          {error}
+          {t("errors.plan")}
         </div>
       ) : null}
 
