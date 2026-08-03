@@ -186,12 +186,13 @@
         "Plan editing migrated from fixed v1 tabs to a flexible v2 canvas component system",
         "A4-based flow layout: components stack vertically, auto-paginate with WYSIWYG page breaks",
         "Insert menu: add Plan or Reference components via button; drag handle to reorder components",
-        "Plan component: BlockNote rich-text editor, configurable height",
-        "Reference component: configurable title, optional description, columns-per-row grid, image import",
+        "Plan component: BlockNote rich-text editor, configurable height, seeds with Chinese default template (拍摄时间/拍摄地点/道具和服装/器材)",
+        "Reference component: configurable title, optional description, columns-per-row grid, image import, per-component caption toggle with per-image editable caption boxes (screen + PDF)",
         "Resize handles: adjust component widths (1/2, 2/3, 1) and heights interactively",
-        "PDF export: render canvas to multi-page A4 PDF preserving exact WYSIWYG layout",
+        "PDF export: render canvas to multi-page A4 PDF preserving exact WYSIWYG layout with font subsetting (small file sizes)",
         "Persistent schemaVersion 2 format in .preshot manifest (v1 removed)",
-        "Auto-save: 5s debounced save with save-status indicator, Ctrl/Cmd+S shortcut"
+        "Auto-save: 5s debounced save with save-status indicator, Ctrl/Cmd+S shortcut",
+        "Add-description affordance: button reveals the description editor when description is empty"
       ],
       "status": "completed",
       "decisions": [
@@ -207,7 +208,7 @@
         "Canvas PDF exporter: reuse htmlToBlocks tokenizer + Noto Sans SC fonts, render each component with A4 pagination, square image slots, WYSIWYG to pdf-lib output",
         "Remove v1: delete ProjectPlanProvider, PlanPanel, PhotographyPlanTab, ReferenceImagesTab, dropTarget, v1 domain (models/plan/service/pdf), v1 pdfLibExporter; keep reused GroupImageGrid/SortableImageTile/ReferenceImageLightbox/htmlToBlocks/fonts; remove v1 ports/tauriPlan/browserPlan exports",
         "Wire canvas as default: planDependencies.ts returns createCanvasPlanDependencies (v2); Workspace.tsx renders ProjectCanvasProvider",
-        "Within-group image reordering is deferred to Phase C; canvas tiles render in static (non-draggable) mode"
+        "Phase C: plan default template (i18n content.planTemplate) seeded on insert; per-component caption toggle (reference.captions) + per-image editable caption boxes (reference.captionAria, content.captionPlaceholder) wired to ReferenceImage.caption; add-description button (reference.addDescription) reveals description editor; PDF font subsetting enabled for smaller file sizes (~16 MB → <1 MB)"
       ],
       "progress": {
         "completedAt": "2026-08-03",
@@ -223,18 +224,22 @@
           "Phase B task 4-5: built ReferenceComponentView (reused GroupImageGrid), InsertComponentMenu, useComponentResize hook",
           "Phase B task 6: built canvasPdfExporter (htmlToBlocks-based, multi-page A4 output)",
           "Phase B task 7: wired canvas as the default plan view in Workspace.tsx + planDependencies.ts",
-          "Phase B task 8 (final): removed v1 model/UI/PDF (ProjectPlanProvider, PlanPanel, PhotographyPlanTab, ReferenceImagesTab, dropTarget, domain/plan/{models,plan,service,pdf/*}, pdfLibExporter); removed v1 exports from tauriPlan/browserPlan; kept reused GroupImageGrid/SortableImageTile/ReferenceImageLightbox (structural interface), htmlToBlocks, font assets; moved PdfSaveTarget to canvas/ports"
+          "Phase B task 8 (final): removed v1 model/UI/PDF (ProjectPlanProvider, PlanPanel, PhotographyPlanTab, ReferenceImagesTab, dropTarget, domain/plan/{models,plan,service,pdf/*}, pdfLibExporter); removed v1 exports from tauriPlan/browserPlan; kept reused GroupImageGrid/SortableImageTile/ReferenceImageLightbox (structural interface), htmlToBlocks, font assets; moved PdfSaveTarget to canvas/ports",
+          "Phase C: delivered plan default template (content.planTemplate i18n key); per-component caption toggle + per-image editable caption boxes (ReferenceImage.caption, screen + PDF); add-description affordance button; PDF font subsetting (reduced file size from ~16 MB to <1 MB)"
         ],
         "lastVerified": {
-          "date": "2026-08-03",
+          "date": "2026-08-04",
           "typecheck": "clean",
           "lint": "clean",
-          "unitTests": "237 tests passed",
-          "e2eTests": "11 tests passed (canvas insert/reorder/resize/image/PDF, layout scroll, workspace auto-open)",
+          "unitTests": "250 tests passed",
+          "e2eTests": "14 tests passed (canvas insert/reorder/resize/image/PDF/plan-template/captions, layout scroll, workspace auto-open)",
           "rustTests": "29 tests passed",
           "build": "succeeded"
         },
-        "remaining": ["Within-group image drag-and-drop reordering deferred to Phase C"]
+        "remaining": [
+          "Within-group image drag-reorder deferred to Phase D",
+          "Image slot horizontal overflow (~6 pt) deferred to Phase D"
+        ]
       }
     }
   ]

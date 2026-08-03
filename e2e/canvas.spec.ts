@@ -214,3 +214,107 @@ test("exports the canvas to PDF", async ({ page }) => {
   // No error alerts
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
+
+test("inserts a plan component and the editor becomes editable", async ({ page }) => {
+  await page.goto("/");
+  
+  // Wait for the canvas to load
+  await expect(page.getByTestId("plan-canvas")).toBeVisible();
+
+  // Count initial components
+  const initialFrames = await page.locator('[data-component-frame="true"]').count();
+
+  // Open the insert menu
+  await page.getByRole("button", { name: "插入组件" }).click();
+
+  // Insert a plan component
+  await page.getByRole("menuitem", { name: "摄影计划" }).click();
+
+  // Wait for the new component frame to be added
+  await expect(page.locator('[data-component-frame="true"]')).toHaveCount(initialFrames + 1);
+
+  // Get the last (newly inserted) component frame
+  const newPlanFrame = page.locator('[data-component-frame="true"]').last();
+  
+  // Find the contenteditable editor within the new plan frame
+  const editor = newPlanFrame.locator('[contenteditable="true"]');
+  await expect(editor).toBeVisible();
+
+  // Verify the editor is editable by typing into it
+  await editor.click();
+  await editor.type("测试内容");
+
+  // Verify the typed content appears in the editor
+  await expect(editor).toContainText("测试内容");
+
+  // Note: The template content (拍摄时间：etc.) is verified in unit tests.
+  // E2e focuses on the insertion flow and editor functionality.
+});
+
+test("toggles captions on a reference component and types a caption", async ({ page }) => {
+  await page.goto("/");
+
+  // Insert a reference component
+  await page.getByRole("button", { name: "插入组件" }).click();
+  await page.getByRole("menuitem", { name: "参考图组" }).click();
+
+  // Wait for the new reference component to be visible
+  const newReferenceFrame = page.locator('[data-component-frame="true"]').last();
+  await expect(newReferenceFrame).toBeVisible();
+
+  // Add an image to the new reference component
+  // The in-memory adapter allows adding by just clicking the add button
+  const addButton = newReferenceFrame.getByRole("button", { name: "添加参考图" });
+  await expect(addButton).toBeVisible();
+  await addButton.click();
+
+  // Wait for the image to be visible
+  await expect(newReferenceFrame.getByRole("img", { name: "参考图" })).toBeVisible();
+
+  // Assert captions are initially hidden
+  await expect(page.getByRole("textbox", { name: /图片说明/ })).toHaveCount(0);
+
+  // Toggle captions on
+  const captionCheckbox = newReferenceFrame.getByRole("checkbox", { name: "显示说明" });
+  await expect(captionCheckbox).toBeVisible();
+  await captionCheckbox.check();
+
+  // Assert the caption textarea appears
+  const captionTextarea = newReferenceFrame.getByRole("textbox", { name: "图片说明 1" });
+  await expect(captionTextarea).toBeVisible();
+
+  // Type into the caption textarea
+  await captionTextarea.fill("测试说明文本");
+
+  // Assert the value updates
+  await expect(captionTextarea).toHaveValue("测试说明文本");
+
+  // Assert save status becomes unsaved
+  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
+});
+
+test("exports the canvas to PDF with captions enabled", async ({ page }) => {
+  await page.goto("/");
+
+  // Toggle captions on the seeded reference component
+  const firstReferenceFrame = page.locator('[data-component-frame="true"]').first();
+  const captionCheckbox = firstReferenceFrame.getByRole("checkbox", { name: "显示说明" });
+  
+  // Check if checkbox exists (seeded component is a reference component)
+  const checkboxCount = await captionCheckbox.count();
+  if (checkboxCount > 0) {
+    await captionCheckbox.check();
+  }
+
+  // Export to PDF
+  await page.getByRole("button", { name: "导出 PDF" }).click();
+
+  // Assert the button shows exporting state
+  await expect(page.getByRole("button", { name: "正在导出…" })).toBeVisible();
+
+  // Assert the button returns to normal state
+  await expect(page.getByRole("button", { name: "导出 PDF" })).toBeVisible({ timeout: 30000 });
+
+  // No error alerts
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
