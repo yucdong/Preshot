@@ -187,7 +187,7 @@
         "A4-based flow layout: components stack vertically, auto-paginate with WYSIWYG page breaks",
         "Insert menu: add Plan or Reference components via button; drag handle to reorder components",
         "Plan component: BlockNote rich-text editor, configurable height",
-        "Reference component: configurable title, optional description, columns-per-row grid, image import/drag-drop reordering",
+        "Reference component: configurable title, optional description, columns-per-row grid, image import",
         "Resize handles: adjust component widths (1/2, 2/3, 1) and heights interactively",
         "PDF export: render canvas to multi-page A4 PDF preserving exact WYSIWYG layout",
         "Persistent schemaVersion 2 format in .preshot manifest (v1 removed)",
@@ -206,7 +206,8 @@
         "Canvas drop geometry: @dnd-kit sortable components (pointer sensor, closestCenter collision, vertical list), drop indicator lines",
         "Canvas PDF exporter: reuse htmlToBlocks tokenizer + Noto Sans SC fonts, render each component with A4 pagination, square image slots, WYSIWYG to pdf-lib output",
         "Remove v1: delete ProjectPlanProvider, PlanPanel, PhotographyPlanTab, ReferenceImagesTab, dropTarget, v1 domain (models/plan/service/pdf), v1 pdfLibExporter; keep reused GroupImageGrid/SortableImageTile/ReferenceImageLightbox/htmlToBlocks/fonts; remove v1 ports/tauriPlan/browserPlan exports",
-        "Wire canvas as default: planDependencies.ts returns createCanvasPlanDependencies (v2); Workspace.tsx renders ProjectCanvasProvider"
+        "Wire canvas as default: planDependencies.ts returns createCanvasPlanDependencies (v2); Workspace.tsx renders ProjectCanvasProvider",
+        "Within-group image reordering is deferred to Phase C; canvas tiles render in static (non-draggable) mode"
       ],
       "progress": {
         "completedAt": "2026-08-03",
@@ -233,7 +234,7 @@
           "rustTests": "29 tests passed",
           "build": "succeeded"
         },
-        "remaining": []
+        "remaining": ["Within-group image drag-and-drop reordering deferred to Phase C"]
       }
     }
   ]

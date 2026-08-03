@@ -5,6 +5,7 @@ import { DESCRIPTION_BAND, slotCaptionSplit, TITLE_BAND } from "../../domain/pla
 import type { ProjectPlan, ReferenceComponent } from "../../domain/plan/canvas/models";
 import { buildCanvasLayout } from "../../domain/plan/canvas/pdf/exportDocument";
 import { parseHtmlToBlocks, type Block, type Run } from "./htmlToBlocks";
+import { slotToPageRect } from "./slotPageRect";
 
 const TITLE_SIZE = 14;
 const BODY_SIZE = 11;
@@ -252,12 +253,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
               }
 
               const split = slotCaptionSplit(slot, ref.showCaptions);
-              const imageSlotInPage: Rect = {
-                x: contentRect.x + split.image.x,
-                y: pageY - placement.rect.height + GUTTER / 2 + split.image.y,
-                width: split.image.width,
-                height: split.image.height,
-              };
+              const imageSlotInPage: Rect = slotToPageRect(contentRect, split.image);
 
               page.drawRectangle({
                 x: imageSlotInPage.x,
@@ -277,12 +273,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
               });
 
               if (ref.showCaptions && ref.images[i].caption) {
-                const captionRect: Rect = {
-                  x: contentRect.x + split.caption.x,
-                  y: pageY - placement.rect.height + GUTTER / 2 + split.caption.y,
-                  width: split.caption.width,
-                  height: split.caption.height,
-                };
+                const captionRect: Rect = slotToPageRect(contentRect, split.caption);
                 const savedY = captionRect.y + captionRect.height - CAPTION_SIZE;
                 page.drawText(ref.images[i].caption ?? "", { x: captionRect.x, y: savedY, size: CAPTION_SIZE, font: regular, color: TEXT_COLOR });
               }

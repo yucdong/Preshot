@@ -17,30 +17,26 @@ interface GroupImageGridProps {
   onRemoveImage(groupId: string, imageId: string): void;
   onOpenImage(file: string): void;
   droppableId?: string;
+  enableReorder?: boolean;
 }
 
-export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onOpenImage, droppableId }: GroupImageGridProps) {
+export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onOpenImage, droppableId, enableReorder = false }: GroupImageGridProps) {
   const { t } = useTranslation();
   const { setNodeRef } = useDroppable({ id: droppableId ?? `droppable-${group.id}` });
 
-  return (
-    <div
-      className="mt-4 grid justify-start gap-3"
-      ref={setNodeRef}
-      style={{ gridTemplateColumns: `repeat(${group.columnsPerRow}, minmax(0, 160px))` }}
-    >
-      <SortableContext items={group.images.map((image) => image.id)} strategy={rectSortingStrategy}>
-        {group.images.map((image, index) => (
-          <SortableImageTile
-            image={image}
-            index={index}
-            key={image.id}
-            onOpen={onOpenImage}
-            onRemove={(imageId) => onRemoveImage(group.id, imageId)}
-            src={imageSrc(image.file)}
-          />
-        ))}
-      </SortableContext>
+  const gridContent = (
+    <>
+      {group.images.map((image, index) => (
+        <SortableImageTile
+          image={image}
+          index={index}
+          key={image.id}
+          onOpen={onOpenImage}
+          onRemove={(imageId) => onRemoveImage(group.id, imageId)}
+          src={imageSrc(image.file)}
+          draggable={enableReorder}
+        />
+      ))}
       <button
         aria-label={t("reference.addImage")}
         className="flex aspect-square w-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600"
@@ -49,6 +45,29 @@ export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onO
       >
         +
       </button>
+    </>
+  );
+
+  if (enableReorder) {
+    return (
+      <div
+        className="mt-4 grid justify-start gap-3"
+        ref={setNodeRef}
+        style={{ gridTemplateColumns: `repeat(${group.columnsPerRow}, minmax(0, 160px))` }}
+      >
+        <SortableContext items={group.images.map((image) => image.id)} strategy={rectSortingStrategy}>
+          {gridContent}
+        </SortableContext>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="mt-4 grid justify-start gap-3"
+      style={{ gridTemplateColumns: `repeat(${group.columnsPerRow}, minmax(0, 160px))` }}
+    >
+      {gridContent}
     </div>
   );
 }

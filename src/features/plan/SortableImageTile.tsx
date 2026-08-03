@@ -16,16 +16,21 @@ interface SortableImageTileProps {
   src: string | undefined;
   onOpen(file: string): void;
   onRemove(imageId: string): void;
+  draggable?: boolean;
 }
 
-export function SortableImageTile({ image, index, src, onOpen, onRemove }: SortableImageTileProps) {
+export function SortableImageTile({ image, index, src, onOpen, onRemove, draggable = true }: SortableImageTileProps) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: image.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : undefined,
-  };
+
+  // When draggable is false, don't apply transform or drag styles
+  const style = draggable
+    ? {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : undefined,
+      }
+    : {};
 
   return (
     <div className="relative" ref={setNodeRef} style={style}>
@@ -34,8 +39,7 @@ export function SortableImageTile({ image, index, src, onOpen, onRemove }: Sorta
         className={squareButton}
         onClick={() => onOpen(image.file)}
         type="button"
-        {...attributes}
-        {...listeners}
+        {...(draggable ? { ...attributes, ...listeners } : {})}
       >
         {src ? (
           <img alt={t("reference.imageAlt")} className="h-full w-full object-cover" src={src} />

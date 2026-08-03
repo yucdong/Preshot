@@ -36,10 +36,18 @@ function renderGrid(overrides: Partial<Parameters<typeof GroupImageGrid>[0]> = {
 }
 
 describe("GroupImageGrid", () => {
-  it("renders each image as a sortable tile", () => {
-    renderGrid();
+  it("renders each image as a sortable tile when reorder is enabled", () => {
+    renderGrid({ enableReorder: true });
     const open = screen.getByRole("button", { name: "打开参考图 1" });
     expect(open).toHaveAttribute("aria-roledescription", "sortable");
+    expect(within(open).getByRole("img", { name: "参考图" })).toBeVisible();
+  });
+
+  it("renders non-draggable tiles by default (reorder disabled)", () => {
+    renderGrid();
+    const open = screen.getByRole("button", { name: "打开参考图 1" });
+    // Should NOT have sortable aria attributes when draggable is false
+    expect(open).not.toHaveAttribute("aria-roledescription", "sortable");
     expect(within(open).getByRole("img", { name: "参考图" })).toBeVisible();
   });
 
