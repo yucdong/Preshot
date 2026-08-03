@@ -244,7 +244,7 @@ export function ProjectCanvasProvider({
           type: "plan" as const,
           widthFraction: "1" as WidthFraction,
           height: DEFAULT_PLAN_HEIGHT,
-          html: "",
+          html: t("content.planTemplate"),
         };
         applyPlan(addComponent(planRef.current, newComponent));
       } else {
