@@ -24,6 +24,10 @@ export const zh = {
     shotNotes: "拍摄笔记",
     planPlaceholder: "拍摄清单、日程与备注…",
   },
+  canvas: {
+    moveComponent: "移动组件",
+    removeComponent: "移除组件",
+  },
   save: {
     saving: "正在保存…",
     unsaved: "有未保存的更改",

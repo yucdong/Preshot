@@ -5,8 +5,15 @@ import type { ReferenceGroup } from "../../domain/plan/models";
 import { groupDroppableId } from "./dropTarget";
 import { SortableImageTile } from "./SortableImageTile";
 
+// Minimal shape that both v1 ReferenceGroup and v2 ReferenceComponent satisfy
+interface GroupLike {
+  id: string;
+  columnsPerRow: number;
+  images: Array<{ id: string; file: string }>;
+}
+
 interface GroupImageGridProps {
-  group: ReferenceGroup;
+  group: ReferenceGroup | GroupLike;
   imageSrc(file: string): string | undefined;
   onAddImage(groupId: string): void;
   onRemoveImage(groupId: string, imageId: string): void;
