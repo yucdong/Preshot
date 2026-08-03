@@ -8,7 +8,7 @@ use chrono::{SecondsFormat, Utc};
 
 use crate::error::CommandError;
 use crate::workspace::{
-    canonicalize_directory, read_manifest, write_manifest_atomically, ProjectManifest, ProjectPlan,
+    canonicalize_directory, read_manifest, write_manifest_atomically, ProjectManifest,
 };
 
 const REFERENCES_DIR: &str = "references";
@@ -217,7 +217,7 @@ pub fn remove_reference_image_from(project_path: &Path, file: &str) -> Result<()
 
 pub fn save_project_plan_in(
     project_path: &Path,
-    plan: ProjectPlan,
+    plan: serde_json::Value,
 ) -> Result<ProjectManifest, CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
@@ -228,13 +228,10 @@ pub fn save_project_plan_in(
     Ok(manifest)
 }
 
-pub fn read_project_plan_in(project_path: &Path) -> Result<ProjectPlan, CommandError> {
+pub fn read_project_plan_in(project_path: &Path) -> Result<serde_json::Value, CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
-    Ok(read_manifest(&project_path)?.plan.unwrap_or(ProjectPlan {
-        photography_plan: String::new(),
-        reference_groups: Vec::new(),
-    }))
+    Ok(read_manifest(&project_path)?.plan.unwrap_or(serde_json::Value::Null))
 }
 
 #[tauri::command]
@@ -258,21 +255,19 @@ pub fn remove_reference_image(project_path: String, file: String) -> Result<(), 
 #[tauri::command]
 pub fn save_project_plan(
     project_path: String,
-    plan: ProjectPlan,
+    plan: serde_json::Value,
 ) -> Result<ProjectManifest, CommandError> {
     save_project_plan_in(Path::new(&project_path), plan)
 }
 
 #[tauri::command]
-pub fn read_project_plan(project_path: String) -> Result<ProjectPlan, CommandError> {
+pub fn read_project_plan(project_path: String) -> Result<serde_json::Value, CommandError> {
     read_project_plan_in(Path::new(&project_path))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::workspace::{ReferenceGroup, ReferenceImage};
-    use serde_json::json;
 
     fn project() -> tempfile::TempDir {
         let parent = tempfile::tempdir().unwrap();
@@ -332,74 +327,23 @@ mod tests {
     }
 
     #[test]
-    fn save_then_read_round_trips_plan_and_bumps_updated_at() {
+    fn save_then_read_round_trips_opaque_plan_json() {
         let parent = project();
         let project_path = parent.path().join("Shoot");
-        let before = read_manifest(&project_path).unwrap().updated_at;
-        std::thread::sleep(std::time::Duration::from_millis(2));
-        let plan = ProjectPlan {
-            photography_plan: "<p>Warm editorial mood</p>".into(),
-            reference_groups: vec![ReferenceGroup {
-                id: "g1".into(),
-                title: "Lookbook".into(),
-                description: "Warm editorial mood".into(),
-                columns_per_row: 3,
-                images: vec![ReferenceImage {
-                    id: "i1".into(),
-                    file: "references/0001.png".into(),
-                }],
-            }],
-        };
-
+        let plan = serde_json::json!({
+            "schemaVersion": 2,
+            "components": [
+                { "id": "a", "type": "plan", "widthFraction": "1", "height": 200, "html": "<p>hi</p>" }
+            ]
+        });
         let manifest = save_project_plan_in(&project_path, plan.clone()).unwrap();
-        assert_eq!(
-            manifest.plan.as_ref().unwrap().photography_plan,
-            "<p>Warm editorial mood</p>"
-        );
-        assert_eq!(manifest.plan.as_ref().unwrap().reference_groups.len(), 1);
-        assert_eq!(
-            manifest.plan.as_ref().unwrap().reference_groups[0].description,
-            "Warm editorial mood"
-        );
-        assert_ne!(manifest.updated_at, before);
+        assert_eq!(manifest.plan.as_ref().unwrap(), &plan);
         assert_eq!(read_project_plan_in(&project_path).unwrap(), plan);
     }
 
     #[test]
-    fn read_plan_preserves_photography_plan_from_manifest() {
+    fn read_plan_defaults_to_null_when_absent() {
         let parent = project();
-        let project_path = parent.path().join("Shoot");
-        let manifest_path = project_path.join(".preshot");
-        let mut manifest = serde_json::to_value(read_manifest(&project_path).unwrap()).unwrap();
-        manifest["plan"] = json!({
-            "photographyPlan": "<p>Golden hour</p>",
-            "referenceGroups": [],
-        });
-        fs::write(
-            &manifest_path,
-            serde_json::to_vec_pretty(&manifest).unwrap(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            serde_json::to_value(read_project_plan_in(&project_path).unwrap()).unwrap(),
-            json!({
-                "photographyPlan": "<p>Golden hour</p>",
-                "referenceGroups": [],
-            })
-        );
-    }
-
-    #[test]
-    fn read_plan_defaults_to_empty_groups() {
-        let parent = project();
-        assert_eq!(
-            serde_json::to_value(read_project_plan_in(&parent.path().join("Shoot")).unwrap())
-                .unwrap(),
-            json!({
-                "photographyPlan": "",
-                "referenceGroups": [],
-            })
-        );
+        assert!(read_project_plan_in(&parent.path().join("Shoot")).unwrap().is_null());
     }
 }

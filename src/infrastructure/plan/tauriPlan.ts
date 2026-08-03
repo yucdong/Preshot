@@ -66,7 +66,8 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
   return {
     async loadPlan(projectPath) {
       try {
-        return validatePlan(await invokeCommand("read_project_plan", { projectPath }));
+        const raw = await invokeCommand("read_project_plan", { projectPath });
+        return validatePlan(raw ?? { photographyPlan: "", referenceGroups: [] });
       } catch (error) {
         throw new Error(`Unable to read the project plan: ${detail(error)}`, { cause: error });
       }

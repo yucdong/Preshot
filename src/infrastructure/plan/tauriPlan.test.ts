@@ -54,4 +54,14 @@ describe("createTauriPlan", () => {
       referenceGroups: [],
     });
   });
+
+  it("tolerates null result from Rust (returns empty v1 plan)", async () => {
+    const invokeCommand = vi.fn().mockResolvedValue(null);
+    const plan = createTauriPlan({ invokeCommand });
+
+    await expect(plan.loadPlan("C:\\p")).resolves.toEqual({
+      photographyPlan: "",
+      referenceGroups: [],
+    });
+  });
 });

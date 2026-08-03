@@ -34,35 +34,7 @@ pub struct ProjectManifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cover_image: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub plan: Option<ProjectPlan>,
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReferenceImage {
-    pub id: String,
-    pub file: String,
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReferenceGroup {
-    pub id: String,
-    pub title: String,
-    #[serde(default)]
-    pub description: String,
-    pub columns_per_row: u32,
-    #[serde(default)]
-    pub images: Vec<ReferenceImage>,
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProjectPlan {
-    #[serde(default)]
-    pub photography_plan: String,
-    #[serde(default)]
-    pub reference_groups: Vec<ReferenceGroup>,
+    pub plan: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -1266,11 +1238,8 @@ mod tests {
         let inspected = inspect_project_directory(project.path()).unwrap();
         let plan = inspected.manifest.plan.unwrap();
 
-        assert_eq!(plan.reference_groups.len(), 1);
-        assert_eq!(plan.reference_groups[0].description, "");
-        assert_eq!(
-            plan.reference_groups[0].images[0].file,
-            "references/0001.jpg"
-        );
+        assert_eq!(plan["referenceGroups"][0]["id"], "g1");
+        assert_eq!(plan["referenceGroups"][0]["title"], "Lookbook");
+        assert_eq!(plan["referenceGroups"][0]["images"][0]["file"], "references/0001.jpg");
     }
 }
