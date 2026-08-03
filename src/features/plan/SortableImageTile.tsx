@@ -49,7 +49,7 @@ export function SortableImageTile({ image, index, src, onOpen, onRemove, compone
         {...(draggable ? { ...attributes, ...listeners } : {})}
       >
         {src ? (
-          <img alt={t("reference.imageAlt")} className="h-full w-full object-cover" src={src} />
+          <img alt={t("reference.imageAlt")} className="h-full w-full object-cover" draggable={false} src={src} />
         ) : (
           <span className="flex h-full w-full items-center justify-center text-xs text-stone-400">{t("reference.loading")}</span>
         )}

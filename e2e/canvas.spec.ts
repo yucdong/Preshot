@@ -272,50 +272,53 @@ test("drags to reorder images within a reference component and commits the move"
     throw new Error("Not enough images to test reorder");
   }
 
-  // Drag the SECOND image tile to the position of the FIRST
+  // Drag the FIRST image tile over the SECOND to reorder. Use a manual stepped gesture
+  // (not Playwright dragTo, which does a single move) so dnd-kit's PointerSensor activates,
+  // exactly like the component-reorder test above.
   const firstTile = referenceFrame.locator('[data-image-id]').first();
   const secondTile = referenceFrame.locator('[data-image-id]').nth(1);
+
+  // Scroll the tiles into the viewport — they sit below the fold, and pointer events at
+  // off-screen coordinates would miss them (elementFromPoint returns null there).
+  await firstTile.scrollIntoViewIfNeeded();
 
   const firstBox = await firstTile.boundingBox();
   const secondBox = await secondTile.boundingBox();
 
   if (!firstBox || !secondBox) throw new Error("Image tiles not visible");
 
-  // Use Playwright's dragTo which should properly simulate the drag gesture
-  await secondTile.dragTo(firstTile, {
-    sourcePosition: { x: secondBox.width / 2, y: secondBox.height / 2 },
-    targetPosition: { x: 20, y: firstBox.height / 2 },
+  await page.mouse.move(firstBox.x + firstBox.width / 2, firstBox.y + firstBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(firstBox.x + firstBox.width / 2 + 12, firstBox.y + firstBox.height / 2, {
+    steps: 3,
   });
+  await page.mouse.move(secondBox.x + secondBox.width / 2, secondBox.y + secondBox.height / 2, {
+    steps: 6,
+  });
+  await page.mouse.move(secondBox.x + secondBox.width / 2, secondBox.y + secondBox.height / 2, {
+    steps: 3,
+  });
+  await page.mouse.up();
 
   // Wait for the optimistic commit and capture the order after drag
-  // Use a retry loop to poll until the order changes
   let after: (string | null)[] = [];
-  for (let i = 0; i < 10; i++) {
-    after = await referenceFrame.locator('[data-image-id]').evaluateAll(els => 
-      els.map(e => e.getAttribute("data-image-id"))
+  for (let i = 0; i < 12; i++) {
+    after = await referenceFrame.locator('[data-image-id]').evaluateAll((els) =>
+      els.map((e) => e.getAttribute("data-image-id")),
     );
     if (JSON.stringify(after) !== JSON.stringify(before)) {
       break;
     }
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(250);
   }
 
-  // TODO: Playwright's drag gesture is not triggering dnd-kit's PointerSensor properly in this test environment.
-  // The feature works in manual testing (D1-D3 shipped), but the e2e simulation needs investigation.
-  // For now, verify the testability attribute exists and the canvas doesn't error.
   // Assert the drag actually reordered images
-  // expect([...after].sort()).toEqual([...before].sort()); // Same set of images
-  // expect(after).not.toEqual(before); // Order changed
-  // expect(after.indexOf(before[1])).toBe(0); // Second image moved to index 0
+  expect([...after].sort()).toEqual([...before].sort()); // Same set of images
+  expect(after).not.toEqual(before); // Order changed
+  expect(after.indexOf(before[0])).not.toBe(0); // The dragged first image moved off index 0
 
-  // Verify the testability attribute exists
-  const imageIds = await referenceFrame.locator('[data-image-id]').evaluateAll(els => 
-    els.map(e => e.getAttribute("data-image-id"))
-  );
-  expect(imageIds.length).toBeGreaterThanOrEqual(2);
-  expect(imageIds.every(id => id !== null)).toBeTruthy();
-
-  // No error alerts during the drag attempt
+  // A committed move keeps the status unsaved
+  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
