@@ -1,8 +1,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext } from "@dnd-kit/sortable";
 import { useTranslation } from "react-i18next";
-import type { ReferenceGroup } from "../../domain/plan/models";
-import { groupDroppableId } from "./dropTarget";
 import { SortableImageTile } from "./SortableImageTile";
 
 // Minimal shape that both v1 ReferenceGroup and v2 ReferenceComponent satisfy
@@ -13,16 +11,17 @@ interface GroupLike {
 }
 
 interface GroupImageGridProps {
-  group: ReferenceGroup | GroupLike;
+  group: GroupLike;
   imageSrc(file: string): string | undefined;
   onAddImage(groupId: string): void;
   onRemoveImage(groupId: string, imageId: string): void;
   onOpenImage(file: string): void;
+  droppableId?: string;
 }
 
-export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onOpenImage }: GroupImageGridProps) {
+export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onOpenImage, droppableId }: GroupImageGridProps) {
   const { t } = useTranslation();
-  const { setNodeRef } = useDroppable({ id: groupDroppableId(group.id) });
+  const { setNodeRef } = useDroppable({ id: droppableId ?? `droppable-${group.id}` });
 
   return (
     <div

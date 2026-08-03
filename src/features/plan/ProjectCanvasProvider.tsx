@@ -12,7 +12,7 @@ import { A4 } from "../../domain/plan/canvas/geometry";
 import type { PlanImagePicker } from "../../domain/plan/ports";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
 import type { WorkspaceLogger } from "../../domain/workspace/ports";
-import type { PdfSaveTarget } from "../../domain/plan/pdf/ports";
+import type { PdfSaveTarget } from "../../domain/plan/canvas/ports";
 import {
   addComponent,
   moveComponent,

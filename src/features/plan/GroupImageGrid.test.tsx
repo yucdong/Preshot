@@ -1,13 +1,16 @@
 import { DndContext } from "@dnd-kit/core";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { ReferenceGroup } from "../../domain/plan/models";
 import { GroupImageGrid } from "./GroupImageGrid";
 
-const group: ReferenceGroup = {
+interface GroupLike {
+  id: string;
+  columnsPerRow: number;
+  images: Array<{ id: string; file: string }>;
+}
+
+const group: GroupLike = {
   id: "g1",
-  title: "Lookbook",
-  description: "",
   columnsPerRow: 3,
   images: [
     { id: "i1", file: "references/0001.png" },

@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ImportedImage, ProjectPlan, ReferenceGroup } from "../../domain/plan/models";
-import type { PlanRepository, ReferenceImageStore } from "../../domain/plan/ports";
+import type { ImportedImage, ReferenceImageStore } from "../../domain/plan/ports";
 import type { CanvasPlanRepository } from "../../domain/plan/canvas/ports";
 import type { ProjectPlan as CanvasPlan } from "../../domain/plan/canvas/models";
 
@@ -28,34 +27,6 @@ function requireString(value: unknown): string {
   return value;
 }
 
-function validateGroup(value: unknown): ReferenceGroup {
-  if (!isRecord(value) || !Array.isArray(value.images) || typeof value.columnsPerRow !== "number") {
-    throw new Error("Malformed native response");
-  }
-  return {
-    id: requireString(value.id),
-    title: typeof value.title === "string" ? value.title : "",
-    description: typeof value.description === "string" ? value.description : "",
-    columnsPerRow: value.columnsPerRow,
-    images: value.images.map((image) => {
-      if (!isRecord(image)) {
-        throw new Error("Malformed native response");
-      }
-      return { id: requireString(image.id), file: requireString(image.file) };
-    }),
-  };
-}
-
-function validatePlan(value: unknown): ProjectPlan {
-  if (!isRecord(value) || !Array.isArray(value.referenceGroups)) {
-    throw new Error("Malformed native response");
-  }
-  return {
-    photographyPlan: typeof value.photographyPlan === "string" ? value.photographyPlan : "",
-    referenceGroups: value.referenceGroups.map(validateGroup),
-  };
-}
-
 function validateImported(value: unknown): ImportedImage {
   if (!isRecord(value)) {
     throw new Error("Malformed native response");
@@ -63,25 +34,9 @@ function validateImported(value: unknown): ImportedImage {
   return { file: requireString(value.file), dataUrl: requireString(value.dataUrl) };
 }
 
-export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): PlanRepository &
-  ReferenceImageStore &
+export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): ReferenceImageStore &
   CanvasPlanRepository {
   return {
-    async loadPlan(projectPath) {
-      try {
-        const raw = await invokeCommand("read_project_plan", { projectPath });
-        return validatePlan(raw ?? { photographyPlan: "", referenceGroups: [] });
-      } catch (error) {
-        throw new Error(`Unable to read the project plan: ${detail(error)}`, { cause: error });
-      }
-    },
-    async savePlan(projectPath, plan) {
-      try {
-        await invokeCommand("save_project_plan", { projectPath, plan });
-      } catch (error) {
-        throw new Error(`Unable to save the project plan: ${detail(error)}`, { cause: error });
-      }
-    },
     async importImage(projectPath, sourcePath) {
       try {
         return validateImported(

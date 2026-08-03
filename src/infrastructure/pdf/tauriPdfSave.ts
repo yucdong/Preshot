@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import type { PdfSaveTarget } from "../../domain/plan/pdf/ports";
+import type { PdfSaveTarget } from "../../domain/plan/canvas/ports";
 import { bytesToBase64 } from "./base64";
 
 type SaveDialog = (options: {

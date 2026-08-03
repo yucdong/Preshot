@@ -1,13 +1,17 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTranslation } from "react-i18next";
-import type { ReferenceImage } from "../../domain/plan/models";
 
 const squareButton =
   "group relative block aspect-square w-full overflow-hidden rounded-xl border border-black/10 bg-stone-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500";
 
+interface ReferenceImageLike {
+  id: string;
+  file: string;
+}
+
 interface SortableImageTileProps {
-  image: ReferenceImage;
+  image: ReferenceImageLike;
   index: number;
   src: string | undefined;
   onOpen(file: string): void;

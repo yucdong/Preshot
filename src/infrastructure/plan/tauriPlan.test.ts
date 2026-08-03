@@ -16,52 +16,28 @@ describe("createTauriPlan", () => {
     const invokeCommand = vi.fn().mockRejectedValue({ message: "boom" });
     const plan = createTauriPlan({ invokeCommand });
 
-    await expect(plan.savePlan("C:\\p", { photographyPlan: "", referenceGroups: [] })).rejects.toThrow(
+    await expect(plan.saveRawPlan("C:\\p", { schemaVersion: 2, components: [] })).rejects.toThrow(
       /Unable to save the project plan: boom/,
     );
   });
 
-  it("reads and validates a plan", async () => {
+  it("reads a raw canvas plan", async () => {
     const invokeCommand = vi.fn().mockResolvedValue({
-      referenceGroups: [{ id: "g1", title: "L", description: "Warm tones", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }],
+      schemaVersion: 2,
+      components: [{ id: "c1", type: "plan", widthFraction: "1", height: 200, html: "<p>Test</p>" }],
     });
     const plan = createTauriPlan({ invokeCommand });
 
-    await expect(plan.loadPlan("C:\\p")).resolves.toEqual({
-      photographyPlan: "",
-      referenceGroups: [{ id: "g1", title: "L", description: "Warm tones", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.jpg" }] }],
+    await expect(plan.loadRawPlan("C:\\p")).resolves.toEqual({
+      schemaVersion: 2,
+      components: [{ id: "c1", type: "plan", widthFraction: "1", height: 200, html: "<p>Test</p>" }],
     });
   });
 
-  it("defaults a missing description to an empty string", async () => {
-    const invokeCommand = vi.fn().mockResolvedValue({
-      referenceGroups: [{ id: "g1", title: "L", columnsPerRow: 3, images: [] }],
-    });
-    const plan = createTauriPlan({ invokeCommand });
-
-    await expect(plan.loadPlan("C:\\p")).resolves.toEqual({
-      photographyPlan: "",
-      referenceGroups: [{ id: "g1", title: "L", description: "", columnsPerRow: 3, images: [] }],
-    });
-  });
-
-  it("defaults a missing photographyPlan to an empty string", async () => {
-    const invokeCommand = vi.fn().mockResolvedValue({ referenceGroups: [] });
-    const plan = createTauriPlan({ invokeCommand });
-
-    await expect(plan.loadPlan("C:\\p")).resolves.toEqual({
-      photographyPlan: "",
-      referenceGroups: [],
-    });
-  });
-
-  it("tolerates null result from Rust (returns empty v1 plan)", async () => {
+  it("tolerates null result from Rust (returns null)", async () => {
     const invokeCommand = vi.fn().mockResolvedValue(null);
     const plan = createTauriPlan({ invokeCommand });
 
-    await expect(plan.loadPlan("C:\\p")).resolves.toEqual({
-      photographyPlan: "",
-      referenceGroups: [],
-    });
+    await expect(plan.loadRawPlan("C:\\p")).resolves.toBeNull();
   });
 });

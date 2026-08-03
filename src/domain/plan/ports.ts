@@ -1,8 +1,6 @@
-import type { ImportedImage, ProjectPlan } from "./models";
-
-export interface PlanRepository {
-  loadPlan(projectPath: string): Promise<ProjectPlan>;
-  savePlan(projectPath: string, plan: ProjectPlan): Promise<void>;
+export interface ImportedImage {
+  file: string;
+  dataUrl: string;
 }
 
 export interface ReferenceImageStore {
