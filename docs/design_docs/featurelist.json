@@ -229,7 +229,7 @@
           "date": "2026-08-03",
           "typecheck": "clean",
           "lint": "clean",
-          "unitTests": "233 tests passed",
+          "unitTests": "237 tests passed",
           "e2eTests": "11 tests passed (canvas insert/reorder/resize/image/PDF, layout scroll, workspace auto-open)",
           "rustTests": "29 tests passed",
           "build": "succeeded"
