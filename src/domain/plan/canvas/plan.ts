@@ -2,7 +2,6 @@ import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import {
   clampColumns,
   clampHeight,
-  snapWidthFraction,
   type PlanComponent,
   type ProjectPlan,
   type ReferenceComponent,
