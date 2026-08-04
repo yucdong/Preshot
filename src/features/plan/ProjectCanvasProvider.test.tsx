@@ -4,6 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
 import type { ProjectPlan } from "../../domain/plan/canvas/models";
 import { ProjectCanvasProvider, type CanvasPlanDependencies } from "./ProjectCanvasProvider";
+import { ThemeProvider } from "../../app/theme/ThemeProvider";
+import type { SettingsRepository } from "../../domain/settings/ports";
+
+// Minimal fake repository for tests
+const fakeRepository: SettingsRepository = {
+  read: async () => ({ theme: "system" }),
+  write: async () => {},
+};
 
 vi.mock("./canvas/PlanCanvas", () => ({
   PlanCanvas: ({
@@ -104,11 +112,16 @@ function deps(): {
   };
 }
 
+// Helper to wrap components in ThemeProvider for testing
+function renderWithTheme(ui: React.ReactElement) {
+  return render(<ThemeProvider repository={fakeRepository}>{ui}</ThemeProvider>);
+}
+
 describe("ProjectCanvasProvider", () => {
   it("loads the plan and images", async () => {
     const { dependencies, service } = deps();
 
-    render(
+    renderWithTheme(
       <ProjectCanvasProvider
         dependencies={dependencies}
         projectName="Demo"
@@ -131,7 +144,7 @@ describe("ProjectCanvasProvider", () => {
       components: [],
     });
 
-    render(
+    renderWithTheme(
       <ProjectCanvasProvider
         dependencies={dependencies}
         projectName="Demo"
@@ -159,7 +172,7 @@ describe("ProjectCanvasProvider", () => {
   it("marks unsaved when a component is edited", async () => {
     const { dependencies } = deps();
 
-    render(
+    renderWithTheme(
       <ProjectCanvasProvider
         dependencies={dependencies}
         projectName="Demo"
@@ -180,7 +193,7 @@ describe("ProjectCanvasProvider", () => {
     const { dependencies } = deps();
     const user = userEvent.setup();
 
-    render(
+    renderWithTheme(
       <ProjectCanvasProvider
         dependencies={dependencies}
         projectName="Demo"
@@ -202,7 +215,7 @@ describe("ProjectCanvasProvider", () => {
     const { dependencies } = deps();
     const user = userEvent.setup();
 
-    render(
+    renderWithTheme(
       <ProjectCanvasProvider
         dependencies={dependencies}
         projectName="Demo"
@@ -232,7 +245,7 @@ describe("ProjectCanvasProvider", () => {
     const { dependencies } = deps();
     const user = userEvent.setup();
 
-    render(
+    renderWithTheme(
       <ProjectCanvasProvider
         dependencies={dependencies}
         projectName="Demo"
@@ -255,7 +268,7 @@ describe("ProjectCanvasProvider", () => {
     try {
       const { dependencies, savePlan } = deps();
 
-      render(
+      renderWithTheme(
         <ProjectCanvasProvider
           dependencies={dependencies}
           projectName="Demo"
@@ -323,7 +336,7 @@ describe("ProjectCanvasProvider", () => {
     const mockImage2x1 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAQAAABeK7cBAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
     (service.loadImage as ReturnType<typeof vi.fn>).mockResolvedValue(mockImage2x1);
     
-    render(
+    renderWithTheme(
       <ProjectCanvasProvider
         dependencies={dependencies}
         projectName="Demo"

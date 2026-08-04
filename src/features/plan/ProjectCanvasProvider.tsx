@@ -34,6 +34,7 @@ import { PlanCanvas } from "./canvas/PlanCanvas";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
 import { InsertComponentMenu } from "./canvas/InsertComponentMenu";
 import { SaveStatus, type SaveState } from "./SaveStatus";
+import { SettingsButton } from "../settings/SettingsButton";
 
 export interface CanvasPlanDependencies {
   service: CanvasPlanService;
@@ -567,6 +568,9 @@ export function ProjectCanvasProvider({
         </button>
         <InsertComponentMenu onInsert={handleInsert} />
         <SaveStatus state={saveState} />
+        <div className="ml-auto">
+          <SettingsButton />
+        </div>
       </div>
       <div className="flex-1 overflow-auto bg-stone-100 p-6 dark:bg-stone-800" ref={containerRef}>
         <PlanCanvas

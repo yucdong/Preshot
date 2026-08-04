@@ -13,6 +13,14 @@ import type {
 import type { CanvasPlanDependencies } from "../../features/plan/ProjectCanvasProvider";
 import type { WorkspaceDependencies } from "./dependencies";
 import { WorkspaceProvider } from "./WorkspaceProvider";
+import { ThemeProvider } from "../theme/ThemeProvider";
+import type { SettingsRepository } from "../../domain/settings/ports";
+
+// Minimal fake repository for tests
+const fakeRepository: SettingsRepository = {
+  read: async () => ({ theme: "system" }),
+  write: async () => {},
+};
 
 vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
   PlanCanvas: () => <div data-testid="plan-canvas">Canvas Mock</div>,
@@ -131,6 +139,11 @@ function createDependencies() {
   };
 }
 
+// Helper to wrap components in ThemeProvider for testing
+function renderWithTheme(ui: React.ReactElement) {
+  return render(<ThemeProvider repository={fakeRepository}>{ui}</ThemeProvider>);
+}
+
 describe("WorkspaceProvider", () => {
   it("shows initial loading and then auto-opens the most recently edited project", async () => {
     const project = makeProject();
@@ -138,7 +151,7 @@ describe("WorkspaceProvider", () => {
     const { dependencies, service, native } = createDependencies();
     vi.mocked(service.loadProjects).mockReturnValueOnce(promise);
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     expect(screen.getByRole("status")).toHaveTextContent(
       "正在加载最近的项目",
@@ -178,7 +191,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(service.loadProjects).mockResolvedValue([other, current]);
     vi.mocked(service.openProject).mockResolvedValue(openedOther);
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     expect(
       await screen.findByRole("button", { name: "打开项目 Editorial" }),
@@ -206,7 +219,7 @@ describe("WorkspaceProvider", () => {
       new Error("metadata corrupt"),
     );
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "操作未能完成，请重试。",
@@ -218,7 +231,7 @@ describe("WorkspaceProvider", () => {
     const user = userEvent.setup();
     const { dependencies, pickDirectory, service } = createDependencies();
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "新建项目" }));
 
@@ -237,7 +250,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(pickDirectory).mockReturnValueOnce(promise);
     vi.mocked(service.createProject).mockResolvedValue(project);
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "新建项目" }));
 
@@ -269,7 +282,7 @@ describe("WorkspaceProvider", () => {
       new Error("name already exists"),
     );
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "新建项目" }));
     const dialog = await screen.findByRole("dialog");
@@ -301,7 +314,7 @@ describe("WorkspaceProvider", () => {
       .mockResolvedValueOnce("C:\\shoots")
       .mockReturnValueOnce(new Promise<string | null>(() => undefined));
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "新建项目" }));
     await screen.findByRole("dialog");
@@ -324,7 +337,7 @@ describe("WorkspaceProvider", () => {
     const user = userEvent.setup();
     const { dependencies, service } = createDependencies();
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "打开项目" }));
 
@@ -339,7 +352,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(pickDirectory).mockResolvedValueOnce(project.path);
     vi.mocked(service.openProject).mockResolvedValue(project);
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(await screen.findByRole("button", { name: "打开项目" }));
 
@@ -372,7 +385,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(service.relocateProject).mockResolvedValue(relocatedProject);
     vi.mocked(service.removeRecord).mockResolvedValue([relocatedProject]);
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await user.click(
       await screen.findByRole("button", {
@@ -409,7 +422,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(pickDirectory).mockResolvedValueOnce(project.path);
     vi.mocked(service.openProject).mockResolvedValue(project);
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await screen.findByRole("button", { name: "新建项目" });
 
@@ -438,7 +451,7 @@ describe("WorkspaceProvider", () => {
     process.on("unhandledRejection", captureUnhandled);
 
     try {
-      render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+      renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
       await screen.findByRole("button", { name: "新建项目" });
 
@@ -469,7 +482,7 @@ describe("WorkspaceProvider", () => {
     vi.mocked(pickDirectory).mockReturnValueOnce(promise);
     vi.mocked(service.createProject).mockResolvedValue(project);
 
-    render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await screen.findByRole("button", { name: "新建项目" });
 
@@ -499,7 +512,7 @@ describe("WorkspaceProvider", () => {
       createDependencies();
     vi.mocked(service.loadProjects).mockReturnValueOnce(promise);
 
-    const { unmount } = render(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
+    const { unmount } = renderWithTheme(<WorkspaceProvider dependencies={dependencies} planDependencies={planDeps()} />);
 
     await waitFor(() => {
       expect(native.onMenuAction).toHaveBeenCalledTimes(1);
@@ -517,3 +530,4 @@ describe("WorkspaceProvider", () => {
     });
   });
 });
+

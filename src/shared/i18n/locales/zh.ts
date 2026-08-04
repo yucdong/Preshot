@@ -111,6 +111,14 @@ export const zh = {
     planTemplate: "<p>拍摄时间：</p><p>拍摄地点：</p><p>道具和服装：</p><p>器材：</p>",
     captionPlaceholder: "补充拍摄说明…",
   },
+  settings: {
+    open: "设置",
+    title: "设置",
+    theme: "主题",
+    themeLight: "浅色",
+    themeDark: "深色",
+    themeSystem: "跟随系统",
+  },
   errors: {
     workspace: "操作未能完成，请重试。",
     plan: "操作未能完成，请重试。",
