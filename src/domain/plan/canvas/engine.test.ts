@@ -82,17 +82,21 @@ function reference(overrides: Partial<ReferenceComponent> = {}): ReferenceCompon
 }
 
 describe("reference image slots", () => {
-  it("lays out square slots row-major below the title band", () => {
+  it("lays out aspect-ratio slots below the title band", () => {
     const rect = { x: 0, y: 0, width: 300, height: 300 };
-    const slots = referenceImageSlots(rect, reference());
+    // Use smaller imageHeight so multiple images fit per row in a 300pt wide rect
+    const slots = referenceImageSlots(rect, reference({ imageHeight: 80 }));
     expect(slots).toHaveLength(4);
-    // three columns on the first row, all at the same y (>= title band)
+    // All images start at or below the title band
     expect(slots[0].y).toBeGreaterThanOrEqual(TITLE_BAND);
+    // First two images fit on the first row (packed by aspect ratio)
+    // innerWidth = 300 - 24 = 276; each image is 80x80, so 80+24+80 = 184 < 276 (2 fit)
     expect(slots[0].y).toBe(slots[1].y);
     expect(slots[1].x).toBeGreaterThan(slots[0].x);
-    expect(slots[0].width).toBeCloseTo(slots[0].height, 5); // square when captions off
-    // fourth image wraps to the next row
-    expect(slots[3].x).toBe(slots[0].x);
+    // When aspect ratio defaults to 1.0 and captions off, images are square
+    expect(slots[0].width).toBeCloseTo(slots[0].height, 5);
+    // Third and fourth images wrap to subsequent rows
+    expect(slots[2].y).toBeGreaterThan(slots[0].y);
     expect(slots[3].y).toBeGreaterThan(slots[0].y);
   });
 
@@ -158,5 +162,65 @@ describe("continuous width layout", () => {
     expect(a.placements[0].rect.y).toBe(a.placements[1].rect.y); // same row
     const b = layoutPlan([mk("a", 0.6), mk("b", 0.6)], DEFAULT_PAGE_GEOMETRY);
     expect(b.placements[1].rect.y).toBeGreaterThan(b.placements[0].rect.y); // wrapped
+  });
+});
+
+describe("aspect-ratio reference image slots", () => {
+  it("packs images at imageHeight using aspect ratios (landscape + portrait)", () => {
+    const rect = { x: 0, y: 0, width: 300, height: 300 };
+    const comp = reference({
+      imageHeight: 100,
+      images: [
+        { id: "i1", file: "landscape.png", aspectRatio: 2 }, // width ~200
+        { id: "i2", file: "portrait.png", aspectRatio: 0.5 }, // width ~50
+      ],
+    });
+    const slots = referenceImageSlots(rect, comp);
+    expect(slots).toHaveLength(2);
+    // Both images should fit on one row at the specified height
+    expect(slots[0].height).toBeCloseTo(100, 1);
+    expect(slots[1].height).toBeCloseTo(100, 1);
+    // Widths should match imageHeight × aspectRatio
+    expect(slots[0].width).toBeCloseTo(200, 1); // 100 * 2
+    expect(slots[1].width).toBeCloseTo(50, 1); // 100 * 0.5
+    // Both on same row (same y)
+    expect(slots[0].y).toBe(slots[1].y);
+    // Second image should be positioned after the first + gap
+    expect(slots[1].x).toBeGreaterThan(slots[0].x + slots[0].width);
+  });
+
+  it("adds caption band per image when showCaptions is true", () => {
+    const rect = { x: 0, y: 0, width: 400, height: 400 };
+    const comp = reference({
+      imageHeight: 100,
+      showCaptions: true,
+      images: [
+        { id: "i1", file: "photo.png", aspectRatio: 1.5, caption: "Test" },
+      ],
+    });
+    const slots = referenceImageSlots(rect, comp);
+    expect(slots).toHaveLength(1);
+    // Slot height should be round(imageHeight * 4/3) so slotCaptionSplit gives imageHeight
+    const expectedSlotHeight = Math.round(100 * 4 / 3); // 133
+    expect(slots[0].height).toBe(expectedSlotHeight);
+    // slotCaptionSplit should split correctly: image gets imageHeight
+    const { image, caption } = slotCaptionSplit(slots[0], true);
+    expect(image.height).toBe(100);
+    expect(caption.height).toBe(expectedSlotHeight - 100); // 33
+    expect(caption.y).toBe(image.y + image.height);
+  });
+
+  it("uses DEFAULT_IMAGE_HEIGHT when imageHeight is undefined", () => {
+    const rect = { x: 0, y: 0, width: 400, height: 400 };
+    const comp = reference({
+      images: [
+        { id: "i1", file: "photo.png", aspectRatio: 1 },
+      ],
+    });
+    const slots = referenceImageSlots(rect, comp);
+    expect(slots).toHaveLength(1);
+    // Should use DEFAULT_IMAGE_HEIGHT (180)
+    expect(slots[0].height).toBeCloseTo(180, 1);
+    expect(slots[0].width).toBeCloseTo(180, 1); // ratio 1 × 180
   });
 });

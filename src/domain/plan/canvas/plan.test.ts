@@ -10,6 +10,7 @@ import {
   resizeComponent,
   setImageCaption,
   setImageAspectRatio,
+  setImageHeight,
   toggleReferenceCaptions,
   updatePlanHtml,
 } from "./plan";
@@ -143,5 +144,27 @@ describe("canvas reducers", () => {
     const plan = withComponents([reference("r", ["i1"])]);
     const result = setImageAspectRatio(plan, { componentId: "r", imageId: "unknown", aspectRatio: 1.5 });
     expect(result).toBe(plan);
+  });
+
+  it("sets reference component imageHeight with clamping", () => {
+    const plan = withComponents([reference("r", ["i1"])]);
+    const MIN = 80;
+    const MAX = 400;
+    // Normal value
+    const withHeight = setImageHeight(plan, "r", 200);
+    expect((withHeight.components[0] as ReferenceComponent).imageHeight).toBe(200);
+    // Clamp below MIN
+    const clamped = setImageHeight(plan, "r", 50);
+    expect((clamped.components[0] as ReferenceComponent).imageHeight).toBe(MIN);
+    // Clamp above MAX
+    const clampedMax = setImageHeight(plan, "r", 500);
+    expect((clampedMax.components[0] as ReferenceComponent).imageHeight).toBe(MAX);
+  });
+
+  it("setImageHeight returns same plan when imageHeight is unchanged", () => {
+    const plan = withComponents([reference("r", ["i1"])]);
+    const withHeight = setImageHeight(plan, "r", 200);
+    const reapplied = setImageHeight(withHeight, "r", 200);
+    expect(reapplied).toBe(withHeight);
   });
 });

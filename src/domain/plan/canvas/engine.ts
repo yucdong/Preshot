@@ -1,5 +1,5 @@
-import { contentSize, DEFAULT_PAGE_GEOMETRY, squareSlotGrid, type PageGeometry, type Rect } from "./geometry";
-import { clampHeight, effectiveWidth, type PlanComponent, type ReferenceComponent } from "./models";
+import { contentSize, DEFAULT_PAGE_GEOMETRY, packAspectRow, type PageGeometry, type Rect } from "./geometry";
+import { clampHeight, clampImageHeight, DEFAULT_IMAGE_HEIGHT, effectiveWidth, type PlanComponent, type ReferenceComponent } from "./models";
 
 const EPS = 0.01;
 
@@ -28,19 +28,28 @@ export function referenceImageSlots(
 ): Rect[] {
   const top = TITLE_BAND + (component.description.trim() ? DESCRIPTION_BAND : 0);
   const innerWidth = rect.width - geometry.gutter;
-  const { slotSize, xOffsets } = squareSlotGrid(innerWidth, component.columnsPerRow, geometry.gutter);
-  // Captions on: tile = round(slotSize*4/3) so slotCaptionSplit's round(height/4) caption band is ~1/4 of the tile (= ~1/3 of the image) and the image portion stays ~square.
-  const tileHeight = component.showCaptions ? Math.round((slotSize * 4) / 3) : slotSize;
-  return component.images.map((_image, index) => {
-    const column = index % xOffsets.length;
-    const row = Math.floor(index / xOffsets.length);
-    return {
-      x: rect.x + xOffsets[column],
-      y: rect.y + top + row * (tileHeight + geometry.rowGap),
-      width: slotSize,
-      height: tileHeight,
-    };
-  });
+  const ih = clampImageHeight(component.imageHeight ?? DEFAULT_IMAGE_HEIGHT);
+  
+  // Prepare items for packAspectRow with aspect ratios
+  const items = component.images.map(image => ({
+    aspectRatio: image.aspectRatio ?? 1,
+  }));
+  
+  // Pack images at imageHeight
+  const { rects } = packAspectRow(items, ih, innerWidth, geometry.gutter);
+  
+  // When showCaptions, set slot height so slotCaptionSplit can extract image height ih
+  // slotCaptionSplit does: caption = round(height/4), image = height - caption
+  // For image to be ih: height - round(height/4) = ih => height = round(ih * 4/3)
+  const slotHeight = component.showCaptions ? Math.round((ih * 4) / 3) : ih;
+  
+  // Offset all rects by (rect.x, rect.y + top) and set slot height
+  return rects.map(imageRect => ({
+    x: rect.x + imageRect.x,
+    y: rect.y + top + imageRect.y,
+    width: imageRect.width,
+    height: slotHeight,
+  }));
 }
 
 export interface Placement {

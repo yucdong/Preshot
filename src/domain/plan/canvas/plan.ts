@@ -2,6 +2,7 @@ import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import {
   clampColumns,
   clampHeight,
+  clampImageHeight,
   clampWidth,
   type PlanComponent,
   type ProjectPlan,
@@ -226,5 +227,12 @@ export function moveImage(plan: ProjectPlan, params: MoveImageParams): ProjectPl
       }
       return component;
     }),
+  );
+}
+
+export function setImageHeight(plan: ProjectPlan, id: string, imageHeight: number): ProjectPlan {
+  const clamped = clampImageHeight(imageHeight);
+  return mapReference(plan, id, (component) =>
+    component.imageHeight === clamped ? component : { ...component, imageHeight: clamped },
   );
 }
