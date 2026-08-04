@@ -13,8 +13,9 @@ use uuid::Uuid;
 
 use crate::error::CommandError;
 
-const MANIFEST_FILE_NAME: &str = ".preshot";
-const MANIFEST_TEMP_FILE_NAME: &str = ".preshot.tmp";
+const MANIFEST_FILE_NAME: &str = ".preshotproj";
+const LEGACY_MANIFEST_FILE_NAME: &str = ".preshot";
+const MANIFEST_TEMP_FILE_NAME: &str = ".preshotproj.tmp";
 const MAX_COVER_BYTES: u64 = 16 * 1024 * 1024;
 const PENDING_ROLLBACK_TTL: Duration = Duration::from_secs(60);
 const RESERVED_WINDOWS_NAMES: [&str; 22] = [
@@ -279,36 +280,83 @@ pub(crate) fn write_manifest_atomically(
 
 pub(crate) fn read_manifest(project_path: &Path) -> Result<ProjectManifest, CommandError> {
     let manifest_path = project_path.join(MANIFEST_FILE_NAME);
-    let manifest_metadata = fs::metadata(&manifest_path).map_err(|error| match error.kind() {
-        ErrorKind::NotFound => CommandError::new(
-            "manifest_missing",
-            "Preshot projects must contain a .preshot manifest",
-        ),
-        _ => CommandError::new(
+    let legacy_manifest_path = project_path.join(LEGACY_MANIFEST_FILE_NAME);
+
+    // Try to read the new .preshotproj file first
+    match fs::metadata(&manifest_path) {
+        Ok(metadata) => {
+            if !metadata.is_file() {
+                return Err(CommandError::new(
+                    "manifest_not_file",
+                    "The .preshotproj manifest must be a regular file",
+                ));
+            }
+            let manifest_bytes = fs::read(&manifest_path).map_err(|error| {
+                CommandError::new(
+                    "manifest_read_failed",
+                    format!("Unable to read the project manifest: {error}"),
+                )
+            })?;
+            let manifest: ProjectManifest =
+                serde_json::from_slice(&manifest_bytes).map_err(|error| {
+                    CommandError::new(
+                        "manifest_decode_failed",
+                        format!("Unable to decode the project manifest: {error}"),
+                    )
+                })?;
+            validate_manifest(&manifest)?;
+            Ok(manifest)
+        }
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            // .preshotproj not found, try legacy .preshot
+            match fs::metadata(&legacy_manifest_path) {
+                Ok(metadata) => {
+                    if !metadata.is_file() {
+                        return Err(CommandError::new(
+                            "manifest_not_file",
+                            "The .preshot manifest must be a regular file",
+                        ));
+                    }
+                    let manifest_bytes = fs::read(&legacy_manifest_path).map_err(|error| {
+                        CommandError::new(
+                            "manifest_read_failed",
+                            format!("Unable to read the project manifest: {error}"),
+                        )
+                    })?;
+                    let manifest: ProjectManifest =
+                        serde_json::from_slice(&manifest_bytes).map_err(|error| {
+                            CommandError::new(
+                                "manifest_decode_failed",
+                                format!("Unable to decode the project manifest: {error}"),
+                            )
+                        })?;
+                    validate_manifest(&manifest)?;
+
+                    // Migrate: write the new .preshotproj and remove the old .preshot
+                    write_manifest_atomically(project_path, &manifest)?;
+                    // Ignore errors when removing the legacy file; the migration still succeeded
+                    let _ = fs::remove_file(&legacy_manifest_path);
+
+                    Ok(manifest)
+                }
+                Err(error) if error.kind() == ErrorKind::NotFound => {
+                    // Neither file exists
+                    Err(CommandError::new(
+                        "manifest_missing",
+                        "Preshot projects must contain a .preshot manifest",
+                    ))
+                }
+                Err(error) => Err(CommandError::new(
+                    "manifest_read_failed",
+                    format!("Unable to access the project manifest: {error}"),
+                )),
+            }
+        }
+        Err(error) => Err(CommandError::new(
             "manifest_read_failed",
             format!("Unable to access the project manifest: {error}"),
-        ),
-    })?;
-    if !manifest_metadata.is_file() {
-        return Err(CommandError::new(
-            "manifest_not_file",
-            "The .preshot manifest must be a regular file",
-        ));
+        )),
     }
-    let manifest_bytes = fs::read(&manifest_path).map_err(|error| {
-        CommandError::new(
-            "manifest_read_failed",
-            format!("Unable to read the project manifest: {error}"),
-        )
-    })?;
-    let manifest: ProjectManifest = serde_json::from_slice(&manifest_bytes).map_err(|error| {
-        CommandError::new(
-            "manifest_decode_failed",
-            format!("Unable to decode the project manifest: {error}"),
-        )
-    })?;
-    validate_manifest(&manifest)?;
-    Ok(manifest)
 }
 
 pub fn inspect_project_directory(path: &Path) -> Result<InspectedProject, CommandError> {
@@ -823,7 +871,7 @@ mod tests {
 
         let created = create_project_in(parent.path(), "Editorial").unwrap();
         let project_path = parent.path().join("Editorial");
-        let manifest_path = project_path.join(".preshot");
+        let manifest_path = project_path.join(".preshotproj");
 
         assert!(manifest_path.is_file());
         assert_eq!(created.path, canonical_string(&project_path));
@@ -1241,5 +1289,60 @@ mod tests {
         assert_eq!(plan["referenceGroups"][0]["id"], "g1");
         assert_eq!(plan["referenceGroups"][0]["title"], "Lookbook");
         assert_eq!(plan["referenceGroups"][0]["images"][0]["file"], "references/0001.jpg");
+    }
+
+    #[test]
+    fn read_manifest_migrates_legacy_preshot_to_preshotproj() {
+        let project = tempfile::tempdir().unwrap();
+        let legacy_manifest = json!({
+            "schemaVersion": 1,
+            "id": "487cbc59-e196-4900-80d3-7221e64eb181",
+            "name": "Legacy",
+            "createdAt": "2026-07-27T17:00:00.000Z",
+            "updatedAt": "2026-07-27T17:00:00.000Z"
+        });
+        fs::write(
+            project.path().join(".preshot"),
+            serde_json::to_vec_pretty(&legacy_manifest).unwrap(),
+        )
+        .unwrap();
+
+        let manifest = read_manifest(project.path()).unwrap();
+
+        assert_eq!(manifest.id, "487cbc59-e196-4900-80d3-7221e64eb181");
+        assert_eq!(manifest.name, "Legacy");
+        assert!(project.path().join(".preshotproj").exists());
+        assert!(!project.path().join(".preshot").exists());
+    }
+
+    #[test]
+    fn read_manifest_reads_preshotproj_directly() {
+        let project = tempfile::tempdir().unwrap();
+        let manifest_value = json!({
+            "schemaVersion": 1,
+            "id": "487cbc59-e196-4900-80d3-7221e64eb181",
+            "name": "Modern",
+            "createdAt": "2026-07-27T17:00:00.000Z",
+            "updatedAt": "2026-07-27T17:00:00.000Z"
+        });
+        fs::write(
+            project.path().join(".preshotproj"),
+            serde_json::to_vec_pretty(&manifest_value).unwrap(),
+        )
+        .unwrap();
+
+        let manifest = read_manifest(project.path()).unwrap();
+
+        assert_eq!(manifest.id, "487cbc59-e196-4900-80d3-7221e64eb181");
+        assert_eq!(manifest.name, "Modern");
+    }
+
+    #[test]
+    fn read_manifest_returns_manifest_missing_when_neither_file_exists() {
+        let project = tempfile::tempdir().unwrap();
+
+        let error = read_manifest(project.path()).unwrap_err();
+
+        assert_eq!(error.code, "manifest_missing");
     }
 }
