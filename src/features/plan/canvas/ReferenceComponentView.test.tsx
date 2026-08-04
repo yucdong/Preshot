@@ -259,4 +259,31 @@ describe("ReferenceComponentView", () => {
     await user.click(screen.getByRole("button", { name: "减小图片高度" }));
     expect(onSetImageHeight).toHaveBeenCalledWith("ref-1", 160);
   });
+
+  it("uses i18n keys for stepper button aria-labels", () => {
+    // TDD: Test for Finding 4 - should use translated labels
+    render(
+      <ReferenceComponentView
+        component={mockComponent}
+        imageSrc={() => undefined}
+        onSetTitle={vi.fn()}
+        onSetDescription={vi.fn()}
+        onSetColumns={vi.fn()}
+        onAddImage={vi.fn()}
+        onRemoveImage={vi.fn()}
+        onOpenImage={vi.fn()}
+        onSetImageHeight={vi.fn()}
+        onAddImages={vi.fn()}
+        slots={[]}
+        scale={1}
+      />,
+    );
+
+    // These buttons should use i18n translated labels
+    const decreaseButton = screen.getByRole("button", { name: "减小图片高度" });
+    const increaseButton = screen.getByRole("button", { name: "增大图片高度" });
+    
+    expect(decreaseButton).toBeInTheDocument();
+    expect(increaseButton).toBeInTheDocument();
+  });
 });

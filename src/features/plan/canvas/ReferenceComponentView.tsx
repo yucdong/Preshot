@@ -72,7 +72,7 @@ export function ReferenceComponentView({
           <div className="flex items-center gap-2">
             <span className="text-sm text-stone-600">{t("reference.imageHeight")}</span>
             <button
-              aria-label="减小图片高度"
+              aria-label={t("reference.decreaseImageHeight")}
               className="rounded border border-stone-300 px-2 py-1 text-sm hover:bg-stone-100"
               onClick={handleDecreaseHeight}
               type="button"
@@ -80,7 +80,7 @@ export function ReferenceComponentView({
               −
             </button>
             <button
-              aria-label="增大图片高度"
+              aria-label={t("reference.increaseImageHeight")}
               className="rounded border border-stone-300 px-2 py-1 text-sm hover:bg-stone-100"
               onClick={handleIncreaseHeight}
               type="button"

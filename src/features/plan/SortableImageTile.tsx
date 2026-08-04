@@ -95,7 +95,7 @@ export function SortableImageTile({
       {showCaptions && onSetCaption && (
         <textarea
           aria-label={t("reference.captionAria", { index: index + 1 })}
-          className="absolute resize-none rounded border border-stone-300 px-2 py-1 text-xs focus:border-amber-500 focus:outline-none"
+          className="absolute resize-none rounded border border-stone-300 bg-white px-2 py-1 text-xs focus:border-amber-500 focus:outline-none"
           style={{
             bottom: 0,
             left: 0,

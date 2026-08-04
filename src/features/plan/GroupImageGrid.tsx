@@ -46,16 +46,20 @@ export function GroupImageGrid({
     data: enableReorder ? { type: "imagegroup" } : undefined
   });
 
+  // Bottom of content is the maximum of all slot bottoms (handles differing aspect-ratio heights)
+  const contentBottom = slots.length ? Math.max(...slots.map((s) => s.y + s.height)) : 0;
+  
   // Calculate container height based on max slot bottom edge
   const containerHeight = slots.length > 0
-    ? Math.max(...slots.map(slot => (slot.y + slot.height) * scale))
+    ? contentBottom * scale
     : 0;
 
   // Position for the add button (after the last slot or at the beginning)
+  // Add button dimensions in points, scaled uniformly
   const addButtonSlot = slots.length > 0 
     ? { 
         x: 0, 
-        y: (slots[slots.length - 1].y + slots[slots.length - 1].height + 12) * scale,
+        y: contentBottom + 12,
         width: 160,
         height: 120,
       }
@@ -87,10 +91,10 @@ export function GroupImageGrid({
       <div
         style={{
           position: "absolute",
-          left: `${addButtonSlot.x}px`,
-          top: `${addButtonSlot.y}px`,
-          width: `${addButtonSlot.width}px`,
-          height: `${addButtonSlot.height}px`,
+          left: `${addButtonSlot.x * scale}px`,
+          top: `${addButtonSlot.y * scale}px`,
+          width: `${addButtonSlot.width * scale}px`,
+          height: `${addButtonSlot.height * scale}px`,
         }}
       >
         <button

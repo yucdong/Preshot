@@ -55,7 +55,8 @@ export const zh = {
     captions: "显示说明",
     captionAria: "图片说明 {{index}}",
     imageHeight: "图片高度",
-    imageHeightAria: "调整图片高度",
+    decreaseImageHeight: "减小图片高度",
+    increaseImageHeight: "增大图片高度",
   },
   lightbox: {
     close: "关闭图片",

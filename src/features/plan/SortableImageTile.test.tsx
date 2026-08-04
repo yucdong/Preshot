@@ -107,4 +107,30 @@ describe("SortableImageTile", () => {
     fireEvent.click(removeButton);
     expect(onOpen).not.toHaveBeenCalled();
   });
+
+  it("caption textarea has explicit background for contrast", () => {
+    // TDD: Failing test for Finding 3
+    const onSetCaption = vi.fn();
+    render(
+      <DndContext>
+        <SortableImageTile
+          componentId="comp1"
+          draggable={true}
+          image={{ ...image, caption: "test" }}
+          index={0}
+          onOpen={vi.fn()}
+          onRemove={vi.fn()}
+          onSetCaption={onSetCaption}
+          showCaptions={true}
+          src="data:image/png;base64,AA"
+          slot={mockSlot}
+          scale={1}
+        />
+      </DndContext>,
+    );
+
+    const caption = screen.getByRole("textbox", { name: "图片说明 1" });
+    // Should have bg-white or bg-stone-50 class
+    expect(caption.className).toMatch(/bg-(white|stone-50)/);
+  });
 });

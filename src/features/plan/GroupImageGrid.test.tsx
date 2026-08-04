@@ -197,4 +197,40 @@ describe("GroupImageGrid", () => {
     expect(caption).toBeInTheDocument();
     expect(caption).toHaveValue("Test caption");
   });
+
+  it("positions add button at/below max(y+height) when slots have differing heights", () => {
+    // TDD: Failing test for Finding 1
+    // Slots in one row with different heights: tallest is 180, last is 120
+    const slots: Rect[] = [
+      { x: 0, y: 0, width: 160, height: 180 },
+      { x: 172, y: 0, width: 160, height: 120 },
+    ];
+    const scale = 1;
+    renderGrid({ slots, scale });
+
+    const addButton = screen.getByRole("button", { name: "添加参考图" });
+    const container = addButton.parentElement;
+    
+    // The add button should be positioned at/below the tallest slot's bottom (180),
+    // not at the last slot's bottom (120)
+    const topPx = parseFloat(container?.style.top || "0");
+    expect(topPx).toBeGreaterThanOrEqual(180); // Should be at least 180, probably 180 + gap
+  });
+
+  it("scales add button size consistently with image tiles", () => {
+    // TDD: Failing test for Finding 2
+    const slots: Rect[] = [
+      { x: 0, y: 24, width: 160, height: 120 },
+    ];
+    const scale = 0.5;
+    renderGrid({ slots, scale });
+
+    const addButton = screen.getByRole("button", { name: "添加参考图" });
+    const container = addButton.parentElement;
+    
+    // Add button dimensions should be scaled like image tiles
+    // If original is 160x120 points, at scale 0.5 it should be 80x60 pixels
+    expect(container?.style.width).toBe("80px");
+    expect(container?.style.height).toBe("60px");
+  });
 });
