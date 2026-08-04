@@ -53,3 +53,28 @@ export function containSize(
   const height = imageHeight * scale;
   return { width, height, offsetX: (slotWidth - width) / 2, offsetY: (slotHeight - height) / 2 };
 }
+
+export const SPACING = 24;
+
+export function packAspectRow(
+  items: { aspectRatio: number }[],
+  height: number,
+  maxWidth: number,
+  gap: number,
+): { rects: Rect[]; totalHeight: number } {
+  const rects: Rect[] = [];
+  let x = 0;
+  let y = 0;
+  let rowHeight = 0;
+  for (const item of items) {
+    const ratio = item.aspectRatio > 0 ? item.aspectRatio : 1;
+    let w = height * ratio;
+    let h = height;
+    if (w > maxWidth) { w = maxWidth; h = maxWidth / ratio; } // oversized single item
+    if (x > 0 && x + w > maxWidth + 0.01) { x = 0; y += rowHeight + gap; rowHeight = 0; }
+    rects.push({ x, y, width: w, height: h });
+    x += w + gap;
+    rowHeight = Math.max(rowHeight, h);
+  }
+  return { rects, totalHeight: y + rowHeight };
+}
