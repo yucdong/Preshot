@@ -26,8 +26,15 @@ export interface NativeWorkspace {
   ): Promise<() => void>;
 }
 
+export interface DirectoryPickerOptions {
+  defaultToProjectsDir?: boolean;
+}
+
 export interface WorkspaceDirectoryPicker {
-  pickDirectory(title: string): Promise<string | null>;
+  pickDirectory(
+    title: string,
+    options?: DirectoryPickerOptions,
+  ): Promise<string | null>;
 }
 
 export interface WorkspaceClock {

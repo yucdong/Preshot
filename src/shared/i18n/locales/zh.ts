@@ -105,6 +105,11 @@ export const zh = {
     create: "创建项目",
     creating: "正在创建…",
   },
+  picker: {
+    createParent: "选择新建 Preshot 项目的父文件夹",
+    openProject: "选择已有的 Preshot 项目",
+    relocate: "为 {{name}} 选择新的文件夹",
+  },
   content: {
     newGroupTitle: "新建分组",
     untitledGroup: "未命名分组",

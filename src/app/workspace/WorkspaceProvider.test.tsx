@@ -236,7 +236,8 @@ describe("WorkspaceProvider", () => {
     await user.click(await screen.findByRole("button", { name: "新建项目" }));
 
     expect(pickDirectory).toHaveBeenCalledWith(
-      "Select parent folder for the new Preshot project",
+      "选择新建 Preshot 项目的父文件夹",
+      { defaultToProjectsDir: true },
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(service.createProject).not.toHaveBeenCalled();
@@ -255,7 +256,8 @@ describe("WorkspaceProvider", () => {
     await user.click(await screen.findByRole("button", { name: "新建项目" }));
 
     expect(pickDirectory).toHaveBeenCalledWith(
-      "Select parent folder for the new Preshot project",
+      "选择新建 Preshot 项目的父文件夹",
+      { defaultToProjectsDir: true },
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 

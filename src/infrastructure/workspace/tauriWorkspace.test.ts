@@ -145,7 +145,7 @@ describe("createTauriWorkspace", () => {
   it("wraps structured native failures with operation context and code", async () => {
     const failure = {
       code: "manifest_missing",
-      message: "Missing .preshot",
+      message: "Missing .preshotproj",
     };
     invokeCommand.mockRejectedValue(failure);
     const workspace = createTauriWorkspace({
@@ -159,7 +159,7 @@ describe("createTauriWorkspace", () => {
     } catch (error) {
       expectNativeError(
         error,
-        "Unable to inspect Preshot project: Missing .preshot",
+        "Unable to inspect Preshot project: Missing .preshotproj",
         failure,
         "manifest_missing",
       );

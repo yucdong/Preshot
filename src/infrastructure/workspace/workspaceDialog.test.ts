@@ -93,4 +93,58 @@ describe("createWorkspaceDirectoryPicker", () => {
 
     throw new Error("Expected pickDirectory() to reject");
   });
+
+  it("resolves the default projects directory when requested", async () => {
+    const openDialog = vi.fn().mockResolvedValue("C:\\picked");
+    const invokeCommand = vi
+      .fn()
+      .mockResolvedValue("C:\\Users\\me\\.preshot\\projects");
+    const picker = createWorkspaceDirectoryPicker({ openDialog, invokeCommand });
+
+    await expect(
+      picker.pickDirectory("选择父文件夹", { defaultToProjectsDir: true }),
+    ).resolves.toBe("C:\\picked");
+
+    expect(invokeCommand).toHaveBeenCalledWith("default_projects_dir");
+    expect(openDialog).toHaveBeenCalledWith({
+      title: "选择父文件夹",
+      directory: true,
+      multiple: false,
+      defaultPath: "C:\\Users\\me\\.preshot\\projects",
+    });
+  });
+
+  it("opens without a default path when resolving the projects directory fails", async () => {
+    const openDialog = vi.fn().mockResolvedValue("C:\\picked");
+    const invokeCommand = vi
+      .fn()
+      .mockRejectedValue(new Error("command unavailable"));
+    const picker = createWorkspaceDirectoryPicker({ openDialog, invokeCommand });
+
+    await expect(
+      picker.pickDirectory("选择父文件夹", { defaultToProjectsDir: true }),
+    ).resolves.toBe("C:\\picked");
+
+    expect(invokeCommand).toHaveBeenCalledWith("default_projects_dir");
+    expect(openDialog).toHaveBeenCalledWith({
+      title: "选择父文件夹",
+      directory: true,
+      multiple: false,
+    });
+  });
+
+  it("does not resolve the projects directory when not requested", async () => {
+    const openDialog = vi.fn().mockResolvedValue("C:\\picked");
+    const invokeCommand = vi.fn();
+    const picker = createWorkspaceDirectoryPicker({ openDialog, invokeCommand });
+
+    await picker.pickDirectory("选择项目");
+
+    expect(invokeCommand).not.toHaveBeenCalled();
+    expect(openDialog).toHaveBeenCalledWith({
+      title: "选择项目",
+      directory: true,
+      multiple: false,
+    });
+  });
 });

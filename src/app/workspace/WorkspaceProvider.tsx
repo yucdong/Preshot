@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   WorkspaceProjectRecord,
   WorkspaceProjectView,
@@ -23,10 +24,6 @@ interface WorkspaceProviderProps {
 
 const defaultPlanDependencies = createPlanDependencies();
 
-const CREATE_PARENT_DIRECTORY_TITLE =
-  "Select parent folder for the new Preshot project";
-const OPEN_PROJECT_DIRECTORY_TITLE = "Select an existing Preshot project";
-
 function detail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -48,6 +45,7 @@ export function WorkspaceProvider({
   dependencies,
   planDependencies = defaultPlanDependencies,
 }: WorkspaceProviderProps) {
+  const { t } = useTranslation();
   const [view, setView] = useState<AppView>({ kind: "launcher" });
   const [projects, setProjects] = useState<WorkspaceProjectView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +113,8 @@ export function WorkspaceProvider({
   const requestCreate = useCallback(async () => {
     await runGuardedAction("Unable to prepare project creation", async () => {
       const parentPath = await dependencies.directoryPicker.pickDirectory(
-        CREATE_PARENT_DIRECTORY_TITLE,
+        t("picker.createParent"),
+        { defaultToProjectsDir: true },
       );
 
       if (parentPath === null) {
@@ -128,7 +127,7 @@ export function WorkspaceProvider({
         setCreateParentPath(parentPath);
       });
     });
-  }, [dependencies, runGuardedAction, setMountedState]);
+  }, [dependencies, runGuardedAction, setMountedState, t]);
 
   const cancelCreate = useCallback(() => {
     setMountedState(() => {
@@ -219,7 +218,7 @@ export function WorkspaceProvider({
   const openExistingProject = useCallback(async () => {
     await runGuardedAction("Unable to open workspace project", async () => {
       const projectPath = await dependencies.directoryPicker.pickDirectory(
-        OPEN_PROJECT_DIRECTORY_TITLE,
+        t("picker.openProject"),
       );
 
       if (projectPath === null) {
@@ -229,7 +228,7 @@ export function WorkspaceProvider({
       const project = await dependencies.service.openProject(projectPath);
       showProject(project);
     });
-  }, [dependencies, runGuardedAction, showProject]);
+  }, [dependencies, runGuardedAction, showProject, t]);
 
   const relocateProject = useCallback(
     async (project: WorkspaceProjectView) => {
@@ -237,7 +236,7 @@ export function WorkspaceProvider({
         "Unable to relocate workspace project",
         async () => {
           const projectPath = await dependencies.directoryPicker.pickDirectory(
-            `Select the relocated folder for ${project.name}`,
+            t("picker.relocate", { name: project.name }),
           );
 
           if (projectPath === null) {
@@ -258,7 +257,7 @@ export function WorkspaceProvider({
         },
       );
     },
-    [dependencies, runGuardedAction, setMountedState],
+    [dependencies, runGuardedAction, setMountedState, t],
   );
 
   const removeProject = useCallback(
