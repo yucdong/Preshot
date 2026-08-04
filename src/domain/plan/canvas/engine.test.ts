@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import { layoutPlan, referenceImageSlots, slotCaptionSplit, TITLE_BAND } from "./engine";
-import type { PlanComponent, WidthFraction, ReferenceComponent } from "./models";
+import type { PlanComponent, ReferenceComponent } from "./models";
 
 const content = contentSize(DEFAULT_PAGE_GEOMETRY);
 
-function plan(id: string, widthFraction: WidthFraction, height: number): PlanComponent {
-  return { id, type: "plan", widthFraction, height, html: "" };
+function plan(id: string, width: number, height: number): PlanComponent {
+  return { id, type: "plan", width, height, html: "" };
 }
 
 describe("layoutPlan placement", () => {
@@ -65,17 +65,15 @@ function reference(overrides: Partial<ReferenceComponent> = {}): ReferenceCompon
   return {
     id: "r",
     type: "reference",
-    widthFraction: "1",
+    width: 1,
     height: 300,
     title: "T",
     description: "",
-    columnsPerRow: 3,
-    showCaptions: false,
-    images: [
-      { id: "i1", file: "references/0001.png" },
-      { id: "i2", file: "references/0002.png" },
-      { id: "i3", file: "references/0003.png" },
-      { id: "i4", file: "references/0004.png" },
+    showCaptions: false, imageHeight: 180, images: [
+      { id: "i1", file: "references/0001.png", aspectRatio: 1 },
+      { id: "i2", file: "references/0002.png", aspectRatio: 1 },
+      { id: "i3", file: "references/0003.png", aspectRatio: 1 },
+      { id: "i4", file: "references/0004.png", aspectRatio: 1 },
     ],
     ...overrides,
   };
@@ -165,11 +163,10 @@ describe("reference image slots", () => {
     const comp: ReferenceComponent = {
       id: "r",
       type: "reference",
-      widthFraction: "1",
+      width: 1,
       height: 500,
       title: "Test",
       description: "",
-      columnsPerRow: 3,
       showCaptions: true,
       imageHeight: ih,
       images: [
@@ -203,7 +200,7 @@ describe("reference image slots", () => {
 
 describe("continuous width layout", () => {
   function mk(id: string, width: number): PlanComponent {
-    return { id, type: "plan", width, widthFraction: "1", height: 100, html: "" };
+    return { id, type: "plan", width, height: 100, html: "" };
   }
 
   it("packs two sub-half-width components on one row and wraps wider ones", () => {

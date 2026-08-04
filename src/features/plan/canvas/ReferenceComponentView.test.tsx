@@ -15,13 +15,11 @@ vi.mock("../GroupImageGrid", () => ({
 const mockComponent: ReferenceComponent = {
   id: "ref-1",
   type: "reference",
-  widthFraction: "1",
+  width: 1,
   height: 320,
   title: "Test Reference",
   description: "",
-  columnsPerRow: 3,
-  showCaptions: false,
-  images: [],
+  showCaptions: false, imageHeight: 180, images: [],
 };
 
 describe("ReferenceComponentView", () => {

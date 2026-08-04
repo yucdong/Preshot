@@ -1,5 +1,5 @@
 import { contentSize, DEFAULT_PAGE_GEOMETRY, packAspectRow, type PageGeometry, type Rect } from "./geometry";
-import { clampHeight, clampImageHeight, DEFAULT_IMAGE_HEIGHT, effectiveWidth, type PlanComponent, type ReferenceComponent } from "./models";
+import { clampHeight, clampImageHeight, type PlanComponent, type ReferenceComponent } from "./models";
 
 const EPS = 0.01;
 
@@ -28,9 +28,9 @@ export function referenceImageSlots(
 ): Rect[] {
   const top = TITLE_BAND + (component.description.trim() ? DESCRIPTION_BAND : 0);
   const innerWidth = rect.width - geometry.gutter;
-  const ih = clampImageHeight(component.imageHeight ?? DEFAULT_IMAGE_HEIGHT);
+  const ih = clampImageHeight(component.imageHeight);
   const slotHeight = component.showCaptions ? Math.round((ih * 4) / 3) : ih;
-  const items = component.images.map((img) => ({ aspectRatio: img.aspectRatio ?? 1 }));
+  const items = component.images.map((img) => ({ aspectRatio: img.aspectRatio }));
   const { rects } = packAspectRow(items, ih, innerWidth, geometry.gutter);
   let rowIndex = 0;
   return rects.map((r, i) => {
@@ -69,7 +69,7 @@ export function layoutPlan(
   let rowHeight = 0;
 
   for (const component of components) {
-    const width = effectiveWidth(component) * content.width;
+    const width = component.width * content.width;
     const height = clampHeight(component.height, content.height);
 
     // Wrap to a new row when the component does not fit the remaining row width.

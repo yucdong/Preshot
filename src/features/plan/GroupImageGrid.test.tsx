@@ -7,13 +7,11 @@ import { GroupImageGrid } from "./GroupImageGrid";
 
 interface GroupLike {
   id: string;
-  columnsPerRow: number;
   images: Array<{ id: string; file: string; caption?: string }>;
 }
 
 const group: GroupLike = {
   id: "g1",
-  columnsPerRow: 3,
   images: [
     { id: "i1", file: "references/0001.png" },
     { id: "i2", file: "references/0002.png" },
@@ -82,7 +80,6 @@ describe("GroupImageGrid", () => {
   it("renders caption textareas when showCaptions is true", () => {
     const groupWithCaptions: GroupLike = {
       id: "g1",
-      columnsPerRow: 2,
       images: [
         { id: "i1", file: "references/0001.png", caption: "Existing caption" },
         { id: "i2", file: "references/0002.png", caption: "" },
@@ -114,7 +111,6 @@ describe("GroupImageGrid", () => {
   it("does not render caption textareas when showCaptions is false or undefined", () => {
     const groupWithCaptions: GroupLike = {
       id: "g1",
-      columnsPerRow: 2,
       images: [
         { id: "i1", file: "references/0001.png", caption: "Some caption" },
         { id: "i2", file: "references/0002.png" },
@@ -133,7 +129,6 @@ describe("GroupImageGrid", () => {
   it("caption textarea does not trigger image open on pointer or click", () => {
     const groupWithCaptions: GroupLike = {
       id: "g1",
-      columnsPerRow: 2,
       images: [{ id: "i1", file: "references/0001.png", caption: "" }],
     };
     const slots: Rect[] = [
@@ -187,7 +182,6 @@ describe("GroupImageGrid", () => {
   it("renders caption textarea in the caption band when showCaptions is true", () => {
     const groupWithCaptions: GroupLike = {
       id: "g1",
-      columnsPerRow: 2,
       images: [{ id: "i1", file: "references/0001.png", caption: "Test caption" }],
     };
     const slots: Rect[] = [{ x: 0, y: 24, width: 160, height: 120 }];

@@ -6,7 +6,6 @@ import {
   DEFAULT_PAGE_GEOMETRY,
   packAspectRow,
   SPACING,
-  squareSlotGrid,
 } from "./geometry";
 
 describe("canvas geometry", () => {
@@ -15,14 +14,6 @@ describe("canvas geometry", () => {
       width: A4.width - 2 * SPACING,
       height: A4.height - 2 * SPACING,
     });
-  });
-
-  it("splits a row into equal square slots with gaps", () => {
-    const grid = squareSlotGrid(500, 3, 10);
-    expect(grid.slotSize).toBeCloseTo((500 - 2 * 10) / 3, 5);
-    expect(grid.xOffsets).toHaveLength(3);
-    expect(grid.xOffsets[0]).toBe(0);
-    expect(grid.xOffsets[1]).toBeCloseTo(grid.slotSize + 10, 5);
   });
 
   it("contain-fits and centers an image within a rectangular slot", () => {

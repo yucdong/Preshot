@@ -1,7 +1,4 @@
 export const A4 = { width: 595.28, height: 841.89 } as const;
-export const MARGIN = 48;
-export const GUTTER = 12;
-export const ROW_GAP = 12;
 export const SPACING = 24;
 
 export interface PageGeometry {
@@ -30,17 +27,6 @@ export function contentSize(geometry: PageGeometry): { width: number; height: nu
     width: geometry.page.width - 2 * geometry.margin,
     height: geometry.page.height - 2 * geometry.margin,
   };
-}
-
-export function squareSlotGrid(
-  contentWidth: number,
-  columns: number,
-  gap: number,
-): { slotSize: number; xOffsets: number[] } {
-  const safeColumns = Math.max(1, Math.floor(columns));
-  const slotSize = (contentWidth - gap * (safeColumns - 1)) / safeColumns;
-  const xOffsets = Array.from({ length: safeColumns }, (_unused, i) => i * (slotSize + gap));
-  return { slotSize, xOffsets };
 }
 
 export function containSize(

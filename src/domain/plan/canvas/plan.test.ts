@@ -24,23 +24,23 @@ import {
 const maxHeight = contentSize(DEFAULT_PAGE_GEOMETRY).height;
 
 function planText(id: string): PlanComponent {
-  return { id, type: "plan", widthFraction: "1", height: 200, html: `<p>${id}</p>` };
+  return { id, type: "plan", width: 1, height: 200, html: `<p>${id}</p>` };
 }
 function reference(id: string, images: string[] = []): ReferenceComponent {
   return {
     id,
     type: "reference",
-    widthFraction: "1",
+    width: 1,
     height: 300,
     title: id,
     description: "",
-    columnsPerRow: 3,
     showCaptions: false,
-    images: images.map((imageId) => ({ id: imageId, file: `references/${imageId}.png` })),
+    imageHeight: 180,
+    images: images.map((imageId) => ({ id: imageId, file: `references/${imageId}.png`, aspectRatio: 1 })),
   };
 }
 function withComponents(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 2, components };
+  return { schemaVersion: 3, components };
 }
 
 describe("canvas reducers", () => {
@@ -70,10 +70,10 @@ describe("canvas reducers", () => {
     expect(moveComponent(plan, { id: "a", toIndex: 0 })).toBe(plan);
   });
 
-  it("snaps width and clamps height on resize", () => {
+  it("resizes width and clamps height", () => {
     const plan = withComponents([planText("a")]);
-    const resized = resizeComponent(plan, { id: "a", widthFraction: "1/2", height: 10 });
-    expect(resized.components[0].widthFraction).toBe("1/2");
+    const resized = resizeComponent(plan, { id: "a", width: 0.5, height: 10 });
+    expect(resized.components[0].width).toBe(0.5);
     expect(resized.components[0].height).toBe(MIN_COMPONENT_HEIGHT);
     expect(resizeComponent(plan, { id: "a", height: maxHeight + 999 }).components[0].height).toBeCloseTo(maxHeight, 5);
   });
@@ -94,7 +94,7 @@ describe("canvas reducers", () => {
 
   it("adds and toggles captions on a reference component", () => {
     const plan = withComponents([reference("r", ["i1"])]);
-    const withImage = addReferenceImage(plan, { componentId: "r", image: { id: "i2", file: "references/i2.png" } });
+    const withImage = addReferenceImage(plan, { componentId: "r", image: { id: "i2", file: "references/i2.png", aspectRatio: 1 } });
     expect((withImage.components[0] as ReferenceComponent).images).toHaveLength(2);
     expect((toggleReferenceCaptions(plan, "r").components[0] as ReferenceComponent).showCaptions).toBe(true);
   });
@@ -128,8 +128,8 @@ describe("canvas reducers", () => {
   it("appends multiple images in batch via addReferenceImages", () => {
     const plan = withComponents([reference("r", ["i1"])]);
     const images = [
-      { id: "i2", file: "references/i2.png" },
-      { id: "i3", file: "references/i3.png" },
+      { id: "i2", file: "references/i2.png", aspectRatio: 1 },
+      { id: "i3", file: "references/i3.png", aspectRatio: 1 },
     ];
     const next = addReferenceImages(plan, { componentId: "r", images });
     expect((next.components[0] as ReferenceComponent).images).toHaveLength(3);

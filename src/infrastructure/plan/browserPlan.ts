@@ -7,24 +7,24 @@ import type { ProjectPlan as CanvasPlan } from "../../domain/plan/canvas/models"
 const TINY_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-const SEEDED_V2_PLAN: CanvasPlan = {
-  schemaVersion: 2,
+const SEEDED_V3_PLAN: CanvasPlan = {
+  schemaVersion: 3,
   components: [
     {
       id: "plan-1",
       type: "plan",
-      widthFraction: "1",
+      width: 1,
       height: 220,
       html: "<h2>日落大片</h2><p>海滨的黄金时刻。记得带 85mm 镜头。</p>",
     },
     {
       id: "ref-1",
       type: "reference",
-      widthFraction: "1",
+      width: 1,
       height: 320,
       title: "造型参考",
       description: "",
-      columnsPerRow: 3,
+      imageHeight: 180,
       showCaptions: false,
       images: [
         { id: "img-1", file: "references/0001.png", aspectRatio: 1 },
@@ -38,7 +38,7 @@ function createMemoryCanvasStores(): {
   repository: CanvasPlanRepository;
   imageStore: ReferenceImageStore;
 } {
-  let plan: CanvasPlan = structuredClone(SEEDED_V2_PLAN);
+  let plan: CanvasPlan = structuredClone(SEEDED_V3_PLAN);
   let counter = 2;
   return {
     repository: {

@@ -40,25 +40,23 @@ function deps(): {
   savePlan: ReturnType<typeof vi.fn>;
 } {
   const plan: ProjectPlan = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     components: [
       {
         id: "plan-1",
         type: "plan",
-        widthFraction: "1",
+        width: 1,
         height: 220,
         html: "<h2>Demo</h2>",
       },
       {
         id: "ref-1",
         type: "reference",
-        widthFraction: "1",
+        width: 1,
         height: 320,
         title: "Lookbook",
         description: "Warm mood",
-        columnsPerRow: 3,
-        showCaptions: false,
-        images: [{ id: "i1", file: "references/0001.png" }],
+        showCaptions: false, imageHeight: 180, images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
       },
     ],
   };
@@ -75,13 +73,13 @@ function deps(): {
           {
             ...plan.components[1],
             images: [
-              { id: "i1", file: "references/0001.png" },
-              { id: "i2", file: "references/0002.png" },
+              { id: "i1", file: "references/0001.png", aspectRatio: 1 },
+              { id: "i2", file: "references/0002.png", aspectRatio: 1 },
             ],
           } as never,
         ],
       },
-      image: { id: "i2", file: "references/0002.png" },
+      image: { id: "i2", file: "references/0002.png", aspectRatio: 1 },
       dataUrl: "data:image/png;base64,BB",
     }),
     importImages: vi.fn(),
@@ -129,7 +127,7 @@ describe("ProjectCanvasProvider", () => {
     const { dependencies, service } = deps();
     // Override loadPlan to return an empty plan
     (service.loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
-      schemaVersion: 2,
+      schemaVersion: 3,
       components: [],
     });
 

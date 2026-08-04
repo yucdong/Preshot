@@ -1,41 +1,29 @@
 import { describe, expect, it } from "vitest";
 import {
-  clampColumns,
   clampHeight,
+  clampWidth,
+  clampImageHeight,
   EMPTY_PLAN,
-  fractionValue,
-  MAX_COLUMNS,
-  MIN_COLUMNS,
   MIN_COMPONENT_HEIGHT,
-  snapWidthFraction,
-  WIDTH_FRACTIONS,
+  MIN_WIDTH,
+  DEFAULT_WIDTH,
+  MIN_IMAGE_HEIGHT,
+  MAX_IMAGE_HEIGHT,
 } from "./models";
 
 describe("canvas models", () => {
-  it("exposes the six width fractions in descending order", () => {
-    expect(WIDTH_FRACTIONS).toEqual(["1", "3/4", "2/3", "1/2", "1/3", "1/4"]);
+  it("clamps width to (MIN_WIDTH, 1]", () => {
+    expect(clampWidth(2)).toBe(DEFAULT_WIDTH); // > 1 clamps to 1
+    expect(clampWidth(0.5)).toBe(0.5); // within range
+    expect(clampWidth(0.05)).toBe(MIN_WIDTH); // < MIN clamps to MIN
+    expect(clampWidth(Number.NaN)).toBe(MIN_WIDTH); // NaN clamps to MIN
   });
 
-  it("parses a fraction string to its numeric value", () => {
-    expect(fractionValue("1")).toBe(1);
-    expect(fractionValue("1/2")).toBeCloseTo(0.5, 10);
-    expect(fractionValue("2/3")).toBeCloseTo(2 / 3, 10);
-  });
-
-  it("snaps an arbitrary 0..1 ratio to the nearest allowed fraction", () => {
-    expect(snapWidthFraction(0.95)).toBe("1");
-    expect(snapWidthFraction(0.52)).toBe("1/2");
-    expect(snapWidthFraction(0.3)).toBe("1/3");
-    expect(snapWidthFraction(0.26)).toBe("1/4");
-    expect(snapWidthFraction(-5)).toBe("1/4"); // clamps to the smallest
-    expect(snapWidthFraction(5)).toBe("1"); // clamps to the largest
-  });
-
-  it("clamps columns into range and rounds", () => {
-    expect(clampColumns(0)).toBe(MIN_COLUMNS);
-    expect(clampColumns(99)).toBe(MAX_COLUMNS);
-    expect(clampColumns(2.6)).toBe(3);
-    expect(clampColumns(Number.NaN)).toBe(MIN_COLUMNS);
+  it("clamps imageHeight to [MIN_IMAGE_HEIGHT, MAX_IMAGE_HEIGHT]", () => {
+    expect(clampImageHeight(50)).toBe(MIN_IMAGE_HEIGHT); // below min
+    expect(clampImageHeight(180)).toBe(180); // within range
+    expect(clampImageHeight(500)).toBe(MAX_IMAGE_HEIGHT); // above max
+    expect(clampImageHeight(Number.NaN)).toBe(MIN_IMAGE_HEIGHT); // NaN clamps to min
   });
 
   it("clamps height between the minimum and a supplied maximum", () => {
@@ -45,7 +33,7 @@ describe("canvas models", () => {
     expect(clampHeight(Number.NaN, 500)).toBe(MIN_COMPONENT_HEIGHT);
   });
 
-  it("provides an empty v2 plan", () => {
-    expect(EMPTY_PLAN).toEqual({ schemaVersion: 2, components: [] });
+  it("provides an empty v3 plan", () => {
+    expect(EMPTY_PLAN).toEqual({ schemaVersion: 3, components: [] });
   });
 });

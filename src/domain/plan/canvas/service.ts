@@ -114,7 +114,7 @@ export function createCanvasPlanService({
         } catch (error) {
           throw contextualError("Unable to import the reference image", error);
         }
-        const image: ReferenceImage = { id: createId(), file: imported.file };
+        const image: ReferenceImage = { id: createId(), file: imported.file, aspectRatio: 1 };
         const next = addReferenceImage(plan, { componentId, image });
         await persist(projectPath, next);
         logger.info("Reference image imported", { componentId, file: image.file });
@@ -131,7 +131,7 @@ export function createCanvasPlanService({
           } catch (error) {
             throw contextualError("Unable to import a reference image", error);
           }
-          const image: ReferenceImage = { id: createId(), file: imported.file };
+          const image: ReferenceImage = { id: createId(), file: imported.file, aspectRatio: 1 };
           images.push({ image, dataUrl: imported.dataUrl });
         }
         const next = addReferenceImages(plan, {

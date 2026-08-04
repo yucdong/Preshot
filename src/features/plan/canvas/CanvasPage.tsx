@@ -1,4 +1,4 @@
-import { A4, MARGIN } from "../../../domain/plan/canvas/geometry";
+import { A4, SPACING } from "../../../domain/plan/canvas/geometry";
 
 interface CanvasPageProps {
   scale: number;
@@ -8,7 +8,7 @@ interface CanvasPageProps {
 export function CanvasPage({ scale, children }: CanvasPageProps) {
   const width = A4.width * scale;
   const height = A4.height * scale;
-  const marginScaled = MARGIN * scale;
+  const marginScaled = SPACING * scale;
 
   return (
     <div

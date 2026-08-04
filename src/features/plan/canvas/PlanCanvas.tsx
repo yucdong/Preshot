@@ -17,7 +17,7 @@ import { contentSize, DEFAULT_PAGE_GEOMETRY } from "../../../domain/plan/canvas/
 import { moveComponent, moveImage, type MoveImageParams } from "../../../domain/plan/canvas/plan";
 import { componentDropTarget } from "../../../domain/plan/canvas/dropTarget";
 import { imageDropTarget, imageInsertAfterFromRects } from "./imageDropTarget";
-import type { PlanComponent, WidthFraction } from "../../../domain/plan/canvas/models";
+import type { PlanComponent } from "../../../domain/plan/canvas/models";
 import { CanvasPage } from "./CanvasPage";
 import { ComponentFrame } from "./ComponentFrame";
 import { PlanTextComponentView } from "./PlanTextComponentView";
@@ -38,7 +38,7 @@ export interface PlanCanvasProps {
   onOpenImage: (file: string) => void;
   onMoveComponent?: (id: string, toIndex: number) => void;
   onMoveImage?: (params: MoveImageParams) => void;
-  onResize?: (id: string, params: { widthFraction?: WidthFraction; width?: number; height?: number }) => void;
+  onResize?: (id: string, params: { width?: number; height?: number }) => void;
   onToggleCaptions?: (id: string) => void;
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
   onSetImageHeight?: (id: string, height: number) => void;
@@ -159,7 +159,7 @@ export function PlanCanvas({
         return;
       }
       lastParamsRef.current = params;
-      setPreview(moveComponent({ schemaVersion: 2, components }, params).components);
+      setPreview(moveComponent({ schemaVersion: 3, components }, params).components);
     } else if (data?.type === "image") {
       const params = paramsForImage(event);
       if (!params) {
@@ -202,7 +202,7 @@ export function PlanCanvas({
     lastImageParamsRef.current = null;
   };
 
-  const handleResize = (id: string, params: { widthFraction?: WidthFraction; width?: number; height?: number }) => {
+  const handleResize = (id: string, params: { width?: number; height?: number }) => {
     if (onResize) {
       onResize(id, params);
     }

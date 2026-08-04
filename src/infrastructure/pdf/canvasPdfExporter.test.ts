@@ -201,9 +201,9 @@ describe("createCanvasPdfExporter", () => {
           columnsPerRow: 2,
           showCaptions: true,
           images: [
-            { id: "img1", file: "photo1.png", caption: "日出 — 黄金时段" },
-            { id: "img2", file: "photo2.png", caption: "中午 — 强光" },
-            { id: "img3", file: "photo3.png", caption: "黄昏 — 蓝调时段" },
+            { id: "img1", file: "photo1.png", caption: "日出 — 黄金时段", aspectRatio: 1 },
+            { id: "img2", file: "photo2.png", caption: "中午 — 强光", aspectRatio: 1 },
+            { id: "img3", file: "photo3.png", caption: "黄昏 — 蓝调时段", aspectRatio: 1 },
           ],
         },
       ],

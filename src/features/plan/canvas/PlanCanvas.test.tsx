@@ -7,7 +7,7 @@ import { PlanCanvas } from "./PlanCanvas";
 const planComponent: PlanComponent = {
   id: "plan1",
   type: "plan",
-  widthFraction: "1",
+  width: 1,
   height: 220,
   html: "<p>拍摄清单</p>",
 };
@@ -15,15 +15,13 @@ const planComponent: PlanComponent = {
 const referenceComponent: PlanComponent = {
   id: "ref1",
   type: "reference",
-  widthFraction: "1",
+  width: 1,
   height: 320,
   title: "Lookbook",
   description: "",
-  columnsPerRow: 3,
-  showCaptions: false,
-  images: [
-    { id: "i1", file: "references/0001.png" },
-    { id: "i2", file: "references/0002.png" },
+  showCaptions: false, imageHeight: 180, images: [
+    { id: "i1", file: "references/0001.png", aspectRatio: 1 },
+    { id: "i2", file: "references/0002.png", aspectRatio: 1 },
   ],
 };
 

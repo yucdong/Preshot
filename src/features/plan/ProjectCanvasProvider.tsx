@@ -4,10 +4,8 @@ import {
   EMPTY_PLAN,
   DEFAULT_PLAN_HEIGHT,
   DEFAULT_REFERENCE_HEIGHT,
-  DEFAULT_COLUMNS,
   DEFAULT_IMAGE_HEIGHT,
   type ProjectPlan,
-  type WidthFraction,
 } from "../../domain/plan/canvas/models";
 import { A4 } from "../../domain/plan/canvas/geometry";
 import type { PlanImagePicker } from "../../domain/plan/ports";
@@ -25,7 +23,6 @@ import {
   updatePlanHtml,
   setReferenceTitle,
   setReferenceDescription,
-  setReferenceColumns,
   toggleReferenceCaptions,
   setImageCaption,
   setImageAspectRatio,
@@ -203,7 +200,7 @@ export function ProjectCanvasProvider({
           const planComponent = {
             id: crypto.randomUUID(),
             type: "plan" as const,
-            widthFraction: "1" as WidthFraction,
+            width: 1,
             height: DEFAULT_PLAN_HEIGHT,
             html: t("content.planTemplate"),
           };
@@ -212,11 +209,10 @@ export function ProjectCanvasProvider({
           const referenceComponent = {
             id: crypto.randomUUID(),
             type: "reference" as const,
-            widthFraction: "1" as WidthFraction,
+            width: 1,
             height: DEFAULT_REFERENCE_HEIGHT,
             title: t("content.newGroupTitle"),
             description: "",
-            columnsPerRow: DEFAULT_COLUMNS,
             showCaptions: false,
             imageHeight: DEFAULT_IMAGE_HEIGHT,
             images: [],
@@ -327,7 +323,7 @@ export function ProjectCanvasProvider({
         const newComponent = {
           id: crypto.randomUUID(),
           type: "plan" as const,
-          widthFraction: "1" as WidthFraction,
+          width: 1,
           height: DEFAULT_PLAN_HEIGHT,
           html: t("content.planTemplate"),
         };
@@ -336,12 +332,12 @@ export function ProjectCanvasProvider({
         const newComponent = {
           id: crypto.randomUUID(),
           type: "reference" as const,
-          widthFraction: "1" as WidthFraction,
+          width: 1,
           height: DEFAULT_REFERENCE_HEIGHT,
           title: t("content.newGroupTitle"),
           description: "",
-          columnsPerRow: DEFAULT_COLUMNS,
           showCaptions: false,
+          imageHeight: DEFAULT_IMAGE_HEIGHT,
           images: [],
         };
         applyPlan(addComponent(planRef.current, newComponent));
@@ -383,7 +379,7 @@ export function ProjectCanvasProvider({
   );
 
   const handleResize = useCallback(
-    (id: string, params: { widthFraction?: WidthFraction; width?: number; height?: number }) => {
+    (id: string, params: { width?: number; height?: number }) => {
       const next = resizeComponent(planRef.current, { id, ...params });
       applyPlan(next);
     },

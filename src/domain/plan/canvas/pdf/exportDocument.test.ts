@@ -8,7 +8,7 @@ describe("buildCanvasLayout", () => {
     const component: PlanTextComponent = {
       id: "c1",
       type: "plan",
-      widthFraction: "1",
+      width: 1,
       height: 200,
       html: "<p>Text</p>",
     };
@@ -28,14 +28,14 @@ describe("buildCanvasLayout", () => {
     const c1: PlanTextComponent = {
       id: "c1",
       type: "plan",
-      widthFraction: "1/2",
+      width: 0.5,
       height: 200,
       html: "<p>Left</p>",
     };
     const c2: PlanTextComponent = {
       id: "c2",
       type: "plan",
-      widthFraction: "1/2",
+      width: 0.5,
       height: 200,
       html: "<p>Right</p>",
     };
@@ -55,14 +55,14 @@ describe("buildCanvasLayout", () => {
     const c1: PlanTextComponent = {
       id: "c1",
       type: "plan",
-      widthFraction: "1",
+      width: 1,
       height: contentHeight,
       html: "<p>Page 1</p>",
     };
     const c2: PlanTextComponent = {
       id: "c2",
       type: "plan",
-      widthFraction: "1",
+      width: 1,
       height: 200,
       html: "<p>Page 2</p>",
     };
@@ -78,15 +78,13 @@ describe("buildCanvasLayout", () => {
     const ref: ReferenceComponent = {
       id: "r1",
       type: "reference",
-      widthFraction: "1",
+      width: 1,
       height: 320,
       title: "Reference",
       description: "",
-      columnsPerRow: 2,
-      showCaptions: false,
-      images: [
-        { id: "img1", file: "photo1.jpg" },
-        { id: "img2", file: "photo2.jpg" },
+      showCaptions: false, imageHeight: 180, images: [
+        { id: "img1", file: "photo1.jpg", aspectRatio: 1 },
+        { id: "img2", file: "photo2.jpg", aspectRatio: 1 },
       ],
     };
 
@@ -104,36 +102,34 @@ describe("buildCanvasLayout", () => {
       {
         id: "p1",
         type: "plan",
-        widthFraction: "1",
+        width: 1,
         height: contentHeight - 50,
         html: "<p>Intro</p>",
       },
       {
         id: "r1",
         type: "reference",
-        widthFraction: "1",
+        width: 1,
         height: 320,
         title: "Photos",
         description: "Description text",
-        columnsPerRow: 3,
-        showCaptions: true,
-        images: [
-          { id: "img1", file: "a.jpg", caption: "Caption A" },
-          { id: "img2", file: "b.jpg", caption: "Caption B" },
-          { id: "img3", file: "c.jpg" },
+        showCaptions: true, imageHeight: 180, images: [
+          { id: "img1", file: "a.jpg", caption: "Caption A", aspectRatio: 1 },
+          { id: "img2", file: "b.jpg", caption: "Caption B", aspectRatio: 1 },
+          { id: "img3", file: "c.jpg", aspectRatio: 1 },
         ],
       },
       {
         id: "p2",
         type: "plan",
-        widthFraction: "1/2",
+        width: 0.5,
         height: 200,
         html: "<p>Notes left</p>",
       },
       {
         id: "p3",
         type: "plan",
-        widthFraction: "1/2",
+        width: 0.5,
         height: 200,
         html: "<p>Notes right</p>",
       },
@@ -158,7 +154,7 @@ describe("buildCanvasLayout", () => {
     const component: PlanTextComponent = {
       id: "c1",
       type: "plan",
-      widthFraction: "1",
+      width: 1,
       height: 200,
       html: "<p>Text</p>",
     };

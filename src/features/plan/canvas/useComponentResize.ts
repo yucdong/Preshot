@@ -1,7 +1,7 @@
-import { snapWidthFraction, type WidthFraction } from "../../../domain/plan/canvas/models";
+import { clampWidth } from "../../../domain/plan/canvas/models";
 
 export interface ResizeFromDragParams {
-  widthFraction: WidthFraction;
+  width: number;
   height: number;
   edge: "width" | "height" | "both";
   dxPoints: number;
@@ -11,13 +11,13 @@ export interface ResizeFromDragParams {
 }
 
 export interface ResizeResult {
-  widthFraction?: WidthFraction;
+  width?: number;
   height?: number;
 }
 
 /**
- * Pure helper that computes the new width fraction and/or height from a drag resize
- * operation. Width edge snaps to the nearest width fraction; height edge adds dyPoints
+ * Pure helper that computes the new width and/or height from a drag resize
+ * operation. Width edge adjusts the continuous width; height edge adds dyPoints
  * to the current height; both does both.
  */
 export function resizeFromDrag(params: ResizeFromDragParams): ResizeResult {
@@ -28,7 +28,7 @@ export function resizeFromDrag(params: ResizeFromDragParams): ResizeResult {
   if (edge === "width" || edge === "both") {
     const newWidthPoints = currentWidthPoints + dxPoints;
     const ratio = newWidthPoints / contentWidth;
-    result.widthFraction = snapWidthFraction(ratio);
+    result.width = clampWidth(ratio);
   }
 
   if (edge === "height" || edge === "both") {

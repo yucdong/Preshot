@@ -25,18 +25,16 @@ function fakes(initialRaw: unknown) {
 }
 
 const refPlan: ProjectPlan = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   components: [
     {
       id: "r",
       type: "reference",
-      widthFraction: "1",
+      width: 1,
       height: 300,
       title: "T",
       description: "",
-      columnsPerRow: 3,
-      showCaptions: false,
-      images: [{ id: "i1", file: "references/0001.png" }],
+      showCaptions: false, imageHeight: 180, images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
     },
   ],
 };
@@ -54,7 +52,7 @@ describe("canvas plan service", () => {
       logger: silentLogger(),
     });
     const plan = await service.loadPlan("C:/p");
-    expect(plan.schemaVersion).toBe(2);
+    expect(plan.schemaVersion).toBe(3);
     expect(plan.components[0]).toMatchObject({ type: "plan" });
   });
 

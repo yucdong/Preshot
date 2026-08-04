@@ -5,10 +5,9 @@ import type { Rect } from "../../domain/plan/canvas/geometry";
 import { imageGroupDroppableId } from "./canvas/imageDropTarget";
 import { SortableImageTile } from "./SortableImageTile";
 
-// Minimal shape that both v1 ReferenceGroup and v2 ReferenceComponent satisfy
+// Minimal shape that both v1 ReferenceGroup and v2+ ReferenceComponent satisfy
 interface GroupLike {
   id: string;
-  columnsPerRow: number;
   images: Array<{ id: string; file: string; caption?: string }>;
 }
 

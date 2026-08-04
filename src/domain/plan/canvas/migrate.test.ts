@@ -1,53 +1,199 @@
 import { describe, expect, it } from "vitest";
 import { migratePlan } from "./migrate";
-import { EMPTY_PLAN, type ReferenceComponent } from "./models";
+import { DEFAULT_IMAGE_HEIGHT, EMPTY_PLAN, type ReferenceComponent } from "./models";
 
 describe("migratePlan", () => {
-  it("passes a valid v2 plan through, normalizing fields", () => {
-    const v2 = {
-      schemaVersion: 2,
-      components: [
-        { id: "a", type: "plan", widthFraction: "1/2", height: 150, html: "<p>x</p>" },
-        { id: "b", type: "reference", widthFraction: "1", height: 300, title: "T", description: "", columnsPerRow: 9, showCaptions: false, images: [{ id: "i", file: "references/0001.png" }] },
-      ],
-    };
-    const migrated = migratePlan(v2);
-    expect(migrated.schemaVersion).toBe(2);
-    expect(migrated.components).toHaveLength(2);
-    expect((migrated.components[1] as ReferenceComponent).columnsPerRow).toBe(6); // clamped
-  });
-
-  it("drops invalid components in a v2 plan", () => {
-    const migrated = migratePlan({
-      schemaVersion: 2,
-      components: [null, { id: "a", type: "plan", widthFraction: "1", height: 100, html: "" }, { type: "bogus" }],
+  describe("v3 schema", () => {
+    it("passes a valid v3 plan through, normalizing and clamping fields", () => {
+      const v3 = {
+        schemaVersion: 3,
+        components: [
+          { id: "a", type: "plan", width: 0.5, height: 150, html: "<p>x</p>" },
+          { id: "b", type: "reference", width: 1, height: 300, title: "T", description: "", imageHeight: 200, showCaptions: false, images: [{ id: "i", file: "references/0001.png", aspectRatio: 1.5 }] },
+        ],
+      };
+      const migrated = migratePlan(v3);
+      expect(migrated.schemaVersion).toBe(3);
+      expect(migrated.components).toHaveLength(2);
+      expect(migrated.components[0]).toMatchObject({ id: "a", type: "plan", width: 0.5, height: 150, html: "<p>x</p>" });
+      expect(migrated.components[1]).toMatchObject({ id: "b", type: "reference", width: 1, height: 300, title: "T", imageHeight: 200, showCaptions: false });
+      expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "i", file: "references/0001.png", aspectRatio: 1.5 });
     });
-    expect(migrated.components).toHaveLength(1);
-    expect(migrated.components[0].id).toBe("a");
+
+    it("clamps width to (0.15, 1] in v3", () => {
+      const v3 = {
+        schemaVersion: 3,
+        components: [
+          { id: "a", type: "plan", width: 2, height: 100, html: "" }, // > 1
+          { id: "b", type: "plan", width: 0.05, height: 100, html: "" }, // < MIN
+        ],
+      };
+      const migrated = migratePlan(v3);
+      expect(migrated.components[0].width).toBe(1); // clamped
+      expect(migrated.components[1].width).toBe(0.15); // clamped
+    });
+
+    it("clamps imageHeight to [80, 400] in v3", () => {
+      const v3 = {
+        schemaVersion: 3,
+        components: [
+          { id: "a", type: "reference", width: 1, height: 200, title: "", description: "", imageHeight: 50, showCaptions: false, images: [] },
+          { id: "b", type: "reference", width: 1, height: 200, title: "", description: "", imageHeight: 500, showCaptions: false, images: [] },
+        ],
+      };
+      const migrated = migratePlan(v3);
+      expect((migrated.components[0] as ReferenceComponent).imageHeight).toBe(80); // clamped
+      expect((migrated.components[1] as ReferenceComponent).imageHeight).toBe(400); // clamped
+    });
+
+    it("defaults aspectRatio to 1 when <= 0 in v3", () => {
+      const v3 = {
+        schemaVersion: 3,
+        components: [
+          { id: "a", type: "reference", width: 1, height: 200, title: "", description: "", imageHeight: 180, showCaptions: false, images: [{ id: "i1", file: "a.png", aspectRatio: 0 }, { id: "i2", file: "b.png", aspectRatio: -1 }] },
+        ],
+      };
+      const migrated = migratePlan(v3);
+      const images = (migrated.components[0] as ReferenceComponent).images;
+      expect(images[0].aspectRatio).toBe(1);
+      expect(images[1].aspectRatio).toBe(1);
+    });
+
+    it("drops components with missing required fields in v3", () => {
+      const v3 = {
+        schemaVersion: 3,
+        components: [
+          { id: "a", type: "plan", height: 100, html: "" }, // missing width
+          { id: "b", type: "reference", width: 1, height: 200, title: "", description: "", showCaptions: false, images: [] }, // missing imageHeight
+          { id: "c", type: "plan", width: 0.5, height: 100, html: "ok" },
+        ],
+      };
+      const migrated = migratePlan(v3);
+      expect(migrated.components).toHaveLength(1);
+      expect(migrated.components[0].id).toBe("c");
+    });
+
+    it("drops images with missing required fields in v3", () => {
+      const v3 = {
+        schemaVersion: 3,
+        components: [
+          { id: "a", type: "reference", width: 1, height: 200, title: "", description: "", imageHeight: 180, showCaptions: false, images: [{ id: "i1", file: "a.png" }, { id: "i2", file: "b.png", aspectRatio: 1.5 }] },
+        ],
+      };
+      const migrated = migratePlan(v3);
+      const images = (migrated.components[0] as ReferenceComponent).images;
+      expect(images).toHaveLength(1);
+      expect(images[0].id).toBe("i2");
+    });
   });
 
-  it("converts a v1 plan (photographyPlan + referenceGroups) to v2 components", () => {
-    const v1 = {
-      photographyPlan: "<h2>Sunset</h2>",
-      referenceGroups: [
-        { id: "g1", title: "Lookbook", description: "mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] },
-      ],
-    };
-    const migrated = migratePlan(v1);
-    expect(migrated.schemaVersion).toBe(2);
-    expect(migrated.components[0]).toMatchObject({ type: "plan", widthFraction: "1", html: "<h2>Sunset</h2>" });
-    expect(migrated.components[1]).toMatchObject({ type: "reference", title: "Lookbook", columnsPerRow: 3, showCaptions: false });
-    expect((migrated.components[1] as ReferenceComponent).images[0].id).toBe("i1");
+  describe("v2 -> v3 migration", () => {
+    it("converts widthFraction to numeric width", () => {
+      const v2 = {
+        schemaVersion: 2,
+        components: [
+          { id: "a", type: "plan", widthFraction: "1", height: 150, html: "<p>x</p>" },
+          { id: "b", type: "plan", widthFraction: "3/4", height: 150, html: "" },
+          { id: "c", type: "plan", widthFraction: "2/3", height: 150, html: "" },
+          { id: "d", type: "plan", widthFraction: "1/2", height: 150, html: "" },
+          { id: "e", type: "plan", widthFraction: "1/3", height: 150, html: "" },
+          { id: "f", type: "plan", widthFraction: "1/4", height: 150, html: "" },
+        ],
+      };
+      const migrated = migratePlan(v2);
+      expect(migrated.schemaVersion).toBe(3);
+      expect(migrated.components[0].width).toBe(1);
+      expect(migrated.components[1].width).toBe(0.75);
+      expect(migrated.components[2].width).toBe(0.667);
+      expect(migrated.components[3].width).toBe(0.5);
+      expect(migrated.components[4].width).toBe(0.333);
+      expect(migrated.components[5].width).toBe(0.25);
+    });
+
+    it("defaults unknown widthFraction to 1", () => {
+      const v2 = {
+        schemaVersion: 2,
+        components: [{ id: "a", type: "plan", widthFraction: "bogus", height: 100, html: "" }],
+      };
+      const migrated = migratePlan(v2);
+      expect(migrated.components[0].width).toBe(1);
+    });
+
+    it("drops columnsPerRow and adds imageHeight for reference components", () => {
+      const v2 = {
+        schemaVersion: 2,
+        components: [
+          { id: "a", type: "reference", widthFraction: "1", height: 300, title: "T", description: "", columnsPerRow: 3, showCaptions: false, images: [{ id: "i", file: "a.png" }] },
+        ],
+      };
+      const migrated = migratePlan(v2);
+      const ref = migrated.components[0] as ReferenceComponent;
+      expect(ref.imageHeight).toBe(DEFAULT_IMAGE_HEIGHT);
+      expect(ref).not.toHaveProperty("columnsPerRow");
+    });
+
+    it("defaults image aspectRatio to 1", () => {
+      const v2 = {
+        schemaVersion: 2,
+        components: [
+          { id: "a", type: "reference", widthFraction: "1", height: 300, title: "", description: "", columnsPerRow: 3, showCaptions: false, images: [{ id: "i1", file: "a.png" }, { id: "i2", file: "b.png", caption: "x" }] },
+        ],
+      };
+      const migrated = migratePlan(v2);
+      const images = (migrated.components[0] as ReferenceComponent).images;
+      expect(images[0].aspectRatio).toBe(1);
+      expect(images[1].aspectRatio).toBe(1);
+    });
+
+    it("preserves all other fields during v2->v3 migration", () => {
+      const v2 = {
+        schemaVersion: 2,
+        components: [
+          { id: "plan1", type: "plan", widthFraction: "1/2", height: 220, html: "<h1>Test</h1>" },
+          { id: "ref1", type: "reference", widthFraction: "1", height: 320, title: "Gallery", description: "Mood board", columnsPerRow: 2, showCaptions: true, images: [{ id: "img1", file: "test.png", caption: "Caption text" }] },
+        ],
+      };
+      const migrated = migratePlan(v2);
+      expect(migrated.components[0]).toMatchObject({ id: "plan1", type: "plan", height: 220, html: "<h1>Test</h1>" });
+      expect(migrated.components[1]).toMatchObject({ id: "ref1", type: "reference", height: 320, title: "Gallery", description: "Mood board", showCaptions: true });
+      expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "img1", file: "test.png", caption: "Caption text", aspectRatio: 1 });
+    });
   });
 
-  it("omits the plan component when the v1 photographyPlan is empty", () => {
-    const migrated = migratePlan({ photographyPlan: "", referenceGroups: [] });
-    expect(migrated.components).toHaveLength(0);
+  describe("v1 -> v3 migration (chained)", () => {
+    it("converts v1 plan to v3 via v2", () => {
+      const v1 = {
+        photographyPlan: "<h2>Sunset</h2>",
+        referenceGroups: [
+          { id: "g1", title: "Lookbook", description: "mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] },
+        ],
+      };
+      const migrated = migratePlan(v1);
+      expect(migrated.schemaVersion).toBe(3);
+      expect(migrated.components[0]).toMatchObject({ type: "plan", width: 1, html: "<h2>Sunset</h2>" });
+      expect(migrated.components[1]).toMatchObject({ type: "reference", width: 1, title: "Lookbook", imageHeight: DEFAULT_IMAGE_HEIGHT, showCaptions: false });
+      expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "i1", file: "references/0001.png", aspectRatio: 1 });
+    });
+
+    it("omits the plan component when v1 photographyPlan is empty", () => {
+      const migrated = migratePlan({ photographyPlan: "", referenceGroups: [] });
+      expect(migrated.components).toHaveLength(0);
+      expect(migrated.schemaVersion).toBe(3);
+    });
   });
 
-  it("returns an empty plan for null / malformed input", () => {
-    expect(migratePlan(null)).toEqual(EMPTY_PLAN);
-    expect(migratePlan(42)).toEqual(EMPTY_PLAN);
-    expect(migratePlan({ nonsense: true })).toEqual(EMPTY_PLAN);
+  describe("forward compatibility", () => {
+    it("returns EMPTY_PLAN for future schemaVersion", () => {
+      const future = { schemaVersion: 4, components: [] };
+      expect(migratePlan(future)).toEqual(EMPTY_PLAN);
+    });
+  });
+
+  describe("invalid input", () => {
+    it("returns an empty plan for null / malformed input", () => {
+      expect(migratePlan(null)).toEqual(EMPTY_PLAN);
+      expect(migratePlan(42)).toEqual(EMPTY_PLAN);
+      expect(migratePlan({ nonsense: true })).toEqual(EMPTY_PLAN);
+    });
   });
 });

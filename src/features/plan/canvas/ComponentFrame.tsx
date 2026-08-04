@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { GUTTER, MARGIN, type Rect } from "../../../domain/plan/canvas/geometry";
-import { clampWidth, effectiveWidth, type PlanComponent } from "../../../domain/plan/canvas/models";
+import { SPACING, type Rect } from "../../../domain/plan/canvas/geometry";
+import { clampWidth, type PlanComponent } from "../../../domain/plan/canvas/models";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
 
 interface ComponentFrameProps {
@@ -27,7 +27,7 @@ export function ComponentFrame({
   children,
 }: ComponentFrameProps) {
   const { t } = useTranslation();
-  const gutterInset = (GUTTER / 2) * scale;
+  const gutterInset = (SPACING / 2) * scale;
 
   const [resizing, setResizing] = useState<"width" | "height" | "both" | "left" | "top" | null>(null);
   const [resizePreview, setResizePreview] = useState<{ width?: number; height?: number } | null>(null);
@@ -46,7 +46,7 @@ export function ComponentFrame({
     data: { type: "component" },
   });
 
-  const currentWidth = resizePreview?.width ?? effectiveWidth(component);
+  const currentWidth = resizePreview?.width ?? component.width;
   const currentHeight = resizePreview?.height ?? component.height;
   const currentWidthPoints = contentWidthPoints * currentWidth;
 
@@ -119,8 +119,8 @@ export function ComponentFrame({
       data-component-frame="true"
       data-component-id={id}
       style={{
-        left: `${(MARGIN + rect.x) * scale}px`,
-        top: `${(MARGIN + rect.y) * scale}px`,
+        left: `${(SPACING + rect.x) * scale}px`,
+        top: `${(SPACING + rect.y) * scale}px`,
         width: `${displayWidth}px`,
         height: `${displayHeight}px`,
       }}

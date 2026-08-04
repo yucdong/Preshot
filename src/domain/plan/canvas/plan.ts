@@ -1,6 +1,5 @@
 import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import {
-  clampColumns,
   clampHeight,
   clampImageHeight,
   clampWidth,
@@ -8,7 +7,6 @@ import {
   type ProjectPlan,
   type ReferenceComponent,
   type ReferenceImage,
-  type WidthFraction,
 } from "./models";
 
 export interface MoveImageParams {
@@ -76,16 +74,15 @@ export function moveComponent(plan: ProjectPlan, params: { id: string; toIndex: 
 
 export function resizeComponent(
   plan: ProjectPlan,
-  params: { id: string; widthFraction?: WidthFraction; width?: number; height?: number },
+  params: { id: string; width?: number; height?: number },
 ): ProjectPlan {
   return mapComponent(plan, params.id, (component) => {
-    const widthFraction = params.widthFraction ?? component.widthFraction;
     const width = params.width !== undefined ? clampWidth(params.width) : component.width;
     const height = params.height === undefined ? component.height : clampHeight(params.height, MAX_HEIGHT);
-    if (widthFraction === component.widthFraction && width === component.width && height === component.height) {
+    if (width === component.width && height === component.height) {
       return component;
     }
-    return { ...component, widthFraction, width, height };
+    return { ...component, width, height };
   });
 }
 
@@ -106,13 +103,6 @@ export function setReferenceTitle(plan: ProjectPlan, id: string, title: string):
 export function setReferenceDescription(plan: ProjectPlan, id: string, description: string): ProjectPlan {
   return mapReference(plan, id, (component) =>
     component.description === description ? component : { ...component, description },
-  );
-}
-
-export function setReferenceColumns(plan: ProjectPlan, id: string, columns: number): ProjectPlan {
-  const clamped = clampColumns(columns);
-  return mapReference(plan, id, (component) =>
-    component.columnsPerRow === clamped ? component : { ...component, columnsPerRow: clamped },
   );
 }
 
