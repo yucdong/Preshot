@@ -2,6 +2,7 @@ export const A4 = { width: 595.28, height: 841.89 } as const;
 export const MARGIN = 48;
 export const GUTTER = 12;
 export const ROW_GAP = 12;
+export const SPACING = 24;
 
 export interface PageGeometry {
   page: { width: number; height: number };
@@ -12,9 +13,9 @@ export interface PageGeometry {
 
 export const DEFAULT_PAGE_GEOMETRY: PageGeometry = {
   page: { width: A4.width, height: A4.height },
-  margin: MARGIN,
-  gutter: GUTTER,
-  rowGap: ROW_GAP,
+  margin: SPACING,
+  gutter: SPACING,
+  rowGap: SPACING,
 };
 
 export interface Rect {
@@ -53,8 +54,6 @@ export function containSize(
   const height = imageHeight * scale;
   return { width, height, offsetX: (slotWidth - width) / 2, offsetY: (slotHeight - height) / 2 };
 }
-
-export const SPACING = 24;
 
 export function packAspectRow(
   items: { aspectRatio: number }[],

@@ -4,7 +4,6 @@ import {
   containSize,
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
-  MARGIN,
   packAspectRow,
   SPACING,
   squareSlotGrid,
@@ -13,8 +12,8 @@ import {
 describe("canvas geometry", () => {
   it("computes the content size inside the margins", () => {
     expect(contentSize(DEFAULT_PAGE_GEOMETRY)).toEqual({
-      width: A4.width - 2 * MARGIN,
-      height: A4.height - 2 * MARGIN,
+      width: A4.width - 2 * SPACING,
+      height: A4.height - 2 * SPACING,
     });
   });
 
