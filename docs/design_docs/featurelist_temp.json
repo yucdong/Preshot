@@ -242,65 +242,6 @@
         },
         "remaining": []
       }
-    },
-    {
-      "decisions": [
-        "Replace fractional presets with continuous drag: widthFraction is a number 0.4–1.0 clamped and quantized to 0.01 step; double-click handles snap to 0.5/0.67/1.0; remove WidthResizeMenu dropdown entirely",
-        "Unified SPACING constant = 24px for all canvas margins, gaps, and handle sizes (DRY, visual rhythm)",
-        "Drag handle extends to the entire top bar: move handle becomes invisible (w-0, opacity-0, focusable for a11y); the top bar itself is draggable; low-emphasis gray type label added for component identification",
-        "Four-edge resizing: add left/top/bottom handles to ComponentFrame; ResizeDirection enum ('width' | 'height' | 'both' | 'left' | 'top'); useComponentResize hook recognizes all five directions; resizeComponent reducer clamps width 0.4–1.0 and height 120–1000",
-        "Delete confirmation: wrap ComponentFrame delete in AlertDialog with 删除/取消 actions; deletion only commits on 删除",
-        "Insert at top (array.unshift): insertComponent reducer prepends to components array at index 0 instead of pushing to end; WYSIWYG matches user expectation for stacking order",
-        "Seed plan + reference on project creation: EMPTY_PLAN_V3 factory includes one plan component (seeded with content.planTemplate) and one reference component (title '新建分组')",
-        "Reference image aspect ratio: SortableImageTile renders img at natural aspect ratio (height: auto, max-h: imageHeight) instead of 1:1; ReferenceComponent.imageHeight controls the max-height (default 160); ReferenceComponentView adds a stepper (±20, range 60–300) to adjust imageHeight per component",
-        "Multi-select images: Tauri dialog filter multiple: true; import_images command loops and maps the file array; createReferenceImage generates sequential IDs for batch import",
-        "PDF export folder reveal: export_canvas_to_pdf returns the saved PDF path; a new export_folder Rust command invokes platform-specific folder-reveal (Windows: explorer /select, macOS: open -R, Linux: xdg-open parent); ProjectCanvasProvider calls it after save completes",
-        "SchemaVersion 3 migration: CURRENT_SCHEMA_VERSION = 3; migrateV2ToV3 converts widthFraction strings to numbers (map {1/2→0.5, 2/3→0.67, 1→1}), adds imageHeight: 160 to reference components; loadPlan chains migrateV1ToV2 → migrateV2ToV3"
-      ],
-      "feature_descriptions": [
-        "Continuous component width: drag any border (left/right) to adjust width fluidly; widthFraction persisted as number (0.4–1.0, step 0.01); double-click handles snap to presets (1/2, 2/3, 1)",
-        "Unified spacing constant: SPACING = 24px for top/left/right margins, inter-component gaps, and handle sizes",
-        "Move components by whole top bar: draggable area is the entire top bar (not just the drag handle icon); low-emphasis type label (摄影计划/参考图组) helps identify components",
-        "Four-edge + corner resize: drag left/right edges for width, top/bottom for height, bottom-right corner for both; height 120–1000px",
-        "Delete confirmation dialog: clicking × shows AlertDialog ('确定删除该组件？') before removing the component",
-        "Insert at top: new components always insert at index 0, not at the end",
-        "Seeded new projects: fresh projects seed with a plan component + a reference component (both at default widthFraction 1)",
-        "Reference images natural aspect ratio: tiles render at per-image natural height (no 1:1 squashing); configurable per-component imageHeight (default 160, range 60–300, ±20 stepper, i18n reference.imageHeight label)",
-        "Multi-select image insert: native file picker supports multiple file selection; images import in chosen order",
-        "PDF export reveals folder: after save completes, the export-folder Rust command opens the parent directory in Explorer/Finder/native file manager",
-        "SchemaVersion 3: ProjectPlan.schemaVersion incremented to 3; widthFraction now number; referenceComponents gain imageHeight; v2 → v3 migration converts 1/2/2/3 strings to 0.5/0.67/1, adds imageHeight: 160"
-      ],
-      "name": "Canvas UX Enhancements",
-      "status": "completed",
-      "progress": {
-        "implementationPlan": "docs/superpowers/plans/2026-08-04-canvas-ux-enhancements.md",
-        "lastVerified": {
-          "unitTests": "336 passed",
-          "e2eTests": "21 passed",
-          "lint": "clean",
-          "date": "2026-08-04",
-          "rustTests": "30 passed",
-          "build": "succeeded",
-          "typecheck": "clean"
-        },
-        "designSpec": "docs/superpowers/specs/2026-08-04-canvas-ux-enhancements-design.md",
-        "remaining": [],
-        "completed": [
-          "T1: Replaced fractional width presets with continuous drag (widthFraction number 0.4–1.0, quantized 0.01, persisted; double-click snap to presets; removed WidthResizeMenu)",
-          "T2: Unified spacing constant (SPACING=24px) applied to all canvas margins, gaps, handle sizes",
-          "T3: Extended drag handle to entire top bar (invisible handle for a11y, draggable parent); added low-emphasis type label (摄影计划/参考图组)",
-          "T4: Four-edge + corner resize (left/right/top/bottom handles, ResizeDirection enum, useComponentResize recognizes 5 directions, width 0.4–1.0 / height 120–1000)",
-          "T5: Delete confirmation dialog (AlertDialog wraps ComponentFrame delete, 确定删除该组件？ with 删除/取消)",
-          "T6: Insert at top (insertComponent unshifts to index 0 instead of push)",
-          "T7: Seeded new projects with plan + reference (EMPTY_PLAN_V3 includes one plan seeded with template, one reference '新建分组')",
-          "T8: Reference images natural aspect ratio (SortableImageTile height: auto, max-h: imageHeight); per-component imageHeight stepper (±20, 60–300, i18n reference.imageHeight)",
-          "T9: Multi-select image insert (Tauri dialog multiple: true, import_images loops file array, createReferenceImage sequential IDs)",
-          "T10: PDF export folder reveal (export_canvas_to_pdf returns path, export_folder Rust command shell opens parent directory)",
-          "T11: SchemaVersion 3 migration (CURRENT_SCHEMA_VERSION=3, migrateV2ToV3 converts widthFraction strings→numbers, adds imageHeight: 160, loadPlan chains v1→v2→v3)",
-          "T12: e2e coverage (6 new tests: move by top bar reorders, resize width by right edge, insert at top, delete confirmation, adjust image height, export PDF success); featurelist updated; full validation matrix passed"
-        ],
-        "completedAt": "2026-08-04"
-      }
     }
   ]
 }
