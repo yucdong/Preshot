@@ -78,4 +78,57 @@ describe("PlanCanvas", () => {
     fireEvent.click(deleteButtons[0]);
     expect(props.onRemoveComponent).toHaveBeenCalledWith("plan1");
   });
+
+  it("renders type label for plan component", () => {
+    renderCanvas();
+    expect(screen.getByText("摄影计划")).toBeInTheDocument();
+  });
+
+  it("renders type label for reference component", () => {
+    renderCanvas();
+    expect(screen.getByText("参考图组")).toBeInTheDocument();
+  });
+
+  it("top bar has draggable attributes and cursor-grab class", () => {
+    renderCanvas();
+    const topBar = document.querySelector('[data-component-frame-topbar="true"]');
+    expect(topBar).toBeInTheDocument();
+    expect(topBar).toHaveClass("cursor-grab");
+    expect(topBar).toHaveAttribute("role", "button");
+  });
+
+  it("left resize handle exists with correct attributes", () => {
+    renderCanvas();
+    const leftHandle = document.querySelector('[data-resize-handle="left"]');
+    expect(leftHandle).toBeInTheDocument();
+    expect(leftHandle).toHaveClass("cursor-ew-resize");
+  });
+
+  it("top resize handle exists with correct attributes", () => {
+    renderCanvas();
+    const topHandle = document.querySelector('[data-resize-handle="top"]');
+    expect(topHandle).toBeInTheDocument();
+    expect(topHandle).toHaveClass("cursor-ns-resize");
+  });
+
+  it("right resize handle exists with correct attributes", () => {
+    renderCanvas();
+    const rightHandle = document.querySelector('[data-resize-handle="width"]');
+    expect(rightHandle).toBeInTheDocument();
+    expect(rightHandle).toHaveClass("cursor-ew-resize");
+  });
+
+  it("bottom resize handle exists with correct attributes", () => {
+    renderCanvas();
+    const bottomHandle = document.querySelector('[data-resize-handle="height"]');
+    expect(bottomHandle).toBeInTheDocument();
+    expect(bottomHandle).toHaveClass("cursor-ns-resize");
+  });
+
+  it("corner resize handle exists with correct attributes", () => {
+    renderCanvas();
+    const cornerHandle = document.querySelector('[data-resize-handle="both"]');
+    expect(cornerHandle).toBeInTheDocument();
+    expect(cornerHandle).toHaveClass("cursor-nwse-resize");
+  });
 });

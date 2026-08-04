@@ -28,9 +28,9 @@ export function ComponentFrame({
   const { t } = useTranslation();
   const gutterInset = (GUTTER / 2) * scale;
 
-  const [resizing, setResizing] = useState<"width" | "height" | "both" | null>(null);
+  const [resizing, setResizing] = useState<"width" | "height" | "both" | "left" | "top" | null>(null);
   const [resizePreview, setResizePreview] = useState<{ width?: number; height?: number } | null>(null);
-  const [resizeStart, setResizeStart] = useState<{ x: number; y: number; edge: "width" | "height" | "both" } | null>(
+  const [resizeStart, setResizeStart] = useState<{ x: number; y: number; edge: "width" | "height" | "both" | "left" | "top" } | null>(
     null,
   );
 
@@ -48,7 +48,9 @@ export function ComponentFrame({
   const currentHeight = resizePreview?.height ?? component.height;
   const currentWidthPoints = contentWidthPoints * currentWidth;
 
-  const onPointerDownResize = (edge: "width" | "height" | "both") => (event: React.PointerEvent) => {
+  const typeLabel = component.type === "plan" ? t("canvas.typePlan") : t("canvas.typeReference");
+
+  const onPointerDownResize = (edge: "width" | "height" | "both" | "left" | "top") => (event: React.PointerEvent) => {
     event.preventDefault();
     event.stopPropagation();
     setResizing(edge);
@@ -74,8 +76,17 @@ export function ComponentFrame({
       result.width = nextWidth;
     }
 
+    if (start.edge === "left") {
+      const nextWidth = clampWidth((currentWidthPoints - dxPoints) / contentWidthPoints);
+      result.width = nextWidth;
+    }
+
     if (start.edge === "height" || start.edge === "both") {
       result.height = component.height + dyPoints;
+    }
+
+    if (start.edge === "top") {
+      result.height = component.height - dyPoints;
     }
 
     setResizePreview(result);
@@ -113,22 +124,20 @@ export function ComponentFrame({
       }}
     >
       {/* Top bar with drag handle and delete button */}
-      <div className="mb-1 flex items-center justify-between">
-        <button
-          ref={setDragRef}
-          {...attributes}
-          {...listeners}
-          aria-label={t("canvas.moveComponent")}
-          className="cursor-move rounded bg-stone-200 px-2 py-1 text-xs hover:bg-stone-300"
-          data-drag-handle
-          type="button"
-        >
-          ⋮⋮
-        </button>
+      <div
+        ref={setDragRef}
+        {...attributes}
+        {...listeners}
+        className="mb-1 flex cursor-grab items-center justify-between rounded bg-stone-200 px-2 py-1 hover:bg-stone-300"
+        data-component-frame-topbar
+        title={t("canvas.moveHint")}
+      >
+        <span className="text-xs text-stone-400">{typeLabel}</span>
         <button
           aria-label={t("canvas.removeComponent")}
           className="rounded bg-red-100 px-2 py-1 text-xs text-red-700 hover:bg-red-200"
           onClick={() => onRemove(id)}
+          onPointerDown={(e) => e.stopPropagation()}
           type="button"
         >
           ×
@@ -148,6 +157,16 @@ export function ComponentFrame({
       </div>
 
       {/* Resize handles */}
+      {/* Left edge */}
+      <div
+        className="absolute left-0 top-1/2 h-8 w-2 -translate-y-1/2 cursor-ew-resize bg-stone-300 opacity-0 hover:opacity-100"
+        data-resize="left"
+        data-resize-handle="left"
+        onPointerDown={onPointerDownResize("left")}
+        onPointerMove={onPointerMoveResize}
+        onPointerUp={onPointerUpResize}
+      />
+      {/* Right edge */}
       <div
         className="absolute right-0 top-1/2 h-8 w-2 -translate-y-1/2 cursor-ew-resize bg-stone-300 opacity-0 hover:opacity-100"
         data-resize="width"
@@ -156,6 +175,16 @@ export function ComponentFrame({
         onPointerMove={onPointerMoveResize}
         onPointerUp={onPointerUpResize}
       />
+      {/* Top edge */}
+      <div
+        className="absolute left-1/2 top-0 h-2 w-8 -translate-x-1/2 cursor-ns-resize bg-stone-300 opacity-0 hover:opacity-100"
+        data-resize="top"
+        data-resize-handle="top"
+        onPointerDown={onPointerDownResize("top")}
+        onPointerMove={onPointerMoveResize}
+        onPointerUp={onPointerUpResize}
+      />
+      {/* Bottom edge */}
       <div
         className="absolute bottom-0 left-1/2 h-2 w-8 -translate-x-1/2 cursor-ns-resize bg-stone-300 opacity-0 hover:opacity-100"
         data-resize="height"
@@ -164,6 +193,7 @@ export function ComponentFrame({
         onPointerMove={onPointerMoveResize}
         onPointerUp={onPointerUpResize}
       />
+      {/* Corner */}
       <div
         className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize bg-stone-300 opacity-0 hover:opacity-100"
         data-resize="both"

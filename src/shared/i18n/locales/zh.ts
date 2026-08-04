@@ -30,6 +30,9 @@ export const zh = {
     insert: "插入组件",
     insertPlan: "摄影计划",
     insertReference: "参考图组",
+    moveHint: "拖动以移动或交换位置",
+    typePlan: "摄影计划",
+    typeReference: "参考图组",
   },
   save: {
     saving: "正在保存…",
