@@ -1,6 +1,6 @@
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
-import { containSize, SPACING, type Rect } from "../../domain/plan/canvas/geometry";
+import { A4, containSize, SPACING, type Rect } from "../../domain/plan/canvas/geometry";
 import { DESCRIPTION_BAND, slotCaptionSplit, TITLE_BAND } from "../../domain/plan/canvas/engine";
 import type { ProjectPlan, ReferenceComponent } from "../../domain/plan/canvas/models";
 import { buildCanvasLayout } from "../../domain/plan/canvas/pdf/exportDocument";
@@ -218,9 +218,9 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
         const component = plan.components.find((c) => c.id === placement.componentId);
         if (!component) continue;
 
-        const pageY = 841.89 - 48 - placement.rect.y;
+        const pageY = A4.height - SPACING - placement.rect.y;
         const contentRect: Rect = {
-          x: 48 + placement.rect.x + SPACING / 2,
+          x: SPACING + placement.rect.x + SPACING / 2,
           y: pageY - placement.rect.height + SPACING / 2,
           width: placement.rect.width - SPACING,
           height: placement.rect.height - SPACING,

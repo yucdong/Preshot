@@ -27,7 +27,7 @@ export function createTauriPdfSaveTarget({
       });
 
       if (path === null) {
-        return false;
+        return null;
       }
 
       try {
@@ -42,7 +42,7 @@ export function createTauriPdfSaveTarget({
         });
       }
 
-      return true;
+      return path;
     },
   };
 }

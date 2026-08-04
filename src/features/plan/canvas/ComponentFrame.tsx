@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { SPACING, type Rect } from "../../../domain/plan/canvas/geometry";
-import { clampWidth, type PlanComponent } from "../../../domain/plan/canvas/models";
+import { type PlanComponent } from "../../../domain/plan/canvas/models";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
+import { resizeFromDrag } from "./useComponentResize";
 
 interface ComponentFrameProps {
   id: string;
@@ -71,24 +72,63 @@ export function ComponentFrame({
     const dxPoints = dxPx / scale;
     const dyPoints = dyPx / scale;
 
-    const result: { width?: number; height?: number } = {};
+    // Use resizeFromDrag to compute width/height from cumulative delta, preventing compounding
+    const committedWidthPoints = contentWidthPoints * component.width;
+    
+    let result: { width?: number; height?: number } = {};
 
-    if (start.edge === "width" || start.edge === "both") {
-      const nextWidth = clampWidth((currentWidthPoints + dxPoints) / contentWidthPoints);
-      result.width = nextWidth;
-    }
-
-    if (start.edge === "left") {
-      const nextWidth = clampWidth((currentWidthPoints - dxPoints) / contentWidthPoints);
-      result.width = nextWidth;
-    }
-
-    if (start.edge === "height" || start.edge === "both") {
-      result.height = component.height + dyPoints;
-    }
-
-    if (start.edge === "top") {
-      result.height = component.height - dyPoints;
+    if (start.edge === "width") {
+      result = resizeFromDrag({
+        width: component.width,
+        height: component.height,
+        edge: "width",
+        dxPoints,
+        dyPoints,
+        currentWidthPoints: committedWidthPoints,
+        contentWidth: contentWidthPoints,
+      });
+    } else if (start.edge === "left") {
+      // Left edge: width shrinks/grows opposite to drag direction
+      result = resizeFromDrag({
+        width: component.width,
+        height: component.height,
+        edge: "width",
+        dxPoints: -dxPoints,
+        dyPoints,
+        currentWidthPoints: committedWidthPoints,
+        contentWidth: contentWidthPoints,
+      });
+    } else if (start.edge === "height") {
+      result = resizeFromDrag({
+        width: component.width,
+        height: component.height,
+        edge: "height",
+        dxPoints,
+        dyPoints,
+        currentWidthPoints: committedWidthPoints,
+        contentWidth: contentWidthPoints,
+      });
+    } else if (start.edge === "top") {
+      // Top edge: height shrinks/grows opposite to drag direction
+      result = resizeFromDrag({
+        width: component.width,
+        height: component.height,
+        edge: "height",
+        dxPoints,
+        dyPoints: -dyPoints,
+        currentWidthPoints: committedWidthPoints,
+        contentWidth: contentWidthPoints,
+      });
+    } else if (start.edge === "both") {
+      result = resizeFromDrag({
+        width: component.width,
+        height: component.height,
+        edge: "both",
+        dxPoints,
+        dyPoints,
+        currentWidthPoints: committedWidthPoints,
+        contentWidth: contentWidthPoints,
+      });
     }
 
     setResizePreview(result);

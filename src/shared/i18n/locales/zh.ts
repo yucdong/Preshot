@@ -49,7 +49,6 @@ export const zh = {
     sampleSets: "样片集",
     addGroup: "添加参考分组",
     groupTitleAria: "分组标题",
-    imagesPerRow: "每行图片数",
     deleteGroup: "删除分组",
     groupAria: "参考分组：{{title}}",
     descriptionAria: "分组描述",

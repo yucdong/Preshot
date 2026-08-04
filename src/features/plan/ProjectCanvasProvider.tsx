@@ -242,22 +242,15 @@ export function ProjectCanvasProvider({
             if (!mountedRef.current) return;
             setImageSrc((current) => ({ ...current, [file]: src }));
             
-            // Backfill aspect ratio for images that don't have it
+            // Measure and backfill aspect ratio unconditionally to correct migrated v2 images
             const imageInfo = imageMap.get(file);
             if (imageInfo) {
-              const component = backfillPlan.components.find(
-                (c): c is Extract<typeof c, { type: "reference" }> => 
-                  c.type === "reference" && c.id === imageInfo.componentId
-              );
-              const image = component?.images.find((img) => img.id === imageInfo.imageId);
-              if (image && image.aspectRatio === undefined) {
-                const aspectRatio = await measureAspectRatio(src);
-                backfillPlan = setImageAspectRatio(backfillPlan, {
-                  componentId: imageInfo.componentId,
-                  imageId: imageInfo.imageId,
-                  aspectRatio,
-                });
-              }
+              const aspectRatio = await measureAspectRatio(src);
+              backfillPlan = setImageAspectRatio(backfillPlan, {
+                componentId: imageInfo.componentId,
+                imageId: imageInfo.imageId,
+                aspectRatio,
+              });
             }
           } catch (err) {
             report("Unable to load a reference image", err);
@@ -541,10 +534,10 @@ export function ProjectCanvasProvider({
         const bytes = await exporter.export(planRef.current, imageSrcRef.current);
         const separator = projectPath.includes("\\") ? "\\" : "/";
         const defaultPath = `${projectPath.replace(/[\\/]+$/, "")}${separator}output.pdf`;
-        const saved = await saver.save(bytes, defaultPath);
-        if (saved) {
+        const savedPath = await saver.save(bytes, defaultPath);
+        if (savedPath) {
           try {
-            await reveal.reveal(defaultPath);
+            await reveal.reveal(savedPath);
           } catch (error) {
             logger.error("reveal_failed", { detail: detail(error) });
           }
