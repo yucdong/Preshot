@@ -1,5 +1,5 @@
 import { ThemeProvider } from "./theme/ThemeProvider";
-import { tauriSettingsRepository } from "../infrastructure/settings/tauriSettings";
+import { createSettingsRepository } from "./settingsDependencies";
 import { WorkspaceProvider } from "./workspace/WorkspaceProvider";
 import {
   createWorkspaceDependencies,
@@ -10,6 +10,7 @@ import type { CanvasPlanDependencies } from "../features/plan/ProjectCanvasProvi
 
 const defaultWorkspaceDependencies = createWorkspaceDependencies();
 const defaultPlanDependencies = createPlanDependencies();
+const settingsRepository = createSettingsRepository();
 
 interface AppProps {
   dependencies?: WorkspaceDependencies;
@@ -21,7 +22,7 @@ export function App({
   planDependencies = defaultPlanDependencies,
 }: AppProps) {
   return (
-    <ThemeProvider repository={tauriSettingsRepository}>
+    <ThemeProvider repository={settingsRepository}>
       <WorkspaceProvider dependencies={dependencies} planDependencies={planDependencies} />
     </ThemeProvider>
   );
