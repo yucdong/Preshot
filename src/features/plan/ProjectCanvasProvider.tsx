@@ -5,6 +5,7 @@ import {
   DEFAULT_PLAN_HEIGHT,
   DEFAULT_REFERENCE_HEIGHT,
   DEFAULT_COLUMNS,
+  DEFAULT_IMAGE_HEIGHT,
   type ProjectPlan,
   type WidthFraction,
 } from "../../domain/plan/canvas/models";
@@ -190,11 +191,43 @@ export function ProjectCanvasProvider({
       try {
         const loaded = await service.loadPlan(projectPath);
         if (!mountedRef.current) return;
-        applyPlan(loaded);
-        markSaved(loaded);
+        
+        // Seed empty projects with [plan, reference] components
+        let planToUse = loaded;
+        if (loaded.components.length === 0) {
+          // Create plan component (same shape as handleInsert)
+          const planComponent = {
+            id: crypto.randomUUID(),
+            type: "plan" as const,
+            widthFraction: "1" as WidthFraction,
+            height: DEFAULT_PLAN_HEIGHT,
+            html: t("content.planTemplate"),
+          };
+          
+          // Create reference component (same shape as handleInsert)
+          const referenceComponent = {
+            id: crypto.randomUUID(),
+            type: "reference" as const,
+            widthFraction: "1" as WidthFraction,
+            height: DEFAULT_REFERENCE_HEIGHT,
+            title: t("content.newGroupTitle"),
+            description: "",
+            columnsPerRow: DEFAULT_COLUMNS,
+            showCaptions: false,
+            imageHeight: DEFAULT_IMAGE_HEIGHT,
+            images: [],
+          };
+          
+          // Add plan first (prepends to top), then reference
+          planToUse = addComponent(loaded, referenceComponent);
+          planToUse = addComponent(planToUse, planComponent);
+        }
+        
+        applyPlan(planToUse);
+        markSaved(planToUse);
         setError(null);
         const imageMap = new Map<string, { componentId: string; imageId: string }>();
-        loaded.components
+        planToUse.components
           .filter((c): c is Extract<typeof c, { type: "reference" }> => c.type === "reference")
           .forEach((c) => {
             c.images.forEach((img) => {
@@ -243,7 +276,7 @@ export function ProjectCanvasProvider({
     return () => {
       mountedRef.current = false;
     };
-  }, [applyPlan, markSaved, projectPath, service, report]);
+  }, [applyPlan, markSaved, projectPath, service, report, t]);
 
   useEffect(() => {
     imageSrcRef.current = imageSrc;

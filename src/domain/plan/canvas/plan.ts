@@ -54,7 +54,7 @@ function mapReference(
 }
 
 export function addComponent(plan: ProjectPlan, component: PlanComponent): ProjectPlan {
-  return replace(plan, [...plan.components, component]);
+  return replace(plan, [component, ...plan.components]);
 }
 
 export function removeComponent(plan: ProjectPlan, id: string): ProjectPlan {

@@ -124,6 +124,39 @@ describe("ProjectCanvasProvider", () => {
     expect(await screen.findByTestId("component-count")).toHaveTextContent("2");
   });
 
+  it("seeds an empty project with plan + reference components (plan on top)", async () => {
+    const { dependencies, service } = deps();
+    // Override loadPlan to return an empty plan
+    (service.loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
+      schemaVersion: 2,
+      components: [],
+    });
+
+    render(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    // Wait for canvas to render
+    await screen.findByTestId("plan-canvas");
+    
+    // Should have exactly 2 components
+    expect(await screen.findByTestId("component-count")).toHaveTextContent("2");
+    
+    // The first component should be a plan component with the template
+    const canvas = screen.getByTestId("plan-canvas");
+    expect(canvas.textContent).toContain("拍摄时间");
+    expect(canvas.textContent).toContain("拍摄地点");
+    expect(canvas.textContent).toContain("道具和服装");
+    expect(canvas.textContent).toContain("器材");
+    
+    // Should be marked as saved (seeding doesn't count as unsaved)
+    expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+  });
+
   it("marks unsaved when a component is edited", async () => {
     const { dependencies } = deps();
 

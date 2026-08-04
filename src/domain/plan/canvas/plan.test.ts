@@ -15,7 +15,6 @@ import {
   updatePlanHtml,
 } from "./plan";
 import {
-  EMPTY_PLAN,
   MIN_COMPONENT_HEIGHT,
   type PlanComponent,
   type ProjectPlan,
@@ -45,8 +44,13 @@ function withComponents(components: PlanComponent[]): ProjectPlan {
 }
 
 describe("canvas reducers", () => {
-  it("appends a component", () => {
-    expect(addComponent(EMPTY_PLAN, planText("a")).components).toHaveLength(1);
+  it("prepends a component (inserts at index 0)", () => {
+    const plan = withComponents([planText("a"), planText("b")]);
+    const next = addComponent(plan, planText("c"));
+    expect(next.components).toHaveLength(3);
+    expect(next.components[0].id).toBe("c");
+    expect(next.components[1].id).toBe("a");
+    expect(next.components[2].id).toBe("b");
   });
 
   it("removes a component by id and no-ops on unknown id", () => {
