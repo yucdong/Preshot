@@ -36,9 +36,7 @@
     ],
     "windows": {
       "wix": {
-        "language": ["en-US"],
-        "fragmentPaths": ["./wix/shortcuts.wxs"],
-        "componentGroupRefs": ["DesktopShortcuts"]
+        "language": ["en-US"]
       }
     }
   }
