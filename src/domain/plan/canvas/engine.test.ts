@@ -150,6 +150,55 @@ describe("reference image slots", () => {
     const maxRight = Math.max(...slots.map((slot) => slot.x + slot.width));
     expect(maxRight).toBeLessThanOrEqual(contentWidth);
   });
+
+  it("spaces captioned multi-row images by full slot height without overlap", () => {
+    // Create a scenario where images wrap: 3 square images, imageHeight 100,
+    // rect narrow enough that only 2 fit per row
+    const ih = 100;
+    const slotHeight = Math.round((ih * 4) / 3); // 133 when captions are on
+    const gutter = DEFAULT_PAGE_GEOMETRY.gutter; // 24
+    // Width calculation: need 2 images per row, so width > 2*(ih + gutter) but < 3*ih
+    // innerWidth = width - gutter; for 2 per row: innerWidth ~= 2*ih + gutter
+    const rect = { x: 0, y: 0, width: 250, height: 500 };
+    const top = TITLE_BAND; // no description
+    
+    const comp: ReferenceComponent = {
+      id: "r",
+      type: "reference",
+      widthFraction: "1",
+      height: 500,
+      title: "Test",
+      description: "",
+      columnsPerRow: 3,
+      showCaptions: true,
+      imageHeight: ih,
+      images: [
+        { id: "i1", file: "1.png", aspectRatio: 1 },
+        { id: "i2", file: "2.png", aspectRatio: 1 },
+        { id: "i3", file: "3.png", aspectRatio: 1 },
+      ],
+    };
+    
+    const slots = referenceImageSlots(rect, comp);
+    expect(slots).toHaveLength(3);
+    
+    // First row: slots 0 and 1 should both have y = top
+    expect(slots[0].y).toBe(top);
+    expect(slots[1].y).toBe(top);
+    
+    // Second row: slot 2 should be spaced by slotHeight + gutter (not ih + gutter)
+    const expectedSecondRowY = top + slotHeight + gutter;
+    expect(slots[2].y).toBe(expectedSecondRowY);
+    
+    // Verify no overlap: first row bottom (y + height) should not exceed second row top
+    const firstRowBottom = slots[0].y + slots[0].height;
+    expect(firstRowBottom).toBeLessThanOrEqual(slots[2].y);
+    
+    // All slots should have the full slot height
+    expect(slots[0].height).toBe(slotHeight);
+    expect(slots[1].height).toBe(slotHeight);
+    expect(slots[2].height).toBe(slotHeight);
+  });
 });
 
 describe("continuous width layout", () => {

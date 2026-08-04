@@ -29,27 +29,19 @@ export function referenceImageSlots(
   const top = TITLE_BAND + (component.description.trim() ? DESCRIPTION_BAND : 0);
   const innerWidth = rect.width - geometry.gutter;
   const ih = clampImageHeight(component.imageHeight ?? DEFAULT_IMAGE_HEIGHT);
-  
-  // Prepare items for packAspectRow with aspect ratios
-  const items = component.images.map(image => ({
-    aspectRatio: image.aspectRatio ?? 1,
-  }));
-  
-  // Pack images at imageHeight
-  const { rects } = packAspectRow(items, ih, innerWidth, geometry.gutter);
-  
-  // When showCaptions, set slot height so slotCaptionSplit can extract image height ih
-  // slotCaptionSplit does: caption = round(height/4), image = height - caption
-  // For image to be ih: height - round(height/4) = ih => height = round(ih * 4/3)
   const slotHeight = component.showCaptions ? Math.round((ih * 4) / 3) : ih;
-  
-  // Offset all rects by (rect.x, rect.y + top) and set slot height
-  return rects.map(imageRect => ({
-    x: rect.x + imageRect.x,
-    y: rect.y + top + imageRect.y,
-    width: imageRect.width,
-    height: slotHeight,
-  }));
+  const items = component.images.map((img) => ({ aspectRatio: img.aspectRatio ?? 1 }));
+  const { rects } = packAspectRow(items, ih, innerWidth, geometry.gutter);
+  let rowIndex = 0;
+  return rects.map((r, i) => {
+    if (i > 0 && r.x === 0) rowIndex += 1;               // packer starts each new row at x === 0
+    return {
+      x: rect.x + r.x,
+      y: rect.y + top + rowIndex * (slotHeight + geometry.gutter),
+      width: r.width,                                     // = ih × aspectRatio (correct — unchanged)
+      height: slotHeight,                                 // image + caption band; slotCaptionSplit peels the caption
+    };
+  });
 }
 
 export interface Placement {
