@@ -200,6 +200,59 @@ pub fn create_project_in(parent: &Path, name: &str) -> Result<InspectedProject, 
     create_project_in_with_manifest_writer(parent, name, &write_manifest_atomically)
 }
 
+/// Returns the first non-colliding project folder name in `parent`.
+/// Tries `name`, then `name (2)`, `name (3)`, … up to a safety cap; on the
+/// (pathological) chance every candidate is taken, falls back to a UUID suffix
+/// so the result is always free.
+pub(crate) fn dedupe_project_name(parent: &Path, name: &str) -> String {
+    if !parent.join(name).exists() {
+        return name.to_string();
+    }
+
+    for suffix in 2..=999 {
+        let candidate = format!("{name} ({suffix})");
+        if !parent.join(&candidate).exists() {
+            return candidate;
+        }
+    }
+
+    format!("{name} ({})", Uuid::new_v4())
+}
+
+/// Resolves the `~/.preshot` home directory for the current OS.
+fn preshot_home() -> Result<PathBuf, CommandError> {
+    #[cfg(windows)]
+    let home_var = "USERPROFILE";
+    #[cfg(not(windows))]
+    let home_var = "HOME";
+
+    let home = std::env::var(home_var).map_err(|_| {
+        CommandError::new(
+            "home_unresolved",
+            format!("Unable to resolve home directory (missing {home_var})"),
+        )
+    })?;
+
+    Ok(PathBuf::from(home).join(".preshot"))
+}
+
+/// Returns `<home>/projects`, creating it (and any missing parents) if absent.
+fn default_projects_path_in(home: &Path) -> Result<PathBuf, CommandError> {
+    let dir = home.join("projects");
+    fs::create_dir_all(&dir).map_err(|error| {
+        CommandError::new(
+            "projects_dir_create_failed",
+            format!("Unable to create the default projects directory: {error}"),
+        )
+    })?;
+    Ok(dir)
+}
+
+/// Returns `~/.preshot/projects`, creating it if missing.
+fn default_projects_path() -> Result<PathBuf, CommandError> {
+    default_projects_path_in(&preshot_home()?)
+}
+
 fn create_project_in_with_manifest_writer<F>(
     parent: &Path,
     name: &str,
@@ -211,14 +264,8 @@ where
     validate_project_name(name)?;
 
     let parent = canonicalize_directory(parent, "parent_not_found", "parent_not_directory")?;
-    let project = parent.join(name);
-
-    if project.exists() {
-        return Err(CommandError::new(
-            "project_exists",
-            "A file or folder with this project name already exists",
-        ));
-    }
+    let resolved = dedupe_project_name(&parent, name);
+    let project = parent.join(&resolved);
 
     fs::create_dir(&project).map_err(|error| {
         CommandError::new(
@@ -231,7 +278,7 @@ where
     let manifest = ProjectManifest {
         schema_version: 1,
         id: Uuid::new_v4().to_string(),
-        name: name.to_string(),
+        name: resolved,
         created_at: now.clone(),
         updated_at: now,
         cover_image: None,
@@ -635,6 +682,11 @@ pub fn inspect_project(path: String) -> Result<InspectedProject, CommandError> {
 }
 
 #[tauri::command]
+pub fn default_projects_dir() -> Result<String, CommandError> {
+    Ok(default_projects_path()?.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
 pub fn rollback_created_project(
     pending_rollbacks: tauri::State<'_, PendingProjectRollbacks>,
     rollback_token: String,
@@ -912,13 +964,50 @@ mod tests {
     }
 
     #[test]
-    fn rejects_existing_destination() {
+    fn dedupes_when_destination_name_is_taken() {
         let parent = tempfile::tempdir().unwrap();
         fs::create_dir(parent.path().join("Editorial")).unwrap();
 
-        let error = create_project_in(parent.path(), "Editorial").unwrap_err();
+        let created = create_project_in(parent.path(), "Editorial").unwrap();
 
-        assert_eq!(error.code, "project_exists");
+        let deduped = parent.path().join("Editorial (2)");
+        assert_eq!(created.path, canonical_string(&deduped));
+        assert_eq!(created.manifest.name, "Editorial (2)");
+        assert!(deduped.join(".preshotproj").is_file());
+    }
+
+    #[test]
+    fn dedupe_project_name_returns_name_when_free() {
+        let parent = tempfile::tempdir().unwrap();
+        assert_eq!(dedupe_project_name(parent.path(), "山景"), "山景");
+    }
+
+    #[test]
+    fn dedupe_project_name_appends_suffix_on_collision() {
+        let parent = tempfile::tempdir().unwrap();
+        fs::create_dir(parent.path().join("山景")).unwrap();
+        assert_eq!(dedupe_project_name(parent.path(), "山景"), "山景 (2)");
+    }
+
+    #[test]
+    fn dedupe_project_name_finds_first_free_suffix() {
+        let parent = tempfile::tempdir().unwrap();
+        fs::create_dir(parent.path().join("山景")).unwrap();
+        fs::create_dir(parent.path().join("山景 (2)")).unwrap();
+        assert_eq!(dedupe_project_name(parent.path(), "山景"), "山景 (3)");
+    }
+
+    #[test]
+    fn preshot_home_ends_with_dot_preshot() {
+        assert!(preshot_home().unwrap().ends_with(".preshot"));
+    }
+
+    #[test]
+    fn default_projects_path_in_creates_projects_dir() {
+        let home = tempfile::tempdir().unwrap();
+        let dir = default_projects_path_in(home.path()).unwrap();
+        assert_eq!(dir, home.path().join("projects"));
+        assert!(dir.is_dir());
     }
 
     #[test]

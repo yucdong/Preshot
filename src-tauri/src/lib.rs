@@ -37,6 +37,7 @@ pub fn run() {
             platform_info,
             workspace::create_project,
             workspace::inspect_project,
+            workspace::default_projects_dir,
             workspace::rollback_created_project,
             workspace::forget_created_project,
             plan::save_project_plan,
