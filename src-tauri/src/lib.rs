@@ -3,6 +3,7 @@ mod menu;
 mod pdf;
 mod plan;
 mod reveal;
+mod settings;
 mod workspace;
 
 #[derive(Debug, PartialEq, serde::Serialize)]
@@ -45,6 +46,8 @@ pub fn run() {
             plan::remove_reference_image,
             pdf::save_pdf,
             reveal::reveal_path,
+            settings::read_settings,
+            settings::write_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Preshot");
