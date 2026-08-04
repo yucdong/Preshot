@@ -24,6 +24,7 @@ import {
   setReferenceColumns,
   toggleReferenceCaptions,
   setImageCaption,
+  setImageAspectRatio,
   type MoveImageParams,
 } from "../../domain/plan/canvas/plan";
 import { PlanCanvas } from "./canvas/PlanCanvas";
@@ -47,6 +48,17 @@ interface ProjectCanvasProviderProps {
 
 function detail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function measureAspectRatio(dataUrl: string): Promise<number> {
+  const img = new Image();
+  img.src = dataUrl;
+  try {
+    await img.decode();
+    return img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 1;
+  } catch {
+    return 1;
+  }
 }
 
 const AUTO_SAVE_INTERVAL_MS = 5000;
@@ -179,17 +191,47 @@ export function ProjectCanvasProvider({
         applyPlan(loaded);
         markSaved(loaded);
         setError(null);
-        const imageFiles = loaded.components
+        const imageMap = new Map<string, { componentId: string; imageId: string }>();
+        loaded.components
           .filter((c): c is Extract<typeof c, { type: "reference" }> => c.type === "reference")
-          .flatMap((c) => c.images.map((img) => img.file));
+          .forEach((c) => {
+            c.images.forEach((img) => {
+              imageMap.set(img.file, { componentId: c.id, imageId: img.id });
+            });
+          });
+        const imageFiles = Array.from(imageMap.keys());
+        let backfillPlan = planRef.current;
         for (const file of imageFiles) {
           try {
             const src = await service.loadImage(projectPath, file);
             if (!mountedRef.current) return;
             setImageSrc((current) => ({ ...current, [file]: src }));
+            
+            // Backfill aspect ratio for images that don't have it
+            const imageInfo = imageMap.get(file);
+            if (imageInfo) {
+              const component = backfillPlan.components.find(
+                (c): c is Extract<typeof c, { type: "reference" }> => 
+                  c.type === "reference" && c.id === imageInfo.componentId
+              );
+              const image = component?.images.find((img) => img.id === imageInfo.imageId);
+              if (image && image.aspectRatio === undefined) {
+                const aspectRatio = await measureAspectRatio(src);
+                backfillPlan = setImageAspectRatio(backfillPlan, {
+                  componentId: imageInfo.componentId,
+                  imageId: imageInfo.imageId,
+                  aspectRatio,
+                });
+              }
+            }
           } catch (err) {
             report("Unable to load a reference image", err);
           }
+        }
+        // If aspect ratios were backfilled, update the plan and mark it as the current saved state
+        if (backfillPlan !== planRef.current) {
+          applyPlan(backfillPlan);
+          markSaved(backfillPlan);
         }
       } catch (err) {
         report("Unable to load the project plan", err);
@@ -374,6 +416,15 @@ export function ProjectCanvasProvider({
           applyPlan(result.plan);
           markSaved(result.plan);
           setError(null);
+          
+          // Measure and store aspect ratio
+          const aspectRatio = await measureAspectRatio(result.dataUrl);
+          const withRatio = setImageAspectRatio(planRef.current, {
+            componentId,
+            imageId: result.image.id,
+            aspectRatio,
+          });
+          applyPlan(withRatio);
         });
       });
     },

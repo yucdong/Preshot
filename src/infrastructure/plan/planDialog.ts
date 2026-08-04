@@ -38,6 +38,34 @@ export function createPlanImagePicker({ openDialog = open }: Dependencies = {}):
       }
       throw new Error("Unable to select an image: Unexpected dialog response");
     },
+    async pickImageFiles(title = "Select images") {
+      let selected: string | string[] | null;
+      try {
+        selected = await (openDialog as unknown as (options: {
+          title: string;
+          directory: false;
+          multiple: true;
+          filters: { name: string; extensions: string[] }[];
+        }) => Promise<string | string[] | null>)({
+          title,
+          directory: false,
+          multiple: true,
+          filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png"] }],
+        });
+      } catch (error) {
+        throw new Error(`Unable to select images: ${detail(error)}`, { cause: error });
+      }
+      if (Array.isArray(selected)) {
+        return selected;
+      }
+      if (selected === null) {
+        return [];
+      }
+      if (typeof selected === "string") {
+        return [selected];
+      }
+      throw new Error("Unable to select images: Unexpected dialog response");
+    },
   };
 }
 

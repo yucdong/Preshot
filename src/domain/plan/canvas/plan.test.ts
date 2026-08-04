@@ -3,11 +3,13 @@ import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import {
   addComponent,
   addReferenceImage,
+  addReferenceImages,
   moveComponent,
   moveImage,
   removeComponent,
   resizeComponent,
   setImageCaption,
+  setImageAspectRatio,
   toggleReferenceCaptions,
   updatePlanHtml,
 } from "./plan";
@@ -116,5 +118,30 @@ describe("canvas reducers", () => {
     const next = moveImage(plan, { fromComponentId: "r1", imageId: "i1", toComponentId: "r2", toIndex: 0 });
     expect((next.components[0] as ReferenceComponent).images.map((i) => i.id)).toEqual(["i2"]);
     expect((next.components[1] as ReferenceComponent).images.map((i) => i.id)).toEqual(["i1"]);
+  });
+
+  it("appends multiple images in batch via addReferenceImages", () => {
+    const plan = withComponents([reference("r", ["i1"])]);
+    const images = [
+      { id: "i2", file: "references/i2.png" },
+      { id: "i3", file: "references/i3.png" },
+    ];
+    const next = addReferenceImages(plan, { componentId: "r", images });
+    expect((next.components[0] as ReferenceComponent).images).toHaveLength(3);
+    expect((next.components[0] as ReferenceComponent).images.map((i) => i.id)).toEqual(["i1", "i2", "i3"]);
+  });
+
+  it("sets image aspect ratio and no-ops when unchanged", () => {
+    const plan = withComponents([reference("r", ["i1"])]);
+    const withRatio = setImageAspectRatio(plan, { componentId: "r", imageId: "i1", aspectRatio: 1.5 });
+    expect((withRatio.components[0] as ReferenceComponent).images[0].aspectRatio).toBe(1.5);
+    const reapplied = setImageAspectRatio(withRatio, { componentId: "r", imageId: "i1", aspectRatio: 1.5 });
+    expect(reapplied).toBe(withRatio);
+  });
+
+  it("setImageAspectRatio returns same plan when imageId not found", () => {
+    const plan = withComponents([reference("r", ["i1"])]);
+    const result = setImageAspectRatio(plan, { componentId: "r", imageId: "unknown", aspectRatio: 1.5 });
+    expect(result).toBe(plan);
   });
 });

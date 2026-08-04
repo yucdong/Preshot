@@ -11,4 +11,5 @@ export interface ReferenceImageStore {
 
 export interface PlanImagePicker {
   pickImageFile(title: string): Promise<string | null>;
+  pickImageFiles(title?: string): Promise<string[]>;
 }

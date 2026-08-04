@@ -84,6 +84,7 @@ function deps(): {
       image: { id: "i2", file: "references/0002.png" },
       dataUrl: "data:image/png;base64,BB",
     }),
+    importImages: vi.fn(),
     removeImage: vi.fn(),
     removeComponent: vi.fn(),
   };
@@ -93,7 +94,10 @@ function deps(): {
     savePlan,
     dependencies: {
       service,
-      picker: { pickImageFile: pick },
+      picker: {
+        pickImageFile: pick,
+        pickImageFiles: vi.fn().mockResolvedValue([]),
+      },
       logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
       exporter: { export: vi.fn().mockResolvedValue(new Uint8Array([37, 80, 68, 70])) },
       saver: { save: vi.fn().mockResolvedValue(true) },

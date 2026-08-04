@@ -94,6 +94,32 @@ describe("canvas plan service", () => {
     expect(removed).toContain("references/0001.png");
     expect(repository.saveRawPlan).toHaveBeenCalled();
   });
+
+  it("imports multiple images in batch via importImages", async () => {
+    const { repository, imageStore } = fakes(refPlan);
+    let counter = 0;
+    imageStore.importImage.mockImplementation(async () => {
+      counter += 1;
+      return {
+        file: `references/${String(counter).padStart(4, "0")}.png`,
+        dataUrl: `data:image/png;base64,AA${counter}`,
+      };
+    });
+    const service = createCanvasPlanService({
+      repository,
+      imageStore,
+      createId: () => `i${counter + 1}`,
+      logger: silentLogger(),
+    });
+    const result = await service.importImages("C:/p", refPlan, "r", ["C:/src1.png", "C:/src2.png"]);
+    expect(result.images).toHaveLength(2);
+    expect(result.images[0].image.id).toBe("i2");
+    expect(result.images[0].dataUrl).toBe("data:image/png;base64,AA1");
+    expect(result.images[1].image.id).toBe("i3");
+    expect(result.images[1].dataUrl).toBe("data:image/png;base64,AA2");
+    expect((result.plan.components[0] as ReferenceComponent).images).toHaveLength(3);
+    expect(repository.saveRawPlan).toHaveBeenCalledTimes(1);
+  });
 });
 
 function silentLogger() {

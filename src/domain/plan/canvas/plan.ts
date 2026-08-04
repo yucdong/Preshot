@@ -129,6 +129,16 @@ export function addReferenceImage(
   }));
 }
 
+export function addReferenceImages(
+  plan: ProjectPlan,
+  params: { componentId: string; images: ReferenceImage[] },
+): ProjectPlan {
+  return mapReference(plan, params.componentId, (component) => ({
+    ...component,
+    images: [...component.images, ...params.images],
+  }));
+}
+
 export function removeReferenceImage(
   plan: ProjectPlan,
   params: { componentId: string; imageId: string },
@@ -152,6 +162,24 @@ export function setImageCaption(
       ...component,
       images: component.images.map((image) =>
         image.id === params.imageId ? { ...image, caption: params.caption } : image,
+      ),
+    };
+  });
+}
+
+export function setImageAspectRatio(
+  plan: ProjectPlan,
+  params: { componentId: string; imageId: string; aspectRatio: number },
+): ProjectPlan {
+  return mapReference(plan, params.componentId, (component) => {
+    const target = component.images.find((image) => image.id === params.imageId);
+    if (!target || target.aspectRatio === params.aspectRatio) {
+      return component;
+    }
+    return {
+      ...component,
+      images: component.images.map((image) =>
+        image.id === params.imageId ? { ...image, aspectRatio: params.aspectRatio } : image,
       ),
     };
   });

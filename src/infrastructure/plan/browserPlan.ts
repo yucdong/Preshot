@@ -27,8 +27,8 @@ const SEEDED_V2_PLAN: CanvasPlan = {
       columnsPerRow: 3,
       showCaptions: false,
       images: [
-        { id: "img-1", file: "references/0001.png" },
-        { id: "img-2", file: "references/0002.png" },
+        { id: "img-1", file: "references/0001.png", aspectRatio: 1 },
+        { id: "img-2", file: "references/0002.png", aspectRatio: 1 },
       ],
     },
   ],
@@ -67,6 +67,9 @@ function createMemoryCanvasStores(): {
 const memoryPicker: PlanImagePicker = {
   async pickImageFile(_title: string) {
     return "C:\\memory\\import.png";
+  },
+  async pickImageFiles(_title?: string) {
+    return ["C:\\memory\\import1.png", "C:\\memory\\import2.png"];
   },
 };
 

@@ -4,7 +4,7 @@ import type { CanvasPlanRepository } from "./ports";
 import type { ProjectPlan, ReferenceComponent, ReferenceImage } from "./models";
 import { EMPTY_PLAN } from "./models";
 import { migratePlan } from "./migrate";
-import { addReferenceImage, removeComponent, removeReferenceImage } from "./plan";
+import { addReferenceImage, addReferenceImages, removeComponent, removeReferenceImage } from "./plan";
 
 interface Dependencies {
   repository: CanvasPlanRepository;
@@ -19,6 +19,11 @@ export interface ImportImageResult {
   dataUrl: string;
 }
 
+export interface ImportImagesResult {
+  plan: ProjectPlan;
+  images: { image: ReferenceImage; dataUrl: string }[];
+}
+
 export interface CanvasPlanService {
   loadPlan(projectPath: string): Promise<ProjectPlan>;
   savePlan(projectPath: string, plan: ProjectPlan): Promise<void>;
@@ -29,6 +34,12 @@ export interface CanvasPlanService {
     componentId: string,
     sourcePath: string,
   ): Promise<ImportImageResult>;
+  importImages(
+    projectPath: string,
+    plan: ProjectPlan,
+    componentId: string,
+    sourcePaths: string[],
+  ): Promise<ImportImagesResult>;
   removeImage(
     projectPath: string,
     plan: ProjectPlan,
@@ -108,6 +119,28 @@ export function createCanvasPlanService({
         await persist(projectPath, next);
         logger.info("Reference image imported", { componentId, file: image.file });
         return { plan: next, image, dataUrl: imported.dataUrl };
+      });
+    },
+    importImages(projectPath, plan, componentId, sourcePaths) {
+      return enqueue(async () => {
+        const images: { image: ReferenceImage; dataUrl: string }[] = [];
+        for (const sourcePath of sourcePaths) {
+          let imported;
+          try {
+            imported = await imageStore.importImage(projectPath, sourcePath);
+          } catch (error) {
+            throw contextualError("Unable to import a reference image", error);
+          }
+          const image: ReferenceImage = { id: createId(), file: imported.file };
+          images.push({ image, dataUrl: imported.dataUrl });
+        }
+        const next = addReferenceImages(plan, {
+          componentId,
+          images: images.map((item) => item.image),
+        });
+        await persist(projectPath, next);
+        logger.info("Reference images imported", { componentId, count: images.length });
+        return { plan: next, images };
       });
     },
     removeImage(projectPath, plan, componentId, imageId) {

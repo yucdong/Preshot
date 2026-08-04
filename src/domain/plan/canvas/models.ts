@@ -55,6 +55,7 @@ export interface ReferenceImage {
   id: string;
   file: string;
   caption?: string;
+  aspectRatio?: number;
 }
 
 export interface BaseComponent {
