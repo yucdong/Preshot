@@ -410,14 +410,6 @@ export function ProjectCanvasProvider({
     [applyPlan],
   );
 
-  const handleSetColumns = useCallback(
-    (id: string, columns: number) => {
-      const next = setReferenceColumns(planRef.current, id, columns);
-      applyPlan(next);
-    },
-    [applyPlan],
-  );
-
   const handleSetImageHeight = useCallback(
     (id: string, imageHeight: number) => {
       const next = setImageHeight(planRef.current, id, imageHeight);
@@ -595,7 +587,6 @@ export function ProjectCanvasProvider({
           onRemoveComponent={handleRemoveComponent}
           onRemoveImage={handleRemoveImage}
           onResize={handleResize}
-          onSetColumns={handleSetColumns}
           onSetDescription={handleSetDescription}
           onSetTitle={handleSetTitle}
           onToggleCaptions={handleToggleCaptions}

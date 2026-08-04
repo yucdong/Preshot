@@ -34,7 +34,6 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onChangeHtml: vi.fn(),
     onSetTitle: vi.fn(),
     onSetDescription: vi.fn(),
-    onSetColumns: vi.fn(),
     onAddImage: vi.fn(),
     onRemoveImage: vi.fn(),
     onOpenImage: vi.fn(),

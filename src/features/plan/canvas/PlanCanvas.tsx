@@ -32,7 +32,6 @@ export interface PlanCanvasProps {
   onChangeHtml: (id: string, html: string) => void;
   onSetTitle: (id: string, title: string) => void;
   onSetDescription: (id: string, description: string) => void;
-  onSetColumns: (id: string, columns: number) => void;
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
   onOpenImage: (file: string) => void;
@@ -86,7 +85,6 @@ export function PlanCanvas({
   onChangeHtml,
   onSetTitle,
   onSetDescription,
-  onSetColumns,
   onAddImage,
   onRemoveImage,
   onOpenImage,
@@ -170,7 +168,7 @@ export function PlanCanvas({
         return;
       }
       lastImageParamsRef.current = params;
-      setPreview(moveImage({ schemaVersion: 2, components }, params).components);
+      setPreview(moveImage({ schemaVersion: 3, components }, params).components);
     }
   };
 
@@ -265,7 +263,6 @@ export function PlanCanvas({
                         onAddImage={onAddImage}
                         onOpenImage={onOpenImage}
                         onRemoveImage={onRemoveImage}
-                        onSetColumns={onSetColumns}
                         onSetDescription={onSetDescription}
                         onSetTitle={onSetTitle}
                         onToggleCaptions={onToggleCaptions}

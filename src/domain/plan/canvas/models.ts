@@ -19,10 +19,16 @@ export function clampHeight(height: number, maxHeight: number): number {
 }
 
 export function clampWidth(width: number): number {
+  if (!Number.isFinite(width)) {
+    return MIN_WIDTH;
+  }
   return Math.min(DEFAULT_WIDTH, Math.max(MIN_WIDTH, width));
 }
 
 export function clampImageHeight(height: number): number {
+  if (!Number.isFinite(height)) {
+    return MIN_IMAGE_HEIGHT;
+  }
   return Math.min(MAX_IMAGE_HEIGHT, Math.max(MIN_IMAGE_HEIGHT, height));
 }
 

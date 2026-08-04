@@ -10,7 +10,6 @@ interface ReferenceComponentViewProps {
   imageSrc: (file: string) => string | undefined;
   onSetTitle: (id: string, title: string) => void;
   onSetDescription: (id: string, description: string) => void;
-  onSetColumns: (id: string, columns: number) => void;
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
   onOpenImage: (file: string) => void;
@@ -28,7 +27,6 @@ export function ReferenceComponentView({
   imageSrc,
   onSetTitle,
   onSetDescription,
-  onSetColumns: _onSetColumns,
   onAddImage,
   onRemoveImage,
   onOpenImage,

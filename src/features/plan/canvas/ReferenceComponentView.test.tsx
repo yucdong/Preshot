@@ -32,7 +32,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}
@@ -56,7 +55,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}
@@ -80,7 +78,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}
@@ -104,7 +101,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}
@@ -127,7 +123,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}
@@ -150,7 +145,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}
@@ -170,7 +164,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}
@@ -192,7 +185,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}
@@ -218,7 +210,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}
@@ -243,7 +234,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}
@@ -266,7 +256,6 @@ describe("ReferenceComponentView", () => {
         imageSrc={() => undefined}
         onSetTitle={vi.fn()}
         onSetDescription={vi.fn()}
-        onSetColumns={vi.fn()}
         onAddImage={vi.fn()}
         onRemoveImage={vi.fn()}
         onOpenImage={vi.fn()}

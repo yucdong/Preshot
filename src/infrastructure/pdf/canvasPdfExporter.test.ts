@@ -17,12 +17,12 @@ describe("createCanvasPdfExporter", () => {
   it("produces a valid PDF from a canvas layout with plan component", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       components: [
         {
           id: "p1",
           type: "plan",
-          widthFraction: "1",
+          width: 1,
           height: 200,
           html: "<h1>标题</h1><p>段落 <strong>粗体</strong> text</p>",
         },
@@ -45,20 +45,20 @@ describe("createCanvasPdfExporter", () => {
   it("produces a valid PDF from a canvas layout with reference component", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       components: [
         {
           id: "r1",
           type: "reference",
-          widthFraction: "1",
+          width: 1,
           height: 320,
           title: "参考照片",
           description: "描述 <em>italic</em>",
-          columnsPerRow: 2,
           showCaptions: true,
+          imageHeight: 180,
           images: [
-            { id: "img1", file: "photo1.png", caption: "图1" },
-            { id: "img2", file: "photo2.png", caption: "图2" },
+            { id: "img1", file: "photo1.png", caption: "图1", aspectRatio: 1 },
+            { id: "img2", file: "photo2.png", caption: "图2", aspectRatio: 1 },
           ],
         },
       ],
@@ -76,19 +76,19 @@ describe("createCanvasPdfExporter", () => {
   it("produces multi-page PDF when components span pages", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       components: [
         {
           id: "p1",
           type: "plan",
-          widthFraction: "1",
+          width: 1,
           height: 650,
           html: "<p>第一页内容</p>",
         },
         {
           id: "p2",
           type: "plan",
-          widthFraction: "1",
+          width: 1,
           height: 200,
           html: "<p>第二页内容</p>",
         },
@@ -114,9 +114,9 @@ describe("createCanvasPdfExporter", () => {
     const longCjk =
       "拍摄计划详细说明：在清晨的黄金时段前往山顶记录云海与日出的层次变化，注意保留高光细节。".repeat(60);
     const plan: ProjectPlan = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       components: [
-        { id: "p1", type: "plan", widthFraction: "1", height: 160, html: `<p>${longCjk}</p>` },
+        { id: "p1", type: "plan", width: 1, height: 160, html: `<p>${longCjk}</p>` },
       ],
     };
 
@@ -132,25 +132,25 @@ describe("createCanvasPdfExporter", () => {
   it("renders mixed component types correctly", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       components: [
         {
           id: "p1",
           type: "plan",
-          widthFraction: "1/2",
+          width: 0.5,
           height: 200,
           html: "<p>Left <u>underline</u></p>",
         },
         {
           id: "r1",
           type: "reference",
-          widthFraction: "1/2",
+          width: 0.5,
           height: 200,
           title: "Right",
           description: "",
-          columnsPerRow: 1,
           showCaptions: false,
-          images: [{ id: "img1", file: "photo.png" }],
+          imageHeight: 180,
+          images: [{ id: "img1", file: "photo.png", aspectRatio: 1 }],
         },
       ],
     };
@@ -164,18 +164,18 @@ describe("createCanvasPdfExporter", () => {
   it("handles reference with single image column", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       components: [
         {
           id: "r1",
           type: "reference",
-          widthFraction: "1",
+          width: 1,
           height: 320,
           title: "单列参考",
           description: "单列布局",
-          columnsPerRow: 1,
           showCaptions: false,
-          images: [{ id: "img1", file: "photo.png" }],
+          imageHeight: 180,
+          images: [{ id: "img1", file: "photo.png", aspectRatio: 1 }],
         },
       ],
     };
@@ -189,17 +189,17 @@ describe("createCanvasPdfExporter", () => {
   it("renders per-image captions when showCaptions is true", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       components: [
         {
           id: "r1",
           type: "reference",
-          widthFraction: "1",
+          width: 1,
           height: 360,
           title: "照片集",
           description: "带说明的参考照片",
-          columnsPerRow: 2,
           showCaptions: true,
+          imageHeight: 180,
           images: [
             { id: "img1", file: "photo1.png", caption: "日出 — 黄金时段", aspectRatio: 1 },
             { id: "img2", file: "photo2.png", caption: "中午 — 强光", aspectRatio: 1 },
