@@ -134,26 +134,26 @@ export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
       <div
         aria-labelledby={`${inputId}-title`}
         aria-modal="true"
-        className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-stone-950 p-6 shadow-2xl shadow-black/50"
+        className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-6 shadow-2xl shadow-black/30 dark:border-white/10 dark:bg-stone-950 dark:shadow-black/50"
         ref={dialogRef}
         role="dialog"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-stone-400">
+            <p className="text-xs uppercase tracking-[0.24em] text-stone-500 dark:text-stone-400">
               {t("dialog.eyebrow")}
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white" id={`${inputId}-title`}>
+            <h2 className="mt-2 text-2xl font-semibold text-stone-900 dark:text-white" id={`${inputId}-title`}>
               {t("dialog.title")}
             </h2>
           </div>
         </div>
         <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
-          <label className="block text-sm font-medium text-stone-200" htmlFor={inputId}>
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor={inputId}>
             {t("dialog.projectName")}
           </label>
           <input
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-stone-900 px-4 py-3 text-base text-white outline-none transition placeholder:text-stone-500 focus:border-amber-300 focus:ring-2 focus:ring-amber-300/30"
+            className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-300/30 dark:border-white/10 dark:bg-stone-900 dark:text-white dark:placeholder:text-stone-500"
             disabled={isSubmitting}
             id={inputId}
             onChange={(event) => setValue(event.target.value)}
@@ -162,7 +162,7 @@ export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
           />
           <div className="flex justify-end gap-3">
             <button
-              className={`${buttonClassName} border border-white/10 text-stone-300 hover:border-white/20 hover:bg-white/5`}
+              className={`${buttonClassName} border border-stone-300 text-stone-700 hover:border-stone-400 hover:bg-stone-50 dark:border-white/10 dark:text-stone-300 dark:hover:border-white/20 dark:hover:bg-white/5`}
               disabled={isSubmitting}
               onClick={onClose}
               type="button"

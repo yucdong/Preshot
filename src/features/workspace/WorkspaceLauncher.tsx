@@ -55,20 +55,20 @@ export function WorkspaceLauncher({
   }
 
   return (
-    <main className="min-h-screen bg-stone-950 px-8 py-10 text-stone-100">
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-7xl flex-col rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.12),_transparent_45%),linear-gradient(180deg,_rgba(28,25,23,0.98),_rgba(12,10,9,1))] p-8 shadow-2xl shadow-black/30">
-        <header className="flex flex-wrap items-start justify-between gap-6 border-b border-white/10 pb-8">
+    <main className="min-h-screen bg-stone-50 px-8 py-10 text-stone-800 dark:bg-stone-950 dark:text-stone-100">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-7xl flex-col rounded-[2rem] border border-stone-200 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.08),_transparent_45%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(250,250,249,1))] p-8 shadow-2xl shadow-black/10 dark:border-white/10 dark:bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.12),_transparent_45%),linear-gradient(180deg,_rgba(28,25,23,0.98),_rgba(12,10,9,1))] dark:shadow-black/30">
+        <header className="flex flex-wrap items-start justify-between gap-6 border-b border-stone-200 pb-8 dark:border-white/10">
           <div className="max-w-2xl">
-            <p className="text-xs uppercase tracking-[0.3em] text-stone-400">
+            <p className="text-xs uppercase tracking-[0.3em] text-stone-500 dark:text-stone-400">
               Preshot
             </p>
-            <h1 className="mt-3 text-5xl font-semibold tracking-tight text-white">
+            <h1 className="mt-3 text-5xl font-semibold tracking-tight text-stone-900 dark:text-white">
               Preshot
             </h1>
-            <p className="mt-4 text-base leading-7 text-stone-300">
+            <p className="mt-4 text-base leading-7 text-stone-600 dark:text-stone-300">
               {t("workspace.intro")}
             </p>
-            <p className="mt-3 text-sm text-stone-500">
+            <p className="mt-3 text-sm text-stone-500 dark:text-stone-500">
               {t("workspace.menuHint")}
             </p>
           </div>
@@ -84,7 +84,7 @@ export function WorkspaceLauncher({
               {t("workspace.newProject")}
             </button>
             <button
-              className={`${actionButtonClassName} border border-white/10 bg-white/[0.03] text-stone-100 hover:border-white/20 hover:bg-white/8`}
+              className={`${actionButtonClassName} border border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-100 dark:hover:border-white/20 dark:hover:bg-white/8`}
               disabled={Boolean(busyAction)}
               onClick={() =>
                 void runAction("open-existing", () => onOpenExisting())
@@ -100,7 +100,7 @@ export function WorkspaceLauncher({
           {loading ? (
             <div
               aria-live="polite"
-              className="mb-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-stone-300"
+              className="mb-6 inline-flex items-center gap-3 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm text-stone-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-300"
               role="status"
             >
               <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
@@ -110,7 +110,7 @@ export function WorkspaceLauncher({
 
           {error ? (
             <div
-              className="mb-6 rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+              className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-400/40 dark:bg-rose-500/10 dark:text-rose-100"
               role="alert"
             >
               {t("errors.workspace")}
@@ -132,14 +132,14 @@ export function WorkspaceLauncher({
               projects={projects}
             />
           ) : (
-            <section className="rounded-[2rem] border border-dashed border-white/15 bg-white/[0.02] p-10 text-center">
-              <p className="text-xs uppercase tracking-[0.24em] text-stone-400">
+            <section className="rounded-[2rem] border border-dashed border-stone-300 bg-stone-50 p-10 text-center dark:border-white/15 dark:bg-white/[0.02]">
+              <p className="text-xs uppercase tracking-[0.24em] text-stone-500 dark:text-stone-400">
                 {t("workspace.launcherEyebrow")}
               </p>
-              <h2 className="mt-4 text-3xl font-semibold text-white">
+              <h2 className="mt-4 text-3xl font-semibold text-stone-900 dark:text-white">
                 {t("workspace.emptyTitle")}
               </h2>
-              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-stone-300">
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-stone-600 dark:text-stone-300">
                 {t("workspace.emptyBody")}
               </p>
             </section>

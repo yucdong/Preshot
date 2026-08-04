@@ -23,7 +23,7 @@ function getNameGradient(name: string) {
 function ProjectArt({ project, dimmed = false }: { project: WorkspaceProjectView; dimmed?: boolean }) {
   const { t } = useTranslation();
   const sharedClassName =
-    "relative flex aspect-[4/5] w-full items-end overflow-hidden rounded-[2rem] border border-white/10 bg-stone-900";
+    "relative flex aspect-[4/5] w-full items-end overflow-hidden rounded-[2rem] border border-stone-200 bg-stone-100 dark:border-white/10 dark:bg-stone-900";
 
   if (project.coverDataUrl) {
     return (
@@ -49,7 +49,7 @@ function ProjectArt({ project, dimmed = false }: { project: WorkspaceProjectView
 }
 
 const actionButtonClassName =
-  "inline-flex items-center justify-center rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-stone-100 transition hover:border-white/30 hover:bg-white/8 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 transition hover:border-stone-400 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:text-stone-100 dark:hover:border-white/30 dark:hover:bg-white/8";
 
 export function ProjectCard({
   project,
@@ -61,15 +61,15 @@ export function ProjectCard({
 }: ProjectCardProps) {
   const { t } = useTranslation();
   const details = (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-6 text-left">
-      <p className="text-xs uppercase tracking-[0.24em] text-stone-300">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-6 text-left dark:from-black/85 dark:via-black/35">
+      <p className="text-xs uppercase tracking-[0.24em] text-stone-200 dark:text-stone-300">
         {project.status === "available" ? t("card.recentProject") : t("card.unavailable")}
       </p>
       <h3 className="mt-3 text-2xl font-semibold text-white">{project.name}</h3>
       {project.status === "available" ? (
-        <p className="mt-2 text-sm text-stone-300">{t("card.openHint")}</p>
+        <p className="mt-2 text-sm text-stone-200 dark:text-stone-300">{t("card.openHint")}</p>
       ) : (
-        <p className="mt-2 text-sm text-stone-300">
+        <p className="mt-2 text-sm text-stone-200 dark:text-stone-300">
           {t("card.movedHint")}
         </p>
       )}
@@ -88,14 +88,14 @@ export function ProjectCard({
           type="button"
         >
           <ProjectArt project={project} />
-          <div className="absolute inset-0 transition group-hover:bg-white/4">{details}</div>
+          <div className="absolute inset-0 transition group-hover:bg-white/4 dark:group-hover:bg-white/4">{details}</div>
         </button>
       </article>
     );
   }
 
   return (
-    <article className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-4 shadow-2xl shadow-black/20">
+    <article className="rounded-[2rem] border border-stone-200 bg-white p-4 shadow-2xl shadow-black/10 dark:border-white/10 dark:bg-white/[0.03] dark:shadow-black/20">
       <div className="relative">
         <ProjectArt dimmed project={project} />
         <div className="absolute inset-0">{details}</div>
