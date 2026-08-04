@@ -30,6 +30,14 @@ import {
   addReferenceImages,
   type MoveImageParams,
 } from "../../domain/plan/canvas/plan";
+import {
+  createHistory,
+  record as recordHistory,
+  undo as undoHistory,
+  redo as redoHistory,
+  mergeStructural,
+  type PlanHistory,
+} from "../../domain/plan/canvas/history";
 import { PlanCanvas } from "./canvas/PlanCanvas";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
 import { InsertComponentMenu } from "./canvas/InsertComponentMenu";
@@ -53,6 +61,13 @@ interface ProjectCanvasProviderProps {
 
 function detail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isTextEditingTarget(node: EventTarget | null): boolean {
+  if (!(node instanceof HTMLElement)) return false;
+  if (node.isContentEditable) return true;
+  if (node.tagName === "INPUT" || node.tagName === "TEXTAREA") return true;
+  return node.closest('.bn-editor, .ProseMirror, [contenteditable="true"]') !== null;
 }
 
 async function measureAspectRatio(dataUrl: string): Promise<number> {
@@ -82,6 +97,8 @@ export function ProjectCanvasProvider({
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [exporting, setExporting] = useState(false);
   const [scale, setScale] = useState(0.5);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
   const busyRef = useRef(false);
@@ -89,6 +106,7 @@ export function ProjectCanvasProvider({
   const imageSrcRef = useRef(imageSrc);
   const savingRef = useRef(false);
   const lastSavedRef = useRef(JSON.stringify(EMPTY_PLAN));
+  const historyRef = useRef<PlanHistory>(createHistory());
 
   const syncSaveState = useCallback(() => {
     setSaveState(
@@ -108,6 +126,43 @@ export function ProjectCanvasProvider({
     },
     [syncSaveState],
   );
+
+  const syncHistoryFlags = useCallback(() => {
+    setCanUndo(historyRef.current.past.length > 0);
+    setCanRedo(historyRef.current.future.length > 0);
+  }, []);
+
+  const recordHistoryEntry = useCallback(
+    (previous: ProjectPlan, coalesceKey?: string) => {
+      historyRef.current = recordHistory(historyRef.current, previous, { coalesceKey });
+      syncHistoryFlags();
+    },
+    [syncHistoryFlags],
+  );
+
+  const mutate = useCallback(
+    (next: ProjectPlan, coalesceKey?: string) => {
+      recordHistoryEntry(planRef.current, coalesceKey);
+      applyPlan(next);
+    },
+    [applyPlan, recordHistoryEntry],
+  );
+
+  const undo = useCallback(() => {
+    const outcome = undoHistory(historyRef.current, planRef.current);
+    if (!outcome) return;
+    historyRef.current = outcome.history;
+    applyPlan(mergeStructural(outcome.next, planRef.current));
+    syncHistoryFlags();
+  }, [applyPlan, syncHistoryFlags]);
+
+  const redo = useCallback(() => {
+    const outcome = redoHistory(historyRef.current, planRef.current);
+    if (!outcome) return;
+    historyRef.current = outcome.history;
+    applyPlan(mergeStructural(outcome.next, planRef.current));
+    syncHistoryFlags();
+  }, [applyPlan, syncHistoryFlags]);
 
   const markSaved = useCallback(
     (saved: ProjectPlan) => {
@@ -226,6 +281,8 @@ export function ProjectCanvasProvider({
         
         applyPlan(planToUse);
         markSaved(planToUse);
+        historyRef.current = createHistory();
+        syncHistoryFlags();
         setError(null);
         const imageMap = new Map<string, { componentId: string; imageId: string }>();
         planToUse.components
@@ -270,7 +327,7 @@ export function ProjectCanvasProvider({
     return () => {
       mountedRef.current = false;
     };
-  }, [applyPlan, markSaved, projectPath, service, report, t]);
+  }, [applyPlan, markSaved, projectPath, service, report, t, syncHistoryFlags]);
 
   useEffect(() => {
     imageSrcRef.current = imageSrc;
@@ -300,6 +357,26 @@ export function ProjectCanvasProvider({
   }, [flush]);
 
   useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      const key = event.key.toLowerCase();
+      if (key !== "z" && key !== "y") return;
+      if (isTextEditingTarget(document.activeElement)) return; // BlockNote owns it
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      } else if ((key === "z" && event.shiftKey) || key === "y") {
+        event.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [undo, redo]);
+
+  useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
@@ -321,7 +398,7 @@ export function ProjectCanvasProvider({
           height: DEFAULT_PLAN_HEIGHT,
           html: t("content.planTemplate"),
         };
-        applyPlan(addComponent(planRef.current, newComponent));
+        mutate(addComponent(planRef.current, newComponent));
       } else {
         const newComponent = {
           id: crypto.randomUUID(),
@@ -334,18 +411,20 @@ export function ProjectCanvasProvider({
           imageHeight: DEFAULT_IMAGE_HEIGHT,
           images: [],
         };
-        applyPlan(addComponent(planRef.current, newComponent));
+        mutate(addComponent(planRef.current, newComponent));
       }
     },
-    [applyPlan, t],
+    [mutate, t],
   );
 
   const handleRemoveComponent = useCallback(
     (id: string) => {
+      const prev = planRef.current;
       void guard("Unable to remove the component", () =>
         persisting(async () => {
           const next = await service.removeComponent(projectPath, planRef.current, id);
           if (mountedRef.current) {
+            recordHistoryEntry(prev);
             applyPlan(next);
             markSaved(next);
             setError(null);
@@ -353,31 +432,31 @@ export function ProjectCanvasProvider({
         }),
       );
     },
-    [applyPlan, guard, markSaved, persisting, projectPath, service],
+    [applyPlan, guard, markSaved, persisting, projectPath, service, recordHistoryEntry],
   );
 
   const handleMoveComponent = useCallback(
     (id: string, toIndex: number) => {
       const next = moveComponent(planRef.current, { id, toIndex });
-      applyPlan(next);
+      mutate(next);
     },
-    [applyPlan],
+    [mutate],
   );
 
   const handleMoveImage = useCallback(
     (params: MoveImageParams) => {
       const next = moveImage(planRef.current, params);
-      applyPlan(next);
+      mutate(next);
     },
-    [applyPlan],
+    [mutate],
   );
 
   const handleResize = useCallback(
     (id: string, params: { width?: number; height?: number }) => {
       const next = resizeComponent(planRef.current, { id, ...params });
-      applyPlan(next);
+      mutate(next, `resize:${id}`);
     },
-    [applyPlan],
+    [mutate],
   );
 
   const handleChangeHtml = useCallback(
@@ -391,9 +470,9 @@ export function ProjectCanvasProvider({
   const handleSetTitle = useCallback(
     (id: string, title: string) => {
       const next = setReferenceTitle(planRef.current, id, title);
-      applyPlan(next);
+      mutate(next);
     },
-    [applyPlan],
+    [mutate],
   );
 
   const handleSetDescription = useCallback(
@@ -407,30 +486,31 @@ export function ProjectCanvasProvider({
   const handleSetImageHeight = useCallback(
     (id: string, imageHeight: number) => {
       const next = setImageHeight(planRef.current, id, imageHeight);
-      applyPlan(next);
+      mutate(next, `imageHeight:${id}`);
     },
-    [applyPlan],
+    [mutate],
   );
 
   const handleToggleCaptions = useCallback(
     (id: string) => {
       const next = toggleReferenceCaptions(planRef.current, id);
-      applyPlan(next);
+      mutate(next);
     },
-    [applyPlan],
+    [mutate],
   );
 
   const handleSetImageCaption = useCallback(
     (componentId: string, imageId: string, caption: string) => {
       const next = setImageCaption(planRef.current, { componentId, imageId, caption });
-      applyPlan(next);
+      mutate(next);
     },
-    [applyPlan],
+    [mutate],
   );
 
   const handleAddImage = useCallback(
     (componentId: string) => {
       void guard("Unable to import the reference image", async () => {
+        const prev = planRef.current;
         const sourcePath = await picker.pickImageFile("Select a JPG or PNG reference image");
         if (sourcePath === null) return;
         await persisting(async () => {
@@ -454,15 +534,17 @@ export function ProjectCanvasProvider({
             aspectRatio,
           });
           applyPlan(withRatio);
+          recordHistoryEntry(prev);
         });
       });
     },
-    [applyPlan, guard, markSaved, persisting, picker, projectPath, service],
+    [applyPlan, guard, markSaved, persisting, picker, projectPath, service, recordHistoryEntry],
   );
 
   const handleAddImages = useCallback(
     (componentId: string) => {
       void guard("Unable to import reference images", async () => {
+        const prev = planRef.current;
         const sourcePaths = await picker.pickImageFiles("Select JPG or PNG reference images");
         if (sourcePaths.length === 0) return;
         
@@ -505,19 +587,22 @@ export function ProjectCanvasProvider({
           
           applyPlan(updatedPlan);
           markSaved(updatedPlan);
+          recordHistoryEntry(prev);
           setError(null);
         });
       });
     },
-    [applyPlan, guard, markSaved, persisting, picker, projectPath, service],
+    [applyPlan, guard, markSaved, persisting, picker, projectPath, service, recordHistoryEntry],
   );
 
   const handleRemoveImage = useCallback(
     (componentId: string, imageId: string) => {
+      const prev = planRef.current;
       void guard("Unable to remove the reference image", () =>
         persisting(async () => {
           const next = await service.removeImage(projectPath, planRef.current, componentId, imageId);
           if (mountedRef.current) {
+            recordHistoryEntry(prev);
             applyPlan(next);
             markSaved(next);
             setError(null);
@@ -525,7 +610,7 @@ export function ProjectCanvasProvider({
         }),
       );
     },
-    [applyPlan, guard, markSaved, persisting, projectPath, service],
+    [applyPlan, guard, markSaved, persisting, projectPath, service, recordHistoryEntry],
   );
 
   const exportPdf = useCallback(() => {
@@ -567,6 +652,22 @@ export function ProjectCanvasProvider({
           {exporting ? t("plan.exporting") : t("plan.exportPdf")}
         </button>
         <InsertComponentMenu onInsert={handleInsert} />
+        <button
+          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-800"
+          disabled={!canUndo}
+          onClick={undo}
+          type="button"
+        >
+          {t("history.undo")}
+        </button>
+        <button
+          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-800"
+          disabled={!canRedo}
+          onClick={redo}
+          type="button"
+        >
+          {t("history.redo")}
+        </button>
         <SaveStatus state={saveState} />
         <div className="ml-auto">
           <SettingsButton />

@@ -124,6 +124,10 @@ export const zh = {
     themeDark: "深色",
     themeSystem: "跟随系统",
   },
+  history: {
+    undo: "撤销",
+    redo: "重做",
+  },
   errors: {
     workspace: "操作未能完成，请重试。",
     plan: "操作未能完成，请重试。",

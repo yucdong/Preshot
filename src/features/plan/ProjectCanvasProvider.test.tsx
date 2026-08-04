@@ -18,10 +18,12 @@ vi.mock("./canvas/PlanCanvas", () => ({
     components,
     onMoveComponent,
     onChangeHtml,
+    onResize,
   }: {
     components: Array<{ id: string; type: string; html?: string }>;
     onMoveComponent: (id: string, toIndex: number) => void;
     onChangeHtml: (id: string, html: string) => void;
+    onResize: (id: string, params: { width?: number; height?: number }) => void;
   }) => (
     <div data-testid="plan-canvas">
       <div data-testid="component-count">{components.length}</div>
@@ -37,6 +39,9 @@ vi.mock("./canvas/PlanCanvas", () => ({
       </button>
       <button onClick={() => onMoveComponent("plan-1", 1)} type="button">
         Move
+      </button>
+      <button onClick={() => onResize("plan-1", { width: 0.5 })} type="button">
+        Resize
       </button>
     </div>
   ),
@@ -357,5 +362,152 @@ describe("ProjectCanvasProvider", () => {
       // Canvas should have rendered at least once
       expect(screen.getByTestId("plan-canvas")).toBeInTheDocument();
     });
+  });
+});
+
+describe("ProjectCanvasProvider undo/redo", () => {
+  it("undoes a structural move and preserves current editor text", async () => {
+    const { dependencies } = deps();
+    const user = userEvent.setup();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+
+    // Edit text (no history) then perform a structural move.
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Move" }));
+
+    const undoButton = screen.getByRole("button", { name: "撤销" });
+    expect(undoButton).toBeEnabled();
+
+    await user.click(undoButton);
+
+    // The edited html ("<p>edited</p>") is preserved across the structural undo.
+    expect(screen.getByTestId("plan-plan-1")).toHaveTextContent("edited");
+    // Undo consumed the only entry; redo is now available.
+    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "重做" })).toBeEnabled();
+  });
+
+  it("does not create an undo entry for a text-only change", async () => {
+    const { dependencies } = deps();
+    const user = userEvent.setup();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+  });
+
+  it("coalesces a resize burst into a single undo entry", async () => {
+    const { dependencies } = deps();
+    const user = userEvent.setup();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+
+    // Two rapid resizes of the same component coalesce (one undo entry).
+    await user.click(screen.getByRole("button", { name: "Resize" }));
+    await user.click(screen.getByRole("button", { name: "Resize" }));
+
+    await user.click(screen.getByRole("button", { name: "撤销" }));
+
+    // A single undo empties the stack (the burst was one entry).
+    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+  });
+
+  it("Ctrl+Z triggers global undo when no text editor is focused", async () => {
+    const { dependencies } = deps();
+    const user = userEvent.setup();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+
+    await user.click(screen.getByRole("button", { name: "Move" }));
+    expect(screen.getByRole("button", { name: "撤销" })).toBeEnabled();
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "重做" })).toBeEnabled();
+  });
+
+  it("Ctrl+Z is ignored while a contenteditable is focused", async () => {
+    const { dependencies } = deps();
+    const user = userEvent.setup();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+
+    await user.click(screen.getByRole("button", { name: "Move" }));
+    expect(screen.getByRole("button", { name: "撤销" })).toBeEnabled();
+
+    const editable = document.createElement("div");
+    editable.setAttribute("contenteditable", "true");
+    document.body.appendChild(editable);
+    editable.focus();
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+
+    // BlockNote would own this Ctrl+Z; global undo did NOT fire.
+    expect(screen.getByRole("button", { name: "撤销" })).toBeEnabled();
+
+    editable.remove();
+  });
+
+  it("disables undo and redo on a freshly loaded project", async () => {
+    const { dependencies } = deps();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "重做" })).toBeDisabled();
   });
 });
