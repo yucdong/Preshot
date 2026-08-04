@@ -1,5 +1,5 @@
 import { contentSize, DEFAULT_PAGE_GEOMETRY, squareSlotGrid, type PageGeometry, type Rect } from "./geometry";
-import { clampHeight, fractionValue, type PlanComponent, type ReferenceComponent } from "./models";
+import { clampHeight, effectiveWidth, type PlanComponent, type ReferenceComponent } from "./models";
 
 const EPS = 0.01;
 
@@ -68,7 +68,7 @@ export function layoutPlan(
   let rowHeight = 0;
 
   for (const component of components) {
-    const width = fractionValue(component.widthFraction) * content.width;
+    const width = effectiveWidth(component) * content.width;
     const height = clampHeight(component.height, content.height);
 
     // Wrap to a new row when the component does not fit the remaining row width.

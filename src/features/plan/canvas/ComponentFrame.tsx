@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { GUTTER, MARGIN, type Rect } from "../../../domain/plan/canvas/geometry";
-import { fractionValue, type WidthFraction } from "../../../domain/plan/canvas/models";
-import { resizeFromDrag } from "./useComponentResize";
+import { clampWidth, effectiveWidth, type PlanComponent } from "../../../domain/plan/canvas/models";
 
 interface ComponentFrameProps {
   id: string;
@@ -11,9 +10,8 @@ interface ComponentFrameProps {
   scale: number;
   onRemove: (id: string) => void;
   contentWidthPoints: number;
-  widthFraction: WidthFraction;
-  height: number;
-  onResize: (id: string, params: { widthFraction?: WidthFraction; height?: number }) => void;
+  component: PlanComponent;
+  onResize: (id: string, params: { width?: number; height?: number }) => void;
   children?: React.ReactNode;
 }
 
@@ -23,8 +21,7 @@ export function ComponentFrame({
   scale,
   onRemove,
   contentWidthPoints,
-  widthFraction,
-  height,
+  component,
   onResize,
   children,
 }: ComponentFrameProps) {
@@ -32,9 +29,7 @@ export function ComponentFrame({
   const gutterInset = (GUTTER / 2) * scale;
 
   const [resizing, setResizing] = useState<"width" | "height" | "both" | null>(null);
-  const [resizePreview, setResizePreview] = useState<{ widthFraction?: WidthFraction; height?: number } | null>(
-    null,
-  );
+  const [resizePreview, setResizePreview] = useState<{ width?: number; height?: number } | null>(null);
   const [resizeStart, setResizeStart] = useState<{ x: number; y: number; edge: "width" | "height" | "both" } | null>(
     null,
   );
@@ -49,9 +44,9 @@ export function ComponentFrame({
     data: { type: "component" },
   });
 
-  const currentWidthFraction = resizePreview?.widthFraction ?? widthFraction;
-  const currentHeight = resizePreview?.height ?? height;
-  const currentWidthPoints = contentWidthPoints * fractionValue(currentWidthFraction);
+  const currentWidth = resizePreview?.width ?? effectiveWidth(component);
+  const currentHeight = resizePreview?.height ?? component.height;
+  const currentWidthPoints = contentWidthPoints * currentWidth;
 
   const onPointerDownResize = (edge: "width" | "height" | "both") => (event: React.PointerEvent) => {
     event.preventDefault();
@@ -72,15 +67,16 @@ export function ComponentFrame({
     const dxPoints = dxPx / scale;
     const dyPoints = dyPx / scale;
 
-    const result = resizeFromDrag({
-      widthFraction,
-      height,
-      edge: start.edge,
-      dxPoints,
-      dyPoints,
-      currentWidthPoints,
-      contentWidth: contentWidthPoints,
-    });
+    const result: { width?: number; height?: number } = {};
+
+    if (start.edge === "width" || start.edge === "both") {
+      const nextWidth = clampWidth((currentWidthPoints + dxPoints) / contentWidthPoints);
+      result.width = nextWidth;
+    }
+
+    if (start.edge === "height" || start.edge === "both") {
+      result.height = component.height + dyPoints;
+    }
 
     setResizePreview(result);
   };

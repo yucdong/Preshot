@@ -2,6 +2,7 @@ import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import {
   clampColumns,
   clampHeight,
+  clampWidth,
   type PlanComponent,
   type ProjectPlan,
   type ReferenceComponent,
@@ -74,15 +75,16 @@ export function moveComponent(plan: ProjectPlan, params: { id: string; toIndex: 
 
 export function resizeComponent(
   plan: ProjectPlan,
-  params: { id: string; widthFraction?: WidthFraction; height?: number },
+  params: { id: string; widthFraction?: WidthFraction; width?: number; height?: number },
 ): ProjectPlan {
   return mapComponent(plan, params.id, (component) => {
     const widthFraction = params.widthFraction ?? component.widthFraction;
+    const width = params.width !== undefined ? clampWidth(params.width) : component.width;
     const height = params.height === undefined ? component.height : clampHeight(params.height, MAX_HEIGHT);
-    if (widthFraction === component.widthFraction && height === component.height) {
+    if (widthFraction === component.widthFraction && width === component.width && height === component.height) {
       return component;
     }
-    return { ...component, widthFraction, height };
+    return { ...component, widthFraction, width, height };
   });
 }
 

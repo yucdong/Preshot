@@ -302,7 +302,7 @@ export function ProjectCanvasProvider({
   );
 
   const handleResize = useCallback(
-    (id: string, params: { widthFraction?: WidthFraction; height?: number }) => {
+    (id: string, params: { widthFraction?: WidthFraction; width?: number; height?: number }) => {
       const next = resizeComponent(planRef.current, { id, ...params });
       applyPlan(next);
     },

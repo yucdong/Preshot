@@ -147,3 +147,16 @@ describe("reference image slots", () => {
     expect(maxRight).toBeLessThanOrEqual(contentWidth);
   });
 });
+
+describe("continuous width layout", () => {
+  function mk(id: string, width: number): PlanComponent {
+    return { id, type: "plan", width, widthFraction: "1", height: 100, html: "" };
+  }
+
+  it("packs two sub-half-width components on one row and wraps wider ones", () => {
+    const a = layoutPlan([mk("a", 0.4), mk("b", 0.4)], DEFAULT_PAGE_GEOMETRY);
+    expect(a.placements[0].rect.y).toBe(a.placements[1].rect.y); // same row
+    const b = layoutPlan([mk("a", 0.6), mk("b", 0.6)], DEFAULT_PAGE_GEOMETRY);
+    expect(b.placements[1].rect.y).toBeGreaterThan(b.placements[0].rect.y); // wrapped
+  });
+});

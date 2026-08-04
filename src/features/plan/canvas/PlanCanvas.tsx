@@ -38,7 +38,7 @@ export interface PlanCanvasProps {
   onOpenImage: (file: string) => void;
   onMoveComponent?: (id: string, toIndex: number) => void;
   onMoveImage?: (params: MoveImageParams) => void;
-  onResize?: (id: string, params: { widthFraction?: WidthFraction; height?: number }) => void;
+  onResize?: (id: string, params: { widthFraction?: WidthFraction; width?: number; height?: number }) => void;
   onToggleCaptions?: (id: string) => void;
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
 }
@@ -198,7 +198,7 @@ export function PlanCanvas({
     lastImageParamsRef.current = null;
   };
 
-  const handleResize = (id: string, params: { widthFraction?: WidthFraction; height?: number }) => {
+  const handleResize = (id: string, params: { widthFraction?: WidthFraction; width?: number; height?: number }) => {
     if (onResize) {
       onResize(id, params);
     }
@@ -248,8 +248,7 @@ export function PlanCanvas({
                     rect={placement.rect}
                     scale={scale}
                     contentWidthPoints={contentWidthPoints}
-                    widthFraction={component.widthFraction}
-                    height={component.height}
+                    component={component}
                     onResize={handleResize}
                   >
                     {component.type === "plan" ? (

@@ -71,6 +71,15 @@ describe("canvas reducers", () => {
     expect(resizeComponent(plan, { id: "a", height: maxHeight + 999 }).components[0].height).toBeCloseTo(maxHeight, 5);
   });
 
+  it("resizes to a continuous width, clamped to MIN_WIDTH", () => {
+    const plan = withComponents([planText("a")]);
+    const resized = resizeComponent(plan, { id: "a", width: 0.5 });
+    expect(resized.components[0].width).toBe(0.5);
+    const MIN_WIDTH = 0.15;
+    const clamped = resizeComponent(plan, { id: "a", width: 0.01 });
+    expect(clamped.components[0].width).toBe(MIN_WIDTH);
+  });
+
   it("updates plan html", () => {
     const plan = withComponents([planText("a")]);
     expect((updatePlanHtml(plan, { id: "a", html: "<p>x</p>" }).components[0] as { html: string }).html).toBe("<p>x</p>");

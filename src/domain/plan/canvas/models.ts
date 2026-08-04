@@ -10,6 +10,9 @@ export const MIN_COMPONENT_HEIGHT = 80; // points
 export const DEFAULT_PLAN_HEIGHT = 220; // points
 export const DEFAULT_REFERENCE_HEIGHT = 320; // points
 
+export const DEFAULT_WIDTH = 1;
+export const MIN_WIDTH = 0.15;
+
 export const CURRENT_SCHEMA_VERSION = 2 as const;
 
 export function fractionValue(fraction: WidthFraction): number {
@@ -44,6 +47,10 @@ export function clampHeight(height: number, maxHeight: number): number {
   return Math.max(MIN_COMPONENT_HEIGHT, Math.min(maxHeight, height));
 }
 
+export function clampWidth(width: number): number {
+  return Math.min(DEFAULT_WIDTH, Math.max(MIN_WIDTH, width));
+}
+
 export interface ReferenceImage {
   id: string;
   file: string;
@@ -53,6 +60,7 @@ export interface ReferenceImage {
 export interface BaseComponent {
   id: string;
   widthFraction: WidthFraction;
+  width?: number; // continuous width fraction, optional this task
   height: number; // A4 points
 }
 
@@ -78,3 +86,11 @@ export interface ProjectPlan {
 }
 
 export const EMPTY_PLAN: ProjectPlan = { schemaVersion: 2, components: [] };
+
+/**
+ * Returns the effective width of a component, bridging new continuous width
+ * with the legacy widthFraction fallback.
+ */
+export function effectiveWidth(component: BaseComponent): number {
+  return component.width ?? fractionValue(component.widthFraction);
+}
