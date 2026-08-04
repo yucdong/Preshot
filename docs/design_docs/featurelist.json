@@ -390,6 +390,49 @@
         },
         "remaining": []
       }
+    },
+    {
+      "name": "Undo / Redo",
+      "feature_descriptions": [
+        "Session-scoped structural undo/redo for the canvas via 撤销/重做 toolbar buttons and Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y",
+        "Structural-only scope: add/remove/move/resize components, image add/remove/reorder/caption, image height, group title, and caption toggle are undoable",
+        "Rich-text editing (plan body and reference description) is left to BlockNote's own Ctrl+Z; the global handler never fights the editor",
+        "On undo/redo the structural snapshot is restored while the CURRENT html/description of components surviving by id is preserved (structural undo never rewinds typed text)",
+        "Capped (~50) in-memory snapshot history, reset on each project open; never persisted",
+        "Consecutive same-target resize/image-height changes within a short window coalesce into a single undo entry"
+      ],
+      "status": "completed",
+      "decisions": [
+        "Pure snapshot history in src/domain/plan/canvas/history.ts (createHistory/record/undo/redo/canUndo/canRedo) — no React/DOM/Tauri, deep-copied snapshots, never throws",
+        "mergeStructural(target, current) keeps current html/description for components surviving by id+type so a structural undo preserves BlockNote text",
+        "ProjectCanvasProvider (the single applyPlan mutation point) records the previous plan via a history-aware mutate helper for structural handlers; text handlers (handleChangeHtml/handleSetDescription) stay on plain applyPlan",
+        "Coalesce resize bursts with key resize:<id> and image-height with imageHeight:<id> within COALESCE_WINDOW_MS (600ms)",
+        "Keyboard: window keydown routes Ctrl+Z to BlockNote when a contenteditable/INPUT/TEXTAREA/.bn-editor/.ProseMirror is focused, else global undo; Ctrl+Shift+Z / Ctrl+Y redo",
+        "History is per-session (reset on load, not persisted); async image handlers capture prev at the pre-change point and record exactly once on success"
+      ],
+      "progress": {
+        "completedAt": "2026-08-04",
+        "implementationPlan": "docs/superpowers/plans/2026-08-04-undo-redo.md",
+        "designSpec": "docs/superpowers/specs/2026-08-04-undo-redo-design.md",
+        "completed": [
+          "T1: pure history stack (createHistory/record/undo/redo/canUndo/canRedo with capping + coalescing)",
+          "T2: mergeStructural text-preserving restore",
+          "T3: provider history integration (mutate + undo/redo + reset on load + canUndo/canRedo)",
+          "T4: keyboard shortcuts with contenteditable/editor focus routing",
+          "T5: 撤销/重做 toolbar buttons + zh i18n history keys + disabled-state coverage",
+          "T6: e2e smoke (keyboard + toolbar insert/undo/redo) + featurelist + full matrix"
+        ],
+        "lastVerified": {
+          "date": "2026-08-04",
+          "unitTests": "401 passed",
+          "e2eTests": "25 passed",
+          "typecheck": "clean",
+          "lint": "clean",
+          "rustTests": "44 passed",
+          "build": "succeeded"
+        },
+        "remaining": []
+      }
     }
   ]
 }
