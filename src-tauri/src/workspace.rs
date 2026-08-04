@@ -343,7 +343,7 @@ pub(crate) fn read_manifest(project_path: &Path) -> Result<ProjectManifest, Comm
                     // Neither file exists
                     Err(CommandError::new(
                         "manifest_missing",
-                        "Preshot projects must contain a .preshot manifest",
+                        "Preshot projects must contain a .preshotproj or .preshot manifest",
                     ))
                 }
                 Err(error) => Err(CommandError::new(
@@ -690,7 +690,7 @@ fn ensure_marker_only_directory(project_path: &Path) -> Result<(), CommandError>
         if entry.file_name() != MANIFEST_FILE_NAME {
             return Err(CommandError::new(
                 "rollback_not_empty",
-                "Rollback only removes projects that still contain only the .preshot manifest",
+                "Rollback only removes projects that still contain only the .preshotproj manifest",
             ));
         }
     }
