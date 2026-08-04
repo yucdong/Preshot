@@ -25,27 +25,24 @@ command). No system-PATH modification.
 
 ## Architecture / Changes
 
-Almost entirely configuration + a WiX fragment; minimal/zero Rust logic.
+Almost entirely configuration; **zero** WiX authoring and zero Rust logic.
+
+> **Implementation finding:** Tauri v2's default WiX template already defines and
+> ships `ApplicationShortcutDesktop` (Desktop shortcut) alongside
+> `ApplicationShortcut` (Start Menu) and an uninstall shortcut, all referenced by
+> its `ShortcutsFeature`. So **no custom fragment is needed** — a `shortcuts.wxs`
+> redefining that component Id fails the WiX linker with `LGHT0091` (duplicate
+> symbol). The Desktop shortcut comes for free from the default MSI.
 
 ### `src-tauri/tauri.conf.json`
 
-- `bundle.targets`: set to `["msi"]` (or keep `"all"` but ensure msi is built on
-  Windows).
-- `bundle.windows.wix`:
-  - `language`: `["en-US"]` (add `zh-CN` later if desired).
-  - `fragmentPaths`: `["./wix/shortcuts.wxs"]` — a WiX fragment adding the
-    **Desktop shortcut** (Start Menu is default).
-  - Optionally `bannerPath`/`dialogImagePath` for branded installer art (reuse
-    an icon-derived bitmap; optional this phase).
-- Confirm `productName` (Preshot), `version` (from `Cargo.toml`/conf), `identifier`
-  (`com.yucdong.preshot`), publisher, and `icon` set (icons already present).
-
-### `src-tauri/wix/shortcuts.wxs` (new)
-
-- A minimal WiX `<Fragment>` that adds a `<Shortcut>` to the Desktop folder
-  (`DesktopFolder`) targeting the installed exe, with an icon, plus the required
-  `RegistryValue` keypath (WiX per-user shortcut convention). Referenced from
-  `wix.fragmentPaths`.
+- `bundle.targets`: `["msi"]` (the PRD target; on Windows this emits the WiX MSI).
+- `bundle.publisher`: `"yucdong"` (WiX Manufacturer / installer metadata).
+- `bundle.windows.wix.language`: `["en-US"]`.
+- Confirm `productName` (Preshot → `Preshot.exe`), `version`, `identifier`
+  (`com.yucdong.preshot`), and `icon` (icons already present).
+- **No `fragmentPaths` / `componentGroupRefs`** — the default template already
+  provides Start Menu + Desktop + uninstall shortcuts.
 
 ### App first-run (already implemented via theming)
 
