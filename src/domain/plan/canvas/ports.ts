@@ -8,3 +8,7 @@ export interface CanvasPlanRepository {
 export interface PdfSaveTarget {
   save(bytes: Uint8Array, suggestedName: string): Promise<boolean>;
 }
+
+export interface PdfRevealTarget {
+  reveal(path: string): Promise<void>;
+}

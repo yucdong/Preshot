@@ -13,7 +13,10 @@ import { A4 } from "../../domain/plan/canvas/geometry";
 import type { PlanImagePicker } from "../../domain/plan/ports";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
 import type { WorkspaceLogger } from "../../domain/workspace/ports";
-import type { PdfSaveTarget } from "../../domain/plan/canvas/ports";
+import type {
+  PdfSaveTarget,
+  PdfRevealTarget,
+} from "../../domain/plan/canvas/ports";
 import {
   addComponent,
   moveComponent,
@@ -41,6 +44,7 @@ export interface CanvasPlanDependencies {
   logger: WorkspaceLogger;
   exporter: { export(plan: ProjectPlan, images: Record<string, string>): Promise<Uint8Array> };
   saver: PdfSaveTarget;
+  reveal: PdfRevealTarget;
 }
 
 interface ProjectCanvasProviderProps {
@@ -72,7 +76,7 @@ export function ProjectCanvasProvider({
   dependencies,
 }: ProjectCanvasProviderProps) {
   const { t } = useTranslation();
-  const { service, picker, logger, exporter, saver } = dependencies;
+  const { service, picker, logger, exporter, saver, reveal } = dependencies;
   const [plan, setPlan] = useState<ProjectPlan>(EMPTY_PLAN);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -549,13 +553,20 @@ export function ProjectCanvasProvider({
         const bytes = await exporter.export(planRef.current, imageSrcRef.current);
         const separator = projectPath.includes("\\") ? "\\" : "/";
         const defaultPath = `${projectPath.replace(/[\\/]+$/, "")}${separator}output.pdf`;
-        await saver.save(bytes, defaultPath);
+        const saved = await saver.save(bytes, defaultPath);
+        if (saved) {
+          try {
+            await reveal.reveal(defaultPath);
+          } catch (error) {
+            logger.error("reveal_failed", { detail: detail(error) });
+          }
+        }
         if (mountedRef.current) setError(null);
       } finally {
         if (mountedRef.current) setExporting(false);
       }
     });
-  }, [exporter, guard, projectPath, saver]);
+  }, [exporter, guard, logger, projectPath, reveal, saver]);
 
   return (
     <div className="flex h-full flex-col">

@@ -101,6 +101,7 @@ function deps(): {
       logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
       exporter: { export: vi.fn().mockResolvedValue(new Uint8Array([37, 80, 68, 70])) },
       saver: { save: vi.fn().mockResolvedValue(true) },
+      reveal: { reveal: vi.fn() },
     },
   };
 }

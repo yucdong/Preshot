@@ -8,6 +8,8 @@ import { createCanvasPdfExporter } from "../../infrastructure/pdf/canvasPdfExpor
 import { loadNotoSansSc } from "../../infrastructure/pdf/fontAssets";
 import { tauriPdfSaveTarget } from "../../infrastructure/pdf/tauriPdfSave";
 import { browserPdfSaveTarget } from "../../infrastructure/pdf/browserPdfSave";
+import { tauriRevealTarget } from "../../infrastructure/pdf/revealPath";
+import { browserRevealTarget } from "../../infrastructure/pdf/browserRevealPath";
 
 const canvasPdfExporter = createCanvasPdfExporter(loadNotoSansSc);
 
@@ -23,6 +25,7 @@ function createProductionCanvasPlanDependencies(): CanvasPlanDependencies {
     logger: planLogger,
     exporter: canvasPdfExporter,
     saver: tauriPdfSaveTarget,
+    reveal: tauriRevealTarget,
   };
 }
 
@@ -43,6 +46,7 @@ export function createCanvasPlanDependencies(): CanvasPlanDependencies {
       logger: planLogger,
       exporter: canvasPdfExporter,
       saver: browserPdfSaveTarget,
+      reveal: browserRevealTarget,
     };
   }
   return createProductionCanvasPlanDependencies();
