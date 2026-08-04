@@ -1,3 +1,5 @@
+import { ThemeProvider } from "./theme/ThemeProvider";
+import { tauriSettingsRepository } from "../infrastructure/settings/tauriSettings";
 import { WorkspaceProvider } from "./workspace/WorkspaceProvider";
 import {
   createWorkspaceDependencies,
@@ -18,5 +20,9 @@ export function App({
   dependencies = defaultWorkspaceDependencies,
   planDependencies = defaultPlanDependencies,
 }: AppProps) {
-  return <WorkspaceProvider dependencies={dependencies} planDependencies={planDependencies} />;
+  return (
+    <ThemeProvider repository={tauriSettingsRepository}>
+      <WorkspaceProvider dependencies={dependencies} planDependencies={planDependencies} />
+    </ThemeProvider>
+  );
 }
