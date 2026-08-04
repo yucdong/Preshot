@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { GUTTER, MARGIN, type Rect } from "../../../domain/plan/canvas/geometry";
 import { clampWidth, effectiveWidth, type PlanComponent } from "../../../domain/plan/canvas/models";
+import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
 
 interface ComponentFrameProps {
   id: string;
@@ -33,6 +34,7 @@ export function ComponentFrame({
   const [resizeStart, setResizeStart] = useState<{ x: number; y: number; edge: "width" | "height" | "both" | "left" | "top" } | null>(
     null,
   );
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
     id,
@@ -136,7 +138,7 @@ export function ComponentFrame({
         <button
           aria-label={t("canvas.removeComponent")}
           className="rounded bg-red-100 px-2 py-1 text-xs text-red-700 hover:bg-red-200"
-          onClick={() => onRemove(id)}
+          onClick={() => setConfirmingDelete(true)}
           onPointerDown={(e) => e.stopPropagation()}
           type="button"
         >
@@ -201,6 +203,19 @@ export function ComponentFrame({
         onPointerDown={onPointerDownResize("both")}
         onPointerMove={onPointerMoveResize}
         onPointerUp={onPointerUpResize}
+      />
+
+      {/* Confirm dialog */}
+      <ConfirmDialog
+        open={confirmingDelete}
+        title={t("canvas.deleteConfirmTitle")}
+        confirmLabel={t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={() => {
+          setConfirmingDelete(false);
+          onRemove(id);
+        }}
+        onCancel={() => setConfirmingDelete(false)}
       />
     </div>
   );

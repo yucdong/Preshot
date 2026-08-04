@@ -72,11 +72,40 @@ describe("PlanCanvas", () => {
     expect(openButton).toBeVisible();
   });
 
-  it("delete button calls onRemoveComponent with the component id", () => {
+  it("delete button opens confirm dialog and does not call onRemoveComponent immediately", () => {
     const props = renderCanvas();
     const deleteButtons = screen.getAllByRole("button", { name: "移除组件" });
     fireEvent.click(deleteButtons[0]);
+    
+    // Confirm dialog should be open
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("确定删除该组件？")).toBeInTheDocument();
+    
+    // onRemoveComponent should not be called yet
+    expect(props.onRemoveComponent).not.toHaveBeenCalled();
+  });
+
+  it("clicking confirm in dialog calls onRemoveComponent with the component id", () => {
+    const props = renderCanvas();
+    const deleteButtons = screen.getAllByRole("button", { name: "移除组件" });
+    fireEvent.click(deleteButtons[0]);
+    
+    // Click confirm button in dialog
+    fireEvent.click(screen.getByRole("button", { name: "删除" }));
     expect(props.onRemoveComponent).toHaveBeenCalledWith("plan1");
+  });
+
+  it("clicking cancel in dialog does not call onRemoveComponent", () => {
+    const props = renderCanvas();
+    const deleteButtons = screen.getAllByRole("button", { name: "移除组件" });
+    fireEvent.click(deleteButtons[0]);
+    
+    // Click cancel button in dialog
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(props.onRemoveComponent).not.toHaveBeenCalled();
+    
+    // Dialog should be closed
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("renders type label for plan component", () => {

@@ -1,4 +1,8 @@
 export const zh = {
+  common: {
+    cancel: "取消",
+    delete: "删除",
+  },
   shell: {
     tagline: "摄影计划",
     projects: "项目",
@@ -33,6 +37,7 @@ export const zh = {
     moveHint: "拖动以移动或交换位置",
     typePlan: "摄影计划",
     typeReference: "参考图组",
+    deleteConfirmTitle: "确定删除该组件？",
   },
   save: {
     saving: "正在保存…",
