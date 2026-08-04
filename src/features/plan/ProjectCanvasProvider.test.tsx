@@ -430,9 +430,10 @@ describe("ProjectCanvasProvider undo/redo", () => {
 
     await screen.findByTestId("plan-canvas");
 
-    // Two rapid resizes of the same component coalesce (one undo entry).
-    await user.click(screen.getByRole("button", { name: "Resize" }));
-    await user.click(screen.getByRole("button", { name: "Resize" }));
+    // Two synchronous same-target resizes share a sub-millisecond timestamp, so
+    // they coalesce deterministically into a single undo entry.
+    fireEvent.click(screen.getByRole("button", { name: "Resize" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resize" }));
 
     await user.click(screen.getByRole("button", { name: "撤销" }));
 

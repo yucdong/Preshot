@@ -97,3 +97,12 @@ redo -> target = redoStack.pop(); undoStack.push(current); applyPlan(mergeText(t
 
 - History is per-session (not persisted across app restarts). Text editing undo
   is BlockNote's (per-editor), independent of the global structural history.
+- **Removal undo is reference-level, not file-level.** `service.removeImage` /
+  `removeComponent` eagerly delete the backing image files. Undo restores the
+  plan reference and it keeps rendering from the in-memory `imageSrc` cache, but
+  once the plan auto-saves, the persisted plan points at a deleted file, so after
+  a reload that image tile is empty and the load surfaces a one-time "unable to
+  load a reference image" notice. In-session undo/redo of a removal is correct;
+  durable remove-undo would require deferring physical deletion to a save-time
+  orphan collection or a session trash (tracked as a Storage follow-up, out of
+  scope for this sub-project).

@@ -408,7 +408,8 @@
         "ProjectCanvasProvider (the single applyPlan mutation point) records the previous plan via a history-aware mutate helper for structural handlers; text handlers (handleChangeHtml/handleSetDescription) stay on plain applyPlan",
         "Coalesce resize bursts with key resize:<id> and image-height with imageHeight:<id> within COALESCE_WINDOW_MS (600ms)",
         "Keyboard: window keydown routes Ctrl+Z to BlockNote when a contenteditable/INPUT/TEXTAREA/.bn-editor/.ProseMirror is focused, else global undo; Ctrl+Shift+Z / Ctrl+Y redo",
-        "History is per-session (reset on load, not persisted); async image handlers capture prev at the pre-change point and record exactly once on success"
+        "History is per-session (reset on load, not persisted); async image handlers capture prev at the pre-change point and record exactly once on success",
+        "Removal undo is reference-level: removeImage/removeComponent eagerly delete backing files, so undo of a removal is correct in-session (renders from the imageSrc cache) but not durable across a save+reload (a restored image points at a deleted file). Durable remove-undo needs save-time orphan collection / session trash — tracked as a Storage follow-up."
       ],
       "progress": {
         "completedAt": "2026-08-04",
@@ -431,7 +432,9 @@
           "rustTests": "44 passed",
           "build": "succeeded"
         },
-        "remaining": []
+        "remaining": [
+          "Durable remove-undo: defer physical image-file deletion to a save-time orphan collection or session trash so undoing an image/component removal survives a save+reload (Storage follow-up)."
+        ]
       }
     }
   ]
