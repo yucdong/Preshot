@@ -41,6 +41,8 @@ export interface PlanCanvasProps {
   onResize?: (id: string, params: { widthFraction?: WidthFraction; width?: number; height?: number }) => void;
   onToggleCaptions?: (id: string) => void;
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
+  onSetImageHeight?: (id: string, height: number) => void;
+  onAddImages?: (id: string) => void;
 }
 
 // Collision detection that branches on active type
@@ -93,6 +95,8 @@ export function PlanCanvas({
   onResize,
   onToggleCaptions,
   onSetImageCaption,
+  onSetImageHeight,
+  onAddImages,
 }: PlanCanvasProps) {
   const [_activeId, setActiveId] = useState<string | null>(null);
   const [preview, setPreview] = useState<PlanComponent[] | null>(null);
@@ -266,6 +270,10 @@ export function PlanCanvas({
                         onSetTitle={onSetTitle}
                         onToggleCaptions={onToggleCaptions}
                         onSetImageCaption={onSetImageCaption}
+                        onSetImageHeight={onSetImageHeight}
+                        onAddImages={onAddImages}
+                        slots={placement.imageSlots ?? []}
+                        scale={scale}
                       />
                     )}
                   </ComponentFrame>

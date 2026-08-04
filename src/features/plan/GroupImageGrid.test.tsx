@@ -1,6 +1,7 @@
 import { DndContext } from "@dnd-kit/core";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { Rect } from "../../domain/plan/canvas/geometry";
 import { imageGroupDroppableId } from "./canvas/imageDropTarget";
 import { GroupImageGrid } from "./GroupImageGrid";
 
@@ -19,6 +20,11 @@ const group: GroupLike = {
   ],
 };
 
+const mockSlots: Rect[] = [
+  { x: 0, y: 24, width: 160, height: 120 },
+  { x: 172, y: 24, width: 160, height: 120 },
+];
+
 function renderGrid(overrides: Partial<Parameters<typeof GroupImageGrid>[0]> = {}) {
   const props = {
     group,
@@ -26,6 +32,8 @@ function renderGrid(overrides: Partial<Parameters<typeof GroupImageGrid>[0]> = {
     onAddImage: vi.fn(),
     onRemoveImage: vi.fn(),
     onOpenImage: vi.fn(),
+    slots: mockSlots,
+    scale: 1,
     ...overrides,
   };
   render(
@@ -81,7 +89,12 @@ describe("GroupImageGrid", () => {
         { id: "i3", file: "references/0003.png" },
       ],
     };
-    const props = renderGrid({ group: groupWithCaptions, showCaptions: true, onSetCaption: vi.fn() });
+    const slots: Rect[] = [
+      { x: 0, y: 24, width: 160, height: 120 },
+      { x: 172, y: 24, width: 160, height: 120 },
+      { x: 0, y: 156, width: 160, height: 120 },
+    ];
+    const props = renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: true, onSetCaption: vi.fn() });
 
     // Each image should have a caption textarea
     const caption1 = screen.getByRole("textbox", { name: "图片说明 1" });
@@ -107,7 +120,11 @@ describe("GroupImageGrid", () => {
         { id: "i2", file: "references/0002.png" },
       ],
     };
-    renderGrid({ group: groupWithCaptions, showCaptions: false });
+    const slots: Rect[] = [
+      { x: 0, y: 24, width: 160, height: 120 },
+      { x: 172, y: 24, width: 160, height: 120 },
+    ];
+    renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: false });
 
     // No caption textareas should render
     expect(screen.queryByRole("textbox", { name: /图片说明/ })).not.toBeInTheDocument();
@@ -119,7 +136,10 @@ describe("GroupImageGrid", () => {
       columnsPerRow: 2,
       images: [{ id: "i1", file: "references/0001.png", caption: "" }],
     };
-    const props = renderGrid({ group: groupWithCaptions, showCaptions: true, onSetCaption: vi.fn() });
+    const slots: Rect[] = [
+      { x: 0, y: 24, width: 160, height: 120 },
+    ];
+    const props = renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: true, onSetCaption: vi.fn() });
 
     const caption = screen.getByRole("textbox", { name: "图片说明 1" });
 
@@ -133,5 +153,48 @@ describe("GroupImageGrid", () => {
     const container = renderGrid({ enableReorder: true }).group;
     const expectedDroppableId = imageGroupDroppableId(container.id);
     expect(expectedDroppableId).toBe("imagegroup:g1");
+  });
+
+  it("positions each tile absolutely at its slot × scale", () => {
+    const slots: Rect[] = [
+      { x: 0, y: 24, width: 160, height: 120 },
+      { x: 172, y: 24, width: 180, height: 135 },
+    ];
+    const scale = 0.5;
+    renderGrid({ slots, scale });
+
+    // First tile
+    const tile1 = screen.getByRole("button", { name: "打开参考图 1" }).parentElement;
+    expect(tile1).toHaveStyle({
+      position: "absolute",
+      left: "0px",
+      top: "12px",
+      width: "80px",
+      height: "60px",
+    });
+
+    // Second tile
+    const tile2 = screen.getByRole("button", { name: "打开参考图 2" }).parentElement;
+    expect(tile2).toHaveStyle({
+      position: "absolute",
+      left: "86px",
+      top: "12px",
+      width: "90px",
+      height: "67.5px",
+    });
+  });
+
+  it("renders caption textarea in the caption band when showCaptions is true", () => {
+    const groupWithCaptions: GroupLike = {
+      id: "g1",
+      columnsPerRow: 2,
+      images: [{ id: "i1", file: "references/0001.png", caption: "Test caption" }],
+    };
+    const slots: Rect[] = [{ x: 0, y: 24, width: 160, height: 120 }];
+    renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: true, onSetCaption: vi.fn() });
+
+    const caption = screen.getByRole("textbox", { name: "图片说明 1" });
+    expect(caption).toBeInTheDocument();
+    expect(caption).toHaveValue("Test caption");
   });
 });

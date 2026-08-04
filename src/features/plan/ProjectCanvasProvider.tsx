@@ -25,6 +25,8 @@ import {
   toggleReferenceCaptions,
   setImageCaption,
   setImageAspectRatio,
+  setImageHeight,
+  addReferenceImages,
   type MoveImageParams,
 } from "../../domain/plan/canvas/plan";
 import { PlanCanvas } from "./canvas/PlanCanvas";
@@ -383,6 +385,14 @@ export function ProjectCanvasProvider({
     [applyPlan],
   );
 
+  const handleSetImageHeight = useCallback(
+    (id: string, imageHeight: number) => {
+      const next = setImageHeight(planRef.current, id, imageHeight);
+      applyPlan(next);
+    },
+    [applyPlan],
+  );
+
   const handleToggleCaptions = useCallback(
     (id: string) => {
       const next = toggleReferenceCaptions(planRef.current, id);
@@ -425,6 +435,58 @@ export function ProjectCanvasProvider({
             aspectRatio,
           });
           applyPlan(withRatio);
+        });
+      });
+    },
+    [applyPlan, guard, markSaved, persisting, picker, projectPath, service],
+  );
+
+  const handleAddImages = useCallback(
+    (componentId: string) => {
+      void guard("Unable to import reference images", async () => {
+        const sourcePaths = await picker.pickImageFiles("Select JPG or PNG reference images");
+        if (sourcePaths.length === 0) return;
+        
+        await persisting(async () => {
+          const newImages: Array<{ id: string; file: string; aspectRatio: number; dataUrl: string }> = [];
+          
+          for (const sourcePath of sourcePaths) {
+            const result = await service.importImage(
+              projectPath,
+              planRef.current,
+              componentId,
+              sourcePath,
+            );
+            
+            // Measure aspect ratio
+            const aspectRatio = await measureAspectRatio(result.dataUrl);
+            
+            newImages.push({
+              id: result.image.id,
+              file: result.image.file,
+              aspectRatio,
+              dataUrl: result.dataUrl,
+            });
+          }
+          
+          if (!mountedRef.current) return;
+          
+          // Add all new images to state
+          const newSrcMap: Record<string, string> = {};
+          for (const img of newImages) {
+            newSrcMap[img.file] = img.dataUrl;
+          }
+          setImageSrc((current) => ({ ...current, ...newSrcMap }));
+          
+          // Update plan with all images and their aspect ratios
+          const updatedPlan = addReferenceImages(planRef.current, {
+            componentId,
+            images: newImages.map(img => ({ id: img.id, file: img.file, aspectRatio: img.aspectRatio })),
+          });
+          
+          applyPlan(updatedPlan);
+          markSaved(updatedPlan);
+          setError(null);
         });
       });
     },
@@ -498,6 +560,8 @@ export function ProjectCanvasProvider({
           onSetTitle={handleSetTitle}
           onToggleCaptions={handleToggleCaptions}
           onSetImageCaption={handleSetImageCaption}
+          onSetImageHeight={handleSetImageHeight}
+          onAddImages={handleAddImages}
           scale={scale}
         />
       </div>

@@ -1,6 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext } from "@dnd-kit/sortable";
 import { useTranslation } from "react-i18next";
+import type { Rect } from "../../domain/plan/canvas/geometry";
 import { imageGroupDroppableId } from "./canvas/imageDropTarget";
 import { SortableImageTile } from "./SortableImageTile";
 
@@ -21,9 +22,23 @@ interface GroupImageGridProps {
   enableReorder?: boolean;
   showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
+  slots: Rect[];
+  scale: number;
 }
 
-export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onOpenImage, droppableId, enableReorder = false, showCaptions = false, onSetCaption }: GroupImageGridProps) {
+export function GroupImageGrid({ 
+  group, 
+  imageSrc, 
+  onAddImage, 
+  onRemoveImage, 
+  onOpenImage, 
+  droppableId, 
+  enableReorder = false, 
+  showCaptions = false, 
+  onSetCaption,
+  slots,
+  scale,
+}: GroupImageGridProps) {
   const { t } = useTranslation();
   const actualDroppableId = enableReorder ? imageGroupDroppableId(group.id) : (droppableId ?? `droppable-${group.id}`);
   const { setNodeRef } = useDroppable({ 
@@ -31,39 +46,71 @@ export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onO
     data: enableReorder ? { type: "imagegroup" } : undefined
   });
 
+  // Calculate container height based on max slot bottom edge
+  const containerHeight = slots.length > 0
+    ? Math.max(...slots.map(slot => (slot.y + slot.height) * scale))
+    : 0;
+
+  // Position for the add button (after the last slot or at the beginning)
+  const addButtonSlot = slots.length > 0 
+    ? { 
+        x: 0, 
+        y: (slots[slots.length - 1].y + slots[slots.length - 1].height + 12) * scale,
+        width: 160,
+        height: 120,
+      }
+    : { x: 0, y: 0, width: 160, height: 120 };
+
   const gridContent = (
     <>
-      {group.images.map((image, index) => (
-        <SortableImageTile
-          componentId={group.id}
-          image={image}
-          index={index}
-          key={image.id}
-          onOpen={onOpenImage}
-          onRemove={(imageId) => onRemoveImage(group.id, imageId)}
-          src={imageSrc(image.file)}
-          draggable={enableReorder}
-          showCaptions={showCaptions}
-          onSetCaption={onSetCaption}
-        />
-      ))}
-      <button
-        aria-label={t("reference.addImage")}
-        className="flex aspect-square w-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600"
-        onClick={() => onAddImage(group.id)}
-        type="button"
+      {group.images.map((image, index) => {
+        const slot = slots[index];
+        if (!slot) return null;
+        
+        return (
+          <SortableImageTile
+            componentId={group.id}
+            image={image}
+            index={index}
+            key={image.id}
+            onOpen={onOpenImage}
+            onRemove={(imageId) => onRemoveImage(group.id, imageId)}
+            src={imageSrc(image.file)}
+            draggable={enableReorder}
+            showCaptions={showCaptions}
+            onSetCaption={onSetCaption}
+            slot={slot}
+            scale={scale}
+          />
+        );
+      })}
+      <div
+        style={{
+          position: "absolute",
+          left: `${addButtonSlot.x}px`,
+          top: `${addButtonSlot.y}px`,
+          width: `${addButtonSlot.width}px`,
+          height: `${addButtonSlot.height}px`,
+        }}
       >
-        +
-      </button>
+        <button
+          aria-label={t("reference.addImage")}
+          className="flex h-full w-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600"
+          onClick={() => onAddImage(group.id)}
+          type="button"
+        >
+          +
+        </button>
+      </div>
     </>
   );
 
   if (enableReorder) {
     return (
       <div
-        className="mt-4 grid justify-start gap-3"
+        className="mt-4 relative"
         ref={setNodeRef}
-        style={{ gridTemplateColumns: `repeat(${group.columnsPerRow}, minmax(0, 160px))` }}
+        style={{ height: `${containerHeight + addButtonSlot.height + 24}px` }}
       >
         <SortableContext items={group.images.map((image) => image.id)} strategy={rectSortingStrategy}>
           {gridContent}
@@ -74,8 +121,8 @@ export function GroupImageGrid({ group, imageSrc, onAddImage, onRemoveImage, onO
 
   return (
     <div
-      className="mt-4 grid justify-start gap-3"
-      style={{ gridTemplateColumns: `repeat(${group.columnsPerRow}, minmax(0, 160px))` }}
+      className="mt-4 relative"
+      style={{ height: `${containerHeight + addButtonSlot.height + 24}px` }}
     >
       {gridContent}
     </div>

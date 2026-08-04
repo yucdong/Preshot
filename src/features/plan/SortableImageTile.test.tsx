@@ -1,10 +1,12 @@
 import { DndContext } from "@dnd-kit/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { Rect } from "../../domain/plan/canvas/geometry";
 import { SortableImageTile } from "./SortableImageTile";
 
 describe("SortableImageTile", () => {
   const image = { id: "i1", file: "references/0001.png", caption: "" };
+  const mockSlot: Rect = { x: 0, y: 24, width: 160, height: 120 };
 
   it("exposes sortable drag attributes and correct data type when draggable", () => {
     render(
@@ -17,6 +19,8 @@ describe("SortableImageTile", () => {
           onOpen={vi.fn()}
           onRemove={vi.fn()}
           src="data:image/png;base64,AA"
+          slot={mockSlot}
+          scale={1}
         />
       </DndContext>,
     );
@@ -38,6 +42,8 @@ describe("SortableImageTile", () => {
           onOpen={vi.fn()}
           onRemove={vi.fn()}
           src="data:image/png;base64,AA"
+          slot={mockSlot}
+          scale={1}
         />
       </DndContext>,
     );
@@ -58,6 +64,8 @@ describe("SortableImageTile", () => {
           onOpen={onOpen}
           onRemove={vi.fn()}
           src="data:image/png;base64,AA"
+          slot={mockSlot}
+          scale={1}
         />
       </DndContext>,
     );
@@ -81,6 +89,8 @@ describe("SortableImageTile", () => {
           onSetCaption={onSetCaption}
           showCaptions={true}
           src="data:image/png;base64,AA"
+          slot={mockSlot}
+          scale={1}
         />
       </DndContext>,
     );

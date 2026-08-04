@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
+import type { Rect } from "../../../domain/plan/canvas/geometry";
+import { clampImageHeight, DEFAULT_IMAGE_HEIGHT, type ReferenceComponent } from "../../../domain/plan/canvas/models";
 import { RichTextEditor } from "../RichTextEditor";
 import { GroupImageGrid } from "../GroupImageGrid";
 
@@ -16,6 +17,10 @@ interface ReferenceComponentViewProps {
   onToggleCaptions?: (id: string) => void;
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
   enableReorder?: boolean;
+  onSetImageHeight?: (id: string, height: number) => void;
+  onAddImages?: (id: string) => void;
+  slots: Rect[];
+  scale: number;
 }
 
 export function ReferenceComponentView({
@@ -23,49 +28,71 @@ export function ReferenceComponentView({
   imageSrc,
   onSetTitle,
   onSetDescription,
-  onSetColumns,
+  onSetColumns: _onSetColumns,
   onAddImage,
   onRemoveImage,
   onOpenImage,
   onToggleCaptions,
   onSetImageCaption,
   enableReorder = false,
+  onSetImageHeight,
+  onAddImages,
+  slots,
+  scale,
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
   const [showDescription, setShowDescription] = useState(false);
 
+  const currentImageHeight = component.imageHeight ?? DEFAULT_IMAGE_HEIGHT;
+
+  const handleIncreaseHeight = () => {
+    if (onSetImageHeight) {
+      onSetImageHeight(component.id, clampImageHeight(currentImageHeight + 20));
+    }
+  };
+
+  const handleDecreaseHeight = () => {
+    if (onSetImageHeight) {
+      onSetImageHeight(component.id, clampImageHeight(currentImageHeight - 20));
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
-      {/* Title input */}
-      <input
-        aria-label={t("reference.groupTitleAria")}
-        className="mb-2 border-b border-stone-300 px-2 py-1 text-lg font-semibold focus:border-amber-500 focus:outline-none"
-        onChange={(e) => onSetTitle(component.id, e.target.value)}
-        type="text"
-        value={component.title}
-      />
-
-      {/* Columns select and caption toggle */}
+      {/* Title input and image-height stepper */}
       <div className="mb-2 flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-stone-600" htmlFor={`columns-${component.id}`}>
-            {t("reference.imagesPerRow")}:
-          </label>
-          <select
-            className="rounded border border-stone-300 px-2 py-1 text-sm"
-            id={`columns-${component.id}`}
-            onChange={(e) => onSetColumns(component.id, Number(e.target.value))}
-            value={component.columnsPerRow}
-          >
-            {[1, 2, 3, 4, 5, 6].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </div>
+        <input
+          aria-label={t("reference.groupTitleAria")}
+          className="flex-1 border-b border-stone-300 px-2 py-1 text-lg font-semibold focus:border-amber-500 focus:outline-none"
+          onChange={(e) => onSetTitle(component.id, e.target.value)}
+          type="text"
+          value={component.title}
+        />
+        {onSetImageHeight && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-stone-600">{t("reference.imageHeight")}</span>
+            <button
+              aria-label="减小图片高度"
+              className="rounded border border-stone-300 px-2 py-1 text-sm hover:bg-stone-100"
+              onClick={handleDecreaseHeight}
+              type="button"
+            >
+              −
+            </button>
+            <button
+              aria-label="增大图片高度"
+              className="rounded border border-stone-300 px-2 py-1 text-sm hover:bg-stone-100"
+              onClick={handleIncreaseHeight}
+              type="button"
+            >
+              +
+            </button>
+          </div>
+        )}
+      </div>
 
-        {/* Caption toggle */}
+      {/* Caption toggle */}
+      <div className="mb-2 flex items-center gap-4">
         {onToggleCaptions && (
           <label className="flex items-center gap-2 text-sm text-stone-600">
             <input
@@ -111,11 +138,13 @@ export function ReferenceComponentView({
           enableReorder={enableReorder}
           group={component}
           imageSrc={imageSrc}
-          onAddImage={onAddImage}
+          onAddImage={onAddImages ?? onAddImage}
           onOpenImage={onOpenImage}
           onRemoveImage={onRemoveImage}
           showCaptions={component.showCaptions}
           onSetCaption={onSetImageCaption ? (imageId, caption) => onSetImageCaption(component.id, imageId, caption) : undefined}
+          slots={slots}
+          scale={scale}
         />
       </div>
     </div>
