@@ -2,6 +2,7 @@ import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import { zh } from "@blocknote/core/locales";
 import { useEffect, useRef } from "react";
+import { useTheme } from "../../app/theme/ThemeProvider";
 
 interface RichTextEditorProps {
   html: string;
@@ -12,6 +13,7 @@ interface RichTextEditorProps {
 }
 
 export function RichTextEditor({ html, onChange, ariaLabel, placeholder, compact }: RichTextEditorProps) {
+  const { resolved } = useTheme();
   const editor = useCreateBlockNote({ dictionary: zh });
   const lastEmitRef = useRef<string | null>(null);
   const lastPropHtmlRef = useRef<string | null>(null);
@@ -70,7 +72,7 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder, compact
 
   return (
     <div aria-label={ariaLabel} className={`bn-wrap${compact ? " bn-compact" : ""}`} data-placeholder={placeholder} role="group">
-      <BlockNoteView editor={editor} onChange={handleChange} sideMenu={!compact} theme="light" />
+      <BlockNoteView editor={editor} onChange={handleChange} sideMenu={!compact} theme={resolved} />
     </div>
   );
 }

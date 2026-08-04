@@ -19,7 +19,7 @@ export function SaveStatus({ state }: { state: SaveState }) {
   return (
     <span
       aria-live="polite"
-      className="inline-flex items-center gap-2 text-xs text-stone-500"
+      className="inline-flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400"
       data-testid="save-status"
       role="status"
     >

@@ -36,7 +36,7 @@ export function ConfirmDialog({ open, title, confirmLabel, cancelLabel, onConfir
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70"
       onClick={handleBackdropClick}
     >
       <div
@@ -44,15 +44,15 @@ export function ConfirmDialog({ open, title, confirmLabel, cancelLabel, onConfir
         aria-modal="true"
         aria-label={title}
         onKeyDown={handleKeyDown}
-        className="rounded-lg bg-white p-6 shadow-xl"
+        className="rounded-lg bg-white p-6 shadow-xl dark:bg-stone-900"
         style={{ minWidth: "320px" }}
       >
-        <h2 className="mb-4 text-lg font-semibold text-stone-800">{title}</h2>
+        <h2 className="mb-4 text-lg font-semibold text-stone-800 dark:text-stone-100">{title}</h2>
         <div className="flex justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded bg-stone-200 px-4 py-2 text-sm text-stone-700 hover:bg-stone-300"
+            className="rounded bg-stone-200 px-4 py-2 text-sm text-stone-700 hover:bg-stone-300 dark:bg-stone-700 dark:text-stone-300 dark:hover:bg-stone-600"
           >
             {cancelLabel}
           </button>
@@ -60,7 +60,7 @@ export function ConfirmDialog({ open, title, confirmLabel, cancelLabel, onConfir
             ref={confirmButtonRef}
             type="button"
             onClick={onConfirm}
-            className="rounded bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+            className="rounded bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
           >
             {confirmLabel}
           </button>

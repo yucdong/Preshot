@@ -44,7 +44,7 @@ export function InsertComponentMenu({ onInsert }: InsertComponentMenuProps) {
       <button
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+        className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 dark:bg-stone-700 dark:hover:bg-stone-600"
         onClick={() => setIsOpen(!isOpen)}
         type="button"
       >
@@ -53,11 +53,11 @@ export function InsertComponentMenu({ onInsert }: InsertComponentMenuProps) {
 
       {isOpen && (
         <div
-          className="absolute left-0 top-full z-10 mt-1 w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5"
+          className="absolute left-0 top-full z-10 mt-1 w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 dark:bg-stone-800 dark:ring-white/10"
           role="menu"
         >
           <button
-            className="block w-full px-4 py-2 text-left text-sm text-stone-900 hover:bg-stone-100"
+            className="block w-full px-4 py-2 text-left text-sm text-stone-900 hover:bg-stone-100 dark:text-stone-100 dark:hover:bg-stone-700"
             onClick={() => handleInsert("plan")}
             role="menuitem"
             type="button"
@@ -65,7 +65,7 @@ export function InsertComponentMenu({ onInsert }: InsertComponentMenuProps) {
             {t("canvas.insertPlan")}
           </button>
           <button
-            className="block w-full px-4 py-2 text-left text-sm text-stone-900 hover:bg-stone-100"
+            className="block w-full px-4 py-2 text-left text-sm text-stone-900 hover:bg-stone-100 dark:text-stone-100 dark:hover:bg-stone-700"
             onClick={() => handleInsert("reference")}
             role="menuitem"
             type="button"

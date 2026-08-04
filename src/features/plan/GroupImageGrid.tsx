@@ -98,7 +98,7 @@ export function GroupImageGrid({
       >
         <button
           aria-label={t("reference.addImage")}
-          className="flex h-full w-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600"
+          className="flex h-full w-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600 dark:border-stone-700 dark:text-stone-500 dark:hover:border-amber-400 dark:hover:text-amber-400"
           onClick={() => onAddImage(group.id)}
           type="button"
         >

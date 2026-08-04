@@ -552,13 +552,13 @@ export function ProjectCanvasProvider({
   return (
     <div className="flex h-full flex-col">
       {error && (
-        <div className="bg-red-50 px-4 py-2 text-sm text-red-700">
+        <div className="bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-900 dark:text-red-200">
           {error}
         </div>
       )}
-      <div className="flex items-center gap-4 border-b border-stone-200 bg-white px-6 py-3">
+      <div className="flex items-center gap-4 border-b border-stone-200 bg-white px-6 py-3 dark:border-stone-700 dark:bg-stone-900">
         <button
-          className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-stone-700 dark:hover:bg-stone-600"
           disabled={exporting}
           onClick={exportPdf}
           type="button"
@@ -568,7 +568,7 @@ export function ProjectCanvasProvider({
         <InsertComponentMenu onInsert={handleInsert} />
         <SaveStatus state={saveState} />
       </div>
-      <div className="flex-1 overflow-auto bg-stone-100 p-6" ref={containerRef}>
+      <div className="flex-1 overflow-auto bg-stone-100 p-6 dark:bg-stone-800" ref={containerRef}>
         <PlanCanvas
           components={plan.components}
           imageSrc={(file) => imageSrc[file]}

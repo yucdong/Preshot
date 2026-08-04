@@ -3,6 +3,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
 import { PlanCanvas } from "./PlanCanvas";
+import { ThemeProvider } from "../../../app/theme/ThemeProvider";
+import type { SettingsRepository } from "../../../domain/settings/ports";
+
+const mockRepository: SettingsRepository = {
+  read: vi.fn().mockResolvedValue({ theme: "light" }),
+  write: vi.fn().mockResolvedValue(undefined),
+};
 
 const planComponent: PlanComponent = {
   id: "plan1",
@@ -42,9 +49,11 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     ...overrides,
   };
   render(
-    <DndContext>
-      <PlanCanvas {...props} />
-    </DndContext>,
+    <ThemeProvider repository={mockRepository}>
+      <DndContext>
+        <PlanCanvas {...props} />
+      </DndContext>
+    </ThemeProvider>,
   );
   return props;
 }

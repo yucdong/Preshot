@@ -12,13 +12,13 @@ export function CanvasPage({ scale, children }: CanvasPageProps) {
 
   return (
     <div
-      className="relative bg-white"
+      className="relative bg-white dark:bg-stone-900"
       data-testid="canvas-page"
       style={{ width: `${width}px`, height: `${height}px` }}
     >
       {/* Margin guide */}
       <div
-        className="pointer-events-none absolute border border-dashed border-stone-200"
+        className="pointer-events-none absolute border border-dashed border-stone-200 dark:border-stone-700"
         style={{
           left: `${marginScaled}px`,
           top: `${marginScaled}px`,

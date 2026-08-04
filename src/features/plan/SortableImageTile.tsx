@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Rect } from "../../domain/plan/canvas/geometry";
 
 const tileButton =
-  "group relative block h-full w-full overflow-hidden rounded-xl border border-black/10 bg-stone-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500";
+  "group relative block h-full w-full overflow-hidden rounded-xl border border-black/10 bg-stone-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-white/10 dark:bg-stone-800";
 
 interface ReferenceImageLike {
   id: string;
@@ -95,7 +95,7 @@ export function SortableImageTile({
       {showCaptions && onSetCaption && (
         <textarea
           aria-label={t("reference.captionAria", { index: index + 1 })}
-          className="absolute resize-none rounded border border-stone-300 bg-white px-2 py-1 text-xs focus:border-amber-500 focus:outline-none"
+          className="absolute resize-none rounded border border-stone-300 bg-white px-2 py-1 text-xs focus:border-amber-500 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500"
           style={{
             bottom: 0,
             left: 0,

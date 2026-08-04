@@ -61,17 +61,17 @@ export function ReferenceComponentView({
       <div className="mb-2 flex items-center gap-4">
         <input
           aria-label={t("reference.groupTitleAria")}
-          className="flex-1 border-b border-stone-300 px-2 py-1 text-lg font-semibold focus:border-amber-500 focus:outline-none"
+          className="flex-1 border-b border-stone-300 px-2 py-1 text-lg font-semibold focus:border-amber-500 focus:outline-none dark:border-stone-700 dark:bg-transparent dark:text-stone-100"
           onChange={(e) => onSetTitle(component.id, e.target.value)}
           type="text"
           value={component.title}
         />
         {onSetImageHeight && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-stone-600">{t("reference.imageHeight")}</span>
+            <span className="text-sm text-stone-600 dark:text-stone-300">{t("reference.imageHeight")}</span>
             <button
               aria-label={t("reference.decreaseImageHeight")}
-              className="rounded border border-stone-300 px-2 py-1 text-sm hover:bg-stone-100"
+              className="rounded border border-stone-300 px-2 py-1 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-700"
               onClick={handleDecreaseHeight}
               type="button"
             >
@@ -79,7 +79,7 @@ export function ReferenceComponentView({
             </button>
             <button
               aria-label={t("reference.increaseImageHeight")}
-              className="rounded border border-stone-300 px-2 py-1 text-sm hover:bg-stone-100"
+              className="rounded border border-stone-300 px-2 py-1 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-700"
               onClick={handleIncreaseHeight}
               type="button"
             >
@@ -92,7 +92,7 @@ export function ReferenceComponentView({
       {/* Caption toggle */}
       <div className="mb-2 flex items-center gap-4">
         {onToggleCaptions && (
-          <label className="flex items-center gap-2 text-sm text-stone-600">
+          <label className="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
             <input
               checked={component.showCaptions}
               className="rounded"
@@ -121,7 +121,7 @@ export function ReferenceComponentView({
       {!component.description.trim() && !showDescription && (
         <div className="mb-2">
           <button
-            className="text-sm text-amber-600 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1"
+            className="text-sm text-amber-600 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 dark:text-amber-400 dark:hover:text-amber-300"
             onClick={() => setShowDescription(true)}
             type="button"
           >
