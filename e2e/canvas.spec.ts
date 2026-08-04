@@ -520,6 +520,9 @@ test("inserts component at top of canvas", async ({ page }) => {
 
 test("shows delete confirmation dialog and deletes component on confirm", async ({ page }) => {
   await page.goto("/");
+  // Wait for the seeded components to render and settle before counting.
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
+  await expect(page.locator('[data-component-frame="true"]').first()).toBeVisible();
 
   // Count initial components
   const initialCount = await page.locator('[data-component-frame="true"]').count();
