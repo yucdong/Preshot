@@ -6,19 +6,19 @@ import type { ProjectPlan as CanvasPlan } from "../../domain/plan/canvas/models"
 
 const TINY_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-const LANDSCAPE_SVG =
-  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='100' viewBox='0 0 160 100'><rect width='160' height='100' fill='%23d6d3d1'/></svg>";
-const PORTRAIT_SVG =
-  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='160' viewBox='0 0 100 160'><rect width='100' height='160' fill='%23e7e5e4'/></svg>";
-const LANDSCAPE_ALT_SVG =
-  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='110' viewBox='0 0 180 110'><rect width='180' height='110' fill='%23cbd5e1'/></svg>";
-const PORTRAIT_ALT_SVG =
-  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='110' height='170' viewBox='0 0 110 170'><rect width='110' height='170' fill='%23f5d0fe'/></svg>";
+const LANDSCAPE_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAFCAYAAAB4ka1VAAAAE0lEQVR4nGO4dvnif3yYYRAoAAC9iYrpFnTwwwAAAABJRU5ErkJggg==";
+const PORTRAIT_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAEklEQVR4nGN4/vTJfxBmwGAAACm0FhtaKTEiAAAAAElFTkSuQmCC";
+const LANDSCAPE_ALT_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAALCAYAAAByF90EAAAAGElEQVR4nGM4ffXhf2pghlGDRg0algYBAOFNtR/DIAz8AAAAAElFTkSuQmCC";
+const PORTRAIT_ALT_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAUCAYAAABWMrcvAAAAGUlEQVR4nGP4euHff1Ixw6imUU2jmkaKJgAWpdE2a5HTWQAAAABJRU5ErkJggg==";
 const SEEDED_IMAGE_DATA: Record<string, string> = {
-  "references/0001.png": LANDSCAPE_SVG,
-  "references/0002.png": PORTRAIT_SVG,
-  "references/0003.png": LANDSCAPE_ALT_SVG,
-  "references/0004.png": PORTRAIT_ALT_SVG,
+  "references/0001.png": LANDSCAPE_PNG,
+  "references/0002.png": PORTRAIT_PNG,
+  "references/0003.png": LANDSCAPE_ALT_PNG,
+  "references/0004.png": PORTRAIT_ALT_PNG,
 };
 
 const SEEDED_V4_PLAN: CanvasPlan = {

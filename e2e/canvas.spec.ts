@@ -1,4 +1,19 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function waitForReferenceImages(page: Page) {
+  const images = page.getByRole("img", { name: "参考图" });
+  await expect(images.first()).toBeVisible();
+  await expect
+    .poll(() =>
+      images.evaluateAll((elements) =>
+        elements.every((element) => {
+          const image = element as HTMLImageElement;
+          return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
+        }),
+      ),
+    )
+    .toBe(true);
+}
 
 test("loads the seeded canvas with plan and reference components", async ({ page }) => {
   await page.goto("/");
@@ -204,6 +219,7 @@ test("overflows to multiple pages when inserting tall components", async ({ page
 
 test("exports the canvas to PDF", async ({ page }) => {
   await page.goto("/");
+  await waitForReferenceImages(page);
 
   await page.getByRole("button", { name: "导出 PDF" }).click();
 
@@ -369,6 +385,7 @@ test("toggles captions on a reference component and types a caption", async ({ p
 
 test("exports the canvas to PDF with captions enabled", async ({ page }) => {
   await page.goto("/");
+  await waitForReferenceImages(page);
 
   // Toggle captions on the seeded reference component
   const firstReferenceFrame = page.locator('[data-component-frame="true"]').first();
@@ -626,6 +643,7 @@ test("adjusts reference component image height with stepper", async ({ page }) =
 
 test("exports PDF and operation completes successfully", async ({ page }) => {
   await page.goto("/");
+  await waitForReferenceImages(page);
 
   // Click export PDF button
   await page.getByRole("button", { name: "导出 PDF" }).click();
