@@ -29,7 +29,7 @@ import { DragOverlayPreview } from "./DragOverlayPreview";
 import {
   DRAG_ACTIVATION_CONSTRAINT,
 } from "./dragMotion";
-import { pageCountForDisplayedPlacements } from "./dragPreviewState";
+import { buildDisplayPlacements, pageCountForDisplayedPlacements } from "./dragPreviewState";
 import { imageDropTarget, imageInsertAfterFromRects } from "./imageDropTarget";
 import type { PlanMeasurement } from "./usePlanContentMeasurement";
 
@@ -89,21 +89,6 @@ const collisionDetection: CollisionDetection = (args) => {
 
   return rectIntersection(args);
 };
-
-function sortPlacements(placements: ComponentFragmentPlacement[]): ComponentFragmentPlacement[] {
-  return [...placements].sort((left, right) => {
-    if (left.pageIndex !== right.pageIndex) {
-      return left.pageIndex - right.pageIndex;
-    }
-    if (left.rect.y !== right.rect.y) {
-      return left.rect.y - right.rect.y;
-    }
-    if (left.rect.x !== right.rect.x) {
-      return left.rect.x - right.rect.x;
-    }
-    return left.fragmentIndex - right.fragmentIndex;
-  });
-}
 
 function referenceComponentById(components: PlanComponent[], componentId: string): ReferenceComponent | null {
   const component = components.find((entry) => entry.id === componentId);
@@ -178,13 +163,12 @@ export function PlanCanvas({
 
   const imageOrigin = findImageOrigin(components, baseLayout.placements, activeDrag);
   const componentDragId = activeDrag?.type === "component" ? activeDrag.componentId : null;
-  const displayPlacements =
-    componentDragId == null
-      ? previewLayout.placements
-      : sortPlacements([
-          ...previewLayout.placements.filter((placement) => placement.componentId !== componentDragId),
-          ...baseLayout.placements.filter((placement) => placement.componentId === componentDragId),
-        ]);
+  const displayPlacements = buildDisplayPlacements({
+    activeDrag,
+    basePlacements: baseLayout.placements,
+    previewPlacements: previewLayout.placements,
+    imageOriginPlacement: imageOrigin?.placement ?? null,
+  });
 
   const paramsFor = (event: DragOverEvent | DragEndEvent): { id: string; toIndex: number } | null => {
     const activeId = logicalComponentIdFromDnd(
@@ -247,6 +231,8 @@ export function PlanCanvas({
     if (data?.type === "component") {
       const params = paramsFor(event);
       if (!params) {
+        lastParamsRef.current = null;
+        setPreview(null);
         return;
       }
       const last = lastParamsRef.current;
@@ -258,6 +244,8 @@ export function PlanCanvas({
     } else if (data?.type === "image") {
       const params = paramsForImage(event);
       if (!params) {
+        lastImageParamsRef.current = null;
+        setPreview(null);
         return;
       }
       const last = lastImageParamsRef.current;
@@ -279,13 +267,13 @@ export function PlanCanvas({
   const onDragEnd = (event: DragEndEvent) => {
     const data = event.active.data.current;
     if (data?.type === "component") {
-      const params = paramsFor(event) ?? lastParamsRef.current;
+      const params = event.over ? paramsFor(event) : null;
       resetPreview();
       if (params && onMoveComponent) {
         onMoveComponent(params.id, params.toIndex);
       }
     } else if (data?.type === "image") {
-      const params = paramsForImage(event) ?? lastImageParamsRef.current;
+      const params = event.over ? paramsForImage(event) : null;
       resetPreview();
       if (params && onMoveImage) {
         onMoveImage(params);

@@ -1,6 +1,6 @@
-import { DndContext } from "@dnd-kit/core";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import { fireEvent, render, screen, act } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { layoutPlan } from "../../../domain/plan/canvas/engine";
 import { DEFAULT_PAGE_GEOMETRY, SPACING } from "../../../domain/plan/canvas/geometry";
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
@@ -8,6 +8,40 @@ import { PlanCanvas } from "./PlanCanvas";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../../domain/settings/ports";
 import { pageTopPx } from "./PagedCanvasSurface";
+
+const dndContextState = vi.hoisted(() => ({
+  props: null as Record<string, unknown> | null,
+}));
+
+vi.mock("@dnd-kit/core", () => ({
+  DndContext: ({ children, ...props }: { children: ReactNode }) => {
+    dndContextState.props = props as Record<string, unknown>;
+    return children;
+  },
+  DragOverlay: ({ children }: { children: ReactNode }) => children,
+  PointerSensor: class PointerSensor {},
+  useSensor: (sensor: unknown, options: unknown) => ({ sensor, options }),
+  useSensors: (...sensors: unknown[]) => sensors,
+  useDroppable: () => ({ setNodeRef: () => undefined }),
+  rectIntersection: () => [],
+  pointerWithin: () => [],
+  closestCorners: () => [],
+}));
+
+vi.mock("@dnd-kit/sortable", () => ({
+  SortableContext: ({ children }: { children: ReactNode }) => children,
+  verticalListSortingStrategy: () => null,
+  rectSortingStrategy: () => null,
+  defaultAnimateLayoutChanges: () => true,
+  useSortable: () => ({
+    attributes: { role: "button", "aria-roledescription": "sortable" },
+    listeners: {},
+    setNodeRef: () => undefined,
+    transform: null,
+    transition: null,
+    isDragging: false,
+  }),
+}));
 
 const mockRepository: SettingsRepository = {
   read: vi.fn().mockResolvedValue({ theme: "light" }),
@@ -58,6 +92,7 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onRemoveImage: vi.fn(),
     onOpenImage: vi.fn(),
     onMoveComponent: vi.fn(),
+    onMoveImage: vi.fn(),
     onResize: vi.fn(),
     onMeasurePlan: vi.fn(),
     onMeasureReferenceDescription: vi.fn(),
@@ -65,15 +100,107 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
   };
   render(
     <ThemeProvider repository={mockRepository}>
-      <DndContext>
-        <PlanCanvas {...props} />
-      </DndContext>
+      <PlanCanvas {...props} />
     </ThemeProvider>,
   );
   return props;
 }
 
+function getDndHandlers() {
+  return dndContextState.props as {
+    onDragStart?: (event: unknown) => void;
+    onDragOver?: (event: unknown) => void;
+    onDragEnd?: (event: unknown) => void;
+  };
+}
+
+function componentFrameTop(fragmentId: string): number {
+  const frame = document.querySelector(`[data-fragment-id="${fragmentId}"]`) as HTMLElement | null;
+  expect(frame).not.toBeNull();
+  return Number.parseFloat(frame!.style.top);
+}
+
+function makeRect(top: number, left = 0, width = 120, height = 120) {
+  return { top, left, width, height };
+}
+
+function makeComponentDragStart(componentId: string) {
+  return {
+    active: {
+      id: componentId,
+      data: { current: { type: "component", componentId } },
+      rect: { current: { translated: makeRect(0) } },
+    },
+  };
+}
+
+function makeComponentDragOver(componentId: string, overComponentId: string) {
+  return {
+    active: {
+      id: componentId,
+      data: { current: { type: "component", componentId } },
+      rect: { current: { translated: makeRect(200) } },
+    },
+    over: {
+      id: overComponentId,
+      data: { current: { type: "component", componentId: overComponentId } },
+      rect: makeRect(0),
+    },
+  };
+}
+
+function makeComponentDragCancel(componentId: string) {
+  return {
+    active: {
+      id: componentId,
+      data: { current: { type: "component", componentId } },
+      rect: { current: { translated: makeRect(200) } },
+    },
+    over: null,
+  };
+}
+
+function makeImageDragStart(componentId: string, imageId: string) {
+  return {
+    active: {
+      id: imageId,
+      data: { current: { type: "image", componentId } },
+      rect: { current: { translated: makeRect(0, 200, 120, 120) } },
+    },
+  };
+}
+
+function makeImageDragOver(componentId: string, imageId: string, overId: string) {
+  return {
+    active: {
+      id: imageId,
+      data: { current: { type: "image", componentId } },
+      rect: { current: { translated: makeRect(0, 200, 120, 120) } },
+    },
+    over: {
+      id: overId,
+      data: { current: { type: "imagegroup", componentId: overId.replace("imagegroup:", "") } },
+      rect: makeRect(0, 0, 120, 120),
+    },
+  };
+}
+
+function makeImageDragCancel(componentId: string, imageId: string) {
+  return {
+    active: {
+      id: imageId,
+      data: { current: { type: "image", componentId } },
+      rect: { current: { translated: makeRect(0, 200, 120, 120) } },
+    },
+    over: null,
+  };
+}
+
 describe("PlanCanvas", () => {
+  beforeEach(() => {
+    dndContextState.props = null;
+  });
+
   it("renders one A4 page background with both plan and reference components", () => {
     renderCanvas();
     const pages = screen.getAllByTestId("canvas-page-background");
@@ -275,5 +402,50 @@ describe("PlanCanvas", () => {
     renderCanvas();
     const cornerHandle = document.querySelector('[data-resize-handle="both"]');
     expect(cornerHandle).not.toBeInTheDocument();
+  });
+
+  it("clears component preview on invalid over and does not commit the stale move when dropped outside", () => {
+    const props = renderCanvas();
+    const initialReferenceTop = componentFrameTop("ref1::0");
+    const handlers = getDndHandlers();
+
+    act(() => {
+      handlers.onDragStart?.(makeComponentDragStart("plan1"));
+      handlers.onDragOver?.(makeComponentDragOver("plan1", "ref1"));
+    });
+
+    expect(componentFrameTop("ref1::0")).toBeLessThan(initialReferenceTop);
+
+    act(() => {
+      handlers.onDragOver?.(makeComponentDragCancel("plan1"));
+    });
+
+    expect(componentFrameTop("ref1::0")).toBeCloseTo(initialReferenceTop, 5);
+
+    act(() => {
+      handlers.onDragEnd?.(makeComponentDragCancel("plan1"));
+    });
+
+    expect(props.onMoveComponent).not.toHaveBeenCalled();
+  });
+
+  it("does not commit a stale image move when dropped outside all droppables", () => {
+    const targetReference: PlanComponent = {
+      ...referenceComponent,
+      id: "ref2",
+      title: "Target",
+      images: [],
+    };
+    const props = renderCanvas({ components: [referenceComponent, targetReference] });
+    const handlers = getDndHandlers();
+
+    act(() => {
+      handlers.onDragStart?.(makeImageDragStart("ref1", "i1"));
+      handlers.onDragOver?.(makeImageDragOver("ref1", "i1", "imagegroup:ref2"));
+      handlers.onDragOver?.(makeImageDragCancel("ref1", "i1"));
+      handlers.onDragEnd?.(makeImageDragCancel("ref1", "i1"));
+    });
+
+    expect(props.onMoveImage).not.toHaveBeenCalled();
   });
 });

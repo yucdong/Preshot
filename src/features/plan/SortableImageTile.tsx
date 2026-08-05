@@ -63,7 +63,7 @@ export function SortableImageTile({
         top: `${slot.y * scale}px`,
         width: `${slot.width * scale}px`,
         height: `${slot.height * scale}px`,
-        transform: CSS.Transform.toString(transform),
+        transform: prefersReducedMotion || !transform ? undefined : CSS.Transform.toString(transform),
         transition: createMotionStyleTransition(prefersReducedMotion, transition),
       }
     : {

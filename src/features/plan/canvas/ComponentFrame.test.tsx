@@ -1,9 +1,25 @@
 import { DndContext } from "@dnd-kit/core";
 import { fireEvent, render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Rect } from "../../../domain/plan/canvas/geometry";
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
 import { ComponentFrame } from "./ComponentFrame";
+
+vi.mock("@dnd-kit/sortable", async () => {
+  const actual = await vi.importActual<typeof import("@dnd-kit/sortable")>("@dnd-kit/sortable");
+
+  return {
+    ...actual,
+    useSortable: () => ({
+      attributes: { role: "button", "aria-roledescription": "sortable" },
+      listeners: {},
+      setNodeRef: () => undefined,
+      transform: { x: 24, y: 16, scaleX: 1, scaleY: 1 },
+      transition: "transform 200ms ease",
+      isDragging: false,
+    }),
+  };
+});
 
 const component: PlanComponent = {
   id: "plan1",
@@ -44,6 +60,19 @@ function renderFrame(onResize = vi.fn()) {
   return { onResize, widthHandle };
 }
 
+function mockMatchMedia(matches: boolean) {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({
+    matches,
+    media: "(prefers-reduced-motion: reduce)",
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })));
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("ComponentFrame", () => {
   it("releases pointer capture on pointerup even when no resize preview exists", () => {
     const { onResize, widthHandle } = renderFrame();
@@ -77,5 +106,30 @@ describe("ComponentFrame", () => {
 
     expect(widthHandle.releasePointerCapture).not.toHaveBeenCalled();
     expect(onResize).not.toHaveBeenCalled();
+  });
+
+  it("omits sortable transform and transition when reduced motion is preferred", () => {
+    mockMatchMedia(true);
+
+    render(
+      <DndContext>
+        <ComponentFrame
+          component={component}
+          contentWidthPoints={500}
+          id={component.id}
+          onRemove={vi.fn()}
+          onResize={vi.fn()}
+          rect={rect}
+          scale={1}
+        >
+          <div>content</div>
+        </ComponentFrame>
+      </DndContext>,
+    );
+
+    const frame = document.querySelector('[data-component-id="plan1"]') as HTMLElement;
+
+    expect(frame.style.transform).toBe("");
+    expect(frame.style.transition).toBe("");
   });
 });

@@ -8,7 +8,17 @@ interface DragOverlayPreviewProps {
 }
 
 function plainTextSummary(html: string): string {
+  if (typeof document !== "undefined") {
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    return container.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  }
+
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function summaryCharacterCount(text: string): number {
+  return text.replace(/\s+/g, "").length;
 }
 
 export function DragOverlayPreview({
@@ -52,10 +62,11 @@ export function DragOverlayPreview({
   }
 
   const typeLabel = component.type === "plan" ? t("canvas.typePlan") : t("canvas.typeReference");
-  const detail =
+  const detail = component.type === "plan" ? plainTextSummary(component.html).slice(0, 80) : component.title;
+  const compactSummary =
     component.type === "plan"
-      ? plainTextSummary(component.html).slice(0, 80)
-      : `${component.title} · ${component.images.length}`;
+      ? t("canvas.planCharacterCount", { count: summaryCharacterCount(plainTextSummary(component.html)) })
+      : t("canvas.referenceImageCount", { count: component.images.length });
 
   return (
     <div
@@ -64,6 +75,7 @@ export function DragOverlayPreview({
     >
       <div className="text-xs text-stone-500 dark:text-stone-400">{typeLabel}</div>
       <div className="mt-1 line-clamp-4 text-sm font-medium text-stone-900 dark:text-stone-100">{detail}</div>
+      <div className="mt-2 text-xs text-stone-500 dark:text-stone-400">{compactSummary}</div>
     </div>
   );
 }

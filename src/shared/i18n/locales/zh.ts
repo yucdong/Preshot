@@ -37,6 +37,8 @@ export const zh = {
     moveHint: "拖动以移动或交换位置",
     typePlan: "摄影计划",
     typeReference: "参考图组",
+    planCharacterCount: "{{count}} 个字",
+    referenceImageCount: "{{count}} 张参考图",
     deleteConfirmTitle: "确定删除该组件？",
   },
   save: {

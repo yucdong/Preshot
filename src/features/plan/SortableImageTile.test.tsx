@@ -1,8 +1,24 @@
 import { DndContext } from "@dnd-kit/core";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
 import { SortableImageTile } from "./SortableImageTile";
+
+vi.mock("@dnd-kit/sortable", async () => {
+  const actual = await vi.importActual<typeof import("@dnd-kit/sortable")>("@dnd-kit/sortable");
+
+  return {
+    ...actual,
+    useSortable: () => ({
+      attributes: { "aria-roledescription": "sortable" },
+      listeners: {},
+      setNodeRef: () => undefined,
+      transform: { x: 18, y: 12, scaleX: 1, scaleY: 1 },
+      transition: "transform 200ms ease",
+      isDragging: false,
+    }),
+  };
+});
 
 describe("SortableImageTile", () => {
   const image = { id: "i1", file: "references/0001.png", caption: "" };
@@ -26,6 +42,19 @@ describe("SortableImageTile", () => {
       </DndContext>,
     );
   }
+
+  function mockMatchMedia(matches: boolean) {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches,
+      media: "(prefers-reduced-motion: reduce)",
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it("exposes sortable drag attributes and correct data type when draggable", () => {
     renderTile();
@@ -108,5 +137,15 @@ describe("SortableImageTile", () => {
     const caption = screen.getByRole("textbox", { name: "图片说明 1" });
     // Should have bg-white or bg-stone-50 class
     expect(caption.className).toMatch(/bg-(white|stone-50)/);
+  });
+
+  it("omits sortable transform and transition when reduced motion is preferred", () => {
+    mockMatchMedia(true);
+    renderTile();
+
+    const tile = screen.getByRole("button", { name: "打开参考图 1" }).parentElement as HTMLElement;
+
+    expect(tile.style.transform).toBe("");
+    expect(tile.style.transition).toBe("");
   });
 });
