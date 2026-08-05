@@ -500,7 +500,7 @@
         "PlanCanvas now renders component fragments on a single PagedCanvasSurface global-Y coordinate system, and left-handle preview keeps the right edge visually fixed while only width persists",
         "Task 7 uses dnd-kit sortable overlays with a 180ms pointer delay, unique fragment-level image-group droppable ids mapped back to logical component ids, and reduced-motion-aware 200ms layout easing",
         "Task 8 keeps PDF reference-image export keyed by ReferenceFlowSlot.id, reuses the shared zh continuation-title template, and validates exact adaptive slot geometry across continuation fragments",
-        "Task 9 seeds the browser memory adapter with stable landscape and portrait demo images and keeps Playwright drag gestures aligned with the >180ms activation delay required by adaptive sortable overlays"
+        "Task 9 seeds the browser memory adapter with four stable landscape/portrait demo images, adds bounded post-hydration BlockNote block-identity checks so adaptive measurements recover from async node replacement without Playwright hangs, and keeps drag smoke coverage aligned with the >180ms activation delay required by adaptive sortable overlays"
       ],
       "progress": {
         "designSpec": "docs/superpowers/specs/2026-08-05-adaptive-component-layout-design.md",
@@ -517,12 +517,12 @@
           "Task 5: added BlockNote top-level block measurement with runtime page-break spacer classes/CSS metadata so one editor can span multiple A4 pages without rewriting stored HTML",
           "Task 7: switched component frames to one logical sortable identity per component, gave paginated reference fragments unique image-group droppable ids, added compact DragOverlay previews plus source placeholders, and kept live image/component preview reflow reduced-motion aware",
           "Task 8: reused the adaptive reference fragment slots in canvasPdfExporter, centralized the zh continuation-title template for UI/PDF parity, and added multipage PDF regressions for exact image geometry plus continuation-slot id sequencing",
-          "Task 9: added focused Playwright smoke coverage for natural content growth, non-scrolling proportional reference flow, and drag placeholder/overlay commit behavior; fixed browser page-break measurement hangs by recalculating from content updates instead of observing BlockNote child mutations; aligned legacy canvas drag gestures with the required >180ms overlay activation delay"
+          "Task 9: added focused Playwright smoke coverage for natural content growth, multi-row non-scrolling proportional reference flow, and drag placeholder/overlay commit invariants; fixed browser page-break measurement hangs with bounded post-hydration top-level block identity checks instead of unfiltered subtree observation; aligned legacy canvas drag gestures with the required >180ms overlay activation delay"
         ],
         "lastVerified": {
-          "date": "2026-08-05",
+          "date": "2026-08-06",
           "focusedE2E": "3 adaptive-layout smoke tests passed",
-          "unitTests": "462 passed",
+          "unitTests": "467 passed",
           "e2eTests": "28 passed",
           "typecheck": "clean",
           "lint": "clean (ThemeProvider.tsx react-refresh/only-export-components warning unchanged)",

@@ -36,46 +36,63 @@ vi.mock("./canvas/PlanCanvas", () => ({
       measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
     ) => void;
     onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
-  }) => (
-    <div data-testid="plan-canvas">
-      <div data-testid="component-count">{components.length}</div>
-      <div data-testid="plan-height">{measurements.planHeights.get("plan-1") ?? "none"}</div>
-      <div data-testid="reference-description-height">
-        {measurements.referenceDescriptionHeights.get("ref-1") ?? "none"}
+  }) => {
+    latestPlanCanvasProps = {
+      onMeasurePlan,
+      onMeasureReferenceDescription,
+    };
+
+    return (
+      <div data-testid="plan-canvas">
+        <div data-testid="component-count">{components.length}</div>
+        <div data-testid="plan-height">{measurements.planHeights.get("plan-1") ?? "none"}</div>
+        <div data-testid="reference-description-height">
+          {measurements.referenceDescriptionHeights.get("ref-1") ?? "none"}
+        </div>
+        {components.map((c) =>
+          c.type === "plan" ? (
+            <div key={c.id} data-testid={`plan-${c.id}`}>
+              {c.html}
+            </div>
+          ) : null,
+        )}
+        <button onClick={() => onChangeHtml("plan-1", "<p>edited</p>")} type="button">
+          Edit
+        </button>
+        <button onClick={() => onMoveComponent("plan-1", 1)} type="button">
+          Move
+        </button>
+        <button onClick={() => onResize("plan-1", { width: 0.5 })} type="button">
+          Resize
+        </button>
+        <button
+          onClick={() =>
+            onMeasurePlan("plan-1", {
+              heightPoints: 321.5,
+              pageBreakBeforeBlockIds: ["plan-1:block-1"],
+            })
+          }
+          type="button"
+        >
+          Measure plan
+        </button>
+        <button onClick={() => onMeasureReferenceDescription("ref-1", 64)} type="button">
+          Measure description
+        </button>
       </div>
-      {components.map((c) =>
-        c.type === "plan" ? (
-          <div key={c.id} data-testid={`plan-${c.id}`}>
-            {c.html}
-          </div>
-        ) : null,
-      )}
-      <button onClick={() => onChangeHtml("plan-1", "<p>edited</p>")} type="button">
-        Edit
-      </button>
-      <button onClick={() => onMoveComponent("plan-1", 1)} type="button">
-        Move
-      </button>
-      <button onClick={() => onResize("plan-1", { width: 0.5 })} type="button">
-        Resize
-      </button>
-      <button
-        onClick={() =>
-          onMeasurePlan("plan-1", {
-            heightPoints: 321.5,
-            pageBreakBeforeBlockIds: ["plan-1:block-1"],
-          })
-        }
-        type="button"
-      >
-        Measure plan
-      </button>
-      <button onClick={() => onMeasureReferenceDescription("ref-1", 64)} type="button">
-        Measure description
-      </button>
-    </div>
-  ),
+    );
+  },
 }));
+
+let latestPlanCanvasProps:
+  | {
+      onMeasurePlan: (
+        id: string,
+        measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
+      ) => void;
+      onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
+    }
+  | null = null;
 
 function deps(): {
   dependencies: CanvasPlanDependencies;
@@ -452,6 +469,44 @@ describe("ProjectCanvasProvider", () => {
     );
 
     await screen.findByTestId("plan-canvas");
+    expect(screen.getByTestId("plan-height")).toHaveTextContent("none");
+    expect(screen.getByTestId("reference-description-height")).toHaveTextContent("none");
+  });
+
+  it("ignores stale measurement callbacks from the previous project after a path switch", async () => {
+    const { dependencies } = deps();
+
+    const { rerender } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const staleCallbacks = latestPlanCanvasProps;
+
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Demo"
+          projectPath={String.raw`C:\other`}
+        />
+      </ThemeProvider>,
+    );
+
+    await screen.findByTestId("plan-canvas");
+
+    act(() => {
+      staleCallbacks?.onMeasurePlan("plan-1", {
+        heightPoints: 999,
+        pageBreakBeforeBlockIds: ["stale-block"],
+      });
+      staleCallbacks?.onMeasureReferenceDescription("ref-1", 111);
+    });
+
     expect(screen.getByTestId("plan-height")).toHaveTextContent("none");
     expect(screen.getByTestId("reference-description-height")).toHaveTextContent("none");
   });

@@ -66,7 +66,7 @@ export function GroupImageGrid({
     ...normalizedSlots.map((slot) => slot.y + slot.height),
     placeholderSlot ? placeholderSlot.y - topOffset + placeholderSlot.height : 0,
   ].reduce((max, value) => Math.max(max, value), 0);
-  const containerHeight = contentBottom * scale;
+  const containerHeight = Math.ceil(contentBottom * scale);
   const normalizedPlaceholderSlot =
     placeholderSlot == null
       ? undefined

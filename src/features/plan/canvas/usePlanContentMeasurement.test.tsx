@@ -42,6 +42,12 @@ async function flushScheduledRecalculation() {
   });
 }
 
+async function flushPostContentChecks() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(120);
+  });
+}
+
 function setRect(element: Element, rect: Partial<DOMRect>) {
   Object.defineProperty(element, "getBoundingClientRect", {
     configurable: true,
@@ -174,6 +180,7 @@ describe("usePlanContentMeasurement", () => {
 
   afterEach(() => {
     globalThis.ResizeObserver = originalResizeObserver;
+    vi.useRealTimers();
   });
 
   it("adds runtime page-break metadata without rewriting editor html", () => {
@@ -252,6 +259,95 @@ describe("usePlanContentMeasurement", () => {
     expect(replacementBlocks[1]).toHaveClass("bn-page-break-before");
   });
 
+  it("recalculates when BlockNote replaces top-level blocks asynchronously without a resize callback", async () => {
+    vi.useFakeTimers();
+    const onMeasure = vi.fn();
+    const { container } = render(
+      <MeasurementHarness contentHeightPoints={200} onMeasure={onMeasure} />,
+    );
+
+    const surface = screen.getByTestId("paged-canvas-surface");
+    const root = screen.getByTestId("editor-root");
+    const blockGroup = container.querySelector('[data-node-type="blockGroup"]');
+    const initialBlocks = container.querySelectorAll('[data-node-type="blockOuter"]');
+
+    expect(blockGroup).not.toBeNull();
+
+    setRect(surface, { top: 0, bottom: 2000, height: 2000 });
+    setRect(root, { top: 0, bottom: 200, height: 200 });
+    setRect(initialBlocks[0], { top: 0, bottom: 60, height: 60 });
+    setRect(initialBlocks[1], { top: 60, bottom: 200, height: 140 });
+
+    emitResize([{ target: root, contentRect: { height: 200 } as DOMRectReadOnly }]);
+    onMeasure.mockClear();
+
+    blockGroup!.innerHTML = `
+      <div class="bn-block-outer" data-node-type="blockOuter"><div>First</div></div>
+      <div class="bn-block-outer" data-node-type="blockOuter"><div>Second</div></div>
+    `;
+
+    const replacementBlocks = container.querySelectorAll('[data-node-type="blockOuter"]');
+    setRect(replacementBlocks[0], { top: 700, bottom: 760, height: 60 });
+    setRect(replacementBlocks[1], { top: 760, bottom: 900, height: 140 });
+
+    await flushPostContentChecks();
+
+    expect(onMeasure).toHaveBeenCalledWith(
+      "plan-1",
+      expect.objectContaining({
+        pageBreakBeforeBlockIds: ["plan-1:block-1"],
+      }),
+    );
+    expect(onMeasure.mock.calls.at(-1)?.[1].heightPoints).toBeCloseTo(321.89, 2);
+    expect(replacementBlocks[1]).toHaveClass("bn-page-break-before");
+  });
+
+  it("keeps checking long enough to catch a delayed asynchronous top-level block replacement", async () => {
+    vi.useFakeTimers();
+    const onMeasure = vi.fn();
+    const { container } = render(
+      <MeasurementHarness contentHeightPoints={200} onMeasure={onMeasure} />,
+    );
+
+    const surface = screen.getByTestId("paged-canvas-surface");
+    const root = screen.getByTestId("editor-root");
+    const blockGroup = container.querySelector('[data-node-type="blockGroup"]');
+    const initialBlocks = container.querySelectorAll('[data-node-type="blockOuter"]');
+
+    expect(blockGroup).not.toBeNull();
+
+    setRect(surface, { top: 0, bottom: 2000, height: 2000 });
+    setRect(root, { top: 0, bottom: 200, height: 200 });
+    setRect(initialBlocks[0], { top: 0, bottom: 60, height: 60 });
+    setRect(initialBlocks[1], { top: 60, bottom: 200, height: 140 });
+
+    emitResize([{ target: root, contentRect: { height: 200 } as DOMRectReadOnly }]);
+    onMeasure.mockClear();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+
+    blockGroup!.innerHTML = `
+      <div class="bn-block-outer" data-node-type="blockOuter"><div>First</div></div>
+      <div class="bn-block-outer" data-node-type="blockOuter"><div>Second</div></div>
+    `;
+
+    const replacementBlocks = container.querySelectorAll('[data-node-type="blockOuter"]');
+    setRect(replacementBlocks[0], { top: 700, bottom: 760, height: 60 });
+    setRect(replacementBlocks[1], { top: 760, bottom: 900, height: 140 });
+
+    await flushPostContentChecks();
+
+    expect(onMeasure).toHaveBeenCalledWith(
+      "plan-1",
+      expect.objectContaining({
+        pageBreakBeforeBlockIds: ["plan-1:block-1"],
+      }),
+    );
+    expect(replacementBlocks[1]).toHaveClass("bn-page-break-before");
+  });
+
   it("uses the top-level block group instead of a nested descendant", () => {
     const onMeasure = vi.fn();
     render(<NestedBlockGroupHarness contentHeightPoints={200} onMeasure={onMeasure} />);
@@ -323,5 +419,71 @@ describe("usePlanContentMeasurement", () => {
     expect(observedTargets).not.toContain(root);
     expect(observedTargets).toContain(blocks[0]);
     expect(observedTargets).toContain(blocks[1]);
+  });
+
+  it("ignores descendant mutation churn so page-break measurement does not loop", async () => {
+    vi.useFakeTimers();
+    const onMeasure = vi.fn();
+    const { container } = render(
+      <MeasurementHarness contentHeightPoints={200} onMeasure={onMeasure} />,
+    );
+
+    const surface = screen.getByTestId("paged-canvas-surface");
+    const root = screen.getByTestId("editor-root");
+    const blocks = container.querySelectorAll('[data-node-type="blockOuter"]');
+    const nested = blocks[0].firstElementChild as HTMLElement;
+
+    let blockReadCount = 0;
+    setRect(surface, { top: 0, bottom: 2000, height: 2000 });
+    setRect(root, { top: 0, bottom: 200, height: 200 });
+    Object.defineProperty(blocks[0], "getBoundingClientRect", {
+      configurable: true,
+      value: () => {
+        blockReadCount += 1;
+        return {
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 60,
+          top: 0,
+          right: 100,
+          bottom: 60,
+          left: 0,
+          toJSON() {
+            return this;
+          },
+        } satisfies DOMRect;
+      },
+    });
+    Object.defineProperty(blocks[1], "getBoundingClientRect", {
+      configurable: true,
+      value: () => {
+        blockReadCount += 1;
+        return {
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 140,
+          top: 60,
+          right: 100,
+          bottom: 200,
+          left: 0,
+          toJSON() {
+            return this;
+          },
+        } satisfies DOMRect;
+      },
+    });
+
+    emitResize([{ target: root, contentRect: { height: 200 } as DOMRectReadOnly }]);
+    const readsAfterInitialMeasurement = blockReadCount;
+
+    const span = document.createElement("span");
+    span.textContent = "nested";
+    nested.appendChild(span);
+    await flushPostContentChecks();
+
+    expect(onMeasure).toHaveBeenCalledTimes(1);
+    expect(blockReadCount).toBe(readsAfterInitialMeasurement);
   });
 });

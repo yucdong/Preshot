@@ -71,6 +71,13 @@ function topLevelBlocks(root: HTMLDivElement): HTMLElement[] {
   );
 }
 
+function sameBlockIdentity(previous: readonly HTMLElement[], next: readonly HTMLElement[]): boolean {
+  return previous.length === next.length && previous.every((block, index) => block === next[index]);
+}
+
+const POST_CONTENT_CHECKS = 6;
+const POST_CONTENT_CHECK_INTERVAL_MS = 16;
+
 export function calculatePlanPageBreaks(input: {
   blocks: PlanBlockBounds[];
   pageContentHeightPoints: number;
@@ -156,9 +163,12 @@ export function usePlanContentMeasurement(input: {
       return;
     }
 
+    let disposed = false;
+    let postContentTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new ResizeObserver(() => {
       recalculate();
     });
+
     const observeBlocks = (blocks: HTMLElement[]) => {
       const current = new Set(blocks);
       for (const block of observedBlocksRef.current) {
@@ -263,9 +273,35 @@ export function usePlanContentMeasurement(input: {
       onMeasureRef.current(input.componentId, nextMeasurement);
     };
 
+    const schedulePostContentCheck = (remaining: number) => {
+      if (remaining <= 0 || disposed) {
+        return;
+      }
+
+      postContentTimer = setTimeout(() => {
+        postContentTimer = null;
+        if (disposed) {
+          return;
+        }
+
+        const blocks = topLevelBlocks(root);
+        if (!sameBlockIdentity(observedBlocksRef.current, blocks)) {
+          recalculate();
+          return;
+        }
+
+        schedulePostContentCheck(remaining - 1);
+      }, POST_CONTENT_CHECK_INTERVAL_MS);
+    };
+
     recalculate();
+    schedulePostContentCheck(POST_CONTENT_CHECKS);
 
     return () => {
+      disposed = true;
+      if (postContentTimer !== null) {
+        clearTimeout(postContentTimer);
+      }
       observer.disconnect();
       observeBlocks([]);
       lastMeasurementRef.current = null;
