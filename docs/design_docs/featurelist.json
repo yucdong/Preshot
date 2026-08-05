@@ -500,7 +500,11 @@
         "PlanCanvas now renders component fragments on a single PagedCanvasSurface global-Y coordinate system, and left-handle preview keeps the right edge visually fixed while only width persists",
         "Task 7 uses dnd-kit sortable overlays with a 180ms pointer delay, unique fragment-level image-group droppable ids mapped back to logical component ids, and reduced-motion-aware 200ms layout easing",
         "Task 8 keeps PDF reference-image export keyed by ReferenceFlowSlot.id, reuses the shared zh continuation-title template, and validates exact adaptive slot geometry across continuation fragments",
-        "Task 9 seeds the browser memory adapter with four stable landscape/portrait demo images, adds bounded post-hydration BlockNote block-identity checks so adaptive measurements recover from async node replacement without Playwright hangs, and keeps drag smoke coverage aligned with the >180ms activation delay required by adaptive sortable overlays"
+        "Task 9 seeds the browser memory adapter with four stable landscape/portrait demo images and keeps drag smoke coverage aligned with the >180ms activation delay required by adaptive sortable overlays",
+        "Final review makes plan loading lossless: repository null is a typed missing result, stored empty v4 plans remain empty, malformed/future non-null plans throw contextual errors, and invalid image ratios normalize to 1 without dropping valid image records",
+        "Final review shares explicit point geometry for editable frame chrome and reference headers; the UI renders every vertical reservation at points × scale while PDF passes zero editing chrome",
+        "Final review replaces bounded hydration retries with an identity-filtered, coalesced MutationObserver that watches top-level BlockNote group/direct-block replacement until cleanup without reacting to attribute/style churn",
+        "Final review measures and paginates PDF rich text from the same extracted tokenization/line metrics used for drawing, excludes the UI add tile from PDF row flow, and contain-fits embedded images using their actual dimensions"
       ],
       "progress": {
         "designSpec": "docs/superpowers/specs/2026-08-05-adaptive-component-layout-design.md",
@@ -517,20 +521,23 @@
           "Task 5: added BlockNote top-level block measurement with runtime page-break spacer classes/CSS metadata so one editor can span multiple A4 pages without rewriting stored HTML",
           "Task 7: switched component frames to one logical sortable identity per component, gave paginated reference fragments unique image-group droppable ids, added compact DragOverlay previews plus source placeholders, and kept live image/component preview reflow reduced-motion aware",
           "Task 8: reused the adaptive reference fragment slots in canvasPdfExporter, centralized the zh continuation-title template for UI/PDF parity, and added multipage PDF regressions for exact image geometry plus continuation-slot id sequencing",
-          "Task 9: added focused Playwright smoke coverage for natural content growth, multi-row non-scrolling proportional reference flow, and drag placeholder/overlay commit invariants; fixed browser page-break measurement hangs with bounded post-hydration top-level block identity checks instead of unfiltered subtree observation; aligned legacy canvas drag gestures with the required >180ms overlay activation delay"
+          "Task 9: added focused Playwright smoke coverage for natural content growth, multi-row non-scrolling proportional reference flow, and drag placeholder/overlay commit invariants; aligned legacy canvas drag gestures with the required >180ms overlay activation delay",
+          "Final review: added strict migration/service/provider load regressions and a typed missing-vs-loaded result so unreadable stored data is never replaced or auto-saved",
+          "Final review: unified scaled frame/reference geometry, pinned all component/image source placeholders during drag, and replaced bounded BlockNote hydration polling with filtered event-driven identity observation",
+          "Final review: added adaptive PDF text measurement and multi-page drawing, PDF-only add-tile exclusion, actual-image contain fitting, valid browser PNG fixtures, stronger PDF integration coverage, and exact E2E frame-containment checks"
         ],
         "lastVerified": {
           "date": "2026-08-06",
-          "focusedE2E": "3 adaptive-layout smoke tests passed",
-          "affectedTests": "65 passed",
-          "unitTests": "467 passed",
+          "focusedE2E": "3 strengthened adaptive-layout/PDF smoke tests passed",
+          "affectedTests": "208 focused regression tests passed",
+          "unitTests": "498 passed",
           "e2eTests": "28 passed",
           "typecheck": "clean",
           "lint": "clean (ThemeProvider.tsx react-refresh/only-export-components warning unchanged)",
           "rustTests": "44 passed",
           "build": "succeeded",
           "featurelistJson": "valid",
-          "verificationNote": "Docs-only correction; no production rerun, based on the completed final matrix."
+          "verificationNote": "Final-review production fixes reran the complete verification matrix."
         },
         "remaining": []
       }
