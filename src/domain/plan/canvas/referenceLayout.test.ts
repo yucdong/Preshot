@@ -62,6 +62,25 @@ describe("packReferenceRows", () => {
     expect(rows[1].slots[0]).toMatchObject({ kind: "add", width: ADD_TILE.width, height: ADD_TILE.height });
   });
 
+  it("scales the add tile to fit narrow widths and keeps it final", () => {
+    const innerWidth = ADD_TILE.width - 24;
+    const rows = packReferenceRows({
+      images: [{ id: "img", file: "img.png", aspectRatio: 1 }],
+      imageHeight: 60,
+      showCaptions: false,
+      innerWidth,
+    });
+
+    const lastRow = rows[rows.length - 1];
+    const addSlot = lastRow.slots[lastRow.slots.length - 1];
+
+    expect(rows).toHaveLength(2);
+    expect(addSlot.kind).toBe("add");
+    expect(addSlot.x + addSlot.width).toBeLessThanOrEqual(innerWidth);
+    expect(addSlot.width).toBeCloseTo(innerWidth);
+    expect(addSlot.height).toBeCloseTo(ADD_TILE.height * (innerWidth / ADD_TILE.width));
+  });
+
   it("scales a single oversized image proportionally to the inner width", () => {
     const rows = packReferenceRows({
       images: [{ id: "wide", file: "wide.png", aspectRatio: 5 }],

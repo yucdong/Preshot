@@ -66,22 +66,27 @@ function imageSlot(image: Pick<ReferenceImage, "id" | "aspectRatio">, requestedH
   };
 }
 
-function addSlot(): ReferenceFlowSlot {
+function addSlot(innerWidth: number): ReferenceFlowSlot {
+  const safeWidth = positiveFinite(innerWidth);
+  const scale = safeWidth > 0 ? Math.min(1, safeWidth / ADD_TILE.width) : 0;
+  const width = ADD_TILE.width * scale;
+  const height = ADD_TILE.height * scale;
+
   return {
     kind: "add",
     id: "__add__",
     x: 0,
     y: 0,
-    width: ADD_TILE.width,
-    height: ADD_TILE.height,
-    imageHeight: ADD_TILE.height,
+    width,
+    height,
+    imageHeight: height,
     captionHeight: 0,
   };
 }
 
 function flowSlot(item: ReferenceFlowItem, imageHeight: number, showCaptions: boolean, innerWidth: number): ReferenceFlowSlot {
   if (item.kind === "add") {
-    return addSlot();
+    return addSlot(innerWidth);
   }
 
   return imageSlot({ id: item.id, aspectRatio: item.aspectRatio }, imageHeight, innerWidth, showCaptions);
