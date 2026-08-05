@@ -16,6 +16,12 @@ import { pageTopPx } from "./pagedCanvasMetrics";
 
 const dndContextState = vi.hoisted(() => ({
   props: null as Record<string, unknown> | null,
+  sortableTransform: null as {
+    x: number;
+    y: number;
+    scaleX: number;
+    scaleY: number;
+  } | null,
 }));
 
 vi.mock("@dnd-kit/core", () => ({
@@ -42,7 +48,7 @@ vi.mock("@dnd-kit/sortable", () => ({
     attributes: { role: "button", "aria-roledescription": "sortable" },
     listeners: {},
     setNodeRef: () => undefined,
-    transform: null,
+    transform: dndContextState.sortableTransform,
     transition: null,
     isDragging: false,
   }),
@@ -204,6 +210,7 @@ function makeImageDragCancel(componentId: string, imageId: string) {
 describe("PlanCanvas", () => {
   beforeEach(() => {
     dndContextState.props = null;
+    dndContextState.sortableTransform = null;
   });
 
   it("renders one A4 page background with both plan and reference components", () => {
@@ -282,6 +289,40 @@ describe("PlanCanvas", () => {
     expect(new Set(droppableIds).size).toBe(droppableIds.length);
     expect(fragments.every((element) => element.getAttribute("data-component-id") === "ref1")).toBe(true);
     expect(document.querySelectorAll('[data-sortable-component-id="ref1"]')).toHaveLength(1);
+  });
+
+  it("pins every source fragment while non-active preview components keep sortable transforms", () => {
+    dndContextState.sortableTransform = { x: 24, y: 16, scaleX: 1, scaleY: 1 };
+    const multiPageReference: PlanComponent = {
+      ...referenceComponent,
+      images: makeReferenceImages(12),
+    };
+
+    renderCanvas({ components: [multiPageReference, planComponent] });
+    const handlers = getDndHandlers();
+
+    act(() => {
+      handlers.onDragStart?.(makeComponentDragStart("ref1"));
+    });
+
+    const sourceFragments = Array.from(
+      document.querySelectorAll(
+        '[data-component-frame="true"][data-component-id="ref1"]',
+      ),
+    ) as HTMLElement[];
+    const nonActiveFrame = document.querySelector(
+      '[data-component-frame="true"][data-component-id="plan1"]',
+    ) as HTMLElement;
+
+    expect(sourceFragments.length).toBeGreaterThan(1);
+    expect(
+      sourceFragments.every(
+        (fragment) =>
+          fragment.dataset.dragPlaceholder === "component" &&
+          fragment.style.transform === "",
+      ),
+    ).toBe(true);
+    expect(nonActiveFrame.style.transform).not.toBe("");
   });
 
   it("plan component shows its editor", async () => {

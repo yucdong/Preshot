@@ -63,8 +63,13 @@ export function SortableImageTile({
         top: `${slot.y * scale}px`,
         width: `${slot.width * scale}px`,
         height: `${slot.height * scale}px`,
-        transform: prefersReducedMotion || !transform ? undefined : CSS.Transform.toString(transform),
-        transition: createMotionStyleTransition(prefersReducedMotion, transition),
+        transform:
+          prefersReducedMotion || placeholderVisible || !transform
+            ? undefined
+            : CSS.Transform.toString(transform),
+        transition: placeholderVisible
+          ? undefined
+          : createMotionStyleTransition(prefersReducedMotion, transition),
       }
     : {
         position: "absolute" as const,

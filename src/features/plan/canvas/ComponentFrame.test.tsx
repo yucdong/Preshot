@@ -137,6 +137,28 @@ describe("ComponentFrame", () => {
     expect(frame.style.transition).toBe("");
   });
 
+  it("pins a source placeholder instead of applying its sortable transform", () => {
+    render(
+      <DndContext>
+        <ComponentFrame
+          component={component}
+          contentWidthPoints={500}
+          id={component.id}
+          isPlaceholder
+          onRemove={vi.fn()}
+          onResize={vi.fn()}
+          rect={rect}
+          scale={1}
+        >
+          <div>content</div>
+        </ComponentFrame>
+      </DndContext>,
+    );
+
+    const frame = document.querySelector('[data-component-id="plan1"]') as HTMLElement;
+    expect(frame.style.transform).toBe("");
+  });
+
   it.each([0.5, 1.75])(
     "scales frame chrome and leaves the exact remaining body height at scale %s",
     (scale) => {

@@ -4,6 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
 import { SortableImageTile } from "./SortableImageTile";
 
+const sortableState = vi.hoisted(() => ({
+  isDragging: false,
+}));
+
 vi.mock("@dnd-kit/sortable", async () => {
   const actual = await vi.importActual<typeof import("@dnd-kit/sortable")>("@dnd-kit/sortable");
 
@@ -15,7 +19,7 @@ vi.mock("@dnd-kit/sortable", async () => {
       setNodeRef: () => undefined,
       transform: { x: 18, y: 12, scaleX: 1, scaleY: 1 },
       transition: "transform 200ms ease",
-      isDragging: false,
+      isDragging: sortableState.isDragging,
     }),
   };
 });
@@ -53,6 +57,7 @@ describe("SortableImageTile", () => {
   }
 
   afterEach(() => {
+    sortableState.isDragging = false;
     vi.unstubAllGlobals();
   });
 
@@ -147,5 +152,20 @@ describe("SortableImageTile", () => {
 
     expect(tile.style.transform).toBe("");
     expect(tile.style.transition).toBe("");
+  });
+
+  it("pins an explicit source placeholder instead of applying its sortable transform", () => {
+    renderTile({ isPlaceholder: true });
+
+    const tile = screen.getByTestId("image-placeholder-i1");
+    expect(tile.style.transform).toBe("");
+  });
+
+  it("pins the active source slot while dnd-kit reports it as dragging", () => {
+    sortableState.isDragging = true;
+    renderTile();
+
+    const tile = screen.getByTestId("image-placeholder-i1");
+    expect(tile.style.transform).toBe("");
   });
 });

@@ -144,8 +144,13 @@ function ComponentFrameBody({
         top: `${topPx ?? (SPACING + rect.y) * scale}px`,
         width: `${displayWidth}px`,
         height: `${displayHeight}px`,
-        transform: prefersReducedMotion || !transform ? undefined : CSS.Transform.toString(transform),
-        transition: createMotionStyleTransition(prefersReducedMotion, transition),
+        transform:
+          prefersReducedMotion || isPlaceholder || !transform
+            ? undefined
+            : CSS.Transform.toString(transform),
+        transition: isPlaceholder
+          ? undefined
+          : createMotionStyleTransition(prefersReducedMotion, transition),
       }}
     >
       <div
