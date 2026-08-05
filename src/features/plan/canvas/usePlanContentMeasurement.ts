@@ -59,8 +59,7 @@ function topLevelBlockGroup(root: HTMLDivElement): HTMLElement | null {
   );
 }
 
-function topLevelBlocks(root: HTMLDivElement): HTMLElement[] {
-  const blockGroup = topLevelBlockGroup(root);
+function topLevelBlocksInGroup(blockGroup: HTMLElement | null): HTMLElement[] {
   if (!blockGroup) {
     return [];
   }
@@ -71,12 +70,17 @@ function topLevelBlocks(root: HTMLDivElement): HTMLElement[] {
   );
 }
 
+function topLevelBlockIdentity(root: HTMLDivElement): {
+  blockGroup: HTMLElement | null;
+  blocks: HTMLElement[];
+} {
+  const blockGroup = topLevelBlockGroup(root);
+  return { blockGroup, blocks: topLevelBlocksInGroup(blockGroup) };
+}
+
 function sameBlockIdentity(previous: readonly HTMLElement[], next: readonly HTMLElement[]): boolean {
   return previous.length === next.length && previous.every((block, index) => block === next[index]);
 }
-
-const POST_CONTENT_CHECKS = 6;
-const POST_CONTENT_CHECK_INTERVAL_MS = 16;
 
 export function calculatePlanPageBreaks(input: {
   blocks: PlanBlockBounds[];
@@ -164,7 +168,8 @@ export function usePlanContentMeasurement(input: {
     }
 
     let disposed = false;
-    let postContentTimer: ReturnType<typeof setTimeout> | null = null;
+    let scheduledRecalculation: ReturnType<typeof setTimeout> | null = null;
+    let observedIdentity = topLevelBlockIdentity(root);
     const observer = new ResizeObserver(() => {
       recalculate();
     });
@@ -182,6 +187,19 @@ export function usePlanContentMeasurement(input: {
         }
       }
       observedBlocksRef.current = blocks;
+    };
+
+    const scheduleRecalculation = () => {
+      if (disposed || scheduledRecalculation !== null) {
+        return;
+      }
+
+      scheduledRecalculation = setTimeout(() => {
+        scheduledRecalculation = null;
+        if (!disposed) {
+          recalculate();
+        }
+      }, 0);
     };
 
     const recalculate = () => {
@@ -202,7 +220,9 @@ export function usePlanContentMeasurement(input: {
       }
 
       const surfaceRect = surface.getBoundingClientRect();
-      const blocks = topLevelBlocks(root);
+      const identity = topLevelBlockIdentity(root);
+      const blocks = identity.blocks;
+      observedIdentity = identity;
       observeBlocks(blocks);
 
       const currentBlocks = new Set(blocks);
@@ -273,37 +293,33 @@ export function usePlanContentMeasurement(input: {
       onMeasureRef.current(input.componentId, nextMeasurement);
     };
 
-    const schedulePostContentCheck = (remaining: number) => {
-      if (remaining <= 0 || disposed) {
-        return;
-      }
+    const mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(() => {
+            const nextIdentity = topLevelBlockIdentity(root);
+            if (
+              nextIdentity.blockGroup === observedIdentity.blockGroup &&
+              sameBlockIdentity(observedIdentity.blocks, nextIdentity.blocks)
+            ) {
+              return;
+            }
 
-      postContentTimer = setTimeout(() => {
-        postContentTimer = null;
-        if (disposed) {
-          return;
-        }
-
-        const blocks = topLevelBlocks(root);
-        if (!sameBlockIdentity(observedBlocksRef.current, blocks)) {
-          recalculate();
-          return;
-        }
-
-        schedulePostContentCheck(remaining - 1);
-      }, POST_CONTENT_CHECK_INTERVAL_MS);
-    };
+            observedIdentity = nextIdentity;
+            scheduleRecalculation();
+          });
 
     recalculate();
-    schedulePostContentCheck(POST_CONTENT_CHECKS);
+    mutationObserver?.observe(root, { childList: true, subtree: true });
 
     return () => {
       disposed = true;
-      if (postContentTimer !== null) {
-        clearTimeout(postContentTimer);
+      if (scheduledRecalculation !== null) {
+        clearTimeout(scheduledRecalculation);
       }
-      observer.disconnect();
       observeBlocks([]);
+      observer.disconnect();
+      mutationObserver?.disconnect();
       lastMeasurementRef.current = null;
       for (const block of touchedBlocksRef.current) {
         cleanupBlock(block);

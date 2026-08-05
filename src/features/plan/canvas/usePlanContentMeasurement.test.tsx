@@ -21,6 +21,20 @@ class ResizeObserverMock {
   }
 }
 
+class MutationObserverMock {
+  static instances: MutationObserverMock[] = [];
+
+  callback: MutationCallback;
+  disconnect = vi.fn();
+  observe = vi.fn();
+  takeRecords = vi.fn(() => []);
+
+  constructor(callback: MutationCallback) {
+    this.callback = callback;
+    MutationObserverMock.instances.push(this);
+  }
+}
+
 function emitResize(entries: ResizeObserverEntryLike[]) {
   for (const instance of ResizeObserverMock.instances) {
     instance.callback(
@@ -36,15 +50,23 @@ function emitResize(entries: ResizeObserverEntryLike[]) {
   }
 }
 
+function emitMutation() {
+  for (const instance of MutationObserverMock.instances) {
+    instance.callback([], instance as unknown as MutationObserver);
+  }
+}
+
 async function flushScheduledRecalculation() {
   await act(async () => {
     await Promise.resolve();
   });
 }
 
-async function flushPostContentChecks() {
+async function flushMutationRecalculation() {
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(120);
+    emitMutation();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
   });
 }
 
@@ -172,14 +194,19 @@ describe("calculatePlanPageBreaks", () => {
 
 describe("usePlanContentMeasurement", () => {
   const originalResizeObserver = globalThis.ResizeObserver;
+  const originalMutationObserver = globalThis.MutationObserver;
 
   beforeEach(() => {
     ResizeObserverMock.instances = [];
+    MutationObserverMock.instances = [];
     globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
+    globalThis.MutationObserver =
+      MutationObserverMock as unknown as typeof MutationObserver;
   });
 
   afterEach(() => {
     globalThis.ResizeObserver = originalResizeObserver;
+    globalThis.MutationObserver = originalMutationObserver;
     vi.useRealTimers();
   });
 
@@ -290,7 +317,7 @@ describe("usePlanContentMeasurement", () => {
     setRect(replacementBlocks[0], { top: 700, bottom: 760, height: 60 });
     setRect(replacementBlocks[1], { top: 760, bottom: 900, height: 140 });
 
-    await flushPostContentChecks();
+    await flushMutationRecalculation();
 
     expect(onMeasure).toHaveBeenCalledWith(
       "plan-1",
@@ -302,7 +329,7 @@ describe("usePlanContentMeasurement", () => {
     expect(replacementBlocks[1]).toHaveClass("bn-page-break-before");
   });
 
-  it("keeps checking long enough to catch a delayed asynchronous top-level block replacement", async () => {
+  it("observes a top-level block replacement after the former 96ms retry window", async () => {
     vi.useFakeTimers();
     const onMeasure = vi.fn();
     const { container } = render(
@@ -325,7 +352,7 @@ describe("usePlanContentMeasurement", () => {
     onMeasure.mockClear();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(20);
+      await vi.advanceTimersByTimeAsync(200);
     });
 
     blockGroup!.innerHTML = `
@@ -337,7 +364,7 @@ describe("usePlanContentMeasurement", () => {
     setRect(replacementBlocks[0], { top: 700, bottom: 760, height: 60 });
     setRect(replacementBlocks[1], { top: 760, bottom: 900, height: 140 });
 
-    await flushPostContentChecks();
+    await flushMutationRecalculation();
 
     expect(onMeasure).toHaveBeenCalledWith(
       "plan-1",
@@ -346,6 +373,49 @@ describe("usePlanContentMeasurement", () => {
       }),
     );
     expect(replacementBlocks[1]).toHaveClass("bn-page-break-before");
+  });
+
+  it("continues observing a second top-level block replacement", async () => {
+    vi.useFakeTimers();
+    const onMeasure = vi.fn();
+    const { container } = render(
+      <MeasurementHarness contentHeightPoints={200} onMeasure={onMeasure} />,
+    );
+
+    const surface = screen.getByTestId("paged-canvas-surface");
+    const root = screen.getByTestId("editor-root");
+    const blockGroup = container.querySelector('[data-node-type="blockGroup"]');
+
+    expect(blockGroup).not.toBeNull();
+    setRect(surface, { top: 0, bottom: 2000, height: 2000 });
+    setRect(root, { top: 0, bottom: 200, height: 200 });
+
+    blockGroup!.innerHTML = `
+      <div class="bn-block-outer" data-node-type="blockOuter"><div>First A</div></div>
+      <div class="bn-block-outer" data-node-type="blockOuter"><div>Second A</div></div>
+    `;
+    const firstReplacement = container.querySelectorAll('[data-node-type="blockOuter"]');
+    setRect(firstReplacement[0], { top: 700, bottom: 760, height: 60 });
+    setRect(firstReplacement[1], { top: 760, bottom: 900, height: 140 });
+
+    await flushMutationRecalculation();
+    expect(onMeasure.mock.calls.at(-1)?.[1].pageBreakBeforeBlockIds).toEqual([
+      "plan-1:block-1",
+    ]);
+    onMeasure.mockClear();
+
+    blockGroup!.innerHTML = `
+      <div class="bn-block-outer" data-node-type="blockOuter"><div>First B</div></div>
+      <div class="bn-block-outer" data-node-type="blockOuter"><div>Second B</div></div>
+    `;
+    const secondReplacement = container.querySelectorAll('[data-node-type="blockOuter"]');
+    setRect(secondReplacement[0], { top: 0, bottom: 60, height: 60 });
+    setRect(secondReplacement[1], { top: 60, bottom: 200, height: 140 });
+
+    await flushMutationRecalculation();
+
+    expect(onMeasure).toHaveBeenCalledTimes(1);
+    expect(onMeasure.mock.calls[0][1].pageBreakBeforeBlockIds).toEqual([]);
   });
 
   it("uses the top-level block group instead of a nested descendant", () => {
@@ -378,7 +448,8 @@ describe("usePlanContentMeasurement", () => {
     expect(decoyBlock).not.toHaveAttribute("data-preshot-block-id");
   });
 
-  it("cleans runtime classes and properties on unmount", () => {
+  it("disconnects observation and cancels a scheduled recalculation on unmount", async () => {
+    vi.useFakeTimers();
     const onMeasure = vi.fn();
     const { container, unmount } = render(
       <MeasurementHarness contentHeightPoints={200} onMeasure={onMeasure} />,
@@ -395,11 +466,22 @@ describe("usePlanContentMeasurement", () => {
 
     emitResize([{ target: root, contentRect: { height: 200 } as DOMRectReadOnly }]);
 
-    const observer = ResizeObserverMock.instances[0];
-    const disconnectCallsBeforeUnmount = observer.disconnect.mock.calls.length;
+    const resizeObserver = ResizeObserverMock.instances[0];
+    const mutationObserver = MutationObserverMock.instances[0];
+    const blockGroup = container.querySelector('[data-node-type="blockGroup"]');
+    onMeasure.mockClear();
+    blockGroup!.innerHTML = `
+      <div class="bn-block-outer" data-node-type="blockOuter"><div>Replacement</div></div>
+    `;
+    emitMutation();
     unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
 
-    expect(observer.disconnect.mock.calls.length).toBe(disconnectCallsBeforeUnmount + 1);
+    expect(resizeObserver.disconnect).toHaveBeenCalledTimes(1);
+    expect(mutationObserver.disconnect).toHaveBeenCalledTimes(1);
+    expect(onMeasure).not.toHaveBeenCalled();
     expect(blocks[1]).not.toHaveClass("bn-page-break-before");
     expect(blocks[1]).not.toHaveAttribute("data-preshot-block-id");
     expect((blocks[1] as HTMLElement).style.getPropertyValue("--bn-page-break-space")).toBe("");
@@ -419,6 +501,12 @@ describe("usePlanContentMeasurement", () => {
     expect(observedTargets).not.toContain(root);
     expect(observedTargets).toContain(blocks[0]);
     expect(observedTargets).toContain(blocks[1]);
+
+    const mutationObserver = MutationObserverMock.instances[0];
+    expect(mutationObserver.observe).toHaveBeenCalledWith(
+      root,
+      { childList: true, subtree: true },
+    );
   });
 
   it("ignores descendant mutation churn so page-break measurement does not loop", async () => {
@@ -481,7 +569,7 @@ describe("usePlanContentMeasurement", () => {
     const span = document.createElement("span");
     span.textContent = "nested";
     nested.appendChild(span);
-    await flushPostContentChecks();
+    await flushMutationRecalculation();
 
     expect(onMeasure).toHaveBeenCalledTimes(1);
     expect(blockReadCount).toBe(readsAfterInitialMeasurement);
