@@ -1,14 +1,21 @@
 import { contentSize, DEFAULT_PAGE_GEOMETRY, packAspectRow, type PageGeometry, type Rect } from "./geometry";
 import {
-  clampHeight,
   clampImageHeight,
-  DEFAULT_PLAN_HEIGHT,
-  DEFAULT_REFERENCE_HEIGHT,
   type PlanComponent,
   type ReferenceComponent,
 } from "./models";
+import {
+  COMPONENT_INSET,
+  packReferenceRows,
+  paginateReferenceRows,
+  REFERENCE_CONTINUATION_HEADER_HEIGHT,
+  REFERENCE_DESCRIPTION_HEIGHT,
+  REFERENCE_HEADER_HEIGHT,
+  type ReferenceFlowSlot,
+} from "./referenceLayout";
 
 const EPS = 0.01;
+const FALLBACK_PLAN_HEIGHT = 56;
 
 export const TITLE_BAND = 24; // points reserved for the reference title
 export const DESCRIPTION_BAND = 40; // points reserved when a description is present
@@ -51,66 +58,237 @@ export function referenceImageSlots(
   });
 }
 
-export interface Placement {
+export interface LayoutMeasurements {
+  planHeights: ReadonlyMap<string, number>;
+  referenceDescriptionHeights: ReadonlyMap<string, number>;
+}
+
+export interface ComponentFragmentPlacement {
+  fragmentId: string;
   componentId: string;
+  fragmentIndex: number;
   pageIndex: number;
+  kind: "whole" | "first" | "continuation";
   rect: Rect; // page-content-relative points (origin at the page's top-left margin)
-  imageSlots?: Rect[];
+  imageSlots?: ReferenceFlowSlot[];
 }
 
 export interface LayoutResult {
   pageCount: number;
-  placements: Placement[];
+  placements: ComponentFragmentPlacement[];
+}
+
+export type Placement = ComponentFragmentPlacement;
+
+const EMPTY_LAYOUT_MEASUREMENTS: LayoutMeasurements = {
+  planHeights: new Map(),
+  referenceDescriptionHeights: new Map(),
+};
+
+function planHeight(id: string, measurements: LayoutMeasurements): number {
+  const value = measurements.planHeights.get(id);
+  return Number.isFinite(value) && (value ?? 0) > 0 ? value! : FALLBACK_PLAN_HEIGHT;
+}
+
+function referenceDescriptionHeight(component: ReferenceComponent, measurements: LayoutMeasurements): number {
+  if (!component.description.trim()) {
+    return 0;
+  }
+
+  const value = measurements.referenceDescriptionHeights.get(component.id);
+  return Number.isFinite(value) && (value ?? 0) >= 0 ? value! : REFERENCE_DESCRIPTION_HEIGHT;
+}
+
+function cappedHeight(value: number, maxHeight: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+
+  return Math.min(value, maxHeight);
+}
+
+function fragmentId(componentId: string, fragmentIndex: number): string {
+  return `${componentId}::${fragmentIndex}`;
+}
+
+interface PendingRowComponent {
+  component: PlanComponent;
+  x: number;
+  width: number;
+}
+
+interface ComponentLayout {
+  firstHeight: number;
+  endPageIndex: number;
+  endY: number;
+  mustStartOnFreshPage: boolean;
+  placements: ComponentFragmentPlacement[];
+}
+
+function layoutPlanComponent(
+  entry: PendingRowComponent,
+  pageIndex: number,
+  y: number,
+  contentHeight: number,
+  measurements: LayoutMeasurements,
+): ComponentLayout {
+  if (entry.component.type === "plan") {
+    const height = cappedHeight(planHeight(entry.component.id, measurements), contentHeight);
+    return {
+      firstHeight: height,
+      endPageIndex: pageIndex,
+      endY: y + height,
+      mustStartOnFreshPage: false,
+      placements: [
+        {
+          fragmentId: fragmentId(entry.component.id, 0),
+          componentId: entry.component.id,
+          fragmentIndex: 0,
+          pageIndex,
+          kind: "whole",
+          rect: { x: entry.x, y, width: entry.width, height },
+        },
+      ],
+    };
+  }
+
+  const descriptionHeight = referenceDescriptionHeight(entry.component, measurements);
+  const innerWidth = Math.max(0, entry.width - COMPONENT_INSET * 2);
+  const firstAvailableRowHeight = Math.max(
+    0,
+    contentHeight - y - COMPONENT_INSET * 2 - REFERENCE_HEADER_HEIGHT - descriptionHeight,
+  );
+  const continuationAvailableRowHeight = Math.max(
+    0,
+    contentHeight - COMPONENT_INSET * 2 - REFERENCE_CONTINUATION_HEADER_HEIGHT,
+  );
+  const rows = packReferenceRows({
+    images: entry.component.images,
+    imageHeight: clampImageHeight(entry.component.imageHeight),
+    showCaptions: entry.component.showCaptions,
+    innerWidth,
+  });
+  const fragments = paginateReferenceRows({
+    rows,
+    firstAvailableHeight: firstAvailableRowHeight,
+    continuationAvailableHeight: continuationAvailableRowHeight,
+  });
+  const multiPage = fragments.length > 1;
+  const placements = fragments.map((fragment, index) => {
+    const isFirst = index === 0;
+    const headerHeight = isFirst
+      ? REFERENCE_HEADER_HEIGHT + descriptionHeight
+      : REFERENCE_CONTINUATION_HEADER_HEIGHT;
+    const rectY = isFirst ? y : 0;
+    const rectHeight = COMPONENT_INSET * 2 + headerHeight + fragment.height;
+
+    return {
+      fragmentId: fragmentId(entry.component.id, fragment.fragmentIndex),
+      componentId: entry.component.id,
+      fragmentIndex: fragment.fragmentIndex,
+      pageIndex: pageIndex + index,
+      kind: multiPage ? (isFirst ? "first" : "continuation") : "whole",
+      rect: {
+        x: entry.x,
+        y: rectY,
+        width: entry.width,
+        height: rectHeight,
+      },
+      imageSlots: fragment.rows.flatMap((row) =>
+        row.slots.map((slot) => ({
+          ...slot,
+          y: slot.y + headerHeight,
+        })),
+      ),
+    } satisfies ComponentFragmentPlacement;
+  });
+  const lastPlacement = placements[placements.length - 1];
+
+  return {
+    firstHeight: placements[0]?.rect.height ?? 0,
+    endPageIndex: lastPlacement?.pageIndex ?? pageIndex,
+    endY: lastPlacement ? lastPlacement.rect.y + lastPlacement.rect.height : y,
+    mustStartOnFreshPage: y > 0 && firstAvailableRowHeight <= 0,
+    placements,
+  };
 }
 
 export function layoutPlan(
   components: PlanComponent[],
   geometry: PageGeometry = DEFAULT_PAGE_GEOMETRY,
+  measurements: LayoutMeasurements = EMPTY_LAYOUT_MEASUREMENTS,
 ): LayoutResult {
   const content = contentSize(geometry);
-  const placements: Placement[] = [];
+  const placements: ComponentFragmentPlacement[] = [];
 
-  let pageIndex = 0;
-  let x = 0;
-  let y = 0;
-  let rowHeight = 0;
+  if (components.length === 0) {
+    return { pageCount: 1, placements };
+  }
+
+  const rows: PendingRowComponent[][] = [];
+  let currentRow: PendingRowComponent[] = [];
+  let currentX = 0;
 
   for (const component of components) {
     const width = component.width * content.width;
-    const height = clampHeight(
-      component.type === "plan" ? DEFAULT_PLAN_HEIGHT : DEFAULT_REFERENCE_HEIGHT,
-      content.height,
-    );
-
-    // Wrap to a new row when the component does not fit the remaining row width.
-    if (x + width > content.width + EPS) {
-      x = 0;
-      y += rowHeight + geometry.rowGap;
-      rowHeight = 0;
+    if (currentRow.length > 0 && currentX + width > content.width + EPS) {
+      rows.push(currentRow);
+      currentRow = [];
+      currentX = 0;
     }
 
-    // Move to a new page when the component does not fit the remaining page height.
-    if (y + height > content.height + EPS) {
-      pageIndex += 1;
-      x = 0;
-      y = 0;
-      rowHeight = 0;
-    }
-
-    const placement: Placement = {
-      componentId: component.id,
-      pageIndex,
-      rect: { x, y, width, height },
-    };
-    if (component.type === "reference") {
-      // slots are relative to the component rect's own origin (0,0-based within the component)
-      placement.imageSlots = referenceImageSlots({ x: 0, y: 0, width, height }, component, geometry);
-    }
-    placements.push(placement);
-
-    x += width;
-    rowHeight = Math.max(rowHeight, height);
+    currentRow.push({ component, x: currentX, width });
+    currentX += width;
   }
 
-  return { pageCount: pageIndex + 1, placements };
+  if (currentRow.length > 0) {
+    rows.push(currentRow);
+  }
+
+  let pageIndex = 0;
+  let y = 0;
+
+  for (const row of rows) {
+    let layouts = row.map((entry) => layoutPlanComponent(entry, pageIndex, y, content.height, measurements));
+    let rowHeight = Math.max(...layouts.map((layout) => layout.firstHeight), 0);
+    const availableHeight = content.height - y;
+
+    if (
+      y > 0 &&
+      (rowHeight > availableHeight + EPS || layouts.some((layout) => layout.mustStartOnFreshPage))
+    ) {
+      pageIndex += 1;
+      y = 0;
+      layouts = row.map((entry) => layoutPlanComponent(entry, pageIndex, y, content.height, measurements));
+      rowHeight = Math.max(...layouts.map((layout) => layout.firstHeight), 0);
+    }
+
+    layouts.forEach((layout) => placements.push(...layout.placements));
+
+    let endPageIndex = pageIndex;
+    let endY = y + rowHeight;
+
+    for (const layout of layouts) {
+      if (
+        layout.endPageIndex > endPageIndex ||
+        (layout.endPageIndex === endPageIndex && layout.endY > endY)
+      ) {
+        endPageIndex = layout.endPageIndex;
+        endY = layout.endY;
+      }
+    }
+
+    pageIndex = endPageIndex;
+    y = endY + geometry.rowGap;
+    if (y > content.height + EPS) {
+      pageIndex += 1;
+      y = 0;
+    }
+  }
+
+  const pageCount = placements.length === 0
+    ? 1
+    : Math.max(...placements.map((placement) => placement.pageIndex)) + 1;
+
+  return { pageCount, placements };
 }

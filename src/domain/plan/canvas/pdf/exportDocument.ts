@@ -1,15 +1,13 @@
-import { layoutPlan, type Placement } from "../engine";
+import { layoutPlan, type LayoutMeasurements, type LayoutResult } from "../engine";
 import { DEFAULT_PAGE_GEOMETRY, type PageGeometry } from "../geometry";
 import type { PlanComponent } from "../models";
 
-export interface CanvasLayout {
-  pageCount: number;
-  placements: Placement[];
-}
+export type CanvasLayout = LayoutResult;
 
 export function buildCanvasLayout(
   components: PlanComponent[],
   geometry: PageGeometry = DEFAULT_PAGE_GEOMETRY,
+  measurements?: LayoutMeasurements,
 ): CanvasLayout {
-  return layoutPlan(components, geometry);
+  return layoutPlan(components, geometry, measurements);
 }

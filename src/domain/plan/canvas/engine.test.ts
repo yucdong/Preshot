@@ -3,28 +3,40 @@ import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import { layoutPlan, referenceImageSlots, slotCaptionSplit, TITLE_BAND } from "./engine";
 import {
   DEFAULT_IMAGE_HEIGHT,
-  DEFAULT_PLAN_HEIGHT,
   type PlanComponent,
   type ReferenceComponent,
 } from "./models";
 
 const content = contentSize(DEFAULT_PAGE_GEOMETRY);
 
-function plan(id: string, width: number, _height: number = DEFAULT_PLAN_HEIGHT): PlanComponent {
+function plan(id: string, width: number): PlanComponent {
   return { id, type: "plan", width, html: "" };
+}
+
+function measurements(planHeights: Record<string, number> = {}) {
+  return {
+    planHeights: new Map(Object.entries(planHeights)),
+    referenceDescriptionHeights: new Map<string, number>(),
+  };
 }
 
 describe("layoutPlan placement", () => {
   it("places a single full-width component at the origin of page 0", () => {
-    const { pageCount, placements } = layoutPlan([plan("a", 1, 100)]);
+    const { pageCount, placements } = layoutPlan([plan("a", 1)]);
     expect(pageCount).toBe(1);
     expect(placements).toHaveLength(1);
-    expect(placements[0]).toMatchObject({ componentId: "a", pageIndex: 0 });
-    expect(placements[0].rect).toEqual({ x: 0, y: 0, width: content.width, height: DEFAULT_PLAN_HEIGHT });
+    expect(placements[0]).toMatchObject({
+      componentId: "a",
+      fragmentId: "a::0",
+      fragmentIndex: 0,
+      kind: "whole",
+      pageIndex: 0,
+    });
+    expect(placements[0].rect).toEqual({ x: 0, y: 0, width: content.width, height: 56 });
   });
 
   it("flows two half-width components side by side on one row", () => {
-    const { placements } = layoutPlan([plan("a", 0.5, 100), plan("b", 0.5, 120)]);
+    const { placements } = layoutPlan([plan("a", 0.5), plan("b", 0.5)]);
     expect(placements[0].rect).toMatchObject({ x: 0, y: 0, width: content.width / 2 });
     expect(placements[1].rect).toMatchObject({ x: content.width / 2, y: 0, width: content.width / 2 });
   });
@@ -32,14 +44,14 @@ describe("layoutPlan placement", () => {
   it("wraps to the next row when the next component does not fit the row", () => {
     const third = content.width / 3;
     const [a, b, c] = layoutPlan([
-      plan("a", 2/3, 100),
-      plan("b", 0.5, 100),
-      plan("c", 1/3, 100),
-    ]).placements;
+      plan("a", 2 / 3),
+      plan("b", 0.5),
+      plan("c", 1 / 3),
+    ], DEFAULT_PAGE_GEOMETRY, measurements({ a: 100, b: 100, c: 100 })).placements;
     expect(a.rect).toMatchObject({ x: 0, y: 0 });
     // b (1/2) does not fit next to a (2/3): 2/3 + 1/2 > 1 -> new row
     expect(b.rect.x).toBe(0);
-    expect(b.rect.y).toBeCloseTo(DEFAULT_PLAN_HEIGHT + DEFAULT_PAGE_GEOMETRY.rowGap, 5);
+    expect(b.rect.y).toBeCloseTo(100 + DEFAULT_PAGE_GEOMETRY.rowGap, 5);
     // c (1/3) fits next to b (1/2) on the same row
     expect(c.rect.y).toBeCloseTo(b.rect.y, 5);
     expect(c.rect.x).toBeCloseTo(content.width / 2, 5);
@@ -52,17 +64,22 @@ describe("layoutPlan placement", () => {
       plan("b", 1),
       plan("c", 1),
       plan("d", 1),
-    ]);
+    ], DEFAULT_PAGE_GEOMETRY, measurements({ a: 260, b: 260, c: 260, d: 260 }));
     expect(pageCount).toBe(2);
     expect(placements[0]).toMatchObject({ pageIndex: 0 });
-    expect(placements[3]).toMatchObject({ pageIndex: 1 });
-    expect(placements[3].rect).toEqual({ x: 0, y: 0, width: content.width, height: DEFAULT_PLAN_HEIGHT });
+    expect(placements[2]).toMatchObject({ pageIndex: 1 });
+    expect(placements[2].rect).toEqual({ x: 0, y: 0, width: content.width, height: 260 });
   });
 
-  it("uses the default plan height when laying out plan components", () => {
-    const { pageCount, placements } = layoutPlan([plan("a", 1)]);
+  it("uses the measured plan height", () => {
+    const { pageCount, placements } = layoutPlan([plan("a", 1)], DEFAULT_PAGE_GEOMETRY, measurements({ a: 123 }));
     expect(pageCount).toBe(1);
-    expect(placements[0].rect.height).toBeCloseTo(DEFAULT_PLAN_HEIGHT, 5);
+    expect(placements[0].rect.height).toBe(123);
+  });
+
+  it("uses the compact fallback height before plan measurements exist", () => {
+    const { placements } = layoutPlan([plan("a", 1)]);
+    expect(placements[0].rect.height).toBe(56);
   });
 
   it("returns one empty page for no components", () => {
@@ -72,7 +89,7 @@ describe("layoutPlan placement", () => {
 
 function reference(overrides: Partial<ReferenceComponent> = {}): ReferenceComponent {
   return {
-    id: "r",
+    id: "ref",
     type: "reference",
     width: 1,
     title: "T",
@@ -85,6 +102,18 @@ function reference(overrides: Partial<ReferenceComponent> = {}): ReferenceCompon
     ],
     ...overrides,
   };
+}
+
+function referenceWithTwelveImages(overrides: Partial<ReferenceComponent> = {}): ReferenceComponent {
+  return reference({
+    imageHeight: 180,
+    images: Array.from({ length: 12 }, (_, index) => ({
+      id: `img-${index + 1}`,
+      file: `references/${String(index + 1).padStart(4, "0")}.png`,
+      aspectRatio: 1,
+    })),
+    ...overrides,
+  });
 }
 
 describe("reference image slots", () => {
@@ -145,7 +174,14 @@ describe("reference image slots", () => {
   it("populates imageSlots on reference placements via layoutPlan", () => {
     const result = layoutPlan([reference()]);
     expect(result.placements[0].imageSlots).toBeDefined();
-    expect(result.placements[0].imageSlots).toHaveLength(4);
+    expect(result.placements[0].imageSlots).toHaveLength(5);
+    expect(result.placements[0].imageSlots?.map((slot) => slot.id)).toEqual([
+      "i1",
+      "i2",
+      "i3",
+      "i4",
+      "__add__",
+    ]);
   });
 
   it("fits all slots inside the gutter-inset content box (no horizontal overflow)", () => {
@@ -202,6 +238,25 @@ describe("reference image slots", () => {
     expect(slots[0].height).toBe(slotHeight);
     expect(slots[1].height).toBe(slotHeight);
     expect(slots[2].height).toBe(slotHeight);
+  });
+
+  it("emits multiple fragments for a reference group whose rows cross pages", () => {
+    const narrowGeometry = {
+      ...DEFAULT_PAGE_GEOMETRY,
+      page: { ...DEFAULT_PAGE_GEOMETRY.page, height: 540 },
+    };
+
+    const result = layoutPlan([referenceWithTwelveImages()], narrowGeometry);
+    const fragments = result.placements.filter((placement) => placement.componentId === "ref");
+    const pageHeight = contentSize(narrowGeometry).height;
+
+    expect(fragments.length).toBeGreaterThan(1);
+    expect(fragments[0]).toMatchObject({ fragmentId: "ref::0", fragmentIndex: 0, kind: "first", pageIndex: 0 });
+    expect(fragments[1]).toMatchObject({ fragmentId: "ref::1", fragmentIndex: 1, kind: "continuation", pageIndex: 1 });
+    expect(fragments[1].rect.y).toBe(0);
+    expect(new Set(fragments.map((fragment) => fragment.pageIndex)).size).toBe(fragments.length);
+    expect(fragments.every((fragment) => fragment.rect.y + fragment.rect.height <= pageHeight + 0.01)).toBe(true);
+    expect(fragments.flatMap((fragment) => fragment.imageSlots?.map((slot) => slot.id) ?? [])).toContain("__add__");
   });
 });
 

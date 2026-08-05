@@ -1,8 +1,9 @@
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
-import { A4, containSize, SPACING, type Rect } from "../../domain/plan/canvas/geometry";
+import { A4, containSize, DEFAULT_PAGE_GEOMETRY, SPACING, type Rect } from "../../domain/plan/canvas/geometry";
+import type { LayoutMeasurements } from "../../domain/plan/canvas/engine";
 import { DESCRIPTION_BAND, slotCaptionSplit, TITLE_BAND } from "../../domain/plan/canvas/engine";
-import type { ProjectPlan, ReferenceComponent } from "../../domain/plan/canvas/models";
+import { DEFAULT_PLAN_HEIGHT, type ProjectPlan, type ReferenceComponent } from "../../domain/plan/canvas/models";
 import { buildCanvasLayout } from "../../domain/plan/canvas/pdf/exportDocument";
 import { parseHtmlToBlocks, type Block, type Run } from "./htmlToBlocks";
 import { slotToPageRect } from "./slotPageRect";
@@ -35,6 +36,17 @@ interface Token {
   underline?: boolean;
   strike?: boolean;
   color?: Rgb;
+}
+
+function pdfLayoutMeasurements(components: ProjectPlan["components"]): LayoutMeasurements {
+  return {
+    planHeights: new Map(
+      components
+        .filter((component) => component.type === "plan")
+        .map((component) => [component.id, DEFAULT_PLAN_HEIGHT]),
+    ),
+    referenceDescriptionHeights: new Map(),
+  };
 }
 
 function isCjk(ch: string): boolean {
@@ -181,7 +193,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
       const pdf = await PDFDocument.create();
       pdf.registerFontkit(fontkit);
 
-      const layout = buildCanvasLayout(plan.components);
+      const layout = buildCanvasLayout(plan.components, DEFAULT_PAGE_GEOMETRY, pdfLayoutMeasurements(plan.components));
 
       if (layout.pageCount === 0) {
         return pdf.save();
