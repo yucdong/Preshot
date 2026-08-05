@@ -22,8 +22,13 @@ interface ReferenceComponentViewProps {
   onMeasureDescription?: (id: string, heightPoints: number) => void;
   fragmentKind?: "whole" | "first" | "continuation";
   fragmentIndex?: number;
+  fragmentId?: string;
   slots: ReferenceFlowSlot[];
   scale: number;
+  hiddenImageId?: string;
+  placeholderImage?: { id: string; file: string; caption?: string };
+  placeholderSlot?: ReferenceFlowSlot;
+  placeholderIndex?: number;
 }
 
 export function ReferenceComponentView({
@@ -42,8 +47,13 @@ export function ReferenceComponentView({
   onMeasureDescription,
   fragmentKind = "whole",
   fragmentIndex = 0,
+  fragmentId,
   slots,
   scale,
+  hiddenImageId,
+  placeholderImage,
+  placeholderSlot,
+  placeholderIndex,
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
   const [showDescription, setShowDescription] = useState(false);
@@ -147,10 +157,15 @@ export function ReferenceComponentView({
       <div data-testid="reference-component-body">
         <GroupImageGrid
           enableReorder={enableReorder}
+          fragmentId={fragmentId}
           group={component}
+          hiddenImageId={hiddenImageId}
           imageSrc={imageSrc}
           onAddImage={onAddImages ?? onAddImage}
           onOpenImage={onOpenImage}
+          placeholderImage={placeholderImage}
+          placeholderIndex={placeholderIndex}
+          placeholderSlot={placeholderSlot}
           onRemoveImage={onRemoveImage}
           showCaptions={component.showCaptions}
           onSetCaption={onSetImageCaption ? (imageId, caption) => onSetImageCaption(component.id, imageId, caption) : undefined}

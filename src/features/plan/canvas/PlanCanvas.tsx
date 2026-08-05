@@ -4,6 +4,7 @@ import {
   pointerWithin,
   rectIntersection,
   DndContext,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
@@ -12,18 +13,24 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { layoutPlan, type LayoutMeasurements } from "../../../domain/plan/canvas/engine";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { layoutPlan, type ComponentFragmentPlacement, type LayoutMeasurements } from "../../../domain/plan/canvas/engine";
 import { contentSize, DEFAULT_PAGE_GEOMETRY, SPACING } from "../../../domain/plan/canvas/geometry";
 import { moveComponent, moveImage, type MoveImageParams } from "../../../domain/plan/canvas/plan";
 import { componentDropTarget } from "../../../domain/plan/canvas/dropTarget";
-import { imageDropTarget, imageInsertAfterFromRects } from "./imageDropTarget";
-import type { PlanComponent } from "../../../domain/plan/canvas/models";
+import type { PlanComponent, ReferenceComponent, ReferenceImage } from "../../../domain/plan/canvas/models";
 import { ComponentFrame } from "./ComponentFrame";
 import { PAGE_SCREEN_GAP, PagedCanvasSurface, pageTopPx } from "./PagedCanvasSurface";
 import { PlanTextComponentView } from "./PlanTextComponentView";
 import { ReferenceComponentView } from "./ReferenceComponentView";
 import { insertAfterFromRects } from "./canvasDropGeometry";
 import { logicalComponentIdFromDnd } from "./componentDragIdentity";
+import { DragOverlayPreview } from "./DragOverlayPreview";
+import {
+  DRAG_ACTIVATION_CONSTRAINT,
+} from "./dragMotion";
+import { pageCountForDisplayedPlacements } from "./dragPreviewState";
+import { imageDropTarget, imageInsertAfterFromRects } from "./imageDropTarget";
 import type { PlanMeasurement } from "./usePlanContentMeasurement";
 
 export interface PlanCanvasProps {
@@ -49,12 +56,15 @@ export interface PlanCanvasProps {
   onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
 }
 
+type ActiveDrag =
+  | { type: "component"; id: string; componentId: string }
+  | { type: "image"; id: string; componentId: string };
+
 // Collision detection that branches on active type
 const collisionDetection: CollisionDetection = (args) => {
   const activeType = args.active.data.current?.type;
-  
+
   if (activeType === "component") {
-    // Target component frames only
     const componentHit = rectIntersection(args).find((collision) => {
       const data = args.droppableContainers.find((c) => c.id === collision.id)?.data.current;
       return data?.type === "component";
@@ -64,8 +74,8 @@ const collisionDetection: CollisionDetection = (args) => {
     }
     const pointerCollisions = pointerWithin(args);
     return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
-  } else if (activeType === "image") {
-    // Target image tiles and imagegroup droppables, NOT component frames
+  }
+  if (activeType === "image") {
     const imageHit = rectIntersection(args).find((collision) => {
       const data = args.droppableContainers.find((c) => c.id === collision.id)?.data.current;
       return data?.type === "image" || data?.type === "imagegroup";
@@ -73,14 +83,60 @@ const collisionDetection: CollisionDetection = (args) => {
     if (imageHit) {
       return [imageHit];
     }
-    // Fall back to pointer and closest corners for empty groups
     const pointerCollisions = pointerWithin(args);
     return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
   }
-  
-  // Default fallback
+
   return rectIntersection(args);
 };
+
+function sortPlacements(placements: ComponentFragmentPlacement[]): ComponentFragmentPlacement[] {
+  return [...placements].sort((left, right) => {
+    if (left.pageIndex !== right.pageIndex) {
+      return left.pageIndex - right.pageIndex;
+    }
+    if (left.rect.y !== right.rect.y) {
+      return left.rect.y - right.rect.y;
+    }
+    if (left.rect.x !== right.rect.x) {
+      return left.rect.x - right.rect.x;
+    }
+    return left.fragmentIndex - right.fragmentIndex;
+  });
+}
+
+function referenceComponentById(components: PlanComponent[], componentId: string): ReferenceComponent | null {
+  const component = components.find((entry) => entry.id === componentId);
+  return component?.type === "reference" ? component : null;
+}
+
+function findImageOrigin(
+  components: PlanComponent[],
+  placements: ComponentFragmentPlacement[],
+  activeDrag: ActiveDrag | null,
+): {
+  component: ReferenceComponent;
+  image: ReferenceImage;
+  imageIndex: number;
+  placement: ComponentFragmentPlacement;
+} | null {
+  if (activeDrag?.type !== "image") {
+    return null;
+  }
+
+  const component = referenceComponentById(components, activeDrag.componentId);
+  const imageIndex = component?.images.findIndex((image) => image.id === activeDrag.id) ?? -1;
+  const image = imageIndex >= 0 && component ? component.images[imageIndex] : null;
+  const placement = placements.find(
+    (entry) => entry.componentId === activeDrag.componentId && entry.imageSlots?.some((slot) => slot.id === activeDrag.id),
+  );
+
+  if (!component || !image || imageIndex < 0 || !placement) {
+    return null;
+  }
+
+  return { component, image, imageIndex, placement };
+}
 
 export function PlanCanvas({
   components,
@@ -104,20 +160,31 @@ export function PlanCanvas({
   onMeasurePlan,
   onMeasureReferenceDescription,
 }: PlanCanvasProps) {
+  const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
   const [preview, setPreview] = useState<PlanComponent[] | null>(null);
   const lastParamsRef = useRef<{ id: string; toIndex: number } | null>(null);
   const lastImageParamsRef = useRef<MoveImageParams | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: DRAG_ACTIVATION_CONSTRAINT }));
 
-  const view = preview ?? components;
-  const layout = layoutPlan(
-    view,
-    {
-      ...DEFAULT_PAGE_GEOMETRY,
-      pageGap: Number.isFinite(scale) && scale > 0 ? PAGE_SCREEN_GAP / scale : 0,
-    },
-    measurements,
-  );
+  const layoutGeometry = {
+    ...DEFAULT_PAGE_GEOMETRY,
+    pageGap: Number.isFinite(scale) && scale > 0 ? PAGE_SCREEN_GAP / scale : 0,
+  };
+  const baseLayout = layoutPlan(components, layoutGeometry, measurements);
+  const previewComponents = preview ?? components;
+  const previewLayout = layoutPlan(previewComponents, layoutGeometry, measurements);
+  const componentMap = new Map(components.map((component) => [component.id, component]));
+  const previewComponentMap = new Map(previewComponents.map((component) => [component.id, component]));
+
+  const imageOrigin = findImageOrigin(components, baseLayout.placements, activeDrag);
+  const componentDragId = activeDrag?.type === "component" ? activeDrag.componentId : null;
+  const displayPlacements =
+    componentDragId == null
+      ? previewLayout.placements
+      : sortPlacements([
+          ...previewLayout.placements.filter((placement) => placement.componentId !== componentDragId),
+          ...baseLayout.placements.filter((placement) => placement.componentId === componentDragId),
+        ]);
 
   const paramsFor = (event: DragOverEvent | DragEndEvent): { id: string; toIndex: number } | null => {
     const activeId = logicalComponentIdFromDnd(
@@ -152,16 +219,24 @@ export function PlanCanvas({
       ov ? { left: ov.left, width: ov.width } : null,
     );
     const target = imageDropTarget(components, activeId, overId, insertAfter);
-    if (!target) return null;
+    if (!target) {
+      return null;
+    }
     return { ...target, imageId: activeId };
   };
 
   const onDragStart = (event: DragStartEvent) => {
-    const data = event.active.data.current;
+    const data = event.active.data.current as { type?: string; componentId?: string } | undefined;
     if (data?.type === "component") {
+      const componentId = logicalComponentIdFromDnd(data, String(event.active.id));
+      if (!componentId) {
+        return;
+      }
+      setActiveDrag({ type: "component", id: componentId, componentId });
       lastParamsRef.current = null;
       setPreview(components);
-    } else if (data?.type === "image") {
+    } else if (data?.type === "image" && typeof data.componentId === "string") {
+      setActiveDrag({ type: "image", id: String(event.active.id), componentId: data.componentId });
       lastImageParamsRef.current = null;
       setPreview(components);
     }
@@ -194,28 +269,30 @@ export function PlanCanvas({
     }
   };
 
+  const resetPreview = () => {
+    setActiveDrag(null);
+    setPreview(null);
+    lastParamsRef.current = null;
+    lastImageParamsRef.current = null;
+  };
+
   const onDragEnd = (event: DragEndEvent) => {
     const data = event.active.data.current;
     if (data?.type === "component") {
       const params = paramsFor(event) ?? lastParamsRef.current;
-      setPreview(null);
-      lastParamsRef.current = null;
+      resetPreview();
       if (params && onMoveComponent) {
         onMoveComponent(params.id, params.toIndex);
       }
     } else if (data?.type === "image") {
       const params = paramsForImage(event) ?? lastImageParamsRef.current;
-      setPreview(null);
-      lastImageParamsRef.current = null;
+      resetPreview();
       if (params && onMoveImage) {
         onMoveImage(params);
       }
+    } else {
+      resetPreview();
     }
-  };
-  const onDragCancel = () => {
-    setPreview(null);
-    lastParamsRef.current = null;
-    lastImageParamsRef.current = null;
   };
 
   const handleResize = (id: string, params: { width: number }) => {
@@ -224,74 +301,100 @@ export function PlanCanvas({
     }
   };
 
-  // Get the component by id
-  const componentMap = new Map(view.map((c) => [c.id, c]));
-
   const contentWidthPoints = contentSize(DEFAULT_PAGE_GEOMETRY).width;
+  const displayedPageCount = pageCountForDisplayedPlacements(displayPlacements, previewLayout.pageCount);
+  const overlayComponent =
+    activeDrag == null
+      ? null
+      : componentMap.get(activeDrag.componentId) ?? previewComponentMap.get(activeDrag.componentId) ?? null;
 
   return (
     <DndContext
       collisionDetection={collisionDetection}
-      onDragCancel={onDragCancel}
+      onDragCancel={resetPreview}
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onDragStart={onDragStart}
       sensors={sensors}
     >
       <div className="flex justify-center" data-testid="plan-canvas">
-        <PagedCanvasSurface pageCount={layout.pageCount} scale={scale}>
-          {layout.placements.map((placement) => {
-            const component = componentMap.get(placement.componentId);
-            if (!component) {
-              return null;
-            }
+        <PagedCanvasSurface pageCount={displayedPageCount} scale={scale}>
+          <SortableContext items={components.map((component) => component.id)} strategy={verticalListSortingStrategy}>
+            {displayPlacements.map((placement) => {
+              const useBaseComponent = componentDragId === placement.componentId;
+              const component = (useBaseComponent ? componentMap : previewComponentMap).get(placement.componentId);
+              if (!component) {
+                return null;
+              }
 
-            return (
-              <ComponentFrame
-                id={component.id}
-                frameId={placement.fragmentId}
-                key={placement.fragmentId}
-                onRemove={onRemoveComponent}
-                rect={placement.rect}
-                scale={scale}
-                topPx={pageTopPx(placement.pageIndex, scale) + (SPACING + placement.rect.y) * scale}
-                contentWidthPoints={contentWidthPoints}
-                component={component}
-                onResize={handleResize}
-              >
-                {component.type === "plan" ? (
-                  <PlanTextComponentView
-                    component={component}
-                    onChangeHtml={onChangeHtml}
-                    onMeasure={onMeasurePlan}
-                    scale={scale}
-                  />
-                ) : (
-                  <ReferenceComponentView
-                    component={component}
-                    enableReorder={true}
-                    fragmentIndex={placement.fragmentIndex}
-                    fragmentKind={placement.kind}
-                    imageSrc={imageSrc}
-                    onAddImage={onAddImage}
-                    onOpenImage={onOpenImage}
-                    onRemoveImage={onRemoveImage}
-                    onSetDescription={onSetDescription}
-                    onSetTitle={onSetTitle}
-                    onToggleCaptions={onToggleCaptions}
-                    onSetImageCaption={onSetImageCaption}
-                    onSetImageHeight={onSetImageHeight}
-                    onAddImages={onAddImages}
-                    onMeasureDescription={onMeasureReferenceDescription}
-                    slots={placement.imageSlots ?? []}
-                    scale={scale}
-                  />
-                )}
-              </ComponentFrame>
-            );
-          })}
+              const imagePlaceholder =
+                imageOrigin != null && imageOrigin.placement.fragmentId === placement.fragmentId
+                  ? {
+                      image: imageOrigin.image,
+                      index: imageOrigin.imageIndex,
+                      slot: imageOrigin.placement.imageSlots?.find((slot) => slot.id === imageOrigin.image.id),
+                    }
+                  : null;
+
+              return (
+                <ComponentFrame
+                  id={component.id}
+                  frameId={placement.fragmentId}
+                  key={placement.fragmentId}
+                  onRemove={onRemoveComponent}
+                  rect={placement.rect}
+                  scale={scale}
+                  sortableId={placement.fragmentIndex === 0 ? component.id : ""}
+                  isPlaceholder={componentDragId === component.id}
+                  topPx={pageTopPx(placement.pageIndex, scale) + (SPACING + placement.rect.y) * scale}
+                  contentWidthPoints={contentWidthPoints}
+                  component={component}
+                  onResize={handleResize}
+                >
+                  {component.type === "plan" ? (
+                    <PlanTextComponentView
+                      component={component}
+                      onChangeHtml={onChangeHtml}
+                      onMeasure={onMeasurePlan}
+                      scale={scale}
+                    />
+                  ) : (
+                    <ReferenceComponentView
+                      component={component}
+                      enableReorder={true}
+                      fragmentId={placement.fragmentId}
+                      fragmentIndex={placement.fragmentIndex}
+                      fragmentKind={placement.kind}
+                      hiddenImageId={activeDrag?.type === "image" ? activeDrag.id : undefined}
+                      imageSrc={imageSrc}
+                      onAddImage={onAddImage}
+                      onOpenImage={onOpenImage}
+                      onRemoveImage={onRemoveImage}
+                      onSetDescription={onSetDescription}
+                      onSetTitle={onSetTitle}
+                      onToggleCaptions={onToggleCaptions}
+                      onSetImageCaption={onSetImageCaption}
+                      onSetImageHeight={onSetImageHeight}
+                      onAddImages={onAddImages}
+                      onMeasureDescription={onMeasureReferenceDescription}
+                      placeholderImage={imagePlaceholder?.image}
+                      placeholderIndex={imagePlaceholder?.index}
+                      placeholderSlot={imagePlaceholder?.slot}
+                      slots={placement.imageSlots ?? []}
+                      scale={scale}
+                    />
+                  )}
+                </ComponentFrame>
+              );
+            })}
+          </SortableContext>
         </PagedCanvasSurface>
       </div>
+      <DragOverlay>
+        {activeDrag && overlayComponent ? (
+          <DragOverlayPreview active={{ type: activeDrag.type, id: activeDrag.id }} component={overlayComponent} imageSrc={imageSrc} />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

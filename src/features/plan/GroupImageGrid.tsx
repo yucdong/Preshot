@@ -18,11 +18,16 @@ interface GroupImageGridProps {
   onRemoveImage(groupId: string, imageId: string): void;
   onOpenImage(file: string): void;
   droppableId?: string;
+  fragmentId?: string;
   enableReorder?: boolean;
   showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
   slots: ReferenceFlowSlot[];
   scale: number;
+  hiddenImageId?: string;
+  placeholderImage?: { id: string; file: string; caption?: string };
+  placeholderSlot?: ReferenceFlowSlot;
+  placeholderIndex?: number;
 }
 
 export function GroupImageGrid({ 
@@ -32,17 +37,22 @@ export function GroupImageGrid({
   onRemoveImage, 
   onOpenImage, 
   droppableId, 
+  fragmentId,
   enableReorder = false, 
   showCaptions = false, 
   onSetCaption,
   slots,
   scale,
+  hiddenImageId,
+  placeholderImage,
+  placeholderSlot,
+  placeholderIndex,
 }: GroupImageGridProps) {
   const { t } = useTranslation();
-  const actualDroppableId = enableReorder ? imageGroupDroppableId(group.id) : (droppableId ?? `droppable-${group.id}`);
+  const actualDroppableId = enableReorder ? imageGroupDroppableId(group.id, fragmentId) : (droppableId ?? `droppable-${group.id}`);
   const { setNodeRef } = useDroppable({ 
     id: actualDroppableId,
-    data: enableReorder ? { type: "imagegroup" } : undefined
+    data: enableReorder ? { type: "imagegroup", componentId: group.id, fragmentId } : undefined
   });
   const imagesById = new Map(group.images.map((image) => [image.id, image]));
   const topOffset = slots.length ? Math.min(...slots.map((slot) => slot.y)) : 0;
@@ -52,8 +62,25 @@ export function GroupImageGrid({
   }));
 
   // Bottom of content is the maximum of all slot bottoms (handles differing aspect-ratio heights)
-  const contentBottom = normalizedSlots.length ? Math.max(...normalizedSlots.map((slot) => slot.y + slot.height)) : 0;
+  const contentBottom = [
+    ...normalizedSlots.map((slot) => slot.y + slot.height),
+    placeholderSlot ? placeholderSlot.y - topOffset + placeholderSlot.height : 0,
+  ].reduce((max, value) => Math.max(max, value), 0);
   const containerHeight = contentBottom * scale;
+  const normalizedPlaceholderSlot =
+    placeholderSlot == null
+      ? undefined
+      : {
+          ...placeholderSlot,
+          y: placeholderSlot.y - topOffset,
+        };
+  const visibleImageIds = normalizedSlots
+    .filter((slot) => slot.kind === "image" && slot.id !== hiddenImageId)
+    .map((slot) => slot.id);
+  const sortableIds =
+    normalizedPlaceholderSlot && placeholderImage && !visibleImageIds.includes(placeholderImage.id)
+      ? [...visibleImageIds, placeholderImage.id]
+      : visibleImageIds;
 
   const gridContent = (
     <>
@@ -82,6 +109,10 @@ export function GroupImageGrid({
           );
         }
 
+        if (slot.id === hiddenImageId) {
+          return null;
+        }
+
         const image = imagesById.get(slot.id);
         if (!image) {
           return null;
@@ -104,6 +135,23 @@ export function GroupImageGrid({
           />
         );
       })}
+      {normalizedPlaceholderSlot && placeholderImage ? (
+        <SortableImageTile
+          componentId={group.id}
+          image={placeholderImage}
+          index={placeholderIndex ?? 0}
+          key={`placeholder:${placeholderImage.id}:${fragmentId ?? group.id}`}
+          onOpen={onOpenImage}
+          onRemove={(imageId) => onRemoveImage(group.id, imageId)}
+          src={imageSrc(placeholderImage.file)}
+          draggable={enableReorder}
+          isPlaceholder
+          showCaptions={showCaptions}
+          onSetCaption={onSetCaption}
+          slot={normalizedPlaceholderSlot}
+          scale={scale}
+        />
+      ) : null}
     </>
   );
 
@@ -111,10 +159,12 @@ export function GroupImageGrid({
     return (
       <div
         className="relative"
+        data-component-id={group.id}
+        data-image-group-droppable-id={actualDroppableId}
         ref={setNodeRef}
         style={{ height: `${containerHeight}px` }}
       >
-        <SortableContext items={slots.filter((slot) => slot.kind === "image").map((slot) => slot.id)} strategy={rectSortingStrategy}>
+        <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
           {gridContent}
         </SortableContext>
       </div>

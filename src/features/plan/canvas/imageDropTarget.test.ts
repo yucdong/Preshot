@@ -34,6 +34,12 @@ describe("imageGroupDroppableId", () => {
     expect(imageGroupDroppableId("comp-1")).toBe(`${IMAGE_GROUP_PREFIX}comp-1`);
     expect(imageGroupDroppableId("ref-abc")).toBe(`${IMAGE_GROUP_PREFIX}ref-abc`);
   });
+
+  it("makes fragment droppable ids unique while preserving the logical component id prefix", () => {
+    expect(imageGroupDroppableId("ref-1", "ref-1::0")).toBe(`${IMAGE_GROUP_PREFIX}ref-1`);
+    expect(imageGroupDroppableId("ref-1", "ref-1::1")).not.toBe(imageGroupDroppableId("ref-1", "ref-1::0"));
+    expect(imageGroupDroppableId("ref-1", "ref-1::1")).toContain("ref-1::1");
+  });
 });
 
 describe("imageDropTarget", () => {
@@ -303,6 +309,20 @@ describe("imageDropTarget", () => {
       const moved = moveImage(plan, { ...result!, imageId: "img-1" });
       const ref2Images = (moved.components[1] as ReferenceComponent).images.map((img) => img.id);
       expect(ref2Images).toEqual(["img-2", "img-3", "img-1"]);
+    });
+
+    it("maps fragment-specific group droppable ids back to the logical component id", () => {
+      const components: PlanComponent[] = [
+        createReferenceComponent("ref-1", ["img-1"]),
+        createReferenceComponent("ref-2", ["img-2", "img-3"]),
+      ];
+      const result = imageDropTarget(components, "img-1", imageGroupDroppableId("ref-2", "ref-2::1"), false);
+
+      expect(result).toEqual({
+        fromComponentId: "ref-1",
+        toComponentId: "ref-2",
+        toIndex: 2,
+      });
     });
   });
 

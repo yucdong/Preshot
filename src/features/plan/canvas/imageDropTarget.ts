@@ -1,9 +1,20 @@
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
 
 export const IMAGE_GROUP_PREFIX = "imagegroup:";
+const IMAGE_GROUP_FRAGMENT_SEPARATOR = "#";
 
-export function imageGroupDroppableId(componentId: string): string {
+export function imageGroupDroppableId(componentId: string, fragmentId?: string): string {
+  if (fragmentId && !fragmentId.endsWith("::0")) {
+    return `${IMAGE_GROUP_PREFIX}${componentId}${IMAGE_GROUP_FRAGMENT_SEPARATOR}${fragmentId}`;
+  }
+
   return `${IMAGE_GROUP_PREFIX}${componentId}`;
+}
+
+function logicalComponentIdFromImageGroupDroppableId(overId: string): string {
+  const raw = overId.slice(IMAGE_GROUP_PREFIX.length);
+  const separatorIndex = raw.indexOf(IMAGE_GROUP_FRAGMENT_SEPARATOR);
+  return separatorIndex === -1 ? raw : raw.slice(0, separatorIndex);
 }
 
 export interface ImageDropTarget {
@@ -50,7 +61,7 @@ export function imageDropTarget(
   }
 
   if (overId.startsWith(IMAGE_GROUP_PREFIX)) {
-    const toComponentId = overId.slice(IMAGE_GROUP_PREFIX.length);
+    const toComponentId = logicalComponentIdFromImageGroupDroppableId(overId);
     const toComponent = components.find(
       (component) => component.type === "reference" && component.id === toComponentId,
     );

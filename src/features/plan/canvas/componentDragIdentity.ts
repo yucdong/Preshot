@@ -6,5 +6,12 @@ export function logicalComponentIdFromDnd(
     return data.componentId;
   }
 
+  if (typeof fallbackId === "string") {
+    const fragmentSeparator = fallbackId.indexOf("::");
+    if (fragmentSeparator > 0) {
+      return fallbackId.slice(0, fragmentSeparator);
+    }
+  }
+
   return fallbackId;
 }

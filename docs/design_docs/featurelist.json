@@ -491,7 +491,8 @@
         "Task 1 establishes BaseComponent as { id, width } and removes persisted component height from ProjectPlan schema v4",
         "migratePlan upgrades schemaVersion 3 payloads to v4 by dropping height and applying clampImageHeight(oldImageHeight * 0.75) exactly once",
         "Width-only resizing is enforced across the domain reducer and canvas UI so later adaptive-layout tasks can rely on derived heights",
-        "PlanCanvas now renders component fragments on a single PagedCanvasSurface global-Y coordinate system, and left-handle preview keeps the right edge visually fixed while only width persists"
+        "PlanCanvas now renders component fragments on a single PagedCanvasSurface global-Y coordinate system, and left-handle preview keeps the right edge visually fixed while only width persists",
+        "Task 7 uses dnd-kit sortable overlays with a 180ms pointer delay, unique fragment-level image-group droppable ids mapped back to logical component ids, and reduced-motion-aware 200ms layout easing"
       ],
       "progress": {
         "designSpec": "docs/superpowers/specs/2026-08-05-adaptive-component-layout-design.md",
@@ -503,14 +504,15 @@
           "Task 3: derived adaptive A4 placements and reference fragments in the engine and reused them in PDF layout/export paths",
           "Task 4: replaced per-page positioning roots with a single PagedCanvasSurface, rendered fragment frames in global Y coordinates, and fixed left-handle preview anchoring while keeping width-only resize persistence",
           "Task 5: added runtime-only natural height maps for BlockNote plan bodies and reference descriptions, reset them on projectPath changes, and kept them out of persistence plus undo history",
-          "Task 5: added BlockNote top-level block measurement with runtime page-break spacer classes/CSS metadata so one editor can span multiple A4 pages without rewriting stored HTML"
+          "Task 5: added BlockNote top-level block measurement with runtime page-break spacer classes/CSS metadata so one editor can span multiple A4 pages without rewriting stored HTML",
+          "Task 7: switched component frames to one logical sortable identity per component, gave paginated reference fragments unique image-group droppable ids, added compact DragOverlay previews plus source placeholders, and kept live image/component preview reflow reduced-motion aware"
         ],
         "lastVerified": [
-          "pnpm exec vitest run src/features/plan/canvas/useNaturalHeight.test.tsx src/features/plan/canvas/usePlanContentMeasurement.test.tsx src/features/plan/ProjectCanvasProvider.test.tsx src/features/plan/canvas/PlanCanvas.test.tsx",
+          "pnpm exec vitest run src/features/plan/canvas/PlanCanvas.test.tsx src/features/plan/canvas/ComponentFrame.test.tsx src/features/plan/SortableImageTile.test.tsx src/features/plan/canvas/DragOverlayPreview.test.tsx src/features/plan/canvas/dragMotion.test.ts src/features/plan/canvas/imageDropTarget.test.ts src/features/plan/canvas/canvasDropGeometry.test.ts src/shared/hooks/usePrefersReducedMotion.test.ts",
           "pnpm typecheck"
         ],
         "remaining": [
-          "Adaptive layout drag-preview tasks from the 2026-08-05 design remain to be implemented."
+          "Task 8 PDF continuation title localization and PDF continuation fragment follow-ups remain."
         ]
       }
     }

@@ -114,6 +114,22 @@ describe("PlanCanvas", () => {
     expect(continuationFrame).toHaveAttribute("data-component-id", "ref1");
   });
 
+  it("gives paginated reference fragments unique image-group droppable ids while keeping one logical sortable frame", () => {
+    const multiPageReference: PlanComponent = {
+      ...referenceComponent,
+      images: makeReferenceImages(12),
+    };
+
+    renderCanvas({ components: [multiPageReference] });
+
+    const fragments = Array.from(document.querySelectorAll("[data-image-group-droppable-id]"));
+    const droppableIds = fragments.map((element) => element.getAttribute("data-image-group-droppable-id"));
+
+    expect(new Set(droppableIds).size).toBe(droppableIds.length);
+    expect(fragments.every((element) => element.getAttribute("data-component-id") === "ref1")).toBe(true);
+    expect(document.querySelectorAll('[data-sortable-component-id="ref1"]')).toHaveLength(1);
+  });
+
   it("plan component shows its editor", async () => {
     renderCanvas();
     const editor = screen.getByRole("group", { name: "摄影计划" });
