@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { clampImageHeight, DEFAULT_IMAGE_HEIGHT, type ReferenceComponent } from "../../../domain/plan/canvas/models";
-import { COMPONENT_INSET, type ReferenceFlowSlot } from "../../../domain/plan/canvas/referenceLayout";
+import {
+  COMPONENT_INSET,
+  REFERENCE_CONTINUATION_TITLE_HEIGHT,
+  REFERENCE_CONTROL_ROW_HEIGHT,
+  REFERENCE_DESCRIPTION_GAP,
+  REFERENCE_HEADER_GAP,
+  REFERENCE_TITLE_ROW_HEIGHT,
+  type ReferenceFlowSlot,
+} from "../../../domain/plan/canvas/referenceLayout";
 import { RichTextEditor } from "../RichTextEditor";
 import { GroupImageGrid } from "../GroupImageGrid";
 import { useNaturalHeight } from "./useNaturalHeight";
@@ -59,7 +67,6 @@ export function ReferenceComponentView({
   const [showDescription, setShowDescription] = useState(false);
   const isContinuation = fragmentKind === "continuation";
   const isEditableFragment = !isContinuation;
-  const sectionGap = `${COMPONENT_INSET * scale}px`;
   const descriptionRef = useNaturalHeight({
     id: component.id,
     scale,
@@ -85,32 +92,67 @@ export function ReferenceComponentView({
   };
 
   return (
-    <div className="flex flex-col" data-fragment-index={fragmentIndex} style={{ gap: sectionGap }}>
+    <div
+      data-fragment-index={fragmentIndex}
+      data-testid="reference-component-content"
+      style={{
+        paddingBottom: `${COMPONENT_INSET * scale}px`,
+        paddingTop: `${COMPONENT_INSET * scale}px`,
+      }}
+    >
       {isEditableFragment ? (
         <>
-          <div className="flex items-center gap-4">
+          <div
+            className="flex items-center"
+            data-testid="reference-title-row"
+            style={{ gap: `${16 * scale}px`, height: `${REFERENCE_TITLE_ROW_HEIGHT * scale}px` }}
+          >
             <input
               aria-label={t("reference.groupTitleAria")}
-              className="flex-1 border-b border-stone-300 px-2 py-1 text-lg font-semibold focus:border-amber-500 focus:outline-none dark:border-stone-700 dark:bg-transparent dark:text-stone-100"
+              className="min-w-0 flex-1 border-b border-stone-300 font-semibold focus:border-amber-500 focus:outline-none dark:border-stone-700 dark:bg-transparent dark:text-stone-100"
               onChange={(e) => onSetTitle(component.id, e.target.value)}
+              style={{
+                fontSize: `${18 * scale}px`,
+                height: `${REFERENCE_TITLE_ROW_HEIGHT * scale}px`,
+                lineHeight: `${22 * scale}px`,
+                paddingLeft: `${8 * scale}px`,
+                paddingRight: `${8 * scale}px`,
+              }}
               type="text"
               value={component.title}
             />
             {onSetImageHeight ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-stone-600 dark:text-stone-300">{t("reference.imageHeight")}</span>
+              <div className="flex items-center" style={{ gap: `${8 * scale}px` }}>
+                <span
+                  className="text-stone-600 dark:text-stone-300"
+                  style={{ fontSize: `${14 * scale}px`, lineHeight: `${18 * scale}px` }}
+                >
+                  {t("reference.imageHeight")}
+                </span>
                 <button
                   aria-label={t("reference.decreaseImageHeight")}
-                  className="rounded border border-stone-300 px-2 py-1 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-700"
+                  className="rounded border border-stone-300 hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-700"
                   onClick={handleDecreaseHeight}
+                  style={{
+                    fontSize: `${14 * scale}px`,
+                    height: `${20 * scale}px`,
+                    lineHeight: `${18 * scale}px`,
+                    width: `${24 * scale}px`,
+                  }}
                   type="button"
                 >
                   −
                 </button>
                 <button
                   aria-label={t("reference.increaseImageHeight")}
-                  className="rounded border border-stone-300 px-2 py-1 text-sm hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-700"
+                  className="rounded border border-stone-300 hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-700"
                   onClick={handleIncreaseHeight}
+                  style={{
+                    fontSize: `${14 * scale}px`,
+                    height: `${20 * scale}px`,
+                    lineHeight: `${18 * scale}px`,
+                    width: `${24 * scale}px`,
+                  }}
                   type="button"
                 >
                   +
@@ -119,39 +161,76 @@ export function ReferenceComponentView({
             ) : null}
           </div>
 
-          {onToggleCaptions ? (
-            <label className="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
-              <input
-                checked={component.showCaptions}
-                className="rounded"
-                onChange={() => onToggleCaptions(component.id)}
-                type="checkbox"
-              />
-              {t("reference.captions")}
-            </label>
-          ) : null}
+          <div
+            className="flex items-center justify-between"
+            data-testid="reference-control-row"
+            style={{
+              height: `${REFERENCE_CONTROL_ROW_HEIGHT * scale}px`,
+              marginBottom: `${REFERENCE_HEADER_GAP * scale}px`,
+              marginTop: `${REFERENCE_HEADER_GAP * scale}px`,
+            }}
+          >
+            {onToggleCaptions ? (
+              <label
+                className="flex items-center text-stone-600 dark:text-stone-300"
+                style={{
+                  fontSize: `${14 * scale}px`,
+                  gap: `${8 * scale}px`,
+                  lineHeight: `${REFERENCE_CONTROL_ROW_HEIGHT * scale}px`,
+                }}
+              >
+                <input
+                  checked={component.showCaptions}
+                  className="rounded"
+                  onChange={() => onToggleCaptions(component.id)}
+                  style={{ height: `${14 * scale}px`, width: `${14 * scale}px` }}
+                  type="checkbox"
+                />
+                {t("reference.captions")}
+              </label>
+            ) : <span />}
 
-          {(component.description.trim() || showDescription) ? (
-            <RichTextEditor
-              ariaLabel={t("reference.descriptionAria")}
-              compact
-              html={component.description}
-              onChange={(html) => onSetDescription(component.id, html)}
-              placeholder={t("reference.descriptionPlaceholder")}
-              rootRef={descriptionRef}
-            />
-          ) : (
-            <button
-              className="w-fit text-sm text-amber-600 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 dark:text-amber-400 dark:hover:text-amber-300"
-              onClick={() => setShowDescription(true)}
-              type="button"
-            >
-              {t("reference.addDescription")}
-            </button>
-          )}
+            {!component.description.trim() && !showDescription ? (
+              <button
+                className="w-fit text-amber-600 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 dark:text-amber-400 dark:hover:text-amber-300"
+                onClick={() => setShowDescription(true)}
+                style={{
+                  fontSize: `${14 * scale}px`,
+                  lineHeight: `${REFERENCE_CONTROL_ROW_HEIGHT * scale}px`,
+                }}
+                type="button"
+              >
+                {t("reference.addDescription")}
+              </button>
+            ) : null}
+          </div>
+
+          {component.description.trim() || showDescription ? (
+            <div style={{ marginBottom: `${REFERENCE_DESCRIPTION_GAP * scale}px` }}>
+              <RichTextEditor
+                ariaLabel={t("reference.descriptionAria")}
+                compact
+                html={component.description}
+                onChange={(html) => onSetDescription(component.id, html)}
+                placeholder={t("reference.descriptionPlaceholder")}
+                rootRef={descriptionRef}
+              />
+            </div>
+          ) : null}
         </>
       ) : (
-        <div className="text-lg font-semibold dark:text-stone-100">{t("reference.continuedTitle", { title: component.title })}</div>
+        <div
+          className="font-semibold dark:text-stone-100"
+          data-testid="reference-continuation-title"
+          style={{
+            fontSize: `${18 * scale}px`,
+            height: `${REFERENCE_CONTINUATION_TITLE_HEIGHT * scale}px`,
+            lineHeight: `${REFERENCE_CONTINUATION_TITLE_HEIGHT * scale}px`,
+            marginBottom: `${REFERENCE_HEADER_GAP * scale}px`,
+          }}
+        >
+          {t("reference.continuedTitle", { title: component.title })}
+        </div>
       )}
 
       <div data-testid="reference-component-body">

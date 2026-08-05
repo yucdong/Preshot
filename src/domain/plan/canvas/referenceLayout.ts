@@ -2,9 +2,19 @@ import type { ReferenceImage } from "./models";
 import type { Rect } from "./geometry";
 
 export const COMPONENT_INSET = 12;
-export const REFERENCE_HEADER_HEIGHT = 54;
-export const REFERENCE_CONTINUATION_HEADER_HEIGHT = 24;
+export const REFERENCE_HEADER_GAP = 6;
+export const REFERENCE_TITLE_ROW_HEIGHT = 24;
+export const REFERENCE_CONTROL_ROW_HEIGHT = 18;
+export const REFERENCE_HEADER_HEIGHT =
+  REFERENCE_TITLE_ROW_HEIGHT +
+  REFERENCE_HEADER_GAP +
+  REFERENCE_CONTROL_ROW_HEIGHT +
+  REFERENCE_HEADER_GAP;
+export const REFERENCE_CONTINUATION_TITLE_HEIGHT = 18;
+export const REFERENCE_CONTINUATION_HEADER_HEIGHT =
+  REFERENCE_CONTINUATION_TITLE_HEIGHT + REFERENCE_HEADER_GAP;
 export const REFERENCE_DESCRIPTION_HEIGHT = 44;
+export const REFERENCE_DESCRIPTION_GAP = 6;
 export const IMAGE_GAP = 12;
 export const ADD_TILE = { width: 120, height: 90 } as const;
 

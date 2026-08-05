@@ -1,6 +1,31 @@
 export const A4 = { width: 595.28, height: 841.89 } as const;
 export const SPACING = 24;
 
+export interface ComponentFrameChrome {
+  topBarHeight: number;
+  contentGap: number;
+}
+
+export const NO_COMPONENT_FRAME_CHROME: ComponentFrameChrome = {
+  topBarHeight: 0,
+  contentGap: 0,
+};
+
+export const EDITABLE_COMPONENT_FRAME_CHROME: ComponentFrameChrome = {
+  topBarHeight: 24,
+  contentGap: 4,
+};
+
+export function componentFrameChromeHeight(chrome: ComponentFrameChrome): number {
+  const topBarHeight =
+    Number.isFinite(chrome.topBarHeight) && chrome.topBarHeight > 0
+      ? chrome.topBarHeight
+      : 0;
+  const contentGap =
+    Number.isFinite(chrome.contentGap) && chrome.contentGap > 0 ? chrome.contentGap : 0;
+  return topBarHeight + contentGap;
+}
+
 export interface PageGeometry {
   page: { width: number; height: number };
   margin: number;

@@ -15,7 +15,12 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { layoutPlan, type ComponentFragmentPlacement, type LayoutMeasurements } from "../../../domain/plan/canvas/engine";
-import { contentSize, DEFAULT_PAGE_GEOMETRY, SPACING } from "../../../domain/plan/canvas/geometry";
+import {
+  contentSize,
+  DEFAULT_PAGE_GEOMETRY,
+  EDITABLE_COMPONENT_FRAME_CHROME,
+  SPACING,
+} from "../../../domain/plan/canvas/geometry";
 import { moveComponent, moveImage, type MoveImageParams } from "../../../domain/plan/canvas/plan";
 import { componentDropTarget } from "../../../domain/plan/canvas/dropTarget";
 import type { PlanComponent, ReferenceComponent, ReferenceImage } from "../../../domain/plan/canvas/models";
@@ -60,6 +65,10 @@ export interface PlanCanvasProps {
 type ActiveDrag =
   | { type: "component"; id: string; componentId: string }
   | { type: "image"; id: string; componentId: string };
+
+const CANVAS_LAYOUT_OPTIONS = {
+  frameChrome: EDITABLE_COMPONENT_FRAME_CHROME,
+};
 
 // Collision detection that branches on active type
 const collisionDetection: CollisionDetection = (args) => {
@@ -156,9 +165,19 @@ export function PlanCanvas({
     ...DEFAULT_PAGE_GEOMETRY,
     pageGap: Number.isFinite(scale) && scale > 0 ? PAGE_SCREEN_GAP / scale : 0,
   };
-  const baseLayout = layoutPlan(components, layoutGeometry, measurements);
+  const baseLayout = layoutPlan(
+    components,
+    layoutGeometry,
+    measurements,
+    CANVAS_LAYOUT_OPTIONS,
+  );
   const previewComponents = preview ?? components;
-  const previewLayout = layoutPlan(previewComponents, layoutGeometry, measurements);
+  const previewLayout = layoutPlan(
+    previewComponents,
+    layoutGeometry,
+    measurements,
+    CANVAS_LAYOUT_OPTIONS,
+  );
   const componentMap = new Map(components.map((component) => [component.id, component]));
   const previewComponentMap = new Map(previewComponents.map((component) => [component.id, component]));
 

@@ -1,4 +1,13 @@
-import { contentSize, DEFAULT_PAGE_GEOMETRY, packAspectRow, type PageGeometry, type Rect } from "./geometry";
+import {
+  componentFrameChromeHeight,
+  contentSize,
+  DEFAULT_PAGE_GEOMETRY,
+  NO_COMPONENT_FRAME_CHROME,
+  packAspectRow,
+  type ComponentFrameChrome,
+  type PageGeometry,
+  type Rect,
+} from "./geometry";
 import {
   clampImageHeight,
   type PlanComponent,
@@ -9,6 +18,7 @@ import {
   packReferenceRows,
   paginateReferenceRows,
   REFERENCE_CONTINUATION_HEADER_HEIGHT,
+  REFERENCE_DESCRIPTION_GAP,
   REFERENCE_DESCRIPTION_HEIGHT,
   REFERENCE_HEADER_HEIGHT,
   type ReferenceFlowSlot,
@@ -78,11 +88,19 @@ export interface LayoutResult {
   placements: ComponentFragmentPlacement[];
 }
 
+export interface LayoutOptions {
+  frameChrome: ComponentFrameChrome;
+}
+
 export type Placement = ComponentFragmentPlacement;
 
 const EMPTY_LAYOUT_MEASUREMENTS: LayoutMeasurements = {
   planHeights: new Map(),
   referenceDescriptionHeights: new Map(),
+};
+
+const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
+  frameChrome: NO_COMPONENT_FRAME_CHROME,
 };
 
 function planHeight(id: string, measurements: LayoutMeasurements): number {
@@ -140,9 +158,12 @@ function layoutPlanComponent(
   contentHeight: number,
   measurements: LayoutMeasurements,
   geometry: PageGeometry,
+  options: LayoutOptions,
 ): ComponentLayout {
+  const frameChromeHeight = componentFrameChromeHeight(options.frameChrome);
+
   if (entry.component.type === "plan") {
-    const height = planHeight(entry.component.id, measurements);
+    const height = planHeight(entry.component.id, measurements) + frameChromeHeight;
     const firstHeight = Math.min(height, Math.max(0, contentHeight - y));
     const end = endPosition(startSurfaceTop(pageIndex, y, geometry) + height, geometry);
     return {
@@ -164,14 +185,24 @@ function layoutPlanComponent(
   }
 
   const descriptionHeight = referenceDescriptionHeight(entry.component, measurements);
+  const descriptionLayoutHeight =
+    descriptionHeight > 0 ? descriptionHeight + REFERENCE_DESCRIPTION_GAP : 0;
   const innerWidth = Math.max(0, entry.width - COMPONENT_INSET * 2);
   const firstAvailableRowHeight = Math.max(
     0,
-    contentHeight - y - COMPONENT_INSET * 2 - REFERENCE_HEADER_HEIGHT - descriptionHeight,
+    contentHeight -
+      y -
+      frameChromeHeight -
+      COMPONENT_INSET * 2 -
+      REFERENCE_HEADER_HEIGHT -
+      descriptionLayoutHeight,
   );
   const continuationAvailableRowHeight = Math.max(
     0,
-    contentHeight - COMPONENT_INSET * 2 - REFERENCE_CONTINUATION_HEADER_HEIGHT,
+    contentHeight -
+      frameChromeHeight -
+      COMPONENT_INSET * 2 -
+      REFERENCE_CONTINUATION_HEADER_HEIGHT,
   );
   const rows = packReferenceRows({
     images: entry.component.images,
@@ -188,10 +219,11 @@ function layoutPlanComponent(
   const placements = fragments.map((fragment, index) => {
     const isFirst = index === 0;
     const headerHeight = isFirst
-      ? REFERENCE_HEADER_HEIGHT + descriptionHeight
+      ? REFERENCE_HEADER_HEIGHT + descriptionLayoutHeight
       : REFERENCE_CONTINUATION_HEADER_HEIGHT;
     const rectY = isFirst ? y : 0;
-    const rectHeight = COMPONENT_INSET * 2 + headerHeight + fragment.height;
+    const rectHeight =
+      frameChromeHeight + COMPONENT_INSET * 2 + headerHeight + fragment.height;
 
     return {
       fragmentId: fragmentId(entry.component.id, fragment.fragmentIndex),
@@ -228,6 +260,7 @@ export function layoutPlan(
   components: PlanComponent[],
   geometry: PageGeometry = DEFAULT_PAGE_GEOMETRY,
   measurements: LayoutMeasurements = EMPTY_LAYOUT_MEASUREMENTS,
+  options: LayoutOptions = DEFAULT_LAYOUT_OPTIONS,
 ): LayoutResult {
   const content = contentSize(geometry);
   const placements: ComponentFragmentPlacement[] = [];
@@ -261,7 +294,7 @@ export function layoutPlan(
 
   for (const row of rows) {
     let layouts = row.map((entry) =>
-      layoutPlanComponent(entry, pageIndex, y, content.height, measurements, geometry),
+      layoutPlanComponent(entry, pageIndex, y, content.height, measurements, geometry, options),
     );
     let rowHeight = Math.max(...layouts.map((layout) => layout.firstHeight), 0);
     const availableHeight = content.height - y;
@@ -273,7 +306,7 @@ export function layoutPlan(
       pageIndex += 1;
       y = 0;
       layouts = row.map((entry) =>
-        layoutPlanComponent(entry, pageIndex, y, content.height, measurements, geometry),
+        layoutPlanComponent(entry, pageIndex, y, content.height, measurements, geometry, options),
       );
       rowHeight = Math.max(...layouts.map((layout) => layout.firstHeight), 0);
     }

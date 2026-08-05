@@ -3,7 +3,12 @@ import { useTranslation } from "react-i18next";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { SPACING, type Rect } from "../../../domain/plan/canvas/geometry";
+import {
+  componentFrameChromeHeight,
+  EDITABLE_COMPONENT_FRAME_CHROME,
+  SPACING,
+  type Rect,
+} from "../../../domain/plan/canvas/geometry";
 import { type PlanComponent } from "../../../domain/plan/canvas/models";
 import { usePrefersReducedMotion } from "../../../shared/hooks/usePrefersReducedMotion";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
@@ -119,6 +124,8 @@ function ComponentFrameBody({
 
   const displayWidth = currentWidthPoints * scale;
   const displayHeight = rect.height * scale;
+  const frameChromeHeight = componentFrameChromeHeight(EDITABLE_COMPONENT_FRAME_CHROME);
+  const bodyHeight = Math.max(0, rect.height - frameChromeHeight) * scale;
   const displayLeft =
     (SPACING + rect.x) * scale +
     (resizing === "left" && resizePreview ? (committedWidthPoints - currentWidthPoints) * scale : 0);
@@ -144,22 +151,40 @@ function ComponentFrameBody({
       <div
         {...(dragAttributes ?? {})}
         {...(dragListeners ?? {})}
-        className={`mb-1 flex items-center justify-between rounded px-2 py-1 ${
+        className={`flex items-center justify-between rounded ${
           interactiveChrome
             ? "cursor-grab bg-stone-200 hover:bg-stone-300 dark:bg-stone-700 dark:hover:bg-stone-600"
             : "cursor-default bg-stone-200/70 dark:bg-stone-700/70"
         }`}
         data-component-frame-topbar
-        style={{ opacity: isPlaceholder ? 0 : 1 }}
+        style={{
+          height: `${EDITABLE_COMPONENT_FRAME_CHROME.topBarHeight * scale}px`,
+          marginBottom: `${EDITABLE_COMPONENT_FRAME_CHROME.contentGap * scale}px`,
+          opacity: isPlaceholder ? 0 : 1,
+          paddingLeft: `${8 * scale}px`,
+          paddingRight: `${8 * scale}px`,
+        }}
         title={interactiveChrome ? t("canvas.moveHint") : undefined}
       >
-        <span className="text-xs text-stone-400 dark:text-stone-500">{typeLabel}</span>
+        <span
+          className="text-stone-400 dark:text-stone-500"
+          style={{ fontSize: `${12 * scale}px`, lineHeight: `${16 * scale}px` }}
+        >
+          {typeLabel}
+        </span>
         {interactiveChrome ? (
           <button
             aria-label={t("canvas.removeComponent")}
-            className="rounded bg-red-100 px-2 py-1 text-xs text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
+            className="rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
             onClick={() => setConfirmingDelete(true)}
             onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              fontSize: `${12 * scale}px`,
+              height: `${20 * scale}px`,
+              lineHeight: `${16 * scale}px`,
+              paddingLeft: `${8 * scale}px`,
+              paddingRight: `${8 * scale}px`,
+            }}
             type="button"
           >
             ×
@@ -169,10 +194,11 @@ function ComponentFrameBody({
 
       <div
         className="relative"
+        data-component-frame-body
         style={{
           paddingLeft: `${gutterInset}px`,
           paddingRight: `${gutterInset}px`,
-          height: "calc(100% - 28px)",
+          height: `${bodyHeight}px`,
           opacity: isPlaceholder ? 0 : 1,
         }}
       >

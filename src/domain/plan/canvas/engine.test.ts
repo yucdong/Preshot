@@ -6,6 +6,7 @@ import {
   type PlanComponent,
   type ReferenceComponent,
 } from "./models";
+import { COMPONENT_INSET, REFERENCE_DESCRIPTION_GAP } from "./referenceLayout";
 
 const content = contentSize(DEFAULT_PAGE_GEOMETRY);
 
@@ -75,6 +76,20 @@ describe("layoutPlan placement", () => {
     const { pageCount, placements } = layoutPlan([plan("a", 1)], DEFAULT_PAGE_GEOMETRY, measurements({ a: 123 }));
     expect(pageCount).toBe(1);
     expect(placements[0].rect.height).toBe(123);
+  });
+
+  it("includes configured frame chrome exactly once in plan height and row flow", () => {
+    const chrome = { topBarHeight: 24, contentGap: 4 };
+    const { placements } = layoutPlan(
+      [plan("a", 1), plan("b", 1)],
+      DEFAULT_PAGE_GEOMETRY,
+      measurements({ a: 100, b: 80 }),
+      { frameChrome: chrome },
+    );
+
+    expect(placements[0].rect.height).toBe(128);
+    expect(placements[1].rect.y).toBe(128 + DEFAULT_PAGE_GEOMETRY.rowGap);
+    expect(placements[1].rect.height).toBe(108);
   });
 
   it("uses the compact fallback height before plan measurements exist", () => {
@@ -184,6 +199,22 @@ describe("reference image slots", () => {
     ]);
   });
 
+  it("reserves the measured reference description and its rendered gap", () => {
+    const withoutDescription = layoutPlan([reference({ description: "" })]).placements[0];
+    const withDescription = layoutPlan(
+      [reference({ description: "<p>Details</p>" })],
+      DEFAULT_PAGE_GEOMETRY,
+      {
+        planHeights: new Map(),
+        referenceDescriptionHeights: new Map([["ref", 40]]),
+      },
+    ).placements[0];
+
+    expect(withDescription.rect.height - withoutDescription.rect.height).toBe(
+      40 + REFERENCE_DESCRIPTION_GAP,
+    );
+  });
+
   it("fits all slots inside the gutter-inset content box (no horizontal overflow)", () => {
     const rect = { x: 0, y: 0, width: 300, height: 300 };
     const slots = referenceImageSlots(rect, reference());
@@ -257,6 +288,32 @@ describe("reference image slots", () => {
     expect(new Set(fragments.map((fragment) => fragment.pageIndex)).size).toBe(fragments.length);
     expect(fragments.every((fragment) => fragment.rect.y + fragment.rect.height <= pageHeight + 0.01)).toBe(true);
     expect(fragments.flatMap((fragment) => fragment.imageSlots?.map((slot) => slot.id) ?? [])).toContain("__add__");
+  });
+
+  it("reserves configured frame chrome for every reference fragment", () => {
+    const chromeHeight = 28;
+    const narrowGeometry = {
+      ...DEFAULT_PAGE_GEOMETRY,
+      page: { ...DEFAULT_PAGE_GEOMETRY.page, height: 540 },
+    };
+
+    const fragments = layoutPlan(
+      [referenceWithTwelveImages()],
+      narrowGeometry,
+      measurements(),
+      { frameChrome: { topBarHeight: 24, contentGap: 4 } },
+    ).placements;
+
+    expect(fragments.length).toBeGreaterThan(1);
+    for (const fragment of fragments) {
+      const maxSlotBottom = Math.max(
+        ...(fragment.imageSlots ?? []).map((slot) => slot.y + slot.height),
+      );
+      expect(fragment.rect.height - maxSlotBottom).toBeCloseTo(
+        COMPONENT_INSET * 2 + chromeHeight,
+        5,
+      );
+    }
   });
 });
 

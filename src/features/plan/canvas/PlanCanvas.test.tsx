@@ -2,7 +2,12 @@ import type { ReactNode } from "react";
 import { fireEvent, render, screen, act } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { layoutPlan } from "../../../domain/plan/canvas/engine";
-import { DEFAULT_PAGE_GEOMETRY, SPACING } from "../../../domain/plan/canvas/geometry";
+import {
+  componentFrameChromeHeight,
+  DEFAULT_PAGE_GEOMETRY,
+  EDITABLE_COMPONENT_FRAME_CHROME,
+  SPACING,
+} from "../../../domain/plan/canvas/geometry";
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
 import { PlanCanvas } from "./PlanCanvas";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
@@ -206,6 +211,28 @@ describe("PlanCanvas", () => {
     const pages = screen.getAllByTestId("canvas-page-background");
     expect(pages).toHaveLength(1);
   });
+
+  it.each([0.5, 1.75])(
+    "keeps measured plan content inside frame chrome at scale %s",
+    (scale) => {
+      const measuredHeight = 100;
+      renderCanvas({
+        components: [planComponent],
+        measurements: {
+          planHeights: new Map([["plan1", measuredHeight]]),
+          referenceDescriptionHeights: new Map<string, number>(),
+        },
+        scale,
+      });
+
+      const frame = document.querySelector('[data-component-id="plan1"]') as HTMLElement;
+      const body = frame.querySelector("[data-component-frame-body]") as HTMLElement;
+      const chromeHeight = componentFrameChromeHeight(EDITABLE_COMPONENT_FRAME_CHROME);
+
+      expect(frame.style.height).toBe(`${(measuredHeight + chromeHeight) * scale}px`);
+      expect(body.style.height).toBe(`${measuredHeight * scale}px`);
+    },
+  );
 
   it("renders reference fragments in one continuous positioning surface", () => {
     const multiPageReference: PlanComponent = {

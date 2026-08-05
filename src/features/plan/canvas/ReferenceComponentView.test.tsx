@@ -3,7 +3,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
-import type { ReferenceFlowSlot } from "../../../domain/plan/canvas/referenceLayout";
+import {
+  COMPONENT_INSET,
+  REFERENCE_CONTINUATION_HEADER_HEIGHT,
+  REFERENCE_HEADER_HEIGHT,
+  type ReferenceFlowSlot,
+} from "../../../domain/plan/canvas/referenceLayout";
 import { ReferenceComponentView } from "./ReferenceComponentView";
 
 vi.mock("../RichTextEditor", () => ({
@@ -66,6 +71,47 @@ describe("ReferenceComponentView", () => {
     expect(screen.queryByTestId("rich-text-editor")).toBeNull();
     expect(screen.queryByRole("button", { name: "添加描述" })).toBeNull();
   });
+
+  it.each([0.5, 1.75])(
+    "renders first-fragment title and controls from shared point geometry at scale %s",
+    (scale) => {
+      renderReference({ onToggleCaptions: vi.fn(), onSetImageHeight: vi.fn(), scale });
+
+      const content = screen.getByTestId("reference-component-content");
+      const titleRow = screen.getByTestId("reference-title-row");
+      const controlRow = screen.getByTestId("reference-control-row");
+      const headerGap = 6;
+      const titleHeight = 24;
+      const controlHeight = 18;
+
+      expect(content.style.paddingTop).toBe(`${COMPONENT_INSET * scale}px`);
+      expect(content.style.paddingBottom).toBe(`${COMPONENT_INSET * scale}px`);
+      expect(titleRow.style.height).toBe(`${titleHeight * scale}px`);
+      expect(controlRow.style.height).toBe(`${controlHeight * scale}px`);
+      expect(controlRow.style.marginTop).toBe(`${headerGap * scale}px`);
+      expect(controlRow.style.marginBottom).toBe(`${headerGap * scale}px`);
+      expect(titleHeight + headerGap + controlHeight + headerGap).toBe(
+        REFERENCE_HEADER_HEIGHT,
+      );
+    },
+  );
+
+  it.each([0.5, 1.75])(
+    "renders continuation heading from shared point geometry at scale %s",
+    (scale) => {
+      renderReference({
+        component: { ...mockComponent, title: "Lookbook" },
+        fragmentKind: "continuation",
+        fragmentIndex: 1,
+        scale,
+      });
+
+      const title = screen.getByTestId("reference-continuation-title");
+      expect(title.style.height).toBe(`${18 * scale}px`);
+      expect(title.style.marginBottom).toBe(`${6 * scale}px`);
+      expect(18 + 6).toBe(REFERENCE_CONTINUATION_HEADER_HEIGHT);
+    },
+  );
 
   it("passes fragment metadata and reference flow slots to the image grid", () => {
     renderReference({
