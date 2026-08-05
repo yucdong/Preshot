@@ -40,7 +40,10 @@ function deferred<T>() {
 function planDeps(): CanvasPlanDependencies {
   return {
     service: {
-      loadPlan: vi.fn().mockResolvedValue({ components: [] }),
+      loadPlan: vi.fn().mockResolvedValue({
+        status: "loaded",
+        plan: { schemaVersion: 4, components: [] },
+      }),
       loadImage: vi.fn().mockResolvedValue(""),
       savePlan: vi.fn(),
       removeComponent: vi.fn(),
@@ -532,4 +535,3 @@ describe("WorkspaceProvider", () => {
     });
   });
 });
-

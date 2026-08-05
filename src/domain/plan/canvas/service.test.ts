@@ -50,12 +50,17 @@ describe("canvas plan service", () => {
       createId: () => "id",
       logger: silentLogger(),
     });
-    const plan = await service.loadPlan("C:/p");
-    expect(plan.schemaVersion).toBe(4);
-    expect(plan.components[0]).toMatchObject({ type: "plan" });
+    const result = await service.loadPlan("C:/p");
+    expect(result).toMatchObject({
+      status: "loaded",
+      plan: {
+        schemaVersion: 4,
+        components: [{ type: "plan" }],
+      },
+    });
   });
 
-  it("returns EMPTY_PLAN for a null raw plan", async () => {
+  it("distinguishes a missing repository plan from a stored plan", async () => {
     const { repository, imageStore } = fakes(null);
     const service = createCanvasPlanService({
       repository,
@@ -63,7 +68,27 @@ describe("canvas plan service", () => {
       createId: () => "id",
       logger: silentLogger(),
     });
-    expect(await service.loadPlan("C:/p")).toEqual(EMPTY_PLAN);
+    expect(await service.loadPlan("C:/p")).toEqual({ status: "missing" });
+
+    repository.loadRawPlan.mockResolvedValue(EMPTY_PLAN);
+    expect(await service.loadPlan("C:/p")).toEqual({
+      status: "loaded",
+      plan: EMPTY_PLAN,
+    });
+  });
+
+  it("adds load context when non-null stored data is malformed", async () => {
+    const { repository, imageStore } = fakes({ schemaVersion: 5, components: [] });
+    const service = createCanvasPlanService({
+      repository,
+      imageStore,
+      createId: () => "id",
+      logger: silentLogger(),
+    });
+
+    await expect(service.loadPlan("C:/p")).rejects.toThrow(
+      /Unable to load the project plan: Unsupported stored plan schema version 5/,
+    );
   });
 
   it("imports an image into a reference component and persists", async () => {

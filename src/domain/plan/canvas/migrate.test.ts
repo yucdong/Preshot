@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { migratePlan } from "./migrate";
-import { DEFAULT_IMAGE_HEIGHT, EMPTY_PLAN, type ReferenceComponent } from "./models";
+import { DEFAULT_IMAGE_HEIGHT, type ReferenceComponent } from "./models";
 
 describe("migratePlan", () => {
   describe("v3 schema", () => {
@@ -95,20 +95,37 @@ describe("migratePlan", () => {
       expect((migrated.components[1] as ReferenceComponent).imageHeight).toBe(375); // reduced once, then clamped
     });
 
-    it("defaults aspectRatio to 1 when <= 0 in v3", () => {
+    it("preserves valid images and defaults invalid aspect ratios to 1 in v3", () => {
       const v3 = {
         schemaVersion: 3,
         components: [
-          { id: "a", type: "reference", width: 1, height: 200, title: "", description: "", imageHeight: 180, showCaptions: false, images: [{ id: "i1", file: "a.png", aspectRatio: 0 }, { id: "i2", file: "b.png", aspectRatio: -1 }] },
+          {
+            id: "a",
+            type: "reference",
+            width: 1,
+            height: 200,
+            title: "",
+            description: "",
+            imageHeight: 180,
+            showCaptions: false,
+            images: [
+              { id: "i1", file: "a.png", caption: "missing" },
+              { id: "i2", file: "b.png", aspectRatio: 0 },
+              { id: "i3", file: "c.png", aspectRatio: -1 },
+              { id: "i4", file: "d.png", aspectRatio: Number.NaN },
+              { id: "i5", file: "e.png", aspectRatio: Number.POSITIVE_INFINITY },
+            ],
+          },
         ],
       };
       const migrated = migratePlan(v3);
       const images = (migrated.components[0] as ReferenceComponent).images;
-      expect(images[0].aspectRatio).toBe(1);
-      expect(images[1].aspectRatio).toBe(1);
+      expect(images).toHaveLength(5);
+      expect(images.map((image) => image.aspectRatio)).toEqual([1, 1, 1, 1, 1]);
+      expect(images[0].caption).toBe("missing");
     });
 
-    it("drops components with missing required fields in v3", () => {
+    it("rejects a v3 plan instead of partially dropping malformed components", () => {
       const v3 = {
         schemaVersion: 3,
         components: [
@@ -117,22 +134,27 @@ describe("migratePlan", () => {
           { id: "c", type: "plan", width: 0.5, height: 100, html: "ok" },
         ],
       };
-      const migrated = migratePlan(v3);
-      expect(migrated.components).toHaveLength(1);
-      expect(migrated.components[0].id).toBe("c");
+      expect(() => migratePlan(v3)).toThrow(/component/i);
     });
 
-    it("drops images with missing required fields in v3", () => {
+    it("rejects a v3 plan instead of partially dropping malformed image identities", () => {
       const v3 = {
         schemaVersion: 3,
         components: [
-          { id: "a", type: "reference", width: 1, height: 200, title: "", description: "", imageHeight: 180, showCaptions: false, images: [{ id: "i1", file: "a.png" }, { id: "i2", file: "b.png", aspectRatio: 1.5 }] },
+          {
+            id: "a",
+            type: "reference",
+            width: 1,
+            height: 200,
+            title: "",
+            description: "",
+            imageHeight: 180,
+            showCaptions: false,
+            images: [{ id: "i1" }, { id: "i2", file: "b.png", aspectRatio: 1.5 }],
+          },
         ],
       };
-      const migrated = migratePlan(v3);
-      const images = (migrated.components[0] as ReferenceComponent).images;
-      expect(images).toHaveLength(1);
-      expect(images[0].id).toBe("i2");
+      expect(() => migratePlan(v3)).toThrow(/image/i);
     });
   });
 
@@ -232,17 +254,17 @@ describe("migratePlan", () => {
   });
 
   describe("forward compatibility", () => {
-    it("returns EMPTY_PLAN for future schemaVersion", () => {
+    it("rejects a future schemaVersion instead of replacing stored data", () => {
       const future = { schemaVersion: 5, components: [] };
-      expect(migratePlan(future)).toEqual(EMPTY_PLAN);
+      expect(() => migratePlan(future)).toThrow(/schema version/i);
     });
   });
 
   describe("invalid input", () => {
-    it("returns an empty plan for null / malformed input", () => {
-      expect(migratePlan(null)).toEqual(EMPTY_PLAN);
-      expect(migratePlan(42)).toEqual(EMPTY_PLAN);
-      expect(migratePlan({ nonsense: true })).toEqual(EMPTY_PLAN);
+    it("rejects malformed non-null stored plans", () => {
+      expect(() => migratePlan(null)).toThrow(/stored plan/i);
+      expect(() => migratePlan(42)).toThrow(/stored plan/i);
+      expect(() => migratePlan({ nonsense: true })).toThrow(/schema/i);
     });
   });
 });

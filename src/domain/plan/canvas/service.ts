@@ -2,7 +2,6 @@ import type { ReferenceImageStore } from "../ports";
 import type { WorkspaceLogger } from "../../workspace/ports";
 import type { CanvasPlanRepository } from "./ports";
 import type { ProjectPlan, ReferenceComponent, ReferenceImage } from "./models";
-import { EMPTY_PLAN } from "./models";
 import { migratePlan } from "./migrate";
 import { addReferenceImage, addReferenceImages, removeComponent, removeReferenceImage } from "./plan";
 
@@ -24,8 +23,12 @@ export interface ImportImagesResult {
   images: { image: ReferenceImage; dataUrl: string }[];
 }
 
+export type CanvasPlanLoadResult =
+  | { status: "missing" }
+  | { status: "loaded"; plan: ProjectPlan };
+
 export interface CanvasPlanService {
-  loadPlan(projectPath: string): Promise<ProjectPlan>;
+  loadPlan(projectPath: string): Promise<CanvasPlanLoadResult>;
   savePlan(projectPath: string, plan: ProjectPlan): Promise<void>;
   loadImage(projectPath: string, file: string): Promise<string>;
   importImage(
@@ -88,9 +91,9 @@ export function createCanvasPlanService({
         try {
           const raw = await repository.loadRawPlan(projectPath);
           if (raw == null) {
-            return EMPTY_PLAN;
+            return { status: "missing" };
           }
-          return migratePlan(raw);
+          return { status: "loaded", plan: migratePlan(raw) };
         } catch (error) {
           throw contextualError("Unable to load the project plan", error);
         }

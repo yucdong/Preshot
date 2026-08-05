@@ -278,13 +278,11 @@ export function ProjectCanvasProvider({
     mountedRef.current = true;
     async function load() {
       try {
-        const loaded = await service.loadPlan(projectPath);
+        const loadResult = await service.loadPlan(projectPath);
         if (!mountedRef.current) return;
-        
-        // Seed empty projects with [plan, reference] components
-        let planToUse = loaded;
-        if (loaded.components.length === 0) {
-          // Create plan component (same shape as handleInsert)
+
+        let planToUse = loadResult.status === "loaded" ? loadResult.plan : EMPTY_PLAN;
+        if (loadResult.status === "missing") {
           const planComponent = {
             id: crypto.randomUUID(),
             type: "plan" as const,
@@ -303,12 +301,11 @@ export function ProjectCanvasProvider({
             imageHeight: DEFAULT_IMAGE_HEIGHT,
             images: [],
           };
-          
-          // Add plan first (prepends to top), then reference
-          planToUse = addComponent(loaded, referenceComponent);
+
+          planToUse = addComponent(planToUse, referenceComponent);
           planToUse = addComponent(planToUse, planComponent);
         }
-        
+
         applyPlan(planToUse);
         markSaved(planToUse);
         historyRef.current = createHistory();

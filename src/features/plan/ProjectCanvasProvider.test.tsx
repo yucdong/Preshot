@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
-import type { ProjectPlan } from "../../domain/plan/canvas/models";
+import { EMPTY_PLAN, type ProjectPlan } from "../../domain/plan/canvas/models";
 import { ProjectCanvasProvider, type CanvasPlanDependencies } from "./ProjectCanvasProvider";
 import { ThemeProvider } from "../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../domain/settings/ports";
@@ -97,6 +97,7 @@ let latestPlanCanvasProps:
 function deps(): {
   dependencies: CanvasPlanDependencies;
   service: CanvasPlanService;
+  loadPlan: ReturnType<typeof vi.fn>;
   savePlan: ReturnType<typeof vi.fn>;
 } {
   const plan: ProjectPlan = {
@@ -118,9 +119,13 @@ function deps(): {
       },
     ],
   };
+  const loadPlan = vi.fn<CanvasPlanService["loadPlan"]>().mockResolvedValue({
+    status: "loaded",
+    plan,
+  });
   const savePlan = vi.fn().mockResolvedValue(undefined);
   const service: CanvasPlanService = {
-    loadPlan: vi.fn().mockResolvedValue(plan),
+    loadPlan,
     loadImage: vi.fn().mockResolvedValue("data:image/png;base64,AA"),
     savePlan,
     importImage: vi.fn().mockResolvedValue({
@@ -153,6 +158,7 @@ function deps(): {
   const pick = vi.fn().mockResolvedValue(String.raw`C:\src\b.png`);
   return {
     service,
+    loadPlan,
     savePlan,
     dependencies: {
       service,
@@ -192,13 +198,9 @@ describe("ProjectCanvasProvider", () => {
     expect(await screen.findByTestId("component-count")).toHaveTextContent("2");
   });
 
-  it("seeds an empty project with plan + reference components (plan on top)", async () => {
-    const { dependencies, service } = deps();
-    // Override loadPlan to return an empty plan
-    (service.loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
-      schemaVersion: 4,
-      components: [],
-    });
+  it("seeds a missing project with plan + reference components (plan on top)", async () => {
+    const { dependencies, loadPlan } = deps();
+    loadPlan.mockResolvedValue({ status: "missing" });
 
     renderWithTheme(
       <ProjectCanvasProvider
@@ -223,6 +225,62 @@ describe("ProjectCanvasProvider", () => {
     
     // Should be marked as saved (seeding doesn't count as unsaved)
     expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+  });
+
+  it("opens a stored empty v4 plan without seeding defaults", async () => {
+    const { dependencies, loadPlan } = deps();
+    loadPlan.mockResolvedValue({
+      status: "loaded",
+      plan: EMPTY_PLAN,
+    });
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    expect(await screen.findByTestId("component-count")).toHaveTextContent("0");
+    expect(screen.queryByText("拍摄时间")).not.toBeInTheDocument();
+    expect(dependencies.logger.error).not.toHaveBeenCalled();
+  });
+
+  it("shows a contextual load error without auto-saving replacement data", async () => {
+    vi.useFakeTimers();
+    try {
+      const { dependencies, loadPlan, savePlan } = deps();
+      loadPlan.mockRejectedValue(
+        new Error(
+          "Unable to load the project plan: Unsupported stored plan schema version 5",
+        ),
+      );
+
+      renderWithTheme(
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Demo"
+          projectPath={String.raw`C:\demo`}
+        />,
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(
+        screen.getByText(
+          "Unable to load the project plan: Unsupported stored plan schema version 5",
+        ),
+      ).toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(savePlan).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("marks unsaved when a component is edited", async () => {
@@ -365,7 +423,7 @@ describe("ProjectCanvasProvider", () => {
   });
 
   it("backfills aspect ratio unconditionally on image load, correcting migrated v2 images", async () => {
-    const { dependencies, service } = deps();
+    const { dependencies, loadPlan, service } = deps();
     
     // Mock a plan with an image that has WRONG aspectRatio (e.g., migrated v2 with ratio = 1)
     const planWithWrongRatio: ProjectPlan = {
@@ -385,7 +443,7 @@ describe("ProjectCanvasProvider", () => {
         },
       ],
     };
-    (service.loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue(planWithWrongRatio);
+    loadPlan.mockResolvedValue({ status: "loaded", plan: planWithWrongRatio });
     
     // Mock loadImage to return a 2:1 image (but the stored aspectRatio is 1)
     const mockImage2x1 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAQAAABeK7cBAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
