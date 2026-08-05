@@ -522,12 +522,15 @@
         "lastVerified": {
           "date": "2026-08-06",
           "focusedE2E": "3 adaptive-layout smoke tests passed",
+          "affectedTests": "65 passed",
           "unitTests": "467 passed",
           "e2eTests": "28 passed",
           "typecheck": "clean",
           "lint": "clean (ThemeProvider.tsx react-refresh/only-export-components warning unchanged)",
           "rustTests": "44 passed",
-          "build": "succeeded"
+          "build": "succeeded",
+          "featurelistJson": "valid",
+          "verificationNote": "Docs-only correction; no production rerun, based on the completed final matrix."
         },
         "remaining": []
       }
