@@ -88,6 +88,13 @@ describe("SortableImageTile", () => {
     expect(screen.getByRole("textbox", { name: "图片说明 1" })).toHaveStyle({ height: "45px" });
   });
 
+  it("renders a loading placeholder when src is missing", () => {
+    renderTile({ src: undefined });
+
+    expect(screen.queryByRole("img", { name: "参考图" })).toBeNull();
+    expect(screen.getByText(/加载中/)).toBeVisible();
+  });
+
   it("caption textarea has explicit background for contrast", () => {
     // TDD: Failing test for Finding 3
     const onSetCaption = vi.fn();

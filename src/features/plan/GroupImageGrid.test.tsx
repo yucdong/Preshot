@@ -177,7 +177,7 @@ describe("GroupImageGrid", () => {
     expect(tile1).toHaveStyle({
       position: "absolute",
       left: "0px",
-      top: "12px",
+      top: "0px",
       width: "80px",
       height: "60px",
     });
@@ -187,10 +187,39 @@ describe("GroupImageGrid", () => {
     expect(tile2).toHaveStyle({
       position: "absolute",
       left: "86px",
-      top: "12px",
+      top: "0px",
       width: "90px",
       height: "67.5px",
     });
+  });
+
+  it("normalizes first-fragment slot offsets so the grid starts at y=0 without extra header height", () => {
+    const slots: ReferenceFlowSlot[] = [
+      { kind: "image", id: "i1", x: 0, y: 98, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+      { kind: "add", id: "__add__", x: 0, y: 230, width: 120, height: 90, imageHeight: 90, captionHeight: 0 },
+    ];
+
+    renderGrid({ slots, scale: 1 });
+
+    const firstTile = screen.getByRole("button", { name: "打开参考图 1" }).parentElement;
+    expect(firstTile).toHaveStyle({ top: "0px" });
+    expect(firstTile?.parentElement).toHaveStyle({ height: "222px" });
+  });
+
+  it("normalizes continuation-fragment slots while preserving later row deltas", () => {
+    const slots: ReferenceFlowSlot[] = [
+      { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+      { kind: "image", id: "i2", x: 172, y: 156, width: 160, height: 135, imageHeight: 135, captionHeight: 0 },
+    ];
+
+    renderGrid({ slots, scale: 1 });
+
+    const firstTile = screen.getByRole("button", { name: "打开参考图 1" }).parentElement;
+    const secondTile = screen.getByRole("button", { name: "打开参考图 2" }).parentElement;
+
+    expect(firstTile).toHaveStyle({ top: "0px" });
+    expect(secondTile).toHaveStyle({ top: "132px" });
+    expect(firstTile?.parentElement).toHaveStyle({ height: "267px" });
   });
 
   it("renders caption textarea in the caption band when showCaptions is true", () => {

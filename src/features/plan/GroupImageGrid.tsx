@@ -2,7 +2,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext } from "@dnd-kit/sortable";
 import { useTranslation } from "react-i18next";
 import { imageGroupDroppableId } from "./canvas/imageDropTarget";
-import { COMPONENT_INSET, type ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
+import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
 import { SortableImageTile } from "./SortableImageTile";
 
 // Minimal shape that both v1 ReferenceGroup and v2+ ReferenceComponent satisfy
@@ -45,14 +45,19 @@ export function GroupImageGrid({
     data: enableReorder ? { type: "imagegroup" } : undefined
   });
   const imagesById = new Map(group.images.map((image) => [image.id, image]));
+  const topOffset = slots.length ? Math.min(...slots.map((slot) => slot.y)) : 0;
+  const normalizedSlots = slots.map((slot) => ({
+    ...slot,
+    y: slot.y - topOffset,
+  }));
 
   // Bottom of content is the maximum of all slot bottoms (handles differing aspect-ratio heights)
-  const contentBottom = slots.length ? Math.max(...slots.map((s) => s.y + s.height)) : 0;
+  const contentBottom = normalizedSlots.length ? Math.max(...normalizedSlots.map((slot) => slot.y + slot.height)) : 0;
   const containerHeight = contentBottom * scale;
 
   const gridContent = (
     <>
-      {slots.map((slot, index) => {
+      {normalizedSlots.map((slot, index) => {
         if (slot.kind === "add") {
           return (
             <div
@@ -107,7 +112,7 @@ export function GroupImageGrid({
       <div
         className="relative"
         ref={setNodeRef}
-        style={{ height: `${containerHeight}px`, marginTop: `${COMPONENT_INSET * scale}px` }}
+        style={{ height: `${containerHeight}px` }}
       >
         <SortableContext items={slots.filter((slot) => slot.kind === "image").map((slot) => slot.id)} strategy={rectSortingStrategy}>
           {gridContent}
@@ -119,7 +124,7 @@ export function GroupImageGrid({
   return (
     <div
       className="relative"
-      style={{ height: `${containerHeight}px`, marginTop: `${COMPONENT_INSET * scale}px` }}
+      style={{ height: `${containerHeight}px` }}
     >
       {gridContent}
     </div>
