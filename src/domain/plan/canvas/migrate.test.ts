@@ -266,5 +266,21 @@ describe("migratePlan", () => {
       expect(() => migratePlan(42)).toThrow(/stored plan/i);
       expect(() => migratePlan({ nonsense: true })).toThrow(/schema/i);
     });
+
+    it("rejects malformed v4 component fields instead of synthesizing replacements", () => {
+      expect(() =>
+        migratePlan({
+          schemaVersion: 4,
+          components: [{ type: "plan", width: 1, html: "<p>x</p>" }],
+        }),
+      ).toThrow(/component 0.*id/i);
+
+      expect(() =>
+        migratePlan({
+          schemaVersion: 4,
+          components: [{ id: "p", type: "plan", width: 1 }],
+        }),
+      ).toThrow(/component 0.*html/i);
+    });
   });
 });

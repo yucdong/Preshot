@@ -32,9 +32,20 @@ function normalizeV4Images(value: unknown, componentIndex: number): ReferenceIma
     throw new Error(`Stored plan component ${componentIndex} images must be an array`);
   }
   return value.map((raw, imageIndex) => {
-    if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.file !== "string") {
+    if (
+      !isRecord(raw) ||
+      typeof raw.id !== "string" ||
+      raw.id.length === 0 ||
+      typeof raw.file !== "string" ||
+      raw.file.length === 0
+    ) {
       throw new Error(
-        `Stored plan component ${componentIndex} image ${imageIndex} must have string id and file fields`,
+        `Stored plan component ${componentIndex} image ${imageIndex} must have non-empty string id and file fields`,
+      );
+    }
+    if (raw.caption !== undefined && typeof raw.caption !== "string") {
+      throw new Error(
+        `Stored plan component ${componentIndex} image ${imageIndex} caption must be a string`,
       );
     }
     const aspectRatio = normalizeAspectRatio(raw.aspectRatio);
@@ -48,24 +59,30 @@ function normalizeV4Images(value: unknown, componentIndex: number): ReferenceIma
 
 function normalizeComponentFields(
   raw: unknown,
-  makeId: IdFactory,
+  _makeId: IdFactory,
   componentIndex: number,
 ): PlanComponent | null {
   if (!isRecord(raw)) {
     return null;
   }
+  if (typeof raw.id !== "string" || raw.id.length === 0) {
+    throw new Error(`Stored plan component ${componentIndex} id must be a non-empty string`);
+  }
   if (typeof raw.width !== "number" || !Number.isFinite(raw.width)) {
     return null;
   }
-  const id = typeof raw.id === "string" && raw.id ? raw.id : makeId("cmp");
+  const id = raw.id;
   const width = clampWidth(raw.width);
 
   if (raw.type === "plan") {
+    if (typeof raw.html !== "string") {
+      throw new Error(`Stored plan component ${componentIndex} html must be a string`);
+    }
     return {
       id,
       type: "plan",
       width,
-      html: asString(raw.html),
+      html: raw.html,
     };
   }
 
@@ -73,14 +90,23 @@ function normalizeComponentFields(
     if (typeof raw.imageHeight !== "number" || !Number.isFinite(raw.imageHeight)) {
       return null;
     }
+    if (typeof raw.title !== "string") {
+      throw new Error(`Stored plan component ${componentIndex} title must be a string`);
+    }
+    if (typeof raw.description !== "string") {
+      throw new Error(`Stored plan component ${componentIndex} description must be a string`);
+    }
+    if (typeof raw.showCaptions !== "boolean") {
+      throw new Error(`Stored plan component ${componentIndex} showCaptions must be a boolean`);
+    }
     return {
       id,
       type: "reference",
       width,
-      title: asString(raw.title),
-      description: asString(raw.description),
+      title: raw.title,
+      description: raw.description,
       imageHeight: clampImageHeight(raw.imageHeight),
-      showCaptions: raw.showCaptions === true,
+      showCaptions: raw.showCaptions,
       images: normalizeV4Images(raw.images, componentIndex),
     };
   }
