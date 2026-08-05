@@ -388,14 +388,15 @@ test("exports the canvas to PDF with captions enabled", async ({ page }) => {
   await waitForReferenceImages(page);
 
   // Toggle captions on the seeded reference component
-  const firstReferenceFrame = page.locator('[data-component-frame="true"]').first();
+  const firstReferenceFrame = page
+    .locator('[data-component-frame="true"]')
+    .filter({ has: page.getByRole("checkbox", { name: "显示说明" }) })
+    .first();
   const captionCheckbox = firstReferenceFrame.getByRole("checkbox", { name: "显示说明" });
-  
-  // Check if checkbox exists (seeded component is a reference component)
-  const checkboxCount = await captionCheckbox.count();
-  if (checkboxCount > 0) {
-    await captionCheckbox.check();
-  }
+  await expect(firstReferenceFrame).toBeVisible();
+  await expect(captionCheckbox).toBeVisible();
+  await captionCheckbox.check();
+  await expect(captionCheckbox).toBeChecked();
 
   // Export to PDF
   await page.getByRole("button", { name: "导出 PDF" }).click();

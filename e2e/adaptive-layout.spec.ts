@@ -19,6 +19,8 @@ test("plan card grows with text and avoids a large fixed blank area", async ({ p
   await expect(page.locator('[data-component-frame="true"]')).toHaveCount(2);
 
   const frame = page.locator('[data-component-frame="true"]').first();
+  const frameBody = frame.locator("[data-component-frame-body]");
+  const editorRoot = frame.getByRole("group", { name: "摄影计划" });
   const editor = frame.locator('[contenteditable="true"]').first();
   const before = await frame.boundingBox();
 
@@ -35,11 +37,22 @@ test("plan card grows with text and avoids a large fixed blank area", async ({ p
 
   await expect
     .poll(async () => {
-      const box = await frame.boundingBox();
-      const editorHeight = await editor.evaluate((node) => (node as HTMLElement).scrollHeight);
-      return box == null ? Number.POSITIVE_INFINITY : box.height - editorHeight;
+      return frameBody.evaluate((body) => {
+        const bodyRect = body.getBoundingClientRect();
+        const editorRect = body.querySelector('[role="group"]')?.getBoundingClientRect();
+        const contentRect = body.querySelector('[contenteditable="true"]')?.getBoundingClientRect();
+        if (!editorRect || !contentRect) {
+          return false;
+        }
+        return [editorRect, contentRect].every(
+          (rect) =>
+            rect.top >= bodyRect.top - 1 &&
+            rect.bottom <= bodyRect.bottom + 1,
+        );
+      });
     })
-    .toBeLessThan(120);
+    .toBe(true);
+  await expect(editorRoot).toBeVisible();
 });
 
 test("reference images wrap proportionally without an internal scrollbar", async ({ page }) => {
@@ -77,6 +90,31 @@ test("reference images wrap proportionally without an internal scrollbar", async
   expect(Math.ceil(bodyMetrics.maxTileBottom)).toBeLessThanOrEqual(bodyMetrics.clientHeight + 1);
   expect(bodyMetrics.scrollHeight).toBeLessThanOrEqual(bodyMetrics.clientHeight + 1);
   expect(["auto", "scroll"]).not.toContain(bodyMetrics.overflowY);
+
+  const containment = await reference.evaluate((frame) => {
+    const frameRect = frame.getBoundingClientRect();
+    const body = frame.querySelector('[data-testid="reference-component-body"]');
+    if (!(body instanceof HTMLElement)) {
+      return { bodyInside: false, tilesInside: false };
+    }
+    const bodyRect = body.getBoundingClientRect();
+    const tiles = Array.from(
+      body.querySelectorAll('[data-image-id], button[aria-label="添加参考图"]'),
+    ).map((element) => element.getBoundingClientRect());
+    const inside = (rect: DOMRect) =>
+      rect.left >= frameRect.left - 1 &&
+      rect.right <= frameRect.right + 1 &&
+      rect.top >= frameRect.top - 1 &&
+      rect.bottom <= frameRect.bottom + 1;
+
+    return {
+      bodyInside: inside(bodyRect),
+      tilesInside: tiles.every(inside),
+    };
+  });
+
+  expect(containment.bodyInside).toBe(true);
+  expect(containment.tilesInside).toBe(true);
 });
 
 test("component drag shows a live placeholder, shows the overlay, and commits the reordered layout", async ({ page }) => {
