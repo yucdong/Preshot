@@ -21,25 +21,6 @@ class ResizeObserverMock {
   }
 }
 
-class MutationObserverMock {
-  static instances: MutationObserverMock[] = [];
-
-  callback: MutationCallback;
-  disconnect = vi.fn();
-  observe = vi.fn((target: Node, options: MutationObserverInit) => {
-    this.target = target;
-    this.options = options;
-  });
-  takeRecords = vi.fn(() => []);
-  target: Node | null = null;
-  options: MutationObserverInit | null = null;
-
-  constructor(callback: MutationCallback) {
-    this.callback = callback;
-    MutationObserverMock.instances.push(this);
-  }
-}
-
 function emitResize(entries: ResizeObserverEntryLike[]) {
   for (const instance of ResizeObserverMock.instances) {
     instance.callback(
@@ -52,34 +33,6 @@ function emitResize(entries: ResizeObserverEntryLike[]) {
       ),
       instance as unknown as ResizeObserver,
     );
-  }
-}
-
-function emitMutation(target: Node) {
-  for (const instance of MutationObserverMock.instances) {
-    if (
-      instance.target === target ||
-      (instance.options?.subtree &&
-        instance.target instanceof Node &&
-        instance.target.contains(target))
-    ) {
-      instance.callback(
-        [
-          {
-            type: "childList",
-            target,
-            addedNodes: [] as unknown as NodeList,
-            removedNodes: [] as unknown as NodeList,
-            attributeName: null,
-            attributeNamespace: null,
-            nextSibling: null,
-            oldValue: null,
-            previousSibling: null,
-          } as MutationRecord,
-        ],
-        instance as unknown as MutationObserver,
-      );
-    }
   }
 }
 
@@ -112,9 +65,11 @@ function setRect(element: Element, rect: Partial<DOMRect>) {
 
 function MeasurementHarness({
   contentHeightPoints,
+  contentKey = "initial",
   onMeasure,
 }: {
   contentHeightPoints: number;
+  contentKey?: string;
   onMeasure: (
     id: string,
     measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
@@ -122,6 +77,7 @@ function MeasurementHarness({
 }) {
   const { rootRef } = usePlanContentMeasurement({
     componentId: "plan-1",
+    contentKey,
     scale: 1,
     contentHeightPoints,
     onMeasure,
@@ -149,9 +105,11 @@ function MeasurementHarness({
 
 function NestedBlockGroupHarness({
   contentHeightPoints,
+  contentKey = "initial",
   onMeasure,
 }: {
   contentHeightPoints: number;
+  contentKey?: string;
   onMeasure: (
     id: string,
     measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
@@ -159,6 +117,7 @@ function NestedBlockGroupHarness({
 }) {
   const { rootRef } = usePlanContentMeasurement({
     componentId: "plan-1",
+    contentKey,
     scale: 1,
     contentHeightPoints,
     onMeasure,
@@ -207,18 +166,14 @@ describe("calculatePlanPageBreaks", () => {
 
 describe("usePlanContentMeasurement", () => {
   const originalResizeObserver = globalThis.ResizeObserver;
-  const originalMutationObserver = globalThis.MutationObserver;
 
   beforeEach(() => {
     ResizeObserverMock.instances = [];
-    MutationObserverMock.instances = [];
     globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
-    globalThis.MutationObserver = MutationObserverMock as unknown as typeof MutationObserver;
   });
 
   afterEach(() => {
     globalThis.ResizeObserver = originalResizeObserver;
-    globalThis.MutationObserver = originalMutationObserver;
   });
 
   it("adds runtime page-break metadata without rewriting editor html", () => {
@@ -252,10 +207,10 @@ describe("usePlanContentMeasurement", () => {
     expect(container.querySelector(".bn-block-group")?.innerHTML).toContain("Second");
   });
 
-  it("recalculates when BlockNote replaces top-level blocks without a resize callback", async () => {
+  it("recalculates when the rendered BlockNote content key changes without a resize callback", async () => {
     const onMeasure = vi.fn();
-    const { container } = render(
-      <MeasurementHarness contentHeightPoints={200} onMeasure={onMeasure} />,
+    const { container, rerender } = render(
+      <MeasurementHarness contentHeightPoints={200} contentKey="before" onMeasure={onMeasure} />,
     );
 
     const surface = screen.getByTestId("paged-canvas-surface");
@@ -284,7 +239,7 @@ describe("usePlanContentMeasurement", () => {
     setRect(replacementBlocks[1], { top: 760, bottom: 900, height: 140 });
     onMeasure.mockClear();
 
-    emitMutation(blockGroup!);
+    rerender(<MeasurementHarness contentHeightPoints={200} contentKey="after" onMeasure={onMeasure} />);
     await flushScheduledRecalculation();
 
     expect(onMeasure).toHaveBeenCalledWith(
@@ -344,13 +299,29 @@ describe("usePlanContentMeasurement", () => {
 
     emitResize([{ target: root, contentRect: { height: 200 } as DOMRectReadOnly }]);
 
-    const mutationObserver = MutationObserverMock.instances[0];
-    const disconnectCallsBeforeUnmount = mutationObserver.disconnect.mock.calls.length;
+    const observer = ResizeObserverMock.instances[0];
+    const disconnectCallsBeforeUnmount = observer.disconnect.mock.calls.length;
     unmount();
 
-    expect(mutationObserver.disconnect.mock.calls.length).toBe(disconnectCallsBeforeUnmount + 1);
+    expect(observer.disconnect.mock.calls.length).toBe(disconnectCallsBeforeUnmount + 1);
     expect(blocks[1]).not.toHaveClass("bn-page-break-before");
     expect(blocks[1]).not.toHaveAttribute("data-preshot-block-id");
     expect((blocks[1] as HTMLElement).style.getPropertyValue("--bn-page-break-space")).toBe("");
+  });
+
+  it("observes top-level blocks without observing the editor root itself", () => {
+    const onMeasure = vi.fn();
+    const { container } = render(
+      <MeasurementHarness contentHeightPoints={200} onMeasure={onMeasure} />,
+    );
+
+    const root = screen.getByTestId("editor-root");
+    const blocks = container.querySelectorAll('[data-node-type="blockOuter"]');
+    const observer = ResizeObserverMock.instances[0];
+    const observedTargets = observer.observe.mock.calls.map(([target]) => target);
+
+    expect(observedTargets).not.toContain(root);
+    expect(observedTargets).toContain(blocks[0]);
+    expect(observedTargets).toContain(blocks[1]);
   });
 });

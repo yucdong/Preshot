@@ -484,19 +484,28 @@
         "Canvas plans move to persisted schemaVersion 4 for adaptive layout work",
         "Persist only component width; component height becomes derived layout state",
         "Reference components default to imageHeight 135 and legacy v3 image heights are reduced once during migration",
-        "Component resize is width-only; top/bottom/corner height handles are removed from the canvas chrome"
+        "Plan and reference components grow from measured content without large fixed blank areas",
+        "Reference image flow keeps full uncropped aspect ratios, wraps by row boundaries, and carries caption height in layout",
+        "One BlockNote plan editor can span multiple A4 pages via runtime spacer metadata instead of persisted fragment HTML",
+        "Component resize is width-only; top/bottom/corner height handles are removed from the canvas chrome",
+        "Drag-and-drop shows live placeholders plus compact overlays and respects reduced-motion preferences"
       ],
       "status": "completed",
       "decisions": [
         "Task 1 establishes BaseComponent as { id, width } and removes persisted component height from ProjectPlan schema v4",
         "migratePlan upgrades schemaVersion 3 payloads to v4 by dropping height and applying clampImageHeight(oldImageHeight * 0.75) exactly once",
         "Width-only resizing is enforced across the domain reducer and canvas UI so later adaptive-layout tasks can rely on derived heights",
+        "Measured BlockNote plan bodies and reference descriptions stay runtime-only, so adaptive heights and page-break spacers never persist into plan history or schema v4 saves",
+        "Reference row packing and pagination keep images proportional and uncropped, reserve caption bands in the same slot model, and split only at row boundaries for UI/PDF parity",
         "PlanCanvas now renders component fragments on a single PagedCanvasSurface global-Y coordinate system, and left-handle preview keeps the right edge visually fixed while only width persists",
         "Task 7 uses dnd-kit sortable overlays with a 180ms pointer delay, unique fragment-level image-group droppable ids mapped back to logical component ids, and reduced-motion-aware 200ms layout easing",
-        "Task 8 keeps PDF reference-image export keyed by ReferenceFlowSlot.id, reuses the shared zh continuation-title template, and validates exact adaptive slot geometry across continuation fragments"
+        "Task 8 keeps PDF reference-image export keyed by ReferenceFlowSlot.id, reuses the shared zh continuation-title template, and validates exact adaptive slot geometry across continuation fragments",
+        "Task 9 seeds the browser memory adapter with stable landscape and portrait demo images and keeps Playwright drag gestures aligned with the >180ms activation delay required by adaptive sortable overlays"
       ],
       "progress": {
         "designSpec": "docs/superpowers/specs/2026-08-05-adaptive-component-layout-design.md",
+        "implementationPlan": "docs/superpowers/plans/2026-08-05-adaptive-component-layout.md",
+        "completedAt": "2026-08-05",
         "completed": [
           "Task 1: implemented schemaVersion 4, removed persisted component heights from v4 plan/component types, and updated fixtures to compile honestly against the new model",
           "Task 1: migrated legacy v3 reference image heights to the new 135pt baseline by scaling old values once during v4 migration",
@@ -504,15 +513,22 @@
           "Task 2: added pure reference row packing and pagination utilities with scaled add-tile handling for narrow layouts",
           "Task 3: derived adaptive A4 placements and reference fragments in the engine and reused them in PDF layout/export paths",
           "Task 4: replaced per-page positioning roots with a single PagedCanvasSurface, rendered fragment frames in global Y coordinates, and fixed left-handle preview anchoring while keeping width-only resize persistence",
-          "Task 5: added runtime-only natural height maps for BlockNote plan bodies and reference descriptions, reset them on projectPath changes, and kept them out of persistence plus undo history",
+          "Task 5: added runtime-only natural height maps for BlockNote plan bodies and reference descriptions, scoped them per project path, and kept them out of persistence plus undo history",
           "Task 5: added BlockNote top-level block measurement with runtime page-break spacer classes/CSS metadata so one editor can span multiple A4 pages without rewriting stored HTML",
           "Task 7: switched component frames to one logical sortable identity per component, gave paginated reference fragments unique image-group droppable ids, added compact DragOverlay previews plus source placeholders, and kept live image/component preview reflow reduced-motion aware",
-          "Task 8: reused the adaptive reference fragment slots in canvasPdfExporter, centralized the zh continuation-title template for UI/PDF parity, and added multipage PDF regressions for exact image geometry plus continuation-slot id sequencing"
+          "Task 8: reused the adaptive reference fragment slots in canvasPdfExporter, centralized the zh continuation-title template for UI/PDF parity, and added multipage PDF regressions for exact image geometry plus continuation-slot id sequencing",
+          "Task 9: added focused Playwright smoke coverage for natural content growth, non-scrolling proportional reference flow, and drag placeholder/overlay commit behavior; fixed browser page-break measurement hangs by recalculating from content updates instead of observing BlockNote child mutations; aligned legacy canvas drag gestures with the required >180ms overlay activation delay"
         ],
-        "lastVerified": [
-          "pnpm exec vitest run src/domain/plan/canvas/pdf/exportDocument.test.ts src/infrastructure/pdf/canvasPdfExporter.test.ts src/infrastructure/pdf/slotPageRect.test.ts",
-          "pnpm typecheck"
-        ],
+        "lastVerified": {
+          "date": "2026-08-05",
+          "focusedE2E": "3 adaptive-layout smoke tests passed",
+          "unitTests": "462 passed",
+          "e2eTests": "28 passed",
+          "typecheck": "clean",
+          "lint": "clean (ThemeProvider.tsx react-refresh/only-export-components warning unchanged)",
+          "rustTests": "44 passed",
+          "build": "succeeded"
+        },
         "remaining": []
       }
     }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type MutableRefObject, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlanTextComponent } from "../../../domain/plan/canvas/models";
 import { RichTextEditor } from "../RichTextEditor";
@@ -13,6 +13,17 @@ interface PlanTextComponentViewProps {
   onChangeHtml: (id: string, html: string) => void;
   onMeasure?: (id: string, measurement: PlanMeasurement) => void;
   scale: number;
+}
+
+function assignRef<T>(targetRef: Ref<T> | undefined, value: T): void {
+  if (typeof targetRef === "function") {
+    targetRef(value);
+    return;
+  }
+
+  if (targetRef) {
+    (targetRef as MutableRefObject<T>).current = value;
+  }
 }
 
 export function PlanTextComponentView({
@@ -34,14 +45,15 @@ export function PlanTextComponentView({
   });
   const { rootRef: measurementRef } = usePlanContentMeasurement({
     componentId: component.id,
+    contentKey: component.html,
     scale,
     contentHeightPoints,
     onMeasure: onMeasure ?? (() => undefined),
   });
   const setRootRef = useCallback(
     (node: HTMLDivElement | null) => {
-      (naturalHeightRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-      (measurementRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      assignRef(naturalHeightRef, node);
+      assignRef(measurementRef, node);
     },
     [measurementRef, naturalHeightRef],
   );

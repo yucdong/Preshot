@@ -1,6 +1,6 @@
 import { contentSize, A4, DEFAULT_PAGE_GEOMETRY } from "../../../domain/plan/canvas/geometry";
-import { PAGE_SCREEN_GAP } from "./PagedCanvasSurface";
 import { useEffect, useRef } from "react";
+import { PAGE_SCREEN_GAP } from "./pagedCanvasMetrics";
 
 export interface PlanMeasurement {
   heightPoints: number;
@@ -135,6 +135,7 @@ export function calculatePlanPageBreaks(input: {
 
 export function usePlanContentMeasurement(input: {
   componentId: string;
+  contentKey: string;
   scale: number;
   contentHeightPoints: number;
   onMeasure(id: string, measurement: PlanMeasurement): void;
@@ -144,7 +145,6 @@ export function usePlanContentMeasurement(input: {
   const observedBlocksRef = useRef<HTMLElement[]>([]);
   const lastMeasurementRef = useRef<PlanMeasurement | null>(null);
   const onMeasureRef = useRef(input.onMeasure);
-  const mutationTargetRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     onMeasureRef.current = input.onMeasure;
@@ -159,30 +159,6 @@ export function usePlanContentMeasurement(input: {
     const observer = new ResizeObserver(() => {
       recalculate();
     });
-    const mutationObserver =
-      typeof MutationObserver === "undefined"
-        ? null
-        : new MutationObserver(() => {
-            scheduleRecalculate();
-          });
-    let scheduled = false;
-    let disposed = false;
-
-    const scheduleRecalculate = () => {
-      if (scheduled) {
-        return;
-      }
-
-      scheduled = true;
-      queueMicrotask(() => {
-        scheduled = false;
-        if (disposed) {
-          return;
-        }
-        recalculate();
-      });
-    };
-
     const observeBlocks = (blocks: HTMLElement[]) => {
       const current = new Set(blocks);
       for (const block of observedBlocksRef.current) {
@@ -198,22 +174,9 @@ export function usePlanContentMeasurement(input: {
       observedBlocksRef.current = blocks;
     };
 
-    const observeMutations = (target: HTMLElement | null) => {
-      if (!mutationObserver || mutationTargetRef.current === target) {
-        return;
-      }
-
-      mutationObserver.disconnect();
-      mutationTargetRef.current = target;
-      if (target) {
-        mutationObserver.observe(target, { childList: true, subtree: true });
-      }
-    };
-
     const recalculate = () => {
       const scale = input.scale;
       const contentHeightPoints = input.contentHeightPoints;
-      observeMutations(blockNoteEditorRoot(root));
       if (!Number.isFinite(scale) || scale <= 0 || !Number.isFinite(contentHeightPoints) || contentHeightPoints <= 0) {
         observeBlocks([]);
         for (const block of touchedBlocksRef.current) {
@@ -300,14 +263,10 @@ export function usePlanContentMeasurement(input: {
       onMeasureRef.current(input.componentId, nextMeasurement);
     };
 
-    observer.observe(root);
     recalculate();
 
     return () => {
-      disposed = true;
       observer.disconnect();
-      mutationObserver?.disconnect();
-      mutationTargetRef.current = null;
       observeBlocks([]);
       lastMeasurementRef.current = null;
       for (const block of touchedBlocksRef.current) {
@@ -315,7 +274,7 @@ export function usePlanContentMeasurement(input: {
       }
       touchedBlocksRef.current.clear();
     };
-  }, [input.componentId, input.contentHeightPoints, input.scale]);
+  }, [input.componentId, input.contentHeightPoints, input.contentKey, input.scale]);
 
   return { rootRef };
 }

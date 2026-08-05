@@ -58,7 +58,7 @@ describe("layoutPlan placement", () => {
     expect(third).toBeGreaterThan(0);
   });
 
-  it("moves a component wholly to the next page when the page is full", () => {
+  it("lets measured plan components continue across pages instead of forcing a fresh page", () => {
     const { pageCount, placements } = layoutPlan([
       plan("a", 1),
       plan("b", 1),
@@ -67,8 +67,8 @@ describe("layoutPlan placement", () => {
     ], DEFAULT_PAGE_GEOMETRY, measurements({ a: 260, b: 260, c: 260, d: 260 }));
     expect(pageCount).toBe(2);
     expect(placements[0]).toMatchObject({ pageIndex: 0 });
-    expect(placements[2]).toMatchObject({ pageIndex: 1 });
-    expect(placements[2].rect).toEqual({ x: 0, y: 0, width: content.width, height: 260 });
+    expect(placements[2]).toMatchObject({ pageIndex: 0, rect: { x: 0, width: content.width, height: 260 } });
+    expect(placements[3]).toMatchObject({ pageIndex: 1, rect: { x: 0, width: content.width, height: 260 } });
   });
 
   it("uses the measured plan height", () => {

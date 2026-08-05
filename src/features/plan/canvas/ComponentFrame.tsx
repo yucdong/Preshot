@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
@@ -61,7 +61,7 @@ function ComponentFrameBody({
   const gutterInset = (SPACING / 2) * scale;
   const prefersReducedMotion = usePrefersReducedMotion();
 
-  const resizeSessionRef = useRef<{ element: HTMLElement; pointerId: number } | null>(null);
+  const [resizeSession, setResizeSession] = useState<{ element: HTMLElement; pointerId: number } | null>(null);
   const [resizing, setResizing] = useState<"width" | "left" | null>(null);
   const [resizePreview, setResizePreview] = useState<{ width: number } | null>(null);
   const [resizeStart, setResizeStart] = useState<{ x: number; edge: "width" | "left" } | null>(null);
@@ -75,7 +75,7 @@ function ComponentFrameBody({
   const onPointerDownResize = (edge: "width" | "left") => (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    resizeSessionRef.current = { element: event.currentTarget, pointerId: event.pointerId };
+    setResizeSession({ element: event.currentTarget, pointerId: event.pointerId });
     setResizing(edge);
     setResizeStart({ x: event.clientX, edge });
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -100,12 +100,12 @@ function ComponentFrameBody({
     event: React.PointerEvent<HTMLDivElement>,
     options: { commit: boolean; releaseCapture: boolean },
   ) => {
-    const session = resizeSessionRef.current;
+    const session = resizeSession;
     if (!session) {
       return;
     }
     const currentPreview = resizePreview;
-    resizeSessionRef.current = null;
+    setResizeSession(null);
     setResizing(null);
     setResizeStart(null);
     setResizePreview(null);
@@ -129,6 +129,7 @@ function ComponentFrameBody({
       className={`absolute rounded-xl ${isPlaceholder ? "border-2 border-dashed border-amber-500 bg-transparent" : ""}`}
       data-component-frame="true"
       data-component-id={id}
+      data-drag-placeholder={isPlaceholder ? "component" : undefined}
       data-fragment-id={frameId ?? id}
       data-sortable-component-id={interactiveChrome ? id : undefined}
       style={{

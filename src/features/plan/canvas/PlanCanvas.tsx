@@ -20,7 +20,8 @@ import { moveComponent, moveImage, type MoveImageParams } from "../../../domain/
 import { componentDropTarget } from "../../../domain/plan/canvas/dropTarget";
 import type { PlanComponent, ReferenceComponent, ReferenceImage } from "../../../domain/plan/canvas/models";
 import { ComponentFrame } from "./ComponentFrame";
-import { PAGE_SCREEN_GAP, PagedCanvasSurface, pageTopPx } from "./PagedCanvasSurface";
+import { PagedCanvasSurface } from "./PagedCanvasSurface";
+import { PAGE_SCREEN_GAP, pageTopPx } from "./pagedCanvasMetrics";
 import { PlanTextComponentView } from "./PlanTextComponentView";
 import { ReferenceComponentView } from "./ReferenceComponentView";
 import { insertAfterFromRects } from "./canvasDropGeometry";

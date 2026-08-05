@@ -92,6 +92,7 @@ test("drags to reorder two components and commits the move", async ({ page }) =>
   // Drag the first component to hover over the center-bottom area of the second component
   await page.mouse.move(firstBox.x + firstBox.width / 2, firstBox.y + firstBox.height / 2);
   await page.mouse.down();
+  await page.waitForTimeout(200);
   await page.mouse.move(firstBox.x + firstBox.width / 2 + 12, firstBox.y + firstBox.height / 2, {
     steps: 3,
   });
@@ -133,6 +134,8 @@ test("resizes a component's width and commits the change", async ({ page }) => {
   const frames = page.locator('[data-component-frame="true"]');
   const firstFrame = frames.nth(0);
 
+  await firstFrame.scrollIntoViewIfNeeded();
+
   // Get the initial width
   const initialBox = await firstFrame.boundingBox();
   if (!initialBox) throw new Error("component not visible");
@@ -148,6 +151,7 @@ test("resizes a component's width and commits the change", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(handleBox.x - 100, handleBox.y + handleBox.height / 2, { steps: 10 });
   await page.mouse.up();
+  await page.waitForTimeout(200);
 
   // Assert the width changed
   const newBox = await firstFrame.boundingBox();
@@ -287,6 +291,7 @@ test("drags to reorder images within a reference component and commits the move"
 
   await page.mouse.move(firstBox.x + firstBox.width / 2, firstBox.y + firstBox.height / 2);
   await page.mouse.down();
+  await page.waitForTimeout(200);
   await page.mouse.move(firstBox.x + firstBox.width / 2 + 12, firstBox.y + firstBox.height / 2, {
     steps: 3,
   });
@@ -424,6 +429,7 @@ test("drags component by top bar to reorder components", async ({ page }) => {
   // Use manual stepped gesture to trigger dnd-kit's PointerSensor (>6px movement)
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
   await page.mouse.down();
+  await page.waitForTimeout(200);
   // Small initial movement to activate drag
   await page.mouse.move(handleBox.x + handleBox.width / 2 + 12, handleBox.y + handleBox.height / 2, {
     steps: 3,

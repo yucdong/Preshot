@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { A4 } from "../../../domain/plan/canvas/geometry";
-import { PAGE_SCREEN_GAP, PagedCanvasSurface, pageTopPx } from "./PagedCanvasSurface";
+import { PagedCanvasSurface } from "./PagedCanvasSurface";
+import { PAGE_SCREEN_GAP, pageTopPx } from "./pagedCanvasMetrics";
 
 describe("PagedCanvasSurface", () => {
   it("renders A4 sheet backgrounds in one continuous positioning surface", () => {

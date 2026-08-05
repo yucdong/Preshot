@@ -6,6 +6,14 @@ import type { ProjectPlan as CanvasPlan } from "../../domain/plan/canvas/models"
 
 const TINY_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const LANDSCAPE_SVG =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='100' viewBox='0 0 160 100'><rect width='160' height='100' fill='%23d6d3d1'/></svg>";
+const PORTRAIT_SVG =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='160' viewBox='0 0 100 160'><rect width='100' height='160' fill='%23e7e5e4'/></svg>";
+const SEEDED_IMAGE_DATA: Record<string, string> = {
+  "references/0001.png": LANDSCAPE_SVG,
+  "references/0002.png": PORTRAIT_SVG,
+};
 
 const SEEDED_V4_PLAN: CanvasPlan = {
   schemaVersion: 4,
@@ -25,8 +33,8 @@ const SEEDED_V4_PLAN: CanvasPlan = {
       imageHeight: 135,
       showCaptions: false,
       images: [
-        { id: "img-1", file: "references/0001.png", aspectRatio: 1 },
-        { id: "img-2", file: "references/0002.png", aspectRatio: 1 },
+        { id: "img-1", file: "references/0001.png", aspectRatio: 1.6 },
+        { id: "img-2", file: "references/0002.png", aspectRatio: 0.67 },
       ],
     },
   ],
@@ -53,7 +61,7 @@ function createMemoryCanvasStores(): {
         return { file: `references/${String(counter).padStart(4, "0")}.png`, dataUrl: TINY_PNG };
       },
       async loadImage(_projectPath: string, _file: string) {
-        return TINY_PNG;
+        return SEEDED_IMAGE_DATA[_file] ?? TINY_PNG;
       },
       async removeImage(_projectPath: string, _file: string) {
         return undefined;

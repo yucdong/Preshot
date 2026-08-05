@@ -58,6 +58,11 @@ interface ProjectCanvasProviderProps {
   dependencies: CanvasPlanDependencies;
 }
 
+interface MeasurementState<T> {
+  projectPath: string;
+  values: ReadonlyMap<string, T>;
+}
+
 function detail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -102,9 +107,14 @@ export function ProjectCanvasProvider({
   const [scale, setScale] = useState(0.5);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  const [planMeasurements, setPlanMeasurements] = useState<ReadonlyMap<string, PlanMeasurement>>(new Map());
-  const [referenceDescriptionHeights, setReferenceDescriptionHeights] =
-    useState<ReadonlyMap<string, number>>(new Map());
+  const [planMeasurements, setPlanMeasurements] = useState<MeasurementState<PlanMeasurement>>({
+    projectPath,
+    values: new Map(),
+  });
+  const [referenceDescriptionHeights, setReferenceDescriptionHeights] = useState<MeasurementState<number>>({
+    projectPath,
+    values: new Map(),
+  });
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
   const busyRef = useRef(false);
@@ -141,11 +151,17 @@ export function ProjectCanvasProvider({
   const measurements = useMemo(
     () => ({
       planHeights: new Map(
-        Array.from(planMeasurements.entries(), ([id, measurement]) => [id, measurement.heightPoints]),
+        Array.from(
+          (planMeasurements.projectPath === projectPath ? planMeasurements.values : new Map()).entries(),
+          ([id, measurement]) => [id, measurement.heightPoints],
+        ),
       ),
-      referenceDescriptionHeights,
+      referenceDescriptionHeights:
+        referenceDescriptionHeights.projectPath === projectPath
+          ? referenceDescriptionHeights.values
+          : new Map<string, number>(),
     }),
-    [planMeasurements, referenceDescriptionHeights],
+    [planMeasurements, projectPath, referenceDescriptionHeights],
   );
 
   const recordHistoryEntry = useCallback(
@@ -257,11 +273,6 @@ export function ProjectCanvasProvider({
       }
     }
   }, [projectPath, report, service, syncSaveState]);
-
-  useEffect(() => {
-    setPlanMeasurements(new Map());
-    setReferenceDescriptionHeights(new Map());
-  }, [projectPath]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -533,7 +544,8 @@ export function ProjectCanvasProvider({
       (blockId): blockId is string => typeof blockId === "string" && blockId.length > 0,
     );
     setPlanMeasurements((current) => {
-      const previous = current.get(id);
+      const values = current.projectPath === projectPath ? current.values : new Map<string, PlanMeasurement>();
+      const previous = values.get(id);
       if (
         previous &&
         Math.abs(previous.heightPoints - next.heightPoints) < 1 &&
@@ -542,11 +554,11 @@ export function ProjectCanvasProvider({
         return current;
       }
 
-      const updated = new Map(current);
+      const updated = new Map(values);
       updated.set(id, { heightPoints: next.heightPoints, pageBreakBeforeBlockIds });
-      return updated;
+      return { projectPath, values: updated };
     });
-  }, []);
+  }, [projectPath]);
 
   const handleMeasureReferenceDescription = useCallback((id: string, heightPoints: number) => {
     if (!Number.isFinite(heightPoints) || heightPoints < 0) {
@@ -554,16 +566,17 @@ export function ProjectCanvasProvider({
     }
 
     setReferenceDescriptionHeights((current) => {
-      const previous = current.get(id);
+      const values = current.projectPath === projectPath ? current.values : new Map<string, number>();
+      const previous = values.get(id);
       if (previous !== undefined && Math.abs(previous - heightPoints) < 1) {
         return current;
       }
 
-      const updated = new Map(current);
+      const updated = new Map(values);
       updated.set(id, heightPoints);
-      return updated;
+      return { projectPath, values: updated };
     });
-  }, []);
+  }, [projectPath]);
 
   const handleAddImage = useCallback(
     (componentId: string) => {

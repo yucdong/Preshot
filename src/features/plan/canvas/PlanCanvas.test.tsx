@@ -7,7 +7,7 @@ import type { PlanComponent } from "../../../domain/plan/canvas/models";
 import { PlanCanvas } from "./PlanCanvas";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../../domain/settings/ports";
-import { pageTopPx } from "./PagedCanvasSurface";
+import { pageTopPx } from "./pagedCanvasMetrics";
 
 const dndContextState = vi.hoisted(() => ({
   props: null as Record<string, unknown> | null,
