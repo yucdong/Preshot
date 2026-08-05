@@ -6,6 +6,7 @@ import { DESCRIPTION_BAND, TITLE_BAND } from "../../domain/plan/canvas/engine";
 import { DEFAULT_PLAN_HEIGHT, type ProjectPlan, type ReferenceComponent } from "../../domain/plan/canvas/models";
 import { buildCanvasLayout } from "../../domain/plan/canvas/pdf/exportDocument";
 import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
+import { formatReferenceContinuedTitle } from "../../shared/i18n/referenceTitles";
 import { parseHtmlToBlocks, type Block, type Run } from "./htmlToBlocks";
 import { slotToPageRect } from "./slotPageRect";
 
@@ -200,6 +201,25 @@ function splitReferenceSlot(slot: ReferenceFlowSlot): { image: Rect; caption: Re
   };
 }
 
+function referenceImageDrawBox(slotRect: Rect, image: PDFImage): Rect {
+  if (
+    Number.isFinite(image.width) &&
+    image.width > 0 &&
+    Number.isFinite(image.height) &&
+    image.height > 0
+  ) {
+    return slotRect;
+  }
+
+  const fit = containSize(slotRect.width, slotRect.height, image.width, image.height);
+  return {
+    x: slotRect.x + fit.offsetX,
+    y: slotRect.y + fit.offsetY,
+    width: fit.width,
+    height: fit.height,
+  };
+}
+
 export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
   return {
     async export(plan: ProjectPlan, images: Record<string, string>): Promise<Uint8Array> {
@@ -258,7 +278,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
           const ref = component as ReferenceComponent;
           const isContinuation = placement.kind === "continuation";
           const titleY = contentRect.y + contentRect.height - TITLE_SIZE;
-          page.drawText(isContinuation ? `${ref.title}（续）` : ref.title, {
+          page.drawText(isContinuation ? formatReferenceContinuedTitle(ref.title) : ref.title, {
             x: contentRect.x,
             y: titleY,
             size: TITLE_SIZE,
@@ -311,12 +331,12 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
                 borderWidth: 0.75,
               });
 
-              const fit = containSize(imageSlotInPage.width, imageSlotInPage.height, image.width, image.height);
+              const imageRect = referenceImageDrawBox(imageSlotInPage, image);
               page.drawImage(image, {
-                x: imageSlotInPage.x + fit.offsetX,
-                y: imageSlotInPage.y + fit.offsetY,
-                width: fit.width,
-                height: fit.height,
+                x: imageRect.x,
+                y: imageRect.y,
+                width: imageRect.width,
+                height: imageRect.height,
               });
 
               if (ref.showCaptions && imageRecord.caption) {

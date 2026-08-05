@@ -74,7 +74,7 @@ describe("buildCanvasLayout", () => {
 
     expect(layout.pageCount).toBe(2);
     expect(layout.placements[0].pageIndex).toBe(0);
-    expect(layout.placements[2].pageIndex).toBe(1);
+    expect(layout.placements[3].pageIndex).toBe(1);
   });
 
   it("includes fragment metadata and slot ids for reference components", () => {
@@ -140,6 +140,54 @@ describe("buildCanvasLayout", () => {
     expect(fragments).toHaveLength(layout.pageCount);
     expect(fragments[0]).toMatchObject({ fragmentId: "r1::0", kind: "first", pageIndex: 0 });
     expect(fragments[1]).toMatchObject({ fragmentId: "r1::1", kind: "continuation", pageIndex: 1 });
+  });
+
+  it("keeps continuation fragment slots aligned to later image ids", () => {
+    const components: PlanComponent[] = [
+      {
+        id: "r1",
+        type: "reference",
+        width: 1,
+        title: "Photos",
+        description: "",
+        showCaptions: false,
+        imageHeight: 135,
+        images: [
+          { id: "img1", file: "1.jpg", aspectRatio: 4 / 3 },
+          { id: "img2", file: "2.jpg", aspectRatio: 4 / 3 },
+          { id: "img3", file: "3.jpg", aspectRatio: 4 / 3 },
+          { id: "img4", file: "4.jpg", aspectRatio: 4 / 3 },
+          { id: "img5", file: "5.jpg", aspectRatio: 3 / 4 },
+          { id: "img6", file: "6.jpg", aspectRatio: 3 / 4 },
+          { id: "img7", file: "7.jpg", aspectRatio: 3 / 4 },
+          { id: "img8", file: "8.jpg", aspectRatio: 3 / 4 },
+          { id: "img9", file: "9.jpg", aspectRatio: 3 / 4 },
+          { id: "img10", file: "10.jpg", aspectRatio: 3 / 4 },
+          { id: "img11", file: "11.jpg", aspectRatio: 3 / 4 },
+          { id: "img12", file: "12.jpg", aspectRatio: 3 / 4 },
+        ],
+      },
+    ];
+    const geometry = {
+      ...DEFAULT_PAGE_GEOMETRY,
+      page: { ...DEFAULT_PAGE_GEOMETRY.page, height: 540 },
+    };
+
+    const [reference] = components;
+    if (reference.type !== "reference") {
+      throw new Error("expected reference component");
+    }
+
+    const layout = buildCanvasLayout(components, geometry);
+    const fragments = layout.placements.filter((placement) => placement.componentId === "r1");
+    const imageSlotIds = fragments.map((placement) =>
+      placement.imageSlots?.filter((slot) => slot.kind === "image").map((slot) => slot.id) ?? [],
+    );
+
+    expect(fragments).toHaveLength(2);
+    expect(imageSlotIds[0]).toEqual(["img1", "img2", "img3", "img4", "img5"]);
+    expect(imageSlotIds[1]).toEqual(["img6", "img7", "img8", "img9", "img10", "img11", "img12"]);
+    expect(imageSlotIds.flat()).toEqual(reference.images.map((image) => image.id));
   });
 
   it("respects custom geometry", () => {
