@@ -529,8 +529,8 @@
         "lastVerified": {
           "date": "2026-08-06",
           "focusedE2E": "3 strengthened adaptive-layout/PDF smoke tests passed",
-          "affectedTests": "208 focused regression tests passed",
-          "unitTests": "498 passed",
+          "affectedTests": "209 focused regression tests passed",
+          "unitTests": "499 passed",
           "e2eTests": "28 passed",
           "typecheck": "clean",
           "lint": "clean (ThemeProvider.tsx react-refresh/only-export-components warning unchanged)",
