@@ -91,6 +91,25 @@ describe("packReferenceRows", () => {
 
     expect(rows[0].slots[0]).toMatchObject({ width: 300, imageHeight: 60, height: 60 });
   });
+
+  it("can exclude the UI add tile without changing the default UI flow", () => {
+    const input = {
+      images: [{ id: "img", file: "img.png", aspectRatio: 1 }],
+      imageHeight: 100,
+      showCaptions: false,
+      innerWidth: 300,
+    };
+
+    expect(packReferenceRows(input).flatMap((row) => row.slots.map((slot) => slot.kind))).toEqual([
+      "image",
+      "add",
+    ]);
+    expect(
+      packReferenceRows({ ...input, includeAddTile: false }).flatMap((row) =>
+        row.slots.map((slot) => slot.kind),
+      ),
+    ).toEqual(["image"]);
+  });
 });
 
 describe("paginateReferenceRows", () => {

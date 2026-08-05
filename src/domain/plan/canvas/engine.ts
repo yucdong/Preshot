@@ -90,6 +90,7 @@ export interface LayoutResult {
 
 export interface LayoutOptions {
   frameChrome: ComponentFrameChrome;
+  includeReferenceAddTile?: boolean;
 }
 
 export type Placement = ComponentFragmentPlacement;
@@ -209,12 +210,23 @@ function layoutPlanComponent(
     imageHeight: clampImageHeight(entry.component.imageHeight),
     showCaptions: entry.component.showCaptions,
     innerWidth,
+    includeAddTile: options.includeReferenceAddTile,
   });
-  const fragments = paginateReferenceRows({
+  const paginatedRows = paginateReferenceRows({
     rows,
     firstAvailableHeight: firstAvailableRowHeight,
     continuationAvailableHeight: continuationAvailableRowHeight,
   });
+  const fragments = paginatedRows.length > 0
+    ? paginatedRows
+    : [
+        {
+          fragmentIndex: 0,
+          kind: "first" as const,
+          height: 0,
+          rows: [],
+        },
+      ];
   const multiPage = fragments.length > 1;
   const placements = fragments.map((fragment, index) => {
     const isFirst = index === 0;
@@ -291,6 +303,7 @@ export function layoutPlan(
 
   let pageIndex = 0;
   let y = 0;
+  let highestContentPageIndex = 0;
 
   for (const row of rows) {
     let layouts = row.map((entry) =>
@@ -327,6 +340,7 @@ export function layoutPlan(
     }
 
     pageIndex = endPageIndex;
+    highestContentPageIndex = Math.max(highestContentPageIndex, endPageIndex);
     y = endY + geometry.rowGap;
     if (y > content.height + EPS) {
       pageIndex += 1;
@@ -336,7 +350,10 @@ export function layoutPlan(
 
   const pageCount = placements.length === 0
     ? 1
-    : Math.max(...placements.map((placement) => placement.pageIndex), pageIndex) + 1;
+    : Math.max(
+        ...placements.map((placement) => placement.pageIndex),
+        highestContentPageIndex,
+      ) + 1;
 
   return { pageCount, placements };
 }

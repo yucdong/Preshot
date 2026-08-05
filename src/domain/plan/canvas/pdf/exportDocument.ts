@@ -15,5 +15,6 @@ export function buildCanvasLayout(
 ): CanvasLayout {
   return layoutPlan(components, geometry, measurements, {
     frameChrome: NO_COMPONENT_FRAME_CHROME,
+    includeReferenceAddTile: false,
   });
 }

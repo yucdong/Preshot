@@ -95,7 +95,10 @@ describe("buildCanvasLayout", () => {
     expect(layout.pageCount).toBe(1);
     expect(layout.placements).toHaveLength(1);
     expect(layout.placements[0]).toMatchObject({ fragmentId: "r1::0", fragmentIndex: 0, kind: "whole" });
-    expect(layout.placements[0].imageSlots?.map((slot) => slot.id)).toEqual(["img1", "img2", "__add__"]);
+    expect(layout.placements[0].imageSlots?.map((slot) => slot.id)).toEqual([
+      "img1",
+      "img2",
+    ]);
   });
 
   it("forwards plan measurements into the domain layout", () => {
@@ -188,6 +191,53 @@ describe("buildCanvasLayout", () => {
     expect(imageSlotIds[0]).toEqual(["img1", "img2", "img3", "img4", "img5"]);
     expect(imageSlotIds[1]).toEqual(["img6", "img7", "img8", "img9", "img10", "img11", "img12"]);
     expect(imageSlotIds.flat()).toEqual(reference.images.map((image) => image.id));
+  });
+
+  it("excludes the UI add tile so it cannot create an otherwise empty PDF page", () => {
+    const reference: ReferenceComponent = {
+      id: "r1",
+      type: "reference",
+      width: 1,
+      title: "Only image",
+      description: "",
+      showCaptions: false,
+      imageHeight: 100,
+      images: [{ id: "img1", file: "1.jpg", aspectRatio: 1 }],
+    };
+    const geometry = {
+      ...DEFAULT_PAGE_GEOMETRY,
+      page: { width: 200, height: 226 },
+    };
+
+    const layout = buildCanvasLayout([reference], geometry);
+
+    expect(layout.pageCount).toBe(1);
+    expect(layout.placements).toHaveLength(1);
+    expect(layout.placements[0].imageSlots?.map((slot) => slot.id)).toEqual(["img1"]);
+  });
+
+  it("keeps a header-only PDF placement for a reference with no images", () => {
+    const reference: ReferenceComponent = {
+      id: "r1",
+      type: "reference",
+      width: 1,
+      title: "Empty reference",
+      description: "",
+      showCaptions: false,
+      imageHeight: 100,
+      images: [],
+    };
+
+    const layout = buildCanvasLayout([reference]);
+
+    expect(layout.pageCount).toBe(1);
+    expect(layout.placements).toHaveLength(1);
+    expect(layout.placements[0]).toMatchObject({
+      componentId: "r1",
+      kind: "whole",
+      pageIndex: 0,
+    });
+    expect(layout.placements[0].imageSlots).toEqual([]);
   });
 
   it("respects custom geometry", () => {

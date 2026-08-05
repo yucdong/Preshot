@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { PDFDocument } from "pdf-lib";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { A4, SPACING } from "../../domain/plan/canvas/geometry";
 import { buildCanvasLayout } from "../../domain/plan/canvas/pdf/exportDocument";
 import type { ProjectPlan } from "../../domain/plan/canvas/models";
 import { formatReferenceContinuedTitle } from "../../shared/i18n/referenceTitles";
@@ -107,6 +108,41 @@ describe("createCanvasPdfExporter", () => {
     expect(Math.round(page.getHeight())).toBe(842);
   }, 20000);
 
+  it("measures long plan text before layout so its tail and following component both render", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const drawText = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawText");
+    const longHtml = [
+      ...Array.from(
+        { length: 12 },
+        (_, index) => `<p>Plan line ${index + 1} with enough content.</p>`,
+      ),
+      "<p>TAIL_SENTINEL</p>",
+    ].join("");
+    const plan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        { id: "p1", type: "plan", width: 1, html: longHtml },
+        {
+          id: "p2",
+          type: "plan",
+          width: 1,
+          html: "<p>FOLLOWING_SENTINEL</p>",
+        },
+      ],
+    };
+
+    await exporter.export(plan, {});
+
+    const tailCall = drawText.mock.calls.find(([text]) => text === "TAIL_SENTINEL");
+    const followingCall = drawText.mock.calls.find(
+      ([text]) => text === "FOLLOWING_SENTINEL",
+    );
+
+    expect(tailCall).toBeDefined();
+    expect(followingCall).toBeDefined();
+    expect(followingCall?.[1]?.y).toBeLessThan(tailCall?.[1]?.y ?? 0);
+  }, 20000);
+
   it("produces a valid PDF from a canvas layout with reference component", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
@@ -137,15 +173,54 @@ describe("createCanvasPdfExporter", () => {
     expect(parsed.getPageCount()).toBe(1);
   }, 20000);
 
+  it("measures and renders the complete reference description", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const drawText = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawText");
+    const description = [
+      ...Array.from(
+        { length: 8 },
+        (_, index) => `<p>Description line ${index + 1}.</p>`,
+      ),
+      "<p>DESCRIPTION_TAIL</p>",
+    ].join("");
+    const plan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "r1",
+          type: "reference",
+          width: 1,
+          title: "Measured description",
+          description,
+          showCaptions: false,
+          imageHeight: 135,
+          images: [],
+        },
+      ],
+    };
+
+    await exporter.export(plan, {});
+
+    expect(drawText.mock.calls.some(([text]) => text === "DESCRIPTION_TAIL")).toBe(
+      true,
+    );
+  }, 20000);
+
   it("produces multi-page PDF when components span pages", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
       schemaVersion: 4,
       components: [
-        { id: "p1", type: "plan", width: 1, html: "<p>第一页内容 A</p>" },
-        { id: "p2", type: "plan", width: 1, html: "<p>第一页内容 B</p>" },
-        { id: "p3", type: "plan", width: 1, html: "<p>第一页内容 C</p>" },
-        { id: "p4", type: "plan", width: 1, html: "<p>第二页内容</p>" },
+        ...Array.from({ length: 4 }, (_, componentIndex) => ({
+          id: `p${componentIndex + 1}`,
+          type: "plan" as const,
+          width: 1,
+          html: Array.from(
+            { length: 10 },
+            (_, lineIndex) =>
+              `<p>组件 ${componentIndex + 1} 第 ${lineIndex + 1} 行内容</p>`,
+          ).join(""),
+        })),
       ],
     };
 
@@ -159,7 +234,7 @@ describe("createCanvasPdfExporter", () => {
     expect(parsed.getPageCount()).toBe(2);
   }, 20000);
 
-  it("subsets fonts so clipped CJK overflow stays small and does not throw", async () => {
+  it("subsets fonts so long CJK content stays small and does not throw", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     // A short component whose CJK text overflows its rect, drawn with only non-bold text so
     // the bold weight's subset would be EMPTY — the exact case that makes fontkit's
@@ -178,9 +253,46 @@ describe("createCanvasPdfExporter", () => {
 
     expect(bytes[0]).toBe(0x25); // %PDF — did not throw during save
     const parsed = await PDFDocument.load(bytes);
-    expect(parsed.getPageCount()).toBe(1);
+    expect(parsed.getPageCount()).toBeGreaterThan(1);
     // Full-font embeds of both Noto Sans SC weights are ~16 MB; a real subset is well under 2 MB.
     expect(bytes.length).toBeLessThan(2_000_000);
+  }, 20000);
+
+  it("draws a plan that exceeds one page onto later pages within page margins", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const drawText = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawText");
+    const html = [
+      "<p>START_SENTINEL</p>",
+      ...Array.from(
+        { length: 50 },
+        (_, index) => `<p>Long plan line ${index + 1}.</p>`,
+      ),
+      "<p>END_SENTINEL</p>",
+    ].join("");
+    const plan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [{ id: "p1", type: "plan", width: 1, html }],
+    };
+
+    const bytes = await exporter.export(plan, {});
+    const parsed = await PDFDocument.load(bytes);
+    const startIndex = drawText.mock.calls.findIndex(
+      ([text]) => text === "START_SENTINEL",
+    );
+    const endIndex = drawText.mock.calls.findIndex(
+      ([text]) => text === "END_SENTINEL",
+    );
+
+    expect(parsed.getPageCount()).toBeGreaterThan(1);
+    expect(startIndex).toBeGreaterThanOrEqual(0);
+    expect(endIndex).toBeGreaterThan(startIndex);
+    expect(drawText.mock.contexts[endIndex]).not.toBe(
+      drawText.mock.contexts[startIndex],
+    );
+    expect(drawText.mock.calls[endIndex][1]?.y).toBeGreaterThanOrEqual(SPACING);
+    expect(drawText.mock.calls[endIndex][1]?.y).toBeLessThanOrEqual(
+      A4.height - SPACING,
+    );
   }, 20000);
 
   it("renders mixed component types correctly", async () => {
@@ -367,8 +479,8 @@ describe("createCanvasPdfExporter", () => {
     };
 
     await exporter.export(plan, {
-      "landscape.png": createSolidPngDataUrl(400, 301),
-      "portrait.png": createSolidPngDataUrl(301, 400),
+      "landscape.png": createSolidPngDataUrl(400, 300),
+      "portrait.png": createSolidPngDataUrl(300, 400),
     });
 
     const drawCalls = drawImage.mock.calls.map(([, options]) => ({
@@ -380,6 +492,38 @@ describe("createCanvasPdfExporter", () => {
       expect.objectContaining({ width: 180, height: 135 }),
       expect.objectContaining({ width: 101.25, height: 135 }),
     ]);
+  }, 20000);
+
+  it("letterboxes embedded image dimensions that differ from the stored slot ratio", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const drawImage = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawImage");
+    const plan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "r1",
+          type: "reference",
+          width: 1,
+          title: "Actual ratio",
+          description: "",
+          showCaptions: false,
+          imageHeight: 135,
+          images: [
+            { id: "wide-slot", file: "square.png", aspectRatio: 2 },
+          ],
+        },
+      ],
+    };
+
+    await exporter.export(plan, {
+      "square.png": createSolidPngDataUrl(100, 100),
+    });
+
+    expect(drawImage).toHaveBeenCalledTimes(1);
+    expect(drawImage.mock.calls[0][1]).toMatchObject({
+      width: 135,
+      height: 135,
+    });
   }, 20000);
 
   it("draws each continuation-fragment image exactly once using slot ids", async () => {

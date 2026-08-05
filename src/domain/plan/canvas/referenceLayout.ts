@@ -130,11 +130,14 @@ export function packReferenceRows(input: {
   imageHeight: number;
   showCaptions: boolean;
   innerWidth: number;
+  includeAddTile?: boolean;
 }): ReferenceRow[] {
   const rows: ReferenceRow[] = [];
   const items: ReferenceFlowItem[] = [
     ...input.images.map((image) => ({ kind: "image" as const, id: image.id, aspectRatio: image.aspectRatio })),
-    { kind: "add" as const, id: "__add__", aspectRatio: ADD_TILE.width / ADD_TILE.height },
+    ...(input.includeAddTile === false
+      ? []
+      : [{ kind: "add" as const, id: "__add__", aspectRatio: ADD_TILE.width / ADD_TILE.height }]),
   ];
 
   const availableWidth = positiveFinite(input.innerWidth);

@@ -1,23 +1,39 @@
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
-import { A4, containSize, DEFAULT_PAGE_GEOMETRY, SPACING, type Rect } from "../../domain/plan/canvas/geometry";
-import type { LayoutMeasurements } from "../../domain/plan/canvas/engine";
-import { DESCRIPTION_BAND, TITLE_BAND } from "../../domain/plan/canvas/engine";
-import { DEFAULT_PLAN_HEIGHT, type ProjectPlan, type ReferenceComponent } from "../../domain/plan/canvas/models";
+import {
+  A4,
+  containSize,
+  contentSize,
+  DEFAULT_PAGE_GEOMETRY,
+  SPACING,
+  type PageGeometry,
+  type Rect,
+} from "../../domain/plan/canvas/geometry";
+import type {
+  ComponentFragmentPlacement,
+  LayoutMeasurements,
+  LayoutResult,
+} from "../../domain/plan/canvas/engine";
+import type { ProjectPlan, ReferenceComponent } from "../../domain/plan/canvas/models";
 import { buildCanvasLayout } from "../../domain/plan/canvas/pdf/exportDocument";
-import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
+import {
+  COMPONENT_INSET,
+  REFERENCE_HEADER_HEIGHT,
+  type ReferenceFlowSlot,
+} from "../../domain/plan/canvas/referenceLayout";
 import { formatReferenceContinuedTitle } from "../../shared/i18n/referenceTitles";
-import { parseHtmlToBlocks, type Block, type Run } from "./htmlToBlocks";
+import { parseHtmlToBlocks } from "./htmlToBlocks";
+import {
+  layoutPdfRichText,
+  paginatePdfTextLayout,
+  type PaginatedPdfTextLayout,
+  type PdfTextCommand,
+  type PdfTextLayout,
+} from "./pdfTextLayout";
 import { slotToPageRect } from "./slotPageRect";
 
 const TITLE_SIZE = 14;
-const BODY_SIZE = 11;
 const CAPTION_SIZE = 9;
-const H1_SIZE = 16;
-const H2_SIZE = 13;
-const LINE = 1.35;
-const PARA_GAP = 6;
-const LIST_INDENT = 16;
 const TEXT_COLOR = rgb(0.11, 0.1, 0.09);
 const LINK_COLOR = rgb(0.15, 0.39, 0.92);
 const FRAME_COLOR = rgb(0.85, 0.85, 0.85);
@@ -27,33 +43,6 @@ type Rgb = ReturnType<typeof rgb>;
 interface Fonts {
   regular: Uint8Array;
   bold: Uint8Array;
-}
-
-interface Token {
-  text: string;
-  font: PDFFont;
-  size: number;
-  isSpace: boolean;
-  link?: string;
-  underline?: boolean;
-  strike?: boolean;
-  color?: Rgb;
-}
-
-function pdfLayoutMeasurements(components: ProjectPlan["components"]): LayoutMeasurements {
-  return {
-    planHeights: new Map(
-      components
-        .filter((component) => component.type === "plan")
-        .map((component) => [component.id, DEFAULT_PLAN_HEIGHT]),
-    ),
-    referenceDescriptionHeights: new Map(),
-  };
-}
-
-function isCjk(ch: string): boolean {
-  const c = ch.codePointAt(0) ?? 0;
-  return (c >= 0x3000 && c <= 0x9fff) || (c >= 0xac00 && c <= 0xd7af) || (c >= 0xff00 && c <= 0xffef) || (c >= 0x20000 && c <= 0x2ffff);
 }
 
 function parseColor(value: string): Rgb | undefined {
@@ -77,30 +66,6 @@ function parseColor(value: string): Rgb | undefined {
   return undefined;
 }
 
-function tokenizeRun(run: Run, font: PDFFont, size: number): Token[] {
-  const color = run.color ? parseColor(run.color) : undefined;
-  const tokens: Token[] = [];
-  let word = "";
-  const flush = () => {
-    if (word) {
-      tokens.push({ text: word, font, size, isSpace: false, link: run.link, underline: run.underline, strike: run.strike, color });
-      word = "";
-    }
-  };
-  for (const ch of run.text) {
-    if (ch === " " || ch === "\n" || ch === "\t") {
-      flush();
-      tokens.push({ text: " ", font, size, isSpace: true });
-    } else if (isCjk(ch)) {
-      flush();
-      tokens.push({ text: ch, font, size, isSpace: false, link: run.link, underline: run.underline, strike: run.strike, color });
-    } else {
-      word += ch;
-    }
-  }
-  flush();
-  return tokens;
-}
 
 function dataUrlToBytes(dataUrl: string): { mime: string; bytes: Uint8Array } {
   const match = /^data:([^;]+);base64,(.*)$/.exec(dataUrl);
@@ -111,81 +76,78 @@ function dataUrlToBytes(dataUrl: string): { mime: string; bytes: Uint8Array } {
   return { mime: match[1], bytes };
 }
 
-function drawRichText(
+function drawTextCommand(
   page: PDFPage,
-  blocks: Block[],
-  rect: Rect,
-  regular: PDFFont,
-  bold: PDFFont,
+  command: PdfTextCommand<PDFFont>,
+  x: number,
+  baseline: number,
 ): void {
-  let cursorY = rect.y + rect.height;
-
-  const drawRuns = (runs: Run[], defaultSize: number, boldDefault: boolean, indent = 0) => {
-    // Early check: if we're already past the bottom, don't process at all
-    if (cursorY - defaultSize * LINE < rect.y) return;
-    
-    const maxWidth = rect.width - indent;
-    const tokens = runs.flatMap((run) => tokenizeRun(run, run.bold || boldDefault ? bold : regular, run.size ?? defaultSize));
-    let line: Token[] = [];
-    let width = 0;
-    const flushLine = () => {
-      if (line.length === 0) return;
-      const lineSize = line.reduce((max, t) => Math.max(max, t.size), defaultSize);
-      const lineHeight = lineSize * LINE;
-      if (cursorY - lineHeight < rect.y) {
-        // Clipped: discard without drawing (don't pollute font subset)
-        line = [];
-        width = 0;
-        return;
-      }
-      let x = rect.x + indent;
-      const baseline = cursorY - lineSize;
-      for (const t of line) {
-        const w = t.font.widthOfTextAtSize(t.text, t.size);
-        const color = t.link ? LINK_COLOR : t.color ?? TEXT_COLOR;
-        page.drawText(t.text, { x, y: baseline, size: t.size, font: t.font, color });
-        if (!t.isSpace) {
-          if (t.link || t.underline) {
-            page.drawLine({ start: { x, y: baseline - 1.5 }, end: { x: x + w, y: baseline - 1.5 }, thickness: 0.5, color });
-          }
-          if (t.strike) {
-            page.drawLine({ start: { x, y: baseline + t.size * 0.3 }, end: { x: x + w, y: baseline + t.size * 0.3 }, thickness: 0.5, color });
-          }
-        }
-        x += w;
-      }
-      cursorY -= lineHeight;
-      line = [];
-      width = 0;
-    };
-    for (const t of tokens) {
-      const w = t.font.widthOfTextAtSize(t.text, t.size);
-      if (!t.isSpace && width + w > maxWidth && line.length > 0) flushLine();
-      if (t.isSpace && line.length === 0) continue;
-      line.push(t);
-      width += w;
-    }
-    flushLine();
-  };
-
-  for (const block of blocks) {
-    if (cursorY - BODY_SIZE * LINE < rect.y) break; // clipped
-    if (block.type === "heading") {
-      cursorY -= PARA_GAP;
-      drawRuns(block.runs, block.level === 1 ? H1_SIZE : H2_SIZE, true);
-      cursorY -= PARA_GAP / 2;
-    } else if (block.type === "paragraph") {
-      drawRuns(block.runs, BODY_SIZE, false);
-      cursorY -= PARA_GAP;
-    } else {
-      block.items.forEach((item, index) => {
-        const marker = block.ordered ? `${index + 1}. ` : "• ";
-        if (cursorY - BODY_SIZE * LINE < rect.y) return;
-        page.drawText(marker, { x: rect.x, y: cursorY - BODY_SIZE, size: BODY_SIZE, font: regular, color: TEXT_COLOR });
-        drawRuns(item, BODY_SIZE, false, LIST_INDENT);
+  const width = command.font.widthOfTextAtSize(command.text, command.size);
+  const color = command.link
+    ? LINK_COLOR
+    : command.color
+      ? parseColor(command.color) ?? TEXT_COLOR
+      : TEXT_COLOR;
+  page.drawText(command.text, {
+    x,
+    y: baseline,
+    size: command.size,
+    font: command.font,
+    color,
+  });
+  if (!command.isSpace) {
+    if (command.link || command.underline) {
+      page.drawLine({
+        start: { x, y: baseline - 1.5 },
+        end: { x: x + width, y: baseline - 1.5 },
+        thickness: 0.5,
+        color,
       });
-      cursorY -= PARA_GAP;
     }
+    if (command.strike) {
+      page.drawLine({
+        start: { x, y: baseline + command.size * 0.3 },
+        end: { x: x + width, y: baseline + command.size * 0.3 },
+        thickness: 0.5,
+        color,
+      });
+    }
+  }
+}
+
+function drawRichTextLayout(
+  page: PDFPage,
+  layout: PdfTextLayout<PDFFont>,
+  rect: Rect,
+): void {
+  const top = rect.y + rect.height;
+  for (const command of layout.commands) {
+    drawTextCommand(
+      page,
+      command,
+      rect.x + command.x,
+      top - command.baselineFromTop,
+    );
+  }
+}
+
+function drawPaginatedRichTextLayout(
+  pages: PDFPage[],
+  layout: PaginatedPdfTextLayout<PDFFont>,
+  x: number,
+  pageHeight: number,
+): void {
+  for (const command of layout.commands) {
+    const page = pages[command.pageIndex];
+    if (!page) {
+      continue;
+    }
+    drawTextCommand(
+      page,
+      command,
+      x + command.x,
+      pageHeight - command.baselineFromPageTop,
+    );
   }
 }
 
@@ -203,10 +165,10 @@ function splitReferenceSlot(slot: ReferenceFlowSlot): { image: Rect; caption: Re
 
 function referenceImageDrawBox(slotRect: Rect, image: PDFImage): Rect {
   if (
-    Number.isFinite(image.width) &&
-    image.width > 0 &&
-    Number.isFinite(image.height) &&
-    image.height > 0
+    !Number.isFinite(image.width) ||
+    image.width <= 0 ||
+    !Number.isFinite(image.height) ||
+    image.height <= 0
   ) {
     return slotRect;
   }
@@ -220,17 +182,152 @@ function referenceImageDrawBox(slotRect: Rect, image: PDFImage): Rect {
   };
 }
 
+interface PdfTextLayouts {
+  measurements: LayoutMeasurements;
+  planLayouts: ReadonlyMap<string, PdfTextLayout<PDFFont>>;
+  referenceDescriptionLayouts: ReadonlyMap<string, PdfTextLayout<PDFFont>>;
+}
+
+function preparePdfTextLayouts(
+  components: ProjectPlan["components"],
+  geometry: PageGeometry,
+  regular: PDFFont,
+  bold: PDFFont,
+): PdfTextLayouts {
+  const pageContent = contentSize(geometry);
+  const planHeights = new Map<string, number>();
+  const referenceDescriptionHeights = new Map<string, number>();
+  const planLayouts = new Map<string, PdfTextLayout<PDFFont>>();
+  const referenceDescriptionLayouts = new Map<string, PdfTextLayout<PDFFont>>();
+
+  for (const component of components) {
+    const componentWidth = component.width * pageContent.width;
+    const textWidth = Math.max(0, componentWidth - COMPONENT_INSET * 2);
+
+    if (component.type === "plan") {
+      const textLayout = layoutPdfRichText(
+        parseHtmlToBlocks(component.html),
+        textWidth,
+        { regular, bold },
+      );
+      planLayouts.set(component.id, textLayout);
+      planHeights.set(component.id, textLayout.height + COMPONENT_INSET * 2);
+      continue;
+    }
+
+    if (component.description.trim()) {
+      const descriptionLayout = layoutPdfRichText(
+        parseHtmlToBlocks(component.description),
+        textWidth,
+        { regular, bold },
+      );
+      referenceDescriptionLayouts.set(component.id, descriptionLayout);
+      referenceDescriptionHeights.set(component.id, descriptionLayout.height);
+    }
+  }
+
+  return {
+    measurements: { planHeights, referenceDescriptionHeights },
+    planLayouts,
+    referenceDescriptionLayouts,
+  };
+}
+
+interface ResolvedPdfLayout {
+  layout: LayoutResult;
+  paginatedPlanLayouts: ReadonlyMap<string, PaginatedPdfTextLayout<PDFFont>>;
+}
+
+function planPlacement(
+  layout: LayoutResult,
+  componentId: string,
+): ComponentFragmentPlacement | undefined {
+  return layout.placements.find(
+    (placement) => placement.componentId === componentId,
+  );
+}
+
+function samePlanHeights(
+  previous: ReadonlyMap<string, number>,
+  next: ReadonlyMap<string, number>,
+): boolean {
+  if (previous.size !== next.size) {
+    return false;
+  }
+  return Array.from(previous).every(
+    ([id, height]) => Math.abs((next.get(id) ?? Number.NaN) - height) < 0.01,
+  );
+}
+
+function resolvePdfLayout(
+  components: ProjectPlan["components"],
+  geometry: PageGeometry,
+  textLayouts: PdfTextLayouts,
+): ResolvedPdfLayout {
+  let measurements: LayoutMeasurements = {
+    planHeights: new Map(textLayouts.measurements.planHeights),
+    referenceDescriptionHeights:
+      textLayouts.measurements.referenceDescriptionHeights,
+  };
+  const seenHeightSignatures = new Set<string>();
+
+  for (;;) {
+    const signature = JSON.stringify(Array.from(measurements.planHeights));
+    if (seenHeightSignatures.has(signature)) {
+      throw new Error("Unable to stabilize PDF text pagination");
+    }
+    seenHeightSignatures.add(signature);
+
+    const layout = buildCanvasLayout(components, geometry, measurements);
+    const paginatedPlanLayouts = new Map<
+      string,
+      PaginatedPdfTextLayout<PDFFont>
+    >();
+    const nextPlanHeights = new Map<string, number>();
+
+    for (const component of components) {
+      if (component.type !== "plan") {
+        continue;
+      }
+      const placement = planPlacement(layout, component.id);
+      const textLayout = textLayouts.planLayouts.get(component.id);
+      if (!placement || !textLayout) {
+        continue;
+      }
+
+      const paginated = paginatePdfTextLayout(textLayout, {
+        textStartFromDocumentTop:
+          placement.pageIndex * geometry.page.height +
+          geometry.margin +
+          placement.rect.y +
+          COMPONENT_INSET,
+        pageHeight: geometry.page.height,
+        pageMargin: geometry.margin,
+      });
+      paginatedPlanLayouts.set(component.id, paginated);
+      nextPlanHeights.set(
+        component.id,
+        paginated.height + COMPONENT_INSET * 2,
+      );
+    }
+
+    if (samePlanHeights(measurements.planHeights, nextPlanHeights)) {
+      return { layout, paginatedPlanLayouts };
+    }
+
+    measurements = {
+      planHeights: nextPlanHeights,
+      referenceDescriptionHeights:
+        measurements.referenceDescriptionHeights,
+    };
+  }
+}
+
 export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
   return {
     async export(plan: ProjectPlan, images: Record<string, string>): Promise<Uint8Array> {
       const pdf = await PDFDocument.create();
       pdf.registerFontkit(fontkit);
-
-      const layout = buildCanvasLayout(plan.components, DEFAULT_PAGE_GEOMETRY, pdfLayoutMeasurements(plan.components));
-
-      if (layout.pageCount === 0) {
-        return pdf.save();
-      }
 
       const fonts = await loadFonts();
       // Embed with subset: true for small output (full-font embeds are ~16 MB). fontkit's
@@ -239,6 +336,17 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
       // with an invisible glyph below to guarantee both subsets are non-empty.
       const regular = await pdf.embedFont(fonts.regular, { subset: true });
       const bold = await pdf.embedFont(fonts.bold, { subset: true });
+      const textLayouts = preparePdfTextLayouts(
+        plan.components,
+        DEFAULT_PAGE_GEOMETRY,
+        regular,
+        bold,
+      );
+      const { layout, paginatedPlanLayouts } = resolvePdfLayout(
+        plan.components,
+        DEFAULT_PAGE_GEOMETRY,
+        textLayouts,
+      );
 
       const embedded = new Map<string, PDFImage>();
 
@@ -265,15 +373,22 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
 
         const pageY = A4.height - SPACING - placement.rect.y;
         const contentRect: Rect = {
-          x: SPACING + placement.rect.x + SPACING / 2,
-          y: pageY - placement.rect.height + SPACING / 2,
-          width: placement.rect.width - SPACING,
-          height: placement.rect.height - SPACING,
+          x: SPACING + placement.rect.x + COMPONENT_INSET,
+          y: pageY - placement.rect.height + COMPONENT_INSET,
+          width: placement.rect.width - COMPONENT_INSET * 2,
+          height: placement.rect.height - COMPONENT_INSET * 2,
         };
 
         if (component.type === "plan") {
-          const blocks = parseHtmlToBlocks(component.html);
-          drawRichText(page, blocks, contentRect, regular, bold);
+          const textLayout = paginatedPlanLayouts.get(component.id);
+          if (textLayout) {
+            drawPaginatedRichTextLayout(
+              pages,
+              textLayout,
+              contentRect.x,
+              DEFAULT_PAGE_GEOMETRY.page.height,
+            );
+          }
         } else if (component.type === "reference") {
           const ref = component as ReferenceComponent;
           const isContinuation = placement.kind === "continuation";
@@ -287,14 +402,17 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
           });
 
           if (!isContinuation && ref.description.trim()) {
-            const descRect: Rect = {
-              x: contentRect.x,
-              y: contentRect.y + contentRect.height - TITLE_BAND - DESCRIPTION_BAND,
-              width: contentRect.width,
-              height: DESCRIPTION_BAND,
-            };
-            const descBlocks = parseHtmlToBlocks(ref.description);
-            drawRichText(page, descBlocks, descRect, regular, bold);
+            const descriptionLayout =
+              textLayouts.referenceDescriptionLayouts.get(component.id);
+            if (descriptionLayout) {
+              const descRect = slotToPageRect(contentRect, {
+                x: 0,
+                y: REFERENCE_HEADER_HEIGHT,
+                width: contentRect.width,
+                height: descriptionLayout.height,
+              });
+              drawRichTextLayout(page, descriptionLayout, descRect);
+            }
           }
 
           if (placement.imageSlots) {
