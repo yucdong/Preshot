@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { PDFDocument } from "pdf-lib";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProjectPlan } from "../../domain/plan/canvas/models";
 import { createCanvasPdfExporter } from "./canvasPdfExporter";
 
@@ -11,6 +11,10 @@ const TINY_PNG =
 const loadFonts = async () => ({
   regular: new Uint8Array(readFileSync("src/infrastructure/pdf/fonts/NotoSansSC-Regular.otf")),
   bold: new Uint8Array(readFileSync("src/infrastructure/pdf/fonts/NotoSansSC-Bold.otf")),
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("createCanvasPdfExporter", () => {
@@ -235,5 +239,46 @@ describe("createCanvasPdfExporter", () => {
     // this test ensures the PDF is valid and the change is safe.
     // Manual verification or a helper to extract text positions would show x=36.
     expect(bytes.length).toBeGreaterThan(0);
+  }, 20000);
+
+  it("renders continuation headers and fragment-local captions for multi-page references", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const drawText = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawText");
+    const plan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "r1",
+          type: "reference",
+          width: 1,
+          title: "Lookbook",
+          description: "<p>Reference description</p>",
+          showCaptions: true,
+          imageHeight: 180,
+          images: Array.from({ length: 12 }, (_, index) => ({
+            id: `img${index + 1}`,
+            file: `photo${index + 1}.png`,
+            caption: `cap${index + 1}`,
+            aspectRatio: index % 2 === 0 ? 1.8 : 0.6,
+          })),
+        },
+      ],
+    };
+
+    const bytes = await exporter.export(
+      plan,
+      Object.fromEntries(plan.components[0].type === "reference"
+        ? plan.components[0].images.map((image) => [image.file, TINY_PNG])
+        : []),
+    );
+
+    const texts = drawText.mock.calls.map(([text]) => text);
+    const captionTexts = texts.filter((text) => /^cap\d+$/.test(text));
+
+    expect(await PDFDocument.load(bytes)).toBeDefined();
+    expect(texts.filter((text) => text === "Lookbook")).toHaveLength(1);
+    expect(texts).toContain("Lookbook（续）");
+    expect(texts.filter((text) => text === "Reference")).toHaveLength(1);
+    expect(captionTexts).toEqual(Array.from({ length: 12 }, (_, index) => `cap${index + 1}`));
   }, 20000);
 });

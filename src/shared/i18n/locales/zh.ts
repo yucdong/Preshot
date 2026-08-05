@@ -64,6 +64,7 @@ export const zh = {
     imageHeight: "图片高度",
     decreaseImageHeight: "减小图片高度",
     increaseImageHeight: "增大图片高度",
+    continuedTitle: "{{title}}（续）",
   },
   lightbox: {
     close: "关闭图片",

@@ -2,9 +2,10 @@ import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { A4, containSize, DEFAULT_PAGE_GEOMETRY, SPACING, type Rect } from "../../domain/plan/canvas/geometry";
 import type { LayoutMeasurements } from "../../domain/plan/canvas/engine";
-import { DESCRIPTION_BAND, slotCaptionSplit, TITLE_BAND } from "../../domain/plan/canvas/engine";
+import { DESCRIPTION_BAND, TITLE_BAND } from "../../domain/plan/canvas/engine";
 import { DEFAULT_PLAN_HEIGHT, type ProjectPlan, type ReferenceComponent } from "../../domain/plan/canvas/models";
 import { buildCanvasLayout } from "../../domain/plan/canvas/pdf/exportDocument";
+import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
 import { parseHtmlToBlocks, type Block, type Run } from "./htmlToBlocks";
 import { slotToPageRect } from "./slotPageRect";
 
@@ -187,6 +188,18 @@ function drawRichText(
   }
 }
 
+function splitReferenceSlot(slot: ReferenceFlowSlot): { image: Rect; caption: Rect } {
+  return {
+    image: { x: slot.x, y: slot.y, width: slot.width, height: slot.imageHeight },
+    caption: {
+      x: slot.x,
+      y: slot.y + slot.imageHeight,
+      width: slot.width,
+      height: slot.captionHeight,
+    },
+  };
+}
+
 export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
   return {
     async export(plan: ProjectPlan, images: Record<string, string>): Promise<Uint8Array> {
@@ -243,10 +256,17 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
           drawRichText(page, blocks, contentRect, regular, bold);
         } else if (component.type === "reference") {
           const ref = component as ReferenceComponent;
+          const isContinuation = placement.kind === "continuation";
           const titleY = contentRect.y + contentRect.height - TITLE_SIZE;
-          page.drawText(ref.title, { x: contentRect.x, y: titleY, size: TITLE_SIZE, font: bold, color: TEXT_COLOR });
+          page.drawText(isContinuation ? `${ref.title}（续）` : ref.title, {
+            x: contentRect.x,
+            y: titleY,
+            size: TITLE_SIZE,
+            font: bold,
+            color: TEXT_COLOR,
+          });
 
-          if (ref.description.trim()) {
+          if (!isContinuation && ref.description.trim()) {
             const descRect: Rect = {
               x: contentRect.x,
               y: contentRect.y + contentRect.height - TITLE_BAND - DESCRIPTION_BAND,
@@ -258,9 +278,18 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
           }
 
           if (placement.imageSlots) {
-            for (let i = 0; i < placement.imageSlots.length && i < ref.images.length; i += 1) {
-              const slot = placement.imageSlots[i];
-              const imageFile = ref.images[i].file;
+            const imagesById = new Map(ref.images.map((image) => [image.id, image]));
+            for (const slot of placement.imageSlots) {
+              if (slot.kind !== "image") {
+                continue;
+              }
+
+              const imageRecord = imagesById.get(slot.id);
+              if (!imageRecord) {
+                continue;
+              }
+
+              const imageFile = imageRecord.file;
               const dataUrl = images[imageFile];
               if (!dataUrl) continue;
 
@@ -270,7 +299,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
                 embedded.set(imageFile, image);
               }
 
-              const split = slotCaptionSplit(slot, ref.showCaptions);
+              const split = splitReferenceSlot(slot);
               const imageSlotInPage: Rect = slotToPageRect(contentRect, split.image);
 
               page.drawRectangle({
@@ -290,10 +319,16 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
                 height: fit.height,
               });
 
-              if (ref.showCaptions && ref.images[i].caption) {
+              if (ref.showCaptions && imageRecord.caption) {
                 const captionRect: Rect = slotToPageRect(contentRect, split.caption);
                 const savedY = captionRect.y + captionRect.height - CAPTION_SIZE;
-                page.drawText(ref.images[i].caption ?? "", { x: captionRect.x, y: savedY, size: CAPTION_SIZE, font: regular, color: TEXT_COLOR });
+                page.drawText(imageRecord.caption, {
+                  x: captionRect.x,
+                  y: savedY,
+                  size: CAPTION_SIZE,
+                  font: regular,
+                  color: TEXT_COLOR,
+                });
               }
             }
           }

@@ -1,15 +1,15 @@
 import { DndContext } from "@dnd-kit/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Rect } from "../../domain/plan/canvas/geometry";
+import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
 import { SortableImageTile } from "./SortableImageTile";
 
 describe("SortableImageTile", () => {
   const image = { id: "i1", file: "references/0001.png", caption: "" };
-  const mockSlot: Rect = { x: 0, y: 24, width: 160, height: 120 };
+  const mockSlot: ReferenceFlowSlot = { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 };
 
-  it("exposes sortable drag attributes and correct data type when draggable", () => {
-    render(
+  function renderTile(overrides: Partial<Parameters<typeof SortableImageTile>[0]> = {}) {
+    return render(
       <DndContext>
         <SortableImageTile
           componentId="comp1"
@@ -21,9 +21,14 @@ describe("SortableImageTile", () => {
           src="data:image/png;base64,AA"
           slot={mockSlot}
           scale={1}
+          {...overrides}
         />
       </DndContext>,
     );
+  }
+
+  it("exposes sortable drag attributes and correct data type when draggable", () => {
+    renderTile();
 
     const button = screen.getByRole("button", { name: "打开参考图 1" });
     expect(button).toHaveAttribute("aria-roledescription", "sortable");
@@ -32,21 +37,7 @@ describe("SortableImageTile", () => {
   });
 
   it("does not expose sortable attributes when draggable is false", () => {
-    render(
-      <DndContext>
-        <SortableImageTile
-          componentId="comp1"
-          draggable={false}
-          image={image}
-          index={0}
-          onOpen={vi.fn()}
-          onRemove={vi.fn()}
-          src="data:image/png;base64,AA"
-          slot={mockSlot}
-          scale={1}
-        />
-      </DndContext>,
-    );
+    renderTile({ draggable: false });
 
     const button = screen.getByRole("button", { name: "打开参考图 1" });
     expect(button).not.toHaveAttribute("aria-roledescription", "sortable");
@@ -54,21 +45,7 @@ describe("SortableImageTile", () => {
 
   it("opens image on click", () => {
     const onOpen = vi.fn();
-    render(
-      <DndContext>
-        <SortableImageTile
-          componentId="comp1"
-          draggable={true}
-          image={image}
-          index={0}
-          onOpen={onOpen}
-          onRemove={vi.fn()}
-          src="data:image/png;base64,AA"
-          slot={mockSlot}
-          scale={1}
-        />
-      </DndContext>,
-    );
+    renderTile({ onOpen });
 
     fireEvent.click(screen.getByRole("button", { name: "打开参考图 1" }));
     expect(onOpen).toHaveBeenCalledWith("references/0001.png");
@@ -77,23 +54,13 @@ describe("SortableImageTile", () => {
   it("caption textarea and remove button stop propagation when draggable", () => {
     const onOpen = vi.fn();
     const onSetCaption = vi.fn();
-    render(
-      <DndContext>
-        <SortableImageTile
-          componentId="comp1"
-          draggable={true}
-          image={{ ...image, caption: "test" }}
-          index={0}
-          onOpen={onOpen}
-          onRemove={vi.fn()}
-          onSetCaption={onSetCaption}
-          showCaptions={true}
-          src="data:image/png;base64,AA"
-          slot={mockSlot}
-          scale={1}
-        />
-      </DndContext>,
-    );
+    renderTile({
+      image: { ...image, caption: "test" },
+      onOpen,
+      onSetCaption,
+      showCaptions: true,
+      slot: { ...mockSlot, imageHeight: 90, captionHeight: 30, height: 120 },
+    });
 
     // Caption interaction should not trigger onOpen
     const caption = screen.getByRole("textbox", { name: "图片说明 1" });
@@ -108,26 +75,28 @@ describe("SortableImageTile", () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
+  it("renders the image and caption as separate vertical regions", () => {
+    renderTile({
+      image: { ...image, caption: "test" },
+      onSetCaption: vi.fn(),
+      showCaptions: true,
+      slot: { kind: "image", id: "i1", x: 0, y: 0, width: 180, height: 180, imageHeight: 135, captionHeight: 45 },
+    });
+
+    expect(screen.getByRole("img", { name: "参考图" })).toHaveClass("object-contain");
+    expect(screen.getByTestId("image-region")).toHaveStyle({ height: "135px" });
+    expect(screen.getByRole("textbox", { name: "图片说明 1" })).toHaveStyle({ height: "45px" });
+  });
+
   it("caption textarea has explicit background for contrast", () => {
     // TDD: Failing test for Finding 3
     const onSetCaption = vi.fn();
-    render(
-      <DndContext>
-        <SortableImageTile
-          componentId="comp1"
-          draggable={true}
-          image={{ ...image, caption: "test" }}
-          index={0}
-          onOpen={vi.fn()}
-          onRemove={vi.fn()}
-          onSetCaption={onSetCaption}
-          showCaptions={true}
-          src="data:image/png;base64,AA"
-          slot={mockSlot}
-          scale={1}
-        />
-      </DndContext>,
-    );
+    renderTile({
+      image: { ...image, caption: "test" },
+      onSetCaption,
+      showCaptions: true,
+      slot: { ...mockSlot, imageHeight: 90, captionHeight: 30, height: 120 },
+    });
 
     const caption = screen.getByRole("textbox", { name: "图片说明 1" });
     // Should have bg-white or bg-stone-50 class

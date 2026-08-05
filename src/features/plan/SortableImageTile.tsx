@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTranslation } from "react-i18next";
-import type { Rect } from "../../domain/plan/canvas/geometry";
+import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
 
 const tileButton =
   "group relative block h-full w-full overflow-hidden rounded-xl border border-black/10 bg-stone-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-white/10 dark:bg-stone-800";
@@ -22,7 +22,7 @@ interface SortableImageTileProps {
   draggable?: boolean;
   showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
-  slot: Rect;
+  slot: ReferenceFlowSlot;
   scale: number;
 }
 
@@ -44,9 +44,8 @@ export function SortableImageTile({
     id: image.id,
     data: { type: "image", componentId }
   });
-
-  // Calculate caption band height (bottom quarter of slot for captions)
-  const captionHeight = showCaptions ? Math.round(slot.height / 4) : 0;
+  const imageHeight = slot.imageHeight * scale;
+  const captionHeight = showCaptions ? slot.captionHeight * scale : 0;
 
   // When draggable is false, don't apply transform or drag styles
   const style = draggable
@@ -73,15 +72,18 @@ export function SortableImageTile({
       <button
         aria-label={t("reference.openImage", { index: index + 1 })}
         className={tileButton}
+        style={{ height: `${imageHeight}px` }}
         onClick={() => onOpen(image.file)}
         type="button"
         {...(draggable ? { ...attributes, ...listeners } : {})}
       >
-        {src ? (
-          <img alt={t("reference.imageAlt")} className="h-full w-full object-cover" draggable={false} src={src} />
-        ) : (
-          <span className="flex h-full w-full items-center justify-center text-xs text-stone-400">{t("reference.loading")}</span>
-        )}
+        <div data-testid="image-region" style={{ height: `${imageHeight}px` }}>
+          {src ? (
+            <img alt={t("reference.imageAlt")} className="h-full w-full object-contain" draggable={false} src={src} />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-xs text-stone-400">{t("reference.loading")}</span>
+          )}
+        </div>
       </button>
       <button
         aria-label={t("reference.removeImage", { index: index + 1 })}
@@ -100,7 +102,7 @@ export function SortableImageTile({
             bottom: 0,
             left: 0,
             right: 0,
-            height: `${captionHeight * scale}px`,
+            height: `${captionHeight}px`,
           }}
           onChange={(e) => onSetCaption(image.id, e.target.value)}
           onClick={(e) => e.stopPropagation()}

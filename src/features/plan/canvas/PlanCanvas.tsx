@@ -270,6 +270,8 @@ export function PlanCanvas({
                   <ReferenceComponentView
                     component={component}
                     enableReorder={true}
+                    fragmentIndex={placement.fragmentIndex}
+                    fragmentKind={placement.kind}
                     imageSrc={imageSrc}
                     onAddImage={onAddImage}
                     onOpenImage={onOpenImage}

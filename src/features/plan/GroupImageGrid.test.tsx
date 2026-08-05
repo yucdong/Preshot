@@ -1,7 +1,7 @@
 import { DndContext } from "@dnd-kit/core";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Rect } from "../../domain/plan/canvas/geometry";
+import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
 import { imageGroupDroppableId } from "./canvas/imageDropTarget";
 import { GroupImageGrid } from "./GroupImageGrid";
 
@@ -18,9 +18,10 @@ const group: GroupLike = {
   ],
 };
 
-const mockSlots: Rect[] = [
-  { x: 0, y: 24, width: 160, height: 120 },
-  { x: 172, y: 24, width: 160, height: 120 },
+const mockSlots: ReferenceFlowSlot[] = [
+  { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+  { kind: "image", id: "i2", x: 172, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+  { kind: "add", id: "__add__", x: 0, y: 156, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
 ];
 
 function renderGrid(overrides: Partial<Parameters<typeof GroupImageGrid>[0]> = {}) {
@@ -69,6 +70,19 @@ describe("GroupImageGrid", () => {
     expect(props.onOpenImage).toHaveBeenCalledWith("references/0001.png");
   });
 
+  it("renders fragment images by slot id instead of image array index", () => {
+    const slots: ReferenceFlowSlot[] = [
+      { kind: "image", id: "i2", x: 0, y: 0, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+      { kind: "image", id: "i1", x: 172, y: 0, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+      { kind: "add", id: "__add__", x: 0, y: 132, width: 120, height: 90, imageHeight: 90, captionHeight: 0 },
+    ];
+
+    const props = renderGrid({ slots });
+
+    fireEvent.click(screen.getByRole("button", { name: "打开参考图 1" }));
+    expect(props.onOpenImage).toHaveBeenCalledWith("references/0002.png");
+  });
+
   it("removes and adds images through the tile and add button", () => {
     const props = renderGrid();
     fireEvent.click(screen.getByRole("button", { name: "移除参考图 2" }));
@@ -86,10 +100,10 @@ describe("GroupImageGrid", () => {
         { id: "i3", file: "references/0003.png" },
       ],
     };
-    const slots: Rect[] = [
-      { x: 0, y: 24, width: 160, height: 120 },
-      { x: 172, y: 24, width: 160, height: 120 },
-      { x: 0, y: 156, width: 160, height: 120 },
+    const slots: ReferenceFlowSlot[] = [
+      { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 90, captionHeight: 30 },
+      { kind: "image", id: "i2", x: 172, y: 24, width: 160, height: 120, imageHeight: 90, captionHeight: 30 },
+      { kind: "image", id: "i3", x: 0, y: 156, width: 160, height: 120, imageHeight: 90, captionHeight: 30 },
     ];
     const props = renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: true, onSetCaption: vi.fn() });
 
@@ -116,9 +130,9 @@ describe("GroupImageGrid", () => {
         { id: "i2", file: "references/0002.png" },
       ],
     };
-    const slots: Rect[] = [
-      { x: 0, y: 24, width: 160, height: 120 },
-      { x: 172, y: 24, width: 160, height: 120 },
+    const slots: ReferenceFlowSlot[] = [
+      { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+      { kind: "image", id: "i2", x: 172, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
     ];
     renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: false });
 
@@ -131,8 +145,8 @@ describe("GroupImageGrid", () => {
       id: "g1",
       images: [{ id: "i1", file: "references/0001.png", caption: "" }],
     };
-    const slots: Rect[] = [
-      { x: 0, y: 24, width: 160, height: 120 },
+    const slots: ReferenceFlowSlot[] = [
+      { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 90, captionHeight: 30 },
     ];
     const props = renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: true, onSetCaption: vi.fn() });
 
@@ -151,9 +165,9 @@ describe("GroupImageGrid", () => {
   });
 
   it("positions each tile absolutely at its slot × scale", () => {
-    const slots: Rect[] = [
-      { x: 0, y: 24, width: 160, height: 120 },
-      { x: 172, y: 24, width: 180, height: 135 },
+    const slots: ReferenceFlowSlot[] = [
+      { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+      { kind: "image", id: "i2", x: 172, y: 24, width: 180, height: 135, imageHeight: 135, captionHeight: 0 },
     ];
     const scale = 0.5;
     renderGrid({ slots, scale });
@@ -184,7 +198,7 @@ describe("GroupImageGrid", () => {
       id: "g1",
       images: [{ id: "i1", file: "references/0001.png", caption: "Test caption" }],
     };
-    const slots: Rect[] = [{ x: 0, y: 24, width: 160, height: 120 }];
+    const slots: ReferenceFlowSlot[] = [{ kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 90, captionHeight: 30 }];
     renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: true, onSetCaption: vi.fn() });
 
     const caption = screen.getByRole("textbox", { name: "图片说明 1" });
@@ -195,9 +209,10 @@ describe("GroupImageGrid", () => {
   it("positions add button at/below max(y+height) when slots have differing heights", () => {
     // TDD: Failing test for Finding 1
     // Slots in one row with different heights: tallest is 180, last is 120
-    const slots: Rect[] = [
-      { x: 0, y: 0, width: 160, height: 180 },
-      { x: 172, y: 0, width: 160, height: 120 },
+    const slots: ReferenceFlowSlot[] = [
+      { kind: "image", id: "i1", x: 0, y: 0, width: 160, height: 180, imageHeight: 180, captionHeight: 0 },
+      { kind: "image", id: "i2", x: 172, y: 0, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+      { kind: "add", id: "__add__", x: 0, y: 192, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
     ];
     const scale = 1;
     renderGrid({ slots, scale });
@@ -213,8 +228,9 @@ describe("GroupImageGrid", () => {
 
   it("scales add button size consistently with image tiles", () => {
     // TDD: Failing test for Finding 2
-    const slots: Rect[] = [
-      { x: 0, y: 24, width: 160, height: 120 },
+    const slots: ReferenceFlowSlot[] = [
+      { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+      { kind: "add", id: "__add__", x: 0, y: 156, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
     ];
     const scale = 0.5;
     renderGrid({ slots, scale });
@@ -226,5 +242,22 @@ describe("GroupImageGrid", () => {
     // If original is 160x120 points, at scale 0.5 it should be 80x60 pixels
     expect(container?.style.width).toBe("80px");
     expect(container?.style.height).toBe("60px");
+  });
+
+  it("renders the add button only from an add slot", () => {
+    renderGrid({
+      slots: [{ kind: "image", id: "i1", x: 0, y: 0, width: 160, height: 120, imageHeight: 120, captionHeight: 0 }],
+    });
+
+    expect(screen.queryByRole("button", { name: "添加参考图" })).toBeNull();
+
+    renderGrid({
+      slots: [
+        { kind: "image", id: "i1", x: 0, y: 0, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
+        { kind: "add", id: "__add__", x: 0, y: 132, width: 120, height: 90, imageHeight: 90, captionHeight: 0 },
+      ],
+    });
+
+    expect(screen.getByRole("button", { name: "添加参考图" })).toBeInTheDocument();
   });
 });
