@@ -40,9 +40,28 @@ function cleanupBlock(element: HTMLElement): void {
   element.removeAttribute("data-preshot-block-id");
 }
 
+function blockNoteEditorRoot(root: HTMLDivElement): HTMLElement | null {
+  const editorRoot = root.querySelector(".bn-editor");
+  return editorRoot instanceof HTMLElement ? editorRoot : null;
+}
+
+function topLevelBlockGroup(root: HTMLDivElement): HTMLElement | null {
+  const editorRoot = blockNoteEditorRoot(root);
+  if (!editorRoot) {
+    return null;
+  }
+
+  return (
+    Array.from(editorRoot.children).find(
+      (element): element is HTMLElement =>
+        element instanceof HTMLElement && element.getAttribute("data-node-type") === "blockGroup",
+    ) ?? null
+  );
+}
+
 function topLevelBlocks(root: HTMLDivElement): HTMLElement[] {
-  const blockGroup = root.querySelector('[data-node-type="blockGroup"]');
-  if (!(blockGroup instanceof HTMLElement)) {
+  const blockGroup = topLevelBlockGroup(root);
+  if (!blockGroup) {
     return [];
   }
 
@@ -125,6 +144,7 @@ export function usePlanContentMeasurement(input: {
   const observedBlocksRef = useRef<HTMLElement[]>([]);
   const lastMeasurementRef = useRef<PlanMeasurement | null>(null);
   const onMeasureRef = useRef(input.onMeasure);
+  const mutationTargetRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     onMeasureRef.current = input.onMeasure;
@@ -139,6 +159,29 @@ export function usePlanContentMeasurement(input: {
     const observer = new ResizeObserver(() => {
       recalculate();
     });
+    const mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(() => {
+            scheduleRecalculate();
+          });
+    let scheduled = false;
+    let disposed = false;
+
+    const scheduleRecalculate = () => {
+      if (scheduled) {
+        return;
+      }
+
+      scheduled = true;
+      queueMicrotask(() => {
+        scheduled = false;
+        if (disposed) {
+          return;
+        }
+        recalculate();
+      });
+    };
 
     const observeBlocks = (blocks: HTMLElement[]) => {
       const current = new Set(blocks);
@@ -155,15 +198,28 @@ export function usePlanContentMeasurement(input: {
       observedBlocksRef.current = blocks;
     };
 
+    const observeMutations = (target: HTMLElement | null) => {
+      if (!mutationObserver || mutationTargetRef.current === target) {
+        return;
+      }
+
+      mutationObserver.disconnect();
+      mutationTargetRef.current = target;
+      if (target) {
+        mutationObserver.observe(target, { childList: true, subtree: true });
+      }
+    };
+
     const recalculate = () => {
       const scale = input.scale;
       const contentHeightPoints = input.contentHeightPoints;
+      observeMutations(blockNoteEditorRoot(root));
       if (!Number.isFinite(scale) || scale <= 0 || !Number.isFinite(contentHeightPoints) || contentHeightPoints <= 0) {
+        observeBlocks([]);
         for (const block of touchedBlocksRef.current) {
           cleanupBlock(block);
         }
         touchedBlocksRef.current.clear();
-        observedBlocksRef.current = [];
         return;
       }
 
@@ -248,8 +304,11 @@ export function usePlanContentMeasurement(input: {
     recalculate();
 
     return () => {
+      disposed = true;
       observer.disconnect();
-      observedBlocksRef.current = [];
+      mutationObserver?.disconnect();
+      mutationTargetRef.current = null;
+      observeBlocks([]);
       lastMeasurementRef.current = null;
       for (const block of touchedBlocksRef.current) {
         cleanupBlock(block);
