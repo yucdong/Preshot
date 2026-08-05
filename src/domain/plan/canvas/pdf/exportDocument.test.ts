@@ -9,7 +9,6 @@ describe("buildCanvasLayout", () => {
       id: "c1",
       type: "plan",
       width: 1,
-      height: 200,
       html: "<p>Text</p>",
     };
 
@@ -29,14 +28,12 @@ describe("buildCanvasLayout", () => {
       id: "c1",
       type: "plan",
       width: 0.5,
-      height: 200,
       html: "<p>Left</p>",
     };
     const c2: PlanTextComponent = {
       id: "c2",
       type: "plan",
       width: 0.5,
-      height: 200,
       html: "<p>Right</p>",
     };
 
@@ -51,27 +48,18 @@ describe("buildCanvasLayout", () => {
   });
 
   it("returns multiple pages when components overflow page height", () => {
-    const contentHeight = DEFAULT_PAGE_GEOMETRY.page.height - 2 * DEFAULT_PAGE_GEOMETRY.margin;
-    const c1: PlanTextComponent = {
-      id: "c1",
-      type: "plan",
-      width: 1,
-      height: contentHeight,
-      html: "<p>Page 1</p>",
-    };
-    const c2: PlanTextComponent = {
-      id: "c2",
-      type: "plan",
-      width: 1,
-      height: 200,
-      html: "<p>Page 2</p>",
-    };
+    const components: PlanTextComponent[] = [
+      { id: "c1", type: "plan", width: 1, html: "<p>Page 1A</p>" },
+      { id: "c2", type: "plan", width: 1, html: "<p>Page 1B</p>" },
+      { id: "c3", type: "plan", width: 1, html: "<p>Page 1C</p>" },
+      { id: "c4", type: "plan", width: 1, html: "<p>Page 2</p>" },
+    ];
 
-    const layout = buildCanvasLayout([c1, c2]);
+    const layout = buildCanvasLayout(components);
 
     expect(layout.pageCount).toBe(2);
     expect(layout.placements[0].pageIndex).toBe(0);
-    expect(layout.placements[1].pageIndex).toBe(1);
+    expect(layout.placements[3].pageIndex).toBe(1);
   });
 
   it("includes imageSlots for reference components", () => {
@@ -79,7 +67,6 @@ describe("buildCanvasLayout", () => {
       id: "r1",
       type: "reference",
       width: 1,
-      height: 320,
       title: "Reference",
       description: "",
       showCaptions: false, imageHeight: 180, images: [
@@ -97,20 +84,17 @@ describe("buildCanvasLayout", () => {
   });
 
   it("handles multi-page layout with mixed component types", () => {
-    const contentHeight = DEFAULT_PAGE_GEOMETRY.page.height - 2 * DEFAULT_PAGE_GEOMETRY.margin;
     const components: PlanComponent[] = [
       {
         id: "p1",
         type: "plan",
         width: 1,
-        height: contentHeight - 50,
         html: "<p>Intro</p>",
       },
       {
         id: "r1",
         type: "reference",
         width: 1,
-        height: 320,
         title: "Photos",
         description: "Description text",
         showCaptions: true, imageHeight: 180, images: [
@@ -123,14 +107,12 @@ describe("buildCanvasLayout", () => {
         id: "p2",
         type: "plan",
         width: 0.5,
-        height: 200,
         html: "<p>Notes left</p>",
       },
       {
         id: "p3",
         type: "plan",
         width: 0.5,
-        height: 200,
         html: "<p>Notes right</p>",
       },
     ];
@@ -155,7 +137,6 @@ describe("buildCanvasLayout", () => {
       id: "c1",
       type: "plan",
       width: 1,
-      height: 200,
       html: "<p>Text</p>",
     };
 

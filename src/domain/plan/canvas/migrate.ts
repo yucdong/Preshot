@@ -1,18 +1,13 @@
-import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import {
-  clampHeight,
   clampImageHeight,
   clampWidth,
+  CURRENT_SCHEMA_VERSION,
   DEFAULT_IMAGE_HEIGHT,
-  DEFAULT_PLAN_HEIGHT,
-  DEFAULT_REFERENCE_HEIGHT,
   EMPTY_PLAN,
   type PlanComponent,
   type ProjectPlan,
   type ReferenceImage,
 } from "./models";
-
-const MAX_HEIGHT = contentSize(DEFAULT_PAGE_GEOMETRY).height;
 
 type IdFactory = (prefix: string) => string;
 
@@ -25,75 +20,102 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function asHeight(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? clampHeight(value, MAX_HEIGHT) : fallback;
-}
-
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-// v3: images MUST have aspectRatio
-function normalizeV3Images(value: unknown): ReferenceImage[] {
+function normalizeAspectRatio(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return value > 0 ? value : 1;
+}
+
+function normalizeV4Images(value: unknown): ReferenceImage[] {
   if (!Array.isArray(value)) {
     return [];
   }
   const images: ReferenceImage[] = [];
   for (const raw of value) {
-    if (isRecord(raw) && typeof raw.id === "string" && typeof raw.file === "string") {
-      if (typeof raw.aspectRatio !== "number" || !Number.isFinite(raw.aspectRatio)) {
-        continue; // drop images without valid aspectRatio
-      }
-      const aspectRatio = raw.aspectRatio > 0 ? raw.aspectRatio : 1;
-      const image: ReferenceImage = { id: raw.id, file: raw.file, aspectRatio };
-      if (typeof raw.caption === "string") {
-        image.caption = raw.caption;
-      }
-      images.push(image);
+    if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.file !== "string") {
+      continue;
     }
+    const aspectRatio = normalizeAspectRatio(raw.aspectRatio);
+    if (aspectRatio === null) {
+      continue;
+    }
+    const image: ReferenceImage = { id: raw.id, file: raw.file, aspectRatio };
+    if (typeof raw.caption === "string") {
+      image.caption = raw.caption;
+    }
+    images.push(image);
   }
   return images;
 }
 
-// v3: components MUST have width (and imageHeight for references)
-function normalizeV3Component(raw: unknown, makeId: IdFactory): PlanComponent | null {
+function normalizeComponentFields(raw: unknown, makeId: IdFactory): PlanComponent | null {
   if (!isRecord(raw)) {
     return null;
   }
   if (typeof raw.width !== "number" || !Number.isFinite(raw.width)) {
-    return null; // drop components without valid width
+    return null;
   }
   const id = typeof raw.id === "string" && raw.id ? raw.id : makeId("cmp");
   const width = clampWidth(raw.width);
+
   if (raw.type === "plan") {
     return {
       id,
       type: "plan",
       width,
-      height: asHeight(raw.height, DEFAULT_PLAN_HEIGHT),
       html: asString(raw.html),
     };
   }
+
   if (raw.type === "reference") {
     if (typeof raw.imageHeight !== "number" || !Number.isFinite(raw.imageHeight)) {
-      return null; // drop references without valid imageHeight
+      return null;
     }
     return {
       id,
       type: "reference",
       width,
-      height: asHeight(raw.height, DEFAULT_REFERENCE_HEIGHT),
       title: asString(raw.title),
       description: asString(raw.description),
       imageHeight: clampImageHeight(raw.imageHeight),
       showCaptions: raw.showCaptions === true,
-      images: normalizeV3Images(raw.images),
+      images: normalizeV4Images(raw.images),
     };
   }
+
   return null;
 }
 
-// v2->v3: add aspectRatio = 1 for images
+function normalizeV4Component(raw: unknown, makeId: IdFactory): PlanComponent | null {
+  return normalizeComponentFields(raw, makeId);
+}
+
+function migrateV3Component(raw: unknown, makeId: IdFactory): PlanComponent | null {
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const normalized = normalizeComponentFields(raw, makeId);
+  if (!normalized) {
+    return null;
+  }
+  if (normalized.type === "reference") {
+    const legacyImageHeight =
+      typeof raw.imageHeight === "number" && Number.isFinite(raw.imageHeight)
+        ? raw.imageHeight
+        : normalized.imageHeight;
+    return {
+      ...normalized,
+      imageHeight: clampImageHeight(legacyImageHeight * 0.75),
+    };
+  }
+  return normalized;
+}
+
 function migrateV2Images(value: unknown): ReferenceImage[] {
   if (!Array.isArray(value)) {
     return [];
@@ -111,7 +133,6 @@ function migrateV2Images(value: unknown): ReferenceImage[] {
   return images;
 }
 
-// v2->v3: widthFraction -> width, drop columnsPerRow, add imageHeight
 const FRACTION_TO_NUMBER: Record<string, number> = {
   "1": 1,
   "3/4": 0.75,
@@ -128,21 +149,21 @@ function migrateV2Component(raw: unknown, makeId: IdFactory): PlanComponent | nu
   const id = typeof raw.id === "string" && raw.id ? raw.id : makeId("cmp");
   const widthFraction = typeof raw.widthFraction === "string" ? raw.widthFraction : "1";
   const width = FRACTION_TO_NUMBER[widthFraction] ?? 1;
+
   if (raw.type === "plan") {
     return {
       id,
       type: "plan",
       width,
-      height: asHeight(raw.height, DEFAULT_PLAN_HEIGHT),
       html: asString(raw.html),
     };
   }
+
   if (raw.type === "reference") {
     return {
       id,
       type: "reference",
       width,
-      height: asHeight(raw.height, DEFAULT_REFERENCE_HEIGHT),
       title: asString(raw.title),
       description: asString(raw.description),
       imageHeight: DEFAULT_IMAGE_HEIGHT,
@@ -150,10 +171,10 @@ function migrateV2Component(raw: unknown, makeId: IdFactory): PlanComponent | nu
       images: migrateV2Images(raw.images),
     };
   }
+
   return null;
 }
 
-// v1->v2->v3 chain
 function migrateV1ToV2(raw: Record<string, unknown>, makeId: IdFactory): Record<string, unknown> {
   const components: unknown[] = [];
   const photographyPlan = asString(raw.photographyPlan);
@@ -162,7 +183,6 @@ function migrateV1ToV2(raw: Record<string, unknown>, makeId: IdFactory): Record<
       id: makeId("plan"),
       type: "plan",
       widthFraction: "1",
-      height: DEFAULT_PLAN_HEIGHT,
       html: photographyPlan,
     });
   }
@@ -175,7 +195,6 @@ function migrateV1ToV2(raw: Record<string, unknown>, makeId: IdFactory): Record<
         id: typeof group.id === "string" && group.id ? group.id : makeId("ref"),
         type: "reference",
         widthFraction: "1",
-        height: DEFAULT_REFERENCE_HEIGHT,
         title: asString(group.title),
         description: asString(group.description),
         columnsPerRow: 3,
@@ -191,28 +210,35 @@ export function migratePlan(raw: unknown, makeId: IdFactory = defaultIdFactory()
   if (!isRecord(raw)) {
     return EMPTY_PLAN;
   }
-  // Forward compatibility: unknown schemaVersion > 3
-  if (typeof raw.schemaVersion === "number" && raw.schemaVersion > 3) {
+  if (typeof raw.schemaVersion === "number" && raw.schemaVersion > CURRENT_SCHEMA_VERSION) {
     return EMPTY_PLAN;
   }
-  // v3: normalize
+  if (raw.schemaVersion === 4 && Array.isArray(raw.components)) {
+    return {
+      schemaVersion: 4,
+      components: raw.components
+        .map((value) => normalizeV4Component(value, makeId))
+        .filter((value): value is PlanComponent => value !== null),
+    };
+  }
   if (raw.schemaVersion === 3 && Array.isArray(raw.components)) {
-    const components = raw.components
-      .map((component) => normalizeV3Component(component, makeId))
-      .filter((component): component is PlanComponent => component !== null);
-    return { schemaVersion: 3, components };
+    return {
+      schemaVersion: 4,
+      components: raw.components
+        .map((value) => migrateV3Component(value, makeId))
+        .filter((value): value is PlanComponent => value !== null),
+    };
   }
-  // v2->v3: migrate
   if (raw.schemaVersion === 2 && Array.isArray(raw.components)) {
-    const components = raw.components
-      .map((component) => migrateV2Component(component, makeId))
-      .filter((component): component is PlanComponent => component !== null);
-    return { schemaVersion: 3, components };
+    return {
+      schemaVersion: 4,
+      components: raw.components
+        .map((value) => migrateV2Component(value, makeId))
+        .filter((value): value is PlanComponent => value !== null),
+    };
   }
-  // v1->v2->v3: chain
   if (typeof raw.photographyPlan === "string" || Array.isArray(raw.referenceGroups)) {
-    const v2 = migrateV1ToV2(raw, makeId);
-    return migratePlan(v2, makeId);
+    return migratePlan(migrateV1ToV2(raw, makeId), makeId);
   }
   return EMPTY_PLAN;
 }

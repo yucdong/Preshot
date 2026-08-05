@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import {
   addComponent,
   addReferenceImage,
@@ -15,23 +14,19 @@ import {
   updatePlanHtml,
 } from "./plan";
 import {
-  MIN_COMPONENT_HEIGHT,
   type PlanComponent,
   type ProjectPlan,
   type ReferenceComponent,
 } from "./models";
 
-const maxHeight = contentSize(DEFAULT_PAGE_GEOMETRY).height;
-
 function planText(id: string): PlanComponent {
-  return { id, type: "plan", width: 1, height: 200, html: `<p>${id}</p>` };
+  return { id, type: "plan", width: 1, html: `<p>${id}</p>` };
 }
 function reference(id: string, images: string[] = []): ReferenceComponent {
   return {
     id,
     type: "reference",
     width: 1,
-    height: 300,
     title: id,
     description: "",
     showCaptions: false,
@@ -40,7 +35,7 @@ function reference(id: string, images: string[] = []): ReferenceComponent {
   };
 }
 function withComponents(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 3, components };
+  return { schemaVersion: 4, components };
 }
 
 describe("canvas reducers", () => {
@@ -70,14 +65,6 @@ describe("canvas reducers", () => {
     expect(moveComponent(plan, { id: "a", toIndex: 0 })).toBe(plan);
   });
 
-  it("resizes width and clamps height", () => {
-    const plan = withComponents([planText("a")]);
-    const resized = resizeComponent(plan, { id: "a", width: 0.5, height: 10 });
-    expect(resized.components[0].width).toBe(0.5);
-    expect(resized.components[0].height).toBe(MIN_COMPONENT_HEIGHT);
-    expect(resizeComponent(plan, { id: "a", height: maxHeight + 999 }).components[0].height).toBeCloseTo(maxHeight, 5);
-  });
-
   it("resizes to a continuous width, clamped to MIN_WIDTH", () => {
     const plan = withComponents([planText("a")]);
     const resized = resizeComponent(plan, { id: "a", width: 0.5 });
@@ -85,6 +72,17 @@ describe("canvas reducers", () => {
     const MIN_WIDTH = 0.15;
     const clamped = resizeComponent(plan, { id: "a", width: 0.01 });
     expect(clamped.components[0].width).toBe(MIN_WIDTH);
+  });
+
+  it("resizes width without introducing a persisted height", () => {
+    const plan = withComponents([{ id: "p", type: "plan", width: 1, html: "" }]);
+    const next = resizeComponent(plan, {
+      id: "p",
+      width: 0.5,
+    });
+
+    expect(next.components[0]).toEqual({ id: "p", type: "plan", width: 0.5, html: "" });
+    expect(next.components[0]).not.toHaveProperty("height");
   });
 
   it("updates plan html", () => {

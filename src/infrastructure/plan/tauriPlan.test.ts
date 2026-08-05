@@ -16,7 +16,7 @@ describe("createTauriPlan", () => {
     const invokeCommand = vi.fn().mockRejectedValue({ message: "boom" });
     const plan = createTauriPlan({ invokeCommand });
 
-    await expect(plan.saveRawPlan("C:\\p", { schemaVersion: 3, components: [] })).rejects.toThrow(
+    await expect(plan.saveRawPlan("C:\\p", { schemaVersion: 4, components: [] })).rejects.toThrow(
       /Unable to save the project plan: boom/,
     );
   });

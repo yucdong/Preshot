@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import { layoutPlan, referenceImageSlots, slotCaptionSplit, TITLE_BAND } from "./engine";
-import type { PlanComponent, ReferenceComponent } from "./models";
+import {
+  DEFAULT_IMAGE_HEIGHT,
+  DEFAULT_PLAN_HEIGHT,
+  type PlanComponent,
+  type ReferenceComponent,
+} from "./models";
 
 const content = contentSize(DEFAULT_PAGE_GEOMETRY);
 
-function plan(id: string, width: number, height: number): PlanComponent {
-  return { id, type: "plan", width, height, html: "" };
+function plan(id: string, width: number, _height: number = DEFAULT_PLAN_HEIGHT): PlanComponent {
+  return { id, type: "plan", width, html: "" };
 }
 
 describe("layoutPlan placement", () => {
@@ -15,7 +20,7 @@ describe("layoutPlan placement", () => {
     expect(pageCount).toBe(1);
     expect(placements).toHaveLength(1);
     expect(placements[0]).toMatchObject({ componentId: "a", pageIndex: 0 });
-    expect(placements[0].rect).toEqual({ x: 0, y: 0, width: content.width, height: 100 });
+    expect(placements[0].rect).toEqual({ x: 0, y: 0, width: content.width, height: DEFAULT_PLAN_HEIGHT });
   });
 
   it("flows two half-width components side by side on one row", () => {
@@ -34,7 +39,7 @@ describe("layoutPlan placement", () => {
     expect(a.rect).toMatchObject({ x: 0, y: 0 });
     // b (1/2) does not fit next to a (2/3): 2/3 + 1/2 > 1 -> new row
     expect(b.rect.x).toBe(0);
-    expect(b.rect.y).toBeCloseTo(100 + DEFAULT_PAGE_GEOMETRY.rowGap, 5);
+    expect(b.rect.y).toBeCloseTo(DEFAULT_PLAN_HEIGHT + DEFAULT_PAGE_GEOMETRY.rowGap, 5);
     // c (1/3) fits next to b (1/2) on the same row
     expect(c.rect.y).toBeCloseTo(b.rect.y, 5);
     expect(c.rect.x).toBeCloseTo(content.width / 2, 5);
@@ -42,18 +47,22 @@ describe("layoutPlan placement", () => {
   });
 
   it("moves a component wholly to the next page when the page is full", () => {
-    const tall = content.height - 20; // nearly a full page
-    const { pageCount, placements } = layoutPlan([plan("a", 1, tall), plan("b", 1, 100)]);
+    const { pageCount, placements } = layoutPlan([
+      plan("a", 1),
+      plan("b", 1),
+      plan("c", 1),
+      plan("d", 1),
+    ]);
     expect(pageCount).toBe(2);
     expect(placements[0]).toMatchObject({ pageIndex: 0 });
-    expect(placements[1]).toMatchObject({ pageIndex: 1 });
-    expect(placements[1].rect).toEqual({ x: 0, y: 0, width: content.width, height: 100 });
+    expect(placements[3]).toMatchObject({ pageIndex: 1 });
+    expect(placements[3].rect).toEqual({ x: 0, y: 0, width: content.width, height: DEFAULT_PLAN_HEIGHT });
   });
 
-  it("clamps a component taller than a page to the page content height", () => {
-    const { pageCount, placements } = layoutPlan([plan("a", 1, content.height + 500)]);
+  it("uses the default plan height when laying out plan components", () => {
+    const { pageCount, placements } = layoutPlan([plan("a", 1)]);
     expect(pageCount).toBe(1);
-    expect(placements[0].rect.height).toBeCloseTo(content.height, 5);
+    expect(placements[0].rect.height).toBeCloseTo(DEFAULT_PLAN_HEIGHT, 5);
   });
 
   it("returns one empty page for no components", () => {
@@ -66,7 +75,6 @@ function reference(overrides: Partial<ReferenceComponent> = {}): ReferenceCompon
     id: "r",
     type: "reference",
     width: 1,
-    height: 300,
     title: "T",
     description: "",
     showCaptions: false, imageHeight: 180, images: [
@@ -164,7 +172,6 @@ describe("reference image slots", () => {
       id: "r",
       type: "reference",
       width: 1,
-      height: 500,
       title: "Test",
       description: "",
       showCaptions: true,
@@ -200,7 +207,7 @@ describe("reference image slots", () => {
 
 describe("continuous width layout", () => {
   function mk(id: string, width: number): PlanComponent {
-    return { id, type: "plan", width, height: 100, html: "" };
+    return { id, type: "plan", width, html: "" };
   }
 
   it("packs two sub-half-width components on one row and wraps wider ones", () => {
@@ -256,17 +263,17 @@ describe("aspect-ratio reference image slots", () => {
     expect(caption.y).toBe(image.y + image.height);
   });
 
-  it("uses DEFAULT_IMAGE_HEIGHT when imageHeight is undefined", () => {
+  it("uses DEFAULT_IMAGE_HEIGHT when the component is configured with the new default", () => {
     const rect = { x: 0, y: 0, width: 400, height: 400 };
     const comp = reference({
+      imageHeight: DEFAULT_IMAGE_HEIGHT,
       images: [
         { id: "i1", file: "photo.png", aspectRatio: 1 },
       ],
     });
     const slots = referenceImageSlots(rect, comp);
     expect(slots).toHaveLength(1);
-    // Should use DEFAULT_IMAGE_HEIGHT (180)
-    expect(slots[0].height).toBeCloseTo(180, 1);
-    expect(slots[0].width).toBeCloseTo(180, 1); // ratio 1 × 180
+    expect(slots[0].height).toBeCloseTo(DEFAULT_IMAGE_HEIGHT, 1);
+    expect(slots[0].width).toBeCloseTo(DEFAULT_IMAGE_HEIGHT, 1);
   });
 });

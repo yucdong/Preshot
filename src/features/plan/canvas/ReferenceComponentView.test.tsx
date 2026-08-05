@@ -16,7 +16,6 @@ const mockComponent: ReferenceComponent = {
   id: "ref-1",
   type: "reference",
   width: 1,
-  height: 320,
   title: "Test Reference",
   description: "",
   showCaptions: false, imageHeight: 180, images: [],

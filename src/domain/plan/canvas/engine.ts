@@ -1,5 +1,12 @@
 import { contentSize, DEFAULT_PAGE_GEOMETRY, packAspectRow, type PageGeometry, type Rect } from "./geometry";
-import { clampHeight, clampImageHeight, type PlanComponent, type ReferenceComponent } from "./models";
+import {
+  clampHeight,
+  clampImageHeight,
+  DEFAULT_PLAN_HEIGHT,
+  DEFAULT_REFERENCE_HEIGHT,
+  type PlanComponent,
+  type ReferenceComponent,
+} from "./models";
 
 const EPS = 0.01;
 
@@ -70,7 +77,10 @@ export function layoutPlan(
 
   for (const component of components) {
     const width = component.width * content.width;
-    const height = clampHeight(component.height, content.height);
+    const height = clampHeight(
+      component.type === "plan" ? DEFAULT_PLAN_HEIGHT : DEFAULT_REFERENCE_HEIGHT,
+      content.height,
+    );
 
     // Wrap to a new row when the component does not fit the remaining row width.
     if (x + width > content.width + EPS) {

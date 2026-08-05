@@ -37,7 +37,7 @@ export interface PlanCanvasProps {
   onOpenImage: (file: string) => void;
   onMoveComponent?: (id: string, toIndex: number) => void;
   onMoveImage?: (params: MoveImageParams) => void;
-  onResize?: (id: string, params: { width?: number; height?: number }) => void;
+  onResize?: (id: string, params: { width: number }) => void;
   onToggleCaptions?: (id: string) => void;
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
   onSetImageHeight?: (id: string, height: number) => void;
@@ -157,7 +157,7 @@ export function PlanCanvas({
         return;
       }
       lastParamsRef.current = params;
-      setPreview(moveComponent({ schemaVersion: 3, components }, params).components);
+      setPreview(moveComponent({ schemaVersion: 4, components }, params).components);
     } else if (data?.type === "image") {
       const params = paramsForImage(event);
       if (!params) {
@@ -168,7 +168,7 @@ export function PlanCanvas({
         return;
       }
       lastImageParamsRef.current = params;
-      setPreview(moveImage({ schemaVersion: 3, components }, params).components);
+      setPreview(moveImage({ schemaVersion: 4, components }, params).components);
     }
   };
 
@@ -200,7 +200,7 @@ export function PlanCanvas({
     lastImageParamsRef.current = null;
   };
 
-  const handleResize = (id: string, params: { width?: number; height?: number }) => {
+  const handleResize = (id: string, params: { width: number }) => {
     if (onResize) {
       onResize(id, params);
     }

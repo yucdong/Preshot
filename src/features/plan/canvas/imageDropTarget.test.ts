@@ -16,7 +16,6 @@ function createReferenceComponent(id: string, imageIds: string[]): ReferenceComp
     title: `Reference ${id}`,
     description: "",
     width: 1,
-    height: 320,
     showCaptions: false, imageHeight: 180, images: imageIds.map((imageId) => ({ id: imageId, file: `${imageId}.jpg`, aspectRatio: 1 })),
   };
 }
@@ -27,7 +26,6 @@ function createPlanComponent(id: string): PlanComponent {
     type: "plan",
     html: "",
     width: 1,
-    height: 220,
   };
 }
 
@@ -106,7 +104,7 @@ describe("imageDropTarget", () => {
       });
 
       // Verify by feeding through moveImage
-      const plan = { schemaVersion: 3 as const, components };
+      const plan = { schemaVersion: 4 as const, components };
       const moved = moveImage(plan, { ...result!, imageId: "img-1" });
       const resultImages = (moved.components[0] as ReferenceComponent).images.map((img) => img.id);
       expect(resultImages).toEqual(["img-2", "img-3", "img-1", "img-4"]);
@@ -127,7 +125,7 @@ describe("imageDropTarget", () => {
       });
 
       // Verify by feeding through moveImage
-      const plan = { schemaVersion: 3 as const, components };
+      const plan = { schemaVersion: 4 as const, components };
       const moved = moveImage(plan, { ...result!, imageId: "img-3" });
       const resultImages = (moved.components[0] as ReferenceComponent).images.map((img) => img.id);
       expect(resultImages).toEqual(["img-3", "img-1", "img-2", "img-4"]);
@@ -146,7 +144,7 @@ describe("imageDropTarget", () => {
       });
 
       // Verify the order is [img-2, img-1, img-3]
-      const plan = { schemaVersion: 3 as const, components };
+      const plan = { schemaVersion: 4 as const, components };
       const moved = moveImage(plan, { ...result!, imageId: "img-1" });
       const resultImages = (moved.components[0] as ReferenceComponent).images.map((img) => img.id);
       expect(resultImages).toEqual(["img-2", "img-1", "img-3"]);
@@ -170,7 +168,7 @@ describe("imageDropTarget", () => {
       });
 
       // Verify through moveImage
-      const plan = { schemaVersion: 3 as const, components };
+      const plan = { schemaVersion: 4 as const, components };
       const moved = moveImage(plan, { ...result!, imageId: "img-1" });
       const ref2Images = (moved.components[1] as ReferenceComponent).images.map((img) => img.id);
       expect(ref2Images).toEqual(["img-1", "img-3", "img-4"]);
@@ -192,7 +190,7 @@ describe("imageDropTarget", () => {
       });
 
       // Verify through moveImage
-      const plan = { schemaVersion: 3 as const, components };
+      const plan = { schemaVersion: 4 as const, components };
       const moved = moveImage(plan, { ...result!, imageId: "img-1" });
       const ref2Images = (moved.components[1] as ReferenceComponent).images.map((img) => img.id);
       expect(ref2Images).toEqual(["img-3", "img-1", "img-4"]);
@@ -214,7 +212,7 @@ describe("imageDropTarget", () => {
       });
 
       // Verify through moveImage
-      const plan = { schemaVersion: 3 as const, components };
+      const plan = { schemaVersion: 4 as const, components };
       const moved = moveImage(plan, { ...result!, imageId: "img-1" });
       const ref2Images = (moved.components[1] as ReferenceComponent).images.map((img) => img.id);
       expect(ref2Images).toEqual(["img-3", "img-4", "img-1"]);
@@ -236,7 +234,7 @@ describe("imageDropTarget", () => {
       });
 
       // Verify through moveImage
-      const plan = { schemaVersion: 3 as const, components };
+      const plan = { schemaVersion: 4 as const, components };
       const moved = moveImage(plan, { ...result!, imageId: "img-1" });
       const ref2Images = (moved.components[1] as ReferenceComponent).images.map((img) => img.id);
       expect(ref2Images).toEqual(["img-2", "img-1", "img-3", "img-4"]);
@@ -260,7 +258,7 @@ describe("imageDropTarget", () => {
       });
 
       // Verify through moveImage
-      const plan = { schemaVersion: 3 as const, components };
+      const plan = { schemaVersion: 4 as const, components };
       const moved = moveImage(plan, { ...result!, imageId: "img-1" });
       const ref2Images = (moved.components[1] as ReferenceComponent).images.map((img) => img.id);
       expect(ref2Images).toEqual(["img-1"]);
@@ -279,7 +277,7 @@ describe("imageDropTarget", () => {
       });
 
       // Verify through moveImage - should move to end
-      const plan = { schemaVersion: 3 as const, components };
+      const plan = { schemaVersion: 4 as const, components };
       const moved = moveImage(plan, { ...result!, imageId: "img-1" });
       const ref1Images = (moved.components[0] as ReferenceComponent).images.map((img) => img.id);
       expect(ref1Images).toEqual(["img-2", "img-3", "img-1"]);
@@ -301,7 +299,7 @@ describe("imageDropTarget", () => {
       });
 
       // Verify through moveImage
-      const plan = { schemaVersion: 3 as const, components };
+      const plan = { schemaVersion: 4 as const, components };
       const moved = moveImage(plan, { ...result!, imageId: "img-1" });
       const ref2Images = (moved.components[1] as ReferenceComponent).images.map((img) => img.id);
       expect(ref2Images).toEqual(["img-2", "img-3", "img-1"]);

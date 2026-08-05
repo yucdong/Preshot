@@ -13,7 +13,7 @@ interface ComponentFrameProps {
   onRemove: (id: string) => void;
   contentWidthPoints: number;
   component: PlanComponent;
-  onResize: (id: string, params: { width?: number; height?: number }) => void;
+  onResize: (id: string, params: { width: number }) => void;
   children?: React.ReactNode;
 }
 
@@ -30,11 +30,9 @@ export function ComponentFrame({
   const { t } = useTranslation();
   const gutterInset = (SPACING / 2) * scale;
 
-  const [resizing, setResizing] = useState<"width" | "height" | "both" | "left" | "top" | null>(null);
-  const [resizePreview, setResizePreview] = useState<{ width?: number; height?: number } | null>(null);
-  const [resizeStart, setResizeStart] = useState<{ x: number; y: number; edge: "width" | "height" | "both" | "left" | "top" } | null>(
-    null,
-  );
+  const [resizing, setResizing] = useState<"width" | "left" | null>(null);
+  const [resizePreview, setResizePreview] = useState<{ width: number } | null>(null);
+  const [resizeStart, setResizeStart] = useState<{ x: number; edge: "width" | "left" } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
@@ -48,17 +46,15 @@ export function ComponentFrame({
   });
 
   const currentWidth = resizePreview?.width ?? component.width;
-  const currentHeight = resizePreview?.height ?? component.height;
   const currentWidthPoints = contentWidthPoints * currentWidth;
 
   const typeLabel = component.type === "plan" ? t("canvas.typePlan") : t("canvas.typeReference");
 
-  const onPointerDownResize = (edge: "width" | "height" | "both" | "left" | "top") => (event: React.PointerEvent) => {
+  const onPointerDownResize = (edge: "width" | "left") => (event: React.PointerEvent) => {
     event.preventDefault();
     event.stopPropagation();
     setResizing(edge);
-    const start = { x: event.clientX, y: event.clientY, edge };
-    setResizeStart(start);
+    setResizeStart({ x: event.clientX, edge });
     (event.target as HTMLElement).setPointerCapture(event.pointerId);
   };
 
@@ -67,71 +63,15 @@ export function ComponentFrame({
     if (!resizing || !start) {
       return;
     }
-    const dxPx = event.clientX - start.x;
-    const dyPx = event.clientY - start.y;
-    const dxPoints = dxPx / scale;
-    const dyPoints = dyPx / scale;
-
-    // Use resizeFromDrag to compute width/height from cumulative delta, preventing compounding
+    const dxPoints = (event.clientX - start.x) / scale;
     const committedWidthPoints = contentWidthPoints * component.width;
-    
-    let result: { width?: number; height?: number } = {};
-
-    if (start.edge === "width") {
-      result = resizeFromDrag({
-        width: component.width,
-        height: component.height,
-        edge: "width",
-        dxPoints,
-        dyPoints,
+    setResizePreview(
+      resizeFromDrag({
+        dxPoints: start.edge === "left" ? -dxPoints : dxPoints,
         currentWidthPoints: committedWidthPoints,
         contentWidth: contentWidthPoints,
-      });
-    } else if (start.edge === "left") {
-      // Left edge: width shrinks/grows opposite to drag direction
-      result = resizeFromDrag({
-        width: component.width,
-        height: component.height,
-        edge: "width",
-        dxPoints: -dxPoints,
-        dyPoints,
-        currentWidthPoints: committedWidthPoints,
-        contentWidth: contentWidthPoints,
-      });
-    } else if (start.edge === "height") {
-      result = resizeFromDrag({
-        width: component.width,
-        height: component.height,
-        edge: "height",
-        dxPoints,
-        dyPoints,
-        currentWidthPoints: committedWidthPoints,
-        contentWidth: contentWidthPoints,
-      });
-    } else if (start.edge === "top") {
-      // Top edge: height shrinks/grows opposite to drag direction
-      result = resizeFromDrag({
-        width: component.width,
-        height: component.height,
-        edge: "height",
-        dxPoints,
-        dyPoints: -dyPoints,
-        currentWidthPoints: committedWidthPoints,
-        contentWidth: contentWidthPoints,
-      });
-    } else if (start.edge === "both") {
-      result = resizeFromDrag({
-        width: component.width,
-        height: component.height,
-        edge: "both",
-        dxPoints,
-        dyPoints,
-        currentWidthPoints: committedWidthPoints,
-        contentWidth: contentWidthPoints,
-      });
-    }
-
-    setResizePreview(result);
+      }),
+    );
   };
 
   const onPointerUpResize = (event: React.PointerEvent) => {
@@ -150,7 +90,7 @@ export function ComponentFrame({
   };
 
   const displayWidth = currentWidthPoints * scale;
-  const displayHeight = currentHeight * scale;
+  const displayHeight = rect.height * scale;
 
   return (
     <div
@@ -165,7 +105,6 @@ export function ComponentFrame({
         height: `${displayHeight}px`,
       }}
     >
-      {/* Top bar with drag handle and delete button */}
       <div
         ref={setDragRef}
         {...attributes}
@@ -186,20 +125,17 @@ export function ComponentFrame({
         </button>
       </div>
 
-      {/* Content area with gutter inset */}
       <div
         className="relative"
         style={{
           paddingLeft: `${gutterInset}px`,
           paddingRight: `${gutterInset}px`,
-          height: `calc(100% - 28px)`, // Subtract top bar height
+          height: "calc(100% - 28px)",
         }}
       >
         {children}
       </div>
 
-      {/* Resize handles */}
-      {/* Left edge */}
       <div
         className="absolute left-0 top-1/2 h-8 w-2 -translate-y-1/2 cursor-ew-resize bg-stone-300 opacity-0 hover:opacity-100 dark:bg-stone-600"
         data-resize="left"
@@ -208,7 +144,6 @@ export function ComponentFrame({
         onPointerMove={onPointerMoveResize}
         onPointerUp={onPointerUpResize}
       />
-      {/* Right edge */}
       <div
         className="absolute right-0 top-1/2 h-8 w-2 -translate-y-1/2 cursor-ew-resize bg-stone-300 opacity-0 hover:opacity-100 dark:bg-stone-600"
         data-resize="width"
@@ -217,35 +152,7 @@ export function ComponentFrame({
         onPointerMove={onPointerMoveResize}
         onPointerUp={onPointerUpResize}
       />
-      {/* Top edge */}
-      <div
-        className="absolute left-1/2 top-0 h-2 w-8 -translate-x-1/2 cursor-ns-resize bg-stone-300 opacity-0 hover:opacity-100 dark:bg-stone-600"
-        data-resize="top"
-        data-resize-handle="top"
-        onPointerDown={onPointerDownResize("top")}
-        onPointerMove={onPointerMoveResize}
-        onPointerUp={onPointerUpResize}
-      />
-      {/* Bottom edge */}
-      <div
-        className="absolute bottom-0 left-1/2 h-2 w-8 -translate-x-1/2 cursor-ns-resize bg-stone-300 opacity-0 hover:opacity-100 dark:bg-stone-600"
-        data-resize="height"
-        data-resize-handle="height"
-        onPointerDown={onPointerDownResize("height")}
-        onPointerMove={onPointerMoveResize}
-        onPointerUp={onPointerUpResize}
-      />
-      {/* Corner */}
-      <div
-        className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize bg-stone-300 opacity-0 hover:opacity-100 dark:bg-stone-600"
-        data-resize="both"
-        data-resize-handle="both"
-        onPointerDown={onPointerDownResize("both")}
-        onPointerMove={onPointerMoveResize}
-        onPointerUp={onPointerUpResize}
-      />
 
-      {/* Confirm dialog */}
       <ConfirmDialog
         open={confirmingDelete}
         title={t("canvas.deleteConfirmTitle")}

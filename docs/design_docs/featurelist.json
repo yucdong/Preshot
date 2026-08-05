@@ -477,6 +477,36 @@
           "Run the manual install checklist on a clean Windows box (install, both shortcuts launch, ~/.preshot created, uninstall removes app + shortcuts)."
         ]
       }
+    },
+    {
+      "name": "Adaptive Component Layout",
+      "feature_descriptions": [
+        "Canvas plans move to persisted schemaVersion 4 for adaptive layout work",
+        "Persist only component width; component height becomes derived layout state",
+        "Reference components default to imageHeight 135 and legacy v3 image heights are reduced once during migration",
+        "Component resize is width-only; top/bottom/corner height handles are removed from the canvas chrome"
+      ],
+      "status": "in_progress",
+      "decisions": [
+        "Task 1 establishes BaseComponent as { id, width } and removes persisted component height from ProjectPlan schema v4",
+        "migratePlan upgrades schemaVersion 3 payloads to v4 by dropping height and applying clampImageHeight(oldImageHeight * 0.75) exactly once",
+        "Width-only resizing is enforced across the domain reducer and canvas UI so later adaptive-layout tasks can rely on derived heights"
+      ],
+      "progress": {
+        "designSpec": "docs/superpowers/specs/2026-08-05-adaptive-component-layout-design.md",
+        "completed": [
+          "Task 1: implemented schemaVersion 4, removed persisted component heights from v4 plan/component types, and updated fixtures to compile honestly against the new model",
+          "Task 1: migrated legacy v3 reference image heights to the new 135pt baseline by scaling old values once during v4 migration",
+          "Task 1: removed top/bottom/corner component resize handles so component resizing is width-only in the canvas UI"
+        ],
+        "lastVerified": [
+          "pnpm exec vitest run src/domain/plan/canvas/models.test.ts src/domain/plan/canvas/migrate.test.ts src/domain/plan/canvas/plan.test.ts src/features/plan/canvas/PlanCanvas.test.tsx src/features/plan/canvas/useComponentResize.test.ts",
+          "pnpm typecheck"
+        ],
+        "remaining": [
+          "Adaptive layout runtime measurement, pagination, and drag-preview tasks from the 2026-08-05 design remain to be implemented."
+        ]
+      }
     }
   ]
 }

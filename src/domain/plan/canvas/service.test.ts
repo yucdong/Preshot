@@ -25,13 +25,12 @@ function fakes(initialRaw: unknown) {
 }
 
 const refPlan: ProjectPlan = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   components: [
     {
       id: "r",
       type: "reference",
       width: 1,
-      height: 300,
       title: "T",
       description: "",
       showCaptions: false, imageHeight: 180, images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
@@ -52,7 +51,7 @@ describe("canvas plan service", () => {
       logger: silentLogger(),
     });
     const plan = await service.loadPlan("C:/p");
-    expect(plan.schemaVersion).toBe(3);
+    expect(plan.schemaVersion).toBe(4);
     expect(plan.components[0]).toMatchObject({ type: "plan" });
   });
 

@@ -15,7 +15,6 @@ const planComponent: PlanComponent = {
   id: "plan1",
   type: "plan",
   width: 1,
-  height: 220,
   html: "<p>拍摄清单</p>",
 };
 
@@ -23,7 +22,6 @@ const referenceComponent: PlanComponent = {
   id: "ref1",
   type: "reference",
   width: 1,
-  height: 320,
   title: "Lookbook",
   description: "",
   showCaptions: false, imageHeight: 180, images: [
@@ -139,11 +137,10 @@ describe("PlanCanvas", () => {
     expect(leftHandle).toHaveClass("cursor-ew-resize");
   });
 
-  it("top resize handle exists with correct attributes", () => {
+  it("does not render a top resize handle", () => {
     renderCanvas();
     const topHandle = document.querySelector('[data-resize-handle="top"]');
-    expect(topHandle).toBeInTheDocument();
-    expect(topHandle).toHaveClass("cursor-ns-resize");
+    expect(topHandle).not.toBeInTheDocument();
   });
 
   it("right resize handle exists with correct attributes", () => {
@@ -153,17 +150,15 @@ describe("PlanCanvas", () => {
     expect(rightHandle).toHaveClass("cursor-ew-resize");
   });
 
-  it("bottom resize handle exists with correct attributes", () => {
+  it("does not render a bottom resize handle", () => {
     renderCanvas();
     const bottomHandle = document.querySelector('[data-resize-handle="height"]');
-    expect(bottomHandle).toBeInTheDocument();
-    expect(bottomHandle).toHaveClass("cursor-ns-resize");
+    expect(bottomHandle).not.toBeInTheDocument();
   });
 
-  it("corner resize handle exists with correct attributes", () => {
+  it("does not render a corner resize handle", () => {
     renderCanvas();
     const cornerHandle = document.querySelector('[data-resize-handle="both"]');
-    expect(cornerHandle).toBeInTheDocument();
-    expect(cornerHandle).toHaveClass("cursor-nwse-resize");
+    expect(cornerHandle).not.toBeInTheDocument();
   });
 });

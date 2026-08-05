@@ -33,7 +33,7 @@ describe("canvas models", () => {
     expect(clampHeight(Number.NaN, 500)).toBe(MIN_COMPONENT_HEIGHT);
   });
 
-  it("provides an empty v3 plan", () => {
-    expect(EMPTY_PLAN).toEqual({ schemaVersion: 3, components: [] });
+  it("provides an empty v4 plan", () => {
+    expect(EMPTY_PLAN).toEqual({ schemaVersion: 4, components: [] });
   });
 });

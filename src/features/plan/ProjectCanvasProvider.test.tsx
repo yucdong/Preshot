@@ -23,7 +23,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
     components: Array<{ id: string; type: string; html?: string }>;
     onMoveComponent: (id: string, toIndex: number) => void;
     onChangeHtml: (id: string, html: string) => void;
-    onResize: (id: string, params: { width?: number; height?: number }) => void;
+    onResize: (id: string, params: { width: number }) => void;
   }) => (
     <div data-testid="plan-canvas">
       <div data-testid="component-count">{components.length}</div>
@@ -53,20 +53,18 @@ function deps(): {
   savePlan: ReturnType<typeof vi.fn>;
 } {
   const plan: ProjectPlan = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     components: [
       {
         id: "plan-1",
         type: "plan",
         width: 1,
-        height: 220,
         html: "<h2>Demo</h2>",
       },
       {
         id: "ref-1",
         type: "reference",
         width: 1,
-        height: 320,
         title: "Lookbook",
         description: "Warm mood",
         showCaptions: false, imageHeight: 180, images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
@@ -84,12 +82,18 @@ function deps(): {
         components: [
           ...plan.components.slice(0, 1),
           {
-            ...plan.components[1],
+            id: "ref-1",
+            type: "reference",
+            width: 1,
+            title: "Lookbook",
+            description: "Warm mood",
+            showCaptions: false,
+            imageHeight: 180,
             images: [
               { id: "i1", file: "references/0001.png", aspectRatio: 1 },
               { id: "i2", file: "references/0002.png", aspectRatio: 1 },
             ],
-          } as never,
+          },
         ],
       },
       image: { id: "i2", file: "references/0002.png", aspectRatio: 1 },
@@ -145,7 +149,7 @@ describe("ProjectCanvasProvider", () => {
     const { dependencies, service } = deps();
     // Override loadPlan to return an empty plan
     (service.loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
-      schemaVersion: 3,
+      schemaVersion: 4,
       components: [],
     });
 
@@ -318,13 +322,12 @@ describe("ProjectCanvasProvider", () => {
     
     // Mock a plan with an image that has WRONG aspectRatio (e.g., migrated v2 with ratio = 1)
     const planWithWrongRatio: ProjectPlan = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       components: [
         {
           id: "ref-1",
           type: "reference",
           width: 1,
-          height: 320,
           title: "Lookbook",
           description: "",
           showCaptions: false,

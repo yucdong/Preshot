@@ -4,6 +4,53 @@ import { DEFAULT_IMAGE_HEIGHT, EMPTY_PLAN, type ReferenceComponent } from "./mod
 
 describe("migratePlan", () => {
   describe("v3 schema", () => {
+    it("migrates v3 to v4 by dropping component height and reducing image height once", () => {
+      const v3 = {
+        schemaVersion: 3,
+        components: [
+          { id: "p", type: "plan", width: 1, height: 220, html: "<p>x</p>" },
+          {
+            id: "r",
+            type: "reference",
+            width: 1,
+            height: 320,
+            title: "T",
+            description: "",
+            imageHeight: 180,
+            showCaptions: false,
+            images: [{ id: "i", file: "a.png", aspectRatio: 4 / 3 }],
+          },
+        ],
+      };
+
+      const migrated = migratePlan(v3);
+
+      expect(migrated.schemaVersion).toBe(4);
+      expect(migrated.components[0]).not.toHaveProperty("height");
+      expect(migrated.components[1]).not.toHaveProperty("height");
+      expect((migrated.components[1] as ReferenceComponent).imageHeight).toBe(135);
+    });
+
+    it("does not reduce v4 image height a second time", () => {
+      const v4 = {
+        schemaVersion: 4,
+        components: [
+          {
+            id: "r",
+            type: "reference",
+            width: 1,
+            title: "T",
+            description: "",
+            imageHeight: 135,
+            showCaptions: false,
+            images: [],
+          },
+        ],
+      };
+
+      expect((migratePlan(v4).components[0] as ReferenceComponent).imageHeight).toBe(135);
+    });
+
     it("passes a valid v3 plan through, normalizing and clamping fields", () => {
       const v3 = {
         schemaVersion: 3,
@@ -13,10 +60,12 @@ describe("migratePlan", () => {
         ],
       };
       const migrated = migratePlan(v3);
-      expect(migrated.schemaVersion).toBe(3);
+      expect(migrated.schemaVersion).toBe(4);
       expect(migrated.components).toHaveLength(2);
-      expect(migrated.components[0]).toMatchObject({ id: "a", type: "plan", width: 0.5, height: 150, html: "<p>x</p>" });
-      expect(migrated.components[1]).toMatchObject({ id: "b", type: "reference", width: 1, height: 300, title: "T", imageHeight: 200, showCaptions: false });
+      expect(migrated.components[0]).toMatchObject({ id: "a", type: "plan", width: 0.5, html: "<p>x</p>" });
+      expect(migrated.components[1]).toMatchObject({ id: "b", type: "reference", width: 1, title: "T", imageHeight: 150, showCaptions: false });
+      expect(migrated.components[0]).not.toHaveProperty("height");
+      expect(migrated.components[1]).not.toHaveProperty("height");
       expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "i", file: "references/0001.png", aspectRatio: 1.5 });
     });
 
@@ -43,7 +92,7 @@ describe("migratePlan", () => {
       };
       const migrated = migratePlan(v3);
       expect((migrated.components[0] as ReferenceComponent).imageHeight).toBe(80); // clamped
-      expect((migrated.components[1] as ReferenceComponent).imageHeight).toBe(400); // clamped
+      expect((migrated.components[1] as ReferenceComponent).imageHeight).toBe(375); // reduced once, then clamped
     });
 
     it("defaults aspectRatio to 1 when <= 0 in v3", () => {
@@ -101,7 +150,7 @@ describe("migratePlan", () => {
         ],
       };
       const migrated = migratePlan(v2);
-      expect(migrated.schemaVersion).toBe(3);
+      expect(migrated.schemaVersion).toBe(4);
       expect(migrated.components[0].width).toBe(1);
       expect(migrated.components[1].width).toBe(0.75);
       expect(migrated.components[2].width).toBe(0.667);
@@ -154,14 +203,14 @@ describe("migratePlan", () => {
         ],
       };
       const migrated = migratePlan(v2);
-      expect(migrated.components[0]).toMatchObject({ id: "plan1", type: "plan", height: 220, html: "<h1>Test</h1>" });
-      expect(migrated.components[1]).toMatchObject({ id: "ref1", type: "reference", height: 320, title: "Gallery", description: "Mood board", showCaptions: true });
+      expect(migrated.components[0]).toMatchObject({ id: "plan1", type: "plan", width: 0.5, html: "<h1>Test</h1>" });
+      expect(migrated.components[1]).toMatchObject({ id: "ref1", type: "reference", width: 1, title: "Gallery", description: "Mood board", showCaptions: true });
       expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "img1", file: "test.png", caption: "Caption text", aspectRatio: 1 });
     });
   });
 
-  describe("v1 -> v3 migration (chained)", () => {
-    it("converts v1 plan to v3 via v2", () => {
+  describe("v1 -> v4 migration (chained)", () => {
+    it("converts v1 plan to v4 via v2", () => {
       const v1 = {
         photographyPlan: "<h2>Sunset</h2>",
         referenceGroups: [
@@ -169,7 +218,7 @@ describe("migratePlan", () => {
         ],
       };
       const migrated = migratePlan(v1);
-      expect(migrated.schemaVersion).toBe(3);
+      expect(migrated.schemaVersion).toBe(4);
       expect(migrated.components[0]).toMatchObject({ type: "plan", width: 1, html: "<h2>Sunset</h2>" });
       expect(migrated.components[1]).toMatchObject({ type: "reference", width: 1, title: "Lookbook", imageHeight: DEFAULT_IMAGE_HEIGHT, showCaptions: false });
       expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "i1", file: "references/0001.png", aspectRatio: 1 });
@@ -178,13 +227,13 @@ describe("migratePlan", () => {
     it("omits the plan component when v1 photographyPlan is empty", () => {
       const migrated = migratePlan({ photographyPlan: "", referenceGroups: [] });
       expect(migrated.components).toHaveLength(0);
-      expect(migrated.schemaVersion).toBe(3);
+      expect(migrated.schemaVersion).toBe(4);
     });
   });
 
   describe("forward compatibility", () => {
     it("returns EMPTY_PLAN for future schemaVersion", () => {
-      const future = { schemaVersion: 4, components: [] };
+      const future = { schemaVersion: 5, components: [] };
       expect(migratePlan(future)).toEqual(EMPTY_PLAN);
     });
   });

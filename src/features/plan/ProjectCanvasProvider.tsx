@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   EMPTY_PLAN,
-  DEFAULT_PLAN_HEIGHT,
-  DEFAULT_REFERENCE_HEIGHT,
   DEFAULT_IMAGE_HEIGHT,
   type ProjectPlan,
 } from "../../domain/plan/canvas/models";
@@ -257,7 +255,6 @@ export function ProjectCanvasProvider({
             id: crypto.randomUUID(),
             type: "plan" as const,
             width: 1,
-            height: DEFAULT_PLAN_HEIGHT,
             html: t("content.planTemplate"),
           };
           
@@ -266,7 +263,6 @@ export function ProjectCanvasProvider({
             id: crypto.randomUUID(),
             type: "reference" as const,
             width: 1,
-            height: DEFAULT_REFERENCE_HEIGHT,
             title: t("content.newGroupTitle"),
             description: "",
             showCaptions: false,
@@ -395,7 +391,6 @@ export function ProjectCanvasProvider({
           id: crypto.randomUUID(),
           type: "plan" as const,
           width: 1,
-          height: DEFAULT_PLAN_HEIGHT,
           html: t("content.planTemplate"),
         };
         mutate(addComponent(planRef.current, newComponent));
@@ -404,7 +399,6 @@ export function ProjectCanvasProvider({
           id: crypto.randomUUID(),
           type: "reference" as const,
           width: 1,
-          height: DEFAULT_REFERENCE_HEIGHT,
           title: t("content.newGroupTitle"),
           description: "",
           showCaptions: false,
@@ -452,8 +446,8 @@ export function ProjectCanvasProvider({
   );
 
   const handleResize = useCallback(
-    (id: string, params: { width?: number; height?: number }) => {
-      const next = resizeComponent(planRef.current, { id, ...params });
+    (id: string, params: { width: number }) => {
+      const next = resizeComponent(planRef.current, { id, width: params.width });
       mutate(next, `resize:${id}`);
     },
     [mutate],

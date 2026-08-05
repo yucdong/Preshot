@@ -1,6 +1,4 @@
-import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import {
-  clampHeight,
   clampImageHeight,
   clampWidth,
   type PlanComponent,
@@ -15,8 +13,6 @@ export interface MoveImageParams {
   toComponentId: string;
   toIndex: number;
 }
-
-const MAX_HEIGHT = contentSize(DEFAULT_PAGE_GEOMETRY).height;
 
 function replace(plan: ProjectPlan, components: PlanComponent[]): ProjectPlan {
   return { ...plan, components };
@@ -74,15 +70,14 @@ export function moveComponent(plan: ProjectPlan, params: { id: string; toIndex: 
 
 export function resizeComponent(
   plan: ProjectPlan,
-  params: { id: string; width?: number; height?: number },
+  params: { id: string; width: number },
 ): ProjectPlan {
   return mapComponent(plan, params.id, (component) => {
-    const width = params.width !== undefined ? clampWidth(params.width) : component.width;
-    const height = params.height === undefined ? component.height : clampHeight(params.height, MAX_HEIGHT);
-    if (width === component.width && height === component.height) {
+    const width = clampWidth(params.width);
+    if (width === component.width) {
       return component;
     }
-    return { ...component, width, height };
+    return { ...component, width };
   });
 }
 
