@@ -2,21 +2,21 @@ import { A4, SPACING } from "../../../domain/plan/canvas/geometry";
 
 interface CanvasPageProps {
   scale: number;
-  children?: React.ReactNode;
+  top: number;
 }
 
-export function CanvasPage({ scale, children }: CanvasPageProps) {
+export function CanvasPage({ scale, top }: CanvasPageProps) {
   const width = A4.width * scale;
   const height = A4.height * scale;
   const marginScaled = SPACING * scale;
 
   return (
     <div
-      className="relative bg-white dark:bg-stone-900"
-      data-testid="canvas-page"
-      style={{ width: `${width}px`, height: `${height}px` }}
+      aria-hidden="true"
+      className="absolute left-0 bg-white shadow-sm dark:bg-stone-900"
+      data-testid="canvas-page-background"
+      style={{ top: `${top}px`, width: `${width}px`, height: `${height}px` }}
     >
-      {/* Margin guide */}
       <div
         className="pointer-events-none absolute border border-dashed border-stone-200 dark:border-stone-700"
         style={{
@@ -26,7 +26,6 @@ export function CanvasPage({ scale, children }: CanvasPageProps) {
           bottom: `${marginScaled}px`,
         }}
       />
-      {children}
     </div>
   );
 }

@@ -8,8 +8,10 @@ import { resizeFromDrag } from "./useComponentResize";
 
 interface ComponentFrameProps {
   id: string;
+  frameId?: string;
   rect: Rect;
   scale: number;
+  topPx?: number;
   onRemove: (id: string) => void;
   contentWidthPoints: number;
   component: PlanComponent;
@@ -19,8 +21,10 @@ interface ComponentFrameProps {
 
 export function ComponentFrame({
   id,
+  frameId,
   rect,
   scale,
+  topPx,
   onRemove,
   contentWidthPoints,
   component,
@@ -29,6 +33,7 @@ export function ComponentFrame({
 }: ComponentFrameProps) {
   const { t } = useTranslation();
   const gutterInset = (SPACING / 2) * scale;
+  const draggableId = frameId ?? id;
 
   const [resizing, setResizing] = useState<"width" | "left" | null>(null);
   const [resizePreview, setResizePreview] = useState<{ width: number } | null>(null);
@@ -36,16 +41,17 @@ export function ComponentFrame({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
-    id,
-    data: { type: "component" },
+    id: draggableId,
+    data: { type: "component", componentId: id },
   });
 
   const { setNodeRef: setDropRef } = useDroppable({
-    id,
-    data: { type: "component" },
+    id: draggableId,
+    data: { type: "component", componentId: id },
   });
 
   const currentWidth = resizePreview?.width ?? component.width;
+  const committedWidthPoints = contentWidthPoints * component.width;
   const currentWidthPoints = contentWidthPoints * currentWidth;
 
   const typeLabel = component.type === "plan" ? t("canvas.typePlan") : t("canvas.typeReference");
@@ -55,7 +61,7 @@ export function ComponentFrame({
     event.stopPropagation();
     setResizing(edge);
     setResizeStart({ x: event.clientX, edge });
-    (event.target as HTMLElement).setPointerCapture(event.pointerId);
+    (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
   };
 
   const onPointerMoveResize = (event: React.PointerEvent) => {
@@ -64,7 +70,6 @@ export function ComponentFrame({
       return;
     }
     const dxPoints = (event.clientX - start.x) / scale;
-    const committedWidthPoints = contentWidthPoints * component.width;
     setResizePreview(
       resizeFromDrag({
         dxPoints: start.edge === "left" ? -dxPoints : dxPoints,
@@ -82,7 +87,7 @@ export function ComponentFrame({
       setResizePreview(null);
       return;
     }
-    (event.target as HTMLElement).releasePointerCapture(event.pointerId);
+    (event.target as HTMLElement).releasePointerCapture?.(event.pointerId);
     setResizing(null);
     setResizeStart(null);
     setResizePreview(null);
@@ -91,6 +96,9 @@ export function ComponentFrame({
 
   const displayWidth = currentWidthPoints * scale;
   const displayHeight = rect.height * scale;
+  const displayLeft =
+    (SPACING + rect.x) * scale +
+    (resizing === "left" && resizePreview ? (committedWidthPoints - currentWidthPoints) * scale : 0);
 
   return (
     <div
@@ -98,9 +106,10 @@ export function ComponentFrame({
       className="absolute"
       data-component-frame="true"
       data-component-id={id}
+      data-fragment-id={draggableId}
       style={{
-        left: `${(SPACING + rect.x) * scale}px`,
-        top: `${(SPACING + rect.y) * scale}px`,
+        left: `${displayLeft}px`,
+        top: `${topPx ?? (SPACING + rect.y) * scale}px`,
         width: `${displayWidth}px`,
         height: `${displayHeight}px`,
       }}

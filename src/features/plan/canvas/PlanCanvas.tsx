@@ -13,16 +13,17 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { layoutPlan } from "../../../domain/plan/canvas/engine";
-import { contentSize, DEFAULT_PAGE_GEOMETRY } from "../../../domain/plan/canvas/geometry";
+import { contentSize, DEFAULT_PAGE_GEOMETRY, SPACING } from "../../../domain/plan/canvas/geometry";
 import { moveComponent, moveImage, type MoveImageParams } from "../../../domain/plan/canvas/plan";
 import { componentDropTarget } from "../../../domain/plan/canvas/dropTarget";
 import { imageDropTarget, imageInsertAfterFromRects } from "./imageDropTarget";
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
-import { CanvasPage } from "./CanvasPage";
 import { ComponentFrame } from "./ComponentFrame";
+import { PagedCanvasSurface, pageTopPx } from "./PagedCanvasSurface";
 import { PlanTextComponentView } from "./PlanTextComponentView";
 import { ReferenceComponentView } from "./ReferenceComponentView";
 import { insertAfterFromRects } from "./canvasDropGeometry";
+import { logicalComponentIdFromDnd } from "./componentDragIdentity";
 
 export interface PlanCanvasProps {
   components: PlanComponent[];
@@ -96,21 +97,30 @@ export function PlanCanvas({
   onSetImageHeight,
   onAddImages,
 }: PlanCanvasProps) {
-  const [_activeId, setActiveId] = useState<string | null>(null);
   const [preview, setPreview] = useState<PlanComponent[] | null>(null);
   const lastParamsRef = useRef<{ id: string; toIndex: number } | null>(null);
   const lastImageParamsRef = useRef<MoveImageParams | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const view = preview ?? components;
+  const layout = layoutPlan(view, DEFAULT_PAGE_GEOMETRY);
 
   const paramsFor = (event: DragOverEvent | DragEndEvent): { id: string; toIndex: number } | null => {
-    const activeId = String(event.active.id);
-    const overId = event.over ? String(event.over.id) : null;
+    const activeId = logicalComponentIdFromDnd(
+      event.active.data.current as { componentId?: unknown } | null | undefined,
+      String(event.active.id),
+    );
+    const overId = logicalComponentIdFromDnd(
+      (event.over?.data.current as { componentId?: unknown } | null | undefined) ?? null,
+      event.over ? String(event.over.id) : null,
+    );
     const activeRect = event.active.rect.current.translated;
     const overRect = event.over?.rect ?? null;
     const insertAfter =
       activeRect != null && overRect != null ? insertAfterFromRects(activeRect, overRect) : false;
+    if (activeId === null) {
+      return null;
+    }
     const toIndex = componentDropTarget(components, activeId, overId, insertAfter);
     if (toIndex === null) {
       return null;
@@ -135,11 +145,9 @@ export function PlanCanvas({
   const onDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current;
     if (data?.type === "component") {
-      setActiveId(String(event.active.id));
       lastParamsRef.current = null;
       setPreview(components);
     } else if (data?.type === "image") {
-      setActiveId(String(event.active.id));
       lastImageParamsRef.current = null;
       setPreview(components);
     }
@@ -176,7 +184,6 @@ export function PlanCanvas({
     const data = event.active.data.current;
     if (data?.type === "component") {
       const params = paramsFor(event) ?? lastParamsRef.current;
-      setActiveId(null);
       setPreview(null);
       lastParamsRef.current = null;
       if (params && onMoveComponent) {
@@ -184,7 +191,6 @@ export function PlanCanvas({
       }
     } else if (data?.type === "image") {
       const params = paramsForImage(event) ?? lastImageParamsRef.current;
-      setActiveId(null);
       setPreview(null);
       lastImageParamsRef.current = null;
       if (params && onMoveImage) {
@@ -192,9 +198,7 @@ export function PlanCanvas({
       }
     }
   };
-
   const onDragCancel = () => {
-    setActiveId(null);
     setPreview(null);
     lastParamsRef.current = null;
     lastImageParamsRef.current = null;
@@ -205,17 +209,6 @@ export function PlanCanvas({
       onResize(id, params);
     }
   };
-
-  // Compute layout from the engine
-  const layout = layoutPlan(view, DEFAULT_PAGE_GEOMETRY);
-
-  // Group placements by page
-  const placementsByPage: Map<number, typeof layout.placements> = new Map();
-  for (const placement of layout.placements) {
-    const existing = placementsByPage.get(placement.pageIndex) || [];
-    existing.push(placement);
-    placementsByPage.set(placement.pageIndex, existing);
-  }
 
   // Get the component by id
   const componentMap = new Map(view.map((c) => [c.id, c]));
@@ -231,54 +224,51 @@ export function PlanCanvas({
       onDragStart={onDragStart}
       sensors={sensors}
     >
-      <div className="flex flex-col gap-4" data-testid="plan-canvas">
-        {Array.from({ length: layout.pageCount }, (_unused, pageIndex) => {
-          const placements = placementsByPage.get(pageIndex) || [];
-          return (
-            <CanvasPage key={pageIndex} scale={scale}>
-              {placements.map((placement) => {
-                const component = componentMap.get(placement.componentId);
-                if (!component) {
-                  return null;
-                }
+      <div className="flex justify-center" data-testid="plan-canvas">
+        <PagedCanvasSurface pageCount={layout.pageCount} scale={scale}>
+          {layout.placements.map((placement) => {
+            const component = componentMap.get(placement.componentId);
+            if (!component) {
+              return null;
+            }
 
-                return (
-                  <ComponentFrame
-                    id={component.id}
-                    key={component.id}
-                    onRemove={onRemoveComponent}
-                    rect={placement.rect}
-                    scale={scale}
-                    contentWidthPoints={contentWidthPoints}
+            return (
+              <ComponentFrame
+                id={component.id}
+                frameId={placement.fragmentId}
+                key={placement.fragmentId}
+                onRemove={onRemoveComponent}
+                rect={placement.rect}
+                scale={scale}
+                topPx={pageTopPx(placement.pageIndex, scale) + (SPACING + placement.rect.y) * scale}
+                contentWidthPoints={contentWidthPoints}
+                component={component}
+                onResize={handleResize}
+              >
+                {component.type === "plan" ? (
+                  <PlanTextComponentView component={component} onChangeHtml={onChangeHtml} />
+                ) : (
+                  <ReferenceComponentView
                     component={component}
-                    onResize={handleResize}
-                  >
-                    {component.type === "plan" ? (
-                      <PlanTextComponentView component={component} onChangeHtml={onChangeHtml} />
-                    ) : (
-                      <ReferenceComponentView
-                        component={component}
-                        enableReorder={true}
-                        imageSrc={imageSrc}
-                        onAddImage={onAddImage}
-                        onOpenImage={onOpenImage}
-                        onRemoveImage={onRemoveImage}
-                        onSetDescription={onSetDescription}
-                        onSetTitle={onSetTitle}
-                        onToggleCaptions={onToggleCaptions}
-                        onSetImageCaption={onSetImageCaption}
-                        onSetImageHeight={onSetImageHeight}
-                        onAddImages={onAddImages}
-                        slots={placement.imageSlots ?? []}
-                        scale={scale}
-                      />
-                    )}
-                  </ComponentFrame>
-                );
-              })}
-            </CanvasPage>
-          );
-        })}
+                    enableReorder={true}
+                    imageSrc={imageSrc}
+                    onAddImage={onAddImage}
+                    onOpenImage={onOpenImage}
+                    onRemoveImage={onRemoveImage}
+                    onSetDescription={onSetDescription}
+                    onSetTitle={onSetTitle}
+                    onToggleCaptions={onToggleCaptions}
+                    onSetImageCaption={onSetImageCaption}
+                    onSetImageHeight={onSetImageHeight}
+                    onAddImages={onAddImages}
+                    slots={placement.imageSlots ?? []}
+                    scale={scale}
+                  />
+                )}
+              </ComponentFrame>
+            );
+          })}
+        </PagedCanvasSurface>
       </div>
     </DndContext>
   );

@@ -47,6 +47,6 @@ test("scrolls the middle canvas panel to reach components below the fold", async
   // Scrolling the panel must reveal the last canvas page (below the fold initially).
   await scroller.evaluate((el) => el.scrollTo(0, el.scrollHeight));
   await page.waitForTimeout(150);
-  const lastPage = page.getByTestId("canvas-page").last();
+  const lastPage = page.getByTestId("canvas-page-background").last();
   await expect(lastPage).toBeInViewport();
 });

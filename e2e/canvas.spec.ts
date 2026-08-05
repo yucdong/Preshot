@@ -182,7 +182,7 @@ test("overflows to multiple pages when inserting tall components", async ({ page
   await page.goto("/");
 
   // Initially should have one page
-  await expect(page.getByTestId("canvas-page")).toHaveCount(1);
+  await expect(page.getByTestId("canvas-page-background")).toHaveCount(1);
 
   // Insert multiple tall components to overflow to a second page
   // The seeded plan already has 2 components. Each component has ~220-320px height. 
@@ -194,7 +194,7 @@ test("overflows to multiple pages when inserting tall components", async ({ page
   }
 
   // Assert at least two pages now exist (may be more depending on component heights)
-  const pageCount = await page.getByTestId("canvas-page").count();
+  const pageCount = await page.getByTestId("canvas-page-background").count();
   expect(pageCount).toBeGreaterThanOrEqual(2);
 });
 

@@ -1,10 +1,13 @@
 import { DndContext } from "@dnd-kit/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { layoutPlan } from "../../../domain/plan/canvas/engine";
+import { DEFAULT_PAGE_GEOMETRY, SPACING } from "../../../domain/plan/canvas/geometry";
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
 import { PlanCanvas } from "./PlanCanvas";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../../domain/settings/ports";
+import { pageTopPx } from "./PagedCanvasSurface";
 
 const mockRepository: SettingsRepository = {
   read: vi.fn().mockResolvedValue({ theme: "light" }),
@@ -29,6 +32,14 @@ const referenceComponent: PlanComponent = {
     { id: "i2", file: "references/0002.png", aspectRatio: 1 },
   ],
 };
+
+function makeReferenceImages(count: number) {
+  return Array.from({ length: count }, (_unused, index) => ({
+    id: `img-${index + 1}`,
+    file: `references/${String(index + 1).padStart(4, "0")}.png`,
+    aspectRatio: 1,
+  }));
+}
 
 function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {}) {
   const props = {
@@ -57,10 +68,44 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
 }
 
 describe("PlanCanvas", () => {
-  it("renders one A4 page with both plan and reference components", () => {
+  it("renders one A4 page background with both plan and reference components", () => {
     renderCanvas();
-    const pages = screen.getAllByTestId("canvas-page");
+    const pages = screen.getAllByTestId("canvas-page-background");
     expect(pages).toHaveLength(1);
+  });
+
+  it("renders reference fragments in one continuous positioning surface", () => {
+    const multiPageReference: PlanComponent = {
+      ...referenceComponent,
+      images: makeReferenceImages(12),
+    };
+    const layout = layoutPlan([multiPageReference], DEFAULT_PAGE_GEOMETRY);
+    const continuation = layout.placements.find((placement) => placement.fragmentId === "ref1::1");
+
+    expect(continuation).toBeDefined();
+
+    renderCanvas({ components: [multiPageReference] });
+
+    expect(screen.getByTestId("paged-canvas-surface")).toBeInTheDocument();
+    expect(screen.getAllByTestId("canvas-page-background")).toHaveLength(layout.pageCount);
+
+    const continuationFrame = document.querySelector('[data-fragment-id="ref1::1"]');
+    expect(continuationFrame).toBeInTheDocument();
+    expect(continuationFrame).toHaveStyle({
+      top: `${pageTopPx(continuation!.pageIndex, 1) + (SPACING + continuation!.rect.y)}px`,
+    });
+  });
+
+  it("marks continuation fragments with the logical component id", () => {
+    const multiPageReference: PlanComponent = {
+      ...referenceComponent,
+      images: makeReferenceImages(12),
+    };
+
+    renderCanvas({ components: [multiPageReference] });
+
+    const continuationFrame = document.querySelector('[data-fragment-id="ref1::1"]');
+    expect(continuationFrame).toHaveAttribute("data-component-id", "ref1");
   });
 
   it("plan component shows its editor", async () => {
@@ -135,6 +180,32 @@ describe("PlanCanvas", () => {
     const leftHandle = document.querySelector('[data-resize-handle="left"]');
     expect(leftHandle).toBeInTheDocument();
     expect(leftHandle).toHaveClass("cursor-ew-resize");
+  });
+
+  it("anchors left-resize preview to the right edge", () => {
+    renderCanvas({ components: [planComponent] });
+
+    const frame = document.querySelector('[data-component-id="plan1"]') as HTMLElement;
+    const leftHandle = document.querySelector('[data-resize-handle="left"]') as HTMLElement & {
+      setPointerCapture(pointerId: number): void;
+      releasePointerCapture(pointerId: number): void;
+    };
+
+    leftHandle.setPointerCapture = vi.fn();
+    leftHandle.releasePointerCapture = vi.fn();
+
+    const initialLeft = parseFloat(frame.style.left);
+    const initialWidth = parseFloat(frame.style.width);
+    const initialRight = initialLeft + initialWidth;
+
+    fireEvent.pointerDown(leftHandle, { clientX: 200, pointerId: 1 });
+    fireEvent.pointerMove(leftHandle, { clientX: 260, pointerId: 1 });
+
+    const previewLeft = parseFloat(frame.style.left);
+    const previewWidth = parseFloat(frame.style.width);
+
+    expect(previewLeft).toBeGreaterThan(initialLeft);
+    expect(previewLeft + previewWidth).toBeCloseTo(initialRight, 5);
   });
 
   it("does not render a top resize handle", () => {
