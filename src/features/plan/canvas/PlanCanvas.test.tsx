@@ -208,6 +208,28 @@ describe("PlanCanvas", () => {
     expect(previewLeft + previewWidth).toBeCloseTo(initialRight, 5);
   });
 
+  it("does not commit resize after pointercancel on the canvas", () => {
+    const props = renderCanvas({ components: [planComponent] });
+
+    const leftHandle = document.querySelector('[data-resize-handle="left"]') as HTMLElement & {
+      hasPointerCapture(pointerId: number): boolean;
+      releasePointerCapture(pointerId: number): void;
+      setPointerCapture(pointerId: number): void;
+    };
+
+    leftHandle.setPointerCapture = vi.fn();
+    leftHandle.releasePointerCapture = vi.fn();
+    leftHandle.hasPointerCapture = vi.fn().mockReturnValue(true);
+
+    fireEvent.pointerDown(leftHandle, { clientX: 200, pointerId: 1 });
+    fireEvent.pointerMove(leftHandle, { clientX: 260, pointerId: 1 });
+    fireEvent.pointerCancel(leftHandle, { pointerId: 1 });
+    fireEvent.pointerUp(leftHandle, { pointerId: 1 });
+
+    expect(leftHandle.releasePointerCapture).toHaveBeenCalledWith(1);
+    expect(props.onResize).not.toHaveBeenCalled();
+  });
+
   it("does not render a top resize handle", () => {
     renderCanvas();
     const topHandle = document.querySelector('[data-resize-handle="top"]');

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { SPACING, type Rect } from "../../../domain/plan/canvas/geometry";
@@ -35,6 +35,7 @@ export function ComponentFrame({
   const gutterInset = (SPACING / 2) * scale;
   const draggableId = frameId ?? id;
 
+  const resizeSessionRef = useRef<{ element: HTMLElement; pointerId: number } | null>(null);
   const [resizing, setResizing] = useState<"width" | "left" | null>(null);
   const [resizePreview, setResizePreview] = useState<{ width: number } | null>(null);
   const [resizeStart, setResizeStart] = useState<{ x: number; edge: "width" | "left" } | null>(null);
@@ -56,15 +57,16 @@ export function ComponentFrame({
 
   const typeLabel = component.type === "plan" ? t("canvas.typePlan") : t("canvas.typeReference");
 
-  const onPointerDownResize = (edge: "width" | "left") => (event: React.PointerEvent) => {
+  const onPointerDownResize = (edge: "width" | "left") => (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    resizeSessionRef.current = { element: event.currentTarget, pointerId: event.pointerId };
     setResizing(edge);
     setResizeStart({ x: event.clientX, edge });
-    (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
-  const onPointerMoveResize = (event: React.PointerEvent) => {
+  const onPointerMoveResize = (event: React.PointerEvent<HTMLDivElement>) => {
     const start = resizeStart;
     if (!resizing || !start) {
       return;
@@ -79,19 +81,37 @@ export function ComponentFrame({
     );
   };
 
-  const onPointerUpResize = (event: React.PointerEvent) => {
-    const currentPreview = resizePreview;
-    if (!resizing || !currentPreview) {
-      setResizing(null);
-      setResizeStart(null);
-      setResizePreview(null);
+  const finishResize = (
+    event: React.PointerEvent<HTMLDivElement>,
+    options: { commit: boolean; releaseCapture: boolean },
+  ) => {
+    const session = resizeSessionRef.current;
+    if (!session) {
       return;
     }
-    (event.target as HTMLElement).releasePointerCapture?.(event.pointerId);
+    const currentPreview = resizePreview;
+    resizeSessionRef.current = null;
     setResizing(null);
     setResizeStart(null);
     setResizePreview(null);
-    onResize(id, currentPreview);
+    if (options.releaseCapture && session.element.hasPointerCapture(event.pointerId)) {
+      session.element.releasePointerCapture?.(event.pointerId);
+    }
+    if (options.commit && currentPreview) {
+      onResize(id, currentPreview);
+    }
+  };
+
+  const onPointerUpResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    finishResize(event, { commit: true, releaseCapture: true });
+  };
+
+  const onPointerCancelResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    finishResize(event, { commit: false, releaseCapture: true });
+  };
+
+  const onLostPointerCaptureResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    finishResize(event, { commit: false, releaseCapture: false });
   };
 
   const displayWidth = currentWidthPoints * scale;
@@ -149,16 +169,20 @@ export function ComponentFrame({
         className="absolute left-0 top-1/2 h-8 w-2 -translate-y-1/2 cursor-ew-resize bg-stone-300 opacity-0 hover:opacity-100 dark:bg-stone-600"
         data-resize="left"
         data-resize-handle="left"
+        onLostPointerCapture={onLostPointerCaptureResize}
         onPointerDown={onPointerDownResize("left")}
         onPointerMove={onPointerMoveResize}
+        onPointerCancel={onPointerCancelResize}
         onPointerUp={onPointerUpResize}
       />
       <div
         className="absolute right-0 top-1/2 h-8 w-2 -translate-y-1/2 cursor-ew-resize bg-stone-300 opacity-0 hover:opacity-100 dark:bg-stone-600"
         data-resize="width"
         data-resize-handle="width"
+        onLostPointerCapture={onLostPointerCaptureResize}
         onPointerDown={onPointerDownResize("width")}
         onPointerMove={onPointerMoveResize}
+        onPointerCancel={onPointerCancelResize}
         onPointerUp={onPointerUpResize}
       />
 
