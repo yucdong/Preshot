@@ -501,14 +501,16 @@
           "Task 1: removed top/bottom/corner component resize handles so component resizing is width-only in the canvas UI",
           "Task 2: added pure reference row packing and pagination utilities with scaled add-tile handling for narrow layouts",
           "Task 3: derived adaptive A4 placements and reference fragments in the engine and reused them in PDF layout/export paths",
-          "Task 4: replaced per-page positioning roots with a single PagedCanvasSurface, rendered fragment frames in global Y coordinates, and fixed left-handle preview anchoring while keeping width-only resize persistence"
+          "Task 4: replaced per-page positioning roots with a single PagedCanvasSurface, rendered fragment frames in global Y coordinates, and fixed left-handle preview anchoring while keeping width-only resize persistence",
+          "Task 5: added runtime-only natural height maps for BlockNote plan bodies and reference descriptions, reset them on projectPath changes, and kept them out of persistence plus undo history",
+          "Task 5: added BlockNote top-level block measurement with runtime page-break spacer classes/CSS metadata so one editor can span multiple A4 pages without rewriting stored HTML"
         ],
         "lastVerified": [
-          "pnpm exec vitest run src/features/plan/canvas/componentDragIdentity.test.ts src/features/plan/canvas/PagedCanvasSurface.test.tsx src/features/plan/canvas/PlanCanvas.test.tsx src/features/plan/canvas/useComponentResize.test.ts",
+          "pnpm exec vitest run src/features/plan/canvas/useNaturalHeight.test.tsx src/features/plan/canvas/usePlanContentMeasurement.test.tsx src/features/plan/ProjectCanvasProvider.test.tsx src/features/plan/canvas/PlanCanvas.test.tsx",
           "pnpm typecheck"
         ],
         "remaining": [
-          "Adaptive layout runtime measurement, pagination, and drag-preview tasks from the 2026-08-05 design remain to be implemented."
+          "Adaptive layout drag-preview tasks from the 2026-08-05 design remain to be implemented."
         ]
       }
     }

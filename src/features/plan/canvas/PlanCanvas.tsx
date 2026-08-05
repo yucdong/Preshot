@@ -12,22 +12,24 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { layoutPlan } from "../../../domain/plan/canvas/engine";
+import { layoutPlan, type LayoutMeasurements } from "../../../domain/plan/canvas/engine";
 import { contentSize, DEFAULT_PAGE_GEOMETRY, SPACING } from "../../../domain/plan/canvas/geometry";
 import { moveComponent, moveImage, type MoveImageParams } from "../../../domain/plan/canvas/plan";
 import { componentDropTarget } from "../../../domain/plan/canvas/dropTarget";
 import { imageDropTarget, imageInsertAfterFromRects } from "./imageDropTarget";
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
 import { ComponentFrame } from "./ComponentFrame";
-import { PagedCanvasSurface, pageTopPx } from "./PagedCanvasSurface";
+import { PAGE_SCREEN_GAP, PagedCanvasSurface, pageTopPx } from "./PagedCanvasSurface";
 import { PlanTextComponentView } from "./PlanTextComponentView";
 import { ReferenceComponentView } from "./ReferenceComponentView";
 import { insertAfterFromRects } from "./canvasDropGeometry";
 import { logicalComponentIdFromDnd } from "./componentDragIdentity";
+import type { PlanMeasurement } from "./usePlanContentMeasurement";
 
 export interface PlanCanvasProps {
   components: PlanComponent[];
   scale: number;
+  measurements: LayoutMeasurements;
   imageSrc: (file: string) => string | undefined;
   onRemoveComponent: (id: string) => void;
   onChangeHtml: (id: string, html: string) => void;
@@ -43,6 +45,8 @@ export interface PlanCanvasProps {
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
   onSetImageHeight?: (id: string, height: number) => void;
   onAddImages?: (id: string) => void;
+  onMeasurePlan: (id: string, measurement: PlanMeasurement) => void;
+  onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
 }
 
 // Collision detection that branches on active type
@@ -81,6 +85,7 @@ const collisionDetection: CollisionDetection = (args) => {
 export function PlanCanvas({
   components,
   scale,
+  measurements,
   imageSrc,
   onRemoveComponent,
   onChangeHtml,
@@ -96,6 +101,8 @@ export function PlanCanvas({
   onSetImageCaption,
   onSetImageHeight,
   onAddImages,
+  onMeasurePlan,
+  onMeasureReferenceDescription,
 }: PlanCanvasProps) {
   const [preview, setPreview] = useState<PlanComponent[] | null>(null);
   const lastParamsRef = useRef<{ id: string; toIndex: number } | null>(null);
@@ -103,7 +110,14 @@ export function PlanCanvas({
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const view = preview ?? components;
-  const layout = layoutPlan(view, DEFAULT_PAGE_GEOMETRY);
+  const layout = layoutPlan(
+    view,
+    {
+      ...DEFAULT_PAGE_GEOMETRY,
+      pageGap: Number.isFinite(scale) && scale > 0 ? PAGE_SCREEN_GAP / scale : 0,
+    },
+    measurements,
+  );
 
   const paramsFor = (event: DragOverEvent | DragEndEvent): { id: string; toIndex: number } | null => {
     const activeId = logicalComponentIdFromDnd(
@@ -246,7 +260,12 @@ export function PlanCanvas({
                 onResize={handleResize}
               >
                 {component.type === "plan" ? (
-                  <PlanTextComponentView component={component} onChangeHtml={onChangeHtml} />
+                  <PlanTextComponentView
+                    component={component}
+                    onChangeHtml={onChangeHtml}
+                    onMeasure={onMeasurePlan}
+                    scale={scale}
+                  />
                 ) : (
                   <ReferenceComponentView
                     component={component}
@@ -261,6 +280,7 @@ export function PlanCanvas({
                     onSetImageCaption={onSetImageCaption}
                     onSetImageHeight={onSetImageHeight}
                     onAddImages={onAddImages}
+                    onMeasureDescription={onMeasureReferenceDescription}
                     slots={placement.imageSlots ?? []}
                     scale={scale}
                   />

@@ -45,6 +45,10 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
   const props = {
     components: [planComponent, referenceComponent],
     scale: 1,
+    measurements: {
+      planHeights: new Map<string, number>(),
+      referenceDescriptionHeights: new Map<string, number>(),
+    },
     imageSrc: (file: string) => (file.startsWith("references/") ? "data:image/png;base64,AA" : undefined),
     onRemoveComponent: vi.fn(),
     onChangeHtml: vi.fn(),
@@ -55,6 +59,8 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onOpenImage: vi.fn(),
     onMoveComponent: vi.fn(),
     onResize: vi.fn(),
+    onMeasurePlan: vi.fn(),
+    onMeasureReferenceDescription: vi.fn(),
     ...overrides,
   };
   render(

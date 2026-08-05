@@ -6,6 +6,7 @@ export interface PageGeometry {
   margin: number;
   gutter: number;
   rowGap: number;
+  pageGap?: number;
 }
 
 export const DEFAULT_PAGE_GEOMETRY: PageGeometry = {

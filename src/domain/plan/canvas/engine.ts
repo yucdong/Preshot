@@ -99,16 +99,24 @@ function referenceDescriptionHeight(component: ReferenceComponent, measurements:
   return Number.isFinite(value) && (value ?? 0) >= 0 ? value! : REFERENCE_DESCRIPTION_HEIGHT;
 }
 
-function cappedHeight(value: number, maxHeight: number): number {
-  if (!Number.isFinite(value) || value <= 0) {
-    return 0;
-  }
-
-  return Math.min(value, maxHeight);
-}
-
 function fragmentId(componentId: string, fragmentIndex: number): string {
   return `${componentId}::${fragmentIndex}`;
+}
+
+function pageSurfaceHeight(geometry: PageGeometry): number {
+  return geometry.page.height + (geometry.pageGap ?? 0);
+}
+
+function startSurfaceTop(pageIndex: number, y: number, geometry: PageGeometry): number {
+  return pageIndex * pageSurfaceHeight(geometry) + geometry.margin + y;
+}
+
+function endPosition(surfaceBottom: number, geometry: PageGeometry): { pageIndex: number; y: number } {
+  const span = pageSurfaceHeight(geometry);
+  const adjustedBottom = Math.max(0, surfaceBottom - EPS);
+  const pageIndex = Math.max(0, Math.floor(adjustedBottom / span));
+  const y = Math.max(0, surfaceBottom - pageIndex * span - geometry.margin);
+  return { pageIndex, y: Math.abs(y) < EPS ? 0 : y };
 }
 
 interface PendingRowComponent {
@@ -131,13 +139,16 @@ function layoutPlanComponent(
   y: number,
   contentHeight: number,
   measurements: LayoutMeasurements,
+  geometry: PageGeometry,
 ): ComponentLayout {
   if (entry.component.type === "plan") {
-    const height = cappedHeight(planHeight(entry.component.id, measurements), contentHeight);
+    const height = planHeight(entry.component.id, measurements);
+    const firstHeight = Math.min(height, Math.max(0, contentHeight - y));
+    const end = endPosition(startSurfaceTop(pageIndex, y, geometry) + height, geometry);
     return {
-      firstHeight: height,
-      endPageIndex: pageIndex,
-      endY: y + height,
+      firstHeight,
+      endPageIndex: end.pageIndex,
+      endY: end.y,
       mustStartOnFreshPage: false,
       placements: [
         {
@@ -249,7 +260,9 @@ export function layoutPlan(
   let y = 0;
 
   for (const row of rows) {
-    let layouts = row.map((entry) => layoutPlanComponent(entry, pageIndex, y, content.height, measurements));
+    let layouts = row.map((entry) =>
+      layoutPlanComponent(entry, pageIndex, y, content.height, measurements, geometry),
+    );
     let rowHeight = Math.max(...layouts.map((layout) => layout.firstHeight), 0);
     const availableHeight = content.height - y;
 
@@ -259,7 +272,9 @@ export function layoutPlan(
     ) {
       pageIndex += 1;
       y = 0;
-      layouts = row.map((entry) => layoutPlanComponent(entry, pageIndex, y, content.height, measurements));
+      layouts = row.map((entry) =>
+        layoutPlanComponent(entry, pageIndex, y, content.height, measurements, geometry),
+      );
       rowHeight = Math.max(...layouts.map((layout) => layout.firstHeight), 0);
     }
 
@@ -288,7 +303,7 @@ export function layoutPlan(
 
   const pageCount = placements.length === 0
     ? 1
-    : Math.max(...placements.map((placement) => placement.pageIndex)) + 1;
+    : Math.max(...placements.map((placement) => placement.pageIndex), pageIndex) + 1;
 
   return { pageCount, placements };
 }

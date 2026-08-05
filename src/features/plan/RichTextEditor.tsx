@@ -1,7 +1,7 @@
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import { zh } from "@blocknote/core/locales";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTheme } from "../../app/theme/ThemeProvider";
 
 interface RichTextEditorProps {
@@ -10,14 +10,39 @@ interface RichTextEditorProps {
   ariaLabel: string;
   placeholder?: string;
   compact?: boolean;
+  rootRef?: React.Ref<HTMLDivElement>;
 }
 
-export function RichTextEditor({ html, onChange, ariaLabel, placeholder, compact }: RichTextEditorProps) {
+function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null): void {
+  if (!ref) {
+    return;
+  }
+  if (typeof ref === "function") {
+    ref(value);
+    return;
+  }
+  (ref as React.MutableRefObject<T | null>).current = value;
+}
+
+export function RichTextEditor({
+  html,
+  onChange,
+  ariaLabel,
+  placeholder,
+  compact,
+  rootRef,
+}: RichTextEditorProps) {
   const { resolved } = useTheme();
   const editor = useCreateBlockNote({ dictionary: zh });
   const lastEmitRef = useRef<string | null>(null);
   const lastPropHtmlRef = useRef<string | null>(null);
   const onChangeRef = useRef(onChange);
+  const setRootRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      assignRef(rootRef, node);
+    },
+    [rootRef],
+  );
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -71,7 +96,13 @@ export function RichTextEditor({ html, onChange, ariaLabel, placeholder, compact
   };
 
   return (
-    <div aria-label={ariaLabel} className={`bn-wrap${compact ? " bn-compact" : ""}`} data-placeholder={placeholder} role="group">
+    <div
+      aria-label={ariaLabel}
+      className={`bn-wrap${compact ? " bn-compact" : ""}`}
+      data-placeholder={placeholder}
+      ref={setRootRef}
+      role="group"
+    >
       <BlockNoteView editor={editor} onChange={handleChange} sideMenu={!compact} theme={resolved} />
     </div>
   );

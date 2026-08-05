@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   EMPTY_PLAN,
@@ -37,6 +37,7 @@ import {
   type PlanHistory,
 } from "../../domain/plan/canvas/history";
 import { PlanCanvas } from "./canvas/PlanCanvas";
+import type { PlanMeasurement } from "./canvas/usePlanContentMeasurement";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
 import { InsertComponentMenu } from "./canvas/InsertComponentMenu";
 import { SaveStatus, type SaveState } from "./SaveStatus";
@@ -59,6 +60,10 @@ interface ProjectCanvasProviderProps {
 
 function detail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
 function isTextEditingTarget(node: EventTarget | null): boolean {
@@ -97,6 +102,9 @@ export function ProjectCanvasProvider({
   const [scale, setScale] = useState(0.5);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [planMeasurements, setPlanMeasurements] = useState<ReadonlyMap<string, PlanMeasurement>>(new Map());
+  const [referenceDescriptionHeights, setReferenceDescriptionHeights] =
+    useState<ReadonlyMap<string, number>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
   const busyRef = useRef(false);
@@ -129,6 +137,16 @@ export function ProjectCanvasProvider({
     setCanUndo(historyRef.current.past.length > 0);
     setCanRedo(historyRef.current.future.length > 0);
   }, []);
+
+  const measurements = useMemo(
+    () => ({
+      planHeights: new Map(
+        Array.from(planMeasurements.entries(), ([id, measurement]) => [id, measurement.heightPoints]),
+      ),
+      referenceDescriptionHeights,
+    }),
+    [planMeasurements, referenceDescriptionHeights],
+  );
 
   const recordHistoryEntry = useCallback(
     (previous: ProjectPlan, coalesceKey?: string) => {
@@ -239,6 +257,11 @@ export function ProjectCanvasProvider({
       }
     }
   }, [projectPath, report, service, syncSaveState]);
+
+  useEffect(() => {
+    setPlanMeasurements(new Map());
+    setReferenceDescriptionHeights(new Map());
+  }, [projectPath]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -501,6 +524,47 @@ export function ProjectCanvasProvider({
     [mutate],
   );
 
+  const handleMeasurePlan = useCallback((id: string, next: PlanMeasurement) => {
+    if (!Number.isFinite(next.heightPoints) || next.heightPoints < 0) {
+      return;
+    }
+
+    const pageBreakBeforeBlockIds = next.pageBreakBeforeBlockIds.filter(
+      (blockId): blockId is string => typeof blockId === "string" && blockId.length > 0,
+    );
+    setPlanMeasurements((current) => {
+      const previous = current.get(id);
+      if (
+        previous &&
+        Math.abs(previous.heightPoints - next.heightPoints) < 1 &&
+        arraysEqual(previous.pageBreakBeforeBlockIds, pageBreakBeforeBlockIds)
+      ) {
+        return current;
+      }
+
+      const updated = new Map(current);
+      updated.set(id, { heightPoints: next.heightPoints, pageBreakBeforeBlockIds });
+      return updated;
+    });
+  }, []);
+
+  const handleMeasureReferenceDescription = useCallback((id: string, heightPoints: number) => {
+    if (!Number.isFinite(heightPoints) || heightPoints < 0) {
+      return;
+    }
+
+    setReferenceDescriptionHeights((current) => {
+      const previous = current.get(id);
+      if (previous !== undefined && Math.abs(previous - heightPoints) < 1) {
+        return current;
+      }
+
+      const updated = new Map(current);
+      updated.set(id, heightPoints);
+      return updated;
+    });
+  }, []);
+
   const handleAddImage = useCallback(
     (componentId: string) => {
       void guard("Unable to import the reference image", async () => {
@@ -671,8 +735,11 @@ export function ProjectCanvasProvider({
         <PlanCanvas
           components={plan.components}
           imageSrc={(file) => imageSrc[file]}
+          measurements={measurements}
           onAddImage={handleAddImage}
           onChangeHtml={handleChangeHtml}
+          onMeasurePlan={handleMeasurePlan}
+          onMeasureReferenceDescription={handleMeasureReferenceDescription}
           onMoveComponent={handleMoveComponent}
           onMoveImage={handleMoveImage}
           onOpenImage={(file) => setLightbox(file)}

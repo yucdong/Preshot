@@ -16,17 +16,33 @@ const fakeRepository: SettingsRepository = {
 vi.mock("./canvas/PlanCanvas", () => ({
   PlanCanvas: ({
     components,
+    measurements,
     onMoveComponent,
     onChangeHtml,
     onResize,
+    onMeasurePlan,
+    onMeasureReferenceDescription,
   }: {
     components: Array<{ id: string; type: string; html?: string }>;
+    measurements: {
+      planHeights: ReadonlyMap<string, number>;
+      referenceDescriptionHeights: ReadonlyMap<string, number>;
+    };
     onMoveComponent: (id: string, toIndex: number) => void;
     onChangeHtml: (id: string, html: string) => void;
     onResize: (id: string, params: { width: number }) => void;
+    onMeasurePlan: (
+      id: string,
+      measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
+    ) => void;
+    onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
   }) => (
     <div data-testid="plan-canvas">
       <div data-testid="component-count">{components.length}</div>
+      <div data-testid="plan-height">{measurements.planHeights.get("plan-1") ?? "none"}</div>
+      <div data-testid="reference-description-height">
+        {measurements.referenceDescriptionHeights.get("ref-1") ?? "none"}
+      </div>
       {components.map((c) =>
         c.type === "plan" ? (
           <div key={c.id} data-testid={`plan-${c.id}`}>
@@ -42,6 +58,20 @@ vi.mock("./canvas/PlanCanvas", () => ({
       </button>
       <button onClick={() => onResize("plan-1", { width: 0.5 })} type="button">
         Resize
+      </button>
+      <button
+        onClick={() =>
+          onMeasurePlan("plan-1", {
+            heightPoints: 321.5,
+            pageBreakBeforeBlockIds: ["plan-1:block-1"],
+          })
+        }
+        type="button"
+      >
+        Measure plan
+      </button>
+      <button onClick={() => onMeasureReferenceDescription("ref-1", 64)} type="button">
+        Measure description
       </button>
     </div>
   ),
@@ -365,6 +395,65 @@ describe("ProjectCanvasProvider", () => {
       // Canvas should have rendered at least once
       expect(screen.getByTestId("plan-canvas")).toBeInTheDocument();
     });
+  });
+
+  it("keeps runtime layout measurements outside save state and undo history", async () => {
+    const { dependencies } = deps();
+    const user = userEvent.setup();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Measure plan" }));
+    await user.click(screen.getByRole("button", { name: "Measure description" }));
+
+    expect(screen.getByTestId("plan-height")).toHaveTextContent("321.5");
+    expect(screen.getByTestId("reference-description-height")).toHaveTextContent("64");
+    expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+  });
+
+  it("resets runtime layout measurements when the project path changes", async () => {
+    const { dependencies } = deps();
+    const user = userEvent.setup();
+
+    const { rerender } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    await user.click(screen.getByRole("button", { name: "Measure plan" }));
+    await user.click(screen.getByRole("button", { name: "Measure description" }));
+
+    expect(screen.getByTestId("plan-height")).toHaveTextContent("321.5");
+    expect(screen.getByTestId("reference-description-height")).toHaveTextContent("64");
+
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Demo"
+          projectPath={String.raw`C:\other`}
+        />
+      </ThemeProvider>,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    expect(screen.getByTestId("plan-height")).toHaveTextContent("none");
+    expect(screen.getByTestId("reference-description-height")).toHaveTextContent("none");
   });
 });
 

@@ -4,6 +4,7 @@ import type { Rect } from "../../../domain/plan/canvas/geometry";
 import { clampImageHeight, DEFAULT_IMAGE_HEIGHT, type ReferenceComponent } from "../../../domain/plan/canvas/models";
 import { RichTextEditor } from "../RichTextEditor";
 import { GroupImageGrid } from "../GroupImageGrid";
+import { useNaturalHeight } from "./useNaturalHeight";
 
 interface ReferenceComponentViewProps {
   component: ReferenceComponent;
@@ -18,6 +19,7 @@ interface ReferenceComponentViewProps {
   enableReorder?: boolean;
   onSetImageHeight?: (id: string, height: number) => void;
   onAddImages?: (id: string) => void;
+  onMeasureDescription?: (id: string, heightPoints: number) => void;
   slots: Rect[];
   scale: number;
 }
@@ -35,11 +37,17 @@ export function ReferenceComponentView({
   enableReorder = false,
   onSetImageHeight,
   onAddImages,
+  onMeasureDescription,
   slots,
   scale,
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
   const [showDescription, setShowDescription] = useState(false);
+  const descriptionRef = useNaturalHeight({
+    id: component.id,
+    scale,
+    onHeight: (id, heightPoints) => onMeasureDescription?.(id, heightPoints),
+  });
 
   const currentImageHeight = component.imageHeight ?? DEFAULT_IMAGE_HEIGHT;
 
@@ -113,6 +121,7 @@ export function ReferenceComponentView({
             html={component.description}
             onChange={(html) => onSetDescription(component.id, html)}
             placeholder={t("reference.descriptionPlaceholder")}
+            rootRef={descriptionRef}
           />
         </div>
       )}

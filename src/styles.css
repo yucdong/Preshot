@@ -49,3 +49,18 @@ html.dark .bn-wrap .bn-editor {
   color: #e7e5e4;
   border-color: rgba(255, 255, 255, 0.12);
 }
+
+.bn-page-break-before {
+  margin-top: var(--bn-page-break-space);
+  position: relative;
+}
+
+.bn-page-break-before::before {
+  content: "";
+  position: absolute;
+  top: calc(-1 * var(--bn-page-break-space));
+  left: 0;
+  right: 0;
+  border-top: 1px dashed rgb(214 211 209);
+  pointer-events: none;
+}
