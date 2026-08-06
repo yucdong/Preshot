@@ -514,7 +514,8 @@
         "Ultimate review enforces globally unique component/image logical ids while preserving legal duplicate file references, and deletes physical image files only after the resulting plan proves them orphaned",
         "Ultimate review adds one numeric-id canvas droppable and filters collision fallbacks by exact pointer containment, while unchanged sync/async mutations skip history and save-state changes",
         "Final blocker fix captures and flushes a ready, dirty old-project snapshot before projectPath generation invalidation, while stale loads remain unable to apply after the switch",
-        "Final blocker fix deterministically suffix-remaps colliding v1/v2 component and image ids while v3/v4 stored plans continue to reject duplicate logical ids"
+        "Final blocker fix deterministically suffix-remaps colliding v1/v2 component and image ids while v3/v4 stored plans continue to reject duplicate logical ids",
+        "Final retirement fix tracks each ready token's latest persistence, rebases an in-flight old-project mutation onto an explicit retired plan snapshot, and only then performs the fail-safe dirty save without exposing stale errors to the replacement project"
       ],
       "progress": {
         "designSpec": "docs/superpowers/specs/2026-08-05-adaptive-component-layout-design.md",
@@ -544,20 +545,20 @@
           "Ultimate review: constrained collision fallback to exact continuous-canvas containment and prevented unchanged synchronous or asynchronous structural results from changing history/save state",
           "Ultimate review: aligned browser seed ratios to exact image dimensions so hydration is a no-op for the stable E2E fixture",
           "Final blockers: preserved dirty old-project edits during in-place project switches with a captured pre-invalidation save, while clean snapshots skip the write",
-          "Final blockers: migrated legacy v1/v2 duplicate component and image identities to deterministic unique suffixes without losing records or file references, retaining strict v3/v4 rejection"
+          "Final blockers: migrated legacy v1/v2 duplicate component and image identities to deterministic unique suffixes without losing records or file references, retaining strict v3/v4 rejection",
+          "Final retirement blocker: waited for old-token import/remove/flush persistence before rebasing and saving the latest retired plan, preserving physical deletion ordering and preventing stale completion state or errors from reaching the new project UI"
         ],
         "lastVerified": {
           "date": "2026-08-06",
-          "focusedE2E": "4 previously failing lifecycle/drag smoke tests passed",
-          "affectedTests": "56 focused provider/migration blocker tests passed",
-          "unitTests": "533 passed",
+          "affectedTests": "39 focused provider/service tests passed (29 provider, 10 service)",
+          "unitTests": "534 passed",
           "e2eTests": "28 passed",
           "typecheck": "clean",
           "lint": "clean (ThemeProvider.tsx react-refresh/only-export-components warning unchanged)",
           "rustTests": "44 passed",
-          "build": "succeeded",
+          "build": "pnpm build and pnpm tauri:build succeeded",
           "featurelistJson": "valid",
-          "verificationNote": "Final merge-blocker fixes reran focused RED/GREEN regressions and the complete requested verification matrix."
+          "verificationNote": "The final retirement race regression failed before the provider fix and passed after it; the complete requested unit, e2e, Rust, web-build, and desktop-bundle matrix passed."
         },
         "remaining": [
           "No merge blockers remain. Optional non-blocking polish: enlarge compact canvas resize/control hit targets at very low display scales without changing adaptive layout geometry."

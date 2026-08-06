@@ -77,6 +77,9 @@ vi.mock("./canvas/PlanCanvas", () => ({
         <button onClick={() => onRemoveComponent("missing")} type="button">
           Async noop
         </button>
+        <button onClick={() => onRemoveComponent("ref-1")} type="button">
+          Remove reference
+        </button>
         <button
           onClick={() =>
             onMeasurePlan("plan-1", {
@@ -605,6 +608,114 @@ describe("ProjectCanvasProvider", () => {
       newLoad.resolve({ status: "loaded", plan: newPlan });
     });
     expect(await screen.findByTestId("plan-new-plan")).toHaveTextContent("new project");
+  });
+
+  it("waits for an in-flight old-project removal before flushing its latest snapshot", async () => {
+    const { dependencies, loadPlan, savePlan, service } = deps();
+    const removalPersisted = deferred<void>();
+    const deletedFiles: string[] = [];
+    const oldPlan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "plan-1",
+          type: "plan",
+          width: 1,
+          html: "<p>old project</p>",
+        },
+        {
+          id: "ref-1",
+          type: "reference",
+          width: 1,
+          title: "Old reference",
+          description: "",
+          showCaptions: false,
+          imageHeight: 135,
+          images: [
+            {
+              id: "old-image",
+              file: "references/old.png",
+              aspectRatio: 1,
+            },
+          ],
+        },
+      ],
+    };
+    const newPlan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "new-plan",
+          type: "plan",
+          width: 1,
+          html: "<p>new project</p>",
+        },
+      ],
+    };
+    loadPlan.mockImplementation((path) =>
+      Promise.resolve({
+        status: "loaded",
+        plan: path === String.raw`C:\old` ? oldPlan : newPlan,
+      }),
+    );
+    vi.mocked(service.removeComponent).mockImplementation(
+      async (_path, currentPlan, componentId) => {
+        const next = {
+          ...currentPlan,
+          components: currentPlan.components.filter(
+            (component) => component.id !== componentId,
+          ),
+        };
+        await removalPersisted.promise;
+        deletedFiles.push("references/old.png");
+        return next;
+      },
+    );
+    savePlan.mockRejectedValueOnce(new Error("old retirement save failed"));
+
+    const { rerender } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Old"
+        projectPath={String.raw`C:\old`}
+      />,
+    );
+
+    await screen.findByTestId("plan-plan-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove reference" }));
+    await waitFor(() => expect(service.removeComponent).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="New"
+          projectPath={String.raw`C:\new`}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(await screen.findByTestId("plan-new-plan")).toHaveTextContent("new project");
+    expect(savePlan).not.toHaveBeenCalled();
+
+    await act(async () => {
+      removalPersisted.resolve();
+    });
+
+    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
+    expect(savePlan.mock.calls[0][0]).toBe(String.raw`C:\old`);
+    const retiredPlan = savePlan.mock.calls[0][1] as ProjectPlan;
+    expect(retiredPlan.components).toEqual([
+      expect.objectContaining({
+        id: "plan-1",
+        html: "<p>edited</p>",
+      }),
+    ]);
+    expect(deletedFiles).toEqual(["references/old.png"]);
+    expect(screen.getByTestId("plan-new-plan")).toHaveTextContent("new project");
+    expect(screen.getByTestId("component-count")).toHaveTextContent("1");
+    expect(screen.queryByText("old retirement save failed")).not.toBeInTheDocument();
   });
 
   it("does not flush the old project on a path switch when its snapshot is clean", async () => {

@@ -75,6 +75,12 @@ interface ProjectToken {
   generation: number;
 }
 
+interface ProjectPersistenceState {
+  token: ProjectToken;
+  plan: ProjectPlan;
+  pending: Promise<void> | null;
+}
+
 function detail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -89,6 +95,25 @@ function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
 
 function plansEqual(a: ProjectPlan, b: ProjectPlan): boolean {
   return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
+function trackPersistence(
+  state: ProjectPersistenceState,
+  operation: Promise<void>,
+): Promise<void> {
+  const previous = state.pending ?? Promise.resolve();
+  const settled = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+  const pending = Promise.all([previous, settled]).then(() => undefined);
+  state.pending = pending;
+  void pending.then(() => {
+    if (state.pending === pending) {
+      state.pending = null;
+    }
+  });
+  return operation;
 }
 
 function expectedReferenceImageFiles(plan: ProjectPlan): string[] {
@@ -162,6 +187,7 @@ export function ProjectCanvasProvider({
   const imageSrcRef = useRef(imageSrc);
   const savingRef = useRef<ProjectToken | null>(null);
   const lastSavedRef = useRef(JSON.stringify(EMPTY_PLAN));
+  const projectPersistenceRef = useRef<ProjectPersistenceState | null>(null);
   const historyRef = useRef<PlanHistory>(createHistory());
   const lifecycleStatus =
     lifecycle.projectPath === projectPath ? lifecycle.status : "loading";
@@ -227,6 +253,15 @@ export function ProjectCanvasProvider({
         return false;
       }
       planRef.current = next;
+      const persistence = projectPersistenceRef.current;
+      const current = lifecycleRef.current;
+      if (
+        persistence &&
+        current.status === "ready" &&
+        sameToken(persistence.token, current)
+      ) {
+        persistence.plan = next;
+      }
       setPlan(next);
       syncSaveState();
       return true;
@@ -304,14 +339,21 @@ export function ProjectCanvasProvider({
   );
 
   const persisting = useCallback(
-    async (token: ProjectToken, action: () => Promise<void>) => {
+    async (
+      token: ProjectToken,
+      action: (state: ProjectPersistenceState) => Promise<void>,
+    ) => {
       if (!isTokenReady(token)) {
+        return;
+      }
+      const persistence = projectPersistenceRef.current;
+      if (!persistence || !sameToken(persistence.token, token)) {
         return;
       }
       savingRef.current = token;
       syncSaveState();
       try {
-        await action();
+        await trackPersistence(persistence, action(persistence));
       } finally {
         if (sameToken(savingRef.current, token)) {
           savingRef.current = null;
@@ -369,6 +411,10 @@ export function ProjectCanvasProvider({
     ) {
       return;
     }
+    const persistence = projectPersistenceRef.current;
+    if (!persistence || !sameToken(persistence.token, token)) {
+      return;
+    }
     const planToSave = planRef.current;
     const snapshot = JSON.stringify(planToSave);
     if (snapshot === lastSavedRef.current) {
@@ -377,7 +423,10 @@ export function ProjectCanvasProvider({
     savingRef.current = token;
     syncSaveState();
     try {
-      await service.savePlan(projectPath, planToSave);
+      await trackPersistence(
+        persistence,
+        service.savePlan(projectPath, planToSave),
+      );
       if (!isTokenReady(token)) {
         return;
       }
@@ -414,21 +463,27 @@ export function ProjectCanvasProvider({
       return;
     }
     const retiringLifecycle = lifecycleRef.current;
-    const retiringPlan = planRef.current;
-    const retiringPlanSnapshot = JSON.stringify(retiringPlan);
+    const retiringPersistence = projectPersistenceRef.current;
     const retiringLastSavedSnapshot = lastSavedRef.current;
     const shouldFlush =
       retiringLifecycle.projectPath === retiringToken.projectPath &&
       retiringLifecycle.generation === retiringToken.generation &&
       retiringLifecycle.status === "ready" &&
-      retiringPlanSnapshot !== retiringLastSavedSnapshot;
+      retiringPersistence !== null &&
+      sameToken(retiringPersistence.token, retiringToken) &&
+      JSON.stringify(retiringPersistence.plan) !== retiringLastSavedSnapshot;
     let retiringSave: Promise<void> | null = null;
     if (shouldFlush) {
-      try {
-        retiringSave = service.savePlan(retiringToken.projectPath, retiringPlan);
-      } catch (err) {
-        retiringSave = Promise.reject(err);
-      }
+      const saveLatest = async () => {
+        const latestPlan = retiringPersistence.plan;
+        if (JSON.stringify(latestPlan) === retiringLastSavedSnapshot) {
+          return;
+        }
+        await service.savePlan(retiringToken.projectPath, latestPlan);
+      };
+      retiringSave = retiringPersistence.pending
+        ? retiringPersistence.pending.then(saveLatest)
+        : saveLatest();
     }
 
     generationRef.current = retiringToken.generation + 1;
@@ -469,6 +524,7 @@ export function ProjectCanvasProvider({
     setLifecycle({ ...token, status: "loading" });
     busyRef.current = null;
     savingRef.current = null;
+    projectPersistenceRef.current = null;
     planRef.current = EMPTY_PLAN;
     imageSrcRef.current = {};
     lastSavedRef.current = JSON.stringify(EMPTY_PLAN);
@@ -510,6 +566,11 @@ export function ProjectCanvasProvider({
           planToUse = addComponent(planToUse, planComponent);
         }
 
+        projectPersistenceRef.current = {
+          token,
+          plan: planToUse,
+          pending: null,
+        };
         planRef.current = planToUse;
         lastSavedRef.current = JSON.stringify(planToUse);
         historyRef.current = createHistory();
@@ -544,6 +605,7 @@ export function ProjectCanvasProvider({
       } catch (err) {
         if (!isCurrent()) return;
         logger.error("Unable to load the project plan", { error: err });
+        projectPersistenceRef.current = null;
         planRef.current = EMPTY_PLAN;
         imageSrcRef.current = {};
         lastSavedRef.current = JSON.stringify(EMPTY_PLAN);
@@ -711,18 +773,22 @@ export function ProjectCanvasProvider({
   const handleRemoveComponent = useCallback(
     (id: string) => {
       void guard(projectPath, "Unable to remove the component", (token) =>
-        persisting(token, async () => {
-          const operationPlan = planRef.current;
+        persisting(token, async (persistence) => {
+          const operationPlan = persistence.plan;
           const persisted = await service.removeComponent(
             projectPath,
             operationPlan,
             id,
           );
-          if (!isTokenReady(token) || plansEqual(persisted, operationPlan)) {
+          if (plansEqual(persisted, operationPlan)) {
             return;
           }
-          const previous = planRef.current;
+          const previous = persistence.plan;
           const next = mergeStructural(persisted, previous);
+          persistence.plan = next;
+          if (!isTokenReady(token)) {
+            return;
+          }
           if (!plansEqual(next, previous)) {
             recordHistoryEntry(previous);
             applyPlan(next);
@@ -879,15 +945,21 @@ export function ProjectCanvasProvider({
       void guard(projectPath, "Unable to import the reference image", async (token) => {
         const sourcePath = await picker.pickImageFile("Select a JPG or PNG reference image");
         if (sourcePath === null || !isTokenReady(token)) return;
-        await persisting(token, async () => {
-          const operationPlan = planRef.current;
+        await persisting(token, async (persistence) => {
+          const operationPlan = persistence.plan;
           const result = await service.importImage(
             projectPath,
             operationPlan,
             componentId,
             sourcePath,
           );
-          if (!isTokenReady(token) || plansEqual(result.plan, operationPlan)) {
+          if (plansEqual(result.plan, operationPlan)) {
+            return;
+          }
+          const previous = persistence.plan;
+          const next = mergeStructural(result.plan, previous);
+          persistence.plan = next;
+          if (!isTokenReady(token)) {
             return;
           }
           const nextImageSrc = {
@@ -897,8 +969,6 @@ export function ProjectCanvasProvider({
           imageSrcRef.current = nextImageSrc;
           setImageSrc(nextImageSrc);
 
-          const previous = planRef.current;
-          const next = mergeStructural(result.plan, previous);
           if (!plansEqual(next, previous)) {
             recordHistoryEntry(previous);
             applyPlan(next);
@@ -935,8 +1005,8 @@ export function ProjectCanvasProvider({
         const sourcePaths = await picker.pickImageFiles("Select JPG or PNG reference images");
         if (sourcePaths.length === 0 || !isTokenReady(token)) return;
 
-        await persisting(token, async () => {
-          const operationPlan = planRef.current;
+        await persisting(token, async (persistence) => {
+          const operationPlan = persistence.plan;
           let persistedPlan = operationPlan;
           const newImages: Array<{ id: string; file: string; aspectRatio: number; dataUrl: string }> = [];
 
@@ -947,10 +1017,8 @@ export function ProjectCanvasProvider({
               componentId,
               sourcePath,
             );
-            if (!isTokenReady(token)) return;
             persistedPlan = result.plan;
             const aspectRatio = await measureAspectRatio(result.dataUrl);
-            if (!isTokenReady(token)) return;
             newImages.push({
               id: result.image.id,
               file: result.image.file,
@@ -963,6 +1031,19 @@ export function ProjectCanvasProvider({
             return;
           }
 
+          const previous = persistence.plan;
+          let next = mergeStructural(persistedPlan, previous);
+          for (const image of newImages) {
+            next = setImageAspectRatioForFile(next, {
+              file: image.file,
+              aspectRatio: image.aspectRatio,
+            });
+          }
+          persistence.plan = next;
+          if (!isTokenReady(token)) {
+            return;
+          }
+
           const newSrcMap: Record<string, string> = {};
           for (const img of newImages) {
             newSrcMap[img.file] = img.dataUrl;
@@ -971,14 +1052,6 @@ export function ProjectCanvasProvider({
           imageSrcRef.current = nextImageSrc;
           setImageSrc(nextImageSrc);
 
-          const previous = planRef.current;
-          let next = mergeStructural(persistedPlan, previous);
-          for (const image of newImages) {
-            next = setImageAspectRatioForFile(next, {
-              file: image.file,
-              aspectRatio: image.aspectRatio,
-            });
-          }
           if (!plansEqual(next, previous)) {
             recordHistoryEntry(previous);
             applyPlan(next);
@@ -1004,19 +1077,23 @@ export function ProjectCanvasProvider({
   const handleRemoveImage = useCallback(
     (componentId: string, imageId: string) => {
       void guard(projectPath, "Unable to remove the reference image", (token) =>
-        persisting(token, async () => {
-          const operationPlan = planRef.current;
+        persisting(token, async (persistence) => {
+          const operationPlan = persistence.plan;
           const persisted = await service.removeImage(
             projectPath,
             operationPlan,
             componentId,
             imageId,
           );
-          if (!isTokenReady(token) || plansEqual(persisted, operationPlan)) {
+          if (plansEqual(persisted, operationPlan)) {
             return;
           }
-          const previous = planRef.current;
+          const previous = persistence.plan;
           const next = mergeStructural(persisted, previous);
+          persistence.plan = next;
+          if (!isTokenReady(token)) {
+            return;
+          }
           if (!plansEqual(next, previous)) {
             recordHistoryEntry(previous);
             applyPlan(next);
