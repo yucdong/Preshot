@@ -3,12 +3,13 @@ import { rectSortingStrategy, SortableContext } from "@dnd-kit/sortable";
 import { useTranslation } from "react-i18next";
 import { imageGroupDroppableId } from "./canvas/imageDropTarget";
 import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
+import type { CropRect } from "../../domain/plan/canvas/models";
 import { SortableImageTile } from "./SortableImageTile";
 
 // Minimal shape that both v1 ReferenceGroup and v2+ ReferenceComponent satisfy
 interface GroupLike {
   id: string;
-  images: Array<{ id: string; file: string; caption?: string }>;
+  images: Array<{ id: string; file: string; caption?: string; aspectRatio?: number; crop?: CropRect }>;
 }
 
 interface GroupImageGridProps {
@@ -22,6 +23,8 @@ interface GroupImageGridProps {
   enableReorder?: boolean;
   showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
+  onSetCrop?: (imageId: string, crop: CropRect) => void;
+  onResetCrop?: (imageId: string) => void;
   slots: ReferenceFlowSlot[];
   scale: number;
   hiddenImageId?: string;
@@ -41,6 +44,8 @@ export function GroupImageGrid({
   enableReorder = false, 
   showCaptions = false, 
   onSetCaption,
+  onSetCrop,
+  onResetCrop,
   slots,
   scale,
   hiddenImageId,
@@ -130,6 +135,8 @@ export function GroupImageGrid({
             draggable={enableReorder}
             showCaptions={showCaptions}
             onSetCaption={onSetCaption}
+            onSetCrop={onSetCrop}
+            onResetCrop={onResetCrop}
             slot={slot}
             scale={scale}
           />
@@ -148,6 +155,8 @@ export function GroupImageGrid({
           isPlaceholder
           showCaptions={showCaptions}
           onSetCaption={onSetCaption}
+          onSetCrop={onSetCrop}
+          onResetCrop={onResetCrop}
           slot={normalizedPlaceholderSlot}
           scale={scale}
         />

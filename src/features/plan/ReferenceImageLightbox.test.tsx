@@ -11,6 +11,7 @@ describe("ReferenceImageLightbox", () => {
 
     expect(screen.getByRole("dialog")).toBeVisible();
     expect(screen.getByRole("img", { name: "参考图" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "关闭图片" })).toHaveTextContent("×");
 
     await user.click(screen.getByRole("button", { name: "关闭图片" }));
     expect(onClose).toHaveBeenCalledTimes(1);

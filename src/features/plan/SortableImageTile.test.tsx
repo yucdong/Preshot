@@ -6,6 +6,7 @@ import { SortableImageTile } from "./SortableImageTile";
 
 const sortableState = vi.hoisted(() => ({
   isDragging: false,
+  onPointerDown: vi.fn(),
 }));
 
 vi.mock("@dnd-kit/sortable", async () => {
@@ -15,7 +16,7 @@ vi.mock("@dnd-kit/sortable", async () => {
     ...actual,
     useSortable: () => ({
       attributes: { "aria-roledescription": "sortable" },
-      listeners: {},
+      listeners: { onPointerDown: sortableState.onPointerDown },
       setNodeRef: () => undefined,
       transform: { x: 18, y: 12, scaleX: 1, scaleY: 1 },
       transition: "transform 200ms ease",
@@ -58,6 +59,7 @@ describe("SortableImageTile", () => {
 
   afterEach(() => {
     sortableState.isDragging = false;
+    sortableState.onPointerDown.mockReset();
     vi.unstubAllGlobals();
   });
 
@@ -117,7 +119,7 @@ describe("SortableImageTile", () => {
       slot: { kind: "image", id: "i1", x: 0, y: 0, width: 180, height: 180, imageHeight: 135, captionHeight: 45 },
     });
 
-    expect(screen.getByRole("img", { name: "参考图" })).toHaveClass("object-contain");
+    expect(screen.getByRole("img", { name: "参考图" })).toHaveClass("object-fill");
     expect(screen.getByTestId("image-region")).toHaveStyle({ height: "135px" });
     expect(screen.getByRole("textbox", { name: "图片说明 1" })).toHaveStyle({ height: "45px" });
   });
@@ -167,5 +169,44 @@ describe("SortableImageTile", () => {
 
     const tile = screen.getByTestId("image-placeholder-i1");
     expect(tile.style.transform).toBe("");
+  });
+
+  it("renders the source image positioned inside the cropped viewport", () => {
+    renderTile({
+      image: { ...image, aspectRatio: 1, crop: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } },
+    });
+
+    expect(screen.getByRole("img", { name: "参考图" })).toHaveStyle({
+      width: "200%",
+      height: "200%",
+      left: "-50%",
+      top: "-50%",
+    });
+  });
+
+  it("commits crop changes without opening the lightbox or starting a drag", () => {
+    const onOpen = vi.fn();
+    const onSetCrop = vi.fn();
+    renderTile({ onOpen, onSetCrop });
+    const handle = screen.getByTestId("crop-handle-right");
+
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 160, clientY: 60 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 120, clientY: 60 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientX: 120, clientY: 60 });
+    fireEvent.click(handle);
+
+    expect(onSetCrop).toHaveBeenCalledWith("i1", { x: 0, y: 0, width: 0.75, height: 1 });
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(sortableState.onPointerDown).not.toHaveBeenCalled();
+  });
+
+  it("previews the cropped source content while an edge drag is active", () => {
+    renderTile({ onSetCrop: vi.fn() });
+    const handle = screen.getByTestId("crop-handle-right");
+
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 160, clientY: 60 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 120, clientY: 60 });
+
+    expect(screen.getByRole("img", { name: "参考图" }).style.width).toBe(`${100 / 0.75}%`);
   });
 });

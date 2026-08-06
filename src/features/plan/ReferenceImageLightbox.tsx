@@ -43,7 +43,7 @@ export function ReferenceImageLightbox({ src, alt, onClose }: ReferenceImageLigh
           ref={closeRef}
           type="button"
         >
-          {t("lightbox.closeButton")}
+          ×
         </button>
       </div>
     </div>

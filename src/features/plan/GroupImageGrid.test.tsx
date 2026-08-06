@@ -289,4 +289,27 @@ describe("GroupImageGrid", () => {
 
     expect(screen.getByRole("button", { name: "添加参考图" })).toBeInTheDocument();
   });
+
+  it("forwards crop commits and resets for the matching image", () => {
+    const onSetCrop = vi.fn();
+    const onResetCrop = vi.fn();
+    renderGrid({
+      group: {
+        id: "g1",
+        images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1, crop: { x: 0, y: 0, width: 0.9, height: 1 } }],
+      },
+      slots: [mockSlots[0]],
+      onSetCrop,
+      onResetCrop,
+    });
+
+    const handle = screen.getByTestId("crop-handle-right");
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 160, clientY: 60 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 120, clientY: 60 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientX: 120, clientY: 60 });
+    fireEvent.click(screen.getByRole("button", { name: "恢复原图" }));
+
+    expect(onSetCrop).toHaveBeenCalledWith("i1", expect.objectContaining({ width: expect.any(Number) }));
+    expect(onResetCrop).toHaveBeenCalledWith("i1");
+  });
 });
