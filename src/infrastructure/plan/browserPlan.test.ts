@@ -66,6 +66,27 @@ describe("createBrowserCanvasPlanDependencies", () => {
     ).toBe(true);
   });
 
+  it("stores exact dimensions for seeded images so hydration is a no-op", async () => {
+    const { service } = createBrowserCanvasPlanDependencies();
+    const result = await service.loadPlan("C:\\demo");
+    if (result.status !== "loaded") {
+      throw new Error("Expected the seeded browser plan to load");
+    }
+    const reference = result.plan.components.find(
+      (component) => component.type === "reference",
+    );
+    if (!reference || reference.type !== "reference") {
+      throw new Error("Expected a seeded reference component");
+    }
+
+    expect(reference.images.map((image) => image.aspectRatio)).toEqual([
+      8 / 5,
+      2 / 3,
+      18 / 11,
+      13 / 20,
+    ]);
+  });
+
   it("exports the loaded seeded browser images through the real PDF adapter", async () => {
     const { service } = createBrowserCanvasPlanDependencies();
     const result = await service.loadPlan("C:\\demo");
