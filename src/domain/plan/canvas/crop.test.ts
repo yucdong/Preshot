@@ -53,4 +53,20 @@ describe("image crop", () => {
     expect((cropped.components[0] as ReferenceComponent).images[0].crop).toEqual(crop);
     expect((resetImageCrop(cropped, { componentId: "r1", imageId: "i1" }).components[0] as ReferenceComponent).images[0].crop).toBeUndefined();
   });
+
+  it("removes an existing crop when setting the full normalized rectangle", () => {
+    const cropped = setImageCrop(plan, {
+      componentId: "r1",
+      imageId: "i1",
+      crop: { x: 0, y: 0.25, width: 1, height: 0.5 },
+    });
+
+    const fullImage = setImageCrop(cropped, {
+      componentId: "r1",
+      imageId: "i1",
+      crop: { x: 0, y: 0, width: 1, height: 1 },
+    });
+
+    expect((fullImage.components[0] as ReferenceComponent).images[0]).not.toHaveProperty("crop");
+  });
 });

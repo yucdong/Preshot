@@ -4,6 +4,8 @@ import {
   clampWidth,
   CURRENT_SCHEMA_VERSION,
   DEFAULT_IMAGE_HEIGHT,
+  MAX_IMAGE_HEIGHT,
+  MIN_IMAGE_HEIGHT,
   MIN_WIDTH,
   type CropRect,
   type PlanComponent,
@@ -238,6 +240,20 @@ function validateLogicalIds(components: readonly { id: string; type: string; ima
   });
 }
 
+function validateComponentNames(components: readonly PlanComponent[]): void {
+  const positions = new Map<string, number>();
+  components.forEach((component, componentIndex) => {
+    const name = component.name.trim();
+    const previousIndex = positions.get(name);
+    if (previousIndex !== undefined) {
+      throw new Error(
+        `Stored plan duplicate component name "${name}" at component ${componentIndex}; first used at component ${previousIndex}`,
+      );
+    }
+    positions.set(name, componentIndex);
+  });
+}
+
 function uniqueName(base: string, names: Set<string>): string {
   if (!names.has(base)) {
     names.add(base);
@@ -368,8 +384,12 @@ function v5Component(raw: unknown, componentIndex: number): PlanComponent {
       typeof raw.showCaptions !== "boolean" ||
       typeof raw.imageHeight !== "number" ||
       !Number.isFinite(raw.imageHeight) ||
-      !Array.isArray(raw.images)
+      raw.imageHeight < MIN_IMAGE_HEIGHT ||
+      raw.imageHeight > MAX_IMAGE_HEIGHT
     ) {
+      throw new Error(`Stored plan component ${componentIndex} imageHeight must be between ${MIN_IMAGE_HEIGHT} and ${MAX_IMAGE_HEIGHT}`);
+    }
+    if (!Array.isArray(raw.images)) {
       throw new Error(`Stored plan component ${componentIndex} has invalid reference fields`);
     }
     return {
@@ -424,9 +444,10 @@ function migrateV1ToV2(raw: Record<string, unknown>, makeId: IdFactory): Record<
   if (Array.isArray(raw.referenceGroups)) {
     raw.referenceGroups.forEach((group, groupIndex) => {
       if (!isRecord(group)) throw new Error(`Stored plan reference group ${groupIndex} must be an object`);
+      const id = typeof group.id === "string" && group.id ? group.id : makeId("ref");
       components.push({
-        id: typeof group.id === "string" && group.id ? group.id : makeId("ref"),
-        rowId: `row:${typeof group.id === "string" && group.id ? group.id : makeId("ref")}`,
+        id,
+        rowId: `row:${id}`,
         type: "reference",
         widthFraction: "1",
         title: asString(group.title ?? group.name),
@@ -441,7 +462,7 @@ function migrateV1ToV2(raw: Record<string, unknown>, makeId: IdFactory): Record<
 
 export function migratePlan(
   raw: unknown,
-  context: PlanMigrationContext = { projectName: "" },
+  context: PlanMigrationContext,
 ): ProjectPlan {
   if (!isRecord(raw)) throw new Error("Stored plan must be an object");
   const makeId = context.makeId ?? defaultIdFactory();
@@ -454,6 +475,7 @@ export function migratePlan(
     }
     const components = raw.components.map((component, index) => v5Component(component, index));
     validateLogicalIds(components);
+    validateComponentNames(components);
     validateV5Rows(components);
     return { schemaVersion: 5, title: raw.title, components };
   }

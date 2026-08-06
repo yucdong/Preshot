@@ -1,8 +1,24 @@
-import { describe, expect, it } from "vitest";
-import { migratePlan } from "./migrate";
-import { DEFAULT_IMAGE_HEIGHT, type ReferenceComponent } from "./models";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { migratePlan, type PlanMigrationContext } from "./migrate";
+import {
+  DEFAULT_IMAGE_HEIGHT,
+  type ProjectPlan,
+  type ReferenceComponent,
+} from "./models";
+
+const migrationContext: PlanMigrationContext = { projectName: "Migrated plan" };
 
 describe("migratePlan", () => {
+  it("requires a migration context in its public signature", () => {
+    expectTypeOf(migratePlan).toEqualTypeOf<
+      (raw: unknown, context: PlanMigrationContext) => ProjectPlan
+    >();
+    if (false) {
+      // @ts-expect-error PlanMigrationContext must remain required.
+      migratePlan({});
+    }
+  });
+
   describe("v4 -> v5 migration", () => {
     it("derives deterministic titles, names, and row ids from a v4 plan", () => {
       let counter = 0;
@@ -39,6 +55,49 @@ describe("migratePlan", () => {
     });
   });
 
+  describe("v5 validation", () => {
+    it("rejects duplicate trimmed component names", () => {
+      expect(() =>
+        migratePlan(
+          {
+            schemaVersion: 5,
+            title: "Editorial",
+            components: [
+              { id: "p1", rowId: "row-p1", name: "Lookbook", type: "plan", width: 1, html: "" },
+              { id: "p2", rowId: "row-p2", name: "Lookbook", type: "plan", width: 1, html: "" },
+            ],
+          },
+          migrationContext,
+        ),
+      ).toThrow(/duplicate component name "Lookbook"/i);
+    });
+
+    it.each([67.4, 400.1])("rejects imageHeight %s outside the supported range", (imageHeight) => {
+      expect(() =>
+        migratePlan(
+          {
+            schemaVersion: 5,
+            title: "Editorial",
+            components: [
+              {
+                id: "r1",
+                rowId: "row-r1",
+                name: "Lookbook",
+                type: "reference",
+                width: 1,
+                description: "",
+                showCaptions: false,
+                imageHeight,
+                images: [],
+              },
+            ],
+          },
+          migrationContext,
+        ),
+      ).toThrow(/imageHeight/i);
+    });
+  });
+
   describe("v3 schema", () => {
     it("migrates v3 to v4 by dropping component height and reducing image height once", () => {
       const v3 = {
@@ -59,7 +118,7 @@ describe("migratePlan", () => {
         ],
       };
 
-      const migrated = migratePlan(v3);
+      const migrated = migratePlan(v3, migrationContext);
 
       expect(migrated.schemaVersion).toBe(5);
       expect(migrated.components[0]).not.toHaveProperty("height");
@@ -84,7 +143,7 @@ describe("migratePlan", () => {
         ],
       };
 
-      expect((migratePlan(v4).components[0] as ReferenceComponent).imageHeight).toBe(135);
+      expect((migratePlan(v4, migrationContext).components[0] as ReferenceComponent).imageHeight).toBe(135);
     });
 
     it("passes a valid v3 plan through, normalizing and clamping fields", () => {
@@ -95,7 +154,7 @@ describe("migratePlan", () => {
           { id: "b", type: "reference", width: 1, height: 300, title: "T", description: "", imageHeight: 200, showCaptions: false, images: [{ id: "i", file: "references/0001.png", aspectRatio: 1.5 }] },
         ],
       };
-      const migrated = migratePlan(v3);
+      const migrated = migratePlan(v3, migrationContext);
       expect(migrated.schemaVersion).toBe(5);
       expect(migrated.components).toHaveLength(2);
       expect(migrated.components[0]).toMatchObject({ id: "a", type: "plan", width: 0.5, html: "<p>x</p>" });
@@ -113,7 +172,7 @@ describe("migratePlan", () => {
           { id: "b", type: "plan", width: 0.05, height: 100, html: "" }, // < MIN
         ],
       };
-      const migrated = migratePlan(v3);
+      const migrated = migratePlan(v3, migrationContext);
       expect(migrated.components[0].width).toBe(1); // clamped
       expect(migrated.components[1].width).toBe(0.15); // clamped
     });
@@ -126,7 +185,7 @@ describe("migratePlan", () => {
           { id: "b", type: "reference", width: 1, height: 200, title: "", description: "", imageHeight: 500, showCaptions: false, images: [] },
         ],
       };
-      const migrated = migratePlan(v3);
+      const migrated = migratePlan(v3, migrationContext);
       expect((migrated.components[0] as ReferenceComponent).imageHeight).toBe(67.5); // clamped
       expect((migrated.components[1] as ReferenceComponent).imageHeight).toBe(375); // reduced once, then clamped
     });
@@ -154,7 +213,7 @@ describe("migratePlan", () => {
           },
         ],
       };
-      const migrated = migratePlan(v3);
+      const migrated = migratePlan(v3, migrationContext);
       const images = (migrated.components[0] as ReferenceComponent).images;
       expect(images).toHaveLength(5);
       expect(images.map((image) => image.aspectRatio)).toEqual([1, 1, 1, 1, 1]);
@@ -170,7 +229,7 @@ describe("migratePlan", () => {
           { id: "c", type: "plan", width: 0.5, height: 100, html: "ok" },
         ],
       };
-      expect(() => migratePlan(v3)).toThrow(/component/i);
+      expect(() => migratePlan(v3, migrationContext)).toThrow(/component/i);
     });
 
     it("rejects a v3 plan instead of partially dropping malformed image identities", () => {
@@ -190,7 +249,7 @@ describe("migratePlan", () => {
           },
         ],
       };
-      expect(() => migratePlan(v3)).toThrow(/image/i);
+      expect(() => migratePlan(v3, migrationContext)).toThrow(/image/i);
     });
   });
 
@@ -207,7 +266,7 @@ describe("migratePlan", () => {
           { id: "f", type: "plan", widthFraction: "1/4", height: 150, html: "" },
         ],
       };
-      const migrated = migratePlan(v2);
+      const migrated = migratePlan(v2, migrationContext);
       expect(migrated.schemaVersion).toBe(5);
       expect(migrated.components[0].width).toBe(1);
       expect(migrated.components[1].width).toBe(0.75);
@@ -222,7 +281,7 @@ describe("migratePlan", () => {
         schemaVersion: 2,
         components: [{ id: "a", type: "plan", widthFraction: "bogus", height: 100, html: "" }],
       };
-      const migrated = migratePlan(v2);
+      const migrated = migratePlan(v2, migrationContext);
       expect(migrated.components[0].width).toBe(1);
     });
 
@@ -233,7 +292,7 @@ describe("migratePlan", () => {
           { id: "a", type: "reference", widthFraction: "1", height: 300, title: "T", description: "", columnsPerRow: 3, showCaptions: false, images: [{ id: "i", file: "a.png" }] },
         ],
       };
-      const migrated = migratePlan(v2);
+      const migrated = migratePlan(v2, migrationContext);
       const ref = migrated.components[0] as ReferenceComponent;
       expect(ref.imageHeight).toBe(DEFAULT_IMAGE_HEIGHT);
       expect(ref).not.toHaveProperty("columnsPerRow");
@@ -246,7 +305,7 @@ describe("migratePlan", () => {
           { id: "a", type: "reference", widthFraction: "1", height: 300, title: "", description: "", columnsPerRow: 3, showCaptions: false, images: [{ id: "i1", file: "a.png" }, { id: "i2", file: "b.png", caption: "x" }] },
         ],
       };
-      const migrated = migratePlan(v2);
+      const migrated = migratePlan(v2, migrationContext);
       const images = (migrated.components[0] as ReferenceComponent).images;
       expect(images[0].aspectRatio).toBe(1);
       expect(images[1].aspectRatio).toBe(1);
@@ -260,7 +319,7 @@ describe("migratePlan", () => {
           { id: "ref1", type: "reference", widthFraction: "1", height: 320, title: "Gallery", description: "Mood board", columnsPerRow: 2, showCaptions: true, images: [{ id: "img1", file: "test.png", caption: "Caption text" }] },
         ],
       };
-      const migrated = migratePlan(v2);
+      const migrated = migratePlan(v2, migrationContext);
       expect(migrated.components[0]).toMatchObject({ id: "plan1", type: "plan", width: 0.5, html: "<h1>Test</h1>" });
       expect(migrated.components[1]).toMatchObject({ id: "ref1", type: "reference", width: 1, name: "Gallery", description: "Mood board", showCaptions: true });
       expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "img1", file: "test.png", caption: "Caption text", aspectRatio: 1 });
@@ -301,7 +360,7 @@ describe("migratePlan", () => {
             ],
           },
         ],
-      });
+      }, migrationContext);
 
       expect(migrated.components.map((component) => component.id)).toEqual([
         "duplicate-component",
@@ -326,6 +385,22 @@ describe("migratePlan", () => {
   });
 
   describe("v1 -> v4 migration (chained)", () => {
+    it("generates one missing reference group ID and reuses it for its row", () => {
+      let counter = 0;
+      const makeId = (prefix: string) => `${prefix}-${++counter}`;
+
+      const migrated = migratePlan(
+        {
+          photographyPlan: "",
+          referenceGroups: [{ title: "Lookbook", description: "", images: [] }],
+        },
+        { projectName: "Editorial", makeId },
+      );
+
+      expect(migrated.components[0]).toMatchObject({ id: "ref-1", rowId: "row:ref-1" });
+      expect(counter).toBe(1);
+    });
+
     it("converts v1 plan to v4 via v2", () => {
       const v1 = {
         photographyPlan: "<h2>Sunset</h2>",
@@ -333,7 +408,7 @@ describe("migratePlan", () => {
           { id: "g1", title: "Lookbook", description: "mood", columnsPerRow: 3, images: [{ id: "i1", file: "references/0001.png" }] },
         ],
       };
-      const migrated = migratePlan(v1);
+      const migrated = migratePlan(v1, migrationContext);
       expect(migrated.schemaVersion).toBe(5);
       expect(migrated.components[0]).toMatchObject({ type: "plan", width: 1, html: "<h2>Sunset</h2>" });
       expect(migrated.components[1]).toMatchObject({ type: "reference", width: 1, name: "Lookbook", imageHeight: DEFAULT_IMAGE_HEIGHT, showCaptions: false });
@@ -341,7 +416,7 @@ describe("migratePlan", () => {
     });
 
     it("omits the plan component when v1 photographyPlan is empty", () => {
-      const migrated = migratePlan({ photographyPlan: "", referenceGroups: [] });
+      const migrated = migratePlan({ photographyPlan: "", referenceGroups: [] }, migrationContext);
       expect(migrated.components).toHaveLength(0);
       expect(migrated.schemaVersion).toBe(5);
     });
@@ -363,7 +438,7 @@ describe("migratePlan", () => {
             images: [{ id: "second-image", file: "references/second.png" }],
           },
         ],
-      });
+      }, migrationContext);
 
       expect(migrated.components.map((component) => component.id)).toEqual([
         "duplicate-group",
@@ -385,7 +460,7 @@ describe("migratePlan", () => {
   describe("forward compatibility", () => {
     it("rejects a future schemaVersion instead of replacing stored data", () => {
       const future = { schemaVersion: 6, components: [] };
-      expect(() => migratePlan(future)).toThrow(/schema version/i);
+      expect(() => migratePlan(future, migrationContext)).toThrow(/schema version/i);
     });
   });
 
@@ -398,7 +473,7 @@ describe("migratePlan", () => {
             { id: "duplicate", type: "plan", width: 1, html: "<p>A</p>" },
             { id: "duplicate", type: "plan", width: 1, html: "<p>B</p>" },
           ],
-        }),
+        }, migrationContext),
       ).toThrow(/duplicate component id "duplicate".*component 1.*component 0/i);
     });
 
@@ -432,7 +507,7 @@ describe("migratePlan", () => {
               ],
             },
           ],
-        }),
+        }, migrationContext),
       ).toThrow(
         /duplicate image id "duplicate-image".*component 1 image 0.*component 0 image 0/i,
       );
@@ -468,7 +543,7 @@ describe("migratePlan", () => {
               ],
             },
           ],
-        }),
+        }, migrationContext),
       ).toThrow(
         /duplicate logical id "shared-id".*component 1 image 0.*component 0/i,
       );
@@ -503,7 +578,7 @@ describe("migratePlan", () => {
             ],
           },
         ],
-      });
+      }, migrationContext);
 
       expect(
         migrated.components.flatMap((component) =>
@@ -517,9 +592,9 @@ describe("migratePlan", () => {
 
   describe("invalid input", () => {
     it("rejects malformed non-null stored plans", () => {
-      expect(() => migratePlan(null)).toThrow(/stored plan/i);
-      expect(() => migratePlan(42)).toThrow(/stored plan/i);
-      expect(() => migratePlan({ nonsense: true })).toThrow(/schema/i);
+      expect(() => migratePlan(null, migrationContext)).toThrow(/stored plan/i);
+      expect(() => migratePlan(42, migrationContext)).toThrow(/stored plan/i);
+      expect(() => migratePlan({ nonsense: true }, migrationContext)).toThrow(/schema/i);
     });
 
     it("rejects malformed v4 component fields instead of synthesizing replacements", () => {
@@ -527,14 +602,14 @@ describe("migratePlan", () => {
         migratePlan({
           schemaVersion: 4,
           components: [{ type: "plan", width: 1, html: "<p>x</p>" }],
-        }),
+        }, migrationContext),
       ).toThrow(/component 0.*id/i);
 
       expect(() =>
         migratePlan({
           schemaVersion: 4,
           components: [{ id: "p", type: "plan", width: 1 }],
-        }),
+        }, migrationContext),
       ).toThrow(/component 0.*html/i);
     });
   });

@@ -52,7 +52,12 @@ export function setImageCrop(
 ): ProjectPlan {
   const crop = normalizeCrop(params.crop);
   if (!crop) {
-    return plan;
+    return params.crop.x === 0 &&
+      params.crop.y === 0 &&
+      params.crop.width === 1 &&
+      params.crop.height === 1
+      ? resetImageCrop(plan, params)
+      : plan;
   }
   return updateImage(plan, params, (image) =>
     image.crop?.x === crop.x &&
