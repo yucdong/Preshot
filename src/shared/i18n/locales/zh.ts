@@ -26,6 +26,8 @@ export const zh = {
   plan: {
     exportPdf: "导出 PDF",
     exporting: "正在导出…",
+    loading: "正在加载摄影计划…",
+    loadFailed: "无法打开此摄影计划。为保护现有数据，编辑和自动保存已停用。请返回项目列表并重试。",
     photographyPlan: "摄影计划",
     shotNotes: "拍摄笔记",
     planPlaceholder: "拍摄清单、日程与备注…",

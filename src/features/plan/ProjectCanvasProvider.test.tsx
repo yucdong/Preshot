@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
 import { EMPTY_PLAN, type ProjectPlan } from "../../domain/plan/canvas/models";
 import { ProjectCanvasProvider, type CanvasPlanDependencies } from "./ProjectCanvasProvider";
@@ -20,6 +20,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
     onMoveComponent,
     onChangeHtml,
     onResize,
+    onRemoveComponent,
     onMeasurePlan,
     onMeasureReferenceDescription,
   }: {
@@ -31,6 +32,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
     onMoveComponent: (id: string, toIndex: number) => void;
     onChangeHtml: (id: string, html: string) => void;
     onResize: (id: string, params: { width: number }) => void;
+    onRemoveComponent: (id: string) => void;
     onMeasurePlan: (
       id: string,
       measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
@@ -40,11 +42,15 @@ vi.mock("./canvas/PlanCanvas", () => ({
     latestPlanCanvasProps = {
       onMeasurePlan,
       onMeasureReferenceDescription,
+      onChangeHtml,
+      onMoveComponent,
+      onRemoveComponent,
     };
 
     return (
       <div data-testid="plan-canvas">
         <div data-testid="component-count">{components.length}</div>
+        <div data-testid="component-order">{components.map((component) => component.id).join(",")}</div>
         <div data-testid="plan-height">{measurements.planHeights.get("plan-1") ?? "none"}</div>
         <div data-testid="reference-description-height">
           {measurements.referenceDescriptionHeights.get("ref-1") ?? "none"}
@@ -62,8 +68,14 @@ vi.mock("./canvas/PlanCanvas", () => ({
         <button onClick={() => onMoveComponent("plan-1", 1)} type="button">
           Move
         </button>
+        <button onClick={() => onMoveComponent("plan-1", 0)} type="button">
+          Move noop
+        </button>
         <button onClick={() => onResize("plan-1", { width: 0.5 })} type="button">
           Resize
+        </button>
+        <button onClick={() => onRemoveComponent("missing")} type="button">
+          Async noop
         </button>
         <button
           onClick={() =>
@@ -91,6 +103,9 @@ let latestPlanCanvasProps:
         measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
       ) => void;
       onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
+      onChangeHtml: (id: string, html: string) => void;
+      onMoveComponent: (id: string, toIndex: number) => void;
+      onRemoveComponent: (id: string) => void;
     }
   | null = null;
 
@@ -152,8 +167,8 @@ function deps(): {
       dataUrl: "data:image/png;base64,BB",
     }),
     importImages: vi.fn(),
-    removeImage: vi.fn(),
-    removeComponent: vi.fn(),
+    removeImage: vi.fn(async (_projectPath, currentPlan) => currentPlan),
+    removeComponent: vi.fn(async (_projectPath, currentPlan) => currentPlan),
   };
   const pick = vi.fn().mockResolvedValue(String.raw`C:\src\b.png`);
   return {
@@ -188,6 +203,27 @@ function deferred<T>() {
   });
   return { promise, resolve, reject };
 }
+
+function installDeferredImageDecode(width: number, height: number) {
+  const decoding = deferred<void>();
+  const decode = vi.fn(() => decoding.promise);
+
+  vi.stubGlobal(
+    "Image",
+    class MockImage {
+      src = "";
+      naturalWidth = width;
+      naturalHeight = height;
+      decode = decode;
+    },
+  );
+
+  return { ...decoding, decode };
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("ProjectCanvasProvider", () => {
   it("loads the plan and images", async () => {
@@ -403,6 +439,102 @@ describe("ProjectCanvasProvider", () => {
     }
   });
 
+  it("keeps loading and failed projects non-editable and blocks save shortcuts", async () => {
+    const { dependencies, loadPlan, savePlan } = deps();
+    const loading = deferred<Awaited<ReturnType<CanvasPlanService["loadPlan"]>>>();
+    loadPlan.mockReturnValue(loading.promise);
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    expect(screen.queryByTestId("plan-canvas")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "插入组件" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "导出 PDF" })).toBeDisabled();
+
+    await act(async () => {
+      loading.reject(
+        new Error(
+          "Unable to load the project plan: Unsupported stored plan schema version 5",
+        ),
+      );
+    });
+
+    expect(
+      await screen.findByText(
+        "Unable to load the project plan: Unsupported stored plan schema version 5",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("plan-canvas")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "插入组件" })).toBeDisabled();
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    expect(savePlan).not.toHaveBeenCalled();
+  });
+
+  it("ignores a stale load result after the project path changes", async () => {
+    const { dependencies, loadPlan } = deps();
+    const oldLoad = deferred<Awaited<ReturnType<CanvasPlanService["loadPlan"]>>>();
+    const newPlan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "new-plan",
+          type: "plan",
+          width: 1,
+          html: "<p>new project</p>",
+        },
+      ],
+    };
+    const oldPlan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "old-plan",
+          type: "plan",
+          width: 1,
+          html: "<p>old project</p>",
+        },
+      ],
+    };
+    loadPlan.mockImplementation((path) =>
+      path === String.raw`C:\old`
+        ? oldLoad.promise
+        : Promise.resolve({ status: "loaded", plan: newPlan }),
+    );
+
+    const { rerender } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Old"
+        projectPath={String.raw`C:\old`}
+      />,
+    );
+
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="New"
+          projectPath={String.raw`C:\new`}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(await screen.findByTestId("plan-new-plan")).toHaveTextContent("new project");
+
+    await act(async () => {
+      oldLoad.resolve({ status: "loaded", plan: oldPlan });
+    });
+
+    expect(screen.getByTestId("plan-new-plan")).toHaveTextContent("new project");
+    expect(screen.queryByTestId("plan-old-plan")).not.toBeInTheDocument();
+  });
+
   it("marks unsaved when a component is edited", async () => {
     const { dependencies } = deps();
 
@@ -542,13 +674,86 @@ describe("ProjectCanvasProvider", () => {
     }
   });
 
-  it("backfills aspect ratio unconditionally on image load, correcting migrated v2 images", async () => {
-    const { dependencies, loadPlan, service } = deps();
-    
-    // Mock a plan with an image that has WRONG aspectRatio (e.g., migrated v2 with ratio = 1)
-    const planWithWrongRatio: ProjectPlan = {
+  it("backfills every shared file reference without history and persists it on flush", async () => {
+    const { dependencies, loadPlan, savePlan, service } = deps();
+    const imageDecode = installDeferredImageDecode(200, 100);
+    const sharedFilePlan: ProjectPlan = {
       schemaVersion: 4,
       components: [
+        {
+          id: "ref-a",
+          type: "reference",
+          width: 1,
+          title: "A",
+          description: "",
+          showCaptions: false,
+          imageHeight: 180,
+          images: [
+            { id: "i1", file: "references/shared.png", aspectRatio: 1 },
+          ],
+        },
+        {
+          id: "ref-b",
+          type: "reference",
+          width: 1,
+          title: "B",
+          description: "",
+          showCaptions: false,
+          imageHeight: 180,
+          images: [
+            { id: "i2", file: "references/shared.png", aspectRatio: 1 },
+          ],
+        },
+      ],
+    };
+    loadPlan.mockResolvedValue({ status: "loaded", plan: sharedFilePlan });
+    vi.mocked(service.loadImage).mockResolvedValue("data:image/png;base64,shared");
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    await waitFor(() => expect(imageDecode.decode).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      imageDecode.resolve();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("有未保存的更改"),
+    );
+    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+
+    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
+    const savedPlan = savePlan.mock.calls[0][1] as ProjectPlan;
+    const ratios = savedPlan.components.flatMap((component) =>
+      component.type === "reference"
+        ? component.images.map((image) => image.aspectRatio)
+        : [],
+    );
+    expect(ratios).toEqual([2, 2]);
+    expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+  });
+
+  it("rebases delayed aspect backfill onto concurrent text and structural edits", async () => {
+    const { dependencies, loadPlan, service } = deps();
+    const imageDecode = installDeferredImageDecode(300, 100);
+    const planWithImage: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "plan-1",
+          type: "plan",
+          width: 1,
+          html: "<p>original</p>",
+        },
         {
           id: "ref-1",
           type: "reference",
@@ -558,17 +763,14 @@ describe("ProjectCanvasProvider", () => {
           showCaptions: false,
           imageHeight: 180,
           images: [
-            { id: "i1", file: "references/0001.png", aspectRatio: 1 }, // WRONG: image is actually 2:1
+            { id: "i1", file: "references/0001.png", aspectRatio: 1 },
           ],
         },
       ],
     };
-    loadPlan.mockResolvedValue({ status: "loaded", plan: planWithWrongRatio });
-    
-    // Mock loadImage to return a 2:1 image (but the stored aspectRatio is 1)
-    const mockImage2x1 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAQAAABeK7cBAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
-    (service.loadImage as ReturnType<typeof vi.fn>).mockResolvedValue(mockImage2x1);
-    
+    loadPlan.mockResolvedValue({ status: "loaded", plan: planWithImage });
+    vi.mocked(service.loadImage).mockResolvedValue("data:image/png;base64,delayed");
+
     renderWithTheme(
       <ProjectCanvasProvider
         dependencies={dependencies}
@@ -577,19 +779,62 @@ describe("ProjectCanvasProvider", () => {
       />,
     );
 
-    // Wait for image to load and aspect ratio to be backfilled
-    await waitFor(() => {
-      expect(service.loadImage).toHaveBeenCalledWith(String.raw`C:\demo`, "references/0001.png");
-    }, { timeout: 3000 });
+    await screen.findByTestId("plan-canvas");
+    await waitFor(() => expect(imageDecode.decode).toHaveBeenCalledTimes(1));
 
-    // The provider should measure the loaded image and update aspect ratio
-    // Since setImageAspectRatio is ref-stable and called unconditionally, this is a no-op
-    // for already-correct images but corrects migrated v2 images. The test verifies
-    // the code path executes without the `=== undefined` guard.
-    await waitFor(() => {
-      // Canvas should have rendered at least once
-      expect(screen.getByTestId("plan-canvas")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "插入组件" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "摄影计划" }));
+    expect(screen.getByTestId("component-count")).toHaveTextContent("3");
+
+    await act(async () => {
+      imageDecode.resolve();
     });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("component-count")).toHaveTextContent("3"),
+    );
+    expect(screen.getByTestId("plan-plan-1")).toHaveTextContent("edited");
+  });
+
+  it("skips history and save-state changes for a no-op structural mutation", async () => {
+    const { dependencies, savePlan } = deps();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    fireEvent.click(screen.getByRole("button", { name: "Move noop" }));
+
+    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    expect(savePlan).not.toHaveBeenCalled();
+  });
+
+  it("skips history and state application when an async structural result is unchanged", async () => {
+    const { dependencies, service } = deps();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    fireEvent.click(screen.getByRole("button", { name: "Async noop" }));
+
+    await waitFor(() => expect(service.removeComponent).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
   });
 
   it("keeps runtime layout measurements outside save state and undo history", async () => {

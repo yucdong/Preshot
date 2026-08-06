@@ -171,6 +171,35 @@ export function setImageAspectRatio(
   });
 }
 
+export function setImageAspectRatioForFile(
+  plan: ProjectPlan,
+  params: { file: string; aspectRatio: number },
+): ProjectPlan {
+  let changed = false;
+  const components = plan.components.map((component) => {
+    if (component.type !== "reference") {
+      return component;
+    }
+
+    let imagesChanged = false;
+    const images = component.images.map((image) => {
+      if (image.file !== params.file || image.aspectRatio === params.aspectRatio) {
+        return image;
+      }
+      imagesChanged = true;
+      return { ...image, aspectRatio: params.aspectRatio };
+    });
+
+    if (!imagesChanged) {
+      return component;
+    }
+    changed = true;
+    return { ...component, images };
+  });
+
+  return changed ? replace(plan, components) : plan;
+}
+
 export function moveImage(plan: ProjectPlan, params: MoveImageParams): ProjectPlan {
   const { fromComponentId, imageId, toComponentId, toIndex } = params;
   const source = plan.components.find(

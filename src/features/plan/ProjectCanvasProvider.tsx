@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   EMPTY_PLAN,
@@ -23,9 +23,8 @@ import {
   setReferenceDescription,
   toggleReferenceCaptions,
   setImageCaption,
-  setImageAspectRatio,
+  setImageAspectRatioForFile,
   setImageHeight,
-  addReferenceImages,
   type MoveImageParams,
 } from "../../domain/plan/canvas/plan";
 import {
@@ -63,12 +62,33 @@ interface MeasurementState<T> {
   values: ReadonlyMap<string, T>;
 }
 
+type ProviderLifecycleStatus = "loading" | "ready" | "failed";
+
+interface ProviderLifecycleState {
+  projectPath: string;
+  generation: number;
+  status: ProviderLifecycleStatus;
+}
+
+interface ProjectToken {
+  projectPath: string;
+  generation: number;
+}
+
 function detail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function sameToken(a: ProjectToken | null, b: ProjectToken): boolean {
+  return a?.projectPath === b.projectPath && a.generation === b.generation;
+}
+
 function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+function plansEqual(a: ProjectPlan, b: ProjectPlan): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b);
 }
 
 function expectedReferenceImageFiles(plan: ProjectPlan): string[] {
@@ -119,6 +139,11 @@ export function ProjectCanvasProvider({
   const [scale, setScale] = useState(0.5);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [lifecycle, setLifecycle] = useState<ProviderLifecycleState>({
+    projectPath,
+    generation: 0,
+    status: "loading",
+  });
   const [planMeasurements, setPlanMeasurements] = useState<MeasurementState<PlanMeasurement>>({
     projectPath,
     values: new Map(),
@@ -129,16 +154,66 @@ export function ProjectCanvasProvider({
   });
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
-  const busyRef = useRef(false);
+  const activeProjectPathRef = useRef(projectPath);
+  const generationRef = useRef(0);
+  const lifecycleRef = useRef(lifecycle);
+  const busyRef = useRef<ProjectToken | null>(null);
   const planRef = useRef(plan);
   const imageSrcRef = useRef(imageSrc);
-  const savingRef = useRef(false);
+  const savingRef = useRef<ProjectToken | null>(null);
   const lastSavedRef = useRef(JSON.stringify(EMPTY_PLAN));
   const historyRef = useRef<PlanHistory>(createHistory());
+  const lifecycleStatus =
+    lifecycle.projectPath === projectPath ? lifecycle.status : "loading";
+
+  const isTokenCurrent = useCallback(
+    (token: ProjectToken) =>
+      mountedRef.current &&
+      activeProjectPathRef.current === token.projectPath &&
+      generationRef.current === token.generation,
+    [],
+  );
+
+  const isTokenReady = useCallback(
+    (token: ProjectToken) => {
+      const current = lifecycleRef.current;
+      return (
+        isTokenCurrent(token) &&
+        current.projectPath === token.projectPath &&
+        current.generation === token.generation &&
+        current.status === "ready"
+      );
+    },
+    [isTokenCurrent],
+  );
+
+  const readyTokenFor = useCallback((path: string): ProjectToken | null => {
+    const current = lifecycleRef.current;
+    if (
+      activeProjectPathRef.current !== path ||
+      current.projectPath !== path ||
+      current.status !== "ready"
+    ) {
+      return null;
+    }
+    return { projectPath: path, generation: current.generation };
+  }, []);
 
   const syncSaveState = useCallback(() => {
+    const current = lifecycleRef.current;
+    if (
+      current.status !== "ready" ||
+      current.projectPath !== activeProjectPathRef.current
+    ) {
+      setSaveState("saved");
+      return;
+    }
+    const token = {
+      projectPath: current.projectPath,
+      generation: current.generation,
+    };
     setSaveState(
-      savingRef.current
+      sameToken(savingRef.current, token)
         ? "saving"
         : JSON.stringify(planRef.current) === lastSavedRef.current
           ? "saved"
@@ -148,9 +223,13 @@ export function ProjectCanvasProvider({
 
   const applyPlan = useCallback(
     (next: ProjectPlan) => {
+      if (next === planRef.current) {
+        return false;
+      }
       planRef.current = next;
       setPlan(next);
       syncSaveState();
+      return true;
     },
     [syncSaveState],
   );
@@ -186,81 +265,108 @@ export function ProjectCanvasProvider({
 
   const mutate = useCallback(
     (next: ProjectPlan, coalesceKey?: string) => {
+      if (!readyTokenFor(projectPath) || next === planRef.current) {
+        return;
+      }
       recordHistoryEntry(planRef.current, coalesceKey);
       applyPlan(next);
     },
-    [applyPlan, recordHistoryEntry],
+    [applyPlan, projectPath, readyTokenFor, recordHistoryEntry],
   );
 
   const undo = useCallback(() => {
+    if (!readyTokenFor(projectPath)) return;
     const outcome = undoHistory(historyRef.current, planRef.current);
     if (!outcome) return;
     historyRef.current = outcome.history;
     applyPlan(mergeStructural(outcome.next, planRef.current));
     syncHistoryFlags();
-  }, [applyPlan, syncHistoryFlags]);
+  }, [applyPlan, projectPath, readyTokenFor, syncHistoryFlags]);
 
   const redo = useCallback(() => {
+    if (!readyTokenFor(projectPath)) return;
     const outcome = redoHistory(historyRef.current, planRef.current);
     if (!outcome) return;
     historyRef.current = outcome.history;
     applyPlan(mergeStructural(outcome.next, planRef.current));
     syncHistoryFlags();
-  }, [applyPlan, syncHistoryFlags]);
+  }, [applyPlan, projectPath, readyTokenFor, syncHistoryFlags]);
 
   const markSaved = useCallback(
-    (saved: ProjectPlan) => {
+    (saved: ProjectPlan, token: ProjectToken) => {
+      if (!isTokenReady(token)) {
+        return;
+      }
       lastSavedRef.current = JSON.stringify(saved);
       syncSaveState();
     },
-    [syncSaveState],
+    [isTokenReady, syncSaveState],
   );
 
   const persisting = useCallback(
-    async (action: () => Promise<void>) => {
-      savingRef.current = true;
+    async (token: ProjectToken, action: () => Promise<void>) => {
+      if (!isTokenReady(token)) {
+        return;
+      }
+      savingRef.current = token;
       syncSaveState();
       try {
         await action();
       } finally {
-        savingRef.current = false;
-        if (mountedRef.current) {
+        if (sameToken(savingRef.current, token)) {
+          savingRef.current = null;
+        }
+        if (isTokenCurrent(token)) {
           syncSaveState();
         }
       }
     },
-    [syncSaveState],
+    [isTokenCurrent, isTokenReady, syncSaveState],
   );
 
   const report = useCallback(
-    (message: string, err: unknown) => {
+    (message: string, err: unknown, token?: ProjectToken) => {
       logger.error(message, { error: err });
-      if (mountedRef.current) {
+      if (mountedRef.current && (!token || isTokenCurrent(token))) {
         setError(detail(err));
       }
     },
-    [logger],
+    [isTokenCurrent, logger],
   );
 
   const guard = useCallback(
-    async (message: string, action: () => Promise<void>) => {
-      if (busyRef.current || !mountedRef.current) {
+    async (
+      path: string,
+      message: string,
+      action: (token: ProjectToken) => Promise<void>,
+    ) => {
+      const token = readyTokenFor(path);
+      if (!token || sameToken(busyRef.current, token)) {
         return;
       }
-      busyRef.current = true;
+      busyRef.current = token;
       try {
-        await action();
+        await action(token);
       } catch (err) {
-        report(message, err);
+        if (isTokenCurrent(token)) {
+          report(message, err, token);
+        }
       } finally {
-        busyRef.current = false;
+        if (sameToken(busyRef.current, token)) {
+          busyRef.current = null;
+        }
       }
     },
-    [report],
+    [isTokenCurrent, readyTokenFor, report],
   );
 
   const flush = useCallback(async () => {
-    if (busyRef.current || savingRef.current) {
+    const token = readyTokenFor(projectPath);
+    if (
+      !token ||
+      sameToken(busyRef.current, token) ||
+      sameToken(savingRef.current, token)
+    ) {
       return;
     }
     const planToSave = planRef.current;
@@ -268,30 +374,86 @@ export function ProjectCanvasProvider({
     if (snapshot === lastSavedRef.current) {
       return;
     }
-    savingRef.current = true;
+    savingRef.current = token;
     syncSaveState();
     try {
       await service.savePlan(projectPath, planToSave);
-      lastSavedRef.current = snapshot;
-      if (mountedRef.current) {
-        setError(null);
+      if (!isTokenReady(token)) {
+        return;
       }
+      lastSavedRef.current = snapshot;
+      setError(null);
     } catch (err) {
-      report("Unable to auto-save the project plan", err);
+      if (isTokenCurrent(token)) {
+        report("Unable to auto-save the project plan", err, token);
+      }
     } finally {
-      savingRef.current = false;
-      if (mountedRef.current) {
+      if (sameToken(savingRef.current, token)) {
+        savingRef.current = null;
+      }
+      if (isTokenCurrent(token)) {
         syncSaveState();
       }
     }
-  }, [projectPath, report, service, syncSaveState]);
+  }, [
+    isTokenCurrent,
+    isTokenReady,
+    projectPath,
+    readyTokenFor,
+    report,
+    service,
+    syncSaveState,
+  ]);
+
+  useLayoutEffect(() => {
+    activeProjectPathRef.current = projectPath;
+  }, [projectPath]);
 
   useEffect(() => {
     mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const token: ProjectToken = {
+      projectPath,
+      generation: generationRef.current + 1,
+    };
+    generationRef.current = token.generation;
+    let cancelled = false;
+    const isCurrent = () => !cancelled && isTokenCurrent(token);
+    const setLifecycleStatus = (status: ProviderLifecycleStatus) => {
+      if (!isCurrent()) {
+        return;
+      }
+      const next = { ...token, status };
+      lifecycleRef.current = next;
+      setLifecycle(next);
+    };
+
+    lifecycleRef.current = { ...token, status: "loading" };
+    setLifecycle({ ...token, status: "loading" });
+    busyRef.current = null;
+    savingRef.current = null;
+    planRef.current = EMPTY_PLAN;
+    imageSrcRef.current = {};
+    lastSavedRef.current = JSON.stringify(EMPTY_PLAN);
+    historyRef.current = createHistory();
+    setPlan(EMPTY_PLAN);
+    setImageSrc({});
+    setLightbox(null);
+    setExporting(false);
+    setCanUndo(false);
+    setCanRedo(false);
+    setSaveState("saved");
+    setError(null);
+
     async function load() {
       try {
         const loadResult = await service.loadPlan(projectPath);
-        if (!mountedRef.current) return;
+        if (!isCurrent()) return;
 
         let planToUse = loadResult.status === "loaded" ? loadResult.plan : EMPTY_PLAN;
         if (loadResult.status === "missing") {
@@ -301,8 +463,6 @@ export function ProjectCanvasProvider({
             width: 1,
             html: t("content.planTemplate"),
           };
-          
-          // Create reference component (same shape as handleInsert)
           const referenceComponent = {
             id: crypto.randomUUID(),
             type: "reference" as const,
@@ -318,62 +478,77 @@ export function ProjectCanvasProvider({
           planToUse = addComponent(planToUse, planComponent);
         }
 
-        applyPlan(planToUse);
-        markSaved(planToUse);
+        planRef.current = planToUse;
+        lastSavedRef.current = JSON.stringify(planToUse);
         historyRef.current = createHistory();
-        syncHistoryFlags();
+        setPlan(planToUse);
+        setCanUndo(false);
+        setCanRedo(false);
         setError(null);
-        const imageMap = new Map<string, { componentId: string; imageId: string }>();
-        planToUse.components
-          .filter((c): c is Extract<typeof c, { type: "reference" }> => c.type === "reference")
-          .forEach((c) => {
-            c.images.forEach((img) => {
-              imageMap.set(img.file, { componentId: c.id, imageId: img.id });
-            });
-          });
-        const imageFiles = Array.from(imageMap.keys());
-        let backfillPlan = planRef.current;
-        for (const file of imageFiles) {
+        setSaveState("saved");
+        setLifecycleStatus("ready");
+
+        for (const file of expectedReferenceImageFiles(planToUse)) {
           try {
             const src = await service.loadImage(projectPath, file);
-            if (!mountedRef.current) return;
-            setImageSrc((current) => ({ ...current, [file]: src }));
-            
-            // Measure and backfill aspect ratio unconditionally to correct migrated v2 images
-            const imageInfo = imageMap.get(file);
-            if (imageInfo) {
-              const aspectRatio = await measureAspectRatio(src);
-              backfillPlan = setImageAspectRatio(backfillPlan, {
-                componentId: imageInfo.componentId,
-                imageId: imageInfo.imageId,
-                aspectRatio,
-              });
-            }
+            if (!isCurrent()) return;
+            const nextImageSrc = { ...imageSrcRef.current, [file]: src };
+            imageSrcRef.current = nextImageSrc;
+            setImageSrc(nextImageSrc);
+
+            const aspectRatio = await measureAspectRatio(src);
+            if (!isCurrent()) return;
+            const next = setImageAspectRatioForFile(planRef.current, {
+              file,
+              aspectRatio,
+            });
+            applyPlan(next);
           } catch (err) {
-            report("Unable to load a reference image", err);
+            if (isCurrent()) {
+              report("Unable to load a reference image", err, token);
+            }
           }
         }
-        // If aspect ratios were backfilled, update the plan and mark it as the current saved state
-        if (backfillPlan !== planRef.current) {
-          applyPlan(backfillPlan);
-          markSaved(backfillPlan);
-        }
       } catch (err) {
-        report("Unable to load the project plan", err);
+        if (!isCurrent()) return;
+        logger.error("Unable to load the project plan", { error: err });
+        planRef.current = EMPTY_PLAN;
+        imageSrcRef.current = {};
+        lastSavedRef.current = JSON.stringify(EMPTY_PLAN);
+        historyRef.current = createHistory();
+        setPlan(EMPTY_PLAN);
+        setImageSrc({});
+        setCanUndo(false);
+        setCanRedo(false);
+        setSaveState("saved");
+        setError(detail(err));
+        setLifecycleStatus("failed");
       }
     }
+
     void load();
     return () => {
-      mountedRef.current = false;
+      cancelled = true;
     };
-  }, [applyPlan, markSaved, projectPath, service, report, t, syncHistoryFlags]);
+  }, [
+    applyPlan,
+    isTokenCurrent,
+    logger,
+    projectPath,
+    report,
+    service,
+    t,
+  ]);
 
   useEffect(() => {
     imageSrcRef.current = imageSrc;
   }, [imageSrc]);
 
   const resolveExportImages = useCallback(
-    async (planToExport: ProjectPlan): Promise<Record<string, string>> => {
+    async (
+      planToExport: ProjectPlan,
+      token: ProjectToken,
+    ): Promise<Record<string, string>> => {
       const expectedFiles = expectedReferenceImageFiles(planToExport);
       const loadedEntries = await Promise.all(
         expectedFiles.map(async (file) => {
@@ -396,17 +571,21 @@ export function ProjectCanvasProvider({
         }),
       );
       const resolvedImages = Object.fromEntries(loadedEntries);
+      if (!isTokenReady(token)) {
+        return resolvedImages;
+      }
       const nextImageSrc = { ...imageSrcRef.current, ...resolvedImages };
       imageSrcRef.current = nextImageSrc;
-      if (mountedRef.current) {
-        setImageSrc(nextImageSrc);
-      }
+      setImageSrc(nextImageSrc);
       return resolvedImages;
     },
-    [projectPath, service],
+    [isTokenReady, projectPath, service],
   );
 
   useEffect(() => {
+    if (lifecycleStatus !== "ready") {
+      return;
+    }
     const timer = setInterval(() => {
       void flush();
     }, AUTO_SAVE_INTERVAL_MS);
@@ -414,9 +593,12 @@ export function ProjectCanvasProvider({
       clearInterval(timer);
       void flush();
     };
-  }, [flush]);
+  }, [flush, lifecycleStatus]);
 
   useEffect(() => {
+    if (lifecycleStatus !== "ready") {
+      return;
+    }
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && (event.key === "s" || event.key === "S")) {
         event.preventDefault();
@@ -427,9 +609,12 @@ export function ProjectCanvasProvider({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [flush]);
+  }, [flush, lifecycleStatus]);
 
   useEffect(() => {
+    if (lifecycleStatus !== "ready") {
+      return;
+    }
     function onKeyDown(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey)) return;
       const key = event.key.toLowerCase();
@@ -447,7 +632,7 @@ export function ProjectCanvasProvider({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [undo, redo]);
+  }, [lifecycleStatus, undo, redo]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -463,6 +648,9 @@ export function ProjectCanvasProvider({
 
   const handleInsert = useCallback(
     (type: "plan" | "reference") => {
+      if (!readyTokenFor(projectPath)) {
+        return;
+      }
       if (type === "plan") {
         const newComponent = {
           id: crypto.randomUUID(),
@@ -485,100 +673,130 @@ export function ProjectCanvasProvider({
         mutate(addComponent(planRef.current, newComponent));
       }
     },
-    [mutate, t],
+    [mutate, projectPath, readyTokenFor, t],
   );
 
   const handleRemoveComponent = useCallback(
     (id: string) => {
-      const prev = planRef.current;
-      void guard("Unable to remove the component", () =>
-        persisting(async () => {
-          const next = await service.removeComponent(projectPath, planRef.current, id);
-          if (mountedRef.current) {
-            recordHistoryEntry(prev);
-            applyPlan(next);
-            markSaved(next);
-            setError(null);
+      void guard(projectPath, "Unable to remove the component", (token) =>
+        persisting(token, async () => {
+          const operationPlan = planRef.current;
+          const persisted = await service.removeComponent(
+            projectPath,
+            operationPlan,
+            id,
+          );
+          if (!isTokenReady(token) || plansEqual(persisted, operationPlan)) {
+            return;
           }
+          const previous = planRef.current;
+          const next = mergeStructural(persisted, previous);
+          if (!plansEqual(next, previous)) {
+            recordHistoryEntry(previous);
+            applyPlan(next);
+          }
+          markSaved(persisted, token);
+          setError(null);
         }),
       );
     },
-    [applyPlan, guard, markSaved, persisting, projectPath, service, recordHistoryEntry],
+    [
+      applyPlan,
+      guard,
+      isTokenReady,
+      markSaved,
+      persisting,
+      projectPath,
+      recordHistoryEntry,
+      service,
+    ],
   );
 
   const handleMoveComponent = useCallback(
     (id: string, toIndex: number) => {
+      if (!readyTokenFor(projectPath)) return;
       const next = moveComponent(planRef.current, { id, toIndex });
       mutate(next);
     },
-    [mutate],
+    [mutate, projectPath, readyTokenFor],
   );
 
   const handleMoveImage = useCallback(
     (params: MoveImageParams) => {
+      if (!readyTokenFor(projectPath)) return;
       const next = moveImage(planRef.current, params);
       mutate(next);
     },
-    [mutate],
+    [mutate, projectPath, readyTokenFor],
   );
 
   const handleResize = useCallback(
     (id: string, params: { width: number }) => {
+      if (!readyTokenFor(projectPath)) return;
       const next = resizeComponent(planRef.current, { id, width: params.width });
       mutate(next, `resize:${id}`);
     },
-    [mutate],
+    [mutate, projectPath, readyTokenFor],
   );
 
   const handleChangeHtml = useCallback(
     (id: string, html: string) => {
+      if (!readyTokenFor(projectPath)) return;
       const next = updatePlanHtml(planRef.current, { id, html });
       applyPlan(next);
     },
-    [applyPlan],
+    [applyPlan, projectPath, readyTokenFor],
   );
 
   const handleSetTitle = useCallback(
     (id: string, title: string) => {
+      if (!readyTokenFor(projectPath)) return;
       const next = setReferenceTitle(planRef.current, id, title);
       mutate(next);
     },
-    [mutate],
+    [mutate, projectPath, readyTokenFor],
   );
 
   const handleSetDescription = useCallback(
     (id: string, description: string) => {
+      if (!readyTokenFor(projectPath)) return;
       const next = setReferenceDescription(planRef.current, id, description);
       applyPlan(next);
     },
-    [applyPlan],
+    [applyPlan, projectPath, readyTokenFor],
   );
 
   const handleSetImageHeight = useCallback(
     (id: string, imageHeight: number) => {
+      if (!readyTokenFor(projectPath)) return;
       const next = setImageHeight(planRef.current, id, imageHeight);
       mutate(next, `imageHeight:${id}`);
     },
-    [mutate],
+    [mutate, projectPath, readyTokenFor],
   );
 
   const handleToggleCaptions = useCallback(
     (id: string) => {
+      if (!readyTokenFor(projectPath)) return;
       const next = toggleReferenceCaptions(planRef.current, id);
       mutate(next);
     },
-    [mutate],
+    [mutate, projectPath, readyTokenFor],
   );
 
   const handleSetImageCaption = useCallback(
     (componentId: string, imageId: string, caption: string) => {
+      if (!readyTokenFor(projectPath)) return;
       const next = setImageCaption(planRef.current, { componentId, imageId, caption });
       mutate(next);
     },
-    [mutate],
+    [mutate, projectPath, readyTokenFor],
   );
 
   const handleMeasurePlan = useCallback((id: string, next: PlanMeasurement) => {
+    if (!readyTokenFor(projectPath)) {
+      return;
+    }
     if (!Number.isFinite(next.heightPoints) || next.heightPoints < 0) {
       return;
     }
@@ -601,9 +819,12 @@ export function ProjectCanvasProvider({
       updated.set(id, { heightPoints: next.heightPoints, pageBreakBeforeBlockIds });
       return { projectPath, values: updated };
     });
-  }, [projectPath]);
+  }, [projectPath, readyTokenFor]);
 
   const handleMeasureReferenceDescription = useCallback((id: string, heightPoints: number) => {
+    if (!readyTokenFor(projectPath)) {
+      return;
+    }
     if (!Number.isFinite(heightPoints) || heightPoints < 0) {
       return;
     }
@@ -619,63 +840,85 @@ export function ProjectCanvasProvider({
       updated.set(id, heightPoints);
       return { projectPath, values: updated };
     });
-  }, [projectPath]);
+  }, [projectPath, readyTokenFor]);
 
   const handleAddImage = useCallback(
     (componentId: string) => {
-      void guard("Unable to import the reference image", async () => {
-        const prev = planRef.current;
+      void guard(projectPath, "Unable to import the reference image", async (token) => {
         const sourcePath = await picker.pickImageFile("Select a JPG or PNG reference image");
-        if (sourcePath === null) return;
-        await persisting(async () => {
+        if (sourcePath === null || !isTokenReady(token)) return;
+        await persisting(token, async () => {
+          const operationPlan = planRef.current;
           const result = await service.importImage(
             projectPath,
-            planRef.current,
+            operationPlan,
             componentId,
             sourcePath,
           );
-          if (!mountedRef.current) return;
-          setImageSrc((current) => ({ ...current, [result.image.file]: result.dataUrl }));
-          applyPlan(result.plan);
-          markSaved(result.plan);
+          if (!isTokenReady(token) || plansEqual(result.plan, operationPlan)) {
+            return;
+          }
+          const nextImageSrc = {
+            ...imageSrcRef.current,
+            [result.image.file]: result.dataUrl,
+          };
+          imageSrcRef.current = nextImageSrc;
+          setImageSrc(nextImageSrc);
+
+          const previous = planRef.current;
+          const next = mergeStructural(result.plan, previous);
+          if (!plansEqual(next, previous)) {
+            recordHistoryEntry(previous);
+            applyPlan(next);
+          }
+          markSaved(result.plan, token);
           setError(null);
-          
-          // Measure and store aspect ratio
+
           const aspectRatio = await measureAspectRatio(result.dataUrl);
-          const withRatio = setImageAspectRatio(planRef.current, {
-            componentId,
-            imageId: result.image.id,
+          if (!isTokenReady(token)) return;
+          const withRatio = setImageAspectRatioForFile(planRef.current, {
+            file: result.image.file,
             aspectRatio,
           });
           applyPlan(withRatio);
-          recordHistoryEntry(prev);
         });
       });
     },
-    [applyPlan, guard, markSaved, persisting, picker, projectPath, service, recordHistoryEntry],
+    [
+      applyPlan,
+      guard,
+      isTokenReady,
+      markSaved,
+      persisting,
+      picker,
+      projectPath,
+      recordHistoryEntry,
+      service,
+    ],
   );
 
   const handleAddImages = useCallback(
     (componentId: string) => {
-      void guard("Unable to import reference images", async () => {
-        const prev = planRef.current;
+      void guard(projectPath, "Unable to import reference images", async (token) => {
         const sourcePaths = await picker.pickImageFiles("Select JPG or PNG reference images");
-        if (sourcePaths.length === 0) return;
-        
-        await persisting(async () => {
+        if (sourcePaths.length === 0 || !isTokenReady(token)) return;
+
+        await persisting(token, async () => {
+          const operationPlan = planRef.current;
+          let persistedPlan = operationPlan;
           const newImages: Array<{ id: string; file: string; aspectRatio: number; dataUrl: string }> = [];
-          
+
           for (const sourcePath of sourcePaths) {
             const result = await service.importImage(
               projectPath,
-              planRef.current,
+              persistedPlan,
               componentId,
               sourcePath,
             );
-            
-            // Measure aspect ratio
+            if (!isTokenReady(token)) return;
+            persistedPlan = result.plan;
             const aspectRatio = await measureAspectRatio(result.dataUrl);
-            
+            if (!isTokenReady(token)) return;
             newImages.push({
               id: result.image.id,
               file: result.image.file,
@@ -683,60 +926,99 @@ export function ProjectCanvasProvider({
               dataUrl: result.dataUrl,
             });
           }
-          
-          if (!mountedRef.current) return;
-          
-          // Add all new images to state
+
+          if (plansEqual(persistedPlan, operationPlan)) {
+            return;
+          }
+
           const newSrcMap: Record<string, string> = {};
           for (const img of newImages) {
             newSrcMap[img.file] = img.dataUrl;
           }
-          setImageSrc((current) => ({ ...current, ...newSrcMap }));
-          
-          // Update plan with all images and their aspect ratios
-          const updatedPlan = addReferenceImages(planRef.current, {
-            componentId,
-            images: newImages.map(img => ({ id: img.id, file: img.file, aspectRatio: img.aspectRatio })),
-          });
-          
-          applyPlan(updatedPlan);
-          markSaved(updatedPlan);
-          recordHistoryEntry(prev);
+          const nextImageSrc = { ...imageSrcRef.current, ...newSrcMap };
+          imageSrcRef.current = nextImageSrc;
+          setImageSrc(nextImageSrc);
+
+          const previous = planRef.current;
+          let next = mergeStructural(persistedPlan, previous);
+          for (const image of newImages) {
+            next = setImageAspectRatioForFile(next, {
+              file: image.file,
+              aspectRatio: image.aspectRatio,
+            });
+          }
+          if (!plansEqual(next, previous)) {
+            recordHistoryEntry(previous);
+            applyPlan(next);
+          }
+          markSaved(persistedPlan, token);
           setError(null);
         });
       });
     },
-    [applyPlan, guard, markSaved, persisting, picker, projectPath, service, recordHistoryEntry],
+    [
+      applyPlan,
+      guard,
+      isTokenReady,
+      markSaved,
+      persisting,
+      picker,
+      projectPath,
+      recordHistoryEntry,
+      service,
+    ],
   );
 
   const handleRemoveImage = useCallback(
     (componentId: string, imageId: string) => {
-      const prev = planRef.current;
-      void guard("Unable to remove the reference image", () =>
-        persisting(async () => {
-          const next = await service.removeImage(projectPath, planRef.current, componentId, imageId);
-          if (mountedRef.current) {
-            recordHistoryEntry(prev);
-            applyPlan(next);
-            markSaved(next);
-            setError(null);
+      void guard(projectPath, "Unable to remove the reference image", (token) =>
+        persisting(token, async () => {
+          const operationPlan = planRef.current;
+          const persisted = await service.removeImage(
+            projectPath,
+            operationPlan,
+            componentId,
+            imageId,
+          );
+          if (!isTokenReady(token) || plansEqual(persisted, operationPlan)) {
+            return;
           }
+          const previous = planRef.current;
+          const next = mergeStructural(persisted, previous);
+          if (!plansEqual(next, previous)) {
+            recordHistoryEntry(previous);
+            applyPlan(next);
+          }
+          markSaved(persisted, token);
+          setError(null);
         }),
       );
     },
-    [applyPlan, guard, markSaved, persisting, projectPath, service, recordHistoryEntry],
+    [
+      applyPlan,
+      guard,
+      isTokenReady,
+      markSaved,
+      persisting,
+      projectPath,
+      recordHistoryEntry,
+      service,
+    ],
   );
 
   const exportPdf = useCallback(() => {
-    void guard("Unable to export the PDF", async () => {
+    void guard(projectPath, "Unable to export the PDF", async (token) => {
       setExporting(true);
       try {
         const planToExport = planRef.current;
-        const images = await resolveExportImages(planToExport);
+        const images = await resolveExportImages(planToExport, token);
+        if (!isTokenReady(token)) return;
         const bytes = await exporter.export(planToExport, images);
+        if (!isTokenReady(token)) return;
         const separator = projectPath.includes("\\") ? "\\" : "/";
         const defaultPath = `${projectPath.replace(/[\\/]+$/, "")}${separator}output.pdf`;
         const savedPath = await saver.save(bytes, defaultPath);
+        if (!isTokenReady(token)) return;
         if (savedPath) {
           try {
             await reveal.reveal(savedPath);
@@ -744,12 +1026,22 @@ export function ProjectCanvasProvider({
             logger.error("reveal_failed", { detail: detail(error) });
           }
         }
-        if (mountedRef.current) setError(null);
+        if (isTokenReady(token)) setError(null);
       } finally {
-        if (mountedRef.current) setExporting(false);
+        if (isTokenCurrent(token)) setExporting(false);
       }
     });
-  }, [exporter, guard, logger, projectPath, resolveExportImages, reveal, saver]);
+  }, [
+    exporter,
+    guard,
+    isTokenCurrent,
+    isTokenReady,
+    logger,
+    projectPath,
+    resolveExportImages,
+    reveal,
+    saver,
+  ]);
 
   return (
     <div className="flex h-full flex-col">
@@ -761,16 +1053,19 @@ export function ProjectCanvasProvider({
       <div className="flex items-center gap-4 border-b border-stone-200 bg-white px-6 py-3 dark:border-stone-700 dark:bg-stone-900">
         <button
           className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-stone-700 dark:hover:bg-stone-600"
-          disabled={exporting}
+          disabled={lifecycleStatus !== "ready" || exporting}
           onClick={exportPdf}
           type="button"
         >
           {exporting ? t("plan.exporting") : t("plan.exportPdf")}
         </button>
-        <InsertComponentMenu onInsert={handleInsert} />
+        <InsertComponentMenu
+          disabled={lifecycleStatus !== "ready"}
+          onInsert={handleInsert}
+        />
         <button
           className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-800"
-          disabled={!canUndo}
+          disabled={lifecycleStatus !== "ready" || !canUndo}
           onClick={undo}
           type="button"
         >
@@ -778,7 +1073,7 @@ export function ProjectCanvasProvider({
         </button>
         <button
           className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-800"
-          disabled={!canRedo}
+          disabled={lifecycleStatus !== "ready" || !canRedo}
           onClick={redo}
           type="button"
         >
@@ -790,30 +1085,43 @@ export function ProjectCanvasProvider({
         </div>
       </div>
       <div className="flex-1 overflow-auto bg-stone-100 p-6 dark:bg-stone-800" ref={containerRef}>
-        <PlanCanvas
-          components={plan.components}
-          imageSrc={(file) => imageSrc[file]}
-          measurements={measurements}
-          onAddImage={handleAddImage}
-          onChangeHtml={handleChangeHtml}
-          onMeasurePlan={handleMeasurePlan}
-          onMeasureReferenceDescription={handleMeasureReferenceDescription}
-          onMoveComponent={handleMoveComponent}
-          onMoveImage={handleMoveImage}
-          onOpenImage={(file) => setLightbox(file)}
-          onRemoveComponent={handleRemoveComponent}
-          onRemoveImage={handleRemoveImage}
-          onResize={handleResize}
-          onSetDescription={handleSetDescription}
-          onSetTitle={handleSetTitle}
-          onToggleCaptions={handleToggleCaptions}
-          onSetImageCaption={handleSetImageCaption}
-          onSetImageHeight={handleSetImageHeight}
-          onAddImages={handleAddImages}
-          scale={scale}
-        />
+        {lifecycleStatus === "ready" ? (
+          <PlanCanvas
+            components={plan.components}
+            imageSrc={(file) => imageSrc[file]}
+            measurements={measurements}
+            onAddImage={handleAddImage}
+            onChangeHtml={handleChangeHtml}
+            onMeasurePlan={handleMeasurePlan}
+            onMeasureReferenceDescription={handleMeasureReferenceDescription}
+            onMoveComponent={handleMoveComponent}
+            onMoveImage={handleMoveImage}
+            onOpenImage={(file) => {
+              if (readyTokenFor(projectPath)) {
+                setLightbox(file);
+              }
+            }}
+            onRemoveComponent={handleRemoveComponent}
+            onRemoveImage={handleRemoveImage}
+            onResize={handleResize}
+            onSetDescription={handleSetDescription}
+            onSetTitle={handleSetTitle}
+            onToggleCaptions={handleToggleCaptions}
+            onSetImageCaption={handleSetImageCaption}
+            onSetImageHeight={handleSetImageHeight}
+            onAddImages={handleAddImages}
+            scale={scale}
+          />
+        ) : (
+          <div
+            className="mx-auto max-w-xl rounded-lg border border-stone-300 bg-white p-6 text-center text-sm text-stone-700 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-200"
+            role={lifecycleStatus === "failed" ? "alert" : "status"}
+          >
+            {lifecycleStatus === "failed" ? t("plan.loadFailed") : t("plan.loading")}
+          </div>
+        )}
       </div>
-      {lightbox && imageSrc[lightbox] ? (
+      {lifecycleStatus === "ready" && lightbox && imageSrc[lightbox] ? (
         <ReferenceImageLightbox
           alt={t("reference.imageAlt")}
           onClose={() => setLightbox(null)}
