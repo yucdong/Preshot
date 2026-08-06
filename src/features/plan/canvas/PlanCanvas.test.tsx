@@ -22,6 +22,9 @@ const dndContextState = vi.hoisted(() => ({
     scaleX: number;
     scaleY: number;
   } | null,
+  rectCollisions: [] as Array<{ id: string | number }>,
+  pointerCollisions: [] as Array<{ id: string | number }>,
+  closestCollisions: [] as Array<{ id: string | number }>,
 }));
 
 vi.mock("@dnd-kit/core", () => ({
@@ -34,9 +37,9 @@ vi.mock("@dnd-kit/core", () => ({
   useSensor: (sensor: unknown, options: unknown) => ({ sensor, options }),
   useSensors: (...sensors: unknown[]) => sensors,
   useDroppable: () => ({ setNodeRef: () => undefined }),
-  rectIntersection: () => [],
-  pointerWithin: () => [],
-  closestCorners: () => [],
+  rectIntersection: () => dndContextState.rectCollisions,
+  pointerWithin: () => dndContextState.pointerCollisions,
+  closestCorners: () => dndContextState.closestCollisions,
 }));
 
 vi.mock("@dnd-kit/sortable", () => ({
@@ -125,6 +128,24 @@ function getDndHandlers() {
   };
 }
 
+function runCollisionDetection(
+  activeType: "component" | "image",
+  droppables: Array<{ id: string | number; type: string }>,
+) {
+  const collisionDetection = dndContextState.props?.collisionDetection as
+    | ((args: unknown) => Array<{ id: string | number }>)
+    | undefined;
+  expect(collisionDetection).toBeTypeOf("function");
+
+  return collisionDetection?.({
+    active: { data: { current: { type: activeType } } },
+    droppableContainers: droppables.map(({ id, type }) => ({
+      id,
+      data: { current: { type } },
+    })),
+  }) ?? [];
+}
+
 function componentFrameTop(fragmentId: string): number {
   const frame = document.querySelector(`[data-fragment-id="${fragmentId}"]`) as HTMLElement | null;
   expect(frame).not.toBeNull();
@@ -211,6 +232,9 @@ describe("PlanCanvas", () => {
   beforeEach(() => {
     dndContextState.props = null;
     dndContextState.sortableTransform = null;
+    dndContextState.rectCollisions = [];
+    dndContextState.pointerCollisions = [];
+    dndContextState.closestCollisions = [];
   });
 
   it("renders one A4 page background with both plan and reference components", () => {
@@ -554,4 +578,44 @@ describe("PlanCanvas", () => {
 
     expect(props.onMoveImage).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["component", "plan1", "component"],
+    ["image", "i2", "image"],
+  ] as const)(
+    "returns no %s collision when the pointer is outside the canvas",
+    (activeType, targetId, targetType) => {
+      renderCanvas();
+      dndContextState.closestCollisions = [{ id: targetId }];
+
+      expect(
+        runCollisionDetection(activeType, [
+          { id: "canvas", type: "canvas" },
+          { id: targetId, type: targetType },
+        ]),
+      ).toEqual([]);
+    },
+  );
+
+  it.each([
+    ["component", "plan1", "component"],
+    ["image", "imagegroup:ref1", "imagegroup"],
+  ] as const)(
+    "uses the closest valid %s target for blank space inside the canvas",
+    (activeType, targetId, targetType) => {
+      renderCanvas();
+      dndContextState.pointerCollisions = [{ id: "canvas" }];
+      dndContextState.closestCollisions = [
+        { id: "canvas" },
+        { id: targetId },
+      ];
+
+      expect(
+        runCollisionDetection(activeType, [
+          { id: "canvas", type: "canvas" },
+          { id: targetId, type: targetType },
+        ]),
+      ).toEqual([{ id: targetId }]);
+    },
+  );
 });

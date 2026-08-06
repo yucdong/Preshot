@@ -1,6 +1,9 @@
 import { A4 } from "../../../domain/plan/canvas/geometry";
+import { useDroppable } from "@dnd-kit/core";
 import { CanvasPage } from "./CanvasPage";
 import { PAGE_SCREEN_GAP, pageTopPx } from "./pagedCanvasMetrics";
+
+const CANVAS_DROPPABLE_ID = Number.MIN_SAFE_INTEGER;
 
 interface PagedCanvasSurfaceProps {
   pageCount: number;
@@ -9,6 +12,10 @@ interface PagedCanvasSurfaceProps {
 }
 
 export function PagedCanvasSurface({ pageCount, scale, children }: PagedCanvasSurfaceProps) {
+  const { setNodeRef } = useDroppable({
+    id: CANVAS_DROPPABLE_ID,
+    data: { type: "canvas" },
+  });
   const pageHeight = A4.height * scale;
   const height = pageCount * pageHeight + Math.max(0, pageCount - 1) * PAGE_SCREEN_GAP;
 
@@ -16,6 +23,7 @@ export function PagedCanvasSurface({ pageCount, scale, children }: PagedCanvasSu
     <div
       className="relative"
       data-testid="paged-canvas-surface"
+      ref={setNodeRef}
       style={{ width: `${A4.width * scale}px`, height: `${height}px` }}
     >
       {Array.from({ length: pageCount }, (_unused, index) => (

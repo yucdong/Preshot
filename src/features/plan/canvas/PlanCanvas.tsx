@@ -70,31 +70,42 @@ const CANVAS_LAYOUT_OPTIONS = {
   frameChrome: EDITABLE_COMPONENT_FRAME_CHROME,
 };
 
-// Collision detection that branches on active type
 const collisionDetection: CollisionDetection = (args) => {
   const activeType = args.active.data.current?.type;
+  const typeFor = (id: string | number) =>
+    args.droppableContainers.find((container) => container.id === id)?.data.current?.type;
+  const pointerCollisions = pointerWithin(args);
 
-  if (activeType === "component") {
-    const componentHit = rectIntersection(args).find((collision) => {
-      const data = args.droppableContainers.find((c) => c.id === collision.id)?.data.current;
-      return data?.type === "component";
-    });
-    if (componentHit) {
-      return [componentHit];
+  if (activeType === "component" || activeType === "image") {
+    const pointerInsideCanvas = pointerCollisions.some(
+      (collision) => typeFor(collision.id) === "canvas",
+    );
+    if (!pointerInsideCanvas) {
+      return [];
     }
-    const pointerCollisions = pointerWithin(args);
-    return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
-  }
-  if (activeType === "image") {
-    const imageHit = rectIntersection(args).find((collision) => {
-      const data = args.droppableContainers.find((c) => c.id === collision.id)?.data.current;
-      return data?.type === "image" || data?.type === "imagegroup";
-    });
-    if (imageHit) {
-      return [imageHit];
+
+    const isValidTarget = (id: string | number) => {
+      const type = typeFor(id);
+      return activeType === "component"
+        ? type === "component"
+        : type === "image" || type === "imagegroup";
+    };
+    const pointerHit = pointerCollisions.find((collision) =>
+      isValidTarget(collision.id),
+    );
+    if (pointerHit) {
+      return [pointerHit];
     }
-    const pointerCollisions = pointerWithin(args);
-    return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
+    const intersectionHit = rectIntersection(args).find((collision) =>
+      isValidTarget(collision.id),
+    );
+    if (intersectionHit) {
+      return [intersectionHit];
+    }
+    const closestHit = closestCorners(args).find((collision) =>
+      isValidTarget(collision.id),
+    );
+    return closestHit ? [closestHit] : [];
   }
 
   return rectIntersection(args);
