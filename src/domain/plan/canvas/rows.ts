@@ -76,7 +76,13 @@ export function moveComponentInRows(
     const targetRow = nonEmptyRows[targetRowIndex];
     const index = Math.max(0, Math.min(params.target.toIndex, targetRow.length));
     targetRow.splice(index, 0, { ...component, rowId: params.target.rowId });
-    return { ...plan, components: nonEmptyRows.flat() };
+    const components = nonEmptyRows.flat();
+    const unchanged = components.every(
+      (candidate, index) =>
+        candidate.id === plan.components[index]?.id &&
+        candidate.rowId === plan.components[index]?.rowId,
+    );
+    return unchanged ? plan : { ...plan, components };
   }
 
   if (
@@ -88,5 +94,11 @@ export function moveComponentInRows(
   }
   const rowIndex = Math.max(0, Math.min(params.target.toRowIndex, nonEmptyRows.length));
   nonEmptyRows.splice(rowIndex, 0, [{ ...component, rowId: params.target.rowId }]);
-  return { ...plan, components: nonEmptyRows.flat() };
+  const components = nonEmptyRows.flat();
+  const sourceWasSingleton =
+    plan.components.filter((candidate) => candidate.rowId === component.rowId).length === 1;
+  const unchanged =
+    sourceWasSingleton &&
+    components.every((candidate, index) => candidate.id === plan.components[index]?.id);
+  return unchanged ? plan : { ...plan, components };
 }

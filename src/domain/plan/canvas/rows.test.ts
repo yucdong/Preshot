@@ -51,6 +51,44 @@ describe("canvas rows", () => {
     ).toBe(plan);
   });
 
+  it("returns the original plan for a same-position move within a row", () => {
+    const sharedRowPlan: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Shared",
+      components: [
+        { id: "a", rowId: "shared", name: "文案1", type: "plan", width: 0.4, html: "" },
+        { id: "b", rowId: "shared", name: "文案2", type: "plan", width: 0.4, html: "" },
+        { id: "c", rowId: "other", name: "文案3", type: "plan", width: 1, html: "" },
+      ],
+    };
+
+    expect(
+      moveComponentInRows(sharedRowPlan, {
+        id: "a",
+        target: { kind: "row", rowId: "shared", toIndex: 0 },
+      }),
+    ).toBe(sharedRowPlan);
+  });
+
+  it("returns the original plan when a singleton row is dropped into its current gap", () => {
+    const singletonRows: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Singletons",
+      components: [
+        { id: "a", rowId: "row-a", name: "文案1", type: "plan", width: 1, html: "" },
+        { id: "b", rowId: "row-b", name: "文案2", type: "plan", width: 1, html: "" },
+        { id: "c", rowId: "row-c", name: "文案3", type: "plan", width: 1, html: "" },
+      ],
+    };
+
+    expect(
+      moveComponentInRows(singletonRows, {
+        id: "b",
+        target: { kind: "new-row", rowId: "generated-row", toRowIndex: 1 },
+      }),
+    ).toBe(singletonRows);
+  });
+
   it("rejects a move that would overflow a target row once its new gap is included", () => {
     const capacityPlan: ProjectPlan = {
       schemaVersion: 5,

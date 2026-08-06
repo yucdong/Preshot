@@ -517,7 +517,8 @@
         "Final blocker fix captures and flushes a ready, dirty old-project snapshot before projectPath generation invalidation, while stale loads remain unable to apply after the switch",
         "Final blocker fix deterministically suffix-remaps colliding v1/v2 component and image ids while v3/v4 stored plans continue to reject duplicate logical ids",
         "Final retirement fix tracks each ready token's latest persistence, rebases an in-flight old-project mutation onto an explicit retired plan snapshot, and only then performs the fail-safe dirty save without exposing stale errors to the replacement project",
-        "Task 7 integrates v5 public interfaces in ProjectCanvasProvider: name/title result contracts surface accessible errors, rows stay stable on resize, crops are non-destructive metadata with effective-aspect layout reflow, and CanvasToolbar replaces visible history/settings controls while keyboard shortcuts remain"
+        "Task 7 integrates v5 public interfaces in ProjectCanvasProvider: name/title result contracts surface accessible errors, rows stay stable on resize, crops are non-destructive metadata with effective-aspect layout reflow, and CanvasToolbar replaces visible history/settings controls while keyboard shortcuts remain",
+        "Task 7 review fixes rebase each completed async image/component delta onto the latest persistence plan before a serialized save (including project retirement during image decoding), block image moves while destructive operations are pending, calculate row-gap targets after singleton-source removal, return identity for structural no-ops, and preserve hydrated image aspect ratios across crop history snapshots"
       ],
       "progress": {
         "designSpec": "docs/superpowers/specs/2026-08-05-adaptive-component-layout-design.md",
@@ -549,12 +550,14 @@
           "Final blockers: preserved dirty old-project edits during in-place project switches with a captured pre-invalidation save, while clean snapshots skip the write",
           "Final blockers: migrated legacy v1/v2 duplicate component and image identities to deterministic unique suffixes without losing records or file references, retaining strict v3/v4 rejection",
           "Final retirement blocker: waited for old-token import/remove/flush persistence before rebasing and saving the latest retired plan, preserving physical deletion ordering and preventing stale completion state or errors from reaching the new project UI",
-          "Task 7: integrated v5 rows, naming, crop metadata, project-title seeding, CanvasTitle, and CanvasToolbar through ProjectCanvasProvider and PlanCanvas; added focused provider/canvas/reference regressions"
+          "Task 7: integrated v5 rows, naming, crop metadata, project-title seeding, CanvasTitle, and CanvasToolbar through ProjectCanvasProvider and PlanCanvas; added focused provider/canvas/reference regressions",
+          "Task 7 review fixes: rebased delayed image/component operations over concurrent v5 metadata with an immediate serialized merged save; retained completed imports during retirement; blocked image moves during destructive operations; corrected singleton-row drops and structural identity no-ops; retained hydrated image ratios while crop undo/redo remains history-controlled"
         ],
         "lastVerified": {
           "date": "2026-08-06",
           "affectedTests": "39 focused provider/service tests passed (29 provider, 10 service)",
           "task7FocusedTests": "101 focused frontend tests passed (ProjectCanvasProvider, PlanCanvas, ReferenceComponentView, App, WorkspaceProvider)",
+          "task7ReviewFocusedTests": "80 focused domain/provider/service tests passed (40 provider, 17 history, 10 service, 7 drop-target, 6 rows)",
           "unitTests": "534 passed",
           "e2eTests": "28 passed",
           "typecheck": "clean",

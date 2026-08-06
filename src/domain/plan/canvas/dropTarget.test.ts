@@ -75,4 +75,18 @@ describe("componentDropTarget", () => {
       insertAfter: false,
     })).toEqual({ kind: "new-row", toRowIndex: 1 });
   });
+
+  it("calculates a row-gap target after removing an earlier singleton source row", () => {
+    const singletonRows: PlanComponent[] = [
+      { id: "a", rowId: "row-a", name: "文案1", type: "plan", width: 1, html: "" },
+      { id: "b", rowId: "row-b", name: "文案2", type: "plan", width: 1, html: "" },
+      { id: "c", rowId: "row-c", name: "文案3", type: "plan", width: 1, html: "" },
+    ];
+
+    expect(componentDropTarget(singletonRows, "a", {
+      type: "row-gap",
+      id: "row-c",
+      insertAfter: false,
+    })).toEqual({ kind: "new-row", toRowIndex: 1 });
+  });
 });

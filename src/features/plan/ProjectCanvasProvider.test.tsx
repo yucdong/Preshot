@@ -28,9 +28,13 @@ vi.mock("./canvas/PlanCanvas", () => ({
     title,
     measurements,
     onMoveComponent,
+    onMoveImage,
     onChangeHtml,
     onResize,
     onRemoveComponent,
+    onRemoveImage,
+    onAddImage,
+    onAddImages,
     onMeasurePlan,
     onMeasureReferenceDescription,
     onCommitTitle,
@@ -45,9 +49,18 @@ vi.mock("./canvas/PlanCanvas", () => ({
       referenceDescriptionHeights: ReadonlyMap<string, number>;
     };
     onMoveComponent: (id: string, target: ComponentMoveTarget) => void;
+    onMoveImage: (params: {
+      fromComponentId: string;
+      imageId: string;
+      toComponentId: string;
+      toIndex: number;
+    }) => void;
     onChangeHtml: (id: string, html: string) => void;
     onResize: (id: string, params: { width: number }) => void;
     onRemoveComponent: (id: string) => void;
+    onRemoveImage: (componentId: string, imageId: string) => void;
+    onAddImage: (componentId: string) => void;
+    onAddImages: (componentId: string) => void;
     onMeasurePlan: (
       id: string,
       measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
@@ -73,7 +86,11 @@ vi.mock("./canvas/PlanCanvas", () => ({
       onMeasureReferenceDescription,
       onChangeHtml,
       onMoveComponent,
+      onMoveImage,
       onRemoveComponent,
+      onRemoveImage,
+      onAddImage,
+      onAddImages,
       onResize,
       onCommitTitle,
       onRenameComponent: handleRenameComponent,
@@ -162,7 +179,16 @@ let latestPlanCanvasProps:
       onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
       onChangeHtml: (id: string, html: string) => void;
       onMoveComponent: (id: string, target: ComponentMoveTarget) => void;
+      onMoveImage: (params: {
+        fromComponentId: string;
+        imageId: string;
+        toComponentId: string;
+        toIndex: number;
+      }) => void;
       onRemoveComponent: (id: string) => void;
+      onRemoveImage: (componentId: string, imageId: string) => void;
+      onAddImage: (componentId: string) => void;
+      onAddImages: (componentId: string) => void;
       onResize: (id: string, params: { width: number }) => void;
       components: ProjectPlan["components"];
       title: string;
@@ -1128,6 +1154,529 @@ describe("ProjectCanvasProvider", () => {
         component.id === "ref-1" && component.type === "reference",
     );
     expect(reference?.images.find((image) => image.id === "i1")?.crop).toEqual(firstCrop);
+  });
+
+  it("keeps hydrated aspect ratios when undoing a crop", async () => {
+    const { dependencies, service } = deps();
+    const imageDecode = installDeferredImageDecode(300, 100);
+    vi.mocked(service.loadImage).mockResolvedValue("data:image/png;base64,delayed");
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    await waitFor(() => expect(imageDecode.decode).toHaveBeenCalledTimes(1));
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onSetImageCrop("ref-1", "i1", { x: 0.25, y: 0, width: 0.5, height: 1 });
+    });
+    await act(async () => {
+      imageDecode.resolve();
+    });
+    await waitFor(() => {
+      const reference = latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-1" && component.type === "reference",
+      );
+      expect(reference?.images.find((image) => image.id === "i1")?.aspectRatio).toBe(3);
+    });
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+
+    const reference = latestPlanCanvasProps?.components.find(
+      (component): component is ReferenceComponent =>
+        component.id === "ref-1" && component.type === "reference",
+    );
+    const image = reference?.images.find((candidate) => candidate.id === "i1");
+    expect(image?.aspectRatio).toBe(3);
+    expect(image).not.toHaveProperty("crop");
+  });
+
+  it("rebases a deferred image import onto concurrent v5 metadata and saves the merged plan", async () => {
+    const { dependencies, service, savePlan } = deps();
+    const imported = deferred<Awaited<ReturnType<CanvasPlanService["importImage"]>>>();
+    vi.mocked(service.importImage).mockReturnValue(imported.promise);
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onAddImage("ref-1");
+    });
+    await waitFor(() => expect(service.importImage).toHaveBeenCalledTimes(1));
+    const operationPlan = vi.mocked(service.importImage).mock.calls[0]?.[1];
+    if (!operationPlan) {
+      throw new Error("Expected an import operation plan.");
+    }
+
+    act(() => {
+      canvas.onCommitTitle("Concurrent title");
+      canvas.onRenameComponent("ref-1", "Concurrent reference");
+      canvas.onMoveComponent("ref-1", {
+        kind: "new-row",
+        rowId: "row:concurrent",
+        toRowIndex: 0,
+      });
+      canvas.onResize("ref-1", { width: 0.5 });
+      canvas.onSetImageCrop("ref-1", "i1", { x: 0.25, y: 0, width: 0.5, height: 1 });
+    });
+
+    await act(async () => {
+      imported.resolve({
+        plan: {
+          ...operationPlan,
+          components: operationPlan.components.map((component) =>
+            component.id === "ref-1" && component.type === "reference"
+              ? {
+                  ...component,
+                  images: [
+                    ...component.images,
+                    { id: "i2", file: "references/0002.png", aspectRatio: 1 },
+                  ],
+                }
+              : component,
+          ),
+        },
+        image: { id: "i2", file: "references/0002.png", aspectRatio: 1 },
+        dataUrl: "data:image/png;base64,BB",
+      });
+    });
+
+    await waitFor(() => {
+      const reference = latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-1" && component.type === "reference",
+      );
+      expect(latestPlanCanvasProps?.title).toBe("Concurrent title");
+      expect(reference).toMatchObject({
+        name: "Concurrent reference",
+        rowId: "row:concurrent",
+        width: 0.5,
+        images: [
+          {
+            id: "i1",
+            crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+          },
+          { id: "i2", file: "references/0002.png" },
+        ],
+      });
+    });
+    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
+    const savedPlan = savePlan.mock.calls[0]?.[1] as ProjectPlan;
+    expect(savedPlan.title).toBe("Concurrent title");
+    expect(savedPlan.components.find((component) => component.id === "ref-1")).toMatchObject({
+      name: "Concurrent reference",
+      rowId: "row:concurrent",
+      width: 0.5,
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+  });
+
+  it("retains a completed import while a concurrent edit retires during image decoding", async () => {
+    const { dependencies, service, savePlan } = deps();
+    const imported = deferred<Awaited<ReturnType<CanvasPlanService["importImage"]>>>();
+    const imageDecode = installDeferredImageDecode(300, 100);
+    vi.mocked(service.importImage).mockReturnValue(imported.promise);
+
+    const { rerender } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Old"
+        projectPath={String.raw`C:\old`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onAddImage("ref-1");
+    });
+    await waitFor(() => expect(service.importImage).toHaveBeenCalledTimes(1));
+    const operationPlan = vi.mocked(service.importImage).mock.calls[0]?.[1];
+    if (!operationPlan) {
+      throw new Error("Expected an import operation plan.");
+    }
+    act(() => {
+      canvas.onCommitTitle("Concurrent title");
+    });
+
+    await act(async () => {
+      imported.resolve({
+        plan: {
+          ...operationPlan,
+          components: operationPlan.components.map((component) =>
+            component.id === "ref-1" && component.type === "reference"
+              ? {
+                  ...component,
+                  images: [
+                    ...component.images,
+                    { id: "i2", file: "references/0002.png", aspectRatio: 1 },
+                  ],
+                }
+              : component,
+          ),
+        },
+        image: { id: "i2", file: "references/0002.png", aspectRatio: 1 },
+        dataUrl: "data:image/png;base64,BB",
+      });
+    });
+    await waitFor(() => expect(imageDecode.decode).toHaveBeenCalledTimes(2));
+
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="New"
+          projectPath={String.raw`C:\new`}
+        />
+      </ThemeProvider>,
+    );
+
+    await act(async () => {
+      imageDecode.resolve();
+    });
+
+    await waitFor(() => expect(savePlan).toHaveBeenCalled());
+    const oldProjectSave = savePlan.mock.calls.find(
+      ([projectPath]) => projectPath === String.raw`C:\old`,
+    );
+    expect(oldProjectSave?.[1]).toMatchObject({
+      title: "Concurrent title",
+    });
+    const savedPlan = oldProjectSave?.[1] as ProjectPlan;
+    const reference = savedPlan.components.find(
+      (component): component is ReferenceComponent =>
+        component.id === "ref-1" && component.type === "reference",
+    );
+    expect(reference?.images).toContainEqual(
+      expect.objectContaining({ id: "i2", file: "references/0002.png" }),
+    );
+  });
+
+  it("rebases a deferred image removal onto concurrent v5 metadata and saves the merged plan", async () => {
+    const { dependencies, service, savePlan } = deps();
+    const removed = deferred<ProjectPlan>();
+    vi.mocked(service.removeImage).mockReturnValue(removed.promise);
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onRemoveImage("ref-1", "i1");
+    });
+    await waitFor(() => expect(service.removeImage).toHaveBeenCalledTimes(1));
+    const operationPlan = vi.mocked(service.removeImage).mock.calls[0]?.[1];
+    if (!operationPlan) {
+      throw new Error("Expected a removal operation plan.");
+    }
+
+    act(() => {
+      canvas.onCommitTitle("Concurrent title");
+      canvas.onRenameComponent("ref-1", "Concurrent reference");
+      canvas.onMoveComponent("ref-1", {
+        kind: "new-row",
+        rowId: "row:concurrent",
+        toRowIndex: 0,
+      });
+      canvas.onResize("ref-1", { width: 0.5 });
+    });
+
+    await act(async () => {
+      removed.resolve({
+        ...operationPlan,
+        components: operationPlan.components.map((component) =>
+          component.id === "ref-1" && component.type === "reference"
+            ? { ...component, images: [] }
+            : component,
+        ),
+      });
+    });
+
+    await waitFor(() => {
+      const reference = latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-1" && component.type === "reference",
+      );
+      expect(latestPlanCanvasProps?.title).toBe("Concurrent title");
+      expect(reference).toMatchObject({
+        name: "Concurrent reference",
+        rowId: "row:concurrent",
+        width: 0.5,
+        images: [],
+      });
+    });
+    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
+    const savedPlan = savePlan.mock.calls[0]?.[1] as ProjectPlan;
+    expect(savedPlan.title).toBe("Concurrent title");
+    expect(savedPlan.components.find((component) => component.id === "ref-1")).toMatchObject({
+      name: "Concurrent reference",
+      rowId: "row:concurrent",
+      width: 0.5,
+      images: [],
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+  });
+
+  it("does not move an image while its removal is pending", async () => {
+    const { dependencies, loadPlan, service } = deps();
+    const removed = deferred<ProjectPlan>();
+    vi.mocked(service.removeImage).mockReturnValue(removed.promise);
+    loadPlan.mockResolvedValue({
+      status: "loaded",
+      plan: {
+        schemaVersion: 5,
+        title: "Demo",
+        components: [
+          {
+            id: "ref-1",
+            rowId: "row:ref-1",
+            type: "reference",
+            width: 1,
+            name: "A",
+            description: "",
+            showCaptions: true,
+            imageHeight: 135,
+            images: [{ id: "i1", file: "references/shared.png", aspectRatio: 1 }],
+          },
+          {
+            id: "ref-2",
+            rowId: "row:ref-2",
+            type: "reference",
+            width: 1,
+            name: "B",
+            description: "",
+            showCaptions: true,
+            imageHeight: 135,
+            images: [],
+          },
+        ],
+      },
+    });
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onRemoveImage("ref-1", "i1");
+    });
+    await waitFor(() => expect(service.removeImage).toHaveBeenCalledTimes(1));
+    const operationPlan = vi.mocked(service.removeImage).mock.calls[0]?.[1];
+    if (!operationPlan) {
+      throw new Error("Expected a removal operation plan.");
+    }
+
+    act(() => {
+      canvas.onMoveImage({
+        fromComponentId: "ref-1",
+        imageId: "i1",
+        toComponentId: "ref-2",
+        toIndex: 0,
+      });
+    });
+    await act(async () => {
+      removed.resolve({
+        ...operationPlan,
+        components: operationPlan.components.map((component) =>
+          component.id === "ref-1" && component.type === "reference"
+            ? { ...component, images: [] }
+            : component,
+        ),
+      });
+    });
+
+    await waitFor(() => {
+      const destination = latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-2" && component.type === "reference",
+      );
+      expect(destination?.images).toEqual([]);
+    });
+  });
+
+  it("rebases a deferred component removal onto concurrent metadata and saves the merged plan", async () => {
+    const { dependencies, service, savePlan } = deps();
+    const removed = deferred<ProjectPlan>();
+    vi.mocked(service.removeComponent).mockReturnValue(removed.promise);
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onRemoveComponent("ref-1");
+    });
+    await waitFor(() => expect(service.removeComponent).toHaveBeenCalledTimes(1));
+    const operationPlan = vi.mocked(service.removeComponent).mock.calls[0]?.[1];
+    if (!operationPlan) {
+      throw new Error("Expected a component removal operation plan.");
+    }
+
+    act(() => {
+      canvas.onCommitTitle("Concurrent title");
+      canvas.onRenameComponent("plan-1", "Concurrent plan");
+      canvas.onMoveComponent("plan-1", {
+        kind: "new-row",
+        rowId: "row:concurrent",
+        toRowIndex: 1,
+      });
+      canvas.onResize("plan-1", { width: 0.5 });
+    });
+
+    await act(async () => {
+      removed.resolve({
+        ...operationPlan,
+        components: operationPlan.components.filter((component) => component.id !== "ref-1"),
+      });
+    });
+
+    await waitFor(() => {
+      const planComponent = latestPlanCanvasProps?.components.find(
+        (component) => component.id === "plan-1",
+      );
+      expect(latestPlanCanvasProps?.title).toBe("Concurrent title");
+      expect(planComponent).toMatchObject({
+        name: "Concurrent plan",
+        rowId: "row:concurrent",
+        width: 0.5,
+      });
+      expect(latestPlanCanvasProps?.components.find((component) => component.id === "ref-1")).toBeUndefined();
+    });
+    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
+    expect(savePlan.mock.calls[0]?.[1]).toMatchObject({
+      title: "Concurrent title",
+      components: [
+        expect.objectContaining({
+          id: "plan-1",
+          name: "Concurrent plan",
+          rowId: "row:concurrent",
+          width: 0.5,
+        }),
+      ],
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+  });
+
+  it("keeps save state clean for a same-position row move", async () => {
+    const { dependencies, loadPlan } = deps();
+    loadPlan.mockResolvedValue({
+      status: "loaded",
+      plan: {
+        schemaVersion: 5,
+        title: "Demo",
+        components: [
+          {
+            id: "plan-1",
+            rowId: "row:shared",
+            name: "文案1",
+            type: "plan",
+            width: 0.4,
+            html: "<p>Demo</p>",
+          },
+          {
+            id: "ref-1",
+            rowId: "row:shared",
+            name: "图片组1",
+            type: "reference",
+            width: 0.4,
+            description: "",
+            showCaptions: true,
+            imageHeight: 135,
+            images: [],
+          },
+        ],
+      },
+    });
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+    const rendersBeforeMove = planCanvasRenderCount;
+
+    act(() => {
+      canvas.onMoveComponent("plan-1", {
+        kind: "row",
+        rowId: "row:shared",
+        toIndex: 0,
+      });
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+    expect(planCanvasRenderCount).toBe(rendersBeforeMove);
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(screen.getByTestId("component-order")).toHaveTextContent("plan-1,ref-1");
   });
 
   it("caps a resize to its current row capacity without changing its row id", async () => {

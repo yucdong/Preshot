@@ -21,7 +21,10 @@ export function componentDropTarget(
 
   const plan = { schemaVersion: 5 as const, title: "", components };
   if (over.type === "row-gap") {
-    const toRowIndex = orderedRowIds(plan).indexOf(over.id);
+    const toRowIndex = orderedRowIds({
+      ...plan,
+      components: components.filter((component) => component.id !== active.id),
+    }).indexOf(over.id);
     return toRowIndex < 0
       ? { kind: "invalid", reason: "missing" }
       : { kind: "new-row", toRowIndex };

@@ -187,6 +187,106 @@ describe("mergeStructural", () => {
     expect(merged.components[0]).toMatchObject({ type: "plan", html: "TARGET" });
   });
 
+  it("keeps current image aspect ratios but restores historical crops", () => {
+    const target = plan([
+      {
+        id: "ref",
+        rowId: "row:ref",
+        type: "reference",
+        width: 1,
+        name: "Reference",
+        description: "",
+        showCaptions: true,
+        imageHeight: 180,
+        images: [{ id: "i1", file: "references/one.png", aspectRatio: 1 }],
+      },
+    ]);
+    const current = plan([
+      {
+        id: "ref",
+        rowId: "row:ref",
+        type: "reference",
+        width: 1,
+        name: "Reference",
+        description: "",
+        showCaptions: true,
+        imageHeight: 180,
+        images: [{
+          id: "i1",
+          file: "references/one.png",
+          aspectRatio: 2,
+          crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+        }],
+      },
+    ]);
+
+    const merged = mergeStructural(target, current);
+
+    expect((merged.components[0] as { images: Array<{ aspectRatio: number; crop?: unknown }> }).images)
+      .toEqual([{ id: "i1", file: "references/one.png", aspectRatio: 2 }]);
+  });
+
+  it("keeps a hydrated image ratio when history restores it to another component", () => {
+    const target = plan([
+      {
+        id: "ref-a",
+        rowId: "row:ref-a",
+        type: "reference",
+        width: 1,
+        name: "A",
+        description: "",
+        showCaptions: true,
+        imageHeight: 180,
+        images: [{ id: "i1", file: "references/one.png", aspectRatio: 1 }],
+      },
+      {
+        id: "ref-b",
+        rowId: "row:ref-b",
+        type: "reference",
+        width: 1,
+        name: "B",
+        description: "",
+        showCaptions: true,
+        imageHeight: 180,
+        images: [],
+      },
+    ]);
+    const current = plan([
+      {
+        id: "ref-a",
+        rowId: "row:ref-a",
+        type: "reference",
+        width: 1,
+        name: "A",
+        description: "",
+        showCaptions: true,
+        imageHeight: 180,
+        images: [],
+      },
+      {
+        id: "ref-b",
+        rowId: "row:ref-b",
+        type: "reference",
+        width: 1,
+        name: "B",
+        description: "",
+        showCaptions: true,
+        imageHeight: 180,
+        images: [{
+          id: "i1",
+          file: "references/one.png",
+          aspectRatio: 2,
+          crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+        }],
+      },
+    ]);
+
+    const merged = mergeStructural(target, current);
+
+    expect((merged.components[0] as { images: Array<{ aspectRatio: number; crop?: unknown }> }).images)
+      .toEqual([{ id: "i1", file: "references/one.png", aspectRatio: 2 }]);
+  });
+
   it("does not mutate the inputs", () => {
     const target = plan([
       { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 1, html: "OLD" },

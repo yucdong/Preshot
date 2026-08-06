@@ -111,6 +111,13 @@ export function mergeStructural(
   const currentById = new Map<string, PlanComponent>(
     current.components.map((component) => [component.id, component]),
   );
+  const currentImagesById = new Map(
+    current.components.flatMap((component) =>
+      component.type === "reference"
+        ? component.images.map((image) => [image.id, image] as const)
+        : [],
+    ),
+  );
 
   return {
     ...target,
@@ -123,7 +130,16 @@ export function mergeStructural(
         return { ...component, html: existing.html };
       }
       if (component.type === "reference" && existing.type === "reference") {
-        return { ...component, description: existing.description };
+        return {
+          ...component,
+          description: existing.description,
+          images: component.images.map((image) => {
+            const currentImage = currentImagesById.get(image.id);
+            return currentImage?.file === image.file
+              ? { ...image, aspectRatio: currentImage.aspectRatio }
+              : image;
+          }),
+        };
       }
       return component;
     }),

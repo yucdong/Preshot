@@ -21,7 +21,11 @@ import type {
 } from "../../domain/plan/canvas/ports";
 import {
   addComponent,
+  addReferenceImage,
+  addReferenceImages,
   moveImage,
+  removeComponent as removePlanComponent,
+  removeReferenceImage,
   resizeComponent,
   updatePlanHtml,
   setReferenceDescription,
@@ -361,6 +365,38 @@ export function ProjectCanvasProvider({
       syncSaveState();
     },
     [isTokenReady, syncSaveState],
+  );
+
+  const rebaseServiceDelta = useCallback(
+    async (
+      token: ProjectToken,
+      persistence: ProjectPersistenceState,
+      operationPlan: ProjectPlan,
+      rebase: (latest: ProjectPlan) => ProjectPlan,
+    ) => {
+      const previous = persistence.plan;
+      const next = rebase(previous);
+      persistence.plan = next;
+      if (!isTokenReady(token)) {
+        return;
+      }
+      if (!plansEqual(next, previous)) {
+        recordHistoryEntry(previous);
+        applyPlan(next);
+      }
+      if (!plansEqual(next, operationPlan)) {
+        await service.savePlan(projectPath, next);
+      }
+      markSaved(next, token);
+    },
+    [
+      applyPlan,
+      isTokenReady,
+      markSaved,
+      projectPath,
+      recordHistoryEntry,
+      service,
+    ],
   );
 
   const persisting = useCallback(
@@ -816,29 +852,23 @@ export function ProjectCanvasProvider({
           if (plansEqual(persisted, operationPlan)) {
             return;
           }
-          const previous = persistence.plan;
-          const next = mergeStructural(persisted, previous);
-          persistence.plan = next;
-          if (!isTokenReady(token)) {
-            return;
-          }
-          if (!plansEqual(next, previous)) {
-            recordHistoryEntry(previous);
-            applyPlan(next);
-          }
-          markSaved(persisted, token);
+          await rebaseServiceDelta(
+            token,
+            persistence,
+            operationPlan,
+            (latest) => removePlanComponent(latest, id),
+          );
+          if (!isTokenReady(token)) return;
           setError(null);
         }),
       );
     },
     [
-      applyPlan,
       guard,
       isTokenReady,
-      markSaved,
       persisting,
       projectPath,
-      recordHistoryEntry,
+      rebaseServiceDelta,
       service,
     ],
   );
@@ -854,7 +884,8 @@ export function ProjectCanvasProvider({
 
   const handleMoveImage = useCallback(
     (params: MoveImageParams) => {
-      if (!readyTokenFor(projectPath)) return;
+      const token = readyTokenFor(projectPath);
+      if (!token || sameToken(busyRef.current, token)) return;
       const next = moveImage(planRef.current, params);
       mutate(next);
     },
@@ -1018,9 +1049,16 @@ export function ProjectCanvasProvider({
           if (plansEqual(result.plan, operationPlan)) {
             return;
           }
-          const previous = persistence.plan;
-          const next = mergeStructural(result.plan, previous);
-          persistence.plan = next;
+          await rebaseServiceDelta(
+            token,
+            persistence,
+            operationPlan,
+            (latest) =>
+              addReferenceImage(latest, {
+                componentId,
+                image: result.image,
+              }),
+          );
           if (!isTokenReady(token)) {
             return;
           }
@@ -1030,21 +1068,14 @@ export function ProjectCanvasProvider({
           };
           imageSrcRef.current = nextImageSrc;
           setImageSrc(nextImageSrc);
-
-          if (!plansEqual(next, previous)) {
-            recordHistoryEntry(previous);
-            applyPlan(next);
-          }
-          markSaved(result.plan, token);
           setError(null);
 
           const aspectRatio = await measureAspectRatio(result.dataUrl);
           if (!isTokenReady(token)) return;
-          const withRatio = setImageAspectRatioForFile(planRef.current, {
+          applyPlan(setImageAspectRatioForFile(planRef.current, {
             file: result.image.file,
             aspectRatio,
-          });
-          applyPlan(withRatio);
+          }));
         });
       });
     },
@@ -1052,11 +1083,10 @@ export function ProjectCanvasProvider({
       applyPlan,
       guard,
       isTokenReady,
-      markSaved,
       persisting,
       picker,
       projectPath,
-      recordHistoryEntry,
+      rebaseServiceDelta,
       service,
     ],
   );
@@ -1070,7 +1100,10 @@ export function ProjectCanvasProvider({
         await persisting(token, async (persistence) => {
           const operationPlan = persistence.plan;
           let persistedPlan = operationPlan;
-          const newImages: Array<{ id: string; file: string; aspectRatio: number; dataUrl: string }> = [];
+          const newImages: Array<{
+            image: { id: string; file: string; aspectRatio: number };
+            dataUrl: string;
+          }> = [];
 
           for (const sourcePath of sourcePaths) {
             const result = await service.importImage(
@@ -1082,9 +1115,7 @@ export function ProjectCanvasProvider({
             persistedPlan = result.plan;
             const aspectRatio = await measureAspectRatio(result.dataUrl);
             newImages.push({
-              id: result.image.id,
-              file: result.image.file,
-              aspectRatio,
+              image: { ...result.image, aspectRatio },
               dataUrl: result.dataUrl,
             });
           }
@@ -1093,45 +1124,38 @@ export function ProjectCanvasProvider({
             return;
           }
 
-          const previous = persistence.plan;
-          let next = mergeStructural(persistedPlan, previous);
-          for (const image of newImages) {
-            next = setImageAspectRatioForFile(next, {
-              file: image.file,
-              aspectRatio: image.aspectRatio,
-            });
-          }
-          persistence.plan = next;
+          await rebaseServiceDelta(
+            token,
+            persistence,
+            operationPlan,
+            (latest) =>
+              addReferenceImages(latest, {
+                componentId,
+                images: newImages.map(({ image }) => image),
+              }),
+          );
           if (!isTokenReady(token)) {
             return;
           }
 
           const newSrcMap: Record<string, string> = {};
-          for (const img of newImages) {
-            newSrcMap[img.file] = img.dataUrl;
+          for (const { image, dataUrl } of newImages) {
+            newSrcMap[image.file] = dataUrl;
           }
           const nextImageSrc = { ...imageSrcRef.current, ...newSrcMap };
           imageSrcRef.current = nextImageSrc;
           setImageSrc(nextImageSrc);
-
-          if (!plansEqual(next, previous)) {
-            recordHistoryEntry(previous);
-            applyPlan(next);
-          }
-          markSaved(persistedPlan, token);
           setError(null);
         });
       });
     },
     [
-      applyPlan,
       guard,
       isTokenReady,
-      markSaved,
       persisting,
       picker,
       projectPath,
-      recordHistoryEntry,
+      rebaseServiceDelta,
       service,
     ],
   );
@@ -1150,29 +1174,23 @@ export function ProjectCanvasProvider({
           if (plansEqual(persisted, operationPlan)) {
             return;
           }
-          const previous = persistence.plan;
-          const next = mergeStructural(persisted, previous);
-          persistence.plan = next;
-          if (!isTokenReady(token)) {
-            return;
-          }
-          if (!plansEqual(next, previous)) {
-            recordHistoryEntry(previous);
-            applyPlan(next);
-          }
-          markSaved(persisted, token);
+          await rebaseServiceDelta(
+            token,
+            persistence,
+            operationPlan,
+            (latest) => removeReferenceImage(latest, { componentId, imageId }),
+          );
+          if (!isTokenReady(token)) return;
           setError(null);
         }),
       );
     },
     [
-      applyPlan,
       guard,
       isTokenReady,
-      markSaved,
       persisting,
       projectPath,
-      recordHistoryEntry,
+      rebaseServiceDelta,
       service,
     ],
   );
