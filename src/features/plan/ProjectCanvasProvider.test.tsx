@@ -318,6 +318,7 @@ function installDeferredImageDecode(width: number, height: number) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   latestPlanCanvasProps = null;
   planCanvasRenderCount = 0;
   vi.unstubAllGlobals();
@@ -1381,6 +1382,265 @@ describe("ProjectCanvasProvider", () => {
       width: 0.5,
     });
     expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
+  });
+
+  it("auto-saves a measured single import ratio instead of treating the service placeholder as saved", async () => {
+    vi.useFakeTimers();
+    try {
+      const { dependencies, loadPlan, savePlan, service } = deps();
+      const plan: ProjectPlan = {
+        schemaVersion: 5,
+        title: "Demo",
+        components: [
+          {
+            id: "ref-1",
+            rowId: "row:ref-1",
+            type: "reference",
+            width: 1,
+            name: "Reference",
+            description: "",
+            showCaptions: false,
+            imageHeight: 180,
+            images: [],
+          },
+        ],
+      };
+      const importedImage = {
+        id: "i2",
+        file: "references/0002.png",
+        aspectRatio: 1,
+      };
+      const importedPlan: ProjectPlan = {
+        ...plan,
+        components: plan.components.map((component) =>
+          component.id === "ref-1" && component.type === "reference"
+            ? { ...component, images: [importedImage] }
+            : component,
+        ),
+      };
+      loadPlan.mockResolvedValue({ status: "loaded", plan });
+      vi.mocked(service.importImage).mockResolvedValue({
+        plan: importedPlan,
+        image: importedImage,
+        dataUrl: "data:image/png;base64,imported",
+      });
+      vi.stubGlobal(
+        "Image",
+        class MockImage {
+          src = "";
+          naturalWidth = 300;
+          naturalHeight = 100;
+          decode = async () => {};
+        },
+      );
+
+      renderWithTheme(
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Demo"
+          projectPath={String.raw`C:\demo`}
+        />,
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      const canvas = latestPlanCanvasProps;
+      expect(canvas).not.toBeNull();
+      if (!canvas) {
+        throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+      }
+
+      act(() => {
+        canvas.onAddImage("ref-1");
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(service.importImage).toHaveBeenCalledTimes(1);
+      const reference = latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-1" && component.type === "reference",
+      );
+      expect(reference?.images[0]?.aspectRatio).toBe(3);
+      expect(screen.getByRole("status")).toHaveTextContent("有未保存的更改");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+
+      expect(savePlan).toHaveBeenCalledWith(
+        String.raw`C:\demo`,
+        expect.objectContaining({
+          components: [
+            expect.objectContaining({
+              id: "ref-1",
+              images: [
+                expect.objectContaining({
+                  id: "i2",
+                  aspectRatio: 3,
+                }),
+              ],
+            }),
+          ],
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retires and reloads measured batch import ratios instead of overwriting them with service placeholders", async () => {
+    const { dependencies, loadPlan, savePlan, service } = deps();
+    const projectPath = String.raw`C:\demo`;
+    const otherProjectPath = String.raw`C:\other`;
+    const initialPlan: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Demo",
+      components: [
+        {
+          id: "ref-1",
+          rowId: "row:ref-1",
+          type: "reference",
+          width: 1,
+          name: "Reference",
+          description: "",
+          showCaptions: false,
+          imageHeight: 180,
+          images: [],
+        },
+      ],
+    };
+    const otherPlan: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Other",
+      components: [],
+    };
+    const diskPlans = new Map<string, ProjectPlan>([
+      [projectPath, initialPlan],
+      [otherProjectPath, otherPlan],
+    ]);
+    let importIndex = 1;
+    loadPlan.mockImplementation(async (path) => {
+      const plan = diskPlans.get(path);
+      if (!plan) {
+        throw new Error(`Unexpected project path ${path}`);
+      }
+      return { status: "loaded", plan };
+    });
+    vi.mocked(service.importImage).mockImplementation(
+      async (path, currentPlan, componentId) => {
+        const image = {
+          id: `i${importIndex}`,
+          file: `references/000${importIndex}.png`,
+          aspectRatio: 1,
+        };
+        importIndex += 1;
+        const plan = {
+          ...currentPlan,
+          components: currentPlan.components.map((component) =>
+            component.id === componentId && component.type === "reference"
+              ? { ...component, images: [...component.images, image] }
+              : component,
+          ),
+        };
+        diskPlans.set(path, plan);
+        return {
+          plan,
+          image,
+          dataUrl: `data:image/png;base64,${image.id}`,
+        };
+      },
+    );
+    savePlan.mockImplementation(async (path, plan) => {
+      diskPlans.set(path, plan);
+    });
+    vi.mocked(dependencies.picker.pickImageFiles).mockResolvedValue([
+      String.raw`C:\source\one.png`,
+      String.raw`C:\source\two.png`,
+    ]);
+    vi.stubGlobal(
+      "Image",
+      class MockImage {
+        src = "";
+        naturalWidth = 300;
+        naturalHeight = 100;
+        decode = async () => {};
+      },
+    );
+
+    const { rerender } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={projectPath}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onAddImages("ref-1");
+    });
+    await waitFor(() => expect(service.importImage).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      const reference = latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-1" && component.type === "reference",
+      );
+      expect(reference?.images.map((image) => image.aspectRatio)).toEqual([3, 3]);
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("有未保存的更改");
+
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Other"
+          projectPath={otherProjectPath}
+        />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(savePlan).toHaveBeenCalledWith(
+        projectPath,
+        expect.objectContaining({
+          components: [
+            expect.objectContaining({
+              id: "ref-1",
+              images: [
+                expect.objectContaining({ id: "i1", aspectRatio: 3 }),
+                expect.objectContaining({ id: "i2", aspectRatio: 3 }),
+              ],
+            }),
+          ],
+        }),
+      );
+    });
+
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Demo"
+          projectPath={projectPath}
+        />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      const reference = latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-1" && component.type === "reference",
+      );
+      expect(reference?.images.map((image) => image.aspectRatio)).toEqual([3, 3]);
+    });
   });
 
   it("retains a completed import while a concurrent edit retires during image decoding", async () => {

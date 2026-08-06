@@ -522,7 +522,7 @@ describe("WorkspaceProvider", () => {
     expect(screen.getByTestId("plan-canvas")).toHaveAttribute("data-title", "Next title");
   });
 
-  it("retires a deferred component removal and concurrent edits when New Project unmounts the canvas", async () => {
+  it("waits for a retired removal before canceling New Project remounts and later saves", async () => {
     const user = userEvent.setup();
     const project = makeProject({
       projectId: "retiring",
@@ -607,7 +607,15 @@ describe("WorkspaceProvider", () => {
     await user.click(screen.getByRole("button", { name: "Test retained crop" }));
 
     await user.click(screen.getByRole("button", { name: "新建项目" }));
-    await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("dialog");
+    expect(screen.queryByTestId("plan-canvas")).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "取消" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(canvasService.loadRequests).toEqual([project.path]);
     expect(screen.queryByTestId("plan-canvas")).not.toBeInTheDocument();
 
     await act(async () => {
@@ -615,6 +623,10 @@ describe("WorkspaceProvider", () => {
     });
 
     await waitFor(() => {
+      expect(screen.getByTestId("plan-canvas")).toHaveAttribute(
+        "data-title",
+        "Retired title",
+      );
       expect(canvasService.planAt(project.path)).toMatchObject({
         title: "Retired title",
         components: [
@@ -640,6 +652,34 @@ describe("WorkspaceProvider", () => {
     expect(canvasService.events.filter(
       (event) => event === `save:${project.path}:started`,
     )).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Test retained width" }));
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await act(async () => {
+      await canvasService.waitForIdle();
+    });
+
+    expect(canvasService.planAt(project.path)).toMatchObject({
+      title: "Retired title",
+      components: [
+        expect.objectContaining({
+          id: "p1",
+          rowId: "row-moved",
+          name: "Shot list",
+        }),
+        expect.objectContaining({
+          id: "r2",
+          width: 0.5,
+          images: [
+            expect.objectContaining({
+              id: "retained-image",
+              crop: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
+            }),
+          ],
+        }),
+      ],
+    });
+    expect(canvasService.planAt(project.path).components).toHaveLength(2);
   });
 
   it("serializes rapid A-to-B-to-A loads behind a retiring destructive save on a shared FIFO", async () => {

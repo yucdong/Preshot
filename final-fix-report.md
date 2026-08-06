@@ -37,3 +37,27 @@
 - `pnpm typecheck`: passed.
 - `pnpm test`: 74 files, 645 tests passed.
 - Targeted row-drop E2E: 1 passed.
+
+## Final Review Remediation
+
+### RED
+
+- A New Project unmount followed by cancel could remount a fresh provider and queue a same-project load before the retired provider's corrective save.
+- Batch import recorded measured aspect ratios as saved even though the service had persisted placeholder ratios.
+
+### GREEN
+
+- A service-keyed WeakMap coordinator publishes matching project retirement barriers immediately, retains only the current queued barrier, and preserves service FIFO ordering across provider instances.
+- Batch imports establish `lastSaved` from the service result, then apply measured ratios as unsaved metadata; timer and retirement persistence now save those values.
+
+### Results
+
+- Focused coordinator/provider/workspace/service tests: 79 passed.
+- `pnpm lint`: exit 0; existing ThemeProvider Fast Refresh warning.
+- `pnpm typecheck`: passed.
+- `pnpm test`: 75 files, 651 tests passed.
+- Relevant canvas/workspace E2E: 25 passed.
+
+### Note
+
+- The first parallel relevant-E2E run had one non-reproducible full-row drag assertion failure; its isolated retry and the complete relevant-E2E rerun passed.

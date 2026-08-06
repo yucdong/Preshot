@@ -55,6 +55,7 @@ import type { PlanMeasurement } from "./canvas/usePlanContentMeasurement";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
 import { CanvasToolbar } from "./canvas/CanvasToolbar";
 import type { SaveState } from "./SaveStatus";
+import { getProjectRetirementCoordinator } from "./projectRetirementCoordinator";
 
 export interface CanvasPlanDependencies {
   service: CanvasPlanService;
@@ -191,6 +192,10 @@ export function ProjectCanvasProvider({
 }: ProjectCanvasProviderProps) {
   const { t } = useTranslation();
   const { service, picker, logger, exporter, saver, reveal } = dependencies;
+  const retirementCoordinator = useMemo(
+    () => getProjectRetirementCoordinator(service),
+    [service],
+  );
   const [plan, setPlan] = useState<ProjectPlan>(EMPTY_PLAN);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -222,10 +227,13 @@ export function ProjectCanvasProvider({
   const savingRef = useRef<ProjectToken | null>(null);
   const lastSavedRef = useRef(JSON.stringify(EMPTY_PLAN));
   const projectPersistenceRef = useRef<ProjectPersistenceState | null>(null);
-  const retirementBarrierRef = useRef<Promise<void>>(Promise.resolve());
   const retiredPersistencesRef = useRef(new WeakSet<ProjectPersistenceState>());
   const retireProjectRef = useRef(
-    (_token: ProjectToken, _persistence: ProjectPersistenceState) => {},
+    (
+      _token: ProjectToken,
+      _persistence: ProjectPersistenceState,
+      _remainsRetired: () => boolean = () => true,
+    ) => {},
   );
   const historyRef = useRef<PlanHistory>(createHistory());
   const lifecycleStatus =
@@ -450,18 +458,12 @@ export function ProjectCanvasProvider({
     (
       retiringToken: ProjectToken,
       retiringPersistence: ProjectPersistenceState,
+      remainsRetired: () => boolean = () => true,
     ) => {
       if (retiredPersistencesRef.current.has(retiringPersistence)) {
         return;
       }
-      if (
-        retiringPersistence.pending === null &&
-        JSON.stringify(retiringPersistence.plan) === retiringPersistence.savedSnapshot
-      ) {
-        return;
-      }
 
-      retiredPersistencesRef.current.add(retiringPersistence);
       const saveLatest = async () => {
         const latestPlan = retiringPersistence.plan;
         if (JSON.stringify(latestPlan) === retiringPersistence.savedSnapshot) {
@@ -470,24 +472,34 @@ export function ProjectCanvasProvider({
         await service.savePlan(retiringToken.projectPath, latestPlan);
         retiringPersistence.savedSnapshot = JSON.stringify(latestPlan);
       };
-      const previousRetirement = retirementBarrierRef.current;
-      const retirement = (async () => {
-        await previousRetirement;
-        await retiringPersistence.pending;
-        await saveLatest();
-      })();
-      retirementBarrierRef.current = retirement;
-      const resetRetirementBarrier = () => {
-        if (retirementBarrierRef.current === retirement) {
-          retirementBarrierRef.current = Promise.resolve();
-        }
-      };
-      void retirement.then(resetRetirementBarrier, resetRetirementBarrier);
+
+      const retirement = retirementCoordinator.queue(
+        retiringToken.projectPath,
+        async () => {
+          await Promise.resolve();
+          if (
+            !remainsRetired() ||
+            retiredPersistencesRef.current.has(retiringPersistence)
+          ) {
+            return;
+          }
+          if (
+            retiringPersistence.pending === null &&
+            JSON.stringify(retiringPersistence.plan) === retiringPersistence.savedSnapshot
+          ) {
+            return;
+          }
+
+          retiredPersistencesRef.current.add(retiringPersistence);
+          await retiringPersistence.pending;
+          await saveLatest();
+        },
+      );
       void retirement.catch((err) => {
         report("Unable to auto-save the project plan", err, retiringToken);
       });
     },
-    [report, service],
+    [report, retirementCoordinator, service],
   );
 
   useLayoutEffect(() => {
@@ -602,29 +614,25 @@ export function ProjectCanvasProvider({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      queueMicrotask(() => {
-        if (mountedRef.current) {
-          return;
-        }
-        const retiringToken: ProjectToken = {
-          projectPath: activeProjectPathRef.current,
-          generation: generationRef.current,
-        };
-        const retiringLifecycle = lifecycleRef.current;
-        const retiringPersistence = projectPersistenceRef.current;
-        if (
-          retiringLifecycle.projectPath === retiringToken.projectPath &&
-          retiringLifecycle.generation === retiringToken.generation &&
-          retiringLifecycle.status === "ready" &&
-          retiringPersistence !== null &&
-          sameToken(retiringPersistence.token, retiringToken)
-        ) {
-          retireProjectRef.current(
-            retiringToken,
-            retiringPersistence,
-          );
-        }
-      });
+      const retiringToken: ProjectToken = {
+        projectPath: activeProjectPathRef.current,
+        generation: generationRef.current,
+      };
+      const retiringLifecycle = lifecycleRef.current;
+      const retiringPersistence = projectPersistenceRef.current;
+      if (
+        retiringLifecycle.projectPath === retiringToken.projectPath &&
+        retiringLifecycle.generation === retiringToken.generation &&
+        retiringLifecycle.status === "ready" &&
+        retiringPersistence !== null &&
+        sameToken(retiringPersistence.token, retiringToken)
+      ) {
+        retireProjectRef.current(
+          retiringToken,
+          retiringPersistence,
+          () => !mountedRef.current,
+        );
+      }
     };
   }, []);
 
@@ -633,7 +641,6 @@ export function ProjectCanvasProvider({
       projectPath,
       generation: generationRef.current + 1,
     };
-    const retirementBarrier = retirementBarrierRef.current;
     generationRef.current = token.generation;
     let cancelled = false;
     const isCurrent = () => !cancelled && isTokenCurrent(token);
@@ -664,7 +671,8 @@ export function ProjectCanvasProvider({
 
     async function load() {
       try {
-        await retirementBarrier;
+        await retirementCoordinator.waitFor(projectPath);
+        await retirementCoordinator.waitForRetirements();
         const loadResult = await service.loadPlan(projectPath, projectName);
         if (!isCurrent()) return;
 
@@ -762,6 +770,7 @@ export function ProjectCanvasProvider({
     projectPath,
     projectName,
     report,
+    retirementCoordinator,
     service,
     t,
   ]);
@@ -1170,6 +1179,7 @@ export function ProjectCanvasProvider({
           let persistedPlan = operationPlan;
           const newImages: Array<{
             image: { id: string; file: string; aspectRatio: number };
+            measuredAspectRatio: number;
             dataUrl: string;
           }> = [];
 
@@ -1183,7 +1193,8 @@ export function ProjectCanvasProvider({
             persistedPlan = result.plan;
             const aspectRatio = await measureAspectRatio(result.dataUrl);
             newImages.push({
-              image: { ...result.image, aspectRatio },
+              image: result.image,
+              measuredAspectRatio: aspectRatio,
               dataUrl: result.dataUrl,
             });
           }
@@ -1214,10 +1225,21 @@ export function ProjectCanvasProvider({
           imageSrcRef.current = nextImageSrc;
           setImageSrc(nextImageSrc);
           setError(null);
+
+          const hydratedPlan = newImages.reduce(
+            (latest, { image, measuredAspectRatio }) =>
+              setImageAspectRatioForFile(latest, {
+                file: image.file,
+                aspectRatio: measuredAspectRatio,
+              }),
+            planRef.current,
+          );
+          applyPlan(hydratedPlan);
         });
       });
     },
     [
+      applyPlan,
       guard,
       isTokenReady,
       persisting,
