@@ -159,6 +159,7 @@ function ComponentFrameBody({
       }`}
       data-component-frame="true"
       data-component-id={id}
+      data-row-id={component.rowId}
       data-drag-placeholder={isPlaceholder ? "component" : undefined}
       data-fragment-id={frameId ?? id}
       data-sortable-component-id={interactiveChrome ? id : undefined}
@@ -179,11 +180,13 @@ function ComponentFrameBody({
       <div
         {...(dragAttributes ?? {})}
         {...(dragListeners ?? {})}
+        aria-label={interactiveChrome ? t("canvas.moveHint") : undefined}
         className={`flex items-center justify-between rounded ${
           interactiveChrome
             ? "cursor-grab bg-stone-200 hover:bg-stone-300 dark:bg-stone-700 dark:hover:bg-stone-600"
             : "cursor-default bg-stone-200/70 dark:bg-stone-700/70"
         }`}
+        data-component-drag-handle={interactiveChrome ? "true" : undefined}
         data-component-frame-topbar
         style={{
           height: `${EDITABLE_COMPONENT_FRAME_CHROME.topBarHeight * scale}px`,

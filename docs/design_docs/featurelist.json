@@ -551,19 +551,49 @@
           "Final blockers: migrated legacy v1/v2 duplicate component and image identities to deterministic unique suffixes without losing records or file references, retaining strict v3/v4 rejection",
           "Final retirement blocker: waited for old-token import/remove/flush persistence before rebasing and saving the latest retired plan, preserving physical deletion ordering and preventing stale completion state or errors from reaching the new project UI",
           "Task 7: integrated v5 rows, naming, crop metadata, project-title seeding, CanvasTitle, and CanvasToolbar through ProjectCanvasProvider and PlanCanvas; added focused provider/canvas/reference regressions",
-          "Task 7 review fixes: rebased delayed image/component operations over concurrent v5 metadata with an immediate serialized merged save; retained completed imports during retirement; blocked image moves and global undo/redo during destructive operations; corrected singleton-row drops and structural identity no-ops; retained hydrated image ratios while crop undo/redo remains history-controlled"
+          "Task 7 review fixes: rebased delayed image/component operations over concurrent v5 metadata with an immediate serialized merged save; retained completed imports during retirement; blocked image moves and global undo/redo during destructive operations; corrected singleton-row drops and structural identity no-ops; retained hydrated image ratios while crop undo/redo remains history-controlled",
+          "Task 8: added focused acceptance coverage for persisted row changes, title/name persistence, crop/reset/lightbox source behavior, hidden-caption export, header settings, and keyboard-only history; completed validation except for documented pre-existing lint and init-test blockers"
         ],
         "lastVerified": {
           "date": "2026-08-06",
-          "task7HistoryGuardTests": "59 focused ProjectCanvasProvider/history tests passed, including deferred component-removal undo and image-import redo regressions",
-          "typecheck": "clean",
-          "lint": "clean for changed files",
-          "featurelistJson": "valid",
-          "verificationNote": "Task 8 acceptance and the complete validation matrix have not been run for this Task 7 follow-up."
+          "targetedE2e": "pnpm test:e2e -- e2e/canvas.spec.ts e2e/undo-redo.spec.ts e2e/theme.spec.ts: 24 passed",
+          "pnpmLint": "blocked: 3 pre-existing errors and 1 warning (migrate.test.ts constant condition; CanvasTitle.tsx and ComponentFrame.tsx synchronous-effect errors; ThemeProvider fast-refresh warning)",
+          "pnpmTypecheck": "passed",
+          "pnpmTest": "73 files, 608 tests passed",
+          "pnpmTestInit": "blocked: fixture expected the existing actionable pnpm failure text but did not match it",
+          "pnpmTestE2e": "30 passed",
+          "cargoTest": "44 passed",
+          "pnpmBuild": "passed with the existing Vite >500 kB chunk-size warning"
         },
         "remaining": [
-          "Run Task 8 acceptance and the complete validation matrix before declaring final verification or that no merge blockers remain."
+          "Resolve the documented pre-existing pnpm lint and pnpm test:init blockers before declaring a fully clean validation matrix."
         ]
+      }
+    },
+    {
+      "name": "Canvas Layout, Crop, and Document Chrome Refinement",
+      "status": "completed",
+      "feature_descriptions": [
+        "Persisted manual component rows",
+        "Editable canvas and component names",
+        "Non-destructive four-edge image crop",
+        "PDF title, crop, and always-caption parity",
+        "Global settings and refined theme-aware canvas chrome"
+      ],
+      "decisions": [
+        "Schema v5 stores title, name, rowId, and normalized crop metadata",
+        "Width changes never change rows; valid drag is the only cross-row operation",
+        "Source images remain unchanged and lightbox rendering is uncropped"
+      ],
+      "verification": {
+        "targetedE2e": "24 passed",
+        "pnpmLint": "blocked: 3 pre-existing errors and 1 warning",
+        "pnpmTypecheck": "passed",
+        "pnpmTest": "73 files, 608 tests passed",
+        "pnpmTestInit": "blocked: existing fixture assertion mismatch",
+        "pnpmTestE2e": "30 passed",
+        "cargoTest": "44 passed",
+        "pnpmBuild": "passed"
       }
     }
   ]

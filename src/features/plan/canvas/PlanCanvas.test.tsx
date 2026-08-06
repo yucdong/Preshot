@@ -611,7 +611,7 @@ describe("PlanCanvas", () => {
     expect(props.onMoveComponent).not.toHaveBeenCalled();
   });
 
-  it("commits a row-gap drop as a persisted new-row target", () => {
+  it("commits a row-gap drop before the remaining rows after removing a singleton source", () => {
     const props = renderCanvas();
     const handlers = getDndHandlers();
     const event = makeRowGapComponentDragOver("plan1", "row:ref1");
@@ -625,7 +625,7 @@ describe("PlanCanvas", () => {
     expect(props.onMoveComponent).toHaveBeenCalledWith("plan1", {
       kind: "new-row",
       rowId: expect.stringMatching(/^row-/),
-      toRowIndex: 1,
+      toRowIndex: 0,
     });
   });
 

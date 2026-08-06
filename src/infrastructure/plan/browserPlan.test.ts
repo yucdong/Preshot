@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createCanvasPdfExporter } from "../pdf/canvasPdfExporter";
 import { createBrowserCanvasPlanDependencies } from "./browserPlan";
 
@@ -13,6 +13,10 @@ const loadFonts = async () => ({
 });
 
 describe("createBrowserCanvasPlanDependencies", () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
   it("seeds a canvas plan with components and picker returns deterministic path", async () => {
     const { service, picker } = createBrowserCanvasPlanDependencies();
 
@@ -114,4 +118,20 @@ describe("createBrowserCanvasPlanDependencies", () => {
 
     expect(bytes.slice(0, 4)).toEqual(Uint8Array.from([0x25, 0x50, 0x44, 0x46]));
   }, 20000);
+
+  it("persists a saved browser plan for a fresh dependency instance", async () => {
+    const first = createBrowserCanvasPlanDependencies();
+    const loaded = await first.service.loadPlan("C:\\demo", "Demo");
+    if (loaded.status !== "loaded") {
+      throw new Error("Expected the seeded browser plan to load");
+    }
+
+    await first.service.savePlan("C:\\demo", { ...loaded.plan, title: "已保存的画布" });
+
+    const reloaded = await createBrowserCanvasPlanDependencies().service.loadPlan("C:\\demo", "Demo");
+    expect(reloaded).toEqual(expect.objectContaining({
+      status: "loaded",
+      plan: expect.objectContaining({ title: "已保存的画布" }),
+    }));
+  });
 });

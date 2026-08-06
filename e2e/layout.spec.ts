@@ -9,7 +9,7 @@ test("keeps the sidebar project actions fixed while the canvas is tall", async (
   // must scroll internally (rather than the whole page).
   for (let i = 0; i < 6; i++) {
     await page.getByRole("button", { name: "插入组件" }).click();
-    await page.getByRole("menuitem", { name: "参考图组" }).click();
+    await page.getByRole("menuitem", { name: "图片组" }).click();
   }
 
   const before = await newProject.boundingBox();
@@ -32,7 +32,7 @@ test("scrolls the middle canvas panel to reach components below the fold", async
   // Add enough components that the canvas overflows the panel height.
   for (let i = 0; i < 8; i++) {
     await page.getByRole("button", { name: "插入组件" }).click();
-    await page.getByRole("menuitem", { name: "参考图组" }).click();
+    await page.getByRole("menuitem", { name: "图片组" }).click();
   }
 
   // The canvas panel itself must be the scroll container (not clipped by the shell).

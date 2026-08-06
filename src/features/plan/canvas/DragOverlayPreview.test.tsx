@@ -16,7 +16,7 @@ describe("DragOverlayPreview", () => {
 
     render(<DragOverlayPreview active={{ type: "component", id: "plan-1" }} component={component} imageSrc={() => undefined} />);
 
-    expect(screen.getByTestId("drag-overlay-preview")).toHaveTextContent("摄影计划");
+    expect(screen.getByTestId("drag-overlay-preview")).toHaveTextContent("文案");
     expect(screen.getByTestId("drag-overlay-preview")).toHaveTextContent("6 个字");
     expect(screen.queryByRole("group", { name: "摄影计划" })).toBeNull();
   });

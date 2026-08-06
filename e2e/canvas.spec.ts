@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const SEEDED_REFERENCE_IMAGE_COUNT = 4;
+const FRAME = '[data-component-frame="true"]';
 
 async function waitForReferenceImages(page: Page) {
   const images = page.getByRole("img", { name: "参考图" });
@@ -16,6 +17,66 @@ async function waitForReferenceImages(page: Page) {
       })),
     )
     .toEqual({ count: SEEDED_REFERENCE_IMAGE_COUNT, ready: true });
+}
+
+async function componentOrder(page: Page) {
+  return page.locator(FRAME).evaluateAll((elements) =>
+    elements.map((element) => (element as HTMLElement).dataset.componentId ?? ""),
+  );
+}
+
+async function logicalComponentIds(page: Page) {
+  return page.locator(FRAME).evaluateAll((elements) =>
+    [...new Set(elements.map((element) => (element as HTMLElement).dataset.componentId ?? ""))],
+  );
+}
+
+async function shrinkFrame(page: Page, frame: ReturnType<Page["locator"]>) {
+  const before = await frame.boundingBox();
+  const handle = frame.locator('[data-resize-handle="width"]');
+  const handleBox = await handle.boundingBox();
+  if (!before || !handleBox) {
+    throw new Error("component resize targets are not visible");
+  }
+
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x - before.width * 0.7, handleBox.y + handleBox.height / 2, { steps: 8 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await frame.boundingBox())?.width ?? 0)
+    .toBeLessThan(before.width);
+}
+
+async function dragComponentToFrame(
+  page: Page,
+  source: ReturnType<Page["locator"]>,
+  target: ReturnType<Page["locator"]>,
+) {
+  const handle = source.getByRole("button", { name: "拖动以移动或交换位置", exact: true });
+  const handleBox = await handle.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!handleBox || !targetBox) {
+    throw new Error("component drag targets are not visible");
+  }
+
+  const dragStartX = handleBox.x + 2;
+  const dragStartY = handleBox.y + handleBox.height / 2;
+  await page.mouse.move(dragStartX, dragStartY);
+  await page.mouse.down();
+  // dnd-kit has a 180ms pointer activation delay.
+  await page.waitForTimeout(200);
+  await page.mouse.move(dragStartX + 12, dragStartY, {
+    steps: 3,
+  });
+  await expect(page.locator('[data-drag-placeholder="component"]')).toBeVisible();
+  await page.mouse.move(
+    targetBox.x + targetBox.width / 2,
+    targetBox.y + targetBox.height * 0.75,
+    { steps: 8 },
+  );
+  await page.mouse.up();
 }
 
 test("loads the seeded canvas with plan and reference components", async ({ page }) => {
@@ -46,7 +107,7 @@ test("inserts a plan component and marks the canvas unsaved", async ({ page }) =
   await page.getByRole("button", { name: "插入组件" }).click();
 
   // Insert a plan component
-  await page.getByRole("menuitem", { name: "摄影计划" }).click();
+  await page.getByRole("menuitem", { name: "文案" }).click();
 
   // Assert count grew
   await expect(page.locator('[data-component-frame="true"]')).toHaveCount(initialFrames + 1);
@@ -59,90 +120,70 @@ test("inserts a reference component and marks the canvas unsaved", async ({ page
   await page.goto("/");
   await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
 
-  // Count initial components
-  const initialFrames = await page.locator('[data-component-frame="true"]').count();
+  const initialComponentIds = await logicalComponentIds(page);
 
   // Open the insert menu
   await page.getByRole("button", { name: "插入组件" }).click();
 
   // Insert a reference component
-  await page.getByRole("menuitem", { name: "参考图组" }).click();
+  await page.getByRole("menuitem", { name: "图片组" }).click();
 
-  // Assert count grew
-  await expect(page.locator('[data-component-frame="true"]')).toHaveCount(initialFrames + 1);
+  await expect.poll(() => logicalComponentIds(page)).toHaveLength(initialComponentIds.length + 1);
 
   // Assert save status changed to unsaved
   await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
 });
 
-test("drags to reorder two components and commits the move", async ({ page }) => {
+test("persists a valid cross-row move after resizing without changing the resized row", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/");
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
+  await waitForReferenceImages(page);
+
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
+  const referenceFrame = page.locator(`${FRAME}[data-fragment-id="ref-1::0"]`);
+  const planRowId = await planFrame.getAttribute("data-row-id");
+  const referenceRowId = await referenceFrame.getAttribute("data-row-id");
+  expect(planRowId).not.toBeNull();
+  expect(referenceRowId).not.toBeNull();
+
+  await shrinkFrame(page, planFrame);
+  await expect(planFrame).toHaveAttribute("data-row-id", planRowId!);
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
+  await shrinkFrame(page, referenceFrame);
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
+
+  await dragComponentToFrame(page, planFrame, referenceFrame);
+  await expect(planFrame).toHaveAttribute("data-row-id", referenceRowId!);
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
+
+  await page.reload();
+  await expect(planFrame).toHaveAttribute("data-row-id", referenceRowId!);
+  await expect(referenceFrame).toHaveAttribute("data-row-id", referenceRowId!);
+});
+
+test("rejects a component drop on a full row without changing rows or order", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
 
-  // Add two more components so we have at least 3 to drag
-  await page.getByRole("button", { name: "插入组件" }).click();
-  await page.getByRole("menuitem", { name: "摄影计划" }).click();
-  await page.getByRole("button", { name: "插入组件" }).click();
-  await page.getByRole("menuitem", { name: "摄影计划" }).click();
-
-  // Wait for unsaved state to settle
-  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
-
-  // Capture the order before drag
-  const before = await page.locator('[data-component-frame="true"]').evaluateAll(els => 
-    els.map(e => (e as HTMLElement).dataset.componentId)
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
+  const referenceFrame = page.locator(`${FRAME}[data-fragment-id="ref-1::0"]`);
+  const beforeOrder = await componentOrder(page);
+  const beforeRows = await page.locator(FRAME).evaluateAll((elements) =>
+    elements.map((element) => (element as HTMLElement).dataset.rowId ?? ""),
   );
 
-  // Get the move handles (top drag handle)
-  const frames = page.locator('[data-component-frame="true"]');
-  const first = frames.nth(0);
-  const second = frames.nth(1);
+  await dragComponentToFrame(page, planFrame, referenceFrame);
 
-  // Get the first component's top bar (the draggable area)
-  const firstTopBar = first.locator('[data-component-frame-topbar]');
-  await firstTopBar.scrollIntoViewIfNeeded();
-  const firstBox = await firstTopBar.boundingBox();
-  const secondBox = await second.boundingBox();
-
-  if (!firstBox || !secondBox) throw new Error("components not visible");
-
-  // dnd-kit PointerSensor needs movement > 6px and intermediate moves to start a drag
-  // Drag the first component to hover over the center-bottom area of the second component
-  await page.mouse.move(firstBox.x + firstBox.width / 2, firstBox.y + firstBox.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(200);
-  await page.mouse.move(firstBox.x + firstBox.width / 2 + 12, firstBox.y + firstBox.height / 2, {
-    steps: 3,
-  });
-  // Move to the lower half of the second component to trigger "insert after"
-  await page.mouse.move(
-    secondBox.x + secondBox.width / 2,
-    secondBox.y + (secondBox.height * 0.75),
-    { steps: 6 }
-  );
-  await page.mouse.up();
-
-  // Wait for the optimistic commit and capture the order after drag
-  // Use a retry loop to poll until the order changes
-  let after: (string | undefined)[] = [];
-  for (let i = 0; i < 10; i++) {
-    after = await page.locator('[data-component-frame="true"]').evaluateAll(els => 
-      els.map(e => (e as HTMLElement).dataset.componentId)
-    );
-    if (JSON.stringify(after) !== JSON.stringify(before)) {
-      break;
-    }
-    await page.waitForTimeout(300);
-  }
-
-  // Assert the drag actually reordered components
-  expect([...after].sort()).toEqual([...before].sort()); // Same set of components
-  expect(after).not.toEqual(before); // Order changed
-  expect(after.indexOf(before[0])).not.toBe(0); // Dragged component moved from index 0
-
-  // A committed move keeps the status unsaved
-  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect.poll(() => componentOrder(page)).toEqual(beforeOrder);
+  await expect
+    .poll(() =>
+      page.locator(FRAME).evaluateAll((elements) =>
+        elements.map((element) => (element as HTMLElement).dataset.rowId ?? ""),
+      ),
+    )
+    .toEqual(beforeRows);
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
 });
 
 test("resizes a component's width and commits the change", async ({ page }) => {
@@ -188,7 +229,7 @@ test("adds an image to a reference component and opens the lightbox", async ({ p
   await expect(firstImage).toBeVisible();
 
   // Click to open the image in lightbox
-  await firstImage.click();
+  await page.getByRole("button", { name: "打开参考图 1" }).click();
 
   // Assert lightbox opened and contains an image
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -212,7 +253,7 @@ test("overflows to multiple pages when inserting tall components", async ({ page
   // Need to insert enough to exceed the first page. Let's insert 4 more.
   for (let i = 0; i < 4; i++) {
     await page.getByRole("button", { name: "插入组件" }).click();
-    await page.getByRole("menuitem", { name: "参考图组" }).click();
+    await page.getByRole("menuitem", { name: "图片组" }).click();
   }
 
   // Assert at least two pages now exist (may be more depending on component heights)
@@ -249,7 +290,7 @@ test("inserts a plan component and the editor becomes editable", async ({ page }
   await page.getByRole("button", { name: "插入组件" }).click();
 
   // Insert a plan component
-  await page.getByRole("menuitem", { name: "摄影计划" }).click();
+  await page.getByRole("menuitem", { name: "文案" }).click();
 
   // Wait for the new component frame to be added
   await expect(page.locator('[data-component-frame="true"]')).toHaveCount(initialFrames + 1);
@@ -344,12 +385,12 @@ test("drags to reorder images within a reference component and commits the move"
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
-test("toggles captions on a reference component and types a caption", async ({ page }) => {
+test("edits a default-visible caption on a newly inserted reference component", async ({ page }) => {
   await page.goto("/");
 
   // Insert a reference component
   await page.getByRole("button", { name: "插入组件" }).click();
-  await page.getByRole("menuitem", { name: "参考图组" }).click();
+  await page.getByRole("menuitem", { name: "图片组" }).click();
 
   // Wait for the new reference component to be visible (inserted at top)
   const newReferenceFrame = page.locator('[data-component-frame="true"]').first();
@@ -364,13 +405,8 @@ test("toggles captions on a reference component and types a caption", async ({ p
   // Wait for the image to be visible - use .first() since there may be other reference components
   await expect(newReferenceFrame.getByRole("img", { name: "参考图" }).first()).toBeVisible();
 
-  // Assert captions are initially hidden
-  await expect(page.getByRole("textbox", { name: /图片说明/ })).toHaveCount(0);
-
-  // Toggle captions on
   const captionCheckbox = newReferenceFrame.getByRole("checkbox", { name: "显示说明" });
-  await expect(captionCheckbox).toBeVisible();
-  await captionCheckbox.check();
+  await expect(captionCheckbox).toBeChecked();
 
   // Assert the caption textarea appears
   const captionTextarea = newReferenceFrame.getByRole("textbox", { name: "图片说明 1" });
@@ -412,76 +448,6 @@ test("exports the canvas to PDF with captions enabled", async ({ page }) => {
 
   // No error alerts
   await expect(page.getByRole("alert")).toHaveCount(0);
-});
-
-test("drags component by top bar to reorder components", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
-
-  // Insert 2 more plan components so we have at least 4 total
-  await page.getByRole("button", { name: "插入组件" }).click();
-  await page.getByRole("menuitem", { name: "摄影计划" }).click();
-  await page.getByRole("button", { name: "插入组件" }).click();
-  await page.getByRole("menuitem", { name: "摄影计划" }).click();
-
-  // Wait for unsaved state
-  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
-
-  // Capture the order of component IDs before drag
-  const before = await page.locator('[data-component-frame="true"]').evaluateAll(els => 
-    els.map(e => (e as HTMLElement).dataset.componentId)
-  );
-
-  // Get the first component and its top-bar (the draggable area)
-  const frames = page.locator('[data-component-frame="true"]');
-  const firstFrame = frames.nth(0);
-  const thirdFrame = frames.nth(2);
-
-  // Scroll the first frame into view
-  await firstFrame.scrollIntoViewIfNeeded();
-
-  // Get the top bar (the draggable area)
-  const topBar = firstFrame.locator('[data-component-frame-topbar]');
-  const handleBox = await topBar.boundingBox();
-  const thirdBox = await thirdFrame.boundingBox();
-
-  if (!handleBox || !thirdBox) throw new Error("components not visible");
-
-  // Use manual stepped gesture to trigger dnd-kit's PointerSensor (>6px movement)
-  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(200);
-  // Small initial movement to activate drag
-  await page.mouse.move(handleBox.x + handleBox.width / 2 + 12, handleBox.y + handleBox.height / 2, {
-    steps: 3,
-  });
-  // Move to the lower portion of the third component to trigger "insert after"
-  await page.mouse.move(
-    thirdBox.x + thirdBox.width / 2,
-    thirdBox.y + (thirdBox.height * 0.75),
-    { steps: 8 }
-  );
-  await page.mouse.up();
-
-  // Wait for the optimistic commit and capture the order after drag
-  let after: (string | undefined)[] = [];
-  for (let i = 0; i < 10; i++) {
-    after = await page.locator('[data-component-frame="true"]').evaluateAll(els => 
-      els.map(e => (e as HTMLElement).dataset.componentId)
-    );
-    if (JSON.stringify(after) !== JSON.stringify(before)) {
-      break;
-    }
-    await page.waitForTimeout(300);
-  }
-
-  // Assert the drag reordered components
-  expect([...after].sort()).toEqual([...before].sort()); // Same set
-  expect(after).not.toEqual(before); // Order changed
-  expect(after.indexOf(before[0])).not.toBe(0); // Dragged component moved off index 0
-
-  // Assert save status is unsaved
-  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
 });
 
 test("drags the right edge to resize component width", async ({ page }) => {
@@ -529,7 +495,7 @@ test("inserts component at top of canvas", async ({ page }) => {
 
   // Insert a new plan component
   await page.getByRole("button", { name: "插入组件" }).click();
-  await page.getByRole("menuitem", { name: "摄影计划" }).click();
+  await page.getByRole("menuitem", { name: "文案" }).click();
 
   // Wait for the new component to be added
   await page.waitForTimeout(300);
@@ -659,5 +625,94 @@ test("exports PDF and operation completes successfully", async ({ page }) => {
   await expect(page.getByRole("button", { name: "导出 PDF" })).toBeVisible({ timeout: 30000 });
 
   // No error alerts
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("persists an edited canvas title and component name after reload", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
+
+  const title = page.getByRole("textbox", { name: "画布标题" });
+  const planName = page
+    .locator(`${FRAME}[data-component-id="plan-1"]`)
+    .getByRole("textbox", { name: "组件名称" });
+
+  await title.fill("海滨肖像拍摄");
+  await title.press("Enter");
+  await planName.fill("拍摄文案");
+  await planName.press("Enter");
+
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
+  await page.reload();
+
+  await expect(page.getByRole("textbox", { name: "画布标题" })).toHaveValue("海滨肖像拍摄");
+  await expect(
+    page.locator(`${FRAME}[data-component-id="plan-1"]`).getByRole("textbox", { name: "组件名称" }),
+  ).toHaveValue("拍摄文案");
+});
+
+test("crops and restores a tile while the lightbox keeps the full source image", async ({ page }) => {
+  await page.goto("/");
+  await waitForReferenceImages(page);
+
+  const tile = page.locator('[data-image-id="img-1"]');
+  const tileImage = tile.getByRole("img", { name: "参考图" });
+  const initialBox = await tile.boundingBox();
+  const fullSource = await tileImage.getAttribute("src");
+  if (!initialBox || !fullSource) {
+    throw new Error("seeded image tile is not ready");
+  }
+
+  await tile.hover();
+  const cropHandle = tile.getByRole("button", { name: "从右侧裁剪图片" });
+  const cropHandleBox = await cropHandle.boundingBox();
+  if (!cropHandleBox) {
+    throw new Error("crop handle is not visible");
+  }
+  await page.mouse.move(cropHandleBox.x + cropHandleBox.width / 2, cropHandleBox.y + cropHandleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(cropHandleBox.x - initialBox.width * 0.35, cropHandleBox.y + cropHandleBox.height / 2, {
+    steps: 6,
+  });
+  await page.mouse.up();
+
+  await expect(tile).toHaveAttribute("data-image-cropped", "true");
+  await expect
+    .poll(async () => (await tile.boundingBox())?.width ?? 0)
+    .not.toBe(initialBox.width);
+
+  await tile.getByRole("button", { name: "恢复原图" }).click();
+  await expect(tile).toHaveAttribute("data-image-cropped", "false");
+  await expect
+    .poll(async () => (await tile.boundingBox())?.width ?? 0)
+    .toBe(initialBox.width);
+
+  await tile.getByRole("button", { name: "打开参考图 1" }).click();
+  await expect(page.getByRole("dialog").getByRole("img", { name: "参考图" })).toHaveAttribute("src", fullSource);
+});
+
+test("exports successfully while captions stay hidden on the canvas", async ({ page }) => {
+  await page.goto("/");
+  await waitForReferenceImages(page);
+
+  const referenceFrame = page.locator(`${FRAME}[data-component-id="ref-1"]`);
+  const captionCheckbox = referenceFrame.getByRole("checkbox", { name: "显示说明" });
+  await captionCheckbox.check();
+  await referenceFrame.getByRole("textbox", { name: "图片说明 1" }).fill("导出说明");
+  await captionCheckbox.uncheck();
+  await expect(referenceFrame.getByRole("textbox", { name: /图片说明/ })).toHaveCount(0);
+
+  const insertButton = page.getByRole("button", { name: "插入组件" });
+  const exportButton = page.getByRole("button", { name: "导出 PDF" });
+  const insertBox = await insertButton.boundingBox();
+  const exportBox = await exportButton.boundingBox();
+  if (!insertBox || !exportBox) {
+    throw new Error("canvas toolbar actions are not visible");
+  }
+  expect(exportBox.x).toBeGreaterThan(insertBox.x);
+
+  await exportButton.click();
+  await expect(page.getByRole("button", { name: "正在导出…" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "导出 PDF" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("alert")).toHaveCount(0);
 });

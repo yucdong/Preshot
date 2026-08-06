@@ -3,9 +3,8 @@ import { expect, test } from "@playwright/test";
 test("switches between light and dark themes via settings panel", async ({ page }) => {
   await page.goto("/");
 
-  // Open settings panel via the gear button
-  const settingsButton = page.getByRole("button", { name: /设置/ });
-  await expect(settingsButton).toBeVisible();
+  const settingsButton = page.locator("header").getByRole("button", { name: "设置" });
+  await expect(settingsButton).toHaveCount(1);
   await settingsButton.click();
 
   // Wait for the settings dialog to be visible
@@ -17,7 +16,7 @@ test("switches between light and dark themes via settings panel", async ({ page 
   await expect(darkThemeButton).toBeVisible();
   await darkThemeButton.click();
 
-  // Assert dark class is applied to the document
+  // Settings in the outer header update the document element, not canvas-local chrome.
   const htmlElement = page.locator("html");
   await expect(htmlElement).toHaveClass(/dark/);
 
@@ -43,8 +42,7 @@ test("switches between light and dark themes via settings panel", async ({ page 
 test("switches to system theme", async ({ page }) => {
   await page.goto("/");
 
-  // Open settings panel
-  const settingsButton = page.getByRole("button", { name: /设置/ });
+  const settingsButton = page.locator("header").getByRole("button", { name: "设置" });
   await settingsButton.click();
 
   const settingsDialog = page.getByRole("dialog", { name: /设置/ });

@@ -20,6 +20,7 @@ const SEEDED_IMAGE_DATA: Record<string, string> = {
   "references/0003.png": LANDSCAPE_ALT_PNG,
   "references/0004.png": PORTRAIT_ALT_PNG,
 };
+const BROWSER_PLAN_STORAGE_KEY = "preshot.browser-canvas-plan";
 
 const SEEDED_V5_PLAN: CanvasPlan = {
   schemaVersion: 5,
@@ -56,7 +57,10 @@ function createMemoryCanvasStores(): {
   repository: CanvasPlanRepository;
   imageStore: ReferenceImageStore;
 } {
-  let plan: CanvasPlan = structuredClone(SEEDED_V5_PLAN);
+  const storedPlan = window.sessionStorage.getItem(BROWSER_PLAN_STORAGE_KEY);
+  let plan: CanvasPlan = storedPlan
+    ? JSON.parse(storedPlan) as CanvasPlan
+    : structuredClone(SEEDED_V5_PLAN);
   let counter = Object.keys(SEEDED_IMAGE_DATA).length;
   return {
     repository: {
@@ -65,6 +69,7 @@ function createMemoryCanvasStores(): {
       },
       async saveRawPlan(_projectPath, nextPlan) {
         plan = structuredClone(nextPlan);
+        window.sessionStorage.setItem(BROWSER_PLAN_STORAGE_KEY, JSON.stringify(plan));
       },
     },
     imageStore: {

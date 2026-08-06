@@ -108,6 +108,15 @@ describe("ComponentFrame", () => {
     expect(onRename).toHaveBeenCalledWith("plan1", "Hero copy");
   });
 
+  it("renders an accessible drag handle for the component frame", () => {
+    renderFrame();
+
+    expect(screen.getByRole("button", { name: "拖动以移动或交换位置" })).toHaveAttribute(
+      "data-component-drag-handle",
+      "true",
+    );
+  });
+
   it("keeps a duplicate name draft and renders an associated alert", async () => {
     const onRename = vi.fn<() => RenameComponentResult>(() => ({
       ok: false,

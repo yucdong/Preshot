@@ -102,6 +102,7 @@ export function SortableImageTile({
       className="group"
       style={style}
       data-image-id={image.id}
+      data-image-cropped={crop ? "true" : "false"}
       data-testid={placeholderVisible ? `image-placeholder-${image.id}` : undefined}
     >
       <button
@@ -133,7 +134,7 @@ export function SortableImageTile({
         </div>
       </button>
       {cropControlsEnabled ? (
-        <div className="absolute left-0 top-0 w-full" style={{ height: `${imageHeight}px` }}>
+        <div className="pointer-events-none absolute left-0 top-0 w-full" style={{ height: `${imageHeight}px` }}>
           <ImageCropOverlay
             crop={crop}
             sourceAspectRatio={sourceAspectRatio}
