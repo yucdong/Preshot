@@ -3,9 +3,15 @@ import { useTranslation } from "react-i18next";
 import {
   EMPTY_PLAN,
   DEFAULT_IMAGE_HEIGHT,
+  type CropRect,
   type ProjectPlan,
 } from "../../domain/plan/canvas/models";
-import { A4 } from "../../domain/plan/canvas/geometry";
+import {
+  A4,
+  contentSize,
+  DEFAULT_PAGE_GEOMETRY,
+  SPACING,
+} from "../../domain/plan/canvas/geometry";
 import type { PlanImagePicker } from "../../domain/plan/ports";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
 import type { WorkspaceLogger } from "../../domain/workspace/ports";
@@ -15,11 +21,9 @@ import type {
 } from "../../domain/plan/canvas/ports";
 import {
   addComponent,
-  moveComponent,
   moveImage,
   resizeComponent,
   updatePlanHtml,
-  setReferenceTitle,
   setReferenceDescription,
   toggleReferenceCaptions,
   setImageCaption,
@@ -27,7 +31,17 @@ import {
   setImageHeight,
   type MoveImageParams,
 } from "../../domain/plan/canvas/plan";
-import { nextComponentName } from "../../domain/plan/canvas/naming";
+import {
+  nextComponentName,
+  renameComponent,
+  setPlanTitle,
+} from "../../domain/plan/canvas/naming";
+import { setImageCrop, resetImageCrop } from "../../domain/plan/canvas/crop";
+import {
+  availableWidthInRow,
+  moveComponentInRows,
+  type ComponentMoveTarget,
+} from "../../domain/plan/canvas/rows";
 import {
   createHistory,
   record as recordHistory,
@@ -39,9 +53,8 @@ import {
 import { PlanCanvas } from "./canvas/PlanCanvas";
 import type { PlanMeasurement } from "./canvas/usePlanContentMeasurement";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
-import { InsertComponentMenu } from "./canvas/InsertComponentMenu";
-import { SaveStatus, type SaveState } from "./SaveStatus";
-import { SettingsButton } from "../settings/SettingsButton";
+import { CanvasToolbar } from "./canvas/CanvasToolbar";
+import type { SaveState } from "./SaveStatus";
 
 export interface CanvasPlanDependencies {
   service: CanvasPlanService;
@@ -96,6 +109,27 @@ function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
 
 function plansEqual(a: ProjectPlan, b: ProjectPlan): boolean {
   return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
+function resizeComponentWithinRow(
+  plan: ProjectPlan,
+  id: string,
+  width: number,
+): ProjectPlan {
+  const component = plan.components.find((candidate) => candidate.id === id);
+  if (!component) {
+    return plan;
+  }
+
+  const rowMemberCount = plan.components.filter(
+    (candidate) => candidate.rowId === component.rowId,
+  ).length;
+  const gapFraction = SPACING / contentSize(DEFAULT_PAGE_GEOMETRY).width;
+  const maximumWidth =
+    rowMemberCount > 1
+      ? Math.max(0, availableWidthInRow(plan, component.rowId, id) - gapFraction)
+      : 1;
+  return resizeComponent(plan, { id, width: Math.min(width, maximumWidth) });
 }
 
 function trackPersistence(
@@ -163,8 +197,6 @@ export function ProjectCanvasProvider({
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [exporting, setExporting] = useState(false);
   const [scale, setScale] = useState(0.5);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
   const [lifecycle, setLifecycle] = useState<ProviderLifecycleState>({
     projectPath,
     generation: 0,
@@ -270,11 +302,6 @@ export function ProjectCanvasProvider({
     [syncSaveState],
   );
 
-  const syncHistoryFlags = useCallback(() => {
-    setCanUndo(historyRef.current.past.length > 0);
-    setCanRedo(historyRef.current.future.length > 0);
-  }, []);
-
   const measurements = useMemo(
     () => ({
       planHeights: new Map(
@@ -294,9 +321,8 @@ export function ProjectCanvasProvider({
   const recordHistoryEntry = useCallback(
     (previous: ProjectPlan, coalesceKey?: string) => {
       historyRef.current = recordHistory(historyRef.current, previous, { coalesceKey });
-      syncHistoryFlags();
     },
-    [syncHistoryFlags],
+    [],
   );
 
   const mutate = useCallback(
@@ -316,8 +342,7 @@ export function ProjectCanvasProvider({
     if (!outcome) return;
     historyRef.current = outcome.history;
     applyPlan(mergeStructural(outcome.next, planRef.current));
-    syncHistoryFlags();
-  }, [applyPlan, projectPath, readyTokenFor, syncHistoryFlags]);
+  }, [applyPlan, projectPath, readyTokenFor]);
 
   const redo = useCallback(() => {
     if (!readyTokenFor(projectPath)) return;
@@ -325,8 +350,7 @@ export function ProjectCanvasProvider({
     if (!outcome) return;
     historyRef.current = outcome.history;
     applyPlan(mergeStructural(outcome.next, planRef.current));
-    syncHistoryFlags();
-  }, [applyPlan, projectPath, readyTokenFor, syncHistoryFlags]);
+  }, [applyPlan, projectPath, readyTokenFor]);
 
   const markSaved = useCallback(
     (saved: ProjectPlan, token: ProjectToken) => {
@@ -534,8 +558,6 @@ export function ProjectCanvasProvider({
     setImageSrc({});
     setLightbox(null);
     setExporting(false);
-    setCanUndo(false);
-    setCanRedo(false);
     setSaveState("saved");
     setError(null);
 
@@ -544,12 +566,15 @@ export function ProjectCanvasProvider({
         const loadResult = await service.loadPlan(projectPath, projectName);
         if (!isCurrent()) return;
 
-        let planToUse = loadResult.status === "loaded" ? loadResult.plan : EMPTY_PLAN;
+        let planToUse =
+          loadResult.status === "loaded"
+            ? loadResult.plan
+            : { ...EMPTY_PLAN, title: projectName };
         if (loadResult.status === "missing") {
           const planId = crypto.randomUUID();
           const planComponent = {
             id: planId,
-            rowId: `row:${planId}`,
+            rowId: crypto.randomUUID(),
             name: nextComponentName(planToUse, "plan"),
             type: "plan" as const,
             width: 1,
@@ -558,12 +583,12 @@ export function ProjectCanvasProvider({
           const referenceId = crypto.randomUUID();
           const referenceComponent = {
             id: referenceId,
-            rowId: `row:${referenceId}`,
+            rowId: crypto.randomUUID(),
             name: nextComponentName(planToUse, "reference"),
             type: "reference" as const,
             width: 1,
             description: "",
-            showCaptions: false,
+            showCaptions: true,
             imageHeight: DEFAULT_IMAGE_HEIGHT,
             images: [],
           };
@@ -581,8 +606,6 @@ export function ProjectCanvasProvider({
         lastSavedRef.current = JSON.stringify(planToUse);
         historyRef.current = createHistory();
         setPlan(planToUse);
-        setCanUndo(false);
-        setCanRedo(false);
         setError(null);
         setSaveState("saved");
         setLifecycleStatus("ready");
@@ -618,8 +641,6 @@ export function ProjectCanvasProvider({
         historyRef.current = createHistory();
         setPlan(EMPTY_PLAN);
         setImageSrc({});
-        setCanUndo(false);
-        setCanRedo(false);
         setSaveState("saved");
         setError(detail(err));
         setLifecycleStatus("failed");
@@ -635,6 +656,7 @@ export function ProjectCanvasProvider({
     isTokenCurrent,
     logger,
     projectPath,
+    projectName,
     report,
     service,
     t,
@@ -755,7 +777,7 @@ export function ProjectCanvasProvider({
         const id = crypto.randomUUID();
         const newComponent = {
           id,
-          rowId: `row:${id}`,
+          rowId: crypto.randomUUID(),
           name: nextComponentName(planRef.current, "plan"),
           type: "plan" as const,
           width: 1,
@@ -766,12 +788,12 @@ export function ProjectCanvasProvider({
         const id = crypto.randomUUID();
         const newComponent = {
           id,
-          rowId: `row:${id}`,
+          rowId: crypto.randomUUID(),
           name: nextComponentName(planRef.current, "reference"),
           type: "reference" as const,
           width: 1,
           description: "",
-          showCaptions: false,
+          showCaptions: true,
           imageHeight: DEFAULT_IMAGE_HEIGHT,
           images: [],
         };
@@ -822,9 +844,9 @@ export function ProjectCanvasProvider({
   );
 
   const handleMoveComponent = useCallback(
-    (id: string, toIndex: number) => {
+    (id: string, target: ComponentMoveTarget) => {
       if (!readyTokenFor(projectPath)) return;
-      const next = moveComponent(planRef.current, { id, toIndex });
+      const next = moveComponentInRows(planRef.current, { id, target });
       mutate(next);
     },
     [mutate, projectPath, readyTokenFor],
@@ -842,7 +864,7 @@ export function ProjectCanvasProvider({
   const handleResize = useCallback(
     (id: string, params: { width: number }) => {
       if (!readyTokenFor(projectPath)) return;
-      const next = resizeComponent(planRef.current, { id, width: params.width });
+      const next = resizeComponentWithinRow(planRef.current, id, params.width);
       mutate(next, `resize:${id}`);
     },
     [mutate, projectPath, readyTokenFor],
@@ -858,12 +880,25 @@ export function ProjectCanvasProvider({
   );
 
   const handleSetTitle = useCallback(
-    (id: string, title: string) => {
-      if (!readyTokenFor(projectPath)) return;
-      const next = setReferenceTitle(planRef.current, id, title);
-      mutate(next);
+    (title: string) => {
+      const result = setPlanTitle(planRef.current, title);
+      if (result.ok && !plansEqual(result.plan, planRef.current)) {
+        mutate(result.plan);
+      }
+      return result;
     },
-    [mutate, projectPath, readyTokenFor],
+    [mutate],
+  );
+
+  const handleRenameComponent = useCallback(
+    (id: string, name: string) => {
+      const result = renameComponent(planRef.current, id, name);
+      if (result.ok && !plansEqual(result.plan, planRef.current)) {
+        mutate(result.plan);
+      }
+      return result;
+    },
+    [mutate],
   );
 
   const handleSetDescription = useCallback(
@@ -898,6 +933,22 @@ export function ProjectCanvasProvider({
       if (!readyTokenFor(projectPath)) return;
       const next = setImageCaption(planRef.current, { componentId, imageId, caption });
       mutate(next);
+    },
+    [mutate, projectPath, readyTokenFor],
+  );
+
+  const handleSetImageCrop = useCallback(
+    (componentId: string, imageId: string, crop: CropRect) => {
+      if (!readyTokenFor(projectPath)) return;
+      mutate(setImageCrop(planRef.current, { componentId, imageId, crop }));
+    },
+    [mutate, projectPath, readyTokenFor],
+  );
+
+  const handleResetImageCrop = useCallback(
+    (componentId: string, imageId: string) => {
+      if (!readyTokenFor(projectPath)) return;
+      mutate(resetImageCrop(planRef.current, { componentId, imageId }));
     },
     [mutate, projectPath, readyTokenFor],
   );
@@ -1170,40 +1221,13 @@ export function ProjectCanvasProvider({
           {error}
         </div>
       )}
-      <div className="flex items-center gap-4 border-b border-stone-200 bg-white px-6 py-3 dark:border-stone-700 dark:bg-stone-900">
-        <button
-          className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-stone-700 dark:hover:bg-stone-600"
-          disabled={lifecycleStatus !== "ready" || exporting}
-          onClick={exportPdf}
-          type="button"
-        >
-          {exporting ? t("plan.exporting") : t("plan.exportPdf")}
-        </button>
-        <InsertComponentMenu
-          disabled={lifecycleStatus !== "ready"}
-          onInsert={handleInsert}
-        />
-        <button
-          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-800"
-          disabled={lifecycleStatus !== "ready" || !canUndo}
-          onClick={undo}
-          type="button"
-        >
-          {t("history.undo")}
-        </button>
-        <button
-          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-800"
-          disabled={lifecycleStatus !== "ready" || !canRedo}
-          onClick={redo}
-          type="button"
-        >
-          {t("history.redo")}
-        </button>
-        <SaveStatus state={saveState} />
-        <div className="ml-auto">
-          <SettingsButton />
-        </div>
-      </div>
+      <CanvasToolbar
+        disabled={lifecycleStatus !== "ready"}
+        exporting={exporting}
+        onExport={exportPdf}
+        onInsert={handleInsert}
+        saveState={saveState}
+      />
       <div className="flex-1 overflow-auto bg-stone-100 p-6 dark:bg-stone-800" ref={containerRef}>
         {lifecycleStatus === "ready" ? (
           <PlanCanvas
@@ -1223,14 +1247,18 @@ export function ProjectCanvasProvider({
             }}
             onRemoveComponent={handleRemoveComponent}
             onRemoveImage={handleRemoveImage}
+            onRenameComponent={handleRenameComponent}
             onResize={handleResize}
+            onCommitTitle={handleSetTitle}
             onSetDescription={handleSetDescription}
-            onSetTitle={handleSetTitle}
+            onSetImageCrop={handleSetImageCrop}
+            onResetImageCrop={handleResetImageCrop}
             onToggleCaptions={handleToggleCaptions}
             onSetImageCaption={handleSetImageCaption}
             onSetImageHeight={handleSetImageHeight}
             onAddImages={handleAddImages}
             scale={scale}
+            title={plan.title}
           />
         ) : (
           <div

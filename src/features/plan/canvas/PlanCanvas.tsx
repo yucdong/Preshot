@@ -27,8 +27,19 @@ import {
   moveComponentInRows,
   type ComponentMoveTarget,
 } from "../../../domain/plan/canvas/rows";
-import type { PlanComponent, ReferenceComponent, ReferenceImage } from "../../../domain/plan/canvas/models";
+import type {
+  CropRect,
+  PlanComponent,
+  ReferenceComponent,
+  ReferenceImage,
+} from "../../../domain/plan/canvas/models";
+import type {
+  RenameComponentResult,
+  SetPlanTitleResult,
+} from "../../../domain/plan/canvas/naming";
+import { effectiveImageAspectRatio } from "../../../domain/plan/canvas/crop";
 import { ComponentFrame } from "./ComponentFrame";
+import { CanvasTitle } from "./CanvasTitle";
 import { PagedCanvasSurface } from "./PagedCanvasSurface";
 import { PAGE_SCREEN_GAP, pageTopPx } from "./pagedCanvasMetrics";
 import { PlanTextComponentView } from "./PlanTextComponentView";
@@ -46,12 +57,14 @@ import { RowDropZone } from "./RowDropZone";
 
 export interface PlanCanvasProps {
   components: PlanComponent[];
+  title: string;
   scale: number;
   measurements: LayoutMeasurements;
   imageSrc: (file: string) => string | undefined;
   onRemoveComponent: (id: string) => void;
   onChangeHtml: (id: string, html: string) => void;
-  onSetTitle: (id: string, title: string) => void;
+  onCommitTitle: (title: string) => SetPlanTitleResult;
+  onRenameComponent: (id: string, name: string) => RenameComponentResult;
   onSetDescription: (id: string, description: string) => void;
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
@@ -63,6 +76,8 @@ export interface PlanCanvasProps {
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
   onSetImageHeight?: (id: string, height: number) => void;
   onAddImages?: (id: string) => void;
+  onSetImageCrop?: (componentId: string, imageId: string, crop: CropRect) => void;
+  onResetImageCrop?: (componentId: string, imageId: string) => void;
   onMeasurePlan: (id: string, measurement: PlanMeasurement) => void;
   onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
 }
@@ -147,6 +162,22 @@ function referenceComponentById(components: PlanComponent[], componentId: string
   return component?.type === "reference" ? component : null;
 }
 
+function componentsWithEffectiveImageAspectRatios(
+  components: PlanComponent[],
+): PlanComponent[] {
+  return components.map((component) =>
+    component.type === "reference"
+      ? {
+          ...component,
+          images: component.images.map((image) => ({
+            ...image,
+            aspectRatio: effectiveImageAspectRatio(image),
+          })),
+        }
+      : component,
+  );
+}
+
 function findImageOrigin(
   components: PlanComponent[],
   placements: ComponentFragmentPlacement[],
@@ -177,12 +208,14 @@ function findImageOrigin(
 
 export function PlanCanvas({
   components,
+  title,
   scale,
   measurements,
   imageSrc,
   onRemoveComponent,
   onChangeHtml,
-  onSetTitle,
+  onCommitTitle,
+  onRenameComponent,
   onSetDescription,
   onAddImage,
   onRemoveImage,
@@ -194,6 +227,8 @@ export function PlanCanvas({
   onSetImageCaption,
   onSetImageHeight,
   onAddImages,
+  onSetImageCrop,
+  onResetImageCrop,
   onMeasurePlan,
   onMeasureReferenceDescription,
 }: PlanCanvasProps) {
@@ -208,14 +243,14 @@ export function PlanCanvas({
     pageGap: Number.isFinite(scale) && scale > 0 ? PAGE_SCREEN_GAP / scale : 0,
   };
   const baseLayout = layoutPlan(
-    components,
+    componentsWithEffectiveImageAspectRatios(components),
     layoutGeometry,
     measurements,
     CANVAS_LAYOUT_OPTIONS,
   );
   const previewComponents = preview ?? components;
   const previewLayout = layoutPlan(
-    previewComponents,
+    componentsWithEffectiveImageAspectRatios(previewComponents),
     layoutGeometry,
     measurements,
     CANVAS_LAYOUT_OPTIONS,
@@ -410,6 +445,17 @@ export function PlanCanvas({
     >
       <div className="flex justify-center" data-testid="plan-canvas">
         <PagedCanvasSurface pageCount={displayedPageCount} scale={scale}>
+          <div
+            className="absolute"
+            data-testid="canvas-document-title"
+            style={{
+              left: `${SPACING * scale}px`,
+              top: `${SPACING * scale}px`,
+              width: `${contentSize(DEFAULT_PAGE_GEOMETRY).width * scale}px`,
+            }}
+          >
+            <CanvasTitle onCommit={onCommitTitle} title={title} />
+          </div>
           {components.reduce<Array<{ rowId: string; componentId: string }>>(
             (rows, component) => {
               if (rows.at(-1)?.rowId !== component.rowId) {
@@ -466,6 +512,7 @@ export function PlanCanvas({
                   topPx={pageTopPx(placement.pageIndex, scale) + (SPACING + placement.rect.y) * scale}
                   contentWidthPoints={contentWidthPoints}
                   component={component}
+                  onRename={onRenameComponent}
                   onResize={handleResize}
                 >
                   {component.type === "plan" ? (
@@ -488,11 +535,12 @@ export function PlanCanvas({
                       onOpenImage={onOpenImage}
                       onRemoveImage={onRemoveImage}
                       onSetDescription={onSetDescription}
-                      onSetTitle={onSetTitle}
                       onToggleCaptions={onToggleCaptions}
                       onSetImageCaption={onSetImageCaption}
                       onSetImageHeight={onSetImageHeight}
                       onAddImages={onAddImages}
+                      onSetImageCrop={onSetImageCrop}
+                      onResetImageCrop={onResetImageCrop}
                       onMeasureDescription={onMeasureReferenceDescription}
                       placeholderImage={imagePlaceholder?.image}
                       placeholderIndex={imagePlaceholder?.index}

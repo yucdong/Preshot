@@ -490,7 +490,8 @@
         "Long reference descriptions keep one BlockNote editor while runtime-only spacers paginate text before image rows and following components",
         "Component resize is width-only; top/bottom/corner height handles are removed from the canvas chrome",
         "Drag-and-drop shows live placeholders plus compact overlays and respects reduced-motion preferences",
-        "PDF export resolves every expected reference image before rendering and aborts rather than producing a partial document"
+        "PDF export resolves every expected reference image before rendering and aborts rather than producing a partial document",
+        "SchemaVersion 5 adds document/component names, row-aware component moves, non-destructive image crops, captions, and global canvas chrome"
       ],
       "status": "completed",
       "decisions": [
@@ -515,12 +516,13 @@
         "Ultimate review adds one numeric-id canvas droppable and filters collision fallbacks by exact pointer containment, while unchanged sync/async mutations skip history and save-state changes",
         "Final blocker fix captures and flushes a ready, dirty old-project snapshot before projectPath generation invalidation, while stale loads remain unable to apply after the switch",
         "Final blocker fix deterministically suffix-remaps colliding v1/v2 component and image ids while v3/v4 stored plans continue to reject duplicate logical ids",
-        "Final retirement fix tracks each ready token's latest persistence, rebases an in-flight old-project mutation onto an explicit retired plan snapshot, and only then performs the fail-safe dirty save without exposing stale errors to the replacement project"
+        "Final retirement fix tracks each ready token's latest persistence, rebases an in-flight old-project mutation onto an explicit retired plan snapshot, and only then performs the fail-safe dirty save without exposing stale errors to the replacement project",
+        "Task 7 integrates v5 public interfaces in ProjectCanvasProvider: name/title result contracts surface accessible errors, rows stay stable on resize, crops are non-destructive metadata with effective-aspect layout reflow, and CanvasToolbar replaces visible history/settings controls while keyboard shortcuts remain"
       ],
       "progress": {
         "designSpec": "docs/superpowers/specs/2026-08-05-adaptive-component-layout-design.md",
         "implementationPlan": "docs/superpowers/plans/2026-08-05-adaptive-component-layout.md",
-        "completedAt": "2026-08-05",
+        "completedAt": "2026-08-06",
         "completed": [
           "Task 1: implemented schemaVersion 4, removed persisted component heights from v4 plan/component types, and updated fixtures to compile honestly against the new model",
           "Task 1: migrated legacy v3 reference image heights to the new 135pt baseline by scaling old values once during v4 migration",
@@ -546,11 +548,13 @@
           "Ultimate review: aligned browser seed ratios to exact image dimensions so hydration is a no-op for the stable E2E fixture",
           "Final blockers: preserved dirty old-project edits during in-place project switches with a captured pre-invalidation save, while clean snapshots skip the write",
           "Final blockers: migrated legacy v1/v2 duplicate component and image identities to deterministic unique suffixes without losing records or file references, retaining strict v3/v4 rejection",
-          "Final retirement blocker: waited for old-token import/remove/flush persistence before rebasing and saving the latest retired plan, preserving physical deletion ordering and preventing stale completion state or errors from reaching the new project UI"
+          "Final retirement blocker: waited for old-token import/remove/flush persistence before rebasing and saving the latest retired plan, preserving physical deletion ordering and preventing stale completion state or errors from reaching the new project UI",
+          "Task 7: integrated v5 rows, naming, crop metadata, project-title seeding, CanvasTitle, and CanvasToolbar through ProjectCanvasProvider and PlanCanvas; added focused provider/canvas/reference regressions"
         ],
         "lastVerified": {
           "date": "2026-08-06",
           "affectedTests": "39 focused provider/service tests passed (29 provider, 10 service)",
+          "task7FocusedTests": "101 focused frontend tests passed (ProjectCanvasProvider, PlanCanvas, ReferenceComponentView, App, WorkspaceProvider)",
           "unitTests": "534 passed",
           "e2eTests": "28 passed",
           "typecheck": "clean",

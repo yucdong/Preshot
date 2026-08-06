@@ -41,6 +41,21 @@ export function availableWidthInRow(
   return Math.max(0, 1 - used);
 }
 
+function canFitInRow(
+  plan: ProjectPlan,
+  component: PlanComponent,
+  rowId: string,
+): boolean {
+  const targetRow = componentRows(plan).find((row) => row[0].rowId === rowId);
+  if (!targetRow) {
+    return false;
+  }
+
+  const joinsOtherComponents = targetRow.some((candidate) => candidate.id !== component.id);
+  const available = availableWidthInRow(plan, rowId, component.id);
+  return component.width <= available - (joinsOtherComponents ? gapFraction : 0);
+}
+
 export function moveComponentInRows(
   plan: ProjectPlan,
   params: { id: string; target: ComponentMoveTarget },
@@ -55,7 +70,7 @@ export function moveComponentInRows(
 
   if (params.target.kind === "row") {
     const targetRowIndex = nonEmptyRows.findIndex((row) => row[0].rowId === params.target.rowId);
-    if (targetRowIndex < 0 || component.width > availableWidthInRow(plan, params.target.rowId, params.id)) {
+    if (targetRowIndex < 0 || !canFitInRow(plan, component, params.target.rowId)) {
       return plan;
     }
     const targetRow = nonEmptyRows[targetRowIndex];

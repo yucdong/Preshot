@@ -1,8 +1,17 @@
+import { useState } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
-import { EMPTY_PLAN, type ProjectPlan } from "../../domain/plan/canvas/models";
+import {
+  EMPTY_PLAN,
+  type CropRect,
+  type ProjectPlan,
+  type ReferenceComponent,
+} from "../../domain/plan/canvas/models";
+import type { RenameComponentResult, SetPlanTitleResult } from "../../domain/plan/canvas/naming";
+import type { ComponentMoveTarget } from "../../domain/plan/canvas/rows";
+import { contentSize, DEFAULT_PAGE_GEOMETRY, SPACING } from "../../domain/plan/canvas/geometry";
 import { ProjectCanvasProvider, type CanvasPlanDependencies } from "./ProjectCanvasProvider";
 import { ThemeProvider } from "../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../domain/settings/ports";
@@ -16,6 +25,7 @@ const fakeRepository: SettingsRepository = {
 vi.mock("./canvas/PlanCanvas", () => ({
   PlanCanvas: ({
     components,
+    title,
     measurements,
     onMoveComponent,
     onChangeHtml,
@@ -23,13 +33,18 @@ vi.mock("./canvas/PlanCanvas", () => ({
     onRemoveComponent,
     onMeasurePlan,
     onMeasureReferenceDescription,
+    onCommitTitle,
+    onRenameComponent,
+    onSetImageCrop,
+    onResetImageCrop,
   }: {
-    components: Array<{ id: string; type: string; html?: string }>;
+    components: ProjectPlan["components"];
+    title: string;
     measurements: {
       planHeights: ReadonlyMap<string, number>;
       referenceDescriptionHeights: ReadonlyMap<string, number>;
     };
-    onMoveComponent: (id: string, toIndex: number) => void;
+    onMoveComponent: (id: string, target: ComponentMoveTarget) => void;
     onChangeHtml: (id: string, html: string) => void;
     onResize: (id: string, params: { width: number }) => void;
     onRemoveComponent: (id: string) => void;
@@ -38,17 +53,38 @@ vi.mock("./canvas/PlanCanvas", () => ({
       measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
     ) => void;
     onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
+    onCommitTitle: (title: string) => SetPlanTitleResult;
+    onRenameComponent: (id: string, name: string) => RenameComponentResult;
+    onSetImageCrop: (componentId: string, imageId: string, crop: CropRect) => void;
+    onResetImageCrop: (componentId: string, imageId: string) => void;
   }) => {
+    planCanvasRenderCount += 1;
+    const [nameError, setNameError] = useState<string | null>(null);
+    const handleRenameComponent = (id: string, name: string) => {
+      const result = onRenameComponent(id, name);
+      setNameError(result.ok ? null : result.reason === "duplicate" ? "组件名称不能重复" : "组件名称不能为空");
+      return result;
+    };
+
     latestPlanCanvasProps = {
+      components,
+      title,
       onMeasurePlan,
       onMeasureReferenceDescription,
       onChangeHtml,
       onMoveComponent,
       onRemoveComponent,
+      onResize,
+      onCommitTitle,
+      onRenameComponent: handleRenameComponent,
+      onSetImageCrop,
+      onResetImageCrop,
     };
 
     return (
       <div data-testid="plan-canvas">
+        <div data-testid="canvas-title">{title}</div>
+        {nameError ? <div role="alert">{nameError}</div> : null}
         <div data-testid="component-count">{components.length}</div>
         <div data-testid="component-order">{components.map((component) => component.id).join(",")}</div>
         <div data-testid="plan-height">{measurements.planHeights.get("plan-1") ?? "none"}</div>
@@ -65,10 +101,28 @@ vi.mock("./canvas/PlanCanvas", () => ({
         <button onClick={() => onChangeHtml("plan-1", "<p>edited</p>")} type="button">
           Edit
         </button>
-        <button onClick={() => onMoveComponent("plan-1", 1)} type="button">
+        <button
+          onClick={() =>
+            onMoveComponent("plan-1", {
+              kind: "new-row",
+              rowId: "row:moved-plan",
+              toRowIndex: 1,
+            })
+          }
+          type="button"
+        >
           Move
         </button>
-        <button onClick={() => onMoveComponent("plan-1", 0)} type="button">
+        <button
+          onClick={() =>
+            onMoveComponent("plan-1", {
+              kind: "row",
+              rowId: "row:plan-1",
+              toIndex: 0,
+            })
+          }
+          type="button"
+        >
           Move noop
         </button>
         <button onClick={() => onResize("plan-1", { width: 0.5 })} type="button">
@@ -107,10 +161,18 @@ let latestPlanCanvasProps:
       ) => void;
       onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
       onChangeHtml: (id: string, html: string) => void;
-      onMoveComponent: (id: string, toIndex: number) => void;
+      onMoveComponent: (id: string, target: ComponentMoveTarget) => void;
       onRemoveComponent: (id: string) => void;
+      onResize: (id: string, params: { width: number }) => void;
+      components: ProjectPlan["components"];
+      title: string;
+      onCommitTitle: (title: string) => SetPlanTitleResult;
+      onRenameComponent: (id: string, name: string) => RenameComponentResult;
+      onSetImageCrop: (componentId: string, imageId: string, crop: CropRect) => void;
+      onResetImageCrop: (componentId: string, imageId: string) => void;
     }
   | null = null;
+let planCanvasRenderCount = 0;
 
 function deps(): {
   dependencies: CanvasPlanDependencies;
@@ -230,6 +292,8 @@ function installDeferredImageDecode(width: number, height: number) {
 }
 
 afterEach(() => {
+  latestPlanCanvasProps = null;
+  planCanvasRenderCount = 0;
   vi.unstubAllGlobals();
 });
 
@@ -381,6 +445,17 @@ describe("ProjectCanvasProvider", () => {
     
     // Should have exactly 2 components
     expect(await screen.findByTestId("component-count")).toHaveTextContent("2");
+    const seeded = latestPlanCanvasProps;
+    expect(seeded).not.toBeNull();
+    if (!seeded) {
+      throw new Error("Expected PlanCanvas callbacks after the missing plan loads.");
+    }
+    expect(seeded.title).toBe("Demo");
+    expect(seeded.components.map((component) => component.name)).toEqual(["文案1", "图片组1"]);
+    expect(new Set(seeded.components.map((component) => component.rowId)).size).toBe(2);
+    expect(seeded.components.find((component) => component.type === "reference")).toMatchObject({
+      showCaptions: true,
+    });
     
     // The first component should be a plan component with the template
     const canvas = screen.getByTestId("plan-canvas");
@@ -621,7 +696,7 @@ describe("ProjectCanvasProvider", () => {
         ],
       }),
     );
-    expect(loadPlan).toHaveBeenCalledWith(String.raw`C:\new`);
+    expect(loadPlan).toHaveBeenCalledWith(String.raw`C:\new`, "New");
 
     await act(async () => {
       newLoad.resolve({ status: "loaded", plan: newPlan });
@@ -846,7 +921,7 @@ describe("ProjectCanvasProvider", () => {
     expect(await screen.findByTestId("component-count")).toHaveTextContent("2");
 
     await user.click(screen.getByRole("button", { name: "插入组件" }));
-    await user.click(screen.getByRole("menuitem", { name: "摄影计划" }));
+    await user.click(screen.getByRole("menuitem", { name: "文案" }));
 
     await waitFor(() => expect(screen.getByTestId("component-count")).toHaveTextContent("3"));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("有未保存的更改"));
@@ -867,7 +942,7 @@ describe("ProjectCanvasProvider", () => {
     await screen.findByTestId("plan-canvas");
 
     await user.click(screen.getByRole("button", { name: "插入组件" }));
-    await user.click(screen.getByRole("menuitem", { name: "摄影计划" }));
+    await user.click(screen.getByRole("menuitem", { name: "文案" }));
 
     // After insert, the component count should be 3
     await waitFor(() => expect(screen.getByTestId("component-count")).toHaveTextContent("3"));
@@ -898,10 +973,218 @@ describe("ProjectCanvasProvider", () => {
     expect(await screen.findByTestId("component-count")).toHaveTextContent("2");
 
     await user.click(screen.getByRole("button", { name: "插入组件" }));
-    await user.click(screen.getByRole("menuitem", { name: "参考图组" }));
+    await user.click(screen.getByRole("menuitem", { name: "图片组" }));
 
     await waitFor(() => expect(screen.getByTestId("component-count")).toHaveTextContent("3"));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("有未保存的更改"));
+    const inserted = latestPlanCanvasProps;
+    expect(inserted).not.toBeNull();
+    if (!inserted) {
+      throw new Error("Expected PlanCanvas callbacks after inserting a reference.");
+    }
+    const reference = inserted.components.find(
+      (component) => component.type === "reference" && component.id !== "ref-1",
+    );
+    expect(reference).toMatchObject({
+      name: "图片组1",
+      showCaptions: true,
+      imageHeight: 135,
+      images: [],
+    });
+    expect(reference?.rowId).not.toBe(
+      inserted.components.find((component) => component.id === "ref-1")?.rowId,
+    );
+  });
+
+  it("wires title, component-name, and crop callbacks through provider history", async () => {
+    const { dependencies, loadPlan } = deps();
+    loadPlan.mockResolvedValue({
+      status: "loaded",
+      plan: {
+        schemaVersion: 5,
+        title: "Demo",
+        components: [
+          {
+            id: "plan-1",
+            rowId: "row:plan-1",
+            name: "文案1",
+            type: "plan",
+            width: 1,
+            html: "<p>Demo</p>",
+          },
+          {
+            id: "ref-1",
+            rowId: "row:ref-1",
+            name: "图片组1",
+            type: "reference",
+            width: 1,
+            description: "",
+            showCaptions: true,
+            imageHeight: 135,
+            images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
+          },
+        ],
+      },
+    });
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      expect(canvas.onCommitTitle("Campaign")).toMatchObject({ ok: true });
+    });
+    expect(screen.getByTestId("canvas-title")).toHaveTextContent("Campaign");
+
+    act(() => {
+      expect(canvas.onRenameComponent("plan-1", "图片组1")).toEqual({
+        ok: false,
+        reason: "duplicate",
+      });
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("组件名称不能重复");
+
+    act(() => {
+      canvas.onSetImageCrop("ref-1", "i1", {
+        x: 0.25,
+        y: 0,
+        width: 0.5,
+        height: 1,
+      });
+    });
+    expect(screen.getByTestId("save-status")).toHaveTextContent("有未保存的更改");
+    expect(latestPlanCanvasProps?.components.find((component) => component.id === "ref-1")).toMatchObject({
+      images: [{ id: "i1", crop: { x: 0.25, y: 0, width: 0.5, height: 1 } }],
+    });
+  });
+
+  it("does not mutate state for accepted no-op title and component-name commits", async () => {
+    const { dependencies } = deps();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+    const rendersBeforeCommit = planCanvasRenderCount;
+
+    act(() => {
+      expect(canvas.onCommitTitle("Demo")).toMatchObject({ ok: true });
+      expect(canvas.onRenameComponent("plan-1", "文案1")).toMatchObject({ ok: true });
+    });
+
+    expect(planCanvasRenderCount).toBe(rendersBeforeCommit);
+  });
+
+  it("undoes only the latest completed crop drag", async () => {
+    const { dependencies } = deps();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    const firstCrop: CropRect = { x: 0.1, y: 0, width: 0.8, height: 1 };
+    const secondCrop: CropRect = { x: 0.2, y: 0, width: 0.6, height: 1 };
+    act(() => {
+      canvas.onSetImageCrop("ref-1", "i1", firstCrop);
+      canvas.onSetImageCrop("ref-1", "i1", secondCrop);
+    });
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+
+    const reference = latestPlanCanvasProps?.components.find(
+      (component): component is ReferenceComponent =>
+        component.id === "ref-1" && component.type === "reference",
+    );
+    expect(reference?.images.find((image) => image.id === "i1")?.crop).toEqual(firstCrop);
+  });
+
+  it("caps a resize to its current row capacity without changing its row id", async () => {
+    const { dependencies, loadPlan } = deps();
+    loadPlan.mockResolvedValue({
+      status: "loaded",
+      plan: {
+        schemaVersion: 5,
+        title: "Demo",
+        components: [
+          {
+            id: "plan-1",
+            rowId: "row:shared",
+            name: "文案1",
+            type: "plan",
+            width: 0.5,
+            html: "<p>Demo</p>",
+          },
+          {
+            id: "ref-1",
+            rowId: "row:shared",
+            name: "图片组1",
+            type: "reference",
+            width: 0.4,
+            description: "",
+            showCaptions: true,
+            imageHeight: 135,
+            images: [],
+          },
+        ],
+      },
+    });
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onResize("plan-1", { width: 0.9 });
+    });
+
+    const resized = latestPlanCanvasProps?.components.find((component) => component.id === "plan-1");
+    expect(resized?.rowId).toBe("row:shared");
+    expect(resized?.width).toBeCloseTo(
+      1 - 0.4 - SPACING / contentSize(DEFAULT_PAGE_GEOMETRY).width,
+    );
   });
 
   it("auto-saves changed plan state every 5 seconds and reflects the save status", async () => {
@@ -1005,7 +1288,6 @@ describe("ProjectCanvasProvider", () => {
     await waitFor(() =>
       expect(screen.getByRole("status")).toHaveTextContent("有未保存的更改"),
     );
-    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
 
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
 
@@ -1066,7 +1348,7 @@ describe("ProjectCanvasProvider", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("button", { name: "插入组件" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "摄影计划" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "文案" }));
     expect(screen.getByTestId("component-count")).toHaveTextContent("3");
 
     await act(async () => {
@@ -1093,7 +1375,6 @@ describe("ProjectCanvasProvider", () => {
     await screen.findByTestId("plan-canvas");
     fireEvent.click(screen.getByRole("button", { name: "Move noop" }));
 
-    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
 
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
@@ -1115,7 +1396,6 @@ describe("ProjectCanvasProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Async noop" }));
 
     await waitFor(() => expect(service.removeComponent).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
   });
 
@@ -1133,7 +1413,6 @@ describe("ProjectCanvasProvider", () => {
 
     await screen.findByTestId("plan-canvas");
     expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
-    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "Measure plan" }));
     await user.click(screen.getByRole("button", { name: "Measure description" }));
@@ -1141,7 +1420,6 @@ describe("ProjectCanvasProvider", () => {
     expect(screen.getByTestId("plan-height")).toHaveTextContent("321.5");
     expect(screen.getByTestId("reference-description-height")).toHaveTextContent("64");
     expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
-    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
   });
 
   it("resets runtime layout measurements when the project path changes", async () => {
@@ -1236,16 +1514,14 @@ describe("ProjectCanvasProvider undo/redo", () => {
     await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Move" }));
 
-    const undoButton = screen.getByRole("button", { name: "撤销" });
-    expect(undoButton).toBeEnabled();
-
-    await user.click(undoButton);
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
 
     // The edited html ("<p>edited</p>") is preserved across the structural undo.
     expect(screen.getByTestId("plan-plan-1")).toHaveTextContent("edited");
-    // Undo consumed the only entry; redo is now available.
-    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "重做" })).toBeEnabled();
+    expect(screen.getByTestId("component-order")).toHaveTextContent("plan-1,ref-1");
+
+    fireEvent.keyDown(window, { key: "y", ctrlKey: true });
+    expect(screen.getByTestId("component-order")).toHaveTextContent("ref-1,plan-1");
   });
 
   it("does not create an undo entry for a text-only change", async () => {
@@ -1261,16 +1537,15 @@ describe("ProjectCanvasProvider undo/redo", () => {
     );
 
     await screen.findByTestId("plan-canvas");
-    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
 
-    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(screen.getByTestId("plan-plan-1")).toHaveTextContent("edited");
   });
 
   it("coalesces a resize burst into a single undo entry", async () => {
     const { dependencies } = deps();
-    const user = userEvent.setup();
 
     renderWithTheme(
       <ProjectCanvasProvider
@@ -1287,10 +1562,10 @@ describe("ProjectCanvasProvider undo/redo", () => {
     fireEvent.click(screen.getByRole("button", { name: "Resize" }));
     fireEvent.click(screen.getByRole("button", { name: "Resize" }));
 
-    await user.click(screen.getByRole("button", { name: "撤销" }));
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
 
     // A single undo empties the stack (the burst was one entry).
-    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+    expect(latestPlanCanvasProps?.components.find((component) => component.id === "plan-1")?.width).toBe(1);
   });
 
   it("Ctrl+Z triggers global undo when no text editor is focused", async () => {
@@ -1308,14 +1583,13 @@ describe("ProjectCanvasProvider undo/redo", () => {
     await screen.findByTestId("plan-canvas");
 
     await user.click(screen.getByRole("button", { name: "Move" }));
-    expect(screen.getByRole("button", { name: "撤销" })).toBeEnabled();
+    expect(screen.getByTestId("component-order")).toHaveTextContent("ref-1,plan-1");
 
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled(),
+      expect(screen.getByTestId("component-order")).toHaveTextContent("plan-1,ref-1"),
     );
-    expect(screen.getByRole("button", { name: "重做" })).toBeEnabled();
   });
 
   it("Ctrl+Z is ignored while a contenteditable is focused", async () => {
@@ -1333,7 +1607,7 @@ describe("ProjectCanvasProvider undo/redo", () => {
     await screen.findByTestId("plan-canvas");
 
     await user.click(screen.getByRole("button", { name: "Move" }));
-    expect(screen.getByRole("button", { name: "撤销" })).toBeEnabled();
+    expect(screen.getByTestId("component-order")).toHaveTextContent("ref-1,plan-1");
 
     const editable = document.createElement("div");
     editable.setAttribute("contenteditable", "true");
@@ -1343,12 +1617,12 @@ describe("ProjectCanvasProvider undo/redo", () => {
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
 
     // BlockNote would own this Ctrl+Z; global undo did NOT fire.
-    expect(screen.getByRole("button", { name: "撤销" })).toBeEnabled();
+    expect(screen.getByTestId("component-order")).toHaveTextContent("ref-1,plan-1");
 
     editable.remove();
   });
 
-  it("disables undo and redo on a freshly loaded project", async () => {
+  it("keeps history controls hidden while keyboard history remains global", async () => {
     const { dependencies } = deps();
 
     renderWithTheme(
@@ -1360,7 +1634,8 @@ describe("ProjectCanvasProvider undo/redo", () => {
     );
 
     await screen.findByTestId("plan-canvas");
-    expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "重做" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "撤销" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重做" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "设置" })).not.toBeInTheDocument();
   });
 });

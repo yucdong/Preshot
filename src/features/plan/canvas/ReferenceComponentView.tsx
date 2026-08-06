@@ -1,6 +1,11 @@
 import { useCallback, useState, type MutableRefObject, type Ref } from "react";
 import { useTranslation } from "react-i18next";
-import { clampImageHeight, DEFAULT_IMAGE_HEIGHT, type ReferenceComponent } from "../../../domain/plan/canvas/models";
+import {
+  clampImageHeight,
+  DEFAULT_IMAGE_HEIGHT,
+  type CropRect,
+  type ReferenceComponent,
+} from "../../../domain/plan/canvas/models";
 import {
   COMPONENT_INSET,
   REFERENCE_CONTINUATION_TITLE_HEIGHT,
@@ -29,10 +34,6 @@ function assignRef<T>(targetRef: Ref<T> | undefined, value: T): void {
 interface ReferenceComponentViewProps {
   component: ReferenceComponent;
   imageSrc: (file: string) => string | undefined;
-  /**
-   * Temporary compatibility for PlanCanvas until its legacy wiring is removed.
-   */
-  onSetTitle?: (id: string, title: string) => void;
   onSetDescription: (id: string, description: string) => void;
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
@@ -42,6 +43,8 @@ interface ReferenceComponentViewProps {
   enableReorder?: boolean;
   onSetImageHeight?: (id: string, height: number) => void;
   onAddImages?: (id: string) => void;
+  onSetImageCrop?: (componentId: string, imageId: string, crop: CropRect) => void;
+  onResetImageCrop?: (componentId: string, imageId: string) => void;
   onMeasureDescription?: (id: string, heightPoints: number) => void;
   fragmentKind?: "whole" | "first" | "continuation";
   fragmentIndex?: number;
@@ -66,6 +69,8 @@ export function ReferenceComponentView({
   enableReorder = false,
   onSetImageHeight,
   onAddImages,
+  onSetImageCrop,
+  onResetImageCrop,
   onMeasureDescription,
   fragmentKind = "whole",
   fragmentIndex = 0,
@@ -146,7 +151,7 @@ export function ReferenceComponentView({
                   className="text-stone-600 dark:text-stone-300"
                   style={{ fontSize: `${14 * scale}px`, lineHeight: `${18 * scale}px` }}
                 >
-                  {t("reference.imageHeight")}
+                  {t("reference.imageSize")}
                 </span>
                 <button
                   aria-label={t("reference.decreaseImageHeight")}
@@ -267,6 +272,8 @@ export function ReferenceComponentView({
           onRemoveImage={onRemoveImage}
           showCaptions={component.showCaptions}
           onSetCaption={onSetImageCaption ? (imageId, caption) => onSetImageCaption(component.id, imageId, caption) : undefined}
+          onSetCrop={onSetImageCrop ? (imageId, crop) => onSetImageCrop(component.id, imageId, crop) : undefined}
+          onResetCrop={onResetImageCrop ? (imageId) => onResetImageCrop(component.id, imageId) : undefined}
           slots={slots}
           scale={scale}
         />

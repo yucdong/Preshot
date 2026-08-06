@@ -9,6 +9,7 @@ import {
   SPACING,
 } from "../../../domain/plan/canvas/geometry";
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
+import type { RenameComponentResult, SetPlanTitleResult } from "../../../domain/plan/canvas/naming";
 import { PlanCanvas } from "./PlanCanvas";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../../domain/settings/ports";
@@ -103,7 +104,15 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     imageSrc: (file: string) => (file.startsWith("references/") ? "data:image/png;base64,AA" : undefined),
     onRemoveComponent: vi.fn(),
     onChangeHtml: vi.fn(),
-    onSetTitle: vi.fn(),
+    title: "Demo",
+    onCommitTitle: vi.fn<() => SetPlanTitleResult>(() => ({
+      ok: true,
+      plan: { schemaVersion: 5, title: "Demo", components: [] },
+    })),
+    onRenameComponent: vi.fn<() => RenameComponentResult>(() => ({
+      ok: true,
+      plan: { schemaVersion: 5, title: "Demo", components: [] },
+    })),
     onSetDescription: vi.fn(),
     onAddImage: vi.fn(),
     onRemoveImage: vi.fn(),
@@ -259,6 +268,14 @@ describe("PlanCanvas", () => {
     renderCanvas();
     const pages = screen.getAllByTestId("canvas-page-background");
     expect(pages).toHaveLength(1);
+  });
+
+  it("renders one editable document title in the first-page title band", () => {
+    renderCanvas({ title: "Campaign" });
+
+    const titles = screen.getAllByRole("textbox", { name: "画布标题" });
+    expect(titles).toHaveLength(1);
+    expect(titles[0]).toHaveValue("Campaign");
   });
 
   it.each([0.5, 1.75])(
@@ -454,14 +471,31 @@ describe("PlanCanvas", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("renders type label for plan component", () => {
+  it("renders the plan component name in frame chrome", () => {
     renderCanvas();
-    expect(screen.getByText("文案")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("文案1")).toBeInTheDocument();
   });
 
-  it("renders type label for reference component", () => {
+  it("renders the reference component name in frame chrome", () => {
     renderCanvas();
-    expect(screen.getByText("图片组")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Lookbook")).toBeInTheDocument();
+  });
+
+  it("uses a cropped image's effective aspect ratio for reference slots", () => {
+    renderCanvas({
+      components: [{
+        ...referenceComponent,
+        images: [{
+          id: "i1",
+          file: "references/0001.png",
+          aspectRatio: 2,
+          crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+        }],
+      }],
+    });
+
+    const tile = document.querySelector('[data-image-id="i1"]') as HTMLElement;
+    expect(tile.style.width).toBe("180px");
   });
 
   it("top bar has draggable attributes and cursor-grab class", () => {

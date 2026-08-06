@@ -1,8 +1,8 @@
 import type { ReactElement } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
-import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CropRect, ReferenceComponent } from "../../../domain/plan/canvas/models";
 import {
   COMPONENT_INSET,
   REFERENCE_CONTINUATION_HEADER_HEIGHT,
@@ -65,20 +65,22 @@ describe("ReferenceComponentView", () => {
     usePlanContentMeasurementMock.mockClear();
   });
 
-  it("keeps the stale PlanCanvas title callback narrowly typed", () => {
-    type ReferenceViewProps = Parameters<typeof ReferenceComponentView>[0];
+  it("passes crop callbacks to the image grid with the reference component id", () => {
+    const onSetImageCrop = vi.fn();
+    const onResetImageCrop = vi.fn();
+    const crop: CropRect = { x: 0.25, y: 0, width: 0.5, height: 1 };
 
-    expectTypeOf<ReferenceViewProps["onSetTitle"]>().toEqualTypeOf<
-      ((id: string, title: string) => void) | undefined
-    >();
+    renderReference({ onSetImageCrop, onResetImageCrop });
 
-    if (false) {
-      const invalidProps: Partial<ReferenceViewProps> = {
-        // @ts-expect-error Arbitrary compatibility props must not be accepted.
-        stalePlanCanvasProp: true,
-      };
-      void invalidProps;
-    }
+    const props = groupImageGridMock.mock.calls.at(-1)?.[0] as {
+      onSetCrop?: (imageId: string, next: CropRect) => void;
+      onResetCrop?: (imageId: string) => void;
+    };
+    props.onSetCrop?.("i1", crop);
+    props.onResetCrop?.("i1");
+
+    expect(onSetImageCrop).toHaveBeenCalledWith("ref-1", "i1", crop);
+    expect(onResetImageCrop).toHaveBeenCalledWith("ref-1", "i1");
   });
 
   it("does not render an internal scrolling region", () => {
@@ -268,10 +270,10 @@ describe("ReferenceComponentView", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
-  it("renders image-height stepper with - and + buttons", () => {
+  it("renders image-size stepper with - and + buttons", () => {
     renderReference({ onSetImageHeight: vi.fn(), onAddImages: vi.fn() });
 
-    expect(screen.getByText("图片高度")).toBeInTheDocument();
+    expect(screen.getByText("图片尺寸")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "减小图片高度" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "增大图片高度" })).toBeInTheDocument();
   });

@@ -55,6 +55,19 @@ describe("componentDropTarget", () => {
     })).toEqual({ kind: "invalid", reason: "capacity" });
   });
 
+  it("rejects a component that only fits when the new row gap is ignored", () => {
+    const edgeCapacityComponents: PlanComponent[] = [
+      { id: "a", rowId: "row-a", name: "文案1", type: "plan", width: 0.6, html: "" },
+      { id: "b", rowId: "row-b", name: "文案2", type: "plan", width: 0.4, html: "" },
+    ];
+
+    expect(componentDropTarget(edgeCapacityComponents, "a", {
+      type: "component",
+      id: "b",
+      insertAfter: false,
+    })).toEqual({ kind: "invalid", reason: "capacity" });
+  });
+
   it("returns a new row target at a row gap", () => {
     expect(componentDropTarget(components, "a", {
       type: "row-gap",

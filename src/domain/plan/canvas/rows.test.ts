@@ -50,4 +50,22 @@ describe("canvas rows", () => {
       }),
     ).toBe(plan);
   });
+
+  it("rejects a move that would overflow a target row once its new gap is included", () => {
+    const capacityPlan: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Capacity",
+      components: [
+        { id: "a", rowId: "source", name: "文案1", type: "plan", width: 0.6, html: "" },
+        { id: "b", rowId: "target", name: "文案2", type: "plan", width: 0.4, html: "" },
+      ],
+    };
+
+    expect(
+      moveComponentInRows(capacityPlan, {
+        id: "a",
+        target: { kind: "row", rowId: "target", toIndex: 0 },
+      }),
+    ).toBe(capacityPlan);
+  });
 });

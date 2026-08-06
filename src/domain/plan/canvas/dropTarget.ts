@@ -1,6 +1,6 @@
 import type { PlanComponent } from "./models";
 import {
-  availableWidthInRow,
+  moveComponentInRows,
   orderedRowIds,
 } from "./rows";
 
@@ -31,9 +31,6 @@ export function componentDropTarget(
   if (!overComponent || overComponent.id === active.id) {
     return { kind: "invalid", reason: "missing" };
   }
-  if (active.width > availableWidthInRow(plan, overComponent.rowId, active.id)) {
-    return { kind: "invalid", reason: "capacity" };
-  }
 
   const targetRow = components.filter(
     (component) =>
@@ -44,9 +41,12 @@ export function componentDropTarget(
     return { kind: "invalid", reason: "missing" };
   }
 
-  return {
+  const target: ComponentDropTarget = {
     kind: "row",
     rowId: overComponent.rowId,
     toIndex: overIndex + (over.insertAfter ? 1 : 0),
   };
+  return moveComponentInRows(plan, { id: active.id, target }) === plan
+    ? { kind: "invalid", reason: "capacity" }
+    : target;
 }
