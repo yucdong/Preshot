@@ -86,6 +86,85 @@ describe("ImageCropOverlay", () => {
     expect(props.onCommit).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      "right",
+      { clientX: 100, clientY: 50 },
+      { clientX: 75, clientY: 50 },
+      { viewportWidth: 75, viewportHeight: 100 },
+      { x: 0, y: 0, width: 0.75, height: 1 },
+    ],
+    [
+      "left",
+      { clientX: 0, clientY: 50 },
+      { clientX: 25, clientY: 50 },
+      { viewportWidth: 75, viewportHeight: 100 },
+      { x: 0.25, y: 0, width: 0.75, height: 1 },
+    ],
+    [
+      "bottom",
+      { clientX: 50, clientY: 100 },
+      { clientX: 50, clientY: 75 },
+      { viewportWidth: 100, viewportHeight: 75 },
+      { x: 0, y: 0, width: 1, height: 0.75 },
+    ],
+    [
+      "top",
+      { clientX: 50, clientY: 0 },
+      { clientX: 50, clientY: 25 },
+      { viewportWidth: 100, viewportHeight: 75 },
+      { x: 0, y: 0.25, width: 1, height: 0.75 },
+    ],
+  ] as const)(
+    "keeps the pointer-down viewport for a reflowed %s-edge drag",
+    (edge, start, end, reflowedViewport, expected) => {
+      const props = {
+        crop: undefined,
+        sourceAspectRatio: 1,
+        viewportWidth: 100,
+        viewportHeight: 100,
+        onPreview: vi.fn(),
+        onCommit: vi.fn(),
+        onCancel: vi.fn(),
+        onReset: vi.fn(),
+      };
+      const { rerender } = render(<ImageCropOverlay {...props} />);
+      const handle = screen.getByTestId(`crop-handle-${edge}`);
+
+      fireEvent.pointerDown(handle, { pointerId: 1, ...start });
+      fireEvent.pointerMove(handle, { pointerId: 1, ...end });
+      rerender(<ImageCropOverlay {...props} {...reflowedViewport} />);
+      fireEvent.pointerMove(handle, { pointerId: 1, ...end });
+      fireEvent.pointerUp(handle, { pointerId: 1, ...end });
+
+      expect(props.onPreview).toHaveBeenLastCalledWith(expected);
+      expect(props.onCommit).toHaveBeenCalledWith(expected);
+    },
+  );
+
+  it("cancels a reflowed drag without committing a crop", () => {
+    const props = {
+      crop: undefined,
+      sourceAspectRatio: 1,
+      viewportWidth: 100,
+      viewportHeight: 100,
+      onPreview: vi.fn(),
+      onCommit: vi.fn(),
+      onCancel: vi.fn(),
+      onReset: vi.fn(),
+    };
+    const { rerender } = render(<ImageCropOverlay {...props} />);
+    const handle = screen.getByTestId("crop-handle-right");
+
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 75, clientY: 50 });
+    rerender(<ImageCropOverlay {...props} viewportWidth={75} />);
+    fireEvent.pointerCancel(handle, { pointerId: 1 });
+
+    expect(props.onCancel).toHaveBeenCalledTimes(1);
+    expect(props.onCommit).not.toHaveBeenCalled();
+  });
+
   it("shows reset only when the image has a crop", () => {
     const { rerender } = render(
       <ImageCropOverlay

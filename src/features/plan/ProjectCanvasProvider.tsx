@@ -416,6 +416,25 @@ export function ProjectCanvasProvider({
     ],
   );
 
+  const applyMeasuredAspectRatios = useCallback(
+    (
+      token: ProjectToken,
+      persistence: ProjectPersistenceState,
+      measurements: ReadonlyArray<{ file: string; aspectRatio: number }>,
+    ) => {
+      const next = measurements.reduce(
+        (latest, { file, aspectRatio }) =>
+          setImageAspectRatioForFile(latest, { file, aspectRatio }),
+        persistence.plan,
+      );
+      persistence.plan = next;
+      if (isTokenReady(token)) {
+        applyPlan(next);
+      }
+    },
+    [applyPlan, isTokenReady],
+  );
+
   const persisting = useCallback(
     async (
       token: ProjectToken,
@@ -1148,16 +1167,14 @@ export function ProjectCanvasProvider({
           setError(null);
 
           const aspectRatio = await measureAspectRatio(result.dataUrl);
-          if (!isTokenReady(token)) return;
-          applyPlan(setImageAspectRatioForFile(planRef.current, {
-            file: result.image.file,
-            aspectRatio,
-          }));
+          applyMeasuredAspectRatios(token, persistence, [
+            { file: result.image.file, aspectRatio },
+          ]);
         });
       });
     },
     [
-      applyPlan,
+      applyMeasuredAspectRatios,
       guard,
       isTokenReady,
       persisting,
@@ -1213,6 +1230,14 @@ export function ProjectCanvasProvider({
                 images: newImages.map(({ image }) => image),
               }),
           );
+          applyMeasuredAspectRatios(
+            token,
+            persistence,
+            newImages.map(({ image, measuredAspectRatio }) => ({
+              file: image.file,
+              aspectRatio: measuredAspectRatio,
+            })),
+          );
           if (!isTokenReady(token)) {
             return;
           }
@@ -1225,21 +1250,11 @@ export function ProjectCanvasProvider({
           imageSrcRef.current = nextImageSrc;
           setImageSrc(nextImageSrc);
           setError(null);
-
-          const hydratedPlan = newImages.reduce(
-            (latest, { image, measuredAspectRatio }) =>
-              setImageAspectRatioForFile(latest, {
-                file: image.file,
-                aspectRatio: measuredAspectRatio,
-              }),
-            planRef.current,
-          );
-          applyPlan(hydratedPlan);
         });
       });
     },
     [
-      applyPlan,
+      applyMeasuredAspectRatios,
       guard,
       isTokenReady,
       persisting,

@@ -61,3 +61,23 @@
 ### Note
 
 - The first parallel relevant-E2E run had one non-reproducible full-row drag assertion failure; its isolated retry and the complete relevant-E2E rerun passed.
+
+## Final Decode and Crop Remediation
+
+### RED
+
+- A single or batch import could retire after the file service persisted an aspect ratio of `1` but before `Image.decode()` reported its actual dimensions, losing the measured ratio on reload.
+- A live crop preview could resize its viewport mid-drag, causing pointer-up normalization to use different dimensions than pointer-down.
+
+### GREEN
+
+- Measured import ratios now update the operation's retained persistence plan even after its UI token retires; the retirement barrier waits for that operation and persists the measured snapshot without setting stale React state.
+- Crop drag sessions capture viewport width and height at pointer-down and use them through preview, commit, and cancellation for every edge.
+
+### Results
+
+- Focused WorkspaceProvider, ProjectCanvasProvider, and ImageCropOverlay tests: 83 passed.
+- `pnpm lint`: exit 0; unchanged ThemeProvider Fast Refresh warning.
+- `pnpm typecheck`: passed.
+- `pnpm test`: 75 files, 660 tests passed.
+- Relevant canvas/workspace E2E: 25 passed.

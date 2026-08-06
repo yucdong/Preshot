@@ -22,6 +22,8 @@ interface DragSession {
   startX: number;
   startY: number;
   crop: CropRect;
+  viewportWidth: number;
+  viewportHeight: number;
 }
 
 const fullCrop: CropRect = { x: 0, y: 0, width: 1, height: 1 };
@@ -83,6 +85,8 @@ export function ImageCropOverlay({
       startX: event.clientX,
       startY: event.clientY,
       crop: displayedCrop,
+      viewportWidth,
+      viewportHeight,
     };
   }
 
@@ -92,7 +96,14 @@ export function ImageCropOverlay({
     if (!session || session.pointerId !== event.pointerId) {
       return;
     }
-    const nextCrop = cropForEdge(session, event.clientX, event.clientY, sourceAspectRatio, viewportWidth, viewportHeight);
+    const nextCrop = cropForEdge(
+      session,
+      event.clientX,
+      event.clientY,
+      sourceAspectRatio,
+      session.viewportWidth,
+      session.viewportHeight,
+    );
     setPreviewCrop(nextCrop);
     onPreview(nextCrop);
   }
@@ -103,7 +114,14 @@ export function ImageCropOverlay({
     if (!session || session.pointerId !== event.pointerId) {
       return;
     }
-    const nextCrop = cropForEdge(session, event.clientX, event.clientY, sourceAspectRatio, viewportWidth, viewportHeight);
+    const nextCrop = cropForEdge(
+      session,
+      event.clientX,
+      event.clientY,
+      sourceAspectRatio,
+      session.viewportWidth,
+      session.viewportHeight,
+    );
     dragSession.current = undefined;
     setPreviewCrop(undefined);
     event.currentTarget.releasePointerCapture?.(event.pointerId);

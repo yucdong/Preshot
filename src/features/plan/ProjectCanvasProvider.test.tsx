@@ -300,9 +300,18 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function installDeferredImageDecode(width: number, height: number) {
+function installDeferredImageDecode(width: number, height: number, independently = false) {
   const decoding = deferred<void>();
-  const decode = vi.fn(() => decoding.promise);
+  const decodings = [decoding];
+  const decode = vi.fn(() => {
+    if (!independently) {
+      return decoding.promise;
+    }
+    const current = decodings[decodings.length - 1];
+    const next = deferred<void>();
+    decodings.push(next);
+    return current.promise;
+  });
 
   vi.stubGlobal(
     "Image",
@@ -314,7 +323,7 @@ function installDeferredImageDecode(width: number, height: number) {
     },
   );
 
-  return { ...decoding, decode };
+  return { ...decoding, decodings, decode };
 }
 
 afterEach(() => {
@@ -1642,6 +1651,182 @@ describe("ProjectCanvasProvider", () => {
       expect(reference?.images.map((image) => image.aspectRatio)).toEqual([3, 3]);
     });
   });
+
+  it.each([
+    ["single", "switch", 1],
+    ["single", "unmount", 1],
+    ["batch", "switch", 2],
+    ["batch", "unmount", 2],
+  ] as const)(
+    "persists and reloads measured %s import ratios after %s during image decoding",
+    async (importKind, retirement, imageCount) => {
+      const { dependencies, loadPlan, savePlan, service } = deps();
+      const projectPath = String.raw`C:\demo`;
+      const otherProjectPath = String.raw`C:\other`;
+      const initialPlan: ProjectPlan = {
+        schemaVersion: 5,
+        title: "Demo",
+        components: [
+          {
+            id: "ref-1",
+            rowId: "row:ref-1",
+            type: "reference",
+            width: 1,
+            name: "Reference",
+            description: "",
+            showCaptions: false,
+            imageHeight: 180,
+            images: [],
+          },
+        ],
+      };
+      const otherPlan: ProjectPlan = {
+        schemaVersion: 5,
+        title: "Other",
+        components: [],
+      };
+      const diskPlans = new Map<string, ProjectPlan>([
+        [projectPath, initialPlan],
+        [otherProjectPath, otherPlan],
+      ]);
+      let importIndex = 1;
+      const imageDecode = installDeferredImageDecode(
+        300,
+        100,
+        importKind === "batch",
+      );
+
+      loadPlan.mockImplementation(async (path) => {
+        const plan = diskPlans.get(path);
+        if (!plan) {
+          throw new Error(`Unexpected project path ${path}`);
+        }
+        return { status: "loaded", plan };
+      });
+      vi.mocked(service.importImage).mockImplementation(
+        async (path, currentPlan, componentId) => {
+          const image = {
+            id: `i${importIndex}`,
+            file: `references/000${importIndex}.png`,
+            aspectRatio: 1,
+          };
+          importIndex += 1;
+          const plan = {
+            ...currentPlan,
+            components: currentPlan.components.map((component) =>
+              component.id === componentId && component.type === "reference"
+                ? { ...component, images: [...component.images, image] }
+                : component,
+            ),
+          };
+          diskPlans.set(path, plan);
+          return {
+            plan,
+            image,
+            dataUrl: `data:image/png;base64,${image.id}`,
+          };
+        },
+      );
+      savePlan.mockImplementation(async (path, plan) => {
+        diskPlans.set(path, plan);
+      });
+      vi.mocked(dependencies.picker.pickImageFiles).mockResolvedValue([
+        String.raw`C:\source\one.png`,
+        String.raw`C:\source\two.png`,
+      ]);
+
+      const rendered = renderWithTheme(
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Demo"
+          projectPath={projectPath}
+        />,
+      );
+
+      await screen.findByTestId("plan-canvas");
+      const canvas = latestPlanCanvasProps;
+      expect(canvas).not.toBeNull();
+      if (!canvas) {
+        throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+      }
+
+      act(() => {
+        if (importKind === "single") {
+          canvas.onAddImage("ref-1");
+        } else {
+          canvas.onAddImages("ref-1");
+        }
+      });
+      await waitFor(() => expect(service.importImage).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(imageDecode.decode).toHaveBeenCalledTimes(1));
+      if (importKind === "batch") {
+        await act(async () => {
+          imageDecode.decodings[0].resolve();
+        });
+        await waitFor(() => expect(service.importImage).toHaveBeenCalledTimes(imageCount));
+        await waitFor(() => expect(imageDecode.decode).toHaveBeenCalledTimes(imageCount));
+      }
+
+      if (retirement === "switch") {
+        rendered.rerender(
+          <ThemeProvider repository={fakeRepository}>
+            <ProjectCanvasProvider
+              dependencies={dependencies}
+              projectName="Other"
+              projectPath={otherProjectPath}
+            />
+          </ThemeProvider>,
+        );
+      } else {
+        rendered.unmount();
+      }
+
+      await act(async () => {
+        imageDecode.decodings[imageCount - 1].resolve();
+      });
+
+      await waitFor(() => {
+        const persisted = diskPlans.get(projectPath);
+        const reference = persisted?.components.find(
+          (component): component is ReferenceComponent =>
+            component.id === "ref-1" && component.type === "reference",
+        );
+        expect(reference?.images).toHaveLength(imageCount);
+        expect(reference?.images.map((image) => image.aspectRatio)).toEqual(
+          Array.from({ length: imageCount }, () => 3),
+        );
+      });
+
+      if (retirement === "switch") {
+        expect(diskPlans.get(otherProjectPath)).toEqual(otherPlan);
+      }
+
+      const reloadedProject = (
+        <ThemeProvider repository={fakeRepository}>
+          <ProjectCanvasProvider
+            dependencies={dependencies}
+            projectName="Demo"
+            projectPath={projectPath}
+          />
+        </ThemeProvider>
+      );
+      if (retirement === "switch") {
+        rendered.rerender(reloadedProject);
+      } else {
+        renderWithTheme(reloadedProject);
+      }
+
+      await waitFor(() => {
+        const reference = latestPlanCanvasProps?.components.find(
+          (component): component is ReferenceComponent =>
+            component.id === "ref-1" && component.type === "reference",
+        );
+        expect(reference?.images.map((image) => image.aspectRatio)).toEqual(
+          Array.from({ length: imageCount }, () => 3),
+        );
+      });
+    },
+  );
 
   it("retains a completed import while a concurrent edit retires during image decoding", async () => {
     const { dependencies, service, savePlan } = deps();
