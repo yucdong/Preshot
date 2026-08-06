@@ -179,6 +179,16 @@ function renderWithTheme(ui: React.ReactElement) {
   return render(<ThemeProvider repository={fakeRepository}>{ui}</ThemeProvider>);
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 describe("ProjectCanvasProvider", () => {
   it("loads the plan and images", async () => {
     const { dependencies, service } = deps();
@@ -196,6 +206,116 @@ describe("ProjectCanvasProvider", () => {
     );
 
     expect(await screen.findByTestId("component-count")).toHaveTextContent("2");
+  });
+
+  it("waits for every expected reference image before exporting", async () => {
+    const { dependencies, loadPlan, service } = deps();
+    const firstImage = deferred<string>();
+    const secondImage = deferred<string>();
+    const exportMock = vi.mocked(dependencies.exporter.export);
+    const saveMock = vi.mocked(dependencies.saver.save);
+    loadPlan.mockResolvedValue({
+      status: "loaded",
+      plan: {
+        schemaVersion: 4,
+        components: [
+          {
+            id: "ref-1",
+            type: "reference",
+            width: 1,
+            title: "Lookbook",
+            description: "",
+            showCaptions: false,
+            imageHeight: 180,
+            images: [
+              {
+                id: "i1",
+                file: "references/0001.png",
+                aspectRatio: 1,
+              },
+              {
+                id: "i2",
+                file: "references/0002.png",
+                aspectRatio: 1,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    vi.mocked(service.loadImage).mockImplementation(
+      async (_projectPath, file) => {
+        if (file === "references/0001.png") {
+          return firstImage.promise;
+        }
+        if (file === "references/0002.png") {
+          return secondImage.promise;
+        }
+        throw new Error(`unexpected file ${file}`);
+      },
+    );
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+    await screen.findByTestId("plan-canvas");
+
+    fireEvent.click(screen.getByRole("button", { name: "导出 PDF" }));
+    expect(exportMock).not.toHaveBeenCalled();
+    expect(saveMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      firstImage.resolve("data:image/png;base64,AA");
+    });
+    expect(exportMock).not.toHaveBeenCalled();
+    expect(saveMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      secondImage.resolve("data:image/png;base64,BB");
+    });
+
+    await waitFor(() =>
+      expect(exportMock).toHaveBeenCalledWith(
+        expect.objectContaining({ schemaVersion: 4 }),
+        {
+          "references/0001.png": "data:image/png;base64,AA",
+          "references/0002.png": "data:image/png;base64,BB",
+        },
+      ),
+    );
+    expect(saveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts export and surfaces file context when a required image cannot load", async () => {
+    const { dependencies, service } = deps();
+    const exportMock = vi.mocked(dependencies.exporter.export);
+    const saveMock = vi.mocked(dependencies.saver.save);
+    vi.mocked(service.loadImage).mockRejectedValue(
+      new Error("reference file is unavailable"),
+    );
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+    await screen.findByTestId("plan-canvas");
+
+    fireEvent.click(screen.getByRole("button", { name: "导出 PDF" }));
+
+    expect(
+      await screen.findByText(
+        'Unable to export the PDF: failed to load reference image "references/0001.png": reference file is unavailable',
+      ),
+    ).toBeInTheDocument();
+    expect(exportMock).not.toHaveBeenCalled();
+    expect(saveMock).not.toHaveBeenCalled();
   });
 
   it("seeds a missing project with plan + reference components (plan on top)", async () => {

@@ -14,7 +14,11 @@ import type {
   LayoutMeasurements,
   LayoutResult,
 } from "../../domain/plan/canvas/engine";
-import type { ProjectPlan, ReferenceComponent } from "../../domain/plan/canvas/models";
+import type {
+  ProjectPlan,
+  ReferenceComponent,
+  ReferenceImage,
+} from "../../domain/plan/canvas/models";
 import { buildCanvasLayout } from "../../domain/plan/canvas/pdf/exportDocument";
 import {
   COMPONENT_INSET,
@@ -74,6 +78,34 @@ function dataUrlToBytes(dataUrl: string): { mime: string; bytes: Uint8Array } {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
   return { mime: match[1], bytes };
+}
+
+function requireReferenceImageData(
+  images: Record<string, string>,
+  componentId: string,
+  image: ReferenceImage,
+): string {
+  const dataUrl = images[image.file];
+  if (!dataUrl) {
+    throw new Error(
+      `Missing reference image data for "${image.file}" (component "${componentId}", image "${image.id}")`,
+    );
+  }
+  return dataUrl;
+}
+
+function validateReferenceImageData(
+  plan: ProjectPlan,
+  images: Record<string, string>,
+): void {
+  for (const component of plan.components) {
+    if (component.type !== "reference") {
+      continue;
+    }
+    for (const image of component.images) {
+      requireReferenceImageData(images, component.id, image);
+    }
+  }
 }
 
 function drawTextCommand(
@@ -353,6 +385,7 @@ function resolvePdfLayout(
 export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
   return {
     async export(plan: ProjectPlan, images: Record<string, string>): Promise<Uint8Array> {
+      validateReferenceImageData(plan, images);
       const pdf = await PDFDocument.create();
       pdf.registerFontkit(fontkit);
 
@@ -454,8 +487,11 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
               }
 
               const imageFile = imageRecord.file;
-              const dataUrl = images[imageFile];
-              if (!dataUrl) continue;
+              const dataUrl = requireReferenceImageData(
+                images,
+                ref.id,
+                imageRecord,
+              );
 
               let image = embedded.get(imageFile);
               if (!image) {

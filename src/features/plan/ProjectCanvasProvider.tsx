@@ -71,6 +71,18 @@ function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
+function expectedReferenceImageFiles(plan: ProjectPlan): string[] {
+  return Array.from(
+    new Set(
+      plan.components.flatMap((component) =>
+        component.type === "reference"
+          ? component.images.map((image) => image.file)
+          : [],
+      ),
+    ),
+  );
+}
+
 function isTextEditingTarget(node: EventTarget | null): boolean {
   if (!(node instanceof HTMLElement)) return false;
   if (node.isContentEditable) return true;
@@ -359,6 +371,40 @@ export function ProjectCanvasProvider({
   useEffect(() => {
     imageSrcRef.current = imageSrc;
   }, [imageSrc]);
+
+  const resolveExportImages = useCallback(
+    async (planToExport: ProjectPlan): Promise<Record<string, string>> => {
+      const expectedFiles = expectedReferenceImageFiles(planToExport);
+      const loadedEntries = await Promise.all(
+        expectedFiles.map(async (file) => {
+          const existing = imageSrcRef.current[file];
+          if (existing) {
+            return [file, existing] as const;
+          }
+
+          try {
+            const src = await service.loadImage(projectPath, file);
+            if (!src) {
+              throw new Error("image loader returned empty data");
+            }
+            return [file, src] as const;
+          } catch (error) {
+            throw new Error(
+              `Unable to export the PDF: failed to load reference image "${file}": ${detail(error)}`,
+            );
+          }
+        }),
+      );
+      const resolvedImages = Object.fromEntries(loadedEntries);
+      const nextImageSrc = { ...imageSrcRef.current, ...resolvedImages };
+      imageSrcRef.current = nextImageSrc;
+      if (mountedRef.current) {
+        setImageSrc(nextImageSrc);
+      }
+      return resolvedImages;
+    },
+    [projectPath, service],
+  );
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -685,7 +731,9 @@ export function ProjectCanvasProvider({
     void guard("Unable to export the PDF", async () => {
       setExporting(true);
       try {
-        const bytes = await exporter.export(planRef.current, imageSrcRef.current);
+        const planToExport = planRef.current;
+        const images = await resolveExportImages(planToExport);
+        const bytes = await exporter.export(planToExport, images);
         const separator = projectPath.includes("\\") ? "\\" : "/";
         const defaultPath = `${projectPath.replace(/[\\/]+$/, "")}${separator}output.pdf`;
         const savedPath = await saver.save(bytes, defaultPath);
@@ -701,7 +749,7 @@ export function ProjectCanvasProvider({
         if (mountedRef.current) setExporting(false);
       }
     });
-  }, [exporter, guard, logger, projectPath, reveal, saver]);
+  }, [exporter, guard, logger, projectPath, resolveExportImages, reveal, saver]);
 
   return (
     <div className="flex h-full flex-col">

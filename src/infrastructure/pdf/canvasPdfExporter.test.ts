@@ -173,6 +173,35 @@ describe("createCanvasPdfExporter", () => {
     expect(parsed.getPageCount()).toBe(1);
   }, 20000);
 
+  it("rejects missing expected image data with file and component context", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const plan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "r1",
+          type: "reference",
+          width: 1,
+          title: "Reference",
+          description: "",
+          showCaptions: false,
+          imageHeight: 135,
+          images: [
+            {
+              id: "img1",
+              file: "photo1.png",
+              aspectRatio: 1,
+            },
+          ],
+        },
+      ],
+    };
+
+    await expect(exporter.export(plan, {})).rejects.toThrow(
+      'Missing reference image data for "photo1.png" (component "r1", image "img1")',
+    );
+  }, 20000);
+
   it("measures and renders the complete reference description", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawText = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawText");
