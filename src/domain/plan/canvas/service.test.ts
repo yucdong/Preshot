@@ -91,6 +91,48 @@ describe("canvas plan service", () => {
     );
   });
 
+  it("adds load context when stored logical ids are duplicated", async () => {
+    const { repository, imageStore } = fakes({
+      schemaVersion: 4,
+      components: [
+        {
+          id: "r1",
+          type: "reference",
+          width: 1,
+          title: "A",
+          description: "",
+          imageHeight: 180,
+          showCaptions: false,
+          images: [
+            { id: "duplicate", file: "references/a.png", aspectRatio: 1 },
+          ],
+        },
+        {
+          id: "r2",
+          type: "reference",
+          width: 1,
+          title: "B",
+          description: "",
+          imageHeight: 180,
+          showCaptions: false,
+          images: [
+            { id: "duplicate", file: "references/b.png", aspectRatio: 1 },
+          ],
+        },
+      ],
+    });
+    const service = createCanvasPlanService({
+      repository,
+      imageStore,
+      createId: () => "id",
+      logger: silentLogger(),
+    });
+
+    await expect(service.loadPlan("C:/p")).rejects.toThrow(
+      /Unable to load the project plan:.*duplicate image id "duplicate".*component 1 image 0.*component 0 image 0/i,
+    );
+  });
+
   it("imports an image into a reference component and persists", async () => {
     const { repository, imageStore } = fakes(refPlan);
     const service = createCanvasPlanService({
@@ -115,6 +157,117 @@ describe("canvas plan service", () => {
     await service.removeImage("C:/p", refPlan, "r", "i1");
     expect(removed).toContain("references/0001.png");
     expect(repository.saveRawPlan).toHaveBeenCalled();
+  });
+
+  it("keeps a shared file when another image in the component still references it", async () => {
+    const sharedPlan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "r",
+          type: "reference",
+          width: 1,
+          title: "T",
+          description: "",
+          showCaptions: false,
+          imageHeight: 180,
+          images: [
+            { id: "i1", file: "references/shared.png", aspectRatio: 1 },
+            { id: "i2", file: "references/shared.png", aspectRatio: 1 },
+          ],
+        },
+      ],
+    };
+    const { repository, imageStore, removed } = fakes(sharedPlan);
+    const service = createCanvasPlanService({
+      repository,
+      imageStore,
+      createId: () => "x",
+      logger: silentLogger(),
+    });
+
+    const next = await service.removeImage("C:/p", sharedPlan, "r", "i1");
+
+    expect(removed).toEqual([]);
+    expect((next.components[0] as ReferenceComponent).images).toEqual([
+      { id: "i2", file: "references/shared.png", aspectRatio: 1 },
+    ]);
+  });
+
+  it("keeps files referenced by another component when removing a component", async () => {
+    const sharedPlan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "r1",
+          type: "reference",
+          width: 1,
+          title: "A",
+          description: "",
+          showCaptions: false,
+          imageHeight: 180,
+          images: [
+            { id: "i1", file: "references/shared.png", aspectRatio: 1 },
+          ],
+        },
+        {
+          id: "r2",
+          type: "reference",
+          width: 1,
+          title: "B",
+          description: "",
+          showCaptions: false,
+          imageHeight: 180,
+          images: [
+            { id: "i2", file: "references/shared.png", aspectRatio: 1 },
+          ],
+        },
+      ],
+    };
+    const { repository, imageStore, removed } = fakes(sharedPlan);
+    const service = createCanvasPlanService({
+      repository,
+      imageStore,
+      createId: () => "x",
+      logger: silentLogger(),
+    });
+
+    const next = await service.removeComponent("C:/p", sharedPlan, "r1");
+
+    expect(next.components.map((component) => component.id)).toEqual(["r2"]);
+    expect(removed).toEqual([]);
+  });
+
+  it("deduplicates physical deletes when a removed component repeats a file", async () => {
+    const repeatedPlan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "r",
+          type: "reference",
+          width: 1,
+          title: "A",
+          description: "",
+          showCaptions: false,
+          imageHeight: 180,
+          images: [
+            { id: "i1", file: "references/shared.png", aspectRatio: 1 },
+            { id: "i2", file: "references/shared.png", aspectRatio: 1 },
+          ],
+        },
+      ],
+    };
+    const { repository, imageStore, removed } = fakes(repeatedPlan);
+    const service = createCanvasPlanService({
+      repository,
+      imageStore,
+      createId: () => "x",
+      logger: silentLogger(),
+    });
+
+    await service.removeComponent("C:/p", repeatedPlan, "r");
+
+    expect(removed).toEqual(["references/shared.png"]);
   });
 
   it("imports multiple images in batch via importImages", async () => {

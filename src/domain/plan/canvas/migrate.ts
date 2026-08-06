@@ -260,6 +260,46 @@ function migrateComponents(
   });
 }
 
+function validateLogicalIds(components: PlanComponent[]): void {
+  const componentPositions = new Map<string, number>();
+  for (const [componentIndex, component] of components.entries()) {
+    const previousIndex = componentPositions.get(component.id);
+    if (previousIndex !== undefined) {
+      throw new Error(
+        `Stored plan duplicate component id "${component.id}" at component ${componentIndex}; first used at component ${previousIndex}`,
+      );
+    }
+    componentPositions.set(component.id, componentIndex);
+  }
+
+  const imagePositions = new Map<string, { componentIndex: number; imageIndex: number }>();
+  for (const [componentIndex, component] of components.entries()) {
+    if (component.type !== "reference") {
+      continue;
+    }
+    for (const [imageIndex, image] of component.images.entries()) {
+      const componentPosition = componentPositions.get(image.id);
+      if (componentPosition !== undefined) {
+        throw new Error(
+          `Stored plan duplicate logical id "${image.id}" at component ${componentIndex} image ${imageIndex}; first used at component ${componentPosition}`,
+        );
+      }
+      const previous = imagePositions.get(image.id);
+      if (previous) {
+        throw new Error(
+          `Stored plan duplicate image id "${image.id}" at component ${componentIndex} image ${imageIndex}; first used at component ${previous.componentIndex} image ${previous.imageIndex}`,
+        );
+      }
+      imagePositions.set(image.id, { componentIndex, imageIndex });
+    }
+  }
+}
+
+function migratedPlan(components: PlanComponent[]): ProjectPlan {
+  validateLogicalIds(components);
+  return { schemaVersion: 4, components };
+}
+
 export function migratePlan(raw: unknown, makeId: IdFactory = defaultIdFactory()): ProjectPlan {
   if (!isRecord(raw)) {
     throw new Error("Stored plan must be an object");
@@ -271,28 +311,25 @@ export function migratePlan(raw: unknown, makeId: IdFactory = defaultIdFactory()
     if (!Array.isArray(raw.components)) {
       throw new Error("Stored plan schema version 4 components must be an array");
     }
-    return {
-      schemaVersion: 4,
-      components: migrateComponents(raw.components, makeId, normalizeV4Component),
-    };
+    return migratedPlan(
+      migrateComponents(raw.components, makeId, normalizeV4Component),
+    );
   }
   if (raw.schemaVersion === 3) {
     if (!Array.isArray(raw.components)) {
       throw new Error("Stored plan schema version 3 components must be an array");
     }
-    return {
-      schemaVersion: 4,
-      components: migrateComponents(raw.components, makeId, migrateV3Component),
-    };
+    return migratedPlan(
+      migrateComponents(raw.components, makeId, migrateV3Component),
+    );
   }
   if (raw.schemaVersion === 2) {
     if (!Array.isArray(raw.components)) {
       throw new Error("Stored plan schema version 2 components must be an array");
     }
-    return {
-      schemaVersion: 4,
-      components: migrateComponents(raw.components, makeId, migrateV2Component),
-    };
+    return migratedPlan(
+      migrateComponents(raw.components, makeId, migrateV2Component),
+    );
   }
   if (typeof raw.photographyPlan === "string" || Array.isArray(raw.referenceGroups)) {
     return migratePlan(migrateV1ToV2(raw, makeId), makeId);

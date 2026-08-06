@@ -260,6 +260,132 @@ describe("migratePlan", () => {
     });
   });
 
+  describe.each([3, 4] as const)("schema v%s global identity validation", (schemaVersion) => {
+    it("rejects duplicate component ids with both component positions", () => {
+      expect(() =>
+        migratePlan({
+          schemaVersion,
+          components: [
+            { id: "duplicate", type: "plan", width: 1, html: "<p>A</p>" },
+            { id: "duplicate", type: "plan", width: 1, html: "<p>B</p>" },
+          ],
+        }),
+      ).toThrow(/duplicate component id "duplicate".*component 1.*component 0/i);
+    });
+
+    it("rejects duplicate image ids across reference components with both image positions", () => {
+      expect(() =>
+        migratePlan({
+          schemaVersion,
+          components: [
+            {
+              id: "r1",
+              type: "reference",
+              width: 1,
+              title: "A",
+              description: "",
+              imageHeight: 180,
+              showCaptions: false,
+              images: [
+                { id: "duplicate-image", file: "references/a.png", aspectRatio: 1 },
+              ],
+            },
+            {
+              id: "r2",
+              type: "reference",
+              width: 1,
+              title: "B",
+              description: "",
+              imageHeight: 180,
+              showCaptions: false,
+              images: [
+                { id: "duplicate-image", file: "references/b.png", aspectRatio: 1 },
+              ],
+            },
+          ],
+        }),
+      ).toThrow(
+        /duplicate image id "duplicate-image".*component 1 image 0.*component 0 image 0/i,
+      );
+    });
+
+    it("rejects an image id that collides with a component id", () => {
+      expect(() =>
+        migratePlan({
+          schemaVersion,
+          components: [
+            {
+              id: "shared-id",
+              type: "reference",
+              width: 1,
+              title: "A",
+              description: "",
+              imageHeight: 180,
+              showCaptions: false,
+              images: [
+                { id: "image-a", file: "references/a.png", aspectRatio: 1 },
+              ],
+            },
+            {
+              id: "r2",
+              type: "reference",
+              width: 1,
+              title: "B",
+              description: "",
+              imageHeight: 180,
+              showCaptions: false,
+              images: [
+                { id: "shared-id", file: "references/b.png", aspectRatio: 1 },
+              ],
+            },
+          ],
+        }),
+      ).toThrow(
+        /duplicate logical id "shared-id".*component 1 image 0.*component 0/i,
+      );
+    });
+
+    it("allows different image ids to share the same file", () => {
+      const migrated = migratePlan({
+        schemaVersion,
+        components: [
+          {
+            id: "r1",
+            type: "reference",
+            width: 1,
+            title: "A",
+            description: "",
+            imageHeight: 180,
+            showCaptions: false,
+            images: [
+              { id: "i1", file: "references/shared.png", aspectRatio: 1 },
+            ],
+          },
+          {
+            id: "r2",
+            type: "reference",
+            width: 1,
+            title: "B",
+            description: "",
+            imageHeight: 180,
+            showCaptions: false,
+            images: [
+              { id: "i2", file: "references/shared.png", aspectRatio: 1 },
+            ],
+          },
+        ],
+      });
+
+      expect(
+        migrated.components.flatMap((component) =>
+          component.type === "reference"
+            ? component.images.map((image) => image.file)
+            : [],
+        ),
+      ).toEqual(["references/shared.png", "references/shared.png"]);
+    });
+  });
+
   describe("invalid input", () => {
     it("rejects malformed non-null stored plans", () => {
       expect(() => migratePlan(null)).toThrow(/stored plan/i);

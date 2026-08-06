@@ -60,6 +60,14 @@ function contextualError(context: string, error: unknown): Error {
   return new Error(`${context}: ${message(error)}`, { cause: error });
 }
 
+function referencesImageFile(plan: ProjectPlan, file: string): boolean {
+  return plan.components.some(
+    (component) =>
+      component.type === "reference" &&
+      component.images.some((image) => image.file === file),
+  );
+}
+
 export function createCanvasPlanService({
   repository,
   imageStore,
@@ -154,7 +162,7 @@ export function createCanvasPlanService({
         const target = component?.images.find((image) => image.id === imageId);
         const next = removeReferenceImage(plan, { componentId, imageId });
         await persist(projectPath, next);
-        if (target) {
+        if (target && !referencesImageFile(next, target.file)) {
           try {
             await imageStore.removeImage(projectPath, target.file);
           } catch (error) {
@@ -176,12 +184,16 @@ export function createCanvasPlanService({
         const next = removeComponent(plan, componentId);
         await persist(projectPath, next);
         if (component) {
-          for (const image of component.images) {
+          const removedFiles = new Set(component.images.map((image) => image.file));
+          for (const file of removedFiles) {
+            if (referencesImageFile(next, file)) {
+              continue;
+            }
             try {
-              await imageStore.removeImage(projectPath, image.file);
+              await imageStore.removeImage(projectPath, file);
             } catch (error) {
               logger.warn("Unable to delete a reference image file", {
-                file: image.file,
+                file,
                 reason: message(error),
               });
             }
