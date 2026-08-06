@@ -557,6 +557,7 @@
           "lint": "clean (ThemeProvider.tsx react-refresh/only-export-components warning unchanged)",
           "rustTests": "44 passed",
           "build": "pnpm build and pnpm tauri:build succeeded",
+          "testInit": "known unrelated failure: unchanged output-format assertion failed even though the captured error contained the expected actionable pnpm exit-code message",
           "featurelistJson": "valid",
           "verificationNote": "The final retirement race regression failed before the provider fix and passed after it; the complete requested unit, e2e, Rust, web-build, and desktop-bundle matrix passed."
         },
