@@ -341,7 +341,8 @@ export function ProjectCanvasProvider({
   );
 
   const undo = useCallback(() => {
-    if (!readyTokenFor(projectPath)) return;
+    const token = readyTokenFor(projectPath);
+    if (!token || sameToken(busyRef.current, token)) return;
     const outcome = undoHistory(historyRef.current, planRef.current);
     if (!outcome) return;
     historyRef.current = outcome.history;
@@ -349,7 +350,8 @@ export function ProjectCanvasProvider({
   }, [applyPlan, projectPath, readyTokenFor]);
 
   const redo = useCallback(() => {
-    if (!readyTokenFor(projectPath)) return;
+    const token = readyTokenFor(projectPath);
+    if (!token || sameToken(busyRef.current, token)) return;
     const outcome = redoHistory(historyRef.current, planRef.current);
     if (!outcome) return;
     historyRef.current = outcome.history;

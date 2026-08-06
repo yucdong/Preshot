@@ -2171,6 +2171,135 @@ describe("ProjectCanvasProvider undo/redo", () => {
     editable.remove();
   });
 
+  it("ignores Ctrl+Z while a component removal is pending and resumes history after it settles", async () => {
+    const { dependencies, service } = deps();
+    const removed = deferred<ProjectPlan>();
+    vi.mocked(service.removeComponent).mockReturnValue(removed.promise);
+    const user = userEvent.setup();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    await user.click(screen.getByRole("button", { name: "Move" }));
+    expect(screen.getByTestId("component-order")).toHaveTextContent("ref-1,plan-1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove reference" }));
+    await waitFor(() => expect(service.removeComponent).toHaveBeenCalledTimes(1));
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(screen.getByTestId("component-order")).toHaveTextContent("ref-1,plan-1");
+
+    await act(async () => {
+      removed.resolve({
+        ...EMPTY_PLAN,
+        schemaVersion: 5,
+        title: "Demo",
+        components: [
+          {
+            id: "plan-1",
+            rowId: "row:moved-plan",
+            name: "文案1",
+            type: "plan",
+            width: 1,
+            html: "<h2>Demo</h2>",
+          },
+        ],
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("component-order")).toHaveTextContent("plan-1"),
+    );
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(screen.getByTestId("component-order")).toHaveTextContent("ref-1,plan-1");
+  });
+
+  it("ignores Ctrl+Y while an image import is pending and resumes history after it settles", async () => {
+    const { dependencies, service } = deps();
+    const imported = deferred<Awaited<ReturnType<CanvasPlanService["importImage"]>>>();
+    vi.mocked(service.importImage).mockReturnValue(imported.promise);
+    const user = userEvent.setup();
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    await user.click(screen.getByRole("button", { name: "Move" }));
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(screen.getByTestId("component-order")).toHaveTextContent("plan-1,ref-1");
+
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+    act(() => {
+      canvas.onAddImage("ref-1");
+    });
+    await waitFor(() => expect(service.importImage).toHaveBeenCalledTimes(1));
+    const operationPlan = vi.mocked(service.importImage).mock.calls[0]?.[1];
+    if (!operationPlan) {
+      throw new Error("Expected an import operation plan.");
+    }
+
+    fireEvent.keyDown(window, { key: "y", ctrlKey: true });
+    expect(screen.getByTestId("component-order")).toHaveTextContent("plan-1,ref-1");
+
+    await act(async () => {
+      imported.resolve({
+        plan: {
+          ...operationPlan,
+          components: operationPlan.components.map((component) =>
+            component.id === "ref-1" && component.type === "reference"
+              ? {
+                  ...component,
+                  images: [
+                    ...component.images,
+                    { id: "i2", file: "references/0002.png", aspectRatio: 1 },
+                  ],
+                }
+              : component,
+          ),
+        },
+        image: { id: "i2", file: "references/0002.png", aspectRatio: 1 },
+        dataUrl: "data:image/png;base64,BB",
+      });
+    });
+
+    await waitFor(() => {
+      const reference = latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-1" && component.type === "reference",
+      );
+      expect(reference?.images).toHaveLength(2);
+    });
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(
+      latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-1" && component.type === "reference",
+      )?.images,
+    ).toHaveLength(1);
+    fireEvent.keyDown(window, { key: "y", ctrlKey: true });
+    expect(
+      latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-1" && component.type === "reference",
+      )?.images,
+    ).toHaveLength(2);
+  });
+
   it("keeps history controls hidden while keyboard history remains global", async () => {
     const { dependencies } = deps();
 
