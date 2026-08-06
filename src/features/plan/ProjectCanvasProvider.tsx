@@ -221,6 +221,7 @@ export function ProjectCanvasProvider({
   const savingRef = useRef<ProjectToken | null>(null);
   const lastSavedRef = useRef(JSON.stringify(EMPTY_PLAN));
   const projectPersistenceRef = useRef<ProjectPersistenceState | null>(null);
+  const retirementBarrierRef = useRef<Promise<void>>(Promise.resolve());
   const historyRef = useRef<PlanHistory>(createHistory());
   const lifecycleStatus =
     lifecycle.projectPath === projectPath ? lifecycle.status : "loading";
@@ -531,7 +532,6 @@ export function ProjectCanvasProvider({
       retiringPersistence !== null &&
       sameToken(retiringPersistence.token, retiringToken) &&
       JSON.stringify(retiringPersistence.plan) !== retiringLastSavedSnapshot;
-    let retiringSave: Promise<void> | null = null;
     if (shouldFlush) {
       const saveLatest = async () => {
         const latestPlan = retiringPersistence.plan;
@@ -540,19 +540,26 @@ export function ProjectCanvasProvider({
         }
         await service.savePlan(retiringToken.projectPath, latestPlan);
       };
-      retiringSave = retiringPersistence.pending
-        ? retiringPersistence.pending.then(saveLatest)
-        : saveLatest();
+      const previousRetirement = retirementBarrierRef.current;
+      const retirement = (async () => {
+        await previousRetirement;
+        await retiringPersistence.pending;
+        await saveLatest();
+      })();
+      retirementBarrierRef.current = retirement;
+      const resetRetirementBarrier = () => {
+        if (retirementBarrierRef.current === retirement) {
+          retirementBarrierRef.current = Promise.resolve();
+        }
+      };
+      void retirement.then(resetRetirementBarrier, resetRetirementBarrier);
+      void retirement.catch((err) => {
+        report("Unable to auto-save the project plan", err, retiringToken);
+      });
     }
 
     generationRef.current = retiringToken.generation + 1;
     activeProjectPathRef.current = projectPath;
-
-    if (retiringSave) {
-      void retiringSave.catch((err) => {
-        report("Unable to auto-save the project plan", err, retiringToken);
-      });
-    }
   }, [projectPath, report, service]);
 
   useEffect(() => {
@@ -567,6 +574,7 @@ export function ProjectCanvasProvider({
       projectPath,
       generation: generationRef.current + 1,
     };
+    const retirementBarrier = retirementBarrierRef.current;
     generationRef.current = token.generation;
     let cancelled = false;
     const isCurrent = () => !cancelled && isTokenCurrent(token);
@@ -597,6 +605,7 @@ export function ProjectCanvasProvider({
 
     async function load() {
       try {
+        await retirementBarrier;
         const loadResult = await service.loadPlan(projectPath, projectName);
         if (!isCurrent()) return;
 

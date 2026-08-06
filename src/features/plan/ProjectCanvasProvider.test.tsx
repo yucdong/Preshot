@@ -710,19 +710,20 @@ describe("ProjectCanvasProvider", () => {
       </ThemeProvider>,
     );
 
-    expect(savePlan).toHaveBeenCalledTimes(1);
-    expect(savePlan).toHaveBeenCalledWith(
-      String.raw`C:\old`,
-      expect.objectContaining({
-        components: [
-          expect.objectContaining({
-            id: "plan-1",
-            html: "<p>edited</p>",
-          }),
-        ],
-      }),
-    );
-    expect(loadPlan).toHaveBeenCalledWith(String.raw`C:\new`, "New");
+    await waitFor(() => {
+      expect(savePlan).toHaveBeenCalledWith(
+        String.raw`C:\old`,
+        expect.objectContaining({
+          components: [
+            expect.objectContaining({
+              id: "plan-1",
+              html: "<p>edited</p>",
+            }),
+          ],
+        }),
+      );
+      expect(loadPlan).toHaveBeenCalledWith(String.raw`C:\new`, "New");
+    });
 
     await act(async () => {
       newLoad.resolve({ status: "loaded", plan: newPlan });
@@ -730,7 +731,83 @@ describe("ProjectCanvasProvider", () => {
     expect(await screen.findByTestId("plan-new-plan")).toHaveTextContent("new project");
   });
 
-  it("waits for an in-flight old-project removal before flushing its latest snapshot", async () => {
+  it("blocks an immediate successor when its retiring save fails before loading", async () => {
+    const { dependencies, loadPlan, savePlan } = deps();
+    const oldPlan: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Old",
+      components: [
+        {
+          id: "plan-1",
+          rowId: "row-plan-1",
+          name: "Plan",
+          type: "plan",
+          width: 1,
+          html: "<p>old project</p>",
+        },
+      ],
+    };
+    const recoveredPlan: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Recovered",
+      components: [
+        {
+          id: "recovered-plan",
+          rowId: "row-recovered-plan",
+          name: "Plan",
+          type: "plan",
+          width: 1,
+          html: "<p>recovered project</p>",
+        },
+      ],
+    };
+    loadPlan.mockImplementation((path) =>
+      Promise.resolve({
+        status: "loaded",
+        plan: path === String.raw`C:\old` ? oldPlan : recoveredPlan,
+      }),
+    );
+    savePlan.mockRejectedValueOnce(new Error("immediate retirement save failed"));
+
+    const { rerender } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Old"
+        projectPath={String.raw`C:\old`}
+      />,
+    );
+
+    await screen.findByTestId("plan-plan-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="New"
+          projectPath={String.raw`C:\new`}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(await screen.findByText("immediate retirement save failed")).toBeInTheDocument();
+    expect(loadPlan).not.toHaveBeenCalledWith(String.raw`C:\new`, "New");
+
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Recovered"
+          projectPath={String.raw`C:\recovered`}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(await screen.findByTestId("plan-recovered-plan")).toHaveTextContent(
+      "recovered project",
+    );
+  });
+
+  it("surfaces a failed retiring save instead of loading a successor from stale disk state", async () => {
     const { dependencies, loadPlan, savePlan, service } = deps();
     const removalPersisted = deferred<void>();
     const deletedFiles: string[] = [];
@@ -823,13 +900,13 @@ describe("ProjectCanvasProvider", () => {
       </ThemeProvider>,
     );
 
-    expect(await screen.findByTestId("plan-new-plan")).toHaveTextContent("new project");
     expect(savePlan).not.toHaveBeenCalled();
 
     await act(async () => {
       removalPersisted.resolve();
     });
 
+    expect(await screen.findByText("old retirement save failed")).toBeInTheDocument();
     await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
     expect(savePlan.mock.calls[0][0]).toBe(String.raw`C:\old`);
     const retiredPlan = savePlan.mock.calls[0][1] as ProjectPlan;
@@ -840,9 +917,21 @@ describe("ProjectCanvasProvider", () => {
       }),
     ]);
     expect(deletedFiles).toEqual(["references/old.png"]);
-    expect(screen.getByTestId("plan-new-plan")).toHaveTextContent("new project");
-    expect(screen.getByTestId("component-count")).toHaveTextContent("1");
-    expect(screen.queryByText("old retirement save failed")).not.toBeInTheDocument();
+    expect(loadPlan).not.toHaveBeenCalledWith(String.raw`C:\new`, "New");
+    expect(screen.queryByTestId("plan-new-plan")).not.toBeInTheDocument();
+
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Recovered"
+          projectPath={String.raw`C:\recovered`}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(await screen.findByTestId("plan-new-plan")).toHaveTextContent("new project");
+    expect(loadPlan).toHaveBeenCalledWith(String.raw`C:\recovered`, "Recovered");
   });
 
   it("does not flush the old project on a path switch when its snapshot is clean", async () => {

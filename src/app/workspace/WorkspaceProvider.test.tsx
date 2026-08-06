@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type {
@@ -12,10 +12,16 @@ import type {
 } from "../../domain/workspace/ports";
 import type { CanvasPlanDependencies } from "../../features/plan/ProjectCanvasProvider";
 import type { ProjectPlan } from "../../domain/plan/canvas/models";
+import type {
+  CanvasPlanLoadResult,
+  CanvasPlanService,
+} from "../../domain/plan/canvas/service";
 import type { WorkspaceDependencies } from "./dependencies";
 import { WorkspaceProvider } from "./WorkspaceProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import type { SettingsRepository } from "../../domain/settings/ports";
+
+const renderedPlanTitles = vi.hoisted(() => [] as string[]);
 
 // Minimal fake repository for tests
 const fakeRepository: SettingsRepository = {
@@ -30,6 +36,7 @@ vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
     onCommitTitle,
     onRenameComponent,
     onMoveComponent,
+    onRemoveComponent,
     onResize,
     onSetImageCrop,
   }: {
@@ -38,6 +45,7 @@ vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
     onCommitTitle(title: string): unknown;
     onRenameComponent(id: string, name: string): unknown;
     onMoveComponent?(id: string, target: { kind: "new-row"; rowId: string; toRowIndex: number }): void;
+    onRemoveComponent?(id: string): void;
     onResize?(id: string, params: { width: number }): void;
     onSetImageCrop?(componentId: string, imageId: string, crop: {
       x: number;
@@ -45,36 +53,40 @@ vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
       width: number;
       height: number;
     }): void;
-  }) => (
-    <div data-testid="plan-canvas" data-title={title}>
-      Canvas Mock
-      <button onClick={() => onAddImage("r1")} type="button">Test import image</button>
-      <button onClick={() => onCommitTitle("Retired title")} type="button">Test title</button>
-      <button onClick={() => onRenameComponent("p1", "Shot list")} type="button">Test name</button>
-      <button
-        onClick={() => onMoveComponent?.("p1", {
-          kind: "new-row",
-          rowId: "row-moved",
-          toRowIndex: 1,
-        })}
-        type="button"
-      >
-        Test row
-      </button>
-      <button onClick={() => onResize?.("r1", { width: 0.5 })} type="button">Test width</button>
-      <button
-        onClick={() => onSetImageCrop?.("r1", "existing-image", {
-          x: 0.1,
-          y: 0.2,
-          width: 0.7,
-          height: 0.6,
-        })}
-        type="button"
-      >
-        Test crop
-      </button>
-    </div>
-  ),
+  }) => {
+    renderedPlanTitles.push(title);
+    return (
+      <div data-testid="plan-canvas" data-title={title}>
+        Canvas Mock
+        <button onClick={() => onAddImage("r1")} type="button">Test import image</button>
+        <button onClick={() => onCommitTitle("Retired title")} type="button">Test title</button>
+        <button onClick={() => onRenameComponent("p1", "Shot list")} type="button">Test name</button>
+        <button
+          onClick={() => onMoveComponent?.("p1", {
+            kind: "new-row",
+            rowId: "row-moved",
+            toRowIndex: 1,
+          })}
+          type="button"
+        >
+          Test row
+        </button>
+        <button onClick={() => onRemoveComponent?.("r1")} type="button">Test remove reference</button>
+        <button onClick={() => onResize?.("r1", { width: 0.5 })} type="button">Test width</button>
+        <button
+          onClick={() => onSetImageCrop?.("r1", "existing-image", {
+            x: 0.1,
+            y: 0.2,
+            width: 0.7,
+            height: 0.6,
+          })}
+          type="button"
+        >
+          Test crop
+        </button>
+      </div>
+    );
+  },
 }));
 
 function deferred<T>() {
@@ -86,6 +98,95 @@ function deferred<T>() {
   });
 
   return { promise, resolve, reject };
+}
+
+function clonePlan(plan: ProjectPlan): ProjectPlan {
+  return JSON.parse(JSON.stringify(plan)) as ProjectPlan;
+}
+
+class SharedFifoCanvasService implements CanvasPlanService {
+  readonly events: string[] = [];
+  readonly loadRequests: string[] = [];
+  private queue: Promise<void> = Promise.resolve();
+
+  constructor(
+    private readonly plans: Map<string, ProjectPlan>,
+    private readonly removal: ReturnType<typeof deferred<void>>,
+  ) {}
+
+  private enqueue<T>(operation: string, task: () => Promise<T> | T): Promise<T> {
+    this.events.push(`${operation}:queued`);
+    const run = this.queue.then(async () => {
+      this.events.push(`${operation}:started`);
+      return task();
+    });
+    this.queue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  loadPlan(projectPath: string, _projectName: string): Promise<CanvasPlanLoadResult> {
+    this.loadRequests.push(projectPath);
+    return this.enqueue(`load:${projectPath}`, () => {
+      const plan = this.plans.get(projectPath);
+      if (!plan) {
+        throw new Error(`Missing test plan for ${projectPath}`);
+      }
+      return { status: "loaded", plan: clonePlan(plan) };
+    });
+  }
+
+  savePlan(projectPath: string, plan: ProjectPlan): Promise<void> {
+    return this.enqueue(`save:${projectPath}`, () => {
+      this.plans.set(projectPath, clonePlan(plan));
+    });
+  }
+
+  loadImage(): Promise<string> {
+    return Promise.resolve("");
+  }
+
+  importImage(): never {
+    throw new Error("Not used by this shared FIFO regression.");
+  }
+
+  importImages(): never {
+    throw new Error("Not used by this shared FIFO regression.");
+  }
+
+  removeImage(): never {
+    throw new Error("Not used by this shared FIFO regression.");
+  }
+
+  removeComponent(
+    projectPath: string,
+    plan: ProjectPlan,
+    componentId: string,
+  ): Promise<ProjectPlan> {
+    return this.enqueue(`remove:${projectPath}`, async () => {
+      await this.removal.promise;
+      const persisted = {
+        ...plan,
+        components: plan.components.filter((component) => component.id !== componentId),
+      };
+      this.plans.set(projectPath, clonePlan(persisted));
+      return persisted;
+    });
+  }
+
+  async waitForIdle(): Promise<void> {
+    await this.queue;
+  }
+
+  planAt(projectPath: string): ProjectPlan {
+    const plan = this.plans.get(projectPath);
+    if (!plan) {
+      throw new Error(`Missing test plan for ${projectPath}`);
+    }
+    return clonePlan(plan);
+  }
 }
 
 function planDeps(): CanvasPlanDependencies {
@@ -407,6 +508,125 @@ describe("WorkspaceProvider", () => {
       expect.anything(),
     );
     expect(screen.getByTestId("plan-canvas")).toHaveAttribute("data-title", "Next title");
+  });
+
+  it("serializes rapid A-to-B-to-A loads behind a retiring destructive save on a shared FIFO", async () => {
+    const user = userEvent.setup();
+    const projectA = makeProject({
+      projectId: "a",
+      name: "Project A",
+      path: "C:\\shoots\\A",
+      updatedAt: "2026-07-09T00:00:00.000Z",
+    });
+    const projectB = makeProject({
+      projectId: "b",
+      name: "Project B",
+      path: "C:\\shoots\\B",
+      updatedAt: "2026-07-08T00:00:00.000Z",
+    });
+    const planA: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Original A metadata",
+      components: [
+        {
+          id: "p1",
+          rowId: "row-p1",
+          name: "Plan",
+          type: "plan",
+          width: 1,
+          html: "",
+        },
+        {
+          id: "r1",
+          rowId: "row-r1",
+          name: "Reference",
+          type: "reference",
+          width: 1,
+          description: "",
+          showCaptions: false,
+          imageHeight: 135,
+          images: [],
+        },
+      ],
+    };
+    const planB: ProjectPlan = {
+      schemaVersion: 5,
+      title: "B metadata must never leak",
+      components: [],
+    };
+    const removal = deferred<void>();
+    const canvasService = new SharedFifoCanvasService(
+      new Map([
+        [projectA.path, planA],
+        [projectB.path, planB],
+      ]),
+      removal,
+    );
+    const canvasDependencies = {
+      ...planDeps(),
+      service: canvasService,
+    };
+    const { dependencies, service } = createDependencies();
+    vi.mocked(service.loadProjects).mockResolvedValue([projectB, projectA]);
+    vi.mocked(service.openProject).mockImplementation(async (path) => {
+      if (path === projectA.path) {
+        return projectA;
+      }
+      if (path === projectB.path) {
+        return projectB;
+      }
+      throw new Error(`Unexpected project path ${path}`);
+    });
+    renderedPlanTitles.length = 0;
+
+    renderWithTheme(
+      <WorkspaceProvider dependencies={dependencies} planDependencies={canvasDependencies} />,
+    );
+
+    expect(await screen.findByTestId("plan-canvas")).toHaveAttribute(
+      "data-title",
+      "Original A metadata",
+    );
+    await user.click(screen.getByRole("button", { name: "Test remove reference" }));
+    await waitFor(() =>
+      expect(canvasService.events).toContain(`remove:${projectA.path}:started`),
+    );
+    await user.click(screen.getByRole("button", { name: "Test title" }));
+
+    await user.click(screen.getByRole("button", { name: "打开项目 Project B" }));
+    await waitFor(() => expect(service.openProject).toHaveBeenCalledWith(projectB.path));
+    await user.click(screen.getByRole("button", { name: "打开项目 Project A" }));
+    await waitFor(() => expect(service.openProject).toHaveBeenCalledWith(projectA.path));
+
+    expect(canvasService.loadRequests).toEqual([projectA.path]);
+
+    await act(async () => {
+      removal.resolve();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("plan-canvas")).toHaveAttribute(
+        "data-title",
+        "Retired title",
+      ),
+    );
+    expect(renderedPlanTitles).not.toContain("B metadata must never leak");
+    expect(canvasService.planAt(projectA.path)).toMatchObject({
+      title: "Retired title",
+      components: [expect.objectContaining({ id: "p1" })],
+    });
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await act(async () => {
+      await canvasService.waitForIdle();
+    });
+    expect(canvasService.planAt(projectA.path)).toMatchObject({
+      title: "Retired title",
+      components: [expect.objectContaining({ id: "p1" })],
+    });
+    expect(canvasService.events.findIndex((event) => event === `save:${projectA.path}:started`)).toBeLessThan(
+      canvasService.events.findIndex((event) => event === `load:${projectB.path}:started`),
+    );
   });
 
   it("shows a recoverable load error while keeping the open action enabled", async () => {

@@ -166,6 +166,12 @@ function componentFrameTop(fragmentId: string): number {
   return Number.parseFloat(frame!.style.top);
 }
 
+function componentFrameHeight(fragmentId: string): number {
+  const frame = document.querySelector(`[data-fragment-id="${fragmentId}"]`) as HTMLElement | null;
+  expect(frame).not.toBeNull();
+  return Number.parseFloat(frame!.style.height);
+}
+
 function makeRect(top: number, left = 0, width = 120, height = 120) {
   return { top, left, width, height };
 }
@@ -301,6 +307,35 @@ describe("PlanCanvas", () => {
     expect(screen.getByTestId("row-drop-zone:0")).toBeInTheDocument();
     expect(screen.getByTestId("row-drop-zone:1")).toBeInTheDocument();
   });
+
+  it.each([0.5, 1.75])(
+    "fills usable row gaps with scaled geometry at scale %s",
+    (scale) => {
+      renderCanvas({ scale });
+
+      const beforeFirst = screen.getByTestId("row-drop-zone:0");
+      const betweenRows = screen.getByTestId("row-drop-zone:1");
+      const afterLast = screen.getByTestId("row-drop-zone:2");
+      const planBottom = componentFrameTop("plan1::0") + componentFrameHeight("plan1::0");
+      const referenceTop = componentFrameTop("ref1::0");
+      const referenceBottom = referenceTop + componentFrameHeight("ref1::0");
+
+      expect(beforeFirst).toHaveStyle({
+        top: `${(SPACING + 36) * scale}px`,
+        height: `${SPACING * scale}px`,
+      });
+      expect(betweenRows).toHaveStyle({
+        top: `${planBottom}px`,
+        height: `${referenceTop - planBottom}px`,
+      });
+      expect(afterLast).toHaveStyle({
+        top: `${referenceBottom}px`,
+        height: `${SPACING * scale}px`,
+      });
+      expect(Number.parseFloat(betweenRows.style.height)).toBeGreaterThan(0);
+      expect(Number.parseFloat(betweenRows.style.top)).toBeLessThan(referenceTop);
+    },
+  );
 
   it.each([0.5, 1.75])(
     "keeps measured plan content inside frame chrome at scale %s",

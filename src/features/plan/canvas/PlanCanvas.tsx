@@ -55,6 +55,7 @@ import { buildDisplayPlacements, pageCountForDisplayedPlacements } from "./dragP
 import { imageDropTarget, imageInsertAfterFromRects } from "./imageDropTarget";
 import type { PlanMeasurement } from "./usePlanContentMeasurement";
 import { RowDropZone } from "./RowDropZone";
+import { rowDropZoneGeometry } from "./rowDropZoneGeometry";
 
 export interface PlanCanvasProps {
   components: PlanComponent[];
@@ -314,45 +315,11 @@ export function PlanCanvas({
     imageOriginPlacement: imageOrigin?.placement ?? null,
   });
   const componentRows = logicalRows(components);
-  const rowDropZones = componentRows
-    .flatMap((row, toRowIndex) => {
-      const placement = baseLayout.placements.find((entry) =>
-        row.componentIds.includes(entry.componentId),
-      );
-      return placement
-        ? [{
-            toRowIndex,
-            topPx:
-              pageTopPx(placement.pageIndex, scale) +
-              (SPACING + placement.rect.y) * scale,
-          }]
-        : [];
-    });
-  const lastRow = componentRows.at(-1);
-  const lastRowPlacement = lastRow
-    ? baseLayout.placements
-        .filter((entry) => lastRow.componentIds.includes(entry.componentId))
-        .reduce<ComponentFragmentPlacement | null>(
-          (latest, placement) =>
-            latest === null ||
-            placement.pageIndex > latest.pageIndex ||
-            (placement.pageIndex === latest.pageIndex &&
-              placement.rect.y + placement.rect.height >
-                latest.rect.y + latest.rect.height)
-              ? placement
-              : latest,
-          null,
-        )
-    : null;
-  if (lastRowPlacement) {
-    rowDropZones.push({
-      toRowIndex: componentRows.length,
-      topPx:
-        pageTopPx(lastRowPlacement.pageIndex, scale) +
-        (SPACING + lastRowPlacement.rect.y + lastRowPlacement.rect.height + DEFAULT_PAGE_GEOMETRY.rowGap) *
-          scale,
-    });
-  }
+  const rowDropZones = rowDropZoneGeometry(
+    componentRows,
+    baseLayout.placements,
+    scale,
+  );
 
   const paramsFor = (event: DragOverEvent | DragEndEvent): ComponentDragParams | null => {
     const activeId = logicalComponentIdFromDnd(
@@ -569,8 +536,9 @@ export function PlanCanvas({
           >
             <CanvasTitle onCommit={onCommitTitle} scale={scale} title={title} />
           </div>
-          {rowDropZones.map(({ toRowIndex, topPx }) => (
+          {rowDropZones.map(({ toRowIndex, topPx, heightPx }) => (
             <RowDropZone
+              heightPx={heightPx}
               key={`row-gap:${toRowIndex}`}
               toRowIndex={toRowIndex}
               topPx={topPx}
