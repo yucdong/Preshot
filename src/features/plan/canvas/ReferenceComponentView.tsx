@@ -27,9 +27,9 @@ function assignRef<T>(targetRef: Ref<T> | undefined, value: T): void {
 }
 
 interface ReferenceComponentViewProps {
+  [key: string]: unknown;
   component: ReferenceComponent;
   imageSrc: (file: string) => string | undefined;
-  onSetTitle: (id: string, title: string) => void;
   onSetDescription: (id: string, description: string) => void;
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
@@ -54,7 +54,6 @@ interface ReferenceComponentViewProps {
 export function ReferenceComponentView({
   component,
   imageSrc,
-  onSetTitle,
   onSetDescription,
   onAddImage,
   onRemoveImage,
@@ -138,20 +137,6 @@ export function ReferenceComponentView({
             data-testid="reference-title-row"
             style={{ gap: `${16 * scale}px`, height: `${REFERENCE_TITLE_ROW_HEIGHT * scale}px` }}
           >
-            <input
-              aria-label={t("reference.groupTitleAria")}
-              className="min-w-0 flex-1 border-b border-stone-300 font-semibold focus:border-amber-500 focus:outline-none dark:border-stone-700 dark:bg-transparent dark:text-stone-100"
-              onChange={(e) => onSetTitle(component.id, e.target.value)}
-              style={{
-                fontSize: `${18 * scale}px`,
-                height: `${REFERENCE_TITLE_ROW_HEIGHT * scale}px`,
-                lineHeight: `${22 * scale}px`,
-                paddingLeft: `${8 * scale}px`,
-                paddingRight: `${8 * scale}px`,
-              }}
-              type="text"
-              value={component.name}
-            />
             {onSetImageHeight ? (
               <div className="flex items-center" style={{ gap: `${8 * scale}px` }}>
                 <span

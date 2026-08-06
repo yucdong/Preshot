@@ -49,7 +49,6 @@ function renderReference(overrides: Partial<Parameters<typeof ReferenceComponent
     <ReferenceComponentView
       component={mockComponent}
       imageSrc={() => undefined}
-      onSetTitle={vi.fn()}
       onSetDescription={vi.fn()}
       onAddImage={vi.fn()}
       onRemoveImage={vi.fn()}
@@ -69,6 +68,12 @@ describe("ReferenceComponentView", () => {
   it("does not render an internal scrolling region", () => {
     renderReference();
     expect(screen.getByTestId("reference-component-body")).not.toHaveClass("overflow-auto");
+  });
+
+  it("does not render a duplicate editable group title", () => {
+    renderReference();
+
+    expect(screen.queryByRole("textbox", { name: "分组标题" })).not.toBeInTheDocument();
   });
 
   it("renders a continuation title without editable controls", () => {

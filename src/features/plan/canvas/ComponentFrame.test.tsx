@@ -1,5 +1,6 @@
 import { DndContext } from "@dnd-kit/core";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   componentFrameChromeHeight,
@@ -7,6 +8,7 @@ import {
   type Rect,
 } from "../../../domain/plan/canvas/geometry";
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
+import type { RenameComponentResult } from "../../../domain/plan/canvas/naming";
 import { ComponentFrame } from "./ComponentFrame";
 
 vi.mock("@dnd-kit/sortable", async () => {
@@ -36,7 +38,15 @@ const component: PlanComponent = {
 
 const rect: Rect = { x: 0, y: 0, width: 200, height: 120 };
 
-function renderFrame(onResize = vi.fn()) {
+function renderFrame(
+  onResize = vi.fn(),
+  onRename: (id: string, name: string) => RenameComponentResult = vi.fn(
+    (): RenameComponentResult => ({
+      ok: true,
+      plan: { schemaVersion: 5, title: "", components: [] },
+    }),
+  ),
+) {
   render(
     <DndContext>
       <ComponentFrame
@@ -44,6 +54,7 @@ function renderFrame(onResize = vi.fn()) {
         contentWidthPoints={500}
         id={component.id}
         onRemove={vi.fn()}
+        onRename={onRename}
         onResize={onResize}
         rect={rect}
         scale={1}
@@ -80,6 +91,62 @@ afterEach(() => {
 });
 
 describe("ComponentFrame", () => {
+  it("renders an editable component name and commits a renamed value", async () => {
+    const onRename = vi.fn<() => RenameComponentResult>(() => ({
+      ok: true,
+      plan: { schemaVersion: 5, title: "", components: [] },
+    }));
+    const user = userEvent.setup();
+
+    renderFrame(vi.fn(), onRename);
+
+    const input = screen.getByRole("textbox", { name: "组件名称" });
+    await user.clear(input);
+    await user.type(input, "Hero copy");
+    await user.tab();
+
+    expect(onRename).toHaveBeenCalledWith("plan1", "Hero copy");
+  });
+
+  it("keeps a duplicate name draft and renders an associated alert", async () => {
+    const onRename = vi.fn<() => RenameComponentResult>(() => ({
+      ok: false,
+      reason: "duplicate",
+    }));
+    const user = userEvent.setup();
+
+    renderFrame(vi.fn(), onRename);
+
+    const input = screen.getByRole("textbox", { name: "组件名称" });
+    await user.clear(input);
+    await user.type(input, "Existing");
+    await user.tab();
+
+    expect(input).toHaveValue("Existing");
+    expect(screen.getByRole("alert")).toHaveTextContent("组件名称不能重复");
+  });
+
+  it("restores the component name on Escape", async () => {
+    const user = userEvent.setup();
+
+    renderFrame();
+
+    const input = screen.getByRole("textbox", { name: "组件名称" });
+    await user.clear(input);
+    await user.type(input, "Draft");
+    await user.keyboard("{Escape}");
+
+    expect(input).toHaveValue("文案1");
+  });
+
+  it("uses the frame border and restrained body elevation", () => {
+    renderFrame();
+
+    const frame = document.querySelector('[data-component-id="plan1"]') as HTMLElement;
+    expect(frame).toHaveClass("border-dashed", "border-stone-400/80", "dark:border-stone-500");
+    expect(frame).toHaveClass("shadow-sm", "dark:shadow-black/30");
+  });
+
   it("releases pointer capture on pointerup even when no resize preview exists", () => {
     const { onResize, widthHandle } = renderFrame();
 

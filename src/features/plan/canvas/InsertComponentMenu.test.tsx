@@ -15,8 +15,8 @@ describe("InsertComponentMenu", () => {
 
     await user.click(button);
 
-    expect(screen.getByRole("menuitem", { name: "摄影计划" })).toBeVisible();
-    expect(screen.getByRole("menuitem", { name: "参考图组" })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: "文案" })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: "图片组" })).toBeVisible();
   });
 
   it("calls onInsert with 'plan' when plan menu item is clicked", async () => {
@@ -26,7 +26,7 @@ describe("InsertComponentMenu", () => {
     render(<InsertComponentMenu onInsert={onInsert} />);
 
     await user.click(screen.getByRole("button", { name: "插入组件" }));
-    await user.click(screen.getByRole("menuitem", { name: "摄影计划" }));
+    await user.click(screen.getByRole("menuitem", { name: "文案" }));
 
     expect(onInsert).toHaveBeenCalledWith("plan");
   });
@@ -38,7 +38,7 @@ describe("InsertComponentMenu", () => {
     render(<InsertComponentMenu onInsert={onInsert} />);
 
     await user.click(screen.getByRole("button", { name: "插入组件" }));
-    await user.click(screen.getByRole("menuitem", { name: "参考图组" }));
+    await user.click(screen.getByRole("menuitem", { name: "图片组" }));
 
     expect(onInsert).toHaveBeenCalledWith("reference");
   });
@@ -50,8 +50,8 @@ describe("InsertComponentMenu", () => {
     render(<InsertComponentMenu onInsert={onInsert} />);
 
     await user.click(screen.getByRole("button", { name: "插入组件" }));
-    await user.click(screen.getByRole("menuitem", { name: "摄影计划" }));
+    await user.click(screen.getByRole("menuitem", { name: "文案" }));
 
-    expect(screen.queryByRole("menuitem", { name: "摄影计划" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "文案" })).not.toBeInTheDocument();
   });
 });
