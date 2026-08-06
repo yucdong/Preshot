@@ -115,22 +115,6 @@ function drawTextCommand(
   }
 }
 
-function drawRichTextLayout(
-  page: PDFPage,
-  layout: PdfTextLayout<PDFFont>,
-  rect: Rect,
-): void {
-  const top = rect.y + rect.height;
-  for (const command of layout.commands) {
-    drawTextCommand(
-      page,
-      command,
-      rect.x + command.x,
-      top - command.baselineFromTop,
-    );
-  }
-}
-
 function drawPaginatedRichTextLayout(
   pages: PDFPage[],
   layout: PaginatedPdfTextLayout<PDFFont>,
@@ -236,6 +220,10 @@ function preparePdfTextLayouts(
 interface ResolvedPdfLayout {
   layout: LayoutResult;
   paginatedPlanLayouts: ReadonlyMap<string, PaginatedPdfTextLayout<PDFFont>>;
+  paginatedReferenceDescriptionLayouts: ReadonlyMap<
+    string,
+    PaginatedPdfTextLayout<PDFFont>
+  >;
 }
 
 function planPlacement(
@@ -272,7 +260,10 @@ function resolvePdfLayout(
   const seenHeightSignatures = new Set<string>();
 
   for (;;) {
-    const signature = JSON.stringify(Array.from(measurements.planHeights));
+    const signature = JSON.stringify({
+      plan: Array.from(measurements.planHeights),
+      reference: Array.from(measurements.referenceDescriptionHeights),
+    });
     if (seenHeightSignatures.has(signature)) {
       throw new Error("Unable to stabilize PDF text pagination");
     }
@@ -283,18 +274,45 @@ function resolvePdfLayout(
       string,
       PaginatedPdfTextLayout<PDFFont>
     >();
+    const paginatedReferenceDescriptionLayouts = new Map<
+      string,
+      PaginatedPdfTextLayout<PDFFont>
+    >();
     const nextPlanHeights = new Map<string, number>();
+    const nextReferenceDescriptionHeights = new Map<string, number>();
 
     for (const component of components) {
-      if (component.type !== "plan") {
-        continue;
-      }
       const placement = planPlacement(layout, component.id);
-      const textLayout = textLayouts.planLayouts.get(component.id);
-      if (!placement || !textLayout) {
+      if (!placement) {
         continue;
       }
 
+      if (component.type === "reference") {
+        const descriptionLayout =
+          textLayouts.referenceDescriptionLayouts.get(component.id);
+        if (!descriptionLayout) {
+          continue;
+        }
+
+        const paginated = paginatePdfTextLayout(descriptionLayout, {
+          textStartFromDocumentTop:
+            placement.pageIndex * geometry.page.height +
+            geometry.margin +
+            placement.rect.y +
+            COMPONENT_INSET +
+            REFERENCE_HEADER_HEIGHT,
+          pageHeight: geometry.page.height,
+          pageMargin: geometry.margin,
+        });
+        paginatedReferenceDescriptionLayouts.set(component.id, paginated);
+        nextReferenceDescriptionHeights.set(component.id, paginated.height);
+        continue;
+      }
+
+      const textLayout = textLayouts.planLayouts.get(component.id);
+      if (!textLayout) {
+        continue;
+      }
       const paginated = paginatePdfTextLayout(textLayout, {
         textStartFromDocumentTop:
           placement.pageIndex * geometry.page.height +
@@ -311,14 +329,23 @@ function resolvePdfLayout(
       );
     }
 
-    if (samePlanHeights(measurements.planHeights, nextPlanHeights)) {
-      return { layout, paginatedPlanLayouts };
+    if (
+      samePlanHeights(measurements.planHeights, nextPlanHeights) &&
+      samePlanHeights(
+        measurements.referenceDescriptionHeights,
+        nextReferenceDescriptionHeights,
+      )
+    ) {
+      return {
+        layout,
+        paginatedPlanLayouts,
+        paginatedReferenceDescriptionLayouts,
+      };
     }
 
     measurements = {
       planHeights: nextPlanHeights,
-      referenceDescriptionHeights:
-        measurements.referenceDescriptionHeights,
+      referenceDescriptionHeights: nextReferenceDescriptionHeights,
     };
   }
 }
@@ -342,11 +369,11 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
         regular,
         bold,
       );
-      const { layout, paginatedPlanLayouts } = resolvePdfLayout(
-        plan.components,
-        DEFAULT_PAGE_GEOMETRY,
-        textLayouts,
-      );
+      const {
+        layout,
+        paginatedPlanLayouts,
+        paginatedReferenceDescriptionLayouts,
+      } = resolvePdfLayout(plan.components, DEFAULT_PAGE_GEOMETRY, textLayouts);
 
       const embedded = new Map<string, PDFImage>();
 
@@ -403,15 +430,14 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
 
           if (!isContinuation && ref.description.trim()) {
             const descriptionLayout =
-              textLayouts.referenceDescriptionLayouts.get(component.id);
+              paginatedReferenceDescriptionLayouts.get(component.id);
             if (descriptionLayout) {
-              const descRect = slotToPageRect(contentRect, {
-                x: 0,
-                y: REFERENCE_HEADER_HEIGHT,
-                width: contentRect.width,
-                height: descriptionLayout.height,
-              });
-              drawRichTextLayout(page, descriptionLayout, descRect);
+              drawPaginatedRichTextLayout(
+                pages,
+                descriptionLayout,
+                contentRect.x,
+                DEFAULT_PAGE_GEOMETRY.page.height,
+              );
             }
           }
 

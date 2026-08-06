@@ -206,6 +206,70 @@ describe("createCanvasPdfExporter", () => {
     );
   }, 20000);
 
+  it("paginates a multi-page reference description before its image row and following component", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const pdfLib = await import("pdf-lib");
+    const addPage = vi.spyOn(pdfLib.PDFDocument.prototype, "addPage");
+    const drawText = vi.spyOn(pdfLib.PDFPage.prototype, "drawText");
+    const drawImage = vi.spyOn(pdfLib.PDFPage.prototype, "drawImage");
+    const description = [
+      "<p>DESCRIPTION_START</p>",
+      ...Array.from(
+        { length: 70 },
+        (_, index) => `<p>Reference description line ${index + 1}.</p>`,
+      ),
+      "<p>DESCRIPTION_TAIL</p>",
+    ].join("");
+    const plan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "r1",
+          type: "reference",
+          width: 1,
+          title: "Long reference",
+          description,
+          showCaptions: false,
+          imageHeight: 135,
+          images: [
+            { id: "img1", file: "photo.png", aspectRatio: 1 },
+          ],
+        },
+        {
+          id: "p1",
+          type: "plan",
+          width: 1,
+          html: "<p>FOLLOWING_SENTINEL</p>",
+        },
+      ],
+    };
+
+    await exporter.export(plan, { "photo.png": TINY_PNG });
+
+    const pages = addPage.mock.results.map((result) => result.value);
+    const pageIndex = (context: unknown) => pages.indexOf(context);
+    const textIndex = (text: string) =>
+      drawText.mock.calls.findIndex(([value]) => value === text);
+    const startIndex = textIndex("DESCRIPTION_START");
+    const tailIndex = textIndex("DESCRIPTION_TAIL");
+    const followingIndex = textIndex("FOLLOWING_SENTINEL");
+    const imagePage = pageIndex(drawImage.mock.contexts[0]);
+    const followingPage = pageIndex(drawText.mock.contexts[followingIndex]);
+
+    expect(pageIndex(drawText.mock.contexts[tailIndex])).toBeGreaterThan(
+      pageIndex(drawText.mock.contexts[startIndex]),
+    );
+    expect(imagePage).toBeGreaterThan(
+      pageIndex(drawText.mock.contexts[tailIndex]),
+    );
+    expect(followingPage).toBeGreaterThanOrEqual(imagePage);
+    if (followingPage === imagePage) {
+      expect(drawText.mock.calls[followingIndex][1]?.y).toBeLessThan(
+        drawImage.mock.calls[0][1]?.y ?? Number.NEGATIVE_INFINITY,
+      );
+    }
+  }, 20000);
+
   it("produces multi-page PDF when components span pages", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {

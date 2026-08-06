@@ -290,6 +290,66 @@ describe("reference image slots", () => {
     expect(fragments.flatMap((fragment) => fragment.imageSlots?.map((slot) => slot.id) ?? [])).toContain("__add__");
   });
 
+  it("keeps image rows and following components after a multi-page reference description", () => {
+    const geometry = {
+      ...DEFAULT_PAGE_GEOMETRY,
+      pageGap: 16,
+    };
+    const pageSpan = geometry.page.height + geometry.pageGap;
+    const surfaceTop = (placement: {
+      pageIndex: number;
+      rect: { y: number };
+    }) => placement.pageIndex * pageSpan + geometry.margin + placement.rect.y;
+    const longReference = reference({
+      description: "<p>Long description</p>",
+      images: [
+        { id: "i1", file: "references/0001.png", aspectRatio: 1 },
+        { id: "i2", file: "references/0002.png", aspectRatio: 1 },
+      ],
+    });
+
+    const result = layoutPlan(
+      [longReference, plan("following", 1)],
+      geometry,
+      {
+        planHeights: new Map([["following", 80]]),
+        referenceDescriptionHeights: new Map([
+          ["ref", content.height * 2 + 100],
+        ]),
+      },
+      { frameChrome: { topBarHeight: 24, contentGap: 4 } },
+    );
+    const referencePlacements = result.placements.filter(
+      (placement) => placement.componentId === "ref",
+    );
+    const descriptionPlacement = referencePlacements[0];
+    const imagePlacements = referencePlacements.filter((placement) =>
+      placement.imageSlots?.some((slot) => slot.kind === "image"),
+    );
+    const followingPlacement = result.placements.find(
+      (placement) => placement.componentId === "following",
+    );
+
+    expect(descriptionPlacement.rect.height).toBeGreaterThan(content.height);
+    expect(descriptionPlacement.imageSlots).toEqual([]);
+    expect(imagePlacements.length).toBeGreaterThan(0);
+    expect(
+      imagePlacements.flatMap((placement) => placement.imageSlots ?? []).every(
+        (slot) => slot.width > 0 && slot.height > 0,
+      ),
+    ).toBe(true);
+    expect(surfaceTop(imagePlacements[0])).toBeGreaterThanOrEqual(
+      surfaceTop(descriptionPlacement) + descriptionPlacement.rect.height,
+    );
+
+    const finalReferencePlacement =
+      referencePlacements[referencePlacements.length - 1];
+    expect(followingPlacement).toBeDefined();
+    expect(surfaceTop(followingPlacement!)).toBeGreaterThanOrEqual(
+      surfaceTop(finalReferencePlacement) + finalReferencePlacement.rect.height,
+    );
+  });
+
   it("reserves configured frame chrome for every reference fragment", () => {
     const chromeHeight = 28;
     const narrowGeometry = {

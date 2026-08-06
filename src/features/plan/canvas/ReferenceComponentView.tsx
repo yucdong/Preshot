@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState, type MutableRefObject, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { clampImageHeight, DEFAULT_IMAGE_HEIGHT, type ReferenceComponent } from "../../../domain/plan/canvas/models";
 import {
@@ -13,6 +13,18 @@ import {
 import { RichTextEditor } from "../RichTextEditor";
 import { GroupImageGrid } from "../GroupImageGrid";
 import { useNaturalHeight } from "./useNaturalHeight";
+import { usePlanContentMeasurement } from "./usePlanContentMeasurement";
+
+function assignRef<T>(targetRef: Ref<T> | undefined, value: T): void {
+  if (typeof targetRef === "function") {
+    targetRef(value);
+    return;
+  }
+
+  if (targetRef) {
+    (targetRef as MutableRefObject<T>).current = value;
+  }
+}
 
 interface ReferenceComponentViewProps {
   component: ReferenceComponent;
@@ -65,17 +77,36 @@ export function ReferenceComponentView({
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
   const [showDescription, setShowDescription] = useState(false);
+  const [descriptionHeightPoints, setDescriptionHeightPoints] = useState(0);
   const isContinuation = fragmentKind === "continuation";
   const isEditableFragment = !isContinuation;
-  const descriptionRef = useNaturalHeight({
+  const naturalDescriptionRef = useNaturalHeight({
     id: component.id,
     scale,
-    onHeight: (id, heightPoints) => {
+    onHeight: (_id, heightPoints) => {
+      setDescriptionHeightPoints((current) =>
+        Math.abs(current - heightPoints) < 1 ? current : heightPoints,
+      );
+    },
+  });
+  const { rootRef: pagedDescriptionRef } = usePlanContentMeasurement({
+    componentId: component.id,
+    contentKey: component.description,
+    scale,
+    contentHeightPoints: descriptionHeightPoints,
+    onMeasure: (id, measurement) => {
       if (isEditableFragment) {
-        onMeasureDescription?.(id, heightPoints);
+        onMeasureDescription?.(id, measurement.heightPoints);
       }
     },
   });
+  const setDescriptionRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      assignRef(naturalDescriptionRef, node);
+      assignRef(pagedDescriptionRef, node);
+    },
+    [naturalDescriptionRef, pagedDescriptionRef],
+  );
 
   const currentImageHeight = component.imageHeight ?? DEFAULT_IMAGE_HEIGHT;
 
@@ -213,7 +244,7 @@ export function ReferenceComponentView({
                 html={component.description}
                 onChange={(html) => onSetDescription(component.id, html)}
                 placeholder={t("reference.descriptionPlaceholder")}
-                rootRef={descriptionRef}
+                rootRef={setDescriptionRef}
               />
             </div>
           ) : null}

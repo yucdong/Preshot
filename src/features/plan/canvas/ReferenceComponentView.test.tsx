@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
 import {
   COMPONENT_INSET,
@@ -11,8 +11,16 @@ import {
 } from "../../../domain/plan/canvas/referenceLayout";
 import { ReferenceComponentView } from "./ReferenceComponentView";
 
+const usePlanContentMeasurementMock = vi.hoisted(() =>
+  vi.fn(() => ({ rootRef: { current: null } })),
+);
+
 vi.mock("../RichTextEditor", () => ({
   RichTextEditor: ({ rootRef }: { rootRef?: React.Ref<HTMLDivElement> }) => <div data-testid="rich-text-editor" ref={rootRef} />,
+}));
+
+vi.mock("./usePlanContentMeasurement", () => ({
+  usePlanContentMeasurement: usePlanContentMeasurementMock,
 }));
 
 const groupImageGridMock = vi.fn<(props: unknown) => ReactElement>((_props) => <div data-testid="group-image-grid" />);
@@ -53,6 +61,10 @@ function renderReference(overrides: Partial<Parameters<typeof ReferenceComponent
 }
 
 describe("ReferenceComponentView", () => {
+  beforeEach(() => {
+    usePlanContentMeasurementMock.mockClear();
+  });
+
   it("does not render an internal scrolling region", () => {
     renderReference();
     expect(screen.getByTestId("reference-component-body")).not.toHaveClass("overflow-auto");
@@ -185,6 +197,46 @@ describe("ReferenceComponentView", () => {
 
     expect(screen.getByTestId("rich-text-editor")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "添加描述" })).not.toBeInTheDocument();
+  });
+
+  it("reuses paged BlockNote measurement for the editable description", () => {
+    const onMeasureDescription = vi.fn();
+    const description = "<p>Some description</p>";
+
+    renderReference({
+      component: { ...mockComponent, description },
+      onMeasureDescription,
+    });
+
+    expect(usePlanContentMeasurementMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        componentId: "ref-1",
+        contentKey: description,
+        scale: 1,
+        contentHeightPoints: expect.any(Number),
+      }),
+    );
+
+    const calls = usePlanContentMeasurementMock.mock.calls as unknown as Array<
+      [
+        {
+          onMeasure(
+            id: string,
+            measurement: {
+              heightPoints: number;
+              pageBreakBeforeBlockIds: string[];
+            },
+          ): void;
+        },
+      ]
+    >;
+    const input = calls.at(-1)?.[0];
+    input?.onMeasure("ref-1", {
+      heightPoints: 912,
+      pageBreakBeforeBlockIds: ["ref-1:block-4"],
+    });
+
+    expect(onMeasureDescription).toHaveBeenCalledWith("ref-1", 912);
   });
 
   it("does not render columns select control", () => {

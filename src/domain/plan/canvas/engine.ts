@@ -189,14 +189,15 @@ function layoutPlanComponent(
   const descriptionLayoutHeight =
     descriptionHeight > 0 ? descriptionHeight + REFERENCE_DESCRIPTION_GAP : 0;
   const innerWidth = Math.max(0, entry.width - COMPONENT_INSET * 2);
+  const descriptionFrameHeight =
+    frameChromeHeight +
+    COMPONENT_INSET * 2 +
+    REFERENCE_HEADER_HEIGHT +
+    descriptionLayoutHeight;
+  const availableHeight = Math.max(0, contentHeight - y);
   const firstAvailableRowHeight = Math.max(
     0,
-    contentHeight -
-      y -
-      frameChromeHeight -
-      COMPONENT_INSET * 2 -
-      REFERENCE_HEADER_HEIGHT -
-      descriptionLayoutHeight,
+    availableHeight - descriptionFrameHeight,
   );
   const continuationAvailableRowHeight = Math.max(
     0,
@@ -212,6 +213,79 @@ function layoutPlanComponent(
     innerWidth,
     includeAddTile: options.includeReferenceAddTile,
   });
+  const descriptionEnd = endPosition(
+    startSurfaceTop(pageIndex, y, geometry) + descriptionFrameHeight,
+    geometry,
+  );
+  const descriptionSpansPages =
+    descriptionHeight > 0 && descriptionEnd.pageIndex > pageIndex;
+  const mustStartOnFreshPage =
+    y > 0 &&
+    descriptionFrameHeight <= contentHeight + EPS &&
+    descriptionFrameHeight > availableHeight + EPS;
+
+  if (descriptionSpansPages) {
+    const rowFragments = paginateReferenceRows({
+      rows,
+      firstAvailableHeight: continuationAvailableRowHeight,
+      continuationAvailableHeight: continuationAvailableRowHeight,
+    });
+    const placements: ComponentFragmentPlacement[] = [
+      {
+        fragmentId: fragmentId(entry.component.id, 0),
+        componentId: entry.component.id,
+        fragmentIndex: 0,
+        pageIndex,
+        kind: rowFragments.length > 0 ? "first" : "whole",
+        rect: {
+          x: entry.x,
+          y,
+          width: entry.width,
+          height: descriptionFrameHeight,
+        },
+        imageSlots: [],
+      },
+      ...rowFragments.map((fragment, index) => ({
+        fragmentId: fragmentId(entry.component.id, index + 1),
+        componentId: entry.component.id,
+        fragmentIndex: index + 1,
+        pageIndex: descriptionEnd.pageIndex + index + 1,
+        kind: "continuation" as const,
+        rect: {
+          x: entry.x,
+          y: 0,
+          width: entry.width,
+          height:
+            frameChromeHeight +
+            COMPONENT_INSET * 2 +
+            REFERENCE_CONTINUATION_HEADER_HEIGHT +
+            fragment.height,
+        },
+        imageSlots: fragment.rows.flatMap((row) =>
+          row.slots.map((slot) => ({
+            ...slot,
+            y: slot.y + REFERENCE_CONTINUATION_HEADER_HEIGHT,
+          })),
+        ),
+      })),
+    ];
+    const lastPlacement = placements[placements.length - 1];
+
+    return {
+      firstHeight: Math.min(descriptionFrameHeight, availableHeight),
+      endPageIndex:
+        rowFragments.length > 0
+          ? lastPlacement.pageIndex
+          : descriptionEnd.pageIndex,
+      endY:
+        rowFragments.length > 0
+          ? lastPlacement.rect.y + lastPlacement.rect.height
+          : descriptionEnd.y,
+      mustStartOnFreshPage,
+      placements,
+    };
+  }
+
   const paginatedRows = paginateReferenceRows({
     rows,
     firstAvailableHeight: firstAvailableRowHeight,
@@ -260,10 +334,14 @@ function layoutPlanComponent(
   const lastPlacement = placements[placements.length - 1];
 
   return {
-    firstHeight: placements[0]?.rect.height ?? 0,
+    firstHeight: Math.min(placements[0]?.rect.height ?? 0, availableHeight),
     endPageIndex: lastPlacement?.pageIndex ?? pageIndex,
     endY: lastPlacement ? lastPlacement.rect.y + lastPlacement.rect.height : y,
-    mustStartOnFreshPage: y > 0 && firstAvailableRowHeight <= 0,
+    mustStartOnFreshPage:
+      mustStartOnFreshPage ||
+      (y > 0 &&
+        descriptionFrameHeight <= contentHeight + EPS &&
+        firstAvailableRowHeight <= 0),
     placements,
   };
 }

@@ -263,6 +263,44 @@ describe("PlanCanvas", () => {
     });
   });
 
+  it("keeps one long reference editor and places following frames after every reference fragment", () => {
+    const longReference: PlanComponent = {
+      ...referenceComponent,
+      description: "<p>Long reference description</p>",
+    };
+
+    renderCanvas({
+      components: [longReference, planComponent],
+      measurements: {
+        planHeights: new Map([["plan1", 80]]),
+        referenceDescriptionHeights: new Map([["ref1", 1800]]),
+      },
+    });
+
+    expect(screen.getAllByRole("group", { name: "分组描述" })).toHaveLength(1);
+
+    const referenceFrames = Array.from(
+      document.querySelectorAll(
+        '[data-component-frame="true"][data-component-id="ref1"]',
+      ),
+    ) as HTMLElement[];
+    const followingFrame = document.querySelector(
+      '[data-component-frame="true"][data-component-id="plan1"]',
+    ) as HTMLElement;
+    const finalReferenceBottom = Math.max(
+      ...referenceFrames.map(
+        (frame) =>
+          Number.parseFloat(frame.style.top) +
+          Number.parseFloat(frame.style.height),
+      ),
+    );
+
+    expect(referenceFrames.length).toBeGreaterThan(1);
+    expect(Number.parseFloat(followingFrame.style.top)).toBeGreaterThanOrEqual(
+      finalReferenceBottom,
+    );
+  });
+
   it("marks continuation fragments with the logical component id", () => {
     const multiPageReference: PlanComponent = {
       ...referenceComponent,
