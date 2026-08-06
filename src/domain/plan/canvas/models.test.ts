@@ -7,6 +7,8 @@ import {
   MIN_COMPONENT_HEIGHT,
   MIN_WIDTH,
   DEFAULT_WIDTH,
+  DEFAULT_IMAGE_HEIGHT,
+  DOCUMENT_TITLE_HEIGHT,
   MIN_IMAGE_HEIGHT,
   MAX_IMAGE_HEIGHT,
 } from "./models";
@@ -33,7 +35,11 @@ describe("canvas models", () => {
     expect(clampHeight(Number.NaN, 500)).toBe(MIN_COMPONENT_HEIGHT);
   });
 
-  it("provides an empty v4 plan", () => {
-    expect(EMPTY_PLAN).toEqual({ schemaVersion: 4, components: [] });
+  it("provides the v5 schema constants and an empty titled plan", () => {
+    expect(MIN_IMAGE_HEIGHT).toBe(67.5);
+    expect(DEFAULT_IMAGE_HEIGHT).toBe(135);
+    expect(MAX_IMAGE_HEIGHT).toBe(400);
+    expect(DOCUMENT_TITLE_HEIGHT).toBe(36);
+    expect(EMPTY_PLAN).toEqual({ schemaVersion: 5, title: "", components: [] });
   });
 });

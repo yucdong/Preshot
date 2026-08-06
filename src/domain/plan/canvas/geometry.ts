@@ -1,5 +1,6 @@
 export const A4 = { width: 595.28, height: 841.89 } as const;
 export const SPACING = 24;
+export { DOCUMENT_TITLE_HEIGHT } from "./models";
 
 export interface ComponentFrameChrome {
   topBarHeight: number;

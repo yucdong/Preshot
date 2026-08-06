@@ -25,13 +25,15 @@ function fakes(initialRaw: unknown) {
 }
 
 const refPlan: ProjectPlan = {
-  schemaVersion: 4,
+  schemaVersion: 5,
+  title: "Project",
   components: [
     {
       id: "r",
+      rowId: `row:${"r"}`,
       type: "reference",
       width: 1,
-      title: "T",
+      name: "T",
       description: "",
       showCaptions: false, imageHeight: 180, images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
     },
@@ -50,11 +52,12 @@ describe("canvas plan service", () => {
       createId: () => "id",
       logger: silentLogger(),
     });
-    const result = await service.loadPlan("C:/p");
+    const result = await service.loadPlan("C:/p", "Project");
     expect(result).toMatchObject({
       status: "loaded",
       plan: {
-        schemaVersion: 4,
+        schemaVersion: 5,
+        title: "Project",
         components: [{ type: "plan" }],
       },
     });
@@ -68,17 +71,17 @@ describe("canvas plan service", () => {
       createId: () => "id",
       logger: silentLogger(),
     });
-    expect(await service.loadPlan("C:/p")).toEqual({ status: "missing" });
+    expect(await service.loadPlan("C:/p", "Project")).toEqual({ status: "missing" });
 
     repository.loadRawPlan.mockResolvedValue(EMPTY_PLAN);
-    expect(await service.loadPlan("C:/p")).toEqual({
+    expect(await service.loadPlan("C:/p", "Project")).toEqual({
       status: "loaded",
       plan: EMPTY_PLAN,
     });
   });
 
   it("adds load context when non-null stored data is malformed", async () => {
-    const { repository, imageStore } = fakes({ schemaVersion: 5, components: [] });
+    const { repository, imageStore } = fakes({ schemaVersion: 6, components: [] });
     const service = createCanvasPlanService({
       repository,
       imageStore,
@@ -86,20 +89,22 @@ describe("canvas plan service", () => {
       logger: silentLogger(),
     });
 
-    await expect(service.loadPlan("C:/p")).rejects.toThrow(
-      /Unable to load the project plan: Unsupported stored plan schema version 5/,
+    await expect(service.loadPlan("C:/p", "Project")).rejects.toThrow(
+      /Unable to load the project plan: Unsupported stored plan schema version 6/,
     );
   });
 
   it("adds load context when stored logical ids are duplicated", async () => {
     const { repository, imageStore } = fakes({
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "A",
+          name: "A",
           description: "",
           imageHeight: 180,
           showCaptions: false,
@@ -109,9 +114,10 @@ describe("canvas plan service", () => {
         },
         {
           id: "r2",
+          rowId: `row:${"r2"}`,
           type: "reference",
           width: 1,
-          title: "B",
+          name: "B",
           description: "",
           imageHeight: 180,
           showCaptions: false,
@@ -128,7 +134,7 @@ describe("canvas plan service", () => {
       logger: silentLogger(),
     });
 
-    await expect(service.loadPlan("C:/p")).rejects.toThrow(
+    await expect(service.loadPlan("C:/p", "Project")).rejects.toThrow(
       /Unable to load the project plan:.*duplicate image id "duplicate".*component 1 image 0.*component 0 image 0/i,
     );
   });
@@ -161,13 +167,15 @@ describe("canvas plan service", () => {
 
   it("keeps a shared file when another image in the component still references it", async () => {
     const sharedPlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r",
+          rowId: `row:${"r"}`,
           type: "reference",
           width: 1,
-          title: "T",
+          name: "T",
           description: "",
           showCaptions: false,
           imageHeight: 180,
@@ -196,13 +204,15 @@ describe("canvas plan service", () => {
 
   it("keeps files referenced by another component when removing a component", async () => {
     const sharedPlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "A",
+          name: "A",
           description: "",
           showCaptions: false,
           imageHeight: 180,
@@ -212,9 +222,10 @@ describe("canvas plan service", () => {
         },
         {
           id: "r2",
+          rowId: `row:${"r2"}`,
           type: "reference",
           width: 1,
-          title: "B",
+          name: "B",
           description: "",
           showCaptions: false,
           imageHeight: 180,
@@ -240,13 +251,15 @@ describe("canvas plan service", () => {
 
   it("deduplicates physical deletes when a removed component repeats a file", async () => {
     const repeatedPlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r",
+          rowId: `row:${"r"}`,
           type: "reference",
           width: 1,
-          title: "A",
+          name: "A",
           description: "",
           showCaptions: false,
           imageHeight: 180,

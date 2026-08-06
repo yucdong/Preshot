@@ -84,10 +84,13 @@ describe("createCanvasPdfExporter", () => {
   it("produces a valid PDF from a canvas layout with plan component", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "p1",
+          rowId: `row:${"p1"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<h1>标题</h1><p>段落 <strong>粗体</strong> text</p>",
@@ -119,11 +122,14 @@ describe("createCanvasPdfExporter", () => {
       "<p>TAIL_SENTINEL</p>",
     ].join("");
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
-        { id: "p1", type: "plan", width: 1, html: longHtml },
+        { id: "p1", rowId: `row:${"p1"}`, name: "文案1", type: "plan", width: 1, html: longHtml },
         {
           id: "p2",
+          rowId: `row:${"p2"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>FOLLOWING_SENTINEL</p>",
@@ -146,13 +152,15 @@ describe("createCanvasPdfExporter", () => {
   it("produces a valid PDF from a canvas layout with reference component", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "参考照片",
+          name: "参考照片",
           description: "描述 <em>italic</em>",
           showCaptions: true,
           imageHeight: 180,
@@ -176,13 +184,15 @@ describe("createCanvasPdfExporter", () => {
   it("rejects missing expected image data with file and component context", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "Reference",
+          name: "Reference",
           description: "",
           showCaptions: false,
           imageHeight: 135,
@@ -213,13 +223,15 @@ describe("createCanvasPdfExporter", () => {
       "<p>DESCRIPTION_TAIL</p>",
     ].join("");
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "Measured description",
+          name: "Measured description",
           description,
           showCaptions: false,
           imageHeight: 135,
@@ -250,13 +262,15 @@ describe("createCanvasPdfExporter", () => {
       "<p>DESCRIPTION_TAIL</p>",
     ].join("");
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "Long reference",
+          name: "Long reference",
           description,
           showCaptions: false,
           imageHeight: 135,
@@ -266,6 +280,8 @@ describe("createCanvasPdfExporter", () => {
         },
         {
           id: "p1",
+          rowId: `row:${"p1"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>FOLLOWING_SENTINEL</p>",
@@ -302,10 +318,13 @@ describe("createCanvasPdfExporter", () => {
   it("produces multi-page PDF when components span pages", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         ...Array.from({ length: 4 }, (_, componentIndex) => ({
           id: `p${componentIndex + 1}`,
+          rowId: `row:${`p${componentIndex + 1}`}`,
+          name: "文案1",
           type: "plan" as const,
           width: 1,
           html: Array.from(
@@ -336,9 +355,10 @@ describe("createCanvasPdfExporter", () => {
     const longCjk =
       "拍摄计划详细说明：在清晨的黄金时段前往山顶记录云海与日出的层次变化，注意保留高光细节。".repeat(60);
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
-        { id: "p1", type: "plan", width: 1, html: `<p>${longCjk}</p>` },
+        { id: "p1", rowId: `row:${"p1"}`, name: "文案1", type: "plan", width: 1, html: `<p>${longCjk}</p>` },
       ],
     };
 
@@ -363,8 +383,9 @@ describe("createCanvasPdfExporter", () => {
       "<p>END_SENTINEL</p>",
     ].join("");
     const plan: ProjectPlan = {
-      schemaVersion: 4,
-      components: [{ id: "p1", type: "plan", width: 1, html }],
+      schemaVersion: 5,
+      title: "Demo",
+      components: [{ id: "p1", rowId: `row:${"p1"}`, name: "文案1", type: "plan", width: 1, html }],
     };
 
     const bytes = await exporter.export(plan, {});
@@ -391,19 +412,23 @@ describe("createCanvasPdfExporter", () => {
   it("renders mixed component types correctly", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "p1",
+          rowId: `row:${"p1"}`,
+          name: "文案1",
           type: "plan",
           width: 0.5,
           html: "<p>Left <u>underline</u></p>",
         },
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 0.5,
-          title: "Right",
+          name: "Right",
           description: "",
           showCaptions: false,
           imageHeight: 180,
@@ -421,13 +446,15 @@ describe("createCanvasPdfExporter", () => {
   it("handles reference with single image column", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "单列参考",
+          name: "单列参考",
           description: "单列布局",
           showCaptions: false,
           imageHeight: 180,
@@ -445,13 +472,15 @@ describe("createCanvasPdfExporter", () => {
   it("renders per-image captions when showCaptions is true", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "照片集",
+          name: "照片集",
           description: "带说明的参考照片",
           showCaptions: true,
           imageHeight: 180,
@@ -482,10 +511,13 @@ describe("createCanvasPdfExporter", () => {
   it("uses SPACING margin (not hardcoded 48pt) for component placement", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "p1",
+          rowId: `row:${"p1"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>Full-width component</p>",
@@ -512,13 +544,15 @@ describe("createCanvasPdfExporter", () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawText = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawText");
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "Lookbook",
+          name: "Lookbook",
           description: "<p>Reference description</p>",
           showCaptions: true,
           imageHeight: 180,
@@ -553,13 +587,15 @@ describe("createCanvasPdfExporter", () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawImage = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawImage");
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "Ratios",
+          name: "Ratios",
           description: "",
           showCaptions: false,
           imageHeight: 135,
@@ -591,13 +627,15 @@ describe("createCanvasPdfExporter", () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawImage = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawImage");
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "Actual ratio",
+          name: "Actual ratio",
           description: "",
           showCaptions: false,
           imageHeight: 135,
@@ -623,13 +661,15 @@ describe("createCanvasPdfExporter", () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawImage = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawImage");
     const plan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "r1",
+          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
-          title: "Lookbook",
+          name: "Lookbook",
           description: "",
           showCaptions: false,
           imageHeight: 135,

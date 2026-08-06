@@ -11,7 +11,7 @@ import { COMPONENT_INSET, REFERENCE_DESCRIPTION_GAP } from "./referenceLayout";
 const content = contentSize(DEFAULT_PAGE_GEOMETRY);
 
 function plan(id: string, width: number): PlanComponent {
-  return { id, type: "plan", width, html: "" };
+  return { id, rowId: `row:${id}`, name: "文案1", type: "plan", width, html: "" };
 }
 
 function measurements(planHeights: Record<string, number> = {}) {
@@ -105,9 +105,10 @@ describe("layoutPlan placement", () => {
 function reference(overrides: Partial<ReferenceComponent> = {}): ReferenceComponent {
   return {
     id: "ref",
+    rowId: `row:${"ref"}`,
     type: "reference",
     width: 1,
-    title: "T",
+    name: "T",
     description: "",
     showCaptions: false, imageHeight: 180, images: [
       { id: "i1", file: "references/0001.png", aspectRatio: 1 },
@@ -237,9 +238,10 @@ describe("reference image slots", () => {
     
     const comp: ReferenceComponent = {
       id: "r",
+      rowId: `row:${"r"}`,
       type: "reference",
       width: 1,
-      title: "Test",
+      name: "Test",
       description: "",
       showCaptions: true,
       imageHeight: ih,
@@ -379,7 +381,7 @@ describe("reference image slots", () => {
 
 describe("continuous width layout", () => {
   function mk(id: string, width: number): PlanComponent {
-    return { id, type: "plan", width, html: "" };
+    return { id, rowId: `row:${id}`, name: "文案1", type: "plan", width, html: "" };
   }
 
   it("packs two sub-half-width components on one row and wraps wider ones", () => {

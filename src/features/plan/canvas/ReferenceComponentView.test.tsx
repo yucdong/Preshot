@@ -31,9 +31,10 @@ vi.mock("../GroupImageGrid", () => ({
 
 const mockComponent: ReferenceComponent = {
   id: "ref-1",
+  rowId: `row:${"ref-1"}`,
   type: "reference",
   width: 1,
-  title: "Test Reference",
+  name: "Test Reference",
   description: "",
   showCaptions: false, imageHeight: 180, images: [],
 };
@@ -72,7 +73,7 @@ describe("ReferenceComponentView", () => {
 
   it("renders a continuation title without editable controls", () => {
     renderReference({
-      component: { ...mockComponent, title: "Lookbook", description: "<p>desc</p>" },
+      component: { ...mockComponent, name: "Lookbook", description: "<p>desc</p>" },
       fragmentKind: "continuation",
       fragmentIndex: 1,
     });
@@ -112,7 +113,7 @@ describe("ReferenceComponentView", () => {
     "renders continuation heading from shared point geometry at scale %s",
     (scale) => {
       renderReference({
-        component: { ...mockComponent, title: "Lookbook" },
+        component: { ...mockComponent, name: "Lookbook" },
         fragmentKind: "continuation",
         fragmentIndex: 1,
         scale,

@@ -91,7 +91,7 @@ export function updatePlanHtml(plan: ProjectPlan, params: { id: string; html: st
 
 export function setReferenceTitle(plan: ProjectPlan, id: string, title: string): ProjectPlan {
   return mapReference(plan, id, (component) =>
-    component.title === title ? component : { ...component, title },
+    component.name === title ? component : { ...component, name: title },
   );
 }
 

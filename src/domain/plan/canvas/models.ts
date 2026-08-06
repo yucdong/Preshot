@@ -3,13 +3,14 @@ export const DEFAULT_PLAN_HEIGHT = 220; // points
 export const DEFAULT_REFERENCE_HEIGHT = 320; // points
 
 export const DEFAULT_IMAGE_HEIGHT = 135; // points
-export const MIN_IMAGE_HEIGHT = 80; // points
+export const MIN_IMAGE_HEIGHT = 67.5; // points
 export const MAX_IMAGE_HEIGHT = 400; // points
+export const DOCUMENT_TITLE_HEIGHT = 36; // points
 
 export const DEFAULT_WIDTH = 1;
 export const MIN_WIDTH = 0.15;
 
-export const CURRENT_SCHEMA_VERSION = 4 as const;
+export const CURRENT_SCHEMA_VERSION = 5 as const;
 
 export function clampHeight(height: number, maxHeight: number): number {
   if (!Number.isFinite(height)) {
@@ -37,10 +38,20 @@ export interface ReferenceImage {
   file: string;
   caption?: string;
   aspectRatio: number;
+  crop?: CropRect;
+}
+
+export interface CropRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface BaseComponent {
   id: string;
+  rowId: string;
+  name: string;
   width: number; // continuous width fraction (0, 1]
 }
 
@@ -51,7 +62,6 @@ export interface PlanTextComponent extends BaseComponent {
 
 export interface ReferenceComponent extends BaseComponent {
   type: "reference";
-  title: string;
   description: string;
   showCaptions: boolean;
   images: ReferenceImage[];
@@ -61,8 +71,9 @@ export interface ReferenceComponent extends BaseComponent {
 export type PlanComponent = PlanTextComponent | ReferenceComponent;
 
 export interface ProjectPlan {
-  schemaVersion: 4;
+  schemaVersion: 5;
+  title: string;
   components: PlanComponent[];
 }
 
-export const EMPTY_PLAN: ProjectPlan = { schemaVersion: 4, components: [] };
+export const EMPTY_PLAN: ProjectPlan = { schemaVersion: 5, title: "", components: [] };

@@ -55,14 +55,14 @@ export function DragOverlayPreview({
               </div>
             ) : null}
           </div>
-          <div className="mt-2 text-xs text-stone-500 dark:text-stone-400">{component.title}</div>
+          <div className="mt-2 text-xs text-stone-500 dark:text-stone-400">{component.name}</div>
         </div>
       );
     }
   }
 
   const typeLabel = component.type === "plan" ? t("canvas.typePlan") : t("canvas.typeReference");
-  const detail = component.type === "plan" ? plainTextSummary(component.html).slice(0, 80) : component.title;
+  const detail = component.type === "plan" ? plainTextSummary(component.html).slice(0, 80) : component.name;
   const compactSummary =
     component.type === "plan"
       ? t("canvas.planCharacterCount", { count: summaryCharacterCount(plainTextSummary(component.html)) })

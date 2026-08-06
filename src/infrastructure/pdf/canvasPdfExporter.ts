@@ -453,7 +453,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
           const ref = component as ReferenceComponent;
           const isContinuation = placement.kind === "continuation";
           const titleY = contentRect.y + contentRect.height - TITLE_SIZE;
-          page.drawText(isContinuation ? formatReferenceContinuedTitle(ref.title) : ref.title, {
+          page.drawText(isContinuation ? formatReferenceContinuedTitle(ref.name) : ref.name, {
             x: contentRect.x,
             y: titleY,
             size: TITLE_SIZE,

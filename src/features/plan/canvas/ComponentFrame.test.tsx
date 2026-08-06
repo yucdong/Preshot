@@ -27,6 +27,8 @@ vi.mock("@dnd-kit/sortable", async () => {
 
 const component: PlanComponent = {
   id: "plan1",
+  rowId: `row:${"plan1"}`,
+  name: "文案1",
   type: "plan",
   width: 0.5,
   html: "<p>拍摄清单</p>",

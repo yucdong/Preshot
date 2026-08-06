@@ -16,7 +16,7 @@ describe("createBrowserCanvasPlanDependencies", () => {
   it("seeds a canvas plan with components and picker returns deterministic path", async () => {
     const { service, picker } = createBrowserCanvasPlanDependencies();
 
-    const result = await service.loadPlan("C:\\demo");
+    const result = await service.loadPlan("C:\\demo", "Demo");
     expect(result.status).toBe("loaded");
     if (result.status !== "loaded") {
       throw new Error("Expected the seeded browser plan to load");
@@ -27,7 +27,7 @@ describe("createBrowserCanvasPlanDependencies", () => {
 
   it("assigns imported images file ids after the seeded demo images", async () => {
     const { service } = createBrowserCanvasPlanDependencies();
-    const result = await service.loadPlan("C:\\demo");
+    const result = await service.loadPlan("C:\\demo", "Demo");
     if (result.status !== "loaded") {
       throw new Error("Expected the seeded browser plan to load");
     }
@@ -43,7 +43,7 @@ describe("createBrowserCanvasPlanDependencies", () => {
 
   it("serves seeded reference images as base64 PNG or JPEG data", async () => {
     const { service } = createBrowserCanvasPlanDependencies();
-    const result = await service.loadPlan("C:\\demo");
+    const result = await service.loadPlan("C:\\demo", "Demo");
     if (result.status !== "loaded") {
       throw new Error("Expected the seeded browser plan to load");
     }
@@ -68,7 +68,7 @@ describe("createBrowserCanvasPlanDependencies", () => {
 
   it("stores exact dimensions for seeded images so hydration is a no-op", async () => {
     const { service } = createBrowserCanvasPlanDependencies();
-    const result = await service.loadPlan("C:\\demo");
+    const result = await service.loadPlan("C:\\demo", "Demo");
     if (result.status !== "loaded") {
       throw new Error("Expected the seeded browser plan to load");
     }
@@ -89,7 +89,7 @@ describe("createBrowserCanvasPlanDependencies", () => {
 
   it("exports the loaded seeded browser images through the real PDF adapter", async () => {
     const { service } = createBrowserCanvasPlanDependencies();
-    const result = await service.loadPlan("C:\\demo");
+    const result = await service.loadPlan("C:\\demo", "Demo");
     if (result.status !== "loaded") {
       throw new Error("Expected the seeded browser plan to load");
     }

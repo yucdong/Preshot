@@ -16,7 +16,7 @@ describe("createTauriPlan", () => {
     const invokeCommand = vi.fn().mockRejectedValue({ message: "boom" });
     const plan = createTauriPlan({ invokeCommand });
 
-    await expect(plan.saveRawPlan("C:\\p", { schemaVersion: 4, components: [] })).rejects.toThrow(
+    await expect(plan.saveRawPlan("C:\\p", { schemaVersion: 5, title: "Demo", components: [] })).rejects.toThrow(
       /Unable to save the project plan: boom/,
     );
   });
@@ -24,13 +24,13 @@ describe("createTauriPlan", () => {
   it("reads a raw canvas plan", async () => {
     const invokeCommand = vi.fn().mockResolvedValue({
       schemaVersion: 2,
-      components: [{ id: "c1", type: "plan", widthFraction: "1", height: 200, html: "<p>Test</p>" }],
+      components: [{ id: "c1", rowId: `row:${"c1"}`, name: "文案1", type: "plan", widthFraction: "1", height: 200, html: "<p>Test</p>" }],
     });
     const plan = createTauriPlan({ invokeCommand });
 
     await expect(plan.loadRawPlan("C:\\p")).resolves.toEqual({
       schemaVersion: 2,
-      components: [{ id: "c1", type: "plan", widthFraction: "1", height: 200, html: "<p>Test</p>" }],
+      components: [{ id: "c1", rowId: `row:${"c1"}`, name: "文案1", type: "plan", widthFraction: "1", height: 200, html: "<p>Test</p>" }],
     });
   });
 

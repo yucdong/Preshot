@@ -7,6 +7,8 @@ describe("DragOverlayPreview", () => {
   it("renders a compact component summary without mounting the editor", () => {
     const component: PlanComponent = {
       id: "plan-1",
+      rowId: `row:${"plan-1"}`,
+      name: "文案1",
       type: "plan",
       width: 1,
       html: "<p>第一段</p><p>第二段</p>",
@@ -22,6 +24,8 @@ describe("DragOverlayPreview", () => {
   it("counts visible plan text instead of raw html entities", () => {
     const component: PlanComponent = {
       id: "plan-2",
+      rowId: `row:${"plan-2"}`,
+      name: "文案1",
       type: "plan",
       width: 1,
       html: "<p>A&nbsp;B &amp; C</p>",
@@ -36,9 +40,10 @@ describe("DragOverlayPreview", () => {
   it("renders a reference component count summary instead of a bare number", () => {
     const component: PlanComponent = {
       id: "ref-1",
+      rowId: `row:${"ref-1"}`,
       type: "reference",
       width: 1,
-      title: "Lookbook",
+      name: "Lookbook",
       description: "",
       showCaptions: false,
       imageHeight: 135,
@@ -58,9 +63,10 @@ describe("DragOverlayPreview", () => {
   it("renders the dragged image preview together with its caption", () => {
     const component: PlanComponent = {
       id: "ref-1",
+      rowId: `row:${"ref-1"}`,
       type: "reference",
       width: 1,
-      title: "Lookbook",
+      name: "Lookbook",
       description: "",
       showCaptions: true,
       imageHeight: 135,

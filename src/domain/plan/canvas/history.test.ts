@@ -14,8 +14,9 @@ import type { PlanComponent } from "./models";
 
 function planWith(id: string, html: string): ProjectPlan {
   return {
-    schemaVersion: 4,
-    components: [{ id, type: "plan", width: 1, html }],
+    schemaVersion: 5,
+    title: "Demo",
+    components: [{ id, rowId: `row:${id}`, name: "文案1", type: "plan", width: 1, html }],
   };
 }
 
@@ -111,18 +112,19 @@ describe("plan history stack", () => {
 });
 
 function plan(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 4, components };
+  return { schemaVersion: 5, title: "Demo", components };
 }
 
 describe("mergeStructural", () => {
   it("keeps current html/description for components surviving by id", () => {
     const target = plan([
-      { id: "a", type: "plan", width: 1, html: "OLD" },
+      { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 1, html: "OLD" },
       {
         id: "b",
+        rowId: `row:${"b"}`,
         type: "reference",
         width: 1,
-        title: "T",
+        name: "T",
         description: "OLD DESC",
         showCaptions: false,
         imageHeight: 180,
@@ -130,12 +132,13 @@ describe("mergeStructural", () => {
       },
     ]);
     const current = plan([
-      { id: "a", type: "plan", width: 0.5, html: "NEW" },
+      { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 0.5, html: "NEW" },
       {
         id: "b",
+        rowId: `row:${"b"}`,
         type: "reference",
         width: 0.5,
-        title: "T2",
+        name: "T2",
         description: "NEW DESC",
         showCaptions: true,
         imageHeight: 400,
@@ -147,7 +150,7 @@ describe("mergeStructural", () => {
     expect(merged.components[0]).toMatchObject({ width: 1, html: "NEW" });
     expect(merged.components[1]).toMatchObject({
       width: 1,
-      title: "T",
+      name: "T",
       showCaptions: false,
       imageHeight: 180,
       description: "NEW DESC",
@@ -156,7 +159,7 @@ describe("mergeStructural", () => {
 
   it("uses target's own text for components not present in current (re-added)", () => {
     const target = plan([
-      { id: "a", type: "plan", width: 1, html: "TARGET" },
+      { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 1, html: "TARGET" },
     ]);
     const current = plan([]);
     const merged = mergeStructural(target, current);
@@ -165,14 +168,15 @@ describe("mergeStructural", () => {
 
   it("ignores id matches whose type differs", () => {
     const target = plan([
-      { id: "x", type: "plan", width: 1, html: "TARGET" },
+      { id: "x", rowId: `row:${"x"}`, name: "文案1", type: "plan", width: 1, html: "TARGET" },
     ]);
     const current = plan([
       {
         id: "x",
+        rowId: `row:${"x"}`,
         type: "reference",
         width: 1,
-        title: "T",
+        name: "T",
         description: "D",
         showCaptions: false,
         imageHeight: 180,
@@ -185,10 +189,10 @@ describe("mergeStructural", () => {
 
   it("does not mutate the inputs", () => {
     const target = plan([
-      { id: "a", type: "plan", width: 1, html: "OLD" },
+      { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 1, html: "OLD" },
     ]);
     const current = plan([
-      { id: "a", type: "plan", width: 1, html: "NEW" },
+      { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 1, html: "NEW" },
     ]);
     mergeStructural(target, current);
     expect((target.components[0] as { html: string }).html).toBe("OLD");

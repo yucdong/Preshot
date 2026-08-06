@@ -21,20 +21,24 @@ const SEEDED_IMAGE_DATA: Record<string, string> = {
   "references/0004.png": PORTRAIT_ALT_PNG,
 };
 
-const SEEDED_V4_PLAN: CanvasPlan = {
-  schemaVersion: 4,
+const SEEDED_V5_PLAN: CanvasPlan = {
+  schemaVersion: 5,
+  title: "日落大片",
   components: [
     {
       id: "plan-1",
+      rowId: "row:plan-1",
+      name: "文案1",
       type: "plan",
       width: 1,
       html: "<h2>日落大片</h2><p>海滨的黄金时刻。记得带 85mm 镜头。</p>",
     },
     {
       id: "ref-1",
+      rowId: "row:ref-1",
+      name: "造型参考",
       type: "reference",
       width: 1,
-      title: "造型参考",
       description: "",
       imageHeight: 135,
       showCaptions: false,
@@ -52,7 +56,7 @@ function createMemoryCanvasStores(): {
   repository: CanvasPlanRepository;
   imageStore: ReferenceImageStore;
 } {
-  let plan: CanvasPlan = structuredClone(SEEDED_V4_PLAN);
+  let plan: CanvasPlan = structuredClone(SEEDED_V5_PLAN);
   let counter = Object.keys(SEEDED_IMAGE_DATA).length;
   return {
     repository: {

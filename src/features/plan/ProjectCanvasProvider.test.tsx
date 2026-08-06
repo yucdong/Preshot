@@ -119,19 +119,23 @@ function deps(): {
   savePlan: ReturnType<typeof vi.fn>;
 } {
   const plan: ProjectPlan = {
-    schemaVersion: 4,
+    schemaVersion: 5,
+    title: "Demo",
     components: [
       {
         id: "plan-1",
+        rowId: `row:${"plan-1"}`,
+        name: "文案1",
         type: "plan",
         width: 1,
         html: "<h2>Demo</h2>",
       },
       {
         id: "ref-1",
+        rowId: `row:${"ref-1"}`,
         type: "reference",
         width: 1,
-        title: "Lookbook",
+        name: "Lookbook",
         description: "Warm mood",
         showCaptions: false, imageHeight: 180, images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
       },
@@ -153,9 +157,10 @@ function deps(): {
           ...plan.components.slice(0, 1),
           {
             id: "ref-1",
+            rowId: `row:${"ref-1"}`,
             type: "reference",
             width: 1,
-            title: "Lookbook",
+            name: "Lookbook",
             description: "Warm mood",
             showCaptions: false,
             imageHeight: 180,
@@ -256,13 +261,15 @@ describe("ProjectCanvasProvider", () => {
     loadPlan.mockResolvedValue({
       status: "loaded",
       plan: {
-        schemaVersion: 4,
+        schemaVersion: 5,
+        title: "Demo",
         components: [
           {
             id: "ref-1",
+            rowId: `row:${"ref-1"}`,
             type: "reference",
             width: 1,
-            title: "Lookbook",
+            name: "Lookbook",
             description: "",
             showCaptions: false,
             imageHeight: 180,
@@ -319,7 +326,7 @@ describe("ProjectCanvasProvider", () => {
 
     await waitFor(() =>
       expect(exportMock).toHaveBeenCalledWith(
-        expect.objectContaining({ schemaVersion: 4 }),
+        expect.objectContaining({ schemaVersion: 5 }),
         {
           "references/0001.png": "data:image/png;base64,AA",
           "references/0002.png": "data:image/png;base64,BB",
@@ -483,10 +490,13 @@ describe("ProjectCanvasProvider", () => {
     const { dependencies, loadPlan } = deps();
     const oldLoad = deferred<Awaited<ReturnType<CanvasPlanService["loadPlan"]>>>();
     const newPlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "new-plan",
+          rowId: `row:${"new-plan"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>new project</p>",
@@ -494,10 +504,13 @@ describe("ProjectCanvasProvider", () => {
       ],
     };
     const oldPlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "old-plan",
+          rowId: `row:${"old-plan"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>old project</p>",
@@ -542,10 +555,13 @@ describe("ProjectCanvasProvider", () => {
     const { dependencies, loadPlan, savePlan } = deps();
     const newLoad = deferred<Awaited<ReturnType<CanvasPlanService["loadPlan"]>>>();
     const oldPlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "plan-1",
+          rowId: `row:${"plan-1"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>old project</p>",
@@ -553,10 +569,13 @@ describe("ProjectCanvasProvider", () => {
       ],
     };
     const newPlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "new-plan",
+          rowId: `row:${"new-plan"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>new project</p>",
@@ -615,19 +634,23 @@ describe("ProjectCanvasProvider", () => {
     const removalPersisted = deferred<void>();
     const deletedFiles: string[] = [];
     const oldPlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "plan-1",
+          rowId: `row:${"plan-1"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>old project</p>",
         },
         {
           id: "ref-1",
+          rowId: `row:${"ref-1"}`,
           type: "reference",
           width: 1,
-          title: "Old reference",
+          name: "Old reference",
           description: "",
           showCaptions: false,
           imageHeight: 135,
@@ -642,10 +665,13 @@ describe("ProjectCanvasProvider", () => {
       ],
     };
     const newPlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "new-plan",
+          rowId: `row:${"new-plan"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>new project</p>",
@@ -722,10 +748,13 @@ describe("ProjectCanvasProvider", () => {
     const { dependencies, loadPlan, savePlan } = deps();
     const newLoad = deferred<Awaited<ReturnType<CanvasPlanService["loadPlan"]>>>();
     const newPlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "new-plan",
+          rowId: `row:${"new-plan"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>new project</p>",
@@ -737,10 +766,13 @@ describe("ProjectCanvasProvider", () => {
         ? Promise.resolve({
             status: "loaded",
             plan: {
-              schemaVersion: 4,
+              schemaVersion: 5,
+              title: "Demo",
               components: [
                 {
                   id: "plan-1",
+                  rowId: `row:${"plan-1"}`,
+                  name: "文案1",
                   type: "plan",
                   width: 1,
                   html: "<p>old project</p>",
@@ -921,13 +953,15 @@ describe("ProjectCanvasProvider", () => {
     const { dependencies, loadPlan, savePlan, service } = deps();
     const imageDecode = installDeferredImageDecode(200, 100);
     const sharedFilePlan: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "ref-a",
+          rowId: `row:${"ref-a"}`,
           type: "reference",
           width: 1,
-          title: "A",
+          name: "A",
           description: "",
           showCaptions: false,
           imageHeight: 180,
@@ -937,9 +971,10 @@ describe("ProjectCanvasProvider", () => {
         },
         {
           id: "ref-b",
+          rowId: `row:${"ref-b"}`,
           type: "reference",
           width: 1,
-          title: "B",
+          name: "B",
           description: "",
           showCaptions: false,
           imageHeight: 180,
@@ -989,19 +1024,23 @@ describe("ProjectCanvasProvider", () => {
     const { dependencies, loadPlan, service } = deps();
     const imageDecode = installDeferredImageDecode(300, 100);
     const planWithImage: ProjectPlan = {
-      schemaVersion: 4,
+      schemaVersion: 5,
+      title: "Demo",
       components: [
         {
           id: "plan-1",
+          rowId: `row:${"plan-1"}`,
+          name: "文案1",
           type: "plan",
           width: 1,
           html: "<p>original</p>",
         },
         {
           id: "ref-1",
+          rowId: `row:${"ref-1"}`,
           type: "reference",
           width: 1,
-          title: "Lookbook",
+          name: "Lookbook",
           description: "",
           showCaptions: false,
           imageHeight: 180,

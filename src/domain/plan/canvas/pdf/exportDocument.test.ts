@@ -14,6 +14,8 @@ describe("buildCanvasLayout", () => {
   it("returns page count 1 and a single placement for one component", () => {
     const component: PlanTextComponent = {
       id: "c1",
+      rowId: `row:${"c1"}`,
+      name: "文案1",
       type: "plan",
       width: 1,
       html: "<p>Text</p>",
@@ -36,12 +38,16 @@ describe("buildCanvasLayout", () => {
   it("returns multiple placements for components on same page", () => {
     const c1: PlanTextComponent = {
       id: "c1",
+      rowId: `row:${"c1"}`,
+      name: "文案1",
       type: "plan",
       width: 0.5,
       html: "<p>Left</p>",
     };
     const c2: PlanTextComponent = {
       id: "c2",
+      rowId: `row:${"c2"}`,
+      name: "文案1",
       type: "plan",
       width: 0.5,
       html: "<p>Right</p>",
@@ -59,10 +65,10 @@ describe("buildCanvasLayout", () => {
 
   it("returns multiple pages when components overflow page height", () => {
     const components: PlanTextComponent[] = [
-      { id: "c1", type: "plan", width: 1, html: "<p>Page 1A</p>" },
-      { id: "c2", type: "plan", width: 1, html: "<p>Page 1B</p>" },
-      { id: "c3", type: "plan", width: 1, html: "<p>Page 1C</p>" },
-      { id: "c4", type: "plan", width: 1, html: "<p>Page 2</p>" },
+      { id: "c1", rowId: `row:${"c1"}`, name: "文案1", type: "plan", width: 1, html: "<p>Page 1A</p>" },
+      { id: "c2", rowId: `row:${"c2"}`, name: "文案1", type: "plan", width: 1, html: "<p>Page 1B</p>" },
+      { id: "c3", rowId: `row:${"c3"}`, name: "文案1", type: "plan", width: 1, html: "<p>Page 1C</p>" },
+      { id: "c4", rowId: `row:${"c4"}`, name: "文案1", type: "plan", width: 1, html: "<p>Page 2</p>" },
     ];
 
     const layout = buildCanvasLayout(components, DEFAULT_PAGE_GEOMETRY, measurements({
@@ -80,9 +86,10 @@ describe("buildCanvasLayout", () => {
   it("includes fragment metadata and slot ids for reference components", () => {
     const ref: ReferenceComponent = {
       id: "r1",
+      rowId: `row:${"r1"}`,
       type: "reference",
       width: 1,
-      title: "Reference",
+      name: "Reference",
       description: "",
       showCaptions: false, imageHeight: 180, images: [
         { id: "img1", file: "photo1.jpg", aspectRatio: 1 },
@@ -104,6 +111,8 @@ describe("buildCanvasLayout", () => {
   it("forwards plan measurements into the domain layout", () => {
     const component: PlanTextComponent = {
       id: "p1",
+      rowId: `row:${"p1"}`,
+      name: "文案1",
       type: "plan",
       width: 1,
       html: "<p>Measured</p>",
@@ -118,9 +127,10 @@ describe("buildCanvasLayout", () => {
     const components: PlanComponent[] = [
       {
         id: "r1",
+        rowId: `row:${"r1"}`,
         type: "reference",
         width: 1,
-        title: "Photos",
+        name: "Photos",
         description: "",
         showCaptions: false,
         imageHeight: 180,
@@ -149,9 +159,10 @@ describe("buildCanvasLayout", () => {
     const components: PlanComponent[] = [
       {
         id: "r1",
+        rowId: `row:${"r1"}`,
         type: "reference",
         width: 1,
-        title: "Photos",
+        name: "Photos",
         description: "",
         showCaptions: false,
         imageHeight: 135,
@@ -196,9 +207,10 @@ describe("buildCanvasLayout", () => {
   it("excludes the UI add tile so it cannot create an otherwise empty PDF page", () => {
     const reference: ReferenceComponent = {
       id: "r1",
+      rowId: `row:${"r1"}`,
       type: "reference",
       width: 1,
-      title: "Only image",
+      name: "Only image",
       description: "",
       showCaptions: false,
       imageHeight: 100,
@@ -219,9 +231,10 @@ describe("buildCanvasLayout", () => {
   it("keeps a header-only PDF placement for a reference with no images", () => {
     const reference: ReferenceComponent = {
       id: "r1",
+      rowId: `row:${"r1"}`,
       type: "reference",
       width: 1,
-      title: "Empty reference",
+      name: "Empty reference",
       description: "",
       showCaptions: false,
       imageHeight: 100,
@@ -248,6 +261,8 @@ describe("buildCanvasLayout", () => {
     };
     const component: PlanTextComponent = {
       id: "c1",
+      rowId: `row:${"c1"}`,
+      name: "文案1",
       type: "plan",
       width: 1,
       html: "<p>Text</p>",

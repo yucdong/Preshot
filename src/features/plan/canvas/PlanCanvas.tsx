@@ -271,7 +271,7 @@ export function PlanCanvas({
         return;
       }
       lastParamsRef.current = params;
-      setPreview(moveComponent({ schemaVersion: 4, components }, params).components);
+      setPreview(moveComponent({ schemaVersion: 5, title: "", components }, params).components);
     } else if (data?.type === "image") {
       const params = paramsForImage(event);
       if (!params) {
@@ -284,7 +284,7 @@ export function PlanCanvas({
         return;
       }
       lastImageParamsRef.current = params;
-      setPreview(moveImage({ schemaVersion: 4, components }, params).components);
+      setPreview(moveImage({ schemaVersion: 5, title: "", components }, params).components);
     }
   };
 

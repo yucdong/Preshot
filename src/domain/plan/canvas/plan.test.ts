@@ -20,14 +20,15 @@ import {
 } from "./models";
 
 function planText(id: string): PlanComponent {
-  return { id, type: "plan", width: 1, html: `<p>${id}</p>` };
+  return { id, rowId: `row:${id}`, name: "文案1", type: "plan", width: 1, html: `<p>${id}</p>` };
 }
 function reference(id: string, images: string[] = []): ReferenceComponent {
   return {
     id,
+    rowId: `row:${id}`,
     type: "reference",
     width: 1,
-    title: id,
+    name: id,
     description: "",
     showCaptions: false,
     imageHeight: 180,
@@ -35,7 +36,7 @@ function reference(id: string, images: string[] = []): ReferenceComponent {
   };
 }
 function withComponents(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 4, components };
+  return { schemaVersion: 5, title: "Demo", components };
 }
 
 describe("canvas reducers", () => {
@@ -75,13 +76,13 @@ describe("canvas reducers", () => {
   });
 
   it("resizes width without introducing a persisted height", () => {
-    const plan = withComponents([{ id: "p", type: "plan", width: 1, html: "" }]);
+    const plan = withComponents([{ id: "p", rowId: `row:${"p"}`, name: "文案1", type: "plan", width: 1, html: "" }]);
     const next = resizeComponent(plan, {
       id: "p",
       width: 0.5,
     });
 
-    expect(next.components[0]).toEqual({ id: "p", type: "plan", width: 0.5, html: "" });
+    expect(next.components[0]).toEqual({ id: "p", rowId: `row:${"p"}`, name: "文案1", type: "plan", width: 0.5, html: "" });
     expect(next.components[0]).not.toHaveProperty("height");
   });
 
@@ -150,7 +151,7 @@ describe("canvas reducers", () => {
 
   it("sets reference component imageHeight with clamping", () => {
     const plan = withComponents([reference("r", ["i1"])]);
-    const MIN = 80;
+    const MIN = 67.5;
     const MAX = 400;
     // Normal value
     const withHeight = setImageHeight(plan, "r", 200);

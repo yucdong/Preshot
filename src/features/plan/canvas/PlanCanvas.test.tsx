@@ -64,6 +64,8 @@ const mockRepository: SettingsRepository = {
 
 const planComponent: PlanComponent = {
   id: "plan1",
+  rowId: `row:${"plan1"}`,
+  name: "文案1",
   type: "plan",
   width: 1,
   html: "<p>拍摄清单</p>",
@@ -71,9 +73,10 @@ const planComponent: PlanComponent = {
 
 const referenceComponent: PlanComponent = {
   id: "ref1",
+  rowId: `row:${"ref1"}`,
   type: "reference",
   width: 1,
-  title: "Lookbook",
+  name: "Lookbook",
   description: "",
   showCaptions: false, imageHeight: 180, images: [
     { id: "i1", file: "references/0001.png", aspectRatio: 1 },
@@ -563,7 +566,7 @@ describe("PlanCanvas", () => {
     const targetReference: PlanComponent = {
       ...referenceComponent,
       id: "ref2",
-      title: "Target",
+      name: "Target",
       images: [],
     };
     const props = renderCanvas({ components: [referenceComponent, targetReference] });

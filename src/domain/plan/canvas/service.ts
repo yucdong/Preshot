@@ -28,7 +28,7 @@ export type CanvasPlanLoadResult =
   | { status: "loaded"; plan: ProjectPlan };
 
 export interface CanvasPlanService {
-  loadPlan(projectPath: string): Promise<CanvasPlanLoadResult>;
+  loadPlan(projectPath: string, projectName: string): Promise<CanvasPlanLoadResult>;
   savePlan(projectPath: string, plan: ProjectPlan): Promise<void>;
   loadImage(projectPath: string, file: string): Promise<string>;
   importImage(
@@ -94,14 +94,17 @@ export function createCanvasPlanService({
   }
 
   return {
-    loadPlan(projectPath) {
+    loadPlan(projectPath, projectName) {
       return enqueue(async () => {
         try {
           const raw = await repository.loadRawPlan(projectPath);
           if (raw == null) {
             return { status: "missing" };
           }
-          return { status: "loaded", plan: migratePlan(raw) };
+          return {
+            status: "loaded",
+            plan: migratePlan(raw, { projectName, makeId: () => createId() }),
+          };
         } catch (error) {
           throw contextualError("Unable to load the project plan", error);
         }

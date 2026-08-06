@@ -150,7 +150,7 @@ export function ReferenceComponentView({
                 paddingRight: `${8 * scale}px`,
               }}
               type="text"
-              value={component.title}
+              value={component.name}
             />
             {onSetImageHeight ? (
               <div className="flex items-center" style={{ gap: `${8 * scale}px` }}>
@@ -260,7 +260,7 @@ export function ReferenceComponentView({
             marginBottom: `${REFERENCE_HEADER_GAP * scale}px`,
           }}
         >
-          {t("reference.continuedTitle", { title: component.title })}
+          {t("reference.continuedTitle", { title: component.name })}
         </div>
       )}
 

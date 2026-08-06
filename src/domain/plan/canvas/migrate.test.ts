@@ -3,6 +3,42 @@ import { migratePlan } from "./migrate";
 import { DEFAULT_IMAGE_HEIGHT, type ReferenceComponent } from "./models";
 
 describe("migratePlan", () => {
+  describe("v4 -> v5 migration", () => {
+    it("derives deterministic titles, names, and row ids from a v4 plan", () => {
+      let counter = 0;
+      const v4: unknown = {
+        schemaVersion: 4,
+        components: [
+          { id: "plan-1", type: "plan", width: 0.5, html: "" },
+          {
+            id: "ref-1",
+            type: "reference",
+            width: 0.4,
+            title: "Lookbook",
+            description: "",
+            imageHeight: 135,
+            showCaptions: false,
+            images: [],
+          },
+        ],
+      };
+
+      const migrated = migratePlan(v4, {
+        projectName: "Editorial",
+        makeId: (prefix) => `${prefix}-${++counter}`,
+      });
+
+      expect(migrated).toMatchObject({
+        schemaVersion: 5,
+        title: "Editorial",
+        components: [
+          { name: "文案1", rowId: "row:plan-1" },
+          { name: "Lookbook", rowId: "row:ref-1", showCaptions: false },
+        ],
+      });
+    });
+  });
+
   describe("v3 schema", () => {
     it("migrates v3 to v4 by dropping component height and reducing image height once", () => {
       const v3 = {
@@ -25,7 +61,7 @@ describe("migratePlan", () => {
 
       const migrated = migratePlan(v3);
 
-      expect(migrated.schemaVersion).toBe(4);
+      expect(migrated.schemaVersion).toBe(5);
       expect(migrated.components[0]).not.toHaveProperty("height");
       expect(migrated.components[1]).not.toHaveProperty("height");
       expect((migrated.components[1] as ReferenceComponent).imageHeight).toBe(135);
@@ -60,10 +96,10 @@ describe("migratePlan", () => {
         ],
       };
       const migrated = migratePlan(v3);
-      expect(migrated.schemaVersion).toBe(4);
+      expect(migrated.schemaVersion).toBe(5);
       expect(migrated.components).toHaveLength(2);
       expect(migrated.components[0]).toMatchObject({ id: "a", type: "plan", width: 0.5, html: "<p>x</p>" });
-      expect(migrated.components[1]).toMatchObject({ id: "b", type: "reference", width: 1, title: "T", imageHeight: 150, showCaptions: false });
+      expect(migrated.components[1]).toMatchObject({ id: "b", type: "reference", width: 1, name: "T", imageHeight: 150, showCaptions: false });
       expect(migrated.components[0]).not.toHaveProperty("height");
       expect(migrated.components[1]).not.toHaveProperty("height");
       expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "i", file: "references/0001.png", aspectRatio: 1.5 });
@@ -91,7 +127,7 @@ describe("migratePlan", () => {
         ],
       };
       const migrated = migratePlan(v3);
-      expect((migrated.components[0] as ReferenceComponent).imageHeight).toBe(80); // clamped
+      expect((migrated.components[0] as ReferenceComponent).imageHeight).toBe(67.5); // clamped
       expect((migrated.components[1] as ReferenceComponent).imageHeight).toBe(375); // reduced once, then clamped
     });
 
@@ -172,7 +208,7 @@ describe("migratePlan", () => {
         ],
       };
       const migrated = migratePlan(v2);
-      expect(migrated.schemaVersion).toBe(4);
+      expect(migrated.schemaVersion).toBe(5);
       expect(migrated.components[0].width).toBe(1);
       expect(migrated.components[1].width).toBe(0.75);
       expect(migrated.components[2].width).toBe(0.667);
@@ -226,7 +262,7 @@ describe("migratePlan", () => {
       };
       const migrated = migratePlan(v2);
       expect(migrated.components[0]).toMatchObject({ id: "plan1", type: "plan", width: 0.5, html: "<h1>Test</h1>" });
-      expect(migrated.components[1]).toMatchObject({ id: "ref1", type: "reference", width: 1, title: "Gallery", description: "Mood board", showCaptions: true });
+      expect(migrated.components[1]).toMatchObject({ id: "ref1", type: "reference", width: 1, name: "Gallery", description: "Mood board", showCaptions: true });
       expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "img1", file: "test.png", caption: "Caption text", aspectRatio: 1 });
     });
 
@@ -272,7 +308,7 @@ describe("migratePlan", () => {
         "duplicate-component-2",
       ]);
       const references = migrated.components as ReferenceComponent[];
-      expect(references.map((component) => component.title)).toEqual(["First", "Second"]);
+      expect(references.map((component) => component.name)).toEqual(["First", "Second"]);
       expect(references.map((component) => component.width)).toEqual([1, 0.5]);
       expect(references.flatMap((component) => component.images.map((image) => image.id))).toEqual([
         "duplicate-image",
@@ -298,16 +334,16 @@ describe("migratePlan", () => {
         ],
       };
       const migrated = migratePlan(v1);
-      expect(migrated.schemaVersion).toBe(4);
+      expect(migrated.schemaVersion).toBe(5);
       expect(migrated.components[0]).toMatchObject({ type: "plan", width: 1, html: "<h2>Sunset</h2>" });
-      expect(migrated.components[1]).toMatchObject({ type: "reference", width: 1, title: "Lookbook", imageHeight: DEFAULT_IMAGE_HEIGHT, showCaptions: false });
+      expect(migrated.components[1]).toMatchObject({ type: "reference", width: 1, name: "Lookbook", imageHeight: DEFAULT_IMAGE_HEIGHT, showCaptions: false });
       expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "i1", file: "references/0001.png", aspectRatio: 1 });
     });
 
     it("omits the plan component when v1 photographyPlan is empty", () => {
       const migrated = migratePlan({ photographyPlan: "", referenceGroups: [] });
       expect(migrated.components).toHaveLength(0);
-      expect(migrated.schemaVersion).toBe(4);
+      expect(migrated.schemaVersion).toBe(5);
     });
 
     it("deterministically remaps duplicate reference group ids while preserving both groups", () => {
@@ -334,7 +370,7 @@ describe("migratePlan", () => {
         "duplicate-group-2",
       ]);
       const references = migrated.components as ReferenceComponent[];
-      expect(references.map((component) => component.title)).toEqual(["First", "Second"]);
+      expect(references.map((component) => component.name)).toEqual(["First", "Second"]);
       expect(
         references.flatMap((component) =>
           component.images.map(({ id, file }) => ({ id, file })),
@@ -348,7 +384,7 @@ describe("migratePlan", () => {
 
   describe("forward compatibility", () => {
     it("rejects a future schemaVersion instead of replacing stored data", () => {
-      const future = { schemaVersion: 5, components: [] };
+      const future = { schemaVersion: 6, components: [] };
       expect(() => migratePlan(future)).toThrow(/schema version/i);
     });
   });

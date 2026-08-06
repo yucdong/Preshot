@@ -27,6 +27,7 @@ import {
   setImageHeight,
   type MoveImageParams,
 } from "../../domain/plan/canvas/plan";
+import { nextComponentName } from "../../domain/plan/canvas/naming";
 import {
   createHistory,
   record as recordHistory,
@@ -150,7 +151,7 @@ const AUTO_SAVE_INTERVAL_MS = 5000;
 
 export function ProjectCanvasProvider({
   projectPath,
-  projectName: _projectName,
+  projectName,
   dependencies,
 }: ProjectCanvasProviderProps) {
   const { t } = useTranslation();
@@ -540,22 +541,27 @@ export function ProjectCanvasProvider({
 
     async function load() {
       try {
-        const loadResult = await service.loadPlan(projectPath);
+        const loadResult = await service.loadPlan(projectPath, projectName);
         if (!isCurrent()) return;
 
         let planToUse = loadResult.status === "loaded" ? loadResult.plan : EMPTY_PLAN;
         if (loadResult.status === "missing") {
+          const planId = crypto.randomUUID();
           const planComponent = {
-            id: crypto.randomUUID(),
+            id: planId,
+            rowId: `row:${planId}`,
+            name: nextComponentName(planToUse, "plan"),
             type: "plan" as const,
             width: 1,
             html: t("content.planTemplate"),
           };
+          const referenceId = crypto.randomUUID();
           const referenceComponent = {
-            id: crypto.randomUUID(),
+            id: referenceId,
+            rowId: `row:${referenceId}`,
+            name: nextComponentName(planToUse, "reference"),
             type: "reference" as const,
             width: 1,
-            title: t("content.newGroupTitle"),
             description: "",
             showCaptions: false,
             imageHeight: DEFAULT_IMAGE_HEIGHT,
@@ -746,19 +752,24 @@ export function ProjectCanvasProvider({
         return;
       }
       if (type === "plan") {
+        const id = crypto.randomUUID();
         const newComponent = {
-          id: crypto.randomUUID(),
+          id,
+          rowId: `row:${id}`,
+          name: nextComponentName(planRef.current, "plan"),
           type: "plan" as const,
           width: 1,
           html: t("content.planTemplate"),
         };
         mutate(addComponent(planRef.current, newComponent));
       } else {
+        const id = crypto.randomUUID();
         const newComponent = {
-          id: crypto.randomUUID(),
+          id,
+          rowId: `row:${id}`,
+          name: nextComponentName(planRef.current, "reference"),
           type: "reference" as const,
           width: 1,
-          title: t("content.newGroupTitle"),
           description: "",
           showCaptions: false,
           imageHeight: DEFAULT_IMAGE_HEIGHT,
