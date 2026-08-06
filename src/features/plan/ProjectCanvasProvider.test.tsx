@@ -535,6 +535,138 @@ describe("ProjectCanvasProvider", () => {
     expect(screen.queryByTestId("plan-old-plan")).not.toBeInTheDocument();
   });
 
+  it("flushes the dirty old project snapshot before the replacement project finishes loading", async () => {
+    const { dependencies, loadPlan, savePlan } = deps();
+    const newLoad = deferred<Awaited<ReturnType<CanvasPlanService["loadPlan"]>>>();
+    const oldPlan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "plan-1",
+          type: "plan",
+          width: 1,
+          html: "<p>old project</p>",
+        },
+      ],
+    };
+    const newPlan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "new-plan",
+          type: "plan",
+          width: 1,
+          html: "<p>new project</p>",
+        },
+      ],
+    };
+    loadPlan.mockImplementation((path) =>
+      path === String.raw`C:\old`
+        ? Promise.resolve({ status: "loaded", plan: oldPlan })
+        : newLoad.promise,
+    );
+
+    const { rerender } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Old"
+        projectPath={String.raw`C:\old`}
+      />,
+    );
+
+    await screen.findByTestId("plan-plan-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="New"
+          projectPath={String.raw`C:\new`}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(savePlan).toHaveBeenCalledTimes(1);
+    expect(savePlan).toHaveBeenCalledWith(
+      String.raw`C:\old`,
+      expect.objectContaining({
+        components: [
+          expect.objectContaining({
+            id: "plan-1",
+            html: "<p>edited</p>",
+          }),
+        ],
+      }),
+    );
+    expect(loadPlan).toHaveBeenCalledWith(String.raw`C:\new`);
+
+    await act(async () => {
+      newLoad.resolve({ status: "loaded", plan: newPlan });
+    });
+    expect(await screen.findByTestId("plan-new-plan")).toHaveTextContent("new project");
+  });
+
+  it("does not flush the old project on a path switch when its snapshot is clean", async () => {
+    const { dependencies, loadPlan, savePlan } = deps();
+    const newLoad = deferred<Awaited<ReturnType<CanvasPlanService["loadPlan"]>>>();
+    const newPlan: ProjectPlan = {
+      schemaVersion: 4,
+      components: [
+        {
+          id: "new-plan",
+          type: "plan",
+          width: 1,
+          html: "<p>new project</p>",
+        },
+      ],
+    };
+    loadPlan.mockImplementation((path) =>
+      path === String.raw`C:\old`
+        ? Promise.resolve({
+            status: "loaded",
+            plan: {
+              schemaVersion: 4,
+              components: [
+                {
+                  id: "plan-1",
+                  type: "plan",
+                  width: 1,
+                  html: "<p>old project</p>",
+                },
+              ],
+            },
+          })
+        : newLoad.promise,
+    );
+
+    const { rerender } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Old"
+        projectPath={String.raw`C:\old`}
+      />,
+    );
+
+    await screen.findByTestId("plan-plan-1");
+    rerender(
+      <ThemeProvider repository={fakeRepository}>
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="New"
+          projectPath={String.raw`C:\new`}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(savePlan).not.toHaveBeenCalled();
+
+    await act(async () => {
+      newLoad.resolve({ status: "loaded", plan: newPlan });
+    });
+    expect(await screen.findByTestId("plan-new-plan")).toHaveTextContent("new project");
+  });
+
   it("marks unsaved when a component is edited", async () => {
     const { dependencies } = deps();
 

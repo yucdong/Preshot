@@ -406,8 +406,40 @@ export function ProjectCanvasProvider({
   ]);
 
   useLayoutEffect(() => {
+    const retiringToken: ProjectToken = {
+      projectPath: activeProjectPathRef.current,
+      generation: generationRef.current,
+    };
+    if (retiringToken.projectPath === projectPath) {
+      return;
+    }
+    const retiringLifecycle = lifecycleRef.current;
+    const retiringPlan = planRef.current;
+    const retiringPlanSnapshot = JSON.stringify(retiringPlan);
+    const retiringLastSavedSnapshot = lastSavedRef.current;
+    const shouldFlush =
+      retiringLifecycle.projectPath === retiringToken.projectPath &&
+      retiringLifecycle.generation === retiringToken.generation &&
+      retiringLifecycle.status === "ready" &&
+      retiringPlanSnapshot !== retiringLastSavedSnapshot;
+    let retiringSave: Promise<void> | null = null;
+    if (shouldFlush) {
+      try {
+        retiringSave = service.savePlan(retiringToken.projectPath, retiringPlan);
+      } catch (err) {
+        retiringSave = Promise.reject(err);
+      }
+    }
+
+    generationRef.current = retiringToken.generation + 1;
     activeProjectPathRef.current = projectPath;
-  }, [projectPath]);
+
+    if (retiringSave) {
+      void retiringSave.catch((err) => {
+        report("Unable to auto-save the project plan", err, retiringToken);
+      });
+    }
+  }, [projectPath, report, service]);
 
   useEffect(() => {
     mountedRef.current = true;

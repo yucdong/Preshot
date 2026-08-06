@@ -229,6 +229,64 @@ describe("migratePlan", () => {
       expect(migrated.components[1]).toMatchObject({ id: "ref1", type: "reference", width: 1, title: "Gallery", description: "Mood board", showCaptions: true });
       expect((migrated.components[1] as ReferenceComponent).images[0]).toEqual({ id: "img1", file: "test.png", caption: "Caption text", aspectRatio: 1 });
     });
+
+    it("deterministically remaps duplicate component and image ids while preserving every record", () => {
+      const migrated = migratePlan({
+        schemaVersion: 2,
+        components: [
+          {
+            id: "duplicate-component",
+            type: "reference",
+            widthFraction: "1",
+            title: "First",
+            description: "First description",
+            showCaptions: false,
+            images: [
+              {
+                id: "duplicate-image",
+                file: "references/first.png",
+                caption: "First image",
+              },
+            ],
+          },
+          {
+            id: "duplicate-component",
+            type: "reference",
+            widthFraction: "1/2",
+            title: "Second",
+            description: "Second description",
+            showCaptions: true,
+            images: [
+              {
+                id: "duplicate-image",
+                file: "references/second.png",
+                caption: "Second image",
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(migrated.components.map((component) => component.id)).toEqual([
+        "duplicate-component",
+        "duplicate-component-2",
+      ]);
+      const references = migrated.components as ReferenceComponent[];
+      expect(references.map((component) => component.title)).toEqual(["First", "Second"]);
+      expect(references.map((component) => component.width)).toEqual([1, 0.5]);
+      expect(references.flatMap((component) => component.images.map((image) => image.id))).toEqual([
+        "duplicate-image",
+        "duplicate-image-2",
+      ]);
+      expect(
+        references.flatMap((component) =>
+          component.images.map(({ file, caption }) => ({ file, caption })),
+        ),
+      ).toEqual([
+        { file: "references/first.png", caption: "First image" },
+        { file: "references/second.png", caption: "Second image" },
+      ]);
+    });
   });
 
   describe("v1 -> v4 migration (chained)", () => {
@@ -250,6 +308,41 @@ describe("migratePlan", () => {
       const migrated = migratePlan({ photographyPlan: "", referenceGroups: [] });
       expect(migrated.components).toHaveLength(0);
       expect(migrated.schemaVersion).toBe(4);
+    });
+
+    it("deterministically remaps duplicate reference group ids while preserving both groups", () => {
+      const migrated = migratePlan({
+        photographyPlan: "",
+        referenceGroups: [
+          {
+            id: "duplicate-group",
+            title: "First",
+            description: "First description",
+            images: [{ id: "first-image", file: "references/first.png" }],
+          },
+          {
+            id: "duplicate-group",
+            title: "Second",
+            description: "Second description",
+            images: [{ id: "second-image", file: "references/second.png" }],
+          },
+        ],
+      });
+
+      expect(migrated.components.map((component) => component.id)).toEqual([
+        "duplicate-group",
+        "duplicate-group-2",
+      ]);
+      const references = migrated.components as ReferenceComponent[];
+      expect(references.map((component) => component.title)).toEqual(["First", "Second"]);
+      expect(
+        references.flatMap((component) =>
+          component.images.map(({ id, file }) => ({ id, file })),
+        ),
+      ).toEqual([
+        { id: "first-image", file: "references/first.png" },
+        { id: "second-image", file: "references/second.png" },
+      ]);
     });
   });
 

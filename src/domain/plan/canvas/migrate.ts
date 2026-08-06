@@ -260,6 +260,50 @@ function migrateComponents(
   });
 }
 
+function remapLegacyLogicalIds(components: PlanComponent[]): PlanComponent[] {
+  const reservedIds = new Set<string>();
+  for (const component of components) {
+    reservedIds.add(component.id);
+    if (component.type === "reference") {
+      for (const image of component.images) {
+        reservedIds.add(image.id);
+      }
+    }
+  }
+
+  const usedIds = new Set<string>();
+  const uniqueId = (id: string): string => {
+    if (!usedIds.has(id)) {
+      usedIds.add(id);
+      return id;
+    }
+    let suffix = 2;
+    let candidate = `${id}-${suffix}`;
+    while (usedIds.has(candidate) || reservedIds.has(candidate)) {
+      suffix += 1;
+      candidate = `${id}-${suffix}`;
+    }
+    usedIds.add(candidate);
+    return candidate;
+  };
+
+  const componentIds = components.map((component) => uniqueId(component.id));
+  return components.map((component, componentIndex) => {
+    const id = componentIds[componentIndex];
+    if (component.type === "plan") {
+      return { ...component, id };
+    }
+    return {
+      ...component,
+      id,
+      images: component.images.map((image) => ({
+        ...image,
+        id: uniqueId(image.id),
+      })),
+    };
+  });
+}
+
 function validateLogicalIds(components: PlanComponent[]): void {
   const componentPositions = new Map<string, number>();
   for (const [componentIndex, component] of components.entries()) {
@@ -328,7 +372,9 @@ export function migratePlan(raw: unknown, makeId: IdFactory = defaultIdFactory()
       throw new Error("Stored plan schema version 2 components must be an array");
     }
     return migratedPlan(
-      migrateComponents(raw.components, makeId, migrateV2Component),
+      remapLegacyLogicalIds(
+        migrateComponents(raw.components, makeId, migrateV2Component),
+      ),
     );
   }
   if (typeof raw.photographyPlan === "string" || Array.isArray(raw.referenceGroups)) {
