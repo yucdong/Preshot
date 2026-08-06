@@ -109,11 +109,13 @@ test("reference images wrap proportionally without an internal scrollbar", async
 
     return {
       bodyInside: inside(bodyRect),
+      itemCount: tiles.length,
       tilesInside: tiles.every(inside),
     };
   });
 
   expect(containment.bodyInside).toBe(true);
+  expect(containment.itemCount).toBe(5);
   expect(containment.tilesInside).toBe(true);
 });
 

@@ -1,18 +1,21 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const SEEDED_REFERENCE_IMAGE_COUNT = 4;
+
 async function waitForReferenceImages(page: Page) {
   const images = page.getByRole("img", { name: "参考图" });
-  await expect(images.first()).toBeVisible();
+  await expect(images).toHaveCount(SEEDED_REFERENCE_IMAGE_COUNT);
   await expect
     .poll(() =>
-      images.evaluateAll((elements) =>
-        elements.every((element) => {
+      images.evaluateAll((elements) => ({
+        count: elements.length,
+        ready: elements.every((element) => {
           const image = element as HTMLImageElement;
           return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
         }),
-      ),
+      })),
     )
-    .toBe(true);
+    .toEqual({ count: SEEDED_REFERENCE_IMAGE_COUNT, ready: true });
 }
 
 test("loads the seeded canvas with plan and reference components", async ({ page }) => {
@@ -388,12 +391,12 @@ test("exports the canvas to PDF with captions enabled", async ({ page }) => {
   await waitForReferenceImages(page);
 
   // Toggle captions on the seeded reference component
-  const firstReferenceFrame = page
+  const referenceFramesWithCaptionControl = page
     .locator('[data-component-frame="true"]')
-    .filter({ has: page.getByRole("checkbox", { name: "显示说明" }) })
-    .first();
-  const captionCheckbox = firstReferenceFrame.getByRole("checkbox", { name: "显示说明" });
-  await expect(firstReferenceFrame).toBeVisible();
+    .filter({ has: page.getByRole("checkbox", { name: "显示说明" }) });
+  await expect(referenceFramesWithCaptionControl).toHaveCount(1);
+  const captionCheckbox = referenceFramesWithCaptionControl.getByRole("checkbox", { name: "显示说明" });
+  await expect(referenceFramesWithCaptionControl).toBeVisible();
   await expect(captionCheckbox).toBeVisible();
   await captionCheckbox.check();
   await expect(captionCheckbox).toBeChecked();
