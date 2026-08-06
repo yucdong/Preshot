@@ -681,14 +681,18 @@ test("crops and restores a tile while the lightbox keeps the full source image",
     .poll(async () => (await tile.boundingBox())?.width ?? 0)
     .not.toBe(initialBox.width);
 
+  await tile.getByRole("button", { name: "打开参考图 1" }).click();
+  const lightbox = page.getByRole("dialog");
+  await expect(lightbox).toBeVisible();
+  await expect(lightbox.getByRole("img", { name: "参考图" })).toHaveAttribute("src", fullSource);
+  await lightbox.getByRole("button", { name: "关闭图片" }).click();
+  await expect(lightbox).toBeHidden();
+
   await tile.getByRole("button", { name: "恢复原图" }).click();
   await expect(tile).toHaveAttribute("data-image-cropped", "false");
   await expect
     .poll(async () => (await tile.boundingBox())?.width ?? 0)
     .toBe(initialBox.width);
-
-  await tile.getByRole("button", { name: "打开参考图 1" }).click();
-  await expect(page.getByRole("dialog").getByRole("img", { name: "参考图" })).toHaveAttribute("src", fullSource);
 });
 
 test("exports successfully while captions stay hidden on the canvas", async ({ page }) => {

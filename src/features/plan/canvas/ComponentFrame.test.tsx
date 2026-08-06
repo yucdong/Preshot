@@ -135,6 +135,56 @@ describe("ComponentFrame", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("组件名称不能重复");
   });
 
+  it("resets its name draft and validation error when the committed name changes", async () => {
+    const onRename = vi.fn<() => RenameComponentResult>(() => ({
+      ok: false,
+      reason: "duplicate",
+    }));
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <DndContext>
+        <ComponentFrame
+          component={component}
+          contentWidthPoints={500}
+          id={component.id}
+          onRemove={vi.fn()}
+          onRename={onRename}
+          onResize={vi.fn()}
+          rect={rect}
+          scale={1}
+        >
+          <div>content</div>
+        </ComponentFrame>
+      </DndContext>,
+    );
+
+    const input = screen.getByRole("textbox", { name: "组件名称" });
+    await user.clear(input);
+    await user.type(input, "Existing");
+    await user.tab();
+    expect(screen.getByRole("alert")).toHaveTextContent("组件名称不能重复");
+
+    rerender(
+      <DndContext>
+        <ComponentFrame
+          component={{ ...component, name: "拍摄文案" }}
+          contentWidthPoints={500}
+          id={component.id}
+          onRemove={vi.fn()}
+          onRename={onRename}
+          onResize={vi.fn()}
+          rect={rect}
+          scale={1}
+        >
+          <div>content</div>
+        </ComponentFrame>
+      </DndContext>,
+    );
+
+    expect(screen.getByRole("textbox", { name: "组件名称" })).toHaveValue("拍摄文案");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("restores the component name on Escape", async () => {
     const user = userEvent.setup();
 

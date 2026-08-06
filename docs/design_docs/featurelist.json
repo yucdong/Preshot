@@ -552,21 +552,23 @@
           "Final retirement blocker: waited for old-token import/remove/flush persistence before rebasing and saving the latest retired plan, preserving physical deletion ordering and preventing stale completion state or errors from reaching the new project UI",
           "Task 7: integrated v5 rows, naming, crop metadata, project-title seeding, CanvasTitle, and CanvasToolbar through ProjectCanvasProvider and PlanCanvas; added focused provider/canvas/reference regressions",
           "Task 7 review fixes: rebased delayed image/component operations over concurrent v5 metadata with an immediate serialized merged save; retained completed imports during retirement; blocked image moves and global undo/redo during destructive operations; corrected singleton-row drops and structural identity no-ops; retained hydrated image ratios while crop undo/redo remains history-controlled",
-          "Task 8: added focused acceptance coverage for persisted row changes, title/name persistence, crop/reset/lightbox source behavior, hidden-caption export, header settings, and keyboard-only history; completed validation except for documented pre-existing lint and init-test blockers"
+          "Task 8: added focused acceptance coverage for persisted row changes, title/name persistence, crop/reset/lightbox source behavior, hidden-caption export, header settings, and keyboard-only history; later review fixes resolved the branch lint errors and reconfirmed the unchanged init-test baseline"
         ],
         "lastVerified": {
           "date": "2026-08-06",
           "targetedE2e": "pnpm test:e2e -- e2e/canvas.spec.ts e2e/undo-redo.spec.ts e2e/theme.spec.ts: 24 passed",
-          "pnpmLint": "blocked: 3 pre-existing errors and 1 warning (migrate.test.ts constant condition; CanvasTitle.tsx and ComponentFrame.tsx synchronous-effect errors; ThemeProvider fast-refresh warning)",
+          "postReviewTargetedUnits": "63 tests passed: planDependencies/browserPlan (11), CanvasTitle/ComponentFrame (18), migrate (34)",
+          "postReviewTargetedE2e": "pnpm exec playwright test e2e/canvas.spec.ts --grep \"crops and restores\": 1 passed",
+          "pnpmLint": "passed (exit 0); unchanged ThemeProvider Fast Refresh warning remains",
           "pnpmTypecheck": "passed",
           "pnpmTest": "73 files, 608 tests passed",
-          "pnpmTestInit": "blocked: fixture expected the existing actionable pnpm failure text but did not match it",
+          "pnpmTestInit": "confirmed unchanged baseline failure: fixture still does not match init.ps1's actionable pnpm failure text",
           "pnpmTestE2e": "30 passed",
           "cargoTest": "44 passed",
           "pnpmBuild": "passed with the existing Vite >500 kB chunk-size warning"
         },
         "remaining": [
-          "Resolve the documented pre-existing pnpm lint and pnpm test:init blockers before declaring a fully clean validation matrix."
+          "The unchanged test:init fixture assertion mismatch remains outside this Task 8 review scope."
         ]
       }
     },
@@ -587,10 +589,12 @@
       ],
       "verification": {
         "targetedE2e": "24 passed",
-        "pnpmLint": "blocked: 3 pre-existing errors and 1 warning",
+        "postReviewTargetedUnits": "63 passed",
+        "postReviewTargetedE2e": "cropped-tile lightbox source assertion: 1 passed",
+        "pnpmLint": "passed (exit 0; unchanged ThemeProvider Fast Refresh warning)",
         "pnpmTypecheck": "passed",
         "pnpmTest": "73 files, 608 tests passed",
-        "pnpmTestInit": "blocked: existing fixture assertion mismatch",
+        "pnpmTestInit": "confirmed unchanged baseline fixture assertion mismatch",
         "pnpmTestE2e": "30 passed",
         "cargoTest": "44 passed",
         "pnpmBuild": "passed"

@@ -112,5 +112,3 @@ export function createBrowserCanvasPlanDependencies(): {
     picker: memoryPicker,
   };
 }
-
-export const browserCanvasPlanDependencies = createBrowserCanvasPlanDependencies();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
@@ -45,6 +45,73 @@ interface ComponentFrameBodyProps extends ComponentFrameProps {
   interactiveChrome: boolean;
 }
 
+interface ComponentFrameNameInputProps {
+  id: string;
+  name: string;
+  onRename?: (id: string, name: string) => RenameComponentResult;
+  scale: number;
+}
+
+function ComponentFrameNameInput({
+  id,
+  name,
+  onRename,
+  scale,
+}: ComponentFrameNameInputProps) {
+  const { t } = useTranslation();
+  const [nameDraft, setNameDraft] = useState(name);
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  const commitName = () => {
+    if (!onRename) {
+      return;
+    }
+    const result = onRename(id, nameDraft);
+    if (result.ok) {
+      setNameDraft(result.plan.components?.find((entry) => entry.id === id)?.name ?? nameDraft.trim());
+      setNameError(null);
+    } else {
+      setNameError(t(`canvas.nameError.${result.reason}`));
+    }
+  };
+
+  return (
+    <div className="relative min-w-0 flex-1">
+      <input
+        aria-describedby={nameError ? `${id}-name-error` : undefined}
+        aria-label={t("canvas.componentName")}
+        className="min-w-0 w-full border-0 bg-transparent text-stone-700 outline-none focus:ring-2 focus:ring-amber-500 dark:text-stone-100"
+        onBlur={commitName}
+        onChange={(event) => setNameDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commitName();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            setNameDraft(name);
+            setNameError(null);
+          }
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+        style={{ fontSize: `${12 * scale}px`, lineHeight: `${16 * scale}px` }}
+        type="text"
+        value={nameDraft}
+      />
+      {nameError ? (
+        <div
+          className="absolute left-0 top-full z-20 whitespace-nowrap text-xs text-red-600 dark:text-red-400"
+          id={`${id}-name-error`}
+          role="alert"
+        >
+          {nameError}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ComponentFrameBody({
   id,
   frameId,
@@ -74,29 +141,10 @@ function ComponentFrameBody({
   const [resizePreview, setResizePreview] = useState<{ width: number } | null>(null);
   const [resizeStart, setResizeStart] = useState<{ x: number; edge: "width" | "left" } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [nameDraft, setNameDraft] = useState(component.name);
-  const [nameError, setNameError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setNameDraft(component.name);
-    setNameError(null);
-  }, [component.name]);
 
   const currentWidth = resizePreview?.width ?? component.width;
   const committedWidthPoints = contentWidthPoints * component.width;
   const currentWidthPoints = contentWidthPoints * currentWidth;
-  const commitName = () => {
-    if (!onRename) {
-      return;
-    }
-    const result = onRename(id, nameDraft);
-    if (result.ok) {
-      setNameDraft(result.plan.components?.find((entry) => entry.id === id)?.name ?? nameDraft.trim());
-      setNameError(null);
-    } else {
-      setNameError(t(`canvas.nameError.${result.reason}`));
-    }
-  };
 
   const onPointerDownResize = (edge: "width" | "left") => (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -198,39 +246,13 @@ function ComponentFrameBody({
         title={interactiveChrome ? t("canvas.moveHint") : undefined}
       >
         {interactiveChrome ? (
-          <div className="relative min-w-0 flex-1">
-            <input
-              aria-describedby={nameError ? `${id}-name-error` : undefined}
-              aria-label={t("canvas.componentName")}
-              className="min-w-0 w-full border-0 bg-transparent text-stone-700 outline-none focus:ring-2 focus:ring-amber-500 dark:text-stone-100"
-              onBlur={commitName}
-              onChange={(event) => setNameDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  commitName();
-                } else if (event.key === "Escape") {
-                  event.preventDefault();
-                  setNameDraft(component.name);
-                  setNameError(null);
-                }
-              }}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => event.stopPropagation()}
-              style={{ fontSize: `${12 * scale}px`, lineHeight: `${16 * scale}px` }}
-              type="text"
-              value={nameDraft}
-            />
-            {nameError ? (
-              <div
-                className="absolute left-0 top-full z-20 whitespace-nowrap text-xs text-red-600 dark:text-red-400"
-                id={`${id}-name-error`}
-                role="alert"
-              >
-                {nameError}
-              </div>
-            ) : null}
-          </div>
+          <ComponentFrameNameInput
+            id={id}
+            key={component.name}
+            name={component.name}
+            onRename={onRename}
+            scale={scale}
+          />
         ) : (
           <span
             className="text-stone-400 dark:text-stone-500"

@@ -47,6 +47,22 @@ describe("CanvasTitle", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("画布标题不能为空");
   });
 
+  it("resets its draft and validation error when the committed title changes", async () => {
+    const onCommit = vi.fn<() => SetPlanTitleResult>(() => ({ ok: false, reason: "empty" }));
+    const user = userEvent.setup();
+    const { rerender } = render(<CanvasTitle title="Editorial" onCommit={onCommit} />);
+
+    const input = screen.getByRole("textbox", { name: "画布标题" });
+    await user.clear(input);
+    await user.tab();
+    expect(screen.getByRole("alert")).toHaveTextContent("画布标题不能为空");
+
+    rerender(<CanvasTitle title="Campaign" onCommit={onCommit} />);
+
+    expect(screen.getByRole("textbox", { name: "画布标题" })).toHaveValue("Campaign");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("restores the committed title on Escape", async () => {
     const user = userEvent.setup();
 

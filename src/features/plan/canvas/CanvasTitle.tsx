@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SetPlanTitleResult } from "../../../domain/plan/canvas/naming";
 
@@ -8,14 +8,13 @@ export interface CanvasTitleProps {
 }
 
 export function CanvasTitle({ title, onCommit }: CanvasTitleProps) {
+  return <CanvasTitleInput key={title} onCommit={onCommit} title={title} />;
+}
+
+function CanvasTitleInput({ title, onCommit }: CanvasTitleProps) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(title);
   const [titleError, setTitleError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDraft(title);
-    setTitleError(null);
-  }, [title]);
 
   const commit = () => {
     const result = onCommit(draft);

@@ -13,10 +13,12 @@ describe("migratePlan", () => {
     expectTypeOf(migratePlan).toEqualTypeOf<
       (raw: unknown, context: PlanMigrationContext) => ProjectPlan
     >();
-    if (false) {
+
+    const callWithoutMigrationContext = () => {
       // @ts-expect-error PlanMigrationContext must remain required.
-      migratePlan({});
-    }
+      return migratePlan({});
+    };
+    expectTypeOf(callWithoutMigrationContext).toEqualTypeOf<() => ProjectPlan>();
   });
 
   describe("v4 -> v5 migration", () => {
