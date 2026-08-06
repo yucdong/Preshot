@@ -1155,9 +1155,12 @@ export function ProjectCanvasProvider({
                 image: result.image,
               }),
           );
-          if (!isTokenReady(token)) {
-            return;
-          }
+          const aspectRatio = await measureAspectRatio(result.dataUrl);
+          applyMeasuredAspectRatios(token, persistence, [
+            { file: result.image.file, aspectRatio },
+          ]);
+          if (!isTokenReady(token)) return;
+
           const nextImageSrc = {
             ...imageSrcRef.current,
             [result.image.file]: result.dataUrl,
@@ -1165,11 +1168,6 @@ export function ProjectCanvasProvider({
           imageSrcRef.current = nextImageSrc;
           setImageSrc(nextImageSrc);
           setError(null);
-
-          const aspectRatio = await measureAspectRatio(result.dataUrl);
-          applyMeasuredAspectRatios(token, persistence, [
-            { file: result.image.file, aspectRatio },
-          ]);
         });
       });
     },

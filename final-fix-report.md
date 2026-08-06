@@ -81,3 +81,22 @@
 - `pnpm typecheck`: passed.
 - `pnpm test`: 75 files, 660 tests passed.
 - Relevant canvas/workspace E2E: 25 passed.
+
+## Final Single-Import Retirement Follow-up
+
+### RED
+
+- A deferred rebase could retire a single import before its existing current-token return, preventing `Image.decode()` and preserving the service placeholder ratio on reload.
+
+### GREEN
+
+- Single imports now decode and apply the real aspect ratio to the tracked persistence plan before gating only React UI updates by the current token. Retirement then saves the dirty measured plan.
+- Added switch/unmount/reload regressions that defer the rebase save and image decode, then assert the reloaded persisted ratio is `3`.
+
+### Results
+
+- Focused ProjectCanvasProvider and workspace storage/dialog tests: 78 passed.
+- `pnpm lint`: exit 0; unchanged ThemeProvider Fast Refresh warning.
+- `pnpm typecheck`: passed.
+- `pnpm test`: 75 files, 662 tests passed.
+- Relevant canvas/workspace E2E: 25 passed.

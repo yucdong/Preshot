@@ -1828,6 +1828,168 @@ describe("ProjectCanvasProvider", () => {
     },
   );
 
+  it.each(["switch", "unmount"] as const)(
+    "measures and persists a single imported image after %s during its deferred decode",
+    async (retirement) => {
+      const { dependencies, loadPlan, savePlan, service } = deps();
+      const projectPath = String.raw`C:\demo`;
+      const otherProjectPath = String.raw`C:\other`;
+      const initialPlan: ProjectPlan = {
+        schemaVersion: 5,
+        title: "Demo",
+        components: [
+          {
+            id: "ref-1",
+            rowId: "row:ref-1",
+            type: "reference",
+            width: 1,
+            name: "Reference",
+            description: "",
+            showCaptions: false,
+            imageHeight: 180,
+            images: [],
+          },
+        ],
+      };
+      const otherPlan: ProjectPlan = {
+        schemaVersion: 5,
+        title: "Other",
+        components: [],
+      };
+      const diskPlans = new Map<string, ProjectPlan>([
+        [projectPath, initialPlan],
+        [otherProjectPath, otherPlan],
+      ]);
+      const imported = deferred<Awaited<ReturnType<CanvasPlanService["importImage"]>>>();
+      const rebasedSave = deferred<void>();
+      const imageDecode = installDeferredImageDecode(300, 100);
+      let firstSave = true;
+
+      loadPlan.mockImplementation(async (path) => {
+        const plan = diskPlans.get(path);
+        if (!plan) {
+          throw new Error(`Unexpected project path ${path}`);
+        }
+        return { status: "loaded", plan };
+      });
+      savePlan.mockImplementation(async (path, plan) => {
+        diskPlans.set(path, plan);
+        if (firstSave) {
+          firstSave = false;
+          await rebasedSave.promise;
+        }
+      });
+      vi.mocked(service.importImage).mockReturnValue(imported.promise);
+
+      const rendered = renderWithTheme(
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Demo"
+          projectPath={projectPath}
+        />,
+      );
+
+      await screen.findByTestId("plan-canvas");
+      const canvas = latestPlanCanvasProps;
+      expect(canvas).not.toBeNull();
+      if (!canvas) {
+        throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+      }
+
+      act(() => {
+        canvas.onAddImage("ref-1");
+      });
+      await waitFor(() => expect(service.importImage).toHaveBeenCalledTimes(1));
+      const operationPlan = vi.mocked(service.importImage).mock.calls[0]?.[1];
+      if (!operationPlan) {
+        throw new Error("Expected an import operation plan.");
+      }
+      act(() => {
+        canvas.onCommitTitle("Concurrent title");
+      });
+      await act(async () => {
+        imported.resolve({
+          plan: {
+            ...operationPlan,
+            components: operationPlan.components.map((component) =>
+              component.id === "ref-1" && component.type === "reference"
+                ? {
+                    ...component,
+                    images: [
+                      ...component.images,
+                      { id: "i2", file: "references/0002.png", aspectRatio: 1 },
+                    ],
+                  }
+                : component,
+            ),
+          },
+          image: { id: "i2", file: "references/0002.png", aspectRatio: 1 },
+          dataUrl: "data:image/png;base64,BB",
+        });
+      });
+      await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
+
+      if (retirement === "switch") {
+        rendered.rerender(
+          <ThemeProvider repository={fakeRepository}>
+            <ProjectCanvasProvider
+              dependencies={dependencies}
+              projectName="Other"
+              projectPath={otherProjectPath}
+            />
+          </ThemeProvider>,
+        );
+      } else {
+        rendered.unmount();
+      }
+
+      await act(async () => {
+        rebasedSave.resolve();
+      });
+      await waitFor(() => expect(imageDecode.decode).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        imageDecode.resolve();
+      });
+
+      await waitFor(() => {
+        const reference = diskPlans
+          .get(projectPath)
+          ?.components.find(
+            (component): component is ReferenceComponent =>
+              component.id === "ref-1" && component.type === "reference",
+          );
+        expect(reference?.images).toEqual([
+          expect.objectContaining({ id: "i2", aspectRatio: 3 }),
+        ]);
+      });
+
+      const reloadedProject = (
+        <ThemeProvider repository={fakeRepository}>
+          <ProjectCanvasProvider
+            dependencies={dependencies}
+            projectName="Demo"
+            projectPath={projectPath}
+          />
+        </ThemeProvider>
+      );
+      if (retirement === "switch") {
+        rendered.rerender(reloadedProject);
+      } else {
+        renderWithTheme(reloadedProject);
+      }
+
+      await waitFor(() => {
+        const reference = latestPlanCanvasProps?.components.find(
+          (component): component is ReferenceComponent =>
+            component.id === "ref-1" && component.type === "reference",
+        );
+        expect(reference?.images).toEqual([
+          expect.objectContaining({ id: "i2", aspectRatio: 3 }),
+        ]);
+      });
+    },
+  );
+
   it("retains a completed import while a concurrent edit retires during image decoding", async () => {
     const { dependencies, service, savePlan } = deps();
     const imported = deferred<Awaited<ReturnType<CanvasPlanService["importImage"]>>>();
