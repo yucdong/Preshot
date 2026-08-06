@@ -111,6 +111,68 @@ describe("createCanvasPdfExporter", () => {
     expect(Math.round(page.getHeight())).toBe(842);
   }, 20000);
 
+  it("exports document and component titles, hidden captions, and cropped images", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const pdfLib = await import("pdf-lib");
+    const drawText = vi.spyOn(pdfLib.PDFPage.prototype, "drawText");
+    const pushOperators = vi.spyOn(pdfLib.PDFPage.prototype, "pushOperators");
+    const plan: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Editorial",
+      components: [
+        {
+          id: "p1",
+          rowId: `row:${"p1"}`,
+          name: "文案1",
+          type: "plan",
+          width: 1,
+          html: "<p>正文</p>",
+        },
+        {
+          id: "r1",
+          rowId: `row:${"r1"}`,
+          name: "图片组1",
+          type: "reference",
+          width: 1,
+          description: "",
+          showCaptions: false,
+          imageHeight: 135,
+          images: [
+            {
+              id: "img1",
+              file: "photo.png",
+              caption: "拍摄说明",
+              aspectRatio: 1,
+              crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+            },
+          ],
+        },
+      ],
+    };
+
+    await exporter.export(plan, { "photo.png": createSolidPngDataUrl(100, 100) });
+
+    const drawnTexts = drawText.mock.calls.map(([text]) => text);
+    const pushedOperators = pushOperators.mock.calls.flat();
+
+    expect(drawnTexts).toEqual(expect.arrayContaining([
+      "Editorial",
+      "文案1",
+      "图片组1",
+      "拍摄说明",
+    ]));
+    expect(drawnTexts.filter((text) => text === "Editorial")).toHaveLength(1);
+    expect(pushedOperators).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "W" }),
+    ]));
+    const operatorNames = pushedOperators.map(
+      (operator) => (operator as unknown as { name: string }).name,
+    );
+    expect(operatorNames.filter((name) => name === "q")).toHaveLength(
+      operatorNames.filter((name) => name === "Q").length,
+    );
+  }, 20000);
+
   it("measures long plan text before layout so its tail and following component both render", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawText = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawText");

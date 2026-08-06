@@ -1,7 +1,20 @@
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import {
+  PDFDocument,
+  clip,
+  endPath,
+  popGraphicsState,
+  pushGraphicsState,
+  rectangle,
+  rgb,
+  type PDFFont,
+  type PDFImage,
+  type PDFPage,
+} from "pdf-lib";
+import { normalizeCrop } from "../../domain/plan/canvas/crop";
 import {
   A4,
+  componentFrameChromeHeight,
   containSize,
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
@@ -19,7 +32,10 @@ import type {
   ReferenceComponent,
   ReferenceImage,
 } from "../../domain/plan/canvas/models";
-import { buildCanvasLayout } from "../../domain/plan/canvas/pdf/exportDocument";
+import {
+  buildCanvasLayout,
+  PDF_COMPONENT_FRAME_CHROME,
+} from "../../domain/plan/canvas/pdf/exportDocument";
 import {
   COMPONENT_INSET,
   REFERENCE_HEADER_HEIGHT,
@@ -283,6 +299,7 @@ function resolvePdfLayout(
   components: ProjectPlan["components"],
   geometry: PageGeometry,
   textLayouts: PdfTextLayouts,
+  documentTitle: string,
 ): ResolvedPdfLayout {
   let measurements: LayoutMeasurements = {
     planHeights: new Map(textLayouts.measurements.planHeights),
@@ -301,7 +318,8 @@ function resolvePdfLayout(
     }
     seenHeightSignatures.add(signature);
 
-    const layout = buildCanvasLayout(components, geometry, measurements);
+    const layout = buildCanvasLayout(components, geometry, measurements, documentTitle);
+    const frameChromeHeight = componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME);
     const paginatedPlanLayouts = new Map<
       string,
       PaginatedPdfTextLayout<PDFFont>
@@ -332,6 +350,7 @@ function resolvePdfLayout(
             geometry.margin +
             placement.rect.y +
             COMPONENT_INSET +
+            frameChromeHeight +
             REFERENCE_HEADER_HEIGHT,
           pageHeight: geometry.page.height,
           pageMargin: geometry.margin,
@@ -350,7 +369,8 @@ function resolvePdfLayout(
           placement.pageIndex * geometry.page.height +
           geometry.margin +
           placement.rect.y +
-          COMPONENT_INSET,
+          COMPONENT_INSET +
+          frameChromeHeight,
         pageHeight: geometry.page.height,
         pageMargin: geometry.margin,
       });
@@ -406,7 +426,12 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
         layout,
         paginatedPlanLayouts,
         paginatedReferenceDescriptionLayouts,
-      } = resolvePdfLayout(plan.components, DEFAULT_PAGE_GEOMETRY, textLayouts);
+      } = resolvePdfLayout(
+        plan.components,
+        DEFAULT_PAGE_GEOMETRY,
+        textLayouts,
+        plan.title,
+      );
 
       const embedded = new Map<string, PDFImage>();
 
@@ -426,6 +451,17 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
         pages[0].drawText(" ", { x: 0, y: 0, size: 1, font, color: rgb(1, 1, 1) });
       }
 
+      if (plan.title.trim()) {
+        pages[0].drawText(plan.title, {
+          x: SPACING,
+          y: A4.height - SPACING - TITLE_SIZE,
+          size: TITLE_SIZE,
+          font: bold,
+          color: TEXT_COLOR,
+        });
+      }
+
+      const frameChromeHeight = componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME);
       for (const placement of layout.placements) {
         const page = pages[placement.pageIndex];
         const component = plan.components.find((c) => c.id === placement.componentId);
@@ -436,8 +472,18 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
           x: SPACING + placement.rect.x + COMPONENT_INSET,
           y: pageY - placement.rect.height + COMPONENT_INSET,
           width: placement.rect.width - COMPONENT_INSET * 2,
-          height: placement.rect.height - COMPONENT_INSET * 2,
+          height: placement.rect.height - COMPONENT_INSET * 2 - frameChromeHeight,
         };
+
+        if (placement.kind !== "continuation") {
+          page.drawText(component.name, {
+            x: contentRect.x,
+            y: pageY - COMPONENT_INSET - TITLE_SIZE,
+            size: TITLE_SIZE,
+            font: bold,
+            color: TEXT_COLOR,
+          });
+        }
 
         if (component.type === "plan") {
           const textLayout = paginatedPlanLayouts.get(component.id);
@@ -453,13 +499,15 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
           const ref = component as ReferenceComponent;
           const isContinuation = placement.kind === "continuation";
           const titleY = contentRect.y + contentRect.height - TITLE_SIZE;
-          page.drawText(isContinuation ? formatReferenceContinuedTitle(ref.name) : ref.name, {
-            x: contentRect.x,
-            y: titleY,
-            size: TITLE_SIZE,
-            font: bold,
-            color: TEXT_COLOR,
-          });
+          if (isContinuation) {
+            page.drawText(formatReferenceContinuedTitle(ref.name), {
+              x: contentRect.x,
+              y: titleY,
+              size: TITLE_SIZE,
+              font: bold,
+              color: TEXT_COLOR,
+            });
+          }
 
           if (!isContinuation && ref.description.trim()) {
             const descriptionLayout =
@@ -511,18 +559,43 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
                 borderWidth: 0.75,
               });
 
-              const imageRect = referenceImageDrawBox(imageSlotInPage, image);
-              page.drawImage(image, {
-                x: imageRect.x,
-                y: imageRect.y,
-                width: imageRect.width,
-                height: imageRect.height,
-              });
+              const crop = imageRecord.crop && normalizeCrop(imageRecord.crop);
+              if (crop) {
+                const width = imageSlotInPage.width / crop.width;
+                const height = imageSlotInPage.height / crop.height;
+                page.pushOperators(
+                  pushGraphicsState(),
+                  rectangle(
+                    imageSlotInPage.x,
+                    imageSlotInPage.y,
+                    imageSlotInPage.width,
+                    imageSlotInPage.height,
+                  ),
+                  clip(),
+                  endPath(),
+                );
+                page.drawImage(image, {
+                  x: imageSlotInPage.x - crop.x * width,
+                  y: imageSlotInPage.y - (1 - crop.y - crop.height) * height,
+                  width,
+                  height,
+                });
+                page.pushOperators(popGraphicsState());
+              } else {
+                const imageRect = referenceImageDrawBox(imageSlotInPage, image);
+                page.drawImage(image, {
+                  x: imageRect.x,
+                  y: imageRect.y,
+                  width: imageRect.width,
+                  height: imageRect.height,
+                });
+              }
 
-              if (ref.showCaptions && imageRecord.caption) {
+              const shouldExportCaption = Boolean(imageRecord.caption?.trim());
+              if (shouldExportCaption) {
                 const captionRect: Rect = slotToPageRect(contentRect, split.caption);
                 const savedY = captionRect.y + captionRect.height - CAPTION_SIZE;
-                page.drawText(imageRecord.caption, {
+                page.drawText(imageRecord.caption!, {
                   x: captionRect.x,
                   y: savedY,
                   size: CAPTION_SIZE,

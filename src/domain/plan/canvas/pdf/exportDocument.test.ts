@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PAGE_GEOMETRY } from "../geometry";
+import { componentFrameChromeHeight, DEFAULT_PAGE_GEOMETRY } from "../geometry";
 import type { PlanComponent, PlanTextComponent, ReferenceComponent } from "../models";
-import { buildCanvasLayout } from "./exportDocument";
+import { buildCanvasLayout, PDF_COMPONENT_FRAME_CHROME } from "./exportDocument";
 
 function measurements(planHeights: Record<string, number> = {}) {
   return {
@@ -108,6 +108,61 @@ describe("buildCanvasLayout", () => {
     ]);
   });
 
+  it("reserves component-name and non-empty caption bands using cropped image ratios", () => {
+    const reference: ReferenceComponent = {
+      id: "r1",
+      rowId: `row:${"r1"}`,
+      type: "reference",
+      width: 1,
+      name: "图片组1",
+      description: "",
+      showCaptions: false,
+      imageHeight: 135,
+      images: [
+        {
+          id: "img1",
+          file: "photo1.jpg",
+          caption: "拍摄说明",
+          aspectRatio: 1,
+          crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+        },
+      ],
+    };
+
+    const layout = buildCanvasLayout([reference]);
+    const [placement] = layout.placements;
+    const [slot] = placement.imageSlots ?? [];
+
+    expect(placement.rect.height).toBeGreaterThan(135 + 24);
+    expect(slot).toMatchObject({
+      width: 67.5,
+      imageHeight: 135,
+      captionHeight: 45,
+    });
+  });
+
+  it("preserves a component whose id matches the document-title spacer id", () => {
+    const component: PlanTextComponent = {
+      id: "__pdf_document_title__",
+      rowId: `row:${"__pdf_document_title__"}`,
+      name: "文案1",
+      type: "plan",
+      width: 1,
+      html: "<p>Text</p>",
+    };
+
+    const layout = buildCanvasLayout(
+      [component],
+      DEFAULT_PAGE_GEOMETRY,
+      measurements({ [component.id]: 96 }),
+      "Editorial",
+    );
+
+    expect(layout.placements).toEqual([
+      expect.objectContaining({ componentId: component.id }),
+    ]);
+  });
+
   it("forwards plan measurements into the domain layout", () => {
     const component: PlanTextComponent = {
       id: "p1",
@@ -120,7 +175,9 @@ describe("buildCanvasLayout", () => {
 
     const layout = buildCanvasLayout([component], DEFAULT_PAGE_GEOMETRY, measurements({ p1: 123 }));
 
-    expect(layout.placements[0].rect.height).toBe(123);
+    expect(layout.placements[0].rect.height).toBe(
+      123 + componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME),
+    );
   });
 
   it("returns continuation fragments for overflowing references", () => {
