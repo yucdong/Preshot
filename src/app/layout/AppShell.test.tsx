@@ -1,7 +1,10 @@
+import type { ReactElement } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
+import type { SettingsRepository } from "../../domain/settings/ports";
+import { ThemeProvider } from "../theme/ThemeProvider";
 import { AppShell } from "./AppShell";
 
 function makeProject(
@@ -29,6 +32,15 @@ function handlers() {
   };
 }
 
+const fakeRepository: SettingsRepository = {
+  read: async () => ({ theme: "system" }),
+  write: async () => {},
+};
+
+function renderShell(ui: ReactElement) {
+  return render(<ThemeProvider repository={fakeRepository}>{ui}</ThemeProvider>);
+}
+
 describe("AppShell", () => {
   it("renders the project switcher, highlights the current project, and renders children", () => {
     const projects = [
@@ -36,7 +48,7 @@ describe("AppShell", () => {
       makeProject({ projectId: "editorial", name: "Editorial" }),
     ];
 
-    render(
+    renderShell(
       <AppShell currentProjectId="editorial" projects={projects} {...handlers()}>
         <p>Plan content</p>
       </AppShell>,
@@ -50,6 +62,18 @@ describe("AppShell", () => {
     expect(screen.getByText("Plan content")).toBeVisible();
   });
 
+  it("renders the global settings button in the header", () => {
+    renderShell(
+      <AppShell currentProjectId="editorial" projects={[makeProject()]} {...handlers()}>
+        <p>Plan content</p>
+      </AppShell>,
+    );
+
+    const header = screen.getByRole("heading", { name: "Preshot" }).closest("header");
+    expect(header).not.toBeNull();
+    expect(within(header as HTMLElement).getByRole("button", { name: "设置" })).toBeVisible();
+  });
+
   it("switches, creates, and opens projects through the sidebar controls", async () => {
     const user = userEvent.setup();
     const h = handlers();
@@ -58,7 +82,7 @@ describe("AppShell", () => {
       makeProject({ projectId: "editorial", name: "Editorial" }),
     ];
 
-    render(
+    renderShell(
       <AppShell currentProjectId="editorial" projects={projects} {...h}>
         <p>Plan content</p>
       </AppShell>,
@@ -79,7 +103,7 @@ describe("AppShell", () => {
       makeProject({ projectId: "missing", name: "Missing Archive", status: "unavailable" }),
     ];
 
-    render(
+    renderShell(
       <AppShell
         currentProjectId="missing"
         error="Unable to open workspace project"

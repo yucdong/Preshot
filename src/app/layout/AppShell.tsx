@@ -2,6 +2,7 @@ import type { PropsWithChildren } from "react";
 import { useTranslation } from "react-i18next";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { AgentPanel } from "../../features/agent/AgentPanel";
+import { SettingsButton } from "../../features/settings/SettingsButton";
 
 interface AppShellProps extends PropsWithChildren {
   projects: WorkspaceProjectView[];
@@ -25,12 +26,15 @@ export function AppShell({
   onOpenProject,
 }: AppShellProps) {
   const { t } = useTranslation();
-  
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-stone-100 text-stone-800 dark:bg-stone-950 dark:text-stone-100">
       <header className="flex h-16 items-center gap-3 border-b border-stone-200 px-6 dark:border-white/10">
         <h1 className="text-lg font-semibold tracking-wide">Preshot</h1>
         <span className="text-sm text-stone-500 dark:text-stone-400">{t("shell.tagline")}</span>
+        <div className="ml-auto">
+          <SettingsButton />
+        </div>
       </header>
       <div className="grid min-h-0 flex-1 grid-cols-[15fr_60fr_25fr]">
         <nav
