@@ -92,6 +92,7 @@ interface ProjectToken {
 interface ProjectPersistenceState {
   token: ProjectToken;
   plan: ProjectPlan;
+  savedSnapshot: string;
   pending: Promise<void> | null;
 }
 
@@ -222,6 +223,10 @@ export function ProjectCanvasProvider({
   const lastSavedRef = useRef(JSON.stringify(EMPTY_PLAN));
   const projectPersistenceRef = useRef<ProjectPersistenceState | null>(null);
   const retirementBarrierRef = useRef<Promise<void>>(Promise.resolve());
+  const retiredPersistencesRef = useRef(new WeakSet<ProjectPersistenceState>());
+  const retireProjectRef = useRef(
+    (_token: ProjectToken, _persistence: ProjectPersistenceState) => {},
+  );
   const historyRef = useRef<PlanHistory>(createHistory());
   const lifecycleStatus =
     lifecycle.projectPath === projectPath ? lifecycle.status : "loading";
@@ -375,7 +380,11 @@ export function ProjectCanvasProvider({
     ) => {
       const previous = persistence.plan;
       const next = rebase(previous);
+      const rebasedCurrentOperationPlan = plansEqual(previous, operationPlan);
       persistence.plan = next;
+      if (rebasedCurrentOperationPlan) {
+        persistence.savedSnapshot = JSON.stringify(next);
+      }
       if (!isTokenReady(token)) {
         return;
       }
@@ -383,8 +392,9 @@ export function ProjectCanvasProvider({
         recordHistoryEntry(previous);
         applyPlan(next);
       }
-      if (!plansEqual(next, operationPlan)) {
+      if (!rebasedCurrentOperationPlan) {
         await service.savePlan(projectPath, next);
+        persistence.savedSnapshot = JSON.stringify(next);
       }
       markSaved(next, token);
     },
@@ -436,6 +446,54 @@ export function ProjectCanvasProvider({
     [isTokenCurrent, logger],
   );
 
+  const retireProject = useCallback(
+    (
+      retiringToken: ProjectToken,
+      retiringPersistence: ProjectPersistenceState,
+    ) => {
+      if (retiredPersistencesRef.current.has(retiringPersistence)) {
+        return;
+      }
+      if (
+        retiringPersistence.pending === null &&
+        JSON.stringify(retiringPersistence.plan) === retiringPersistence.savedSnapshot
+      ) {
+        return;
+      }
+
+      retiredPersistencesRef.current.add(retiringPersistence);
+      const saveLatest = async () => {
+        const latestPlan = retiringPersistence.plan;
+        if (JSON.stringify(latestPlan) === retiringPersistence.savedSnapshot) {
+          return;
+        }
+        await service.savePlan(retiringToken.projectPath, latestPlan);
+        retiringPersistence.savedSnapshot = JSON.stringify(latestPlan);
+      };
+      const previousRetirement = retirementBarrierRef.current;
+      const retirement = (async () => {
+        await previousRetirement;
+        await retiringPersistence.pending;
+        await saveLatest();
+      })();
+      retirementBarrierRef.current = retirement;
+      const resetRetirementBarrier = () => {
+        if (retirementBarrierRef.current === retirement) {
+          retirementBarrierRef.current = Promise.resolve();
+        }
+      };
+      void retirement.then(resetRetirementBarrier, resetRetirementBarrier);
+      void retirement.catch((err) => {
+        report("Unable to auto-save the project plan", err, retiringToken);
+      });
+    },
+    [report, service],
+  );
+
+  useLayoutEffect(() => {
+    retireProjectRef.current = retireProject;
+  }, [retireProject]);
+
   const guard = useCallback(
     async (
       path: string,
@@ -450,16 +508,14 @@ export function ProjectCanvasProvider({
       try {
         await action(token);
       } catch (err) {
-        if (isTokenCurrent(token)) {
-          report(message, err, token);
-        }
+        report(message, err, token);
       } finally {
         if (sameToken(busyRef.current, token)) {
           busyRef.current = null;
         }
       }
     },
-    [isTokenCurrent, readyTokenFor, report],
+    [readyTokenFor, report],
   );
 
   const flush = useCallback(async () => {
@@ -487,6 +543,7 @@ export function ProjectCanvasProvider({
         persistence,
         service.savePlan(projectPath, planToSave),
       );
+      persistence.savedSnapshot = snapshot;
       if (!isTokenReady(token)) {
         return;
       }
@@ -524,48 +581,50 @@ export function ProjectCanvasProvider({
     }
     const retiringLifecycle = lifecycleRef.current;
     const retiringPersistence = projectPersistenceRef.current;
-    const retiringLastSavedSnapshot = lastSavedRef.current;
     const shouldFlush =
       retiringLifecycle.projectPath === retiringToken.projectPath &&
       retiringLifecycle.generation === retiringToken.generation &&
       retiringLifecycle.status === "ready" &&
       retiringPersistence !== null &&
-      sameToken(retiringPersistence.token, retiringToken) &&
-      JSON.stringify(retiringPersistence.plan) !== retiringLastSavedSnapshot;
+      sameToken(retiringPersistence.token, retiringToken);
     if (shouldFlush) {
-      const saveLatest = async () => {
-        const latestPlan = retiringPersistence.plan;
-        if (JSON.stringify(latestPlan) === retiringLastSavedSnapshot) {
-          return;
-        }
-        await service.savePlan(retiringToken.projectPath, latestPlan);
-      };
-      const previousRetirement = retirementBarrierRef.current;
-      const retirement = (async () => {
-        await previousRetirement;
-        await retiringPersistence.pending;
-        await saveLatest();
-      })();
-      retirementBarrierRef.current = retirement;
-      const resetRetirementBarrier = () => {
-        if (retirementBarrierRef.current === retirement) {
-          retirementBarrierRef.current = Promise.resolve();
-        }
-      };
-      void retirement.then(resetRetirementBarrier, resetRetirementBarrier);
-      void retirement.catch((err) => {
-        report("Unable to auto-save the project plan", err, retiringToken);
-      });
+      retireProject(
+        retiringToken,
+        retiringPersistence,
+      );
     }
 
     generationRef.current = retiringToken.generation + 1;
     activeProjectPathRef.current = projectPath;
-  }, [projectPath, report, service]);
+  }, [projectPath, retireProject]);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      queueMicrotask(() => {
+        if (mountedRef.current) {
+          return;
+        }
+        const retiringToken: ProjectToken = {
+          projectPath: activeProjectPathRef.current,
+          generation: generationRef.current,
+        };
+        const retiringLifecycle = lifecycleRef.current;
+        const retiringPersistence = projectPersistenceRef.current;
+        if (
+          retiringLifecycle.projectPath === retiringToken.projectPath &&
+          retiringLifecycle.generation === retiringToken.generation &&
+          retiringLifecycle.status === "ready" &&
+          retiringPersistence !== null &&
+          sameToken(retiringPersistence.token, retiringToken)
+        ) {
+          retireProjectRef.current(
+            retiringToken,
+            retiringPersistence,
+          );
+        }
+      });
     };
   }, []);
 
@@ -640,13 +699,15 @@ export function ProjectCanvasProvider({
           planToUse = addComponent(planToUse, planComponent);
         }
 
+        const savedSnapshot = JSON.stringify(planToUse);
         projectPersistenceRef.current = {
           token,
           plan: planToUse,
+          savedSnapshot,
           pending: null,
         };
         planRef.current = planToUse;
-        lastSavedRef.current = JSON.stringify(planToUse);
+        lastSavedRef.current = savedSnapshot;
         historyRef.current = createHistory();
         setPlan(planToUse);
         setError(null);

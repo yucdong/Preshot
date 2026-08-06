@@ -73,6 +73,7 @@ vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
         </button>
         <button onClick={() => onRemoveComponent?.("r1")} type="button">Test remove reference</button>
         <button onClick={() => onResize?.("r1", { width: 0.5 })} type="button">Test width</button>
+        <button onClick={() => onResize?.("r2", { width: 0.5 })} type="button">Test retained width</button>
         <button
           onClick={() => onSetImageCrop?.("r1", "existing-image", {
             x: 0.1,
@@ -83,6 +84,17 @@ vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
           type="button"
         >
           Test crop
+        </button>
+        <button
+          onClick={() => onSetImageCrop?.("r2", "retained-image", {
+            x: 0.1,
+            y: 0.2,
+            width: 0.7,
+            height: 0.6,
+          })}
+          type="button"
+        >
+          Test retained crop
         </button>
       </div>
     );
@@ -508,6 +520,126 @@ describe("WorkspaceProvider", () => {
       expect.anything(),
     );
     expect(screen.getByTestId("plan-canvas")).toHaveAttribute("data-title", "Next title");
+  });
+
+  it("retires a deferred component removal and concurrent edits when New Project unmounts the canvas", async () => {
+    const user = userEvent.setup();
+    const project = makeProject({
+      projectId: "retiring",
+      name: "Retiring project",
+      path: String.raw`C:\shoots\Retiring`,
+      updatedAt: "2026-07-09T00:00:00.000Z",
+    });
+    const plan: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Original title",
+      components: [
+        {
+          id: "p1",
+          rowId: "row-shared",
+          name: "Plan",
+          type: "plan",
+          width: 0.4,
+          html: "",
+        },
+        {
+          id: "r1",
+          rowId: "row-shared",
+          name: "Reference",
+          type: "reference",
+          width: 0.4,
+          description: "",
+          showCaptions: false,
+          imageHeight: 135,
+          images: [
+            {
+              id: "existing-image",
+              file: "references/existing.png",
+              aspectRatio: 1,
+            },
+          ],
+        },
+        {
+          id: "r2",
+          rowId: "row-retained",
+          name: "Retained reference",
+          type: "reference",
+          width: 1,
+          description: "",
+          showCaptions: false,
+          imageHeight: 135,
+          images: [
+            {
+              id: "retained-image",
+              file: "references/retained.png",
+              aspectRatio: 1,
+            },
+          ],
+        },
+      ],
+    };
+    const removal = deferred<void>();
+    const canvasService = new SharedFifoCanvasService(
+      new Map([[project.path, plan]]),
+      removal,
+    );
+    const canvasDependencies = {
+      ...planDeps(),
+      service: canvasService,
+    };
+    const { dependencies, pickDirectory, service } = createDependencies();
+    vi.mocked(service.loadProjects).mockResolvedValue([project]);
+    vi.mocked(pickDirectory).mockResolvedValue(String.raw`C:\shoots`);
+
+    renderWithTheme(
+      <WorkspaceProvider dependencies={dependencies} planDependencies={canvasDependencies} />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    await user.click(screen.getByRole("button", { name: "Test remove reference" }));
+    await waitFor(() =>
+      expect(canvasService.events).toContain(`remove:${project.path}:started`),
+    );
+    await user.click(screen.getByRole("button", { name: "Test title" }));
+    await user.click(screen.getByRole("button", { name: "Test name" }));
+    await user.click(screen.getByRole("button", { name: "Test row" }));
+    await user.click(screen.getByRole("button", { name: "Test retained width" }));
+    await user.click(screen.getByRole("button", { name: "Test retained crop" }));
+
+    await user.click(screen.getByRole("button", { name: "新建项目" }));
+    await screen.findByRole("dialog");
+    expect(screen.queryByTestId("plan-canvas")).not.toBeInTheDocument();
+
+    await act(async () => {
+      removal.resolve();
+    });
+
+    await waitFor(() => {
+      expect(canvasService.planAt(project.path)).toMatchObject({
+        title: "Retired title",
+        components: [
+          expect.objectContaining({
+            id: "p1",
+            rowId: "row-moved",
+            name: "Shot list",
+          }),
+          expect.objectContaining({
+            id: "r2",
+            width: 0.5,
+            images: [
+              expect.objectContaining({
+                id: "retained-image",
+                crop: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
+              }),
+            ],
+          }),
+        ],
+      });
+    });
+    expect(canvasService.planAt(project.path).components).toHaveLength(2);
+    expect(canvasService.events.filter(
+      (event) => event === `save:${project.path}:started`,
+    )).toHaveLength(1);
   });
 
   it("serializes rapid A-to-B-to-A loads behind a retiring destructive save on a shared FIFO", async () => {

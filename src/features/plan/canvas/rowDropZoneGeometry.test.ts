@@ -83,4 +83,42 @@ describe("rowDropZoneGeometry", () => {
       heightPx: pageTopPx(1, 1) + SPACING - (SPACING + 600 + 100),
     });
   });
+
+  it.each([0.5, 1.75])(
+    "keeps the before-first target usable on the document's first page when the first row starts on page 2 at scale %s",
+    (scale) => {
+      const laterPagePlacements: ComponentFragmentPlacement[] = [
+        {
+          fragmentId: "first::0",
+          componentId: "first",
+          fragmentIndex: 0,
+          kind: "whole",
+          pageIndex: 1,
+          rect: { x: 0, y: 0, width: 100, height: 100 },
+        },
+        {
+          fragmentId: "second::0",
+          componentId: "second",
+          fragmentIndex: 0,
+          kind: "whole",
+          pageIndex: 1,
+          rect: { x: 0, y: 120, width: 100, height: 80 },
+        },
+      ];
+
+      const zones = rowDropZoneGeometry(rows, laterPagePlacements, scale);
+      const beforeFirst = zones[0];
+
+      expect(zones).toHaveLength(rows.length + 1);
+      expect(beforeFirst).toEqual({
+        toRowIndex: 0,
+        topPx: (SPACING + DOCUMENT_TITLE_HEIGHT) * scale,
+        heightPx: SPACING * scale,
+      });
+      expect(beforeFirst.heightPx).toBeGreaterThan(0);
+      expect(beforeFirst.topPx + beforeFirst.heightPx).toBeLessThan(
+        pageTopPx(1, scale),
+      );
+    },
+  );
 });

@@ -76,13 +76,15 @@ export function rowDropZoneGeometry(
   }
 
   const first = bounds[0];
-  const titleEnd = first.startPageIndex === 0 ? DOCUMENT_TITLE_HEIGHT : 0;
-  const beforeFirstTop = pageTopPx(first.startPageIndex, scaled) + (SPACING + titleEnd) * scaled;
+  const beforeFirstTop = (SPACING + DOCUMENT_TITLE_HEIGHT) * scaled;
   const zones: RowDropZoneGeometry[] = [
     {
       toRowIndex: 0,
       topPx: beforeFirstTop,
-      heightPx: Math.max(0, first.topPx - beforeFirstTop),
+      heightPx:
+        first.startPageIndex === 0
+          ? Math.max(0, first.topPx - beforeFirstTop)
+          : SPACING * scaled,
     },
   ];
 

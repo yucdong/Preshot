@@ -886,9 +886,9 @@ describe("ProjectCanvasProvider", () => {
     );
 
     await screen.findByTestId("plan-plan-1");
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove reference" }));
     await waitFor(() => expect(service.removeComponent).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 
     rerender(
       <ThemeProvider repository={fakeRepository}>
@@ -1467,6 +1467,127 @@ describe("ProjectCanvasProvider", () => {
     expect(reference?.images).toContainEqual(
       expect.objectContaining({ id: "i2", file: "references/0002.png" }),
     );
+  });
+
+  it("does not save the same plan twice when an in-flight save retires on unmount", async () => {
+    const { dependencies, savePlan } = deps();
+    const saved = deferred<void>();
+    savePlan.mockReturnValue(saved.promise);
+
+    const { unmount } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onCommitTitle("Saved while retiring");
+    });
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
+
+    unmount();
+    await act(async () => {
+      saved.resolve();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(savePlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-save a deferred removal that is already persisted when it retires", async () => {
+    const { dependencies, service, savePlan } = deps();
+    const removed = deferred<ProjectPlan>();
+    vi.mocked(service.removeComponent).mockReturnValue(removed.promise);
+
+    const { unmount } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onRemoveComponent("ref-1");
+    });
+    await waitFor(() => expect(service.removeComponent).toHaveBeenCalledTimes(1));
+    const operationPlan = vi.mocked(service.removeComponent).mock.calls[0]?.[1];
+    if (!operationPlan) {
+      throw new Error("Expected a component-removal operation plan.");
+    }
+
+    unmount();
+    await act(async () => {
+      removed.resolve({
+        ...operationPlan,
+        components: operationPlan.components.filter(
+          (component) => component.id !== "ref-1",
+        ),
+      });
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(savePlan).not.toHaveBeenCalled();
+  });
+
+  it("logs a deferred component-removal failure after unmount", async () => {
+    const { dependencies, service } = deps();
+    const removed = deferred<ProjectPlan>();
+    vi.mocked(service.removeComponent).mockReturnValue(removed.promise);
+
+    const { unmount } = renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    const canvas = latestPlanCanvasProps;
+    expect(canvas).not.toBeNull();
+    if (!canvas) {
+      throw new Error("Expected PlanCanvas callbacks after the plan loads.");
+    }
+
+    act(() => {
+      canvas.onRemoveComponent("ref-1");
+    });
+    await waitFor(() => expect(service.removeComponent).toHaveBeenCalledTimes(1));
+
+    unmount();
+    const error = new Error("removal failed after retirement");
+    await act(async () => {
+      removed.reject(error);
+    });
+
+    await waitFor(() => {
+      expect(dependencies.logger.error).toHaveBeenCalledWith(
+        "Unable to remove the component",
+        { error },
+      );
+    });
   });
 
   it("rebases a deferred image removal onto concurrent v5 metadata and saves the merged plan", async () => {
