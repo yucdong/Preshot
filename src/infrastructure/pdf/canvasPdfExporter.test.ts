@@ -3,11 +3,20 @@ import { readFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { PDFDocument } from "pdf-lib";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { A4, SPACING } from "../../domain/plan/canvas/geometry";
-import { buildCanvasLayout } from "../../domain/plan/canvas/pdf/exportDocument";
+import {
+  A4,
+  componentFrameChromeHeight,
+  SPACING,
+} from "../../domain/plan/canvas/geometry";
+import {
+  buildCanvasLayout,
+  PDF_COMPONENT_FRAME_CHROME,
+} from "../../domain/plan/canvas/pdf/exportDocument";
+import { COMPONENT_INSET } from "../../domain/plan/canvas/referenceLayout";
 import type { ProjectPlan } from "../../domain/plan/canvas/models";
 import { formatReferenceContinuedTitle } from "../../shared/i18n/referenceTitles";
 import { createCanvasPdfExporter } from "./canvasPdfExporter";
+import { slotToPageRect } from "./slotPageRect";
 
 const TINY_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -171,6 +180,73 @@ describe("createCanvasPdfExporter", () => {
     expect(operatorNames.filter((name) => name === "q")).toHaveLength(
       operatorNames.filter((name) => name === "Q").length,
     );
+  }, 20000);
+
+  it("uses exact crop transform coordinates for the laid-out image slot", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const drawImage = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawImage");
+    const crop = { x: 0.25, y: 0.2, width: 0.5, height: 0.6 };
+    const plan: ProjectPlan = {
+      schemaVersion: 5,
+      title: "Coordinates",
+      components: [
+        {
+          id: "r1",
+          rowId: "row:r1",
+          name: "图片组1",
+          type: "reference",
+          width: 1,
+          description: "",
+          showCaptions: false,
+          imageHeight: 135,
+          images: [
+            {
+              id: "img1",
+              file: "photo.png",
+              aspectRatio: 1,
+              crop,
+            },
+          ],
+        },
+      ],
+    };
+
+    await exporter.export(plan, { "photo.png": createSolidPngDataUrl(100, 100) });
+
+    const layout = buildCanvasLayout(plan.components, undefined, undefined, plan.title);
+    const placement = layout.placements.find((entry) => entry.componentId === "r1");
+    const slot = placement?.imageSlots?.find((entry) => entry.id === "img1");
+    if (!placement || !slot) {
+      throw new Error("Expected a laid-out image slot");
+    }
+    const pageY = A4.height - SPACING - placement.rect.y;
+    const contentRect = {
+      x: SPACING + placement.rect.x + COMPONENT_INSET,
+      y: pageY - placement.rect.height + COMPONENT_INSET,
+      width: placement.rect.width - COMPONENT_INSET * 2,
+      height:
+        placement.rect.height -
+        COMPONENT_INSET * 2 -
+        componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME),
+    };
+    const slotRect = slotToPageRect(contentRect, {
+      x: slot.x,
+      y: slot.y,
+      width: slot.width,
+      height: slot.imageHeight,
+    });
+    const expectedWidth = slotRect.width / crop.width;
+    const expectedHeight = slotRect.height / crop.height;
+    const options = drawImage.mock.calls[0]?.[1];
+
+    expect(drawImage).toHaveBeenCalledTimes(1);
+    expect(options?.x).toBeCloseTo(slotRect.x - crop.x * expectedWidth, 8);
+    expect(options?.y).toBeCloseTo(
+      slotRect.y - (1 - crop.y - crop.height) * expectedHeight,
+      8,
+    );
+    expect(options?.width).toBeCloseTo(expectedWidth, 8);
+    expect(options?.height).toBeCloseTo(expectedHeight, 8);
   }, 20000);
 
   it("measures long plan text before layout so its tail and following component both render", async () => {

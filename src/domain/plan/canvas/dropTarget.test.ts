@@ -68,15 +68,18 @@ describe("componentDropTarget", () => {
     })).toEqual({ kind: "invalid", reason: "capacity" });
   });
 
-  it("returns a new row target at a row gap", () => {
+  it("returns the first and last new-row targets from post-removal row indexes", () => {
     expect(componentDropTarget(components, "a", {
       type: "row-gap",
-      id: "row-b",
-      insertAfter: false,
-    })).toEqual({ kind: "new-row", toRowIndex: 1 });
+      toRowIndex: 0,
+    })).toEqual({ kind: "new-row", toRowIndex: 0 });
+    expect(componentDropTarget(components, "a", {
+      type: "row-gap",
+      toRowIndex: 2,
+    })).toEqual({ kind: "new-row", toRowIndex: 2 });
   });
 
-  it("calculates a row-gap target after removing an earlier singleton source row", () => {
+  it("adjusts a last-row target after removing an earlier singleton source row", () => {
     const singletonRows: PlanComponent[] = [
       { id: "a", rowId: "row-a", name: "文案1", type: "plan", width: 1, html: "" },
       { id: "b", rowId: "row-b", name: "文案2", type: "plan", width: 1, html: "" },
@@ -85,8 +88,7 @@ describe("componentDropTarget", () => {
 
     expect(componentDropTarget(singletonRows, "a", {
       type: "row-gap",
-      id: "row-c",
-      insertAfter: false,
-    })).toEqual({ kind: "new-row", toRowIndex: 1 });
+      toRowIndex: 3,
+    })).toEqual({ kind: "new-row", toRowIndex: 2 });
   });
 });

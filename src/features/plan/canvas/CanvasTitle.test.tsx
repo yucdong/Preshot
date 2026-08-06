@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { SetPlanTitleResult } from "../../../domain/plan/canvas/naming";
+import { DOCUMENT_TITLE_HEIGHT } from "../../../domain/plan/canvas/models";
 import { CanvasTitle } from "./CanvasTitle";
 
 describe("CanvasTitle", () => {
@@ -14,6 +15,21 @@ describe("CanvasTitle", () => {
     );
 
     expect(screen.getByRole("textbox", { name: "画布标题" })).toHaveValue("Editorial");
+  });
+
+  it("scales its font and line-height within the document title band", () => {
+    const props = {
+      title: "Editorial",
+      scale: 0.25,
+      onCommit: () => ({ ok: true, plan: { title: "Editorial" } } as SetPlanTitleResult),
+    } as unknown as React.ComponentProps<typeof CanvasTitle>;
+
+    render(<CanvasTitle {...props} />);
+
+    expect(screen.getByRole("textbox", { name: "画布标题" })).toHaveStyle({
+      fontSize: `${(DOCUMENT_TITLE_HEIGHT * 2 / 3) * 0.25}px`,
+      lineHeight: `${DOCUMENT_TITLE_HEIGHT * 0.25}px`,
+    });
   });
 
   it("commits the draft on blur", async () => {

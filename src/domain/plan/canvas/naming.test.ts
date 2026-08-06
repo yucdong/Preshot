@@ -27,6 +27,21 @@ describe("canvas naming", () => {
     expect(nextComponentName(plan, "reference")).toBe("图片组2");
   });
 
+  it("reuses the smallest free positive suffix for generated names", () => {
+    const namesWithGaps: ProjectPlan = {
+      ...plan,
+      components: [
+        { ...plan.components[0], name: "文案1" },
+        { ...plan.components[0], id: "p3", name: "文案3" },
+        { ...plan.components[1], name: "图片组1" },
+        { ...plan.components[1], id: "r3", name: "图片组3" },
+      ],
+    };
+
+    expect(nextComponentName(namesWithGaps, "plan")).toBe("文案2");
+    expect(nextComponentName(namesWithGaps, "reference")).toBe("图片组2");
+  });
+
   it("rejects empty and duplicate component names after trimming", () => {
     expect(renameComponent(plan, "p1", "   ")).toEqual({ ok: false, reason: "empty" });
     expect(renameComponent(plan, "p1", " 图片组1 ")).toEqual({

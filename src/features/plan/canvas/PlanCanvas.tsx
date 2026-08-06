@@ -27,6 +27,7 @@ import {
   moveComponentInRows,
   type ComponentMoveTarget,
 } from "../../../domain/plan/canvas/rows";
+import { DOCUMENT_TITLE_HEIGHT } from "../../../domain/plan/canvas/models";
 import type {
   CropRect,
   PlanComponent,
@@ -85,6 +86,12 @@ export interface PlanCanvasProps {
 type ActiveDrag =
   | { type: "component"; id: string; componentId: string }
   | { type: "image"; id: string; componentId: string };
+
+interface ImageCropPreview {
+  componentId: string;
+  imageId: string;
+  crop: CropRect;
+}
 
 interface ComponentDragParams {
   id: string;
@@ -178,6 +185,26 @@ function componentsWithEffectiveImageAspectRatios(
   );
 }
 
+function componentsWithCropPreview(
+  components: PlanComponent[],
+  preview: ImageCropPreview | null,
+): PlanComponent[] {
+  if (!preview) {
+    return components;
+  }
+
+  return components.map((component) =>
+    component.type === "reference" && component.id === preview.componentId
+      ? {
+          ...component,
+          images: component.images.map((image) =>
+            image.id === preview.imageId ? { ...image, crop: preview.crop } : image,
+          ),
+        }
+      : component,
+  );
+}
+
 function findImageOrigin(
   components: PlanComponent[],
   placements: ComponentFragmentPlacement[],
@@ -204,6 +231,24 @@ function findImageOrigin(
   }
 
   return { component, image, imageIndex, placement };
+}
+
+function logicalRows(components: PlanComponent[]): Array<{
+  rowId: string;
+  componentIds: string[];
+}> {
+  return components.reduce<Array<{ rowId: string; componentIds: string[] }>>(
+    (rows, component) => {
+      const current = rows.at(-1);
+      if (current?.rowId === component.rowId) {
+        current.componentIds.push(component.id);
+      } else {
+        rows.push({ rowId: component.rowId, componentIds: [component.id] });
+      }
+      return rows;
+    },
+    [],
+  );
 }
 
 export function PlanCanvas({
@@ -234,6 +279,7 @@ export function PlanCanvas({
 }: PlanCanvasProps) {
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
   const [preview, setPreview] = useState<PlanComponent[] | null>(null);
+  const [cropPreview, setCropPreview] = useState<ImageCropPreview | null>(null);
   const lastParamsRef = useRef<ComponentDragParams | null>(null);
   const lastImageParamsRef = useRef<MoveImageParams | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: DRAG_ACTIVATION_CONSTRAINT }));
@@ -242,20 +288,21 @@ export function PlanCanvas({
     ...DEFAULT_PAGE_GEOMETRY,
     pageGap: Number.isFinite(scale) && scale > 0 ? PAGE_SCREEN_GAP / scale : 0,
   };
+  const displayedComponents = componentsWithCropPreview(components, cropPreview);
+  const previewComponents = componentsWithCropPreview(preview ?? components, cropPreview);
   const baseLayout = layoutPlan(
-    componentsWithEffectiveImageAspectRatios(components),
+    componentsWithEffectiveImageAspectRatios(displayedComponents),
     layoutGeometry,
     measurements,
     CANVAS_LAYOUT_OPTIONS,
   );
-  const previewComponents = preview ?? components;
   const previewLayout = layoutPlan(
     componentsWithEffectiveImageAspectRatios(previewComponents),
     layoutGeometry,
     measurements,
     CANVAS_LAYOUT_OPTIONS,
   );
-  const componentMap = new Map(components.map((component) => [component.id, component]));
+  const componentMap = new Map(displayedComponents.map((component) => [component.id, component]));
   const previewComponentMap = new Map(previewComponents.map((component) => [component.id, component]));
 
   const imageOrigin = findImageOrigin(components, baseLayout.placements, activeDrag);
@@ -266,6 +313,46 @@ export function PlanCanvas({
     previewPlacements: previewLayout.placements,
     imageOriginPlacement: imageOrigin?.placement ?? null,
   });
+  const componentRows = logicalRows(components);
+  const rowDropZones = componentRows
+    .flatMap((row, toRowIndex) => {
+      const placement = baseLayout.placements.find((entry) =>
+        row.componentIds.includes(entry.componentId),
+      );
+      return placement
+        ? [{
+            toRowIndex,
+            topPx:
+              pageTopPx(placement.pageIndex, scale) +
+              (SPACING + placement.rect.y) * scale,
+          }]
+        : [];
+    });
+  const lastRow = componentRows.at(-1);
+  const lastRowPlacement = lastRow
+    ? baseLayout.placements
+        .filter((entry) => lastRow.componentIds.includes(entry.componentId))
+        .reduce<ComponentFragmentPlacement | null>(
+          (latest, placement) =>
+            latest === null ||
+            placement.pageIndex > latest.pageIndex ||
+            (placement.pageIndex === latest.pageIndex &&
+              placement.rect.y + placement.rect.height >
+                latest.rect.y + latest.rect.height)
+              ? placement
+              : latest,
+          null,
+        )
+    : null;
+  if (lastRowPlacement) {
+    rowDropZones.push({
+      toRowIndex: componentRows.length,
+      topPx:
+        pageTopPx(lastRowPlacement.pageIndex, scale) +
+        (SPACING + lastRowPlacement.rect.y + lastRowPlacement.rect.height + DEFAULT_PAGE_GEOMETRY.rowGap) *
+          scale,
+    });
+  }
 
   const paramsFor = (event: DragOverEvent | DragEndEvent): ComponentDragParams | null => {
     const activeId = logicalComponentIdFromDnd(
@@ -275,7 +362,7 @@ export function PlanCanvas({
     const overData = event.over?.data.current as {
       type?: unknown;
       componentId?: unknown;
-      beforeRowId?: unknown;
+      toRowIndex?: unknown;
     } | null | undefined;
     const activeRect = event.active.rect.current.translated;
     const overRect = event.over?.rect ?? null;
@@ -286,8 +373,8 @@ export function PlanCanvas({
     }
 
     const over =
-      overData?.type === "row-gap" && typeof overData.beforeRowId === "string"
-        ? { type: "row-gap" as const, id: overData.beforeRowId, insertAfter }
+      overData?.type === "row-gap" && typeof overData.toRowIndex === "number"
+        ? { type: "row-gap" as const, toRowIndex: overData.toRowIndex }
         : overData?.type === "component"
           ? (() => {
               const componentId = logicalComponentIdFromDnd(
@@ -427,6 +514,31 @@ export function PlanCanvas({
     }
   };
 
+  const previewImageCrop = (
+    componentId: string,
+    imageId: string,
+    crop: CropRect,
+  ) => {
+    setCropPreview((current) =>
+      current?.componentId === componentId &&
+      current.imageId === imageId &&
+      current.crop.x === crop.x &&
+      current.crop.y === crop.y &&
+      current.crop.width === crop.width &&
+      current.crop.height === crop.height
+        ? current
+        : { componentId, imageId, crop },
+    );
+  };
+
+  const cancelImageCropPreview = (componentId: string, imageId: string) => {
+    setCropPreview((current) =>
+      current?.componentId === componentId && current.imageId === imageId
+        ? null
+        : current,
+    );
+  };
+
   const contentWidthPoints = contentSize(DEFAULT_PAGE_GEOMETRY).width;
   const displayedPageCount = pageCountForDisplayedPlacements(displayPlacements, previewLayout.pageCount);
   const overlayComponent =
@@ -452,36 +564,18 @@ export function PlanCanvas({
               left: `${SPACING * scale}px`,
               top: `${SPACING * scale}px`,
               width: `${contentSize(DEFAULT_PAGE_GEOMETRY).width * scale}px`,
+              height: `${DOCUMENT_TITLE_HEIGHT * scale}px`,
             }}
           >
-            <CanvasTitle onCommit={onCommitTitle} title={title} />
+            <CanvasTitle onCommit={onCommitTitle} scale={scale} title={title} />
           </div>
-          {components.reduce<Array<{ rowId: string; componentId: string }>>(
-            (rows, component) => {
-              if (rows.at(-1)?.rowId !== component.rowId) {
-                rows.push({ rowId: component.rowId, componentId: component.id });
-              }
-              return rows;
-            },
-            [],
-          ).slice(1).map(({ rowId, componentId }) => {
-            const placement = baseLayout.placements.find(
-              (entry) => entry.componentId === componentId,
-            );
-            if (!placement) {
-              return null;
-            }
-            return (
-              <RowDropZone
-                beforeRowId={rowId}
-                key={`row-gap:${rowId}`}
-                topPx={
-                  pageTopPx(placement.pageIndex, scale) +
-                  (SPACING + placement.rect.y - SPACING) * scale
-                }
-              />
-            );
-          })}
+          {rowDropZones.map(({ toRowIndex, topPx }) => (
+            <RowDropZone
+              key={`row-gap:${toRowIndex}`}
+              toRowIndex={toRowIndex}
+              topPx={topPx}
+            />
+          ))}
           <SortableContext items={components.map((component) => component.id)} strategy={verticalListSortingStrategy}>
             {displayPlacements.map((placement) => {
               const useBaseComponent = componentDragId === placement.componentId;
@@ -540,6 +634,8 @@ export function PlanCanvas({
                       onSetImageHeight={onSetImageHeight}
                       onAddImages={onAddImages}
                       onSetImageCrop={onSetImageCrop}
+                      onPreviewImageCrop={previewImageCrop}
+                      onCancelImageCropPreview={cancelImageCropPreview}
                       onResetImageCrop={onResetImageCrop}
                       onMeasureDescription={onMeasureReferenceDescription}
                       placeholderImage={imagePlaceholder?.image}

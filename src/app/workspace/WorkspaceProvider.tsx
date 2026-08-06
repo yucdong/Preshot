@@ -389,7 +389,6 @@ export function WorkspaceProvider({
       >
         <Workspace
           dependencies={planDependencies}
-          key={view.project.projectId}
           projectName={view.project.name}
           projectPath={view.project.path}
         />

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { componentFrameChromeHeight, DEFAULT_PAGE_GEOMETRY } from "../geometry";
+import { layoutPlan } from "../engine";
 import {
   DOCUMENT_TITLE_HEIGHT,
   type PlanComponent,
@@ -36,7 +37,7 @@ describe("buildCanvasLayout", () => {
       kind: "whole",
       componentId: "c1",
       pageIndex: 0,
-      rect: { x: 0, y: 0 },
+      rect: { x: 0, y: DOCUMENT_TITLE_HEIGHT + DEFAULT_PAGE_GEOMETRY.rowGap },
     });
   });
 
@@ -192,6 +193,32 @@ describe("buildCanvasLayout", () => {
         height: 96 + componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME),
       },
     });
+  });
+
+  it("reserves the same title band for an empty PDF title as the screen canvas", () => {
+    const component: PlanTextComponent = {
+      id: "c1",
+      rowId: "row:c1",
+      name: "文案1",
+      type: "plan",
+      width: 1,
+      html: "<p>Text</p>",
+    };
+    const layoutMeasurements = measurements({ c1: 96 });
+    const screen = layoutPlan(
+      [component],
+      DEFAULT_PAGE_GEOMETRY,
+      layoutMeasurements,
+      { frameChrome: PDF_COMPONENT_FRAME_CHROME, includeDocumentTitle: true },
+    );
+    const pdf = buildCanvasLayout(
+      [component],
+      DEFAULT_PAGE_GEOMETRY,
+      layoutMeasurements,
+      "",
+    );
+
+    expect(pdf.placements[0]?.rect.y).toBe(screen.placements[0]?.rect.y);
   });
 
   it("forwards plan measurements into the domain layout", () => {

@@ -44,6 +44,25 @@ describe("ImageCropOverlay", () => {
     expect(props.onCommit).toHaveBeenCalledWith({ x: 0, y: 0.2, width: 1, height: 0.8 });
   });
 
+  it.each([
+    ["left", { clientX: 0, clientY: 50 }, { clientX: 20, clientY: 50 }, { x: 0.2, y: 0, width: 0.8, height: 1 }],
+    ["right", { clientX: 100, clientY: 50 }, { clientX: 80, clientY: 50 }, { x: 0, y: 0, width: 0.8, height: 1 }],
+    ["top", { clientX: 50, clientY: 0 }, { clientX: 50, clientY: 20 }, { x: 0, y: 0.2, width: 1, height: 0.8 }],
+    ["bottom", { clientX: 50, clientY: 100 }, { clientX: 50, clientY: 80 }, { x: 0, y: 0, width: 1, height: 0.8 }],
+  ] as const)(
+    "commits the expected crop from the %s edge",
+    (edge, start, end, expected) => {
+      const props = renderOverlay();
+      const handle = screen.getByTestId(`crop-handle-${edge}`);
+
+      fireEvent.pointerDown(handle, { pointerId: 1, ...start });
+      fireEvent.pointerMove(handle, { pointerId: 1, ...end });
+      fireEvent.pointerUp(handle, { pointerId: 1, ...end });
+
+      expect(props.onCommit).toHaveBeenCalledWith(expected);
+    },
+  );
+
   it("cancels a drag without committing when pointer capture is cancelled", () => {
     const props = renderOverlay();
     const handle = screen.getByTestId("crop-handle-right");

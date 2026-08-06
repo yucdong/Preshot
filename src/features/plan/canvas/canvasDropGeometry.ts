@@ -7,12 +7,10 @@ export interface DropRect {
 
 /**
  * Determines whether to insert the active component after the over component
- * based on their vertical positions. Component flow is vertical, so insertAfter
- * is true when the active component's vertical center is past the over component's
- * vertical center.
+ * based on horizontal positions within a logical row.
  */
 export function insertAfterFromRects(activeRect: DropRect, overRect: DropRect): boolean {
-  const activeCenterY = activeRect.top + activeRect.height / 2;
-  const overCenterY = overRect.top + overRect.height / 2;
-  return activeCenterY > overCenterY;
+  const activeCenterX = activeRect.left + activeRect.width / 2;
+  const overCenterX = overRect.left + overRect.width / 2;
+  return activeCenterX > overCenterX;
 }

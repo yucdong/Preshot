@@ -143,7 +143,7 @@ export function ImageCropOverlay({
       {handles.map(({ edge, className, label }) => (
         <button
           aria-label={label}
-          className={`pointer-events-auto absolute rounded-full bg-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-100 ${className}`}
+          className={`pointer-events-none absolute rounded-full bg-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto ${className}`}
           data-testid={`crop-handle-${edge}`}
           key={edge}
           onClick={stopInteraction}

@@ -9,13 +9,13 @@ vi.mock("@dnd-kit/core", () => ({
 }));
 
 describe("RowDropZone", () => {
-  it("registers a row-gap target before its logical row", () => {
-    render(<RowDropZone beforeRowId="row-b" topPx={80} />);
+  it("registers a row-gap target at its post-removal row index", () => {
+    render(<RowDropZone toRowIndex={0} topPx={80} />);
 
     expect(useDroppable).toHaveBeenCalledWith({
-      id: "row-gap:row-b",
-      data: { type: "row-gap", beforeRowId: "row-b" },
+      id: "row-gap:0",
+      data: { type: "row-gap", toRowIndex: 0 },
     });
-    expect(screen.getByTestId("row-drop-zone:row-b")).toHaveStyle({ top: "80px" });
+    expect(screen.getByTestId("row-drop-zone:0")).toHaveStyle({ top: "80px" });
   });
 });

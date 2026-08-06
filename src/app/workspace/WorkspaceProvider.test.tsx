@@ -11,6 +11,7 @@ import type {
   WorkspaceService,
 } from "../../domain/workspace/ports";
 import type { CanvasPlanDependencies } from "../../features/plan/ProjectCanvasProvider";
+import type { ProjectPlan } from "../../domain/plan/canvas/models";
 import type { WorkspaceDependencies } from "./dependencies";
 import { WorkspaceProvider } from "./WorkspaceProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
@@ -23,7 +24,57 @@ const fakeRepository: SettingsRepository = {
 };
 
 vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
-  PlanCanvas: () => <div data-testid="plan-canvas">Canvas Mock</div>,
+  PlanCanvas: ({
+    title,
+    onAddImage,
+    onCommitTitle,
+    onRenameComponent,
+    onMoveComponent,
+    onResize,
+    onSetImageCrop,
+  }: {
+    title: string;
+    onAddImage(id: string): void;
+    onCommitTitle(title: string): unknown;
+    onRenameComponent(id: string, name: string): unknown;
+    onMoveComponent?(id: string, target: { kind: "new-row"; rowId: string; toRowIndex: number }): void;
+    onResize?(id: string, params: { width: number }): void;
+    onSetImageCrop?(componentId: string, imageId: string, crop: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }): void;
+  }) => (
+    <div data-testid="plan-canvas" data-title={title}>
+      Canvas Mock
+      <button onClick={() => onAddImage("r1")} type="button">Test import image</button>
+      <button onClick={() => onCommitTitle("Retired title")} type="button">Test title</button>
+      <button onClick={() => onRenameComponent("p1", "Shot list")} type="button">Test name</button>
+      <button
+        onClick={() => onMoveComponent?.("p1", {
+          kind: "new-row",
+          rowId: "row-moved",
+          toRowIndex: 1,
+        })}
+        type="button"
+      >
+        Test row
+      </button>
+      <button onClick={() => onResize?.("r1", { width: 0.5 })} type="button">Test width</button>
+      <button
+        onClick={() => onSetImageCrop?.("r1", "existing-image", {
+          x: 0.1,
+          y: 0.2,
+          width: 0.7,
+          height: 0.6,
+        })}
+        type="button"
+      >
+        Test crop
+      </button>
+    </div>
+  ),
 }));
 
 function deferred<T>() {
@@ -214,6 +265,148 @@ describe("WorkspaceProvider", () => {
         screen.getByRole("button", { name: "打开项目 Sunset Shanghai" }),
       ).toHaveAttribute("aria-current", "page");
     });
+  });
+
+  it("flushes a retiring project's deferred image delta and concurrent v5 edits before switching", async () => {
+    const user = userEvent.setup();
+    const retiringProject = makeProject({
+      updatedAt: "2026-07-09T00:00:00.000Z",
+    });
+    const nextProject = makeProject({
+      projectId: "next",
+      name: "Next project",
+      path: "C:\\shoots\\Next",
+      updatedAt: "2026-07-02T00:00:00.000Z",
+    });
+    const retiringPlan = {
+      schemaVersion: 5 as const,
+      title: "Original title",
+      components: [
+        {
+          id: "p1",
+          rowId: "row-shared",
+          name: "文案1",
+          type: "plan" as const,
+          width: 0.4,
+          html: "",
+        },
+        {
+          id: "r1",
+          rowId: "row-shared",
+          name: "图片组1",
+          type: "reference" as const,
+          width: 0.4,
+          description: "",
+          showCaptions: false,
+          imageHeight: 135,
+          images: [
+            {
+              id: "existing-image",
+              file: "references/existing.png",
+              aspectRatio: 1,
+            },
+          ],
+        },
+      ],
+    };
+    const nextPlan = {
+      schemaVersion: 5 as const,
+      title: "Next title",
+      components: [],
+    };
+    const importedImage = {
+      id: "imported-image",
+      file: "references/imported.png",
+      aspectRatio: 1,
+    };
+    const importedPlan: ProjectPlan = {
+      ...retiringPlan,
+      components: retiringPlan.components.map((component) =>
+        component.id === "r1" && component.type === "reference"
+          ? { ...component, images: [...component.images, importedImage] }
+          : component,
+      ),
+    };
+    const imported = deferred<{
+      plan: ProjectPlan;
+      image: { id: string; file: string; aspectRatio: number };
+      dataUrl: string;
+    }>();
+    const { dependencies, service } = createDependencies();
+    const canvasDependencies = planDeps();
+    vi.mocked(service.loadProjects).mockResolvedValue([nextProject, retiringProject]);
+    vi.mocked(service.openProject).mockResolvedValue(nextProject);
+    vi.mocked(canvasDependencies.service.loadPlan)
+      .mockResolvedValueOnce({ status: "loaded", plan: retiringPlan })
+      .mockResolvedValueOnce({ status: "loaded", plan: nextPlan });
+    vi.mocked(canvasDependencies.picker.pickImageFile).mockResolvedValue("C:\\source\\new.png");
+    vi.mocked(canvasDependencies.service.importImage).mockReturnValue(imported.promise);
+
+    renderWithTheme(
+      <WorkspaceProvider dependencies={dependencies} planDependencies={canvasDependencies} />,
+    );
+
+    await screen.findByTestId("plan-canvas");
+    await user.click(screen.getByRole("button", { name: "Test import image" }));
+    await waitFor(() => {
+      expect(canvasDependencies.service.importImage).toHaveBeenCalledWith(
+        retiringProject.path,
+        retiringPlan,
+        "r1",
+        "C:\\source\\new.png",
+      );
+    });
+
+    await user.click(screen.getByRole("button", { name: "Test title" }));
+    await user.click(screen.getByRole("button", { name: "Test name" }));
+    await user.click(screen.getByRole("button", { name: "Test row" }));
+    await user.click(screen.getByRole("button", { name: "Test width" }));
+    await user.click(screen.getByRole("button", { name: "Test crop" }));
+    await user.click(screen.getByRole("button", { name: "打开项目 Next project" }));
+    await screen.findByRole("button", { name: "打开项目 Next project" });
+
+    await act(async () => {
+      imported.resolve({
+        plan: importedPlan,
+        image: importedImage,
+        dataUrl: "data:image/png;base64,AA==",
+      });
+    });
+
+    await waitFor(() => {
+      expect(canvasDependencies.service.savePlan).toHaveBeenCalledWith(
+        retiringProject.path,
+        expect.objectContaining({
+          title: "Retired title",
+          components: expect.arrayContaining([
+            expect.objectContaining({
+              id: "p1",
+              rowId: "row-moved",
+              name: "Shot list",
+            }),
+            expect.objectContaining({
+              id: "r1",
+              width: 0.5,
+              images: expect.arrayContaining([
+                expect.objectContaining({
+                  id: "existing-image",
+                  crop: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
+                }),
+                expect.objectContaining({
+                  id: "imported-image",
+                  file: "references/imported.png",
+                }),
+              ]),
+            }),
+          ]),
+        }),
+      );
+    });
+    expect(canvasDependencies.service.savePlan).not.toHaveBeenCalledWith(
+      nextProject.path,
+      expect.anything(),
+    );
+    expect(screen.getByTestId("plan-canvas")).toHaveAttribute("data-title", "Next title");
   });
 
   it("shows a recoverable load error while keeping the open action enabled", async () => {

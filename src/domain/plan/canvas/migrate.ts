@@ -1,4 +1,4 @@
-import { contentSize, DEFAULT_PAGE_GEOMETRY, SPACING } from "./geometry";
+import { normalizeFraction, ROW_CAPACITY_EPSILON } from "./fraction";
 import {
   clampImageHeight,
   clampWidth,
@@ -7,11 +7,14 @@ import {
   MAX_IMAGE_HEIGHT,
   MIN_IMAGE_HEIGHT,
   MIN_WIDTH,
+  UNTITLED_PLAN_TITLE,
   type CropRect,
   type PlanComponent,
   type ProjectPlan,
   type ReferenceImage,
 } from "./models";
+import { canAddToRow, rowFits } from "./rowPacking";
+import { smallestFreeSuffixedName } from "./naming";
 
 export interface PlanMigrationContext {
   projectName: string;
@@ -44,6 +47,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function titleFromProjectName(projectName: string): string {
+  return projectName.trim() || UNTITLED_PLAN_TITLE;
 }
 
 function normalizeAspectRatio(value: unknown): number {
@@ -259,11 +266,7 @@ function uniqueName(base: string, names: Set<string>): string {
     names.add(base);
     return base;
   }
-  let suffix = 2;
-  while (names.has(`${base}${suffix}`)) {
-    suffix += 1;
-  }
-  const name = `${base}${suffix}`;
+  const name = smallestFreeSuffixedName(names, base);
   names.add(name);
   return name;
 }
@@ -271,28 +274,28 @@ function uniqueName(base: string, names: Set<string>): string {
 function v5FromLegacy(components: LegacyComponent[], context: PlanMigrationContext): ProjectPlan {
   validateLogicalIds(components);
   const names = new Set<string>();
-  let planCount = 0;
   const currentRow: PlanComponent[] = [];
   const result: PlanComponent[] = [];
-  let currentWidth = 0;
   let rowId = "";
-  const gapFraction = SPACING / contentSize(DEFAULT_PAGE_GEOMETRY).width;
   for (const component of components) {
     if (
       currentRow.length > 0 &&
-      currentWidth + gapFraction + component.width >= 0.9
+      !canAddToRow(
+        currentRow.map((current) => current.width),
+        component.width,
+      )
     ) {
       currentRow.length = 0;
-      currentWidth = 0;
       rowId = "";
     }
     if (!rowId) {
       rowId = `row:${component.id}`;
     }
-    const name =
-      component.type === "plan"
-        ? uniqueName(`文案${++planCount}`, names)
-        : uniqueName(component.title.trim() || "图片组", names);
+    const name = component.type === "plan"
+      ? uniqueGeneratedName("文案", names)
+      : component.title.trim()
+        ? uniqueName(component.title.trim(), names)
+        : uniqueGeneratedName("图片组", names);
     const next =
       component.type === "plan"
         ? { id: component.id, rowId, name, type: "plan" as const, width: component.width, html: component.html }
@@ -309,9 +312,18 @@ function v5FromLegacy(components: LegacyComponent[], context: PlanMigrationConte
           };
     currentRow.push(next);
     result.push(next);
-    currentWidth += component.width;
   }
-  return { schemaVersion: CURRENT_SCHEMA_VERSION, title: context.projectName, components: result };
+
+  function uniqueGeneratedName(label: string, names: Set<string>): string {
+    const name = smallestFreeSuffixedName(names, label);
+    names.add(name);
+    return name;
+  }
+  return {
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    title: titleFromProjectName(context.projectName),
+    components: result,
+  };
 }
 
 function validCrop(value: unknown): CropRect | undefined {
@@ -358,6 +370,11 @@ function v5Image(raw: unknown, componentIndex: number, imageIndex: number): Refe
 }
 
 function v5Component(raw: unknown, componentIndex: number): PlanComponent {
+  const rawWidth =
+    isRecord(raw) && typeof raw.width === "number" && Number.isFinite(raw.width)
+      ? raw.width
+      : Number.NaN;
+  const width = normalizeFraction(rawWidth);
   if (
     !isRecord(raw) ||
     typeof raw.id !== "string" ||
@@ -367,16 +384,15 @@ function v5Component(raw: unknown, componentIndex: number): PlanComponent {
     typeof raw.name !== "string" ||
     !raw.name ||
     raw.name !== raw.name.trim() ||
-    typeof raw.width !== "number" ||
-    !Number.isFinite(raw.width) ||
-    raw.width < MIN_WIDTH ||
-    raw.width > 1
+    !Number.isFinite(rawWidth) ||
+    rawWidth < MIN_WIDTH - ROW_CAPACITY_EPSILON ||
+    rawWidth > 1 + ROW_CAPACITY_EPSILON
   ) {
     throw new Error(`Stored plan component ${componentIndex} has invalid v5 fields`);
   }
   if (raw.type === "plan") {
     if (typeof raw.html !== "string") throw new Error(`Stored plan component ${componentIndex} html must be a string`);
-    return { id: raw.id, rowId: raw.rowId, name: raw.name, type: "plan", width: raw.width, html: raw.html };
+    return { id: raw.id, rowId: raw.rowId, name: raw.name, type: "plan", width, html: raw.html };
   }
   if (raw.type === "reference") {
     if (
@@ -397,7 +413,7 @@ function v5Component(raw: unknown, componentIndex: number): PlanComponent {
       rowId: raw.rowId,
       name: raw.name,
       type: "reference",
-      width: raw.width,
+      width,
       description: raw.description,
       showCaptions: raw.showCaptions,
       imageHeight: raw.imageHeight,
@@ -411,12 +427,10 @@ function validateV5Rows(components: PlanComponent[]): void {
   const completed = new Set<string>();
   let rowId: string | undefined;
   let row: PlanComponent[] = [];
-  const gapFraction = SPACING / contentSize(DEFAULT_PAGE_GEOMETRY).width;
   const validate = () => {
-    const used =
-      row.reduce((sum, component) => sum + component.width, 0) +
-      Math.max(0, row.length - 1) * gapFraction;
-    if (used > 1) throw new Error(`Stored plan row "${rowId}" exceeds available width`);
+    if (!rowFits(row.map((component) => component.width))) {
+      throw new Error(`Stored plan row "${rowId}" exceeds available width`);
+    }
   };
   for (const component of components) {
     if (component.rowId === rowId) {
@@ -473,11 +487,15 @@ export function migratePlan(
     if (typeof raw.title !== "string" || !Array.isArray(raw.components)) {
       throw new Error("Stored plan schema version 5 title and components must be valid");
     }
+    const title = raw.title.trim();
+    if (!title) {
+      throw new Error("Stored plan schema version 5 title must be non-blank");
+    }
     const components = raw.components.map((component, index) => v5Component(component, index));
     validateLogicalIds(components);
     validateComponentNames(components);
     validateV5Rows(components);
-    return { schemaVersion: 5, title: raw.title, components };
+    return { schemaVersion: 5, title, components };
   }
   if (raw.schemaVersion === 4 || raw.schemaVersion === 3) {
     if (!Array.isArray(raw.components)) {

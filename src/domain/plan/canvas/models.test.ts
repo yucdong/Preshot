@@ -11,6 +11,7 @@ import {
   DOCUMENT_TITLE_HEIGHT,
   MIN_IMAGE_HEIGHT,
   MAX_IMAGE_HEIGHT,
+  UNTITLED_PLAN_TITLE,
 } from "./models";
 
 describe("canvas models", () => {
@@ -40,6 +41,10 @@ describe("canvas models", () => {
     expect(DEFAULT_IMAGE_HEIGHT).toBe(135);
     expect(MAX_IMAGE_HEIGHT).toBe(400);
     expect(DOCUMENT_TITLE_HEIGHT).toBe(36);
-    expect(EMPTY_PLAN).toEqual({ schemaVersion: 5, title: "", components: [] });
+    expect(EMPTY_PLAN).toEqual({
+      schemaVersion: 5,
+      title: UNTITLED_PLAN_TITLE,
+      components: [],
+    });
   });
 });

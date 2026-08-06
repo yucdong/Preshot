@@ -13,14 +13,24 @@ const labels: Record<PlanComponent["type"], string> = {
   reference: "图片组",
 };
 
+export function smallestFreeSuffixedName(
+  names: Iterable<string>,
+  label: string,
+): string {
+  const occupied = new Set(Array.from(names, (name) => name.trim()));
+  let suffix = 1;
+  while (occupied.has(`${label}${suffix}`)) {
+    suffix += 1;
+  }
+  return `${label}${suffix}`;
+}
+
 export function nextComponentName(plan: ProjectPlan, type: PlanComponent["type"]): string {
   const label = labels[type];
-  const matcher = new RegExp(`^${label}(\\d+)$`);
-  const highest = plan.components.reduce((current, component) => {
-    const match = component.name.trim().match(matcher);
-    return match ? Math.max(current, Number(match[1])) : current;
-  }, 0);
-  return `${label}${highest + 1}`;
+  return smallestFreeSuffixedName(
+    plan.components.map((component) => component.name),
+    label,
+  );
 }
 
 export function renameComponent(

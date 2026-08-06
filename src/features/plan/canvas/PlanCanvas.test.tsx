@@ -120,6 +120,8 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onMoveComponent: vi.fn(),
     onMoveImage: vi.fn(),
     onResize: vi.fn(),
+    onSetImageCrop: vi.fn(),
+    onResetImageCrop: vi.fn(),
     onMeasurePlan: vi.fn(),
     onMeasureReferenceDescription: vi.fn(),
     ...overrides,
@@ -178,22 +180,27 @@ function makeComponentDragStart(componentId: string) {
   };
 }
 
-function makeComponentDragOver(componentId: string, overComponentId: string) {
+function makeComponentDragOver(
+  componentId: string,
+  overComponentId: string,
+  activeRect = makeRect(200),
+  overRect = makeRect(0),
+) {
   return {
     active: {
       id: componentId,
       data: { current: { type: "component", componentId } },
-      rect: { current: { translated: makeRect(200) } },
+      rect: { current: { translated: activeRect } },
     },
     over: {
       id: overComponentId,
       data: { current: { type: "component", componentId: overComponentId } },
-      rect: makeRect(0),
+      rect: overRect,
     },
   };
 }
 
-function makeRowGapComponentDragOver(componentId: string, beforeRowId: string) {
+function makeRowGapComponentDragOver(componentId: string, toRowIndex: number) {
   return {
     active: {
       id: componentId,
@@ -201,8 +208,8 @@ function makeRowGapComponentDragOver(componentId: string, beforeRowId: string) {
       rect: { current: { translated: makeRect(200) } },
     },
     over: {
-      id: `row-gap:${beforeRowId}`,
-      data: { current: { type: "row-gap", beforeRowId } },
+      id: `row-gap:${toRowIndex}`,
+      data: { current: { type: "row-gap", toRowIndex } },
       rect: makeRect(0),
     },
   };
@@ -276,6 +283,23 @@ describe("PlanCanvas", () => {
     const titles = screen.getAllByRole("textbox", { name: "画布标题" });
     expect(titles).toHaveLength(1);
     expect(titles[0]).toHaveValue("Campaign");
+  });
+
+  it("renders a new-row drop zone before, between, and after logical rows", () => {
+    renderCanvas();
+
+    expect(screen.getAllByTestId(/row-drop-zone:/)).toHaveLength(3);
+    expect(screen.getByTestId("row-drop-zone:0")).toBeInTheDocument();
+    expect(screen.getByTestId("row-drop-zone:1")).toBeInTheDocument();
+    expect(screen.getByTestId("row-drop-zone:2")).toBeInTheDocument();
+  });
+
+  it("renders first and last new-row drop zones for a sole logical row", () => {
+    renderCanvas({ components: [planComponent] });
+
+    expect(screen.getAllByTestId(/row-drop-zone:/)).toHaveLength(2);
+    expect(screen.getByTestId("row-drop-zone:0")).toBeInTheDocument();
+    expect(screen.getByTestId("row-drop-zone:1")).toBeInTheDocument();
   });
 
   it.each([0.5, 1.75])(
@@ -498,6 +522,33 @@ describe("PlanCanvas", () => {
     expect(tile.style.width).toBe("180px");
   });
 
+  it("reflows reference slots during a crop preview and restores them on cancellation", () => {
+    const props = renderCanvas({ components: [referenceComponent] });
+    const firstTile = document.querySelector('[data-image-id="i1"]') as HTMLElement;
+    const secondTile = document.querySelector('[data-image-id="i2"]') as HTMLElement;
+    const rightHandle = firstTile.querySelector('[data-testid="crop-handle-right"]') as HTMLElement;
+    const originalLeft = Number.parseFloat(secondTile.style.left);
+
+    fireEvent.pointerDown(rightHandle, {
+      clientX: 180,
+      clientY: 90,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(rightHandle, {
+      clientX: 90,
+      clientY: 90,
+      pointerId: 1,
+    });
+
+    expect(Number.parseFloat(secondTile.style.left)).toBeLessThan(originalLeft);
+    expect(props.onSetImageCrop).not.toHaveBeenCalled();
+
+    fireEvent.pointerCancel(rightHandle, { pointerId: 1 });
+
+    expect(Number.parseFloat(secondTile.style.left)).toBe(originalLeft);
+    expect(props.onSetImageCrop).not.toHaveBeenCalled();
+  });
+
   it("top bar has draggable attributes and cursor-grab class", () => {
     renderCanvas();
     const topBar = document.querySelector('[data-component-frame-topbar="true"]');
@@ -611,10 +662,10 @@ describe("PlanCanvas", () => {
     expect(props.onMoveComponent).not.toHaveBeenCalled();
   });
 
-  it("commits a row-gap drop before the remaining rows after removing a singleton source", () => {
+  it("commits a first-row drop with a post-removal target index", () => {
     const props = renderCanvas();
     const handlers = getDndHandlers();
-    const event = makeRowGapComponentDragOver("plan1", "row:ref1");
+    const event = makeRowGapComponentDragOver("plan1", 1);
 
     act(() => {
       handlers.onDragStart?.(makeComponentDragStart("plan1"));
@@ -628,6 +679,63 @@ describe("PlanCanvas", () => {
       toRowIndex: 0,
     });
   });
+
+  it("commits a last-row drop with a post-removal target index", () => {
+    const components: PlanComponent[] = [
+      { ...planComponent, id: "a", rowId: "row-a", name: "文案1" },
+      { ...planComponent, id: "b", rowId: "row-b", name: "文案2" },
+      { ...planComponent, id: "c", rowId: "row-c", name: "文案3" },
+    ];
+    const props = renderCanvas({ components });
+    const handlers = getDndHandlers();
+    const event = makeRowGapComponentDragOver("b", 3);
+
+    act(() => {
+      handlers.onDragStart?.(makeComponentDragStart("b"));
+      handlers.onDragOver?.(event);
+      handlers.onDragEnd?.(event);
+    });
+
+    expect(props.onMoveComponent).toHaveBeenCalledWith("b", {
+      kind: "new-row",
+      rowId: expect.stringMatching(/^row-/),
+      toRowIndex: 2,
+    });
+  });
+
+  it.each([
+    ["before", makeRect(100, 0), 0],
+    ["after", makeRect(100, 400), 1],
+  ] as const)(
+    "uses horizontal centers to insert a same-row component %s its target",
+    (_position, activeRect, expectedIndex) => {
+      const components: PlanComponent[] = [
+        { ...planComponent, id: "a", rowId: "row-shared", name: "文案1", width: 0.25 },
+        { ...planComponent, id: "b", rowId: "row-shared", name: "文案2", width: 0.25 },
+        { ...planComponent, id: "c", rowId: "row-shared", name: "文案3", width: 0.25 },
+      ];
+      const props = renderCanvas({ components });
+      const handlers = getDndHandlers();
+      const event = makeComponentDragOver(
+        "c",
+        "a",
+        activeRect,
+        makeRect(100, 200),
+      );
+
+      act(() => {
+        handlers.onDragStart?.(makeComponentDragStart("c"));
+        handlers.onDragOver?.(event);
+        handlers.onDragEnd?.(event);
+      });
+
+      expect(props.onMoveComponent).toHaveBeenCalledWith("c", {
+        kind: "row",
+        rowId: "row-shared",
+        toIndex: expectedIndex,
+      });
+    },
+  );
 
   it("does not commit a stale image move when dropped outside all droppables", () => {
     const targetReference: PlanComponent = {

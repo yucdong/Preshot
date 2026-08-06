@@ -9,10 +9,14 @@ export type ComponentDropTarget =
   | { kind: "new-row"; toRowIndex: number }
   | { kind: "invalid"; reason: "capacity" | "missing" };
 
+type ComponentDropOver =
+  | { type: "component"; id: string; insertAfter: boolean }
+  | { type: "row-gap"; toRowIndex: number };
+
 export function componentDropTarget(
   components: PlanComponent[],
   activeId: string,
-  over: { type: "component" | "row-gap"; id: string; insertAfter: boolean } | null,
+  over: ComponentDropOver | null,
 ): ComponentDropTarget {
   const active = components.find((component) => component.id === activeId);
   if (!active || !over) {
@@ -21,13 +25,30 @@ export function componentDropTarget(
 
   const plan = { schemaVersion: 5 as const, title: "", components };
   if (over.type === "row-gap") {
-    const toRowIndex = orderedRowIds({
+    if (!Number.isFinite(over.toRowIndex)) {
+      return { kind: "invalid", reason: "missing" };
+    }
+    const originalRowIds = orderedRowIds(plan);
+    const sourceRowIndex = originalRowIds.indexOf(active.rowId);
+    const remainingComponents = components.filter(
+      (component) => component.id !== active.id,
+    );
+    const remainingRowIds = orderedRowIds({
       ...plan,
-      components: components.filter((component) => component.id !== active.id),
-    }).indexOf(over.id);
-    return toRowIndex < 0
-      ? { kind: "invalid", reason: "missing" }
-      : { kind: "new-row", toRowIndex };
+      components: remainingComponents,
+    });
+    const sourceRowRemoved = !remainingComponents.some(
+      (component) => component.rowId === active.rowId,
+    );
+    const requestedIndex = Math.trunc(over.toRowIndex);
+    const adjustedIndex =
+      sourceRowRemoved && sourceRowIndex >= 0 && sourceRowIndex < requestedIndex
+        ? requestedIndex - 1
+        : requestedIndex;
+    return {
+      kind: "new-row",
+      toRowIndex: Math.max(0, Math.min(adjustedIndex, remainingRowIds.length)),
+    };
   }
 
   const overComponent = components.find((component) => component.id === over.id);

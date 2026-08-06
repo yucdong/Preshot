@@ -3,15 +3,11 @@ import { useTranslation } from "react-i18next";
 import {
   EMPTY_PLAN,
   DEFAULT_IMAGE_HEIGHT,
+  UNTITLED_PLAN_TITLE,
   type CropRect,
   type ProjectPlan,
 } from "../../domain/plan/canvas/models";
-import {
-  A4,
-  contentSize,
-  DEFAULT_PAGE_GEOMETRY,
-  SPACING,
-} from "../../domain/plan/canvas/geometry";
+import { A4 } from "../../domain/plan/canvas/geometry";
 import type { PlanImagePicker } from "../../domain/plan/ports";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
 import type { WorkspaceLogger } from "../../domain/workspace/ports";
@@ -42,10 +38,10 @@ import {
 } from "../../domain/plan/canvas/naming";
 import { setImageCrop, resetImageCrop } from "../../domain/plan/canvas/crop";
 import {
-  availableWidthInRow,
   moveComponentInRows,
   type ComponentMoveTarget,
 } from "../../domain/plan/canvas/rows";
+import { maximumAdditionalWidth } from "../../domain/plan/canvas/rowPacking";
 import {
   createHistory,
   record as recordHistory,
@@ -125,14 +121,14 @@ function resizeComponentWithinRow(
     return plan;
   }
 
-  const rowMemberCount = plan.components.filter(
-    (candidate) => candidate.rowId === component.rowId,
-  ).length;
-  const gapFraction = SPACING / contentSize(DEFAULT_PAGE_GEOMETRY).width;
-  const maximumWidth =
-    rowMemberCount > 1
-      ? Math.max(0, availableWidthInRow(plan, component.rowId, id) - gapFraction)
-      : 1;
+  const maximumWidth = maximumAdditionalWidth(
+    plan.components
+      .filter(
+        (candidate) =>
+          candidate.rowId === component.rowId && candidate.id !== id,
+      )
+      .map((candidate) => candidate.width),
+  );
   return resizeComponent(plan, { id, width: Math.min(width, maximumWidth) });
 }
 
@@ -607,7 +603,7 @@ export function ProjectCanvasProvider({
         let planToUse =
           loadResult.status === "loaded"
             ? loadResult.plan
-            : { ...EMPTY_PLAN, title: projectName };
+            : { ...EMPTY_PLAN, title: projectName.trim() || UNTITLED_PLAN_TITLE };
         if (loadResult.status === "missing") {
           const planId = crypto.randomUUID();
           const planComponent = {

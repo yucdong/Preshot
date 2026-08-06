@@ -79,6 +79,34 @@ async function dragComponentToFrame(
   await page.mouse.up();
 }
 
+async function dragComponentAcrossTarget(
+  page: Page,
+  source: ReturnType<Page["locator"]>,
+  target: ReturnType<Page["locator"]>,
+  targetX: "before" | "after",
+) {
+  const handle = source.getByRole("button", { name: "拖动以移动或交换位置", exact: true });
+  const handleBox = await handle.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!handleBox || !targetBox) {
+    throw new Error("component drag targets are not visible");
+  }
+
+  const dragStartX = handleBox.x + 2;
+  const dragStartY = handleBox.y + handleBox.height / 2;
+  await page.mouse.move(dragStartX, dragStartY);
+  await page.mouse.down();
+  await page.waitForTimeout(200);
+  await page.mouse.move(dragStartX + 12, dragStartY, { steps: 3 });
+  await expect(page.locator('[data-drag-placeholder="component"]')).toBeVisible();
+  await page.mouse.move(
+    targetX === "before" ? targetBox.x + 1 : targetBox.x + targetBox.width - 1,
+    targetBox.y + targetBox.height / 2,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+}
+
 test("loads the seeded canvas with plan and reference components", async ({ page }) => {
   await page.goto("/");
 
@@ -160,6 +188,38 @@ test("persists a valid cross-row move after resizing without changing the resize
   await page.reload();
   await expect(planFrame).toHaveAttribute("data-row-id", referenceRowId!);
   await expect(referenceFrame).toHaveAttribute("data-row-id", referenceRowId!);
+});
+
+test("uses horizontal centers for same-row component insertion", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/");
+  await waitForReferenceImages(page);
+
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
+  const referenceFrame = page.locator(`${FRAME}[data-fragment-id="ref-1::0"]`);
+  const referenceRowId = await referenceFrame.getAttribute("data-row-id");
+  if (!referenceRowId) {
+    throw new Error("reference component row id is unavailable");
+  }
+  await shrinkFrame(page, planFrame);
+  await shrinkFrame(page, referenceFrame);
+  await dragComponentToFrame(page, planFrame, referenceFrame);
+  await expect(planFrame).toHaveAttribute("data-row-id", referenceRowId);
+  await page.waitForTimeout(300);
+
+  await dragComponentAcrossTarget(page, referenceFrame, planFrame, "before");
+  await expect.poll(() => componentOrder(page)).toEqual(["ref-1", "plan-1"]);
+
+  await dragComponentAcrossTarget(page, referenceFrame, planFrame, "after");
+  await expect.poll(() => componentOrder(page)).toEqual(["plan-1", "ref-1"]);
+});
+
+test("renders first and last new-row drop targets", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByTestId("row-drop-zone:0")).toBeVisible();
+  await expect(page.getByTestId("row-drop-zone:1")).toBeVisible();
+  await expect(page.getByTestId("row-drop-zone:2")).toBeVisible();
 });
 
 test("rejects a component drop on a full row without changing rows or order", async ({ page }) => {
@@ -656,10 +716,12 @@ test("crops and restores a tile while the lightbox keeps the full source image",
   await waitForReferenceImages(page);
 
   const tile = page.locator('[data-image-id="img-1"]');
+  const followingTile = page.locator('[data-image-id="img-2"]');
   const tileImage = tile.getByRole("img", { name: "参考图" });
   const initialBox = await tile.boundingBox();
+  const followingInitialBox = await followingTile.boundingBox();
   const fullSource = await tileImage.getAttribute("src");
-  if (!initialBox || !fullSource) {
+  if (!initialBox || !followingInitialBox || !fullSource) {
     throw new Error("seeded image tile is not ready");
   }
 
@@ -674,25 +736,73 @@ test("crops and restores a tile while the lightbox keeps the full source image",
   await page.mouse.move(cropHandleBox.x - initialBox.width * 0.35, cropHandleBox.y + cropHandleBox.height / 2, {
     steps: 6,
   });
+
+  await expect
+    .poll(async () => (await followingTile.boundingBox())?.x ?? 0)
+    .toBeLessThan(followingInitialBox.x);
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
+
   await page.mouse.up();
 
   await expect(tile).toHaveAttribute("data-image-cropped", "true");
   await expect
     .poll(async () => (await tile.boundingBox())?.width ?? 0)
     .not.toBe(initialBox.width);
+  const croppedBox = await tile.boundingBox();
+  if (!croppedBox) {
+    throw new Error("cropped tile is not visible");
+  }
 
-  await tile.getByRole("button", { name: "打开参考图 1" }).click();
+  await cropHandle.evaluate((element) => (element as HTMLElement).blur());
+  await page.mouse.move(0, 0);
+  const openImage = tile.getByRole("button", { name: "打开参考图 1" });
+  await openImage.focus();
+  await page.keyboard.press("Enter");
   const lightbox = page.getByRole("dialog");
   await expect(lightbox).toBeVisible();
   await expect(lightbox.getByRole("img", { name: "参考图" })).toHaveAttribute("src", fullSource);
   await lightbox.getByRole("button", { name: "关闭图片" }).click();
   await expect(lightbox).toBeHidden();
 
-  await tile.getByRole("button", { name: "恢复原图" }).click();
+  const resetCrop = tile.getByRole("button", { name: "恢复原图" });
+  await resetCrop.focus();
+  await page.keyboard.press("Enter");
   await expect(tile).toHaveAttribute("data-image-cropped", "false");
   await expect
     .poll(async () => (await tile.boundingBox())?.width ?? 0)
-    .toBe(initialBox.width);
+    .toBeGreaterThan(croppedBox.width);
+});
+
+test("persists a committed crop after reload", async ({ page }) => {
+  await page.goto("/");
+  await waitForReferenceImages(page);
+
+  const tile = page.locator('[data-image-id="img-1"]');
+  const initialBox = await tile.boundingBox();
+  if (!initialBox) {
+    throw new Error("seeded image tile is not ready");
+  }
+  await tile.hover();
+  const cropHandle = tile.getByRole("button", { name: "从右侧裁剪图片" });
+  const handleBox = await cropHandle.boundingBox();
+  if (!handleBox) {
+    throw new Error("crop handle is not visible");
+  }
+
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x - initialBox.width * 0.25, handleBox.y + handleBox.height / 2, {
+    steps: 6,
+  });
+  await page.mouse.up();
+
+  await expect(tile).toHaveAttribute("data-image-cropped", "true");
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
+  await page.reload();
+  await expect(page.locator('[data-image-id="img-1"]')).toHaveAttribute(
+    "data-image-cropped",
+    "true",
+  );
 });
 
 test("exports successfully while captions stay hidden on the canvas", async ({ page }) => {

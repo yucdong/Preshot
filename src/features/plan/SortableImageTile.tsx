@@ -31,6 +31,8 @@ interface SortableImageTileProps {
   showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
   onSetCrop?: (imageId: string, crop: CropRect) => void;
+  onPreviewCrop?: (imageId: string, crop: CropRect) => void;
+  onCancelCropPreview?: (imageId: string) => void;
   onResetCrop?: (imageId: string) => void;
   slot: ReferenceFlowSlot;
   scale: number;
@@ -48,6 +50,8 @@ export function SortableImageTile({
   showCaptions = false, 
   onSetCaption,
   onSetCrop,
+  onPreviewCrop,
+  onCancelCropPreview,
   onResetCrop,
   slot,
   scale,
@@ -140,14 +144,22 @@ export function SortableImageTile({
             sourceAspectRatio={sourceAspectRatio}
             viewportHeight={imageHeight}
             viewportWidth={slot.width * scale}
-            onCancel={() => setPreviewCrop(undefined)}
+            onCancel={() => {
+              setPreviewCrop(undefined);
+              onCancelCropPreview?.(image.id);
+            }}
             onCommit={(nextCrop) => {
               setPreviewCrop(undefined);
+              onCancelCropPreview?.(image.id);
               onSetCrop?.(image.id, nextCrop);
             }}
-            onPreview={setPreviewCrop}
+            onPreview={(nextCrop) => {
+              setPreviewCrop(nextCrop);
+              onPreviewCrop?.(image.id, nextCrop);
+            }}
             onReset={() => {
               setPreviewCrop(undefined);
+              onCancelCropPreview?.(image.id);
               onResetCrop?.(image.id);
             }}
           />

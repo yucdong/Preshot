@@ -1,11 +1,13 @@
-import { contentSize, DEFAULT_PAGE_GEOMETRY, SPACING } from "./geometry";
 import type { PlanComponent, ProjectPlan } from "./models";
+import {
+  canAddToRow,
+  remainingRowWidth,
+  rowFits,
+} from "./rowPacking";
 
 export type ComponentMoveTarget =
   | { kind: "row"; rowId: string; toIndex: number }
   | { kind: "new-row"; rowId: string; toRowIndex: number };
-
-const gapFraction = SPACING / contentSize(DEFAULT_PAGE_GEOMETRY).width;
 
 function componentRows(plan: ProjectPlan): PlanComponent[][] {
   const rows = new Map<string, PlanComponent[]>();
@@ -35,10 +37,7 @@ export function availableWidthInRow(
   if (!row?.length) {
     return row ? 1 : 0;
   }
-  const used =
-    row.reduce((sum, component) => sum + component.width, 0) +
-    Math.max(0, row.length - 1) * gapFraction;
-  return Math.max(0, 1 - used);
+  return remainingRowWidth(row.map((component) => component.width));
 }
 
 function canFitInRow(
@@ -51,9 +50,12 @@ function canFitInRow(
     return false;
   }
 
-  const joinsOtherComponents = targetRow.some((candidate) => candidate.id !== component.id);
-  const available = availableWidthInRow(plan, rowId, component.id);
-  return component.width <= available - (joinsOtherComponents ? gapFraction : 0);
+  return canAddToRow(
+    targetRow
+      .filter((candidate) => candidate.id !== component.id)
+      .map((candidate) => candidate.width),
+    component.width,
+  );
 }
 
 export function moveComponentInRows(
@@ -88,7 +90,7 @@ export function moveComponentInRows(
   if (
     !params.target.rowId ||
     nonEmptyRows.some((row) => row[0].rowId === params.target.rowId) ||
-    component.width > 1
+    !rowFits([component.width])
   ) {
     return plan;
   }

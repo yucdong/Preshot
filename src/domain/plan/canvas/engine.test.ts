@@ -42,13 +42,30 @@ describe("layoutPlan placement", () => {
     expect(placements[0].rect).toEqual({ x: 0, y: 0, width: content.width, height: 56 });
   });
 
-  it("flows two half-width components side by side on one row", () => {
+  it("flows two gap-aware components side by side on one row", () => {
     const { placements } = layoutPlan([
-      { ...plan("a", 0.5), rowId: "row-ab" },
-      { ...plan("b", 0.5), rowId: "row-ab" },
+      { ...plan("a", 0.45), rowId: "row-ab" },
+      { ...plan("b", 0.45), rowId: "row-ab" },
     ]);
-    expect(placements[0].rect).toMatchObject({ x: 0, y: 0, width: content.width / 2 });
-    expect(placements[1].rect).toMatchObject({ x: content.width / 2, y: 0, width: content.width / 2 });
+    expect(placements[0].rect).toMatchObject({ x: 0, y: 0, width: content.width * 0.45 });
+    expect(placements[1].rect.y).toBe(0);
+    expect(placements[1].rect.width).toBe(content.width * 0.45);
+    expect(placements[1].rect.x).toBeCloseTo(
+      content.width * 0.45 + SPACING,
+      8,
+    );
+  });
+
+  it("places same-row components after the configured horizontal spacing gap", () => {
+    const { placements } = layoutPlan([
+      { ...plan("a", 0.4), rowId: "row-ab" },
+      { ...plan("b", 0.4), rowId: "row-ab" },
+    ]);
+
+    expect(placements[1].rect.x).toBeCloseTo(
+      content.width * 0.4 + SPACING,
+      8,
+    );
   });
 
   it("starts a persisted logical row even when it could fit the previous row", () => {
@@ -87,7 +104,7 @@ describe("layoutPlan placement", () => {
     expect(b.rect.y).toBeCloseTo(100 + DEFAULT_PAGE_GEOMETRY.rowGap, 5);
     // c (1/3) fits next to b (1/2) on the same row
     expect(c.rect.y).toBeCloseTo(b.rect.y, 5);
-    expect(c.rect.x).toBeCloseTo(content.width / 2, 5);
+    expect(c.rect.x).toBeCloseTo(content.width / 2 + SPACING, 5);
     expect(third).toBeGreaterThan(0);
   });
 

@@ -5,6 +5,7 @@ import {
   type ProjectPlan,
   type ReferenceComponent,
 } from "./models";
+import { contentSize, DEFAULT_PAGE_GEOMETRY, SPACING } from "./geometry";
 
 const migrationContext: PlanMigrationContext = { projectName: "Migrated plan" };
 
@@ -51,13 +52,106 @@ describe("migratePlan", () => {
         title: "Editorial",
         components: [
           { name: "文案1", rowId: "row:plan-1" },
-          { name: "Lookbook", rowId: "row:ref-1", showCaptions: false },
+          { name: "Lookbook", rowId: "row:plan-1", showCaptions: false },
         ],
       });
+    });
+
+    it("packs legacy components to the actual gap-aware row capacity and validates the result", () => {
+      const migrated = migratePlan(
+        {
+          schemaVersion: 4,
+          components: [
+            { id: "p1", type: "plan", width: 0.4, html: "" },
+            {
+              id: "r1",
+              type: "reference",
+              width: 0.5,
+              title: "Lookbook",
+              description: "",
+              imageHeight: 135,
+              showCaptions: false,
+              images: [],
+            },
+          ],
+        },
+        migrationContext,
+      );
+
+      expect(migrated.components.map((component) => component.rowId)).toEqual([
+        "row:p1",
+        "row:p1",
+      ]);
+      expect(
+        migrated.components.reduce((used, component, index) =>
+          used + component.width + (index === 0 ? 0 : SPACING / contentSize(DEFAULT_PAGE_GEOMETRY).width),
+        0),
+      ).toBeLessThanOrEqual(1);
+      expect(migratePlan(migrated, migrationContext)).toEqual(migrated);
+    });
+
+    it("assigns blank legacy references the smallest free 图片组 suffix", () => {
+      const migrated = migratePlan(
+        {
+          schemaVersion: 4,
+          components: [
+            {
+              id: "r1",
+              type: "reference",
+              width: 1,
+              title: "图片组1",
+              description: "",
+              imageHeight: 135,
+              showCaptions: false,
+              images: [],
+            },
+            {
+              id: "r3",
+              type: "reference",
+              width: 1,
+              title: "图片组3",
+              description: "",
+              imageHeight: 135,
+              showCaptions: false,
+              images: [],
+            },
+            {
+              id: "blank",
+              type: "reference",
+              width: 1,
+              title: "   ",
+              description: "",
+              imageHeight: 135,
+              showCaptions: false,
+              images: [],
+            },
+          ],
+        },
+        migrationContext,
+      );
+
+      expect(migrated.components.map((component) => component.name)).toEqual([
+        "图片组1",
+        "图片组3",
+        "图片组2",
+      ]);
     });
   });
 
   describe("v5 validation", () => {
+    it("rejects a blank document title", () => {
+      expect(() =>
+        migratePlan(
+          {
+            schemaVersion: 5,
+            title: "   ",
+            components: [],
+          },
+          migrationContext,
+        ),
+      ).toThrow(/title/i);
+    });
+
     it("rejects duplicate trimmed component names", () => {
       expect(() =>
         migratePlan(
@@ -126,6 +220,16 @@ describe("migratePlan", () => {
       expect(migrated.components[0]).not.toHaveProperty("height");
       expect(migrated.components[1]).not.toHaveProperty("height");
       expect((migrated.components[1] as ReferenceComponent).imageHeight).toBe(135);
+    });
+
+    it("trims the legacy project name and uses a deterministic untitled fallback", () => {
+      const raw = {
+        schemaVersion: 4,
+        components: [],
+      };
+
+      expect(migratePlan(raw, { projectName: "  Editorial  " }).title).toBe("Editorial");
+      expect(migratePlan(raw, { projectName: "   " }).title).toBe("未命名方案");
     });
 
     it("does not reduce v4 image height a second time", () => {

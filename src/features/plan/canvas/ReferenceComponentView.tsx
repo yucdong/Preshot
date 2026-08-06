@@ -44,6 +44,8 @@ interface ReferenceComponentViewProps {
   onSetImageHeight?: (id: string, height: number) => void;
   onAddImages?: (id: string) => void;
   onSetImageCrop?: (componentId: string, imageId: string, crop: CropRect) => void;
+  onPreviewImageCrop?: (componentId: string, imageId: string, crop: CropRect) => void;
+  onCancelImageCropPreview?: (componentId: string, imageId: string) => void;
   onResetImageCrop?: (componentId: string, imageId: string) => void;
   onMeasureDescription?: (id: string, heightPoints: number) => void;
   fragmentKind?: "whole" | "first" | "continuation";
@@ -70,6 +72,8 @@ export function ReferenceComponentView({
   onSetImageHeight,
   onAddImages,
   onSetImageCrop,
+  onPreviewImageCrop,
+  onCancelImageCropPreview,
   onResetImageCrop,
   onMeasureDescription,
   fragmentKind = "whole",
@@ -273,6 +277,8 @@ export function ReferenceComponentView({
           showCaptions={component.showCaptions}
           onSetCaption={onSetImageCaption ? (imageId, caption) => onSetImageCaption(component.id, imageId, caption) : undefined}
           onSetCrop={onSetImageCrop ? (imageId, crop) => onSetImageCrop(component.id, imageId, crop) : undefined}
+          onPreviewCrop={onPreviewImageCrop ? (imageId, crop) => onPreviewImageCrop(component.id, imageId, crop) : undefined}
+          onCancelCropPreview={onCancelImageCropPreview ? (imageId) => onCancelImageCropPreview(component.id, imageId) : undefined}
           onResetCrop={onResetImageCrop ? (imageId) => onResetImageCrop(component.id, imageId) : undefined}
           slots={slots}
           scale={scale}

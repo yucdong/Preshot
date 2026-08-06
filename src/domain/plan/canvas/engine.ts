@@ -25,6 +25,7 @@ import {
   REFERENCE_HEADER_HEIGHT,
   type ReferenceFlowSlot,
 } from "./referenceLayout";
+import { canAddToRow, nextRowItemOffset } from "./rowPacking";
 
 const EPS = 0.01;
 const FALLBACK_PLAN_HEIGHT = 56;
@@ -364,7 +365,6 @@ export function layoutPlan(
 
   const rows: PendingRowComponent[][] = [];
   let currentRow: PendingRowComponent[] = [];
-  let currentX = 0;
   let currentRowId: string | null = null;
 
   for (const component of components) {
@@ -373,15 +373,21 @@ export function layoutPlan(
       currentRow.length > 0 && currentRowId !== component.rowId;
     if (
       beginsNewLogicalRow ||
-      (currentRow.length > 0 && currentX + width > content.width + EPS)
+      !canAddToRow(
+        currentRow.map((entry) => entry.component.width),
+        component.width,
+        geometry,
+      )
     ) {
       rows.push(currentRow);
       currentRow = [];
-      currentX = 0;
     }
 
+    const currentX = nextRowItemOffset(
+      currentRow.map((entry) => entry.component.width),
+      geometry,
+    ) * content.width;
     currentRow.push({ component, x: currentX, width });
-    currentX += width;
     currentRowId = component.rowId;
   }
 

@@ -24,6 +24,8 @@ interface GroupImageGridProps {
   showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
   onSetCrop?: (imageId: string, crop: CropRect) => void;
+  onPreviewCrop?: (imageId: string, crop: CropRect) => void;
+  onCancelCropPreview?: (imageId: string) => void;
   onResetCrop?: (imageId: string) => void;
   slots: ReferenceFlowSlot[];
   scale: number;
@@ -45,6 +47,8 @@ export function GroupImageGrid({
   showCaptions = false, 
   onSetCaption,
   onSetCrop,
+  onPreviewCrop,
+  onCancelCropPreview,
   onResetCrop,
   slots,
   scale,
@@ -136,6 +140,8 @@ export function GroupImageGrid({
             showCaptions={showCaptions}
             onSetCaption={onSetCaption}
             onSetCrop={onSetCrop}
+            onPreviewCrop={onPreviewCrop}
+            onCancelCropPreview={onCancelCropPreview}
             onResetCrop={onResetCrop}
             slot={slot}
             scale={scale}
@@ -156,6 +162,8 @@ export function GroupImageGrid({
           showCaptions={showCaptions}
           onSetCaption={onSetCaption}
           onSetCrop={onSetCrop}
+          onPreviewCrop={onPreviewCrop}
+          onCancelCropPreview={onCancelCropPreview}
           onResetCrop={onResetCrop}
           slot={normalizedPlaceholderSlot}
           scale={scale}

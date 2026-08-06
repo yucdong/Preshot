@@ -23,19 +23,16 @@ function documentTitleComponentId(components: PlanComponent[]): string {
 
 function exportComponents(
   components: PlanComponent[],
-  documentTitle: string,
   titleComponentId: string,
 ): PlanComponent[] {
-  const titleComponent: PlanComponent[] = documentTitle.trim()
-    ? [{
-        id: titleComponentId,
-        rowId: `row:${titleComponentId}`,
-        name: "",
-        type: "plan",
-        width: 1,
-        html: "",
-      }]
-    : [];
+  const titleComponent: PlanComponent[] = [{
+    id: titleComponentId,
+    rowId: `row:${titleComponentId}`,
+    name: "",
+    type: "plan",
+    width: 1,
+    html: "",
+  }];
 
   return [
     ...titleComponent,
@@ -60,7 +57,7 @@ export function buildCanvasLayout(
   components: PlanComponent[],
   geometry: PageGeometry = DEFAULT_PAGE_GEOMETRY,
   measurements?: LayoutMeasurements,
-  documentTitle = "",
+  _documentTitle = "",
 ): CanvasLayout {
   const titleComponentId = documentTitleComponentId(components);
   const planHeights = new Map(measurements?.planHeights);
@@ -68,14 +65,12 @@ export function buildCanvasLayout(
     planHeights,
     referenceDescriptionHeights: measurements?.referenceDescriptionHeights ?? new Map(),
   };
-  if (documentTitle.trim()) {
-    planHeights.set(
-      titleComponentId,
-      DOCUMENT_TITLE_HEIGHT - componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME),
-    );
-  }
+  planHeights.set(
+    titleComponentId,
+    DOCUMENT_TITLE_HEIGHT - componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME),
+  );
 
-  const layout = layoutPlan(exportComponents(components, documentTitle, titleComponentId), geometry, exportMeasurements, {
+  const layout = layoutPlan(exportComponents(components, titleComponentId), geometry, exportMeasurements, {
     frameChrome: PDF_COMPONENT_FRAME_CHROME,
     includeReferenceAddTile: false,
   });

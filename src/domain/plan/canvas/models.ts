@@ -1,3 +1,5 @@
+import { normalizeFraction } from "./fraction";
+
 export const MIN_COMPONENT_HEIGHT = 80; // points
 export const DEFAULT_PLAN_HEIGHT = 220; // points
 export const DEFAULT_REFERENCE_HEIGHT = 320; // points
@@ -6,6 +8,7 @@ export const DEFAULT_IMAGE_HEIGHT = 135; // points
 export const MIN_IMAGE_HEIGHT = 67.5; // points
 export const MAX_IMAGE_HEIGHT = 400; // points
 export const DOCUMENT_TITLE_HEIGHT = 36; // points
+export const UNTITLED_PLAN_TITLE = "未命名方案";
 
 export const DEFAULT_WIDTH = 1;
 export const MIN_WIDTH = 0.15;
@@ -23,7 +26,7 @@ export function clampWidth(width: number): number {
   if (!Number.isFinite(width)) {
     return MIN_WIDTH;
   }
-  return Math.min(DEFAULT_WIDTH, Math.max(MIN_WIDTH, width));
+  return normalizeFraction(Math.min(DEFAULT_WIDTH, Math.max(MIN_WIDTH, width)));
 }
 
 export function clampImageHeight(height: number): number {
@@ -76,4 +79,8 @@ export interface ProjectPlan {
   components: PlanComponent[];
 }
 
-export const EMPTY_PLAN: ProjectPlan = { schemaVersion: 5, title: "", components: [] };
+export const EMPTY_PLAN: ProjectPlan = {
+  schemaVersion: 5,
+  title: UNTITLED_PLAN_TITLE,
+  components: [],
+};
