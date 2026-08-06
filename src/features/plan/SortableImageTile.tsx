@@ -69,7 +69,7 @@ export function SortableImageTile({
   const [previewCrop, setPreviewCrop] = useState<CropRect>();
   const visibleCrop = previewCrop ?? crop ?? { x: 0, y: 0, width: 1, height: 1 };
   const effectiveAspectRatio = effectiveImageAspectRatio({ ...image, aspectRatio: sourceAspectRatio });
-  const cropControlsEnabled = !placeholderVisible && (onSetCrop !== undefined || (crop !== undefined && onResetCrop !== undefined));
+  const cropControlsEnabled = !placeholderVisible && onSetCrop !== undefined && onResetCrop !== undefined;
 
   // When draggable is false, don't apply transform or drag styles
   const style = draggable

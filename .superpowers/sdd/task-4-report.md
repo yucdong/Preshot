@@ -19,3 +19,9 @@ Confirmed four accessible handles, one commit per pointer release, cancellation/
 
 ## Concern
 Task 7 must connect the optional crop callbacks to provider persistence/history; this task deliberately does not edit provider or canvas wiring.
+
+## Review follow-up — callback gating
+- RED: added regressions for `onSetCrop`-only and `onResetCrop`-only tiles; the focused SortableImageTile test run failed 2 tests because the overlay rendered with either callback.
+- GREEN: `SortableImageTile` now renders `ImageCropOverlay` only when both callbacks are supplied; updated existing crop interaction tests to provide both callbacks. SortableImageTile tests pass (15 tests).
+- Focused Task 4 suite: `pnpm test -- src/features/plan/ImageCropOverlay.test.tsx src/features/plan/SortableImageTile.test.tsx src/features/plan/GroupImageGrid.test.tsx src/features/plan/ReferenceImageLightbox.test.tsx` — 4 files, 39 tests passed.
+- Typecheck: `pnpm typecheck` — passed.

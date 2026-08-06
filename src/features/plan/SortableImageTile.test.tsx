@@ -184,10 +184,27 @@ describe("SortableImageTile", () => {
     });
   });
 
+  it("does not render crop controls when only the set callback is supplied", () => {
+    renderTile({ onSetCrop: vi.fn() });
+
+    expect(screen.queryByTestId("crop-handle-right")).toBeNull();
+    expect(screen.queryByRole("button", { name: "恢复原图" })).toBeNull();
+  });
+
+  it("does not render crop controls when only the reset callback is supplied", () => {
+    renderTile({
+      image: { ...image, crop: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } },
+      onResetCrop: vi.fn(),
+    });
+
+    expect(screen.queryByTestId("crop-handle-right")).toBeNull();
+    expect(screen.queryByRole("button", { name: "恢复原图" })).toBeNull();
+  });
+
   it("commits crop changes without opening the lightbox or starting a drag", () => {
     const onOpen = vi.fn();
     const onSetCrop = vi.fn();
-    renderTile({ onOpen, onSetCrop });
+    renderTile({ onOpen, onSetCrop, onResetCrop: vi.fn() });
     const handle = screen.getByTestId("crop-handle-right");
 
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 160, clientY: 60 });
@@ -201,7 +218,7 @@ describe("SortableImageTile", () => {
   });
 
   it("previews the cropped source content while an edge drag is active", () => {
-    renderTile({ onSetCrop: vi.fn() });
+    renderTile({ onSetCrop: vi.fn(), onResetCrop: vi.fn() });
     const handle = screen.getByTestId("crop-handle-right");
 
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 160, clientY: 60 });
