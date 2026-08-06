@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { componentFrameChromeHeight, DEFAULT_PAGE_GEOMETRY } from "../geometry";
-import type { PlanComponent, PlanTextComponent, ReferenceComponent } from "../models";
+import {
+  DOCUMENT_TITLE_HEIGHT,
+  type PlanComponent,
+  type PlanTextComponent,
+  type ReferenceComponent,
+} from "../models";
 import { buildCanvasLayout, PDF_COMPONENT_FRAME_CHROME } from "./exportDocument";
 
 function measurements(planHeights: Record<string, number> = {}) {
@@ -161,6 +166,32 @@ describe("buildCanvasLayout", () => {
     expect(layout.placements).toEqual([
       expect.objectContaining({ componentId: component.id }),
     ]);
+  });
+
+  it("reserves only the document-title band before the first component row", () => {
+    const component: PlanTextComponent = {
+      id: "c1",
+      rowId: "row:c1",
+      name: "文案1",
+      type: "plan",
+      width: 1,
+      html: "<p>Text</p>",
+    };
+
+    const layout = buildCanvasLayout(
+      [component],
+      DEFAULT_PAGE_GEOMETRY,
+      measurements({ c1: 96 }),
+      "Editorial",
+    );
+
+    expect(layout.placements[0]).toMatchObject({
+      componentId: "c1",
+      rect: {
+        y: DOCUMENT_TITLE_HEIGHT + DEFAULT_PAGE_GEOMETRY.rowGap,
+        height: 96 + componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME),
+      },
+    });
   });
 
   it("forwards plan measurements into the domain layout", () => {

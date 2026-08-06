@@ -1,6 +1,7 @@
 import { layoutPlan, type LayoutMeasurements, type LayoutResult } from "../engine";
 import { effectiveImageAspectRatio } from "../crop";
 import {
+  componentFrameChromeHeight,
   DEFAULT_PAGE_GEOMETRY,
   EDITABLE_COMPONENT_FRAME_CHROME,
   type PageGeometry,
@@ -68,7 +69,10 @@ export function buildCanvasLayout(
     referenceDescriptionHeights: measurements?.referenceDescriptionHeights ?? new Map(),
   };
   if (documentTitle.trim()) {
-    planHeights.set(titleComponentId, DOCUMENT_TITLE_HEIGHT);
+    planHeights.set(
+      titleComponentId,
+      DOCUMENT_TITLE_HEIGHT - componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME),
+    );
   }
 
   const layout = layoutPlan(exportComponents(components, documentTitle, titleComponentId), geometry, exportMeasurements, {
