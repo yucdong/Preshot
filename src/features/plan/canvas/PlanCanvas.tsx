@@ -21,8 +21,12 @@ import {
   EDITABLE_COMPONENT_FRAME_CHROME,
   SPACING,
 } from "../../../domain/plan/canvas/geometry";
-import { moveComponent, moveImage, type MoveImageParams } from "../../../domain/plan/canvas/plan";
+import { moveImage, type MoveImageParams } from "../../../domain/plan/canvas/plan";
 import { componentDropTarget } from "../../../domain/plan/canvas/dropTarget";
+import {
+  moveComponentInRows,
+  type ComponentMoveTarget,
+} from "../../../domain/plan/canvas/rows";
 import type { PlanComponent, ReferenceComponent, ReferenceImage } from "../../../domain/plan/canvas/models";
 import { ComponentFrame } from "./ComponentFrame";
 import { PagedCanvasSurface } from "./PagedCanvasSurface";
@@ -38,6 +42,7 @@ import {
 import { buildDisplayPlacements, pageCountForDisplayedPlacements } from "./dragPreviewState";
 import { imageDropTarget, imageInsertAfterFromRects } from "./imageDropTarget";
 import type { PlanMeasurement } from "./usePlanContentMeasurement";
+import { RowDropZone } from "./RowDropZone";
 
 export interface PlanCanvasProps {
   components: PlanComponent[];
@@ -51,7 +56,7 @@ export interface PlanCanvasProps {
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
   onOpenImage: (file: string) => void;
-  onMoveComponent?: (id: string, toIndex: number) => void;
+  onMoveComponent?: (id: string, target: ComponentMoveTarget) => void;
   onMoveImage?: (params: MoveImageParams) => void;
   onResize?: (id: string, params: { width: number }) => void;
   onToggleCaptions?: (id: string) => void;
@@ -66,8 +71,34 @@ type ActiveDrag =
   | { type: "component"; id: string; componentId: string }
   | { type: "image"; id: string; componentId: string };
 
+interface ComponentDragParams {
+  id: string;
+  target: ComponentMoveTarget;
+}
+
+function sameComponentDragParams(
+  left: ComponentDragParams,
+  right: ComponentDragParams,
+): boolean {
+  if (
+    left.id !== right.id ||
+    left.target.kind !== right.target.kind ||
+    left.target.rowId !== right.target.rowId
+  ) {
+    return false;
+  }
+  if (left.target.kind === "new-row" && right.target.kind === "new-row") {
+    return left.target.toRowIndex === right.target.toRowIndex;
+  }
+  if (left.target.kind === "row" && right.target.kind === "row") {
+    return left.target.toIndex === right.target.toIndex;
+  }
+  return false;
+}
+
 const CANVAS_LAYOUT_OPTIONS = {
   frameChrome: EDITABLE_COMPONENT_FRAME_CHROME,
+  includeDocumentTitle: true,
 };
 
 const collisionDetection: CollisionDetection = (args) => {
@@ -87,7 +118,7 @@ const collisionDetection: CollisionDetection = (args) => {
     const isValidTarget = (id: string | number) => {
       const type = typeFor(id);
       return activeType === "component"
-        ? type === "component"
+        ? type === "component" || type === "row-gap"
         : type === "image" || type === "imagegroup";
     };
     const pointerHit = pointerCollisions.find((collision) =>
@@ -168,7 +199,7 @@ export function PlanCanvas({
 }: PlanCanvasProps) {
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
   const [preview, setPreview] = useState<PlanComponent[] | null>(null);
-  const lastParamsRef = useRef<{ id: string; toIndex: number } | null>(null);
+  const lastParamsRef = useRef<ComponentDragParams | null>(null);
   const lastImageParamsRef = useRef<MoveImageParams | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: DRAG_ACTIVATION_CONSTRAINT }));
 
@@ -201,15 +232,16 @@ export function PlanCanvas({
     imageOriginPlacement: imageOrigin?.placement ?? null,
   });
 
-  const paramsFor = (event: DragOverEvent | DragEndEvent): { id: string; toIndex: number } | null => {
+  const paramsFor = (event: DragOverEvent | DragEndEvent): ComponentDragParams | null => {
     const activeId = logicalComponentIdFromDnd(
       event.active.data.current as { componentId?: unknown } | null | undefined,
       String(event.active.id),
     );
-    const overId = logicalComponentIdFromDnd(
-      (event.over?.data.current as { componentId?: unknown } | null | undefined) ?? null,
-      event.over ? String(event.over.id) : null,
-    );
+    const overData = event.over?.data.current as {
+      type?: unknown;
+      componentId?: unknown;
+      beforeRowId?: unknown;
+    } | null | undefined;
     const activeRect = event.active.rect.current.translated;
     const overRect = event.over?.rect ?? null;
     const insertAfter =
@@ -217,11 +249,48 @@ export function PlanCanvas({
     if (activeId === null) {
       return null;
     }
-    const toIndex = componentDropTarget(components, activeId, overId, insertAfter);
-    if (toIndex === null) {
+
+    const over =
+      overData?.type === "row-gap" && typeof overData.beforeRowId === "string"
+        ? { type: "row-gap" as const, id: overData.beforeRowId, insertAfter }
+        : overData?.type === "component"
+          ? (() => {
+              const componentId = logicalComponentIdFromDnd(
+                overData,
+                event.over ? String(event.over.id) : null,
+              );
+              return componentId
+                ? { type: "component" as const, id: componentId, insertAfter }
+                : null;
+            })()
+          : null;
+    const drop = componentDropTarget(components, activeId, over);
+    if (drop.kind === "invalid") {
       return null;
     }
-    return { id: activeId, toIndex };
+    if (drop.kind === "row") {
+      return {
+        id: activeId,
+        target: { kind: "row", rowId: drop.rowId, toIndex: drop.toIndex },
+      };
+    }
+
+    const previous = lastParamsRef.current;
+    if (
+      previous?.id === activeId &&
+      previous.target.kind === "new-row" &&
+      previous.target.toRowIndex === drop.toRowIndex
+    ) {
+      return previous;
+    }
+    return {
+      id: activeId,
+      target: {
+        kind: "new-row",
+        rowId: `row-${crypto.randomUUID()}`,
+        toRowIndex: drop.toRowIndex,
+      },
+    };
   };
 
   const paramsForImage = (event: DragOverEvent | DragEndEvent): MoveImageParams | null => {
@@ -267,11 +336,14 @@ export function PlanCanvas({
         return;
       }
       const last = lastParamsRef.current;
-      if (last && last.id === params.id && last.toIndex === params.toIndex) {
+      if (last && sameComponentDragParams(last, params)) {
         return;
       }
       lastParamsRef.current = params;
-      setPreview(moveComponent({ schemaVersion: 5, title: "", components }, params).components);
+      setPreview(moveComponentInRows(
+        { schemaVersion: 5, title: "", components },
+        params,
+      ).components);
     } else if (data?.type === "image") {
       const params = paramsForImage(event);
       if (!params) {
@@ -301,7 +373,7 @@ export function PlanCanvas({
       const params = event.over ? paramsFor(event) : null;
       resetPreview();
       if (params && onMoveComponent) {
-        onMoveComponent(params.id, params.toIndex);
+        onMoveComponent(params.id, params.target);
       }
     } else if (data?.type === "image") {
       const params = event.over ? paramsForImage(event) : null;
@@ -338,6 +410,32 @@ export function PlanCanvas({
     >
       <div className="flex justify-center" data-testid="plan-canvas">
         <PagedCanvasSurface pageCount={displayedPageCount} scale={scale}>
+          {components.reduce<Array<{ rowId: string; componentId: string }>>(
+            (rows, component) => {
+              if (rows.at(-1)?.rowId !== component.rowId) {
+                rows.push({ rowId: component.rowId, componentId: component.id });
+              }
+              return rows;
+            },
+            [],
+          ).slice(1).map(({ rowId, componentId }) => {
+            const placement = baseLayout.placements.find(
+              (entry) => entry.componentId === componentId,
+            );
+            if (!placement) {
+              return null;
+            }
+            return (
+              <RowDropZone
+                beforeRowId={rowId}
+                key={`row-gap:${rowId}`}
+                topPx={
+                  pageTopPx(placement.pageIndex, scale) +
+                  (SPACING + placement.rect.y - SPACING) * scale
+                }
+              />
+            );
+          })}
           <SortableContext items={components.map((component) => component.id)} strategy={verticalListSortingStrategy}>
             {displayPlacements.map((placement) => {
               const useBaseComponent = componentDragId === placement.componentId;

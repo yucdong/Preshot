@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
+import {
+  contentSize,
+  DEFAULT_PAGE_GEOMETRY,
+  DOCUMENT_TITLE_HEIGHT,
+  NO_COMPONENT_FRAME_CHROME,
+  SPACING,
+} from "./geometry";
 import { layoutPlan, referenceImageSlots, slotCaptionSplit, TITLE_BAND } from "./engine";
 import {
   DEFAULT_IMAGE_HEIGHT,
@@ -37,17 +43,43 @@ describe("layoutPlan placement", () => {
   });
 
   it("flows two half-width components side by side on one row", () => {
-    const { placements } = layoutPlan([plan("a", 0.5), plan("b", 0.5)]);
+    const { placements } = layoutPlan([
+      { ...plan("a", 0.5), rowId: "row-ab" },
+      { ...plan("b", 0.5), rowId: "row-ab" },
+    ]);
     expect(placements[0].rect).toMatchObject({ x: 0, y: 0, width: content.width / 2 });
     expect(placements[1].rect).toMatchObject({ x: content.width / 2, y: 0, width: content.width / 2 });
+  });
+
+  it("starts a persisted logical row even when it could fit the previous row", () => {
+    const components: PlanComponent[] = [
+      { ...plan("a", 0.4), rowId: "row-a" },
+      { ...plan("b", 0.4), rowId: "row-b" },
+    ];
+
+    const [a, b] = layoutPlan(components).placements;
+
+    expect(b.rect.x).toBe(0);
+    expect(b.rect.y).toBeGreaterThan(a.rect.y);
+  });
+
+  it("reserves title space before the first logical row when requested", () => {
+    const [placement] = layoutPlan(
+      [plan("a", 1)],
+      DEFAULT_PAGE_GEOMETRY,
+      measurements(),
+      { frameChrome: NO_COMPONENT_FRAME_CHROME, includeDocumentTitle: true },
+    ).placements;
+
+    expect(placement.rect.y).toBe(DOCUMENT_TITLE_HEIGHT + SPACING);
   });
 
   it("wraps to the next row when the next component does not fit the row", () => {
     const third = content.width / 3;
     const [a, b, c] = layoutPlan([
       plan("a", 2 / 3),
-      plan("b", 0.5),
-      plan("c", 1 / 3),
+      { ...plan("b", 0.5), rowId: "row-bc" },
+      { ...plan("c", 1 / 3), rowId: "row-bc" },
     ], DEFAULT_PAGE_GEOMETRY, measurements({ a: 100, b: 100, c: 100 })).placements;
     expect(a.rect).toMatchObject({ x: 0, y: 0 });
     // b (1/2) does not fit next to a (2/3): 2/3 + 1/2 > 1 -> new row
@@ -385,9 +417,15 @@ describe("continuous width layout", () => {
   }
 
   it("packs two sub-half-width components on one row and wraps wider ones", () => {
-    const a = layoutPlan([mk("a", 0.4), mk("b", 0.4)], DEFAULT_PAGE_GEOMETRY);
+    const a = layoutPlan([
+      { ...mk("a", 0.4), rowId: "row-a" },
+      { ...mk("b", 0.4), rowId: "row-a" },
+    ], DEFAULT_PAGE_GEOMETRY);
     expect(a.placements[0].rect.y).toBe(a.placements[1].rect.y); // same row
-    const b = layoutPlan([mk("a", 0.6), mk("b", 0.6)], DEFAULT_PAGE_GEOMETRY);
+    const b = layoutPlan([
+      { ...mk("a", 0.6), rowId: "row-a" },
+      { ...mk("b", 0.6), rowId: "row-a" },
+    ], DEFAULT_PAGE_GEOMETRY);
     expect(b.placements[1].rect.y).toBeGreaterThan(b.placements[0].rect.y); // wrapped
   });
 });

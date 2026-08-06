@@ -2,7 +2,9 @@ import {
   componentFrameChromeHeight,
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
+  DOCUMENT_TITLE_HEIGHT,
   NO_COMPONENT_FRAME_CHROME,
+  SPACING,
   packAspectRow,
   type ComponentFrameChrome,
   type PageGeometry,
@@ -91,6 +93,7 @@ export interface LayoutResult {
 export interface LayoutOptions {
   frameChrome: ComponentFrameChrome;
   includeReferenceAddTile?: boolean;
+  includeDocumentTitle?: boolean;
 }
 
 export type Placement = ComponentFragmentPlacement;
@@ -362,10 +365,16 @@ export function layoutPlan(
   const rows: PendingRowComponent[][] = [];
   let currentRow: PendingRowComponent[] = [];
   let currentX = 0;
+  let currentRowId: string | null = null;
 
   for (const component of components) {
     const width = component.width * content.width;
-    if (currentRow.length > 0 && currentX + width > content.width + EPS) {
+    const beginsNewLogicalRow =
+      currentRow.length > 0 && currentRowId !== component.rowId;
+    if (
+      beginsNewLogicalRow ||
+      (currentRow.length > 0 && currentX + width > content.width + EPS)
+    ) {
       rows.push(currentRow);
       currentRow = [];
       currentX = 0;
@@ -373,6 +382,7 @@ export function layoutPlan(
 
     currentRow.push({ component, x: currentX, width });
     currentX += width;
+    currentRowId = component.rowId;
   }
 
   if (currentRow.length > 0) {
@@ -380,7 +390,7 @@ export function layoutPlan(
   }
 
   let pageIndex = 0;
-  let y = 0;
+  let y = options.includeDocumentTitle ? DOCUMENT_TITLE_HEIGHT + SPACING : 0;
   let highestContentPageIndex = 0;
 
   for (const row of rows) {

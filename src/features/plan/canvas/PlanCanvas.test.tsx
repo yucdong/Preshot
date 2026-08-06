@@ -184,6 +184,21 @@ function makeComponentDragOver(componentId: string, overComponentId: string) {
   };
 }
 
+function makeRowGapComponentDragOver(componentId: string, beforeRowId: string) {
+  return {
+    active: {
+      id: componentId,
+      data: { current: { type: "component", componentId } },
+      rect: { current: { translated: makeRect(200) } },
+    },
+    over: {
+      id: `row-gap:${beforeRowId}`,
+      data: { current: { type: "row-gap", beforeRowId } },
+      rect: makeRect(0),
+    },
+  };
+}
+
 function makeComponentDragCancel(componentId: string) {
   return {
     active: {
@@ -441,12 +456,12 @@ describe("PlanCanvas", () => {
 
   it("renders type label for plan component", () => {
     renderCanvas();
-    expect(screen.getByText("摄影计划")).toBeInTheDocument();
+    expect(screen.getByText("文案")).toBeInTheDocument();
   });
 
   it("renders type label for reference component", () => {
     renderCanvas();
-    expect(screen.getByText("参考图组")).toBeInTheDocument();
+    expect(screen.getByText("图片组")).toBeInTheDocument();
   });
 
   it("top bar has draggable attributes and cursor-grab class", () => {
@@ -547,7 +562,7 @@ describe("PlanCanvas", () => {
       handlers.onDragOver?.(makeComponentDragOver("plan1", "ref1"));
     });
 
-    expect(componentFrameTop("ref1::0")).toBeLessThan(initialReferenceTop);
+    expect(componentFrameTop("ref1::0")).toBeCloseTo(initialReferenceTop, 5);
 
     act(() => {
       handlers.onDragOver?.(makeComponentDragCancel("plan1"));
@@ -560,6 +575,24 @@ describe("PlanCanvas", () => {
     });
 
     expect(props.onMoveComponent).not.toHaveBeenCalled();
+  });
+
+  it("commits a row-gap drop as a persisted new-row target", () => {
+    const props = renderCanvas();
+    const handlers = getDndHandlers();
+    const event = makeRowGapComponentDragOver("plan1", "row:ref1");
+
+    act(() => {
+      handlers.onDragStart?.(makeComponentDragStart("plan1"));
+      handlers.onDragOver?.(event);
+      handlers.onDragEnd?.(event);
+    });
+
+    expect(props.onMoveComponent).toHaveBeenCalledWith("plan1", {
+      kind: "new-row",
+      rowId: expect.stringMatching(/^row-/),
+      toRowIndex: 1,
+    });
   });
 
   it("does not commit a stale image move when dropped outside all droppables", () => {
