@@ -508,7 +508,11 @@
         "Final review replaces bounded hydration retries with an identity-filtered, coalesced MutationObserver that watches top-level BlockNote group/direct-block replacement until cleanup without reacting to attribute/style churn",
         "Final review measures and paginates PDF rich text from the same extracted tokenization/line metrics used for drawing, excludes the UI add tile from PDF row flow, and contain-fits embedded images using their actual dimensions",
         "Final re-review applies the same identity-filtered BlockNote measurement hook to reference descriptions; the first logical fragment may span page surfaces, then complete image rows start on safe continuation pages",
-        "Final re-review snapshots the current plan, loads every missing expected image before export, and validates the complete file/component/image map again inside the PDF exporter"
+        "Final re-review snapshots the current plan, loads every missing expected image before export, and validates the complete file/component/image map again inside the PDF exporter",
+        "Ultimate review scopes loading/ready/failed lifecycle and async generations to projectPath, so stale loads cannot replace a newer project and loading or failed plans cannot mutate, save, export, or respond to undo/redo shortcuts",
+        "Ultimate review rebases aspect-ratio hydration onto the latest plan, updates every shared-file reference without adding history, and leaves the exact backfilled snapshot unsaved until autosave or flush persists it",
+        "Ultimate review enforces globally unique component/image logical ids while preserving legal duplicate file references, and deletes physical image files only after the resulting plan proves them orphaned",
+        "Ultimate review adds one numeric-id canvas droppable and filters collision fallbacks by exact pointer containment, while unchanged sync/async mutations skip history and save-state changes"
       ],
       "progress": {
         "designSpec": "docs/superpowers/specs/2026-08-05-adaptive-component-layout-design.md",
@@ -530,23 +534,29 @@
           "Final review: unified scaled frame/reference geometry, pinned all component/image source placeholders during drag, and replaced bounded BlockNote hydration polling with filtered event-driven identity observation",
           "Final review: added adaptive PDF text measurement and multi-page drawing, PDF-only add-tile exclusion, actual-image contain fitting, valid browser PNG fixtures, stronger PDF integration coverage, and exact E2E frame-containment checks",
           "Final re-review: paginated long reference descriptions through one runtime-measured BlockNote editor, moved image rows to safe continuation fragments, and kept following UI/PDF components after the final fragment",
-          "Final re-review: made export await the exact current-plan image set, surface contextual load failures without saving, reject missing exporter entries, and require exact seeded-image readiness in browser PDF smoke tests"
+          "Final re-review: made export await the exact current-plan image set, surface contextual load failures without saving, reject missing exporter entries, and require exact seeded-image readiness in browser PDF smoke tests",
+          "Ultimate review: added fail-closed provider lifecycle and generation-token regressions for malformed loads, project switches, autosave, keyboard shortcuts, mutation, and export paths",
+          "Ultimate review: made delayed aspect hydration preserve concurrent text/structure edits, update every reference to a shared file, avoid history, and remain unsaved until the exact snapshot is flushed",
+          "Ultimate review: rejected duplicate component and globally duplicate image ids in v3/v4 migration with positional context while keeping repeated files valid",
+          "Ultimate review: made image/component removal reference-aware after computing the next plan and deduplicated physical deletes",
+          "Ultimate review: constrained collision fallback to exact continuous-canvas containment and prevented unchanged synchronous or asynchronous structural results from changing history/save state",
+          "Ultimate review: aligned browser seed ratios to exact image dimensions so hydration is a no-op for the stable E2E fixture"
         ],
         "lastVerified": {
           "date": "2026-08-06",
-          "focusedE2E": "4 strengthened adaptive-layout/PDF smoke tests passed",
-          "affectedTests": "216 focused regression tests passed",
-          "unitTests": "506 passed",
+          "focusedE2E": "4 previously failing lifecycle/drag smoke tests passed",
+          "affectedTests": "99 focused blocker regression tests passed",
+          "unitTests": "529 passed",
           "e2eTests": "28 passed",
           "typecheck": "clean",
           "lint": "clean (ThemeProvider.tsx react-refresh/only-export-components warning unchanged)",
           "rustTests": "44 passed",
           "build": "succeeded",
           "featurelistJson": "valid",
-          "verificationNote": "Final re-review production fixes reran focused regressions and the complete verification matrix."
+          "verificationNote": "Ultimate-review fixes reran focused RED/GREEN regressions and the complete requested verification matrix."
         },
         "remaining": [
-          "Optional non-blocking polish: enlarge compact canvas resize/control hit targets at very low display scales without changing adaptive layout geometry."
+          "No ultimate-review blockers remain. Optional non-blocking polish: enlarge compact canvas resize/control hit targets at very low display scales without changing adaptive layout geometry."
         ]
       }
     }
