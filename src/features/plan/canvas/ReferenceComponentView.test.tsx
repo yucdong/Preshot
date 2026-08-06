@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
 import {
   COMPONENT_INSET,
@@ -63,6 +63,22 @@ function renderReference(overrides: Partial<Parameters<typeof ReferenceComponent
 describe("ReferenceComponentView", () => {
   beforeEach(() => {
     usePlanContentMeasurementMock.mockClear();
+  });
+
+  it("keeps the stale PlanCanvas title callback narrowly typed", () => {
+    type ReferenceViewProps = Parameters<typeof ReferenceComponentView>[0];
+
+    expectTypeOf<ReferenceViewProps["onSetTitle"]>().toEqualTypeOf<
+      ((id: string, title: string) => void) | undefined
+    >();
+
+    if (false) {
+      const invalidProps: Partial<ReferenceViewProps> = {
+        // @ts-expect-error Arbitrary compatibility props must not be accepted.
+        stalePlanCanvasProp: true,
+      };
+      void invalidProps;
+    }
   });
 
   it("does not render an internal scrolling region", () => {

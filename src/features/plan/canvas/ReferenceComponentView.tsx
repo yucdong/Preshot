@@ -27,9 +27,12 @@ function assignRef<T>(targetRef: Ref<T> | undefined, value: T): void {
 }
 
 interface ReferenceComponentViewProps {
-  [key: string]: unknown;
   component: ReferenceComponent;
   imageSrc: (file: string) => string | undefined;
+  /**
+   * Temporary compatibility for PlanCanvas until its legacy wiring is removed.
+   */
+  onSetTitle?: (id: string, title: string) => void;
   onSetDescription: (id: string, description: string) => void;
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
