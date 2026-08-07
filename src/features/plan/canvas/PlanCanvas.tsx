@@ -138,6 +138,7 @@ function sameComponentDragParams(
 const CANVAS_LAYOUT_OPTIONS = {
   frameChrome: EDITABLE_COMPONENT_FRAME_CHROME,
   includeDocumentTitle: true,
+  includeReferenceAddTile: "empty" as const,
 };
 
 const collisionDetection: CollisionDetection = (args) => {

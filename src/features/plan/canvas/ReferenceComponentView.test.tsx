@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CropRect, ReferenceComponent } from "../../../domain/plan/canvas/models";
@@ -91,6 +91,67 @@ describe("ReferenceComponentView", () => {
     renderReference();
 
     expect(screen.queryByRole("textbox", { name: "分组标题" })).not.toBeInTheDocument();
+  });
+
+  it("places import and screenshot actions on the left and image sizing on the right", async () => {
+    const onAddImages = vi.fn();
+    const onCaptureImage = vi.fn();
+    const user = userEvent.setup();
+    renderReference({
+      onAddImages,
+      onCaptureImage,
+      onSetImageHeight: vi.fn(),
+    });
+
+    const toolbar = screen.getByTestId("reference-title-row");
+    const importButton = within(toolbar).getByRole("button", { name: "添加参考图" });
+    const captureButton = within(toolbar).getByRole("button", { name: "截图" });
+    const decreaseButton = within(toolbar).getByRole("button", { name: "减小图片高度" });
+    expect(importButton.parentElement).toHaveClass("order-first");
+    expect(decreaseButton.parentElement).toHaveClass("ml-auto");
+    expect(importButton).toHaveAttribute("title", "导入图片");
+    expect(captureButton).toHaveAttribute("title", "截图");
+    expect(screen.getByTestId("screenshot-icon").querySelector("path")).toHaveAttribute(
+      "stroke",
+      "currentColor",
+    );
+
+    await user.click(importButton);
+    await user.click(captureButton);
+    expect(onAddImages).toHaveBeenCalledWith("ref-1");
+    expect(onCaptureImage).toHaveBeenCalledWith("ref-1");
+  });
+
+  it("shows import progress and capture cancellation in the toolbar controls", async () => {
+    const onCancelCapture = vi.fn();
+    const user = userEvent.setup();
+    const { rerender } = renderReference({
+      importProgress: { completed: 1, total: 3, failed: 1 },
+      onCancelCapture,
+    });
+
+    expect(screen.getByRole("progressbar", { name: "图片导入进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "1",
+    );
+    expect(screen.getByText("已处理 1/3（1 张失败）")).toBeVisible();
+
+    rerender(
+      <ReferenceComponentView
+        component={mockComponent}
+        imageSrc={() => undefined}
+        onSetDescription={vi.fn()}
+        onAddImage={vi.fn()}
+        onRemoveImage={vi.fn()}
+        onOpenImage={vi.fn()}
+        onCancelCapture={onCancelCapture}
+        captureStatus="waiting"
+        slots={mockSlots}
+        scale={1}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "取消截图" }));
+    expect(onCancelCapture).toHaveBeenCalledTimes(1);
   });
 
   it("renders continuation images without a repeated title or editable controls", () => {

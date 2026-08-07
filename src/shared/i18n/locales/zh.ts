@@ -80,6 +80,7 @@ export const zh = {
     captureWaiting: "等待截图…",
     captureImporting: "正在导入截图…",
     cancelCapture: "取消截图",
+    emptyDropTarget: "拖放图片到这里",
     captions: "显示说明",
     captionAria: "图片说明 {{index}}",
     imageHeight: "图片高度",

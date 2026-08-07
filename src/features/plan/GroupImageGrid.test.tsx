@@ -28,12 +28,9 @@ function renderGrid(overrides: Partial<Parameters<typeof GroupImageGrid>[0]> = {
   const props = {
     group,
     imageSrc: (file: string) => (file.startsWith("references/") ? "data:image/png;base64,AA" : undefined),
-    onAddImage: vi.fn(),
     onRemoveImage: vi.fn(),
     onOpenImage: vi.fn(),
     onSelectImage: vi.fn(),
-    onCaptureImage: vi.fn(),
-    onCancelCapture: vi.fn(),
     slots: mockSlots,
     scale: 1,
     ...overrides,
@@ -90,46 +87,10 @@ describe("GroupImageGrid", () => {
     expect(props.onOpenImage).toHaveBeenCalledWith("references/0002.png");
   });
 
-  it("removes and adds images through the tile and add button", () => {
+  it("removes images through the tile action", () => {
     const props = renderGrid();
     fireEvent.click(screen.getByRole("button", { name: "移除参考图 2" }));
     expect(props.onRemoveImage).toHaveBeenCalledWith("g1", "i2");
-    fireEvent.click(screen.getByRole("button", { name: "添加参考图" }));
-    expect(props.onAddImage).toHaveBeenCalledWith("g1");
-  });
-
-  it("shows determinate batch import progress over the image group", () => {
-    renderGrid({
-      importProgress: { completed: 1, total: 3, failed: 1 },
-    });
-
-    const progress = screen.getByRole("progressbar", { name: "图片导入进度" });
-    expect(progress).toHaveAttribute("aria-valuenow", "1");
-    expect(progress).toHaveAttribute("aria-valuemax", "3");
-    expect(screen.getByText("已处理 1/3（1 张失败）")).toBeVisible();
-  });
-
-  it("starts screen capture beside the add button", () => {
-    const props = renderGrid();
-    const importButton = screen.getByRole("button", { name: "添加参考图" });
-    const captureButton = screen.getByRole("button", { name: "截图" });
-    expect(importButton).toHaveAttribute("title", "导入图片");
-    expect(captureButton).toHaveAttribute("title", "截图");
-    expect(screen.getByTestId("screenshot-icon").querySelector("path")).toHaveAttribute(
-      "stroke",
-      "currentColor",
-    );
-    expect(importButton.parentElement).toHaveClass("grid-rows-2");
-    expect(importButton.parentElement).not.toHaveClass("grid-cols-2");
-    fireEvent.click(captureButton);
-    expect(props.onCaptureImage).toHaveBeenCalledWith("g1");
-  });
-
-  it("shows and cancels a waiting screen capture", () => {
-    const props = renderGrid({ captureStatus: "waiting" });
-    expect(screen.getByText("等待截图…")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "取消截图" }));
-    expect(props.onCancelCapture).toHaveBeenCalledTimes(1);
   });
 
   it("renders caption textareas when showCaptions is true", () => {
@@ -276,59 +237,10 @@ describe("GroupImageGrid", () => {
     expect(caption).toHaveValue("Test caption");
   });
 
-  it("positions add button at/below max(y+height) when slots have differing heights", () => {
-    // TDD: Failing test for Finding 1
-    // Slots in one row with different heights: tallest is 180, last is 120
-    const slots: ReferenceFlowSlot[] = [
-      { kind: "image", id: "i1", x: 0, y: 0, width: 160, height: 180, imageHeight: 180, captionHeight: 0 },
-      { kind: "image", id: "i2", x: 172, y: 0, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
-      { kind: "add", id: "__add__", x: 0, y: 192, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
-    ];
-    const scale = 1;
-    renderGrid({ slots, scale });
-
-    const addButton = screen.getByRole("button", { name: "添加参考图" });
-    const container = addButton.parentElement?.parentElement;
-    
-    // The add button should be positioned at/below the tallest slot's bottom (180),
-    // not at the last slot's bottom (120)
-    const topPx = parseFloat(container?.style.top || "0");
-    expect(topPx).toBeGreaterThanOrEqual(180); // Should be at least 180, probably 180 + gap
-  });
-
-  it("scales add button size consistently with image tiles", () => {
-    // TDD: Failing test for Finding 2
-    const slots: ReferenceFlowSlot[] = [
-      { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
-      { kind: "add", id: "__add__", x: 0, y: 156, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
-    ];
-    const scale = 0.5;
-    renderGrid({ slots, scale });
-
-    const addButton = screen.getByRole("button", { name: "添加参考图" });
-    const container = addButton.parentElement?.parentElement;
-    
-    // Add button dimensions should be scaled like image tiles
-    // If original is 160x120 points, at scale 0.5 it should be 80x60 pixels
-    expect(container?.style.width).toBe("80px");
-    expect(container?.style.height).toBe("60px");
-  });
-
-  it("renders the add button only from an add slot", () => {
-    renderGrid({
-      slots: [{ kind: "image", id: "i1", x: 0, y: 0, width: 160, height: 120, imageHeight: 120, captionHeight: 0 }],
-    });
-
+  it("does not render image actions inside the image display area", () => {
+    renderGrid();
     expect(screen.queryByRole("button", { name: "添加参考图" })).toBeNull();
-
-    renderGrid({
-      slots: [
-        { kind: "image", id: "i1", x: 0, y: 0, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
-        { kind: "add", id: "__add__", x: 0, y: 132, width: 120, height: 90, imageHeight: 90, captionHeight: 0 },
-      ],
-    });
-
-    expect(screen.getByRole("button", { name: "添加参考图" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "截图" })).toBeNull();
   });
 
   it("forwards crop commits and resets for the matching image", () => {

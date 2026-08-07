@@ -93,7 +93,7 @@ export interface LayoutResult {
 
 export interface LayoutOptions {
   frameChrome: ComponentFrameChrome;
-  includeReferenceAddTile?: boolean;
+  includeReferenceAddTile?: boolean | "empty";
   includeDocumentTitle?: boolean;
 }
 
@@ -215,7 +215,10 @@ function layoutPlanComponent(
     imageHeight: clampImageHeight(entry.component.imageHeight),
     showCaptions: entry.component.showCaptions,
     innerWidth,
-    includeAddTile: options.includeReferenceAddTile,
+    includeAddTile:
+      options.includeReferenceAddTile === "empty"
+        ? entry.component.images.length === 0
+        : options.includeReferenceAddTile !== false,
   });
   const descriptionEnd = endPosition(
     startSurfaceTop(pageIndex, y, geometry) + descriptionFrameHeight,

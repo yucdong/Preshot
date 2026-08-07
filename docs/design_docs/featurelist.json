@@ -631,7 +631,7 @@
         "Batch image import shows determinate progress, retains successful imports, continues after individual failures, and reports a final summary",
         "Each image group includes a screenshot action that opens Windows native screen clipping and imports the new clipboard image",
         "Reference image groups continue across pages without rendering repeated “name（续）” headings",
-        "Import and screenshot controls render at half the current image height with hover descriptions and a monochrome screenshot icon"
+        "Import and screenshot controls live on the left of the image-size toolbar with hover descriptions and a monochrome screenshot icon; size controls stay on the right"
       ],
       "decisions": [
         "Keep image selection ephemeral in PlanCanvas; selection is not persisted in schema v5",
@@ -641,7 +641,7 @@
         "Write native RGBA clipboard data to a unique temporary PNG and reuse the existing reference-image import path, which moves it into the project",
         "Cancel sends Escape to dismiss Windows screen clipping and generation checks prevent an in-flight poll result from importing after cancellation",
         "Continuation fragments reserve no repeated-title header in either the canvas layout or PDF export",
-        "The editor-only add slot is one-to-two: its width is half the configured image height, its full height matches an image, and it stacks two compact controls vertically"
+        "The image display area contains only images and an empty-group drop target; it never renders import or screenshot buttons"
       ],
       "verification": {
         "focusedUnits": "9 files, 205 tests passed",
