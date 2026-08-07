@@ -3,6 +3,7 @@ mod menu;
 mod pdf;
 mod plan;
 mod reveal;
+mod screenshot;
 mod settings;
 mod workspace;
 
@@ -28,6 +29,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(workspace::PendingProjectRollbacks::default())
+        .manage(screenshot::ScreenCaptureSessions::default())
         .setup(|app| {
             menu::install(app.handle())?;
             menu::register_handlers(app.handle().clone());
@@ -47,6 +49,9 @@ pub fn run() {
             plan::remove_reference_image,
             pdf::save_pdf,
             reveal::reveal_path,
+            screenshot::start_screen_capture,
+            screenshot::poll_screen_capture,
+            screenshot::cancel_screen_capture,
             settings::read_settings,
             settings::write_settings,
         ])

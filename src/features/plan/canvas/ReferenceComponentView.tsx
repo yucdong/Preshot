@@ -17,6 +17,7 @@ import {
 } from "../../../domain/plan/canvas/referenceLayout";
 import { RichTextEditor } from "../RichTextEditor";
 import { GroupImageGrid } from "../GroupImageGrid";
+import type { ImageImportProgress } from "../imageImportProgress";
 import { useNaturalHeight } from "./useNaturalHeight";
 import { usePlanContentMeasurement } from "./usePlanContentMeasurement";
 
@@ -38,6 +39,8 @@ interface ReferenceComponentViewProps {
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
   onOpenImage: (file: string) => void;
+  onSelectImage?: (imageId: string, toggle: boolean) => void;
+  selectedImageIds?: ReadonlySet<string>;
   onToggleCaptions?: (id: string) => void;
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
   enableReorder?: boolean;
@@ -57,6 +60,10 @@ interface ReferenceComponentViewProps {
   placeholderImage?: { id: string; file: string; caption?: string };
   placeholderSlot?: ReferenceFlowSlot;
   placeholderIndex?: number;
+  importProgress?: ImageImportProgress;
+  onCaptureImage?: (componentId: string) => void;
+  onCancelCapture?: () => void;
+  captureStatus?: "waiting" | "importing";
 }
 
 export function ReferenceComponentView({
@@ -66,6 +73,8 @@ export function ReferenceComponentView({
   onAddImage,
   onRemoveImage,
   onOpenImage,
+  onSelectImage = () => undefined,
+  selectedImageIds = new Set<string>(),
   onToggleCaptions,
   onSetImageCaption,
   enableReorder = false,
@@ -85,6 +94,10 @@ export function ReferenceComponentView({
   placeholderImage,
   placeholderSlot,
   placeholderIndex,
+  importProgress,
+  onCaptureImage,
+  onCancelCapture,
+  captureStatus,
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
   const [showDescription, setShowDescription] = useState(false);
@@ -268,8 +281,14 @@ export function ReferenceComponentView({
           group={component}
           hiddenImageId={hiddenImageId}
           imageSrc={imageSrc}
+          importProgress={importProgress}
+          onCaptureImage={onCaptureImage}
+          onCancelCapture={onCancelCapture}
+          captureStatus={captureStatus}
           onAddImage={onAddImages ?? onAddImage}
           onOpenImage={onOpenImage}
+          onSelectImage={onSelectImage}
+          selectedImageIds={selectedImageIds}
           placeholderImage={placeholderImage}
           placeholderIndex={placeholderIndex}
           placeholderSlot={placeholderSlot}

@@ -39,6 +39,7 @@ describe("SortableImageTile", () => {
           index={0}
           onOpen={vi.fn()}
           onRemove={vi.fn()}
+          onSelect={vi.fn()}
           src="data:image/png;base64,AA"
           slot={mockSlot}
           scale={1}
@@ -66,7 +67,7 @@ describe("SortableImageTile", () => {
   it("exposes sortable drag attributes and correct data type when draggable", () => {
     renderTile();
 
-    const button = screen.getByRole("button", { name: "打开参考图 1" });
+    const button = screen.getByRole("button", { name: "选择参考图 1" });
     expect(button).toHaveAttribute("aria-roledescription", "sortable");
     // The useSortable hook sets data: { type: "image", componentId }
     // We can't directly assert the data in jsdom, but we verify the draggable attributes exist
@@ -75,16 +76,41 @@ describe("SortableImageTile", () => {
   it("does not expose sortable attributes when draggable is false", () => {
     renderTile({ draggable: false });
 
-    const button = screen.getByRole("button", { name: "打开参考图 1" });
+    const button = screen.getByRole("button", { name: "选择参考图 1" });
     expect(button).not.toHaveAttribute("aria-roledescription", "sortable");
   });
 
-  it("opens image on click", () => {
+  it("selects on click without opening the image", () => {
     const onOpen = vi.fn();
-    renderTile({ onOpen });
+    const onSelect = vi.fn();
+    renderTile({ onOpen, onSelect });
 
-    fireEvent.click(screen.getByRole("button", { name: "打开参考图 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "选择参考图 1" }));
+    expect(onSelect).toHaveBeenCalledWith("i1", false);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("toggles selection on Ctrl+click and opens the original on double click", () => {
+    const onOpen = vi.fn();
+    const onSelect = vi.fn();
+    renderTile({ onOpen, onSelect });
+
+    const tile = screen.getByRole("button", { name: "选择参考图 1" });
+    fireEvent.click(tile, { ctrlKey: true });
+    fireEvent.doubleClick(tile);
+
+    expect(onSelect).toHaveBeenCalledWith("i1", true);
     expect(onOpen).toHaveBeenCalledWith("references/0001.png");
+  });
+
+  it("exposes selected state accessibly", () => {
+    renderTile({ selected: true });
+
+    expect(screen.getByRole("button", { name: "选择参考图 1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByTestId("image-tile-i1")).toHaveAttribute("data-selected", "true");
   });
 
   it("caption textarea and remove button stop propagation when draggable", () => {
@@ -150,7 +176,7 @@ describe("SortableImageTile", () => {
     mockMatchMedia(true);
     renderTile();
 
-    const tile = screen.getByRole("button", { name: "打开参考图 1" }).parentElement as HTMLElement;
+    const tile = screen.getByRole("button", { name: "选择参考图 1" }).parentElement as HTMLElement;
 
     expect(tile.style.transform).toBe("");
     expect(tile.style.transition).toBe("");

@@ -14,6 +14,12 @@ export interface MoveImageParams {
   toIndex: number;
 }
 
+export interface MoveImagesParams {
+  imageIds: string[];
+  toComponentId: string;
+  toIndex: number;
+}
+
 function replace(plan: ProjectPlan, components: PlanComponent[]): ProjectPlan {
   return { ...plan, components };
 }
@@ -213,6 +219,7 @@ export function moveImage(plan: ProjectPlan, params: MoveImageParams): ProjectPl
   if (!source || !target) {
     return plan;
   }
+
   const image = source.images.find((item) => item.id === imageId);
   if (!image) {
     return plan;
@@ -242,6 +249,68 @@ export function moveImage(plan: ProjectPlan, params: MoveImageParams): ProjectPl
       return component;
     }),
   );
+}
+
+export function moveImages(plan: ProjectPlan, params: MoveImagesParams): ProjectPlan {
+  const requestedIds = new Set(params.imageIds);
+  if (requestedIds.size === 0 || requestedIds.size !== params.imageIds.length) {
+    return plan;
+  }
+
+  const selected = plan.components.flatMap((component) =>
+    component.type === "reference"
+      ? component.images.filter((image) => requestedIds.has(image.id))
+      : [],
+  );
+  const target = plan.components.find(
+    (component): component is ReferenceComponent =>
+      component.type === "reference" && component.id === params.toComponentId,
+  );
+  if (!target || selected.length !== requestedIds.size) {
+    return plan;
+  }
+
+  const componentsWithoutSelected = plan.components.map((component) =>
+    component.type === "reference"
+      ? {
+          ...component,
+          images: component.images.filter((image) => !requestedIds.has(image.id)),
+        }
+      : component,
+  );
+  const targetWithoutSelected = componentsWithoutSelected.find(
+    (component): component is ReferenceComponent =>
+      component.type === "reference" && component.id === params.toComponentId,
+  );
+  if (!targetWithoutSelected) {
+    return plan;
+  }
+
+  const index = Math.max(0, Math.min(params.toIndex, targetWithoutSelected.images.length));
+  const nextComponents = componentsWithoutSelected.map((component) =>
+    component.type === "reference" && component.id === params.toComponentId
+      ? {
+          ...component,
+          images: [
+            ...component.images.slice(0, index),
+            ...selected,
+            ...component.images.slice(index),
+          ],
+        }
+      : component,
+  );
+  const unchanged = nextComponents.every((component, componentIndex) => {
+    const previous = plan.components[componentIndex];
+    return (
+      component === previous ||
+      (component.type === "reference" &&
+        previous?.type === "reference" &&
+        component.images.length === previous.images.length &&
+        component.images.every((image, imageIndex) => image.id === previous.images[imageIndex]?.id))
+    );
+  });
+
+  return unchanged ? plan : replace(plan, nextComponents);
 }
 
 export function setImageHeight(plan: ProjectPlan, id: string, imageHeight: number): ProjectPlan {

@@ -6,6 +6,7 @@ import {
   imageDropTarget,
   imageGroupDroppableId,
   imageInsertAfterFromRects,
+  selectedImageDropTarget,
   type ImageDragRects,
 } from "./imageDropTarget";
 
@@ -357,6 +358,49 @@ describe("imageDropTarget", () => {
         toComponentId: "ref-2",
         toIndex: 0,
       });
+    });
+  });
+});
+
+describe("selectedImageDropTarget", () => {
+  it("preserves the existing single-image same-group reorder semantics", () => {
+    const components: PlanComponent[] = [
+      createReferenceComponent("ref-1", ["img-1", "img-2", "img-3"]),
+    ];
+
+    expect(
+      selectedImageDropTarget(
+        components,
+        "img-1",
+        new Set(["img-1"]),
+        "img-2",
+        false,
+      ),
+    ).toEqual({
+      imageIds: ["img-1"],
+      toComponentId: "ref-1",
+      toIndex: 1,
+    });
+  });
+
+  it("orders a cross-group selection by canvas order and removes it from target indexing", () => {
+    const components: PlanComponent[] = [
+      createReferenceComponent("ref-1", ["img-1", "img-2"]),
+      createReferenceComponent("ref-2", ["img-3", "img-4"]),
+    ];
+
+    expect(
+      selectedImageDropTarget(
+        components,
+        "img-1",
+        new Set(["img-3", "img-1"]),
+        imageGroupDroppableId("ref-2"),
+        false,
+      ),
+    ).toEqual({
+      imageIds: ["img-1", "img-3"],
+      toComponentId: "ref-2",
+      toIndex: 1,
     });
   });
 });

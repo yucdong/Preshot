@@ -119,6 +119,7 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onOpenImage: vi.fn(),
     onMoveComponent: vi.fn(),
     onMoveImage: vi.fn(),
+    onMoveImages: vi.fn(),
     onResize: vi.fn(),
     onSetImageCrop: vi.fn(),
     onResetImageCrop: vi.fn(),
@@ -490,8 +491,8 @@ describe("PlanCanvas", () => {
 
   it("reference component shows title and image tiles", () => {
     renderCanvas();
-    const openButton = screen.getByRole("button", { name: "打开参考图 1" });
-    expect(openButton).toBeVisible();
+    const selectButton = screen.getByRole("button", { name: "选择参考图 1" });
+    expect(selectButton).toBeVisible();
   });
 
   it("delete button opens confirm dialog and does not call onRemoveComponent immediately", () => {
@@ -790,6 +791,42 @@ describe("PlanCanvas", () => {
     });
 
     expect(props.onMoveImage).not.toHaveBeenCalled();
+  });
+
+  it("moves a Ctrl-selected cross-group image set in canvas order", () => {
+    const targetReference: PlanComponent = {
+      ...referenceComponent,
+      id: "ref2",
+      name: "Target",
+      images: [
+        { id: "i3", file: "references/0003.png", aspectRatio: 1 },
+        { id: "i4", file: "references/0004.png", aspectRatio: 1 },
+      ],
+    };
+    const props = renderCanvas({ components: [referenceComponent, targetReference] });
+    const first = document.querySelector('[data-image-id="i1"] button');
+    const third = document.querySelector('[data-image-id="i3"] button');
+    expect(first).not.toBeNull();
+    expect(third).not.toBeNull();
+
+    fireEvent.click(first!);
+    fireEvent.click(third!, { ctrlKey: true });
+    expect(screen.getByTestId("image-tile-i1")).toHaveAttribute("data-selected", "true");
+    expect(screen.getByTestId("image-tile-i3")).toHaveAttribute("data-selected", "true");
+
+    const handlers = getDndHandlers();
+    const event = makeImageDragOver("ref1", "i1", "imagegroup:ref2");
+    act(() => {
+      handlers.onDragStart?.(makeImageDragStart("ref1", "i1"));
+      handlers.onDragOver?.(event);
+      handlers.onDragEnd?.(event);
+    });
+
+    expect(props.onMoveImages).toHaveBeenCalledWith({
+      imageIds: ["i1", "i3"],
+      toComponentId: "ref2",
+      toIndex: 1,
+    });
   });
 
   it.each([

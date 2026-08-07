@@ -41,6 +41,10 @@ vi.mock("./canvas/PlanCanvas", () => ({
     onRenameComponent,
     onSetImageCrop,
     onResetImageCrop,
+    imageImportProgress,
+    onCaptureImage,
+    onCancelCapture,
+    screenCaptureState,
   }: {
     components: ProjectPlan["components"];
     title: string;
@@ -70,6 +74,16 @@ vi.mock("./canvas/PlanCanvas", () => ({
     onRenameComponent: (id: string, name: string) => RenameComponentResult;
     onSetImageCrop: (componentId: string, imageId: string, crop: CropRect) => void;
     onResetImageCrop: (componentId: string, imageId: string) => void;
+    imageImportProgress?: {
+      componentId: string;
+      progress: { completed: number; total: number; failed: number };
+    };
+    onCaptureImage?: (componentId: string) => void;
+    onCancelCapture?: () => void;
+    screenCaptureState?: {
+      componentId: string;
+      status: "waiting" | "importing";
+    };
   }) => {
     planCanvasRenderCount += 1;
     const [nameError, setNameError] = useState<string | null>(null);
@@ -96,6 +110,8 @@ vi.mock("./canvas/PlanCanvas", () => ({
       onRenameComponent: handleRenameComponent,
       onSetImageCrop,
       onResetImageCrop,
+      onCaptureImage,
+      onCancelCapture,
     };
 
     return (
@@ -107,6 +123,16 @@ vi.mock("./canvas/PlanCanvas", () => ({
         <div data-testid="plan-height">{measurements.planHeights.get("plan-1") ?? "none"}</div>
         <div data-testid="reference-description-height">
           {measurements.referenceDescriptionHeights.get("ref-1") ?? "none"}
+        </div>
+        <div data-testid="image-import-progress">
+          {imageImportProgress
+            ? `${imageImportProgress.progress.completed}/${imageImportProgress.progress.total}/${imageImportProgress.progress.failed}`
+            : "none"}
+        </div>
+        <div data-testid="screen-capture-state">
+          {screenCaptureState
+            ? `${screenCaptureState.componentId}/${screenCaptureState.status}`
+            : "none"}
         </div>
         {components.map((c) =>
           c.type === "plan" ? (
@@ -196,6 +222,8 @@ let latestPlanCanvasProps:
       onRenameComponent: (id: string, name: string) => RenameComponentResult;
       onSetImageCrop: (componentId: string, imageId: string, crop: CropRect) => void;
       onResetImageCrop: (componentId: string, imageId: string) => void;
+      onCaptureImage?: (componentId: string) => void;
+      onCancelCapture?: () => void;
     }
   | null = null;
 let planCanvasRenderCount = 0;
@@ -1497,6 +1525,180 @@ describe("ProjectCanvasProvider", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("imports a completed Windows screen capture through the existing image flow", async () => {
+    const { dependencies, service } = deps();
+    const captured = deferred<
+      { status: "pending" } | { status: "captured"; path: string }
+    >();
+    dependencies.screenCapture = {
+      start: vi.fn().mockResolvedValue("capture-token"),
+      poll: vi.fn().mockReturnValue(captured.promise),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.stubGlobal(
+      "Image",
+      class MockImage {
+        src = "";
+        naturalWidth = 200;
+        naturalHeight = 100;
+        decode = vi.fn().mockResolvedValue(undefined);
+      },
+    );
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+    await screen.findByTestId("plan-canvas");
+
+    act(() => latestPlanCanvasProps?.onCaptureImage?.("ref-1"));
+    await waitFor(() =>
+      expect(screen.getByTestId("screen-capture-state")).toHaveTextContent(
+        "ref-1/waiting",
+      ),
+    );
+
+    await act(async () => {
+      captured.resolve({
+        status: "captured",
+        path: String.raw`C:\Temp\capture.png`,
+      });
+    });
+
+    await waitFor(() =>
+      expect(service.importImage).toHaveBeenCalledWith(
+        String.raw`C:\demo`,
+        expect.any(Object),
+        "ref-1",
+        String.raw`C:\Temp\capture.png`,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("screen-capture-state")).toHaveTextContent("none"),
+    );
+  });
+
+  it("does not import a capture that resolves after the user cancels", async () => {
+    const { dependencies, service } = deps();
+    const captured = deferred<
+      { status: "pending" } | { status: "captured"; path: string }
+    >();
+    dependencies.screenCapture = {
+      start: vi.fn().mockResolvedValue("capture-token"),
+      poll: vi.fn().mockReturnValue(captured.promise),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    };
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+    await screen.findByTestId("plan-canvas");
+
+    act(() => latestPlanCanvasProps?.onCaptureImage?.("ref-1"));
+    await waitFor(() =>
+      expect(screen.getByTestId("screen-capture-state")).toHaveTextContent(
+        "ref-1/waiting",
+      ),
+    );
+    act(() => latestPlanCanvasProps?.onCancelCapture?.());
+    await act(async () => {
+      captured.resolve({
+        status: "captured",
+        path: String.raw`C:\Temp\cancelled.png`,
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("screen-capture-state")).toHaveTextContent("none"),
+    );
+    expect(service.importImage).not.toHaveBeenCalled();
+  });
+
+  it("shows batch progress, keeps successes, and continues after an individual import failure", async () => {
+    const { dependencies, service } = deps();
+    vi.mocked(dependencies.picker.pickImageFiles).mockResolvedValue([
+      String.raw`C:\source\one.png`,
+      String.raw`C:\source\two.png`,
+      String.raw`C:\source\three.png`,
+    ]);
+    vi.stubGlobal(
+      "Image",
+      class MockImage {
+        src = "";
+        naturalWidth = 200;
+        naturalHeight = 100;
+        decode = vi.fn().mockResolvedValue(undefined);
+      },
+    );
+    const secondImport = deferred<Awaited<ReturnType<CanvasPlanService["importImage"]>>>();
+    let importIndex = 0;
+    vi.mocked(service.importImage).mockImplementation(
+      async (_path, currentPlan, componentId) => {
+        importIndex += 1;
+        if (importIndex === 2) {
+          return secondImport.promise;
+        }
+        const image = {
+          id: `batch-${importIndex}`,
+          file: `references/batch-${importIndex}.png`,
+          aspectRatio: 1,
+        };
+        return {
+          plan: {
+            ...currentPlan,
+            components: currentPlan.components.map((component) =>
+              component.type === "reference" && component.id === componentId
+                ? { ...component, images: [...component.images, image] }
+                : component,
+            ),
+          },
+          image,
+          dataUrl: "data:image/png;base64,AA",
+        };
+      },
+    );
+
+    renderWithTheme(
+      <ProjectCanvasProvider
+        dependencies={dependencies}
+        projectName="Demo"
+        projectPath={String.raw`C:\demo`}
+      />,
+    );
+    await screen.findByTestId("plan-canvas");
+
+    act(() => latestPlanCanvasProps?.onAddImages("ref-1"));
+    await waitFor(() => expect(service.importImage).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("image-import-progress")).toHaveTextContent("1/3/0");
+
+    await act(async () => {
+      secondImport.reject(new Error("bad image"));
+    });
+
+    await waitFor(() => expect(service.importImage).toHaveBeenCalledTimes(3));
+    await screen.findByText("图片导入完成：2 张成功，1 张失败。");
+    expect(screen.getByTestId("image-import-progress")).toHaveTextContent("none");
+    const reference = latestPlanCanvasProps?.components.find(
+      (component) => component.type === "reference" && component.id === "ref-1",
+    );
+    expect(reference?.type === "reference" ? reference.images.map((image) => image.id) : []).toEqual([
+      "i1",
+      "batch-1",
+      "batch-3",
+    ]);
+    expect(dependencies.logger.error).toHaveBeenCalledWith(
+      "Unable to import an image from a selected batch",
+      expect.objectContaining({ index: 1, error: expect.any(Error) }),
+    );
   });
 
   it("retires and reloads measured batch import ratios instead of overwriting them with service placeholders", async () => {

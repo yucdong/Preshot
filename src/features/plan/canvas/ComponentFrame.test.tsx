@@ -117,7 +117,7 @@ describe("ComponentFrame", () => {
     );
   });
 
-  it("keeps a duplicate name draft and renders an associated alert", async () => {
+  it("restores the committed name when a duplicate rename is rejected", async () => {
     const onRename = vi.fn<() => RenameComponentResult>(() => ({
       ok: false,
       reason: "duplicate",
@@ -131,7 +131,7 @@ describe("ComponentFrame", () => {
     await user.type(input, "Existing");
     await user.tab();
 
-    expect(input).toHaveValue("Existing");
+    expect(input).toHaveValue("文案1");
     expect(screen.getByRole("alert")).toHaveTextContent("组件名称不能重复");
   });
 

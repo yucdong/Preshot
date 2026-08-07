@@ -31,6 +31,9 @@ function renderGrid(overrides: Partial<Parameters<typeof GroupImageGrid>[0]> = {
     onAddImage: vi.fn(),
     onRemoveImage: vi.fn(),
     onOpenImage: vi.fn(),
+    onSelectImage: vi.fn(),
+    onCaptureImage: vi.fn(),
+    onCancelCapture: vi.fn(),
     slots: mockSlots,
     scale: 1,
     ...overrides,
@@ -46,14 +49,14 @@ function renderGrid(overrides: Partial<Parameters<typeof GroupImageGrid>[0]> = {
 describe("GroupImageGrid", () => {
   it("renders each image as a sortable tile when reorder is enabled", () => {
     renderGrid({ enableReorder: true });
-    const open = screen.getByRole("button", { name: "打开参考图 1" });
-    expect(open).toHaveAttribute("aria-roledescription", "sortable");
-    expect(within(open).getByRole("img", { name: "参考图" })).toBeVisible();
+    const select = screen.getByRole("button", { name: "选择参考图 1" });
+    expect(select).toHaveAttribute("aria-roledescription", "sortable");
+    expect(within(select).getByRole("img", { name: "参考图" })).toBeVisible();
   });
 
   it("renders non-draggable tiles by default (reorder disabled)", () => {
     renderGrid();
-    const open = screen.getByRole("button", { name: "打开参考图 1" });
+    const open = screen.getByRole("button", { name: "选择参考图 1" });
     // Should NOT have sortable aria attributes when draggable is false
     expect(open).not.toHaveAttribute("aria-roledescription", "sortable");
     expect(within(open).getByRole("img", { name: "参考图" })).toBeVisible();
@@ -64,9 +67,13 @@ describe("GroupImageGrid", () => {
   // Real click-vs-drag coexistence is covered by e2e (plan.spec.ts
   // "Open reference image 1" opens the lightbox with the tile wired).
 
-  it("opens an image on plain click", () => {
+  it("selects on click and opens an image on double click", () => {
     const props = renderGrid();
-    fireEvent.click(screen.getByRole("button", { name: "打开参考图 1" }));
+    const tile = screen.getByRole("button", { name: "选择参考图 1" });
+    fireEvent.click(tile);
+    expect(props.onSelectImage).toHaveBeenCalledWith("i1", false);
+    expect(props.onOpenImage).not.toHaveBeenCalled();
+    fireEvent.doubleClick(tile);
     expect(props.onOpenImage).toHaveBeenCalledWith("references/0001.png");
   });
 
@@ -79,7 +86,7 @@ describe("GroupImageGrid", () => {
 
     const props = renderGrid({ slots });
 
-    fireEvent.click(screen.getByRole("button", { name: "打开参考图 1" }));
+    fireEvent.doubleClick(screen.getByRole("button", { name: "选择参考图 1" }));
     expect(props.onOpenImage).toHaveBeenCalledWith("references/0002.png");
   });
 
@@ -89,6 +96,30 @@ describe("GroupImageGrid", () => {
     expect(props.onRemoveImage).toHaveBeenCalledWith("g1", "i2");
     fireEvent.click(screen.getByRole("button", { name: "添加参考图" }));
     expect(props.onAddImage).toHaveBeenCalledWith("g1");
+  });
+
+  it("shows determinate batch import progress over the image group", () => {
+    renderGrid({
+      importProgress: { completed: 1, total: 3, failed: 1 },
+    });
+
+    const progress = screen.getByRole("progressbar", { name: "图片导入进度" });
+    expect(progress).toHaveAttribute("aria-valuenow", "1");
+    expect(progress).toHaveAttribute("aria-valuemax", "3");
+    expect(screen.getByText("已处理 1/3（1 张失败）")).toBeVisible();
+  });
+
+  it("starts screen capture beside the add button", () => {
+    const props = renderGrid();
+    fireEvent.click(screen.getByRole("button", { name: "截图" }));
+    expect(props.onCaptureImage).toHaveBeenCalledWith("g1");
+  });
+
+  it("shows and cancels a waiting screen capture", () => {
+    const props = renderGrid({ captureStatus: "waiting" });
+    expect(screen.getByText("等待截图…")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "取消截图" }));
+    expect(props.onCancelCapture).toHaveBeenCalledTimes(1);
   });
 
   it("renders caption textareas when showCaptions is true", () => {
@@ -173,7 +204,7 @@ describe("GroupImageGrid", () => {
     renderGrid({ slots, scale });
 
     // First tile
-    const tile1 = screen.getByRole("button", { name: "打开参考图 1" }).parentElement;
+    const tile1 = screen.getByRole("button", { name: "选择参考图 1" }).parentElement;
     expect(tile1).toHaveStyle({
       position: "absolute",
       left: "0px",
@@ -183,7 +214,7 @@ describe("GroupImageGrid", () => {
     });
 
     // Second tile
-    const tile2 = screen.getByRole("button", { name: "打开参考图 2" }).parentElement;
+    const tile2 = screen.getByRole("button", { name: "选择参考图 2" }).parentElement;
     expect(tile2).toHaveStyle({
       position: "absolute",
       left: "86px",
@@ -201,7 +232,7 @@ describe("GroupImageGrid", () => {
 
     renderGrid({ slots, scale: 1 });
 
-    const firstTile = screen.getByRole("button", { name: "打开参考图 1" }).parentElement;
+    const firstTile = screen.getByRole("button", { name: "选择参考图 1" }).parentElement;
     expect(firstTile).toHaveStyle({ top: "0px" });
     expect(firstTile?.parentElement).toHaveStyle({ height: "222px" });
   });
@@ -214,8 +245,8 @@ describe("GroupImageGrid", () => {
 
     renderGrid({ slots, scale: 1 });
 
-    const firstTile = screen.getByRole("button", { name: "打开参考图 1" }).parentElement;
-    const secondTile = screen.getByRole("button", { name: "打开参考图 2" }).parentElement;
+    const firstTile = screen.getByRole("button", { name: "选择参考图 1" }).parentElement;
+    const secondTile = screen.getByRole("button", { name: "选择参考图 2" }).parentElement;
 
     expect(firstTile).toHaveStyle({ top: "0px" });
     expect(secondTile).toHaveStyle({ top: "132px" });
@@ -247,7 +278,7 @@ describe("GroupImageGrid", () => {
     renderGrid({ slots, scale });
 
     const addButton = screen.getByRole("button", { name: "添加参考图" });
-    const container = addButton.parentElement;
+    const container = addButton.parentElement?.parentElement;
     
     // The add button should be positioned at/below the tallest slot's bottom (180),
     // not at the last slot's bottom (120)
@@ -265,7 +296,7 @@ describe("GroupImageGrid", () => {
     renderGrid({ slots, scale });
 
     const addButton = screen.getByRole("button", { name: "添加参考图" });
-    const container = addButton.parentElement;
+    const container = addButton.parentElement?.parentElement;
     
     // Add button dimensions should be scaled like image tiles
     // If original is 160x120 points, at scale 0.5 it should be 80x60 pixels

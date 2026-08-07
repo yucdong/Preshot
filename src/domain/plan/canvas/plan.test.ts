@@ -5,6 +5,7 @@ import {
   addReferenceImages,
   moveComponent,
   moveImage,
+  moveImages,
   removeComponent,
   resizeComponent,
   setImageCaption,
@@ -122,6 +123,49 @@ describe("canvas reducers", () => {
     const next = moveImage(plan, { fromComponentId: "r1", imageId: "i1", toComponentId: "r2", toIndex: 0 });
     expect((next.components[0] as ReferenceComponent).images.map((i) => i.id)).toEqual(["i2"]);
     expect((next.components[1] as ReferenceComponent).images.map((i) => i.id)).toEqual(["i1"]);
+  });
+
+  it("moves selected images across components in canvas order", () => {
+    const plan = withComponents([
+      reference("r1", ["i1", "i2"]),
+      reference("r2", ["i3", "i4"]),
+      reference("r3", ["i5"]),
+    ]);
+
+    const next = moveImages(plan, {
+      imageIds: ["i4", "i1", "i3"],
+      toComponentId: "r3",
+      toIndex: 0,
+    });
+
+    expect((next.components[0] as ReferenceComponent).images.map((image) => image.id)).toEqual(["i2"]);
+    expect((next.components[1] as ReferenceComponent).images.map((image) => image.id)).toEqual([]);
+    expect((next.components[2] as ReferenceComponent).images.map((image) => image.id)).toEqual([
+      "i1",
+      "i3",
+      "i4",
+      "i5",
+    ]);
+  });
+
+  it("returns the original plan for a multi-image structural no-op", () => {
+    const plan = withComponents([reference("r1", ["i1", "i2", "i3"])]);
+
+    expect(moveImages(plan, {
+      imageIds: ["i1", "i2"],
+      toComponentId: "r1",
+      toIndex: 0,
+    })).toBe(plan);
+  });
+
+  it("rejects a multi-image move when any selected image is missing", () => {
+    const plan = withComponents([reference("r1", ["i1", "i2"])]);
+
+    expect(moveImages(plan, {
+      imageIds: ["i1", "missing"],
+      toComponentId: "r1",
+      toIndex: 0,
+    })).toBe(plan);
   });
 
   it("appends multiple images in batch via addReferenceImages", () => {

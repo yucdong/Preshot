@@ -71,6 +71,7 @@ function ComponentFrameNameInput({
       setNameDraft(result.plan.components?.find((entry) => entry.id === id)?.name ?? nameDraft.trim());
       setNameError(null);
     } else {
+      setNameDraft(name);
       setNameError(t(`canvas.nameError.${result.reason}`));
     }
   };

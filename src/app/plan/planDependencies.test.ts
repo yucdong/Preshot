@@ -22,6 +22,7 @@ describe("createPlanDependencies", () => {
     expect(deps.service).toBeDefined();
     expect(deps.service.loadPlan).toBeDefined();
     expect(deps.service.savePlan).toBeDefined();
+    expect(deps.screenCapture).toBeDefined();
   });
 
   it("fails closed for the memory adapter in production", async () => {
@@ -37,6 +38,7 @@ describe("createPlanDependencies", () => {
     const dependencies = createPlanDependencies();
     expect(dependencies.service).toBeDefined();
     expect(dependencies.picker).toBeDefined();
+    expect(dependencies.screenCapture).toBeDefined();
   });
 
   it.each([

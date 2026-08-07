@@ -26,6 +26,12 @@ chrono = { version = "0.4", features = ["serde"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 uuid = { version = "1", features = ["v4", "serde"] }
+arboard = "3"
+png = "0.17"
+windows-sys = { version = "0.59", features = [
+    "Win32_System_DataExchange",
+    "Win32_UI_Input_KeyboardAndMouse",
+] }
 
 [dev-dependencies]
 tempfile = "3"

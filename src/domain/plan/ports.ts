@@ -13,3 +13,13 @@ export interface PlanImagePicker {
   pickImageFile(title: string): Promise<string | null>;
   pickImageFiles(title?: string): Promise<string[]>;
 }
+
+export type ScreenCapturePollResult =
+  | { status: "pending" }
+  | { status: "captured"; path: string };
+
+export interface ScreenCapture {
+  start(): Promise<string>;
+  poll(token: string): Promise<ScreenCapturePollResult>;
+  cancel(token: string): Promise<void>;
+}

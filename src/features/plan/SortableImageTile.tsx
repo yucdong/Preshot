@@ -26,7 +26,9 @@ interface SortableImageTileProps {
   src: string | undefined;
   onOpen(file: string): void;
   onRemove(imageId: string): void;
+  onSelect(imageId: string, toggle: boolean): void;
   componentId: string;
+  selected?: boolean;
   draggable?: boolean;
   showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
@@ -45,7 +47,9 @@ export function SortableImageTile({
   src, 
   onOpen, 
   onRemove, 
+  onSelect,
   componentId, 
+  selected = false,
   draggable = true, 
   showCaptions = false, 
   onSetCaption,
@@ -107,15 +111,24 @@ export function SortableImageTile({
       style={style}
       data-image-id={image.id}
       data-image-cropped={crop ? "true" : "false"}
-      data-testid={placeholderVisible ? `image-placeholder-${image.id}` : undefined}
+      data-selected={selected ? "true" : "false"}
+      data-testid={placeholderVisible ? `image-placeholder-${image.id}` : `image-tile-${image.id}`}
     >
       <button
-        aria-label={t("reference.openImage", { index: index + 1 })}
-        className={`${tileButton} ${placeholderVisible ? "border-2 border-dashed border-amber-500 bg-transparent" : ""}`}
-        style={{ height: `${imageHeight}px` }}
-        onClick={() => onOpen(image.file)}
-        type="button"
         {...(draggable ? { ...attributes, ...listeners } : {})}
+        aria-label={t("reference.selectImage", { index: index + 1 })}
+        aria-pressed={selected}
+        className={`${tileButton} ${
+          placeholderVisible
+            ? "border-2 border-dashed border-amber-500 bg-transparent"
+            : selected
+              ? "ring-2 ring-amber-500 ring-offset-2 dark:ring-amber-300 dark:ring-offset-stone-900"
+              : ""
+        }`}
+        style={{ height: `${imageHeight}px` }}
+        onClick={(event) => onSelect(image.id, event.ctrlKey)}
+        onDoubleClick={() => onOpen(image.file)}
+        type="button"
       >
         <div className="relative h-full overflow-hidden" data-testid="image-region" style={{ height: `${imageHeight}px`, opacity: placeholderVisible ? 0 : 1 }}>
           {src ? (

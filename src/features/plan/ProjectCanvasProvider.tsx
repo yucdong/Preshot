@@ -8,7 +8,7 @@ import {
   type ProjectPlan,
 } from "../../domain/plan/canvas/models";
 import { A4 } from "../../domain/plan/canvas/geometry";
-import type { PlanImagePicker } from "../../domain/plan/ports";
+import type { PlanImagePicker, ScreenCapture } from "../../domain/plan/ports";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
 import type { WorkspaceLogger } from "../../domain/workspace/ports";
 import type {
@@ -20,6 +20,7 @@ import {
   addReferenceImage,
   addReferenceImages,
   moveImage,
+  moveImages,
   removeComponent as removePlanComponent,
   removeReferenceImage,
   resizeComponent,
@@ -30,6 +31,7 @@ import {
   setImageAspectRatioForFile,
   setImageHeight,
   type MoveImageParams,
+  type MoveImagesParams,
 } from "../../domain/plan/canvas/plan";
 import {
   nextComponentName,
@@ -56,10 +58,12 @@ import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
 import { CanvasToolbar } from "./canvas/CanvasToolbar";
 import type { SaveState } from "./SaveStatus";
 import { getProjectRetirementCoordinator } from "./projectRetirementCoordinator";
+import type { ImageImportProgress } from "./imageImportProgress";
 
 export interface CanvasPlanDependencies {
   service: CanvasPlanService;
   picker: PlanImagePicker;
+  screenCapture?: ScreenCapture;
   logger: WorkspaceLogger;
   exporter: { export(plan: ProjectPlan, images: Record<string, string>): Promise<Uint8Array> };
   saver: PdfSaveTarget;
@@ -184,6 +188,13 @@ async function measureAspectRatio(dataUrl: string): Promise<number> {
 }
 
 const AUTO_SAVE_INTERVAL_MS = 5000;
+const SCREEN_CAPTURE_POLL_INTERVAL_MS = 250;
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
 
 export function ProjectCanvasProvider({
   projectPath,
@@ -191,7 +202,7 @@ export function ProjectCanvasProvider({
   dependencies,
 }: ProjectCanvasProviderProps) {
   const { t } = useTranslation();
-  const { service, picker, logger, exporter, saver, reveal } = dependencies;
+  const { service, picker, screenCapture, logger, exporter, saver, reveal } = dependencies;
   const retirementCoordinator = useMemo(
     () => getProjectRetirementCoordinator(service),
     [service],
@@ -202,6 +213,14 @@ export function ProjectCanvasProvider({
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [exporting, setExporting] = useState(false);
+  const [imageImportProgress, setImageImportProgress] = useState<{
+    componentId: string;
+    progress: ImageImportProgress;
+  } | null>(null);
+  const [screenCaptureState, setScreenCaptureState] = useState<{
+    componentId: string;
+    status: "waiting" | "importing";
+  } | null>(null);
   const [scale, setScale] = useState(0.5);
   const [lifecycle, setLifecycle] = useState<ProviderLifecycleState>({
     projectPath,
@@ -236,6 +255,9 @@ export function ProjectCanvasProvider({
     ) => {},
   );
   const historyRef = useRef<PlanHistory>(createHistory());
+  const captureGenerationRef = useRef(0);
+  const captureTokenRef = useRef<string | null>(null);
+  const captureProjectTokenRef = useRef<ProjectToken | null>(null);
   const lifecycleStatus =
     lifecycle.projectPath === projectPath ? lifecycle.status : "loading";
 
@@ -655,6 +677,25 @@ export function ProjectCanvasProvider({
     };
   }, []);
 
+  useEffect(
+    () => () => {
+      captureGenerationRef.current += 1;
+      const nativeToken = captureTokenRef.current;
+      const projectToken = captureProjectTokenRef.current;
+      captureTokenRef.current = null;
+      captureProjectTokenRef.current = null;
+      if (projectToken && sameToken(busyRef.current, projectToken)) {
+        busyRef.current = null;
+      }
+      if (screenCapture && nativeToken) {
+        void screenCapture.cancel(nativeToken).catch((error) => {
+          logger.error("Unable to clean up the screen capture", { error });
+        });
+      }
+    },
+    [logger, projectPath, screenCapture],
+  );
+
   useEffect(() => {
     const token: ProjectToken = {
       projectPath,
@@ -685,6 +726,8 @@ export function ProjectCanvasProvider({
     setImageSrc({});
     setLightbox(null);
     setExporting(false);
+    setImageImportProgress(null);
+    setScreenCaptureState(null);
     setSaveState("saved");
     setError(null);
 
@@ -988,6 +1031,15 @@ export function ProjectCanvasProvider({
     [mutate, projectPath, readyTokenFor],
   );
 
+  const handleMoveImages = useCallback(
+    (params: MoveImagesParams) => {
+      const token = readyTokenFor(projectPath);
+      if (!token || sameToken(busyRef.current, token)) return;
+      mutate(moveImages(planRef.current, params));
+    },
+    [mutate, projectPath, readyTokenFor],
+  );
+
   const handleResize = useCallback(
     (id: string, params: { width: number }) => {
       if (!readyTokenFor(projectPath)) return;
@@ -1129,6 +1181,151 @@ export function ProjectCanvasProvider({
     });
   }, [projectPath, readyTokenFor]);
 
+  const handleCancelScreenCapture = useCallback(() => {
+    captureGenerationRef.current += 1;
+    const nativeToken = captureTokenRef.current;
+    const projectToken = captureProjectTokenRef.current;
+    captureTokenRef.current = null;
+    captureProjectTokenRef.current = null;
+    setScreenCaptureState(null);
+    if (projectToken && sameToken(busyRef.current, projectToken)) {
+      busyRef.current = null;
+    }
+    if (screenCapture && nativeToken) {
+      void screenCapture.cancel(nativeToken).catch((error) => {
+        logger.error("Unable to cancel the screen capture", { error });
+      });
+    }
+  }, [logger, screenCapture]);
+
+  const handleCaptureImage = useCallback(
+    (componentId: string) => {
+      const token = readyTokenFor(projectPath);
+      if (
+        !screenCapture ||
+        !token ||
+        busyRef.current ||
+        captureTokenRef.current
+      ) {
+        return;
+      }
+
+      const generation = captureGenerationRef.current + 1;
+      captureGenerationRef.current = generation;
+      captureProjectTokenRef.current = token;
+      busyRef.current = token;
+
+      void (async () => {
+        let nativeToken: string | null = null;
+        try {
+          nativeToken = await screenCapture.start();
+          if (
+            captureGenerationRef.current !== generation ||
+            !isTokenCurrent(token)
+          ) {
+            await screenCapture.cancel(nativeToken);
+            return;
+          }
+          captureTokenRef.current = nativeToken;
+          setScreenCaptureState({ componentId, status: "waiting" });
+
+          for (;;) {
+            if (
+              captureGenerationRef.current !== generation ||
+              !isTokenCurrent(token)
+            ) {
+              return;
+            }
+            const result = await screenCapture.poll(nativeToken);
+            if (
+              captureGenerationRef.current !== generation ||
+              !isTokenCurrent(token)
+            ) {
+              return;
+            }
+            if (result.status === "pending") {
+              await wait(SCREEN_CAPTURE_POLL_INTERVAL_MS);
+              continue;
+            }
+
+            captureTokenRef.current = null;
+            nativeToken = null;
+            if (isTokenReady(token)) {
+              setScreenCaptureState({ componentId, status: "importing" });
+            }
+            await persisting(token, async (persistence) => {
+              const operationPlan = persistence.plan;
+              const imported = await service.importImage(
+                projectPath,
+                operationPlan,
+                componentId,
+                result.path,
+              );
+              await rebaseServiceDelta(
+                token,
+                persistence,
+                operationPlan,
+                (latest) =>
+                  addReferenceImage(latest, {
+                    componentId,
+                    image: imported.image,
+                  }),
+              );
+              const aspectRatio = await measureAspectRatio(imported.dataUrl);
+              applyMeasuredAspectRatios(token, persistence, [
+                { file: imported.image.file, aspectRatio },
+              ]);
+              if (!isTokenReady(token)) {
+                return;
+              }
+              const nextImageSrc = {
+                ...imageSrcRef.current,
+                [imported.image.file]: imported.dataUrl,
+              };
+              imageSrcRef.current = nextImageSrc;
+              setImageSrc(nextImageSrc);
+              setError(null);
+            });
+            return;
+          }
+        } catch (error) {
+          if (captureGenerationRef.current === generation) {
+            report("Unable to capture a reference image", error, token);
+          }
+        } finally {
+          if (nativeToken) {
+            void screenCapture.cancel(nativeToken).catch((error) => {
+              logger.error("Unable to clean up the screen capture", { error });
+            });
+          }
+          if (captureGenerationRef.current === generation) {
+            captureTokenRef.current = null;
+            captureProjectTokenRef.current = null;
+            if (sameToken(busyRef.current, token)) {
+              busyRef.current = null;
+            }
+            if (isTokenCurrent(token)) {
+              setScreenCaptureState(null);
+            }
+          }
+        }
+      })();
+    },
+    [
+      applyMeasuredAspectRatios,
+      isTokenCurrent,
+      isTokenReady,
+      logger,
+      persisting,
+      projectPath,
+      readyTokenFor,
+      rebaseServiceDelta,
+      report,
+      screenCapture,
+      service,
+    ],
+  );
+
   const handleAddImage = useCallback(
     (componentId: string) => {
       void guard(projectPath, "Unable to import the reference image", async (token) => {
@@ -1189,77 +1386,115 @@ export function ProjectCanvasProvider({
         const sourcePaths = await picker.pickImageFiles("Select JPG or PNG reference images");
         if (sourcePaths.length === 0 || !isTokenReady(token)) return;
 
-        await persisting(token, async (persistence) => {
-          const operationPlan = persistence.plan;
-          let persistedPlan = operationPlan;
-          const newImages: Array<{
-            image: { id: string; file: string; aspectRatio: number };
-            measuredAspectRatio: number;
-            dataUrl: string;
-          }> = [];
-
-          for (const sourcePath of sourcePaths) {
-            const result = await service.importImage(
-              projectPath,
-              persistedPlan,
-              componentId,
-              sourcePath,
-            );
-            persistedPlan = result.plan;
-            const aspectRatio = await measureAspectRatio(result.dataUrl);
-            newImages.push({
-              image: result.image,
-              measuredAspectRatio: aspectRatio,
-              dataUrl: result.dataUrl,
-            });
-          }
-
-          if (plansEqual(persistedPlan, operationPlan)) {
-            return;
-          }
-
-          await rebaseServiceDelta(
-            token,
-            persistence,
-            operationPlan,
-            (latest) =>
-              addReferenceImages(latest, {
-                componentId,
-                images: newImages.map(({ image }) => image),
-              }),
-          );
-          applyMeasuredAspectRatios(
-            token,
-            persistence,
-            newImages.map(({ image, measuredAspectRatio }) => ({
-              file: image.file,
-              aspectRatio: measuredAspectRatio,
-            })),
-          );
-          if (!isTokenReady(token)) {
-            return;
-          }
-
-          const newSrcMap: Record<string, string> = {};
-          for (const { image, dataUrl } of newImages) {
-            newSrcMap[image.file] = dataUrl;
-          }
-          const nextImageSrc = { ...imageSrcRef.current, ...newSrcMap };
-          imageSrcRef.current = nextImageSrc;
-          setImageSrc(nextImageSrc);
-          setError(null);
+        setImageImportProgress({
+          componentId,
+          progress: { completed: 0, total: sourcePaths.length, failed: 0 },
         });
+        try {
+          await persisting(token, async (persistence) => {
+            const operationPlan = persistence.plan;
+            let persistedPlan = operationPlan;
+            let failed = 0;
+            const newImages: Array<{
+              image: { id: string; file: string; aspectRatio: number };
+              measuredAspectRatio: number;
+              dataUrl: string;
+            }> = [];
+
+            for (const [index, sourcePath] of sourcePaths.entries()) {
+              try {
+                const result = await service.importImage(
+                  projectPath,
+                  persistedPlan,
+                  componentId,
+                  sourcePath,
+                );
+                persistedPlan = result.plan;
+                const aspectRatio = await measureAspectRatio(result.dataUrl);
+                newImages.push({
+                  image: result.image,
+                  measuredAspectRatio: aspectRatio,
+                  dataUrl: result.dataUrl,
+                });
+              } catch (error) {
+                failed += 1;
+                logger.error("Unable to import an image from a selected batch", {
+                  index,
+                  error,
+                });
+              } finally {
+                if (isTokenReady(token)) {
+                  setImageImportProgress({
+                    componentId,
+                    progress: {
+                      completed: index + 1,
+                      total: sourcePaths.length,
+                      failed,
+                    },
+                  });
+                }
+              }
+            }
+
+            if (newImages.length > 0) {
+              await rebaseServiceDelta(
+                token,
+                persistence,
+                operationPlan,
+                (latest) =>
+                  addReferenceImages(latest, {
+                    componentId,
+                    images: newImages.map(({ image }) => image),
+                  }),
+              );
+              applyMeasuredAspectRatios(
+                token,
+                persistence,
+                newImages.map(({ image, measuredAspectRatio }) => ({
+                  file: image.file,
+                  aspectRatio: measuredAspectRatio,
+                })),
+              );
+            }
+            if (!isTokenReady(token)) {
+              return;
+            }
+
+            const newSrcMap: Record<string, string> = {};
+            for (const { image, dataUrl } of newImages) {
+              newSrcMap[image.file] = dataUrl;
+            }
+            const nextImageSrc = { ...imageSrcRef.current, ...newSrcMap };
+            imageSrcRef.current = nextImageSrc;
+            setImageSrc(nextImageSrc);
+            setError(
+              failed > 0
+                ? t("reference.importSummary", {
+                    succeeded: newImages.length,
+                    failed,
+                  })
+                : null,
+            );
+          });
+        } finally {
+          if (isTokenCurrent(token)) {
+            setImageImportProgress(null);
+          }
+        }
       });
     },
     [
       applyMeasuredAspectRatios,
       guard,
+      isTokenCurrent,
       isTokenReady,
+      logger,
       persisting,
       picker,
       projectPath,
       rebaseServiceDelta,
       service,
+      t,
     ],
   );
 
@@ -1354,6 +1589,8 @@ export function ProjectCanvasProvider({
           <PlanCanvas
             components={plan.components}
             imageSrc={(file) => imageSrc[file]}
+            imageImportProgress={imageImportProgress ?? undefined}
+            screenCaptureState={screenCaptureState ?? undefined}
             measurements={measurements}
             onAddImage={handleAddImage}
             onChangeHtml={handleChangeHtml}
@@ -1361,6 +1598,7 @@ export function ProjectCanvasProvider({
             onMeasureReferenceDescription={handleMeasureReferenceDescription}
             onMoveComponent={handleMoveComponent}
             onMoveImage={handleMoveImage}
+            onMoveImages={handleMoveImages}
             onOpenImage={(file) => {
               if (readyTokenFor(projectPath)) {
                 setLightbox(file);
@@ -1378,6 +1616,8 @@ export function ProjectCanvasProvider({
             onSetImageCaption={handleSetImageCaption}
             onSetImageHeight={handleSetImageHeight}
             onAddImages={handleAddImages}
+            onCaptureImage={screenCapture ? handleCaptureImage : undefined}
+            onCancelCapture={handleCancelScreenCapture}
             scale={scale}
             title={plan.title}
           />

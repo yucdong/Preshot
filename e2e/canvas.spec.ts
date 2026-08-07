@@ -288,8 +288,8 @@ test("adds an image to a reference component and opens the lightbox", async ({ p
   const firstImage = page.getByRole("img", { name: "参考图" }).first();
   await expect(firstImage).toBeVisible();
 
-  // Click to open the image in lightbox
-  await page.getByRole("button", { name: "打开参考图 1" }).click();
+  // Single click selects; double click opens the original in the lightbox.
+  await page.getByRole("button", { name: "选择参考图 1" }).dblclick();
 
   // Assert lightbox opened and contains an image
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -299,6 +299,19 @@ test("adds an image to a reference component and opens the lightbox", async ({ p
   // Close the lightbox
   await page.getByRole("button", { name: "关闭图片" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
+});
+
+test("single click selects an image and double click opens the lightbox", async ({ page }) => {
+  await page.goto("/");
+  const tile = page.locator('[data-image-id="img-1"]');
+  const selectButton = tile.getByRole("button", { name: "选择参考图 1" });
+
+  await selectButton.click();
+  await expect(tile).toHaveAttribute("data-selected", "true");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  await selectButton.dblclick();
+  await expect(page.getByRole("dialog")).toBeVisible();
 });
 
 test("overflows to multiple pages when inserting tall components", async ({ page }) => {
@@ -755,9 +768,8 @@ test("crops and restores a tile while the lightbox keeps the full source image",
 
   await cropHandle.evaluate((element) => (element as HTMLElement).blur());
   await page.mouse.move(0, 0);
-  const openImage = tile.getByRole("button", { name: "打开参考图 1" });
-  await openImage.focus();
-  await page.keyboard.press("Enter");
+  const openImage = tile.getByRole("button", { name: "选择参考图 1" });
+  await openImage.dblclick();
   const lightbox = page.getByRole("dialog");
   await expect(lightbox).toBeVisible();
   await expect(lightbox.getByRole("img", { name: "参考图" })).toHaveAttribute("src", fullSource);
@@ -803,6 +815,17 @@ test("persists a committed crop after reload", async ({ page }) => {
     "data-image-cropped",
     "true",
   );
+});
+
+test("imports a Windows capture through the screenshot button", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("plan-canvas")).toBeVisible();
+  const before = await page.locator("[data-image-id]").count();
+
+  await page.getByRole("button", { name: "截图" }).first().click();
+
+  await expect(page.locator("[data-image-id]")).toHaveCount(before + 1);
+  await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
 test("exports successfully while captions stay hidden on the canvas", async ({ page }) => {

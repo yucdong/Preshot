@@ -23,6 +23,12 @@ export interface ImageDropTarget {
   toIndex: number;
 }
 
+export interface SelectedImageDropTarget {
+  imageIds: string[];
+  toComponentId: string;
+  toIndex: number;
+}
+
 export interface ImageDragRects {
   activeTranslated: { left: number; width: number } | null;
   over: { left: number; width: number } | null;
@@ -110,4 +116,73 @@ export function imageDropTarget(
       toIndex,
     };
   }
+}
+
+export function selectedImageDropTarget(
+  components: PlanComponent[],
+  activeImageId: string,
+  selectedImageIds: ReadonlySet<string>,
+  overId: string | null,
+  insertAfter: boolean,
+): SelectedImageDropTarget | null {
+  if (overId === null) {
+    return null;
+  }
+
+  const effectiveSelection = selectedImageIds.has(activeImageId)
+    ? selectedImageIds
+    : new Set([activeImageId]);
+  const orderedIds = components.flatMap((component) =>
+    component.type === "reference"
+      ? component.images
+          .filter((image) => effectiveSelection.has(image.id))
+          .map((image) => image.id)
+      : [],
+  );
+  if (orderedIds.length !== effectiveSelection.size || orderedIds.includes(overId)) {
+    return null;
+  }
+  if (orderedIds.length === 1) {
+    const singleTarget = imageDropTarget(
+      components,
+      activeImageId,
+      overId,
+      insertAfter,
+    );
+    return singleTarget
+      ? {
+          imageIds: orderedIds,
+          toComponentId: singleTarget.toComponentId,
+          toIndex: singleTarget.toIndex,
+        }
+      : null;
+  }
+
+  const toComponentId = overId.startsWith(IMAGE_GROUP_PREFIX)
+    ? logicalComponentIdFromImageGroupDroppableId(overId)
+    : components.find(
+        (component) =>
+          component.type === "reference" && component.images.some((image) => image.id === overId),
+      )?.id;
+  const target = components.find(
+    (component) => component.type === "reference" && component.id === toComponentId,
+  );
+  if (!target || target.type !== "reference") {
+    return null;
+  }
+
+  const base = target.images.filter((image) => !effectiveSelection.has(image.id));
+  if (overId.startsWith(IMAGE_GROUP_PREFIX)) {
+    return { imageIds: orderedIds, toComponentId: target.id, toIndex: base.length };
+  }
+
+  const overIndex = base.findIndex((image) => image.id === overId);
+  if (overIndex === -1) {
+    return null;
+  }
+  return {
+    imageIds: orderedIds,
+    toComponentId: target.id,
+    toIndex: overIndex + (insertAfter ? 1 : 0),
+  };
 }

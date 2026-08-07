@@ -5,6 +5,7 @@ import { imageGroupDroppableId } from "./canvas/imageDropTarget";
 import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
 import type { CropRect } from "../../domain/plan/canvas/models";
 import { SortableImageTile } from "./SortableImageTile";
+import type { ImageImportProgress } from "./imageImportProgress";
 
 // Minimal shape that both v1 ReferenceGroup and v2+ ReferenceComponent satisfy
 interface GroupLike {
@@ -18,6 +19,8 @@ interface GroupImageGridProps {
   onAddImage(groupId: string): void;
   onRemoveImage(groupId: string, imageId: string): void;
   onOpenImage(file: string): void;
+  onSelectImage?: (imageId: string, toggle: boolean) => void;
+  selectedImageIds?: ReadonlySet<string>;
   droppableId?: string;
   fragmentId?: string;
   enableReorder?: boolean;
@@ -33,6 +36,10 @@ interface GroupImageGridProps {
   placeholderImage?: { id: string; file: string; caption?: string };
   placeholderSlot?: ReferenceFlowSlot;
   placeholderIndex?: number;
+  importProgress?: ImageImportProgress;
+  onCaptureImage?: (groupId: string) => void;
+  onCancelCapture?: () => void;
+  captureStatus?: "waiting" | "importing";
 }
 
 export function GroupImageGrid({ 
@@ -41,6 +48,8 @@ export function GroupImageGrid({
   onAddImage, 
   onRemoveImage, 
   onOpenImage, 
+  onSelectImage = () => undefined,
+  selectedImageIds = new Set<string>(),
   droppableId, 
   fragmentId,
   enableReorder = false, 
@@ -56,6 +65,10 @@ export function GroupImageGrid({
   placeholderImage,
   placeholderSlot,
   placeholderIndex,
+  importProgress,
+  onCaptureImage,
+  onCancelCapture = () => undefined,
+  captureStatus,
 }: GroupImageGridProps) {
   const { t } = useTranslation();
   const actualDroppableId = enableReorder ? imageGroupDroppableId(group.id, fragmentId) : (droppableId ?? `droppable-${group.id}`);
@@ -106,16 +119,33 @@ export function GroupImageGrid({
                 height: `${slot.height * scale}px`,
               }}
             >
-              <button
-                aria-label={t("reference.addImage")}
-                className="flex h-full w-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600 dark:border-stone-700 dark:text-stone-500 dark:hover:border-amber-400 dark:hover:text-amber-400"
-                onClick={() => onAddImage(group.id)}
-                type="button"
-              >
-                +
-              </button>
+              <div className="grid h-full grid-cols-2 gap-2">
+                <button
+                  aria-label={t("reference.addImage")}
+                  className="flex h-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600 disabled:opacity-50 dark:border-stone-700 dark:text-stone-500 dark:hover:border-amber-400 dark:hover:text-amber-400"
+                  disabled={importProgress !== undefined || captureStatus !== undefined}
+                  onClick={() => onAddImage(group.id)}
+                  type="button"
+                >
+                  +
+                </button>
+                <button
+                  aria-label={t("reference.captureImage")}
+                  className="flex h-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-sm font-medium text-stone-500 hover:border-amber-500 hover:text-amber-600 disabled:opacity-50 dark:border-stone-700 dark:text-stone-400 dark:hover:border-amber-400 dark:hover:text-amber-400"
+                  disabled={
+                    onCaptureImage === undefined ||
+                    importProgress !== undefined ||
+                    captureStatus !== undefined
+                  }
+                  onClick={() => onCaptureImage?.(group.id)}
+                  type="button"
+                >
+                  {t("reference.captureImage")}
+                </button>
+              </div>
             </div>
           );
+
         }
 
         if (slot.id === hiddenImageId) {
@@ -135,6 +165,8 @@ export function GroupImageGrid({
             key={image.id}
             onOpen={onOpenImage}
             onRemove={(imageId) => onRemoveImage(group.id, imageId)}
+            onSelect={onSelectImage}
+            selected={selectedImageIds.has(image.id)}
             src={imageSrc(image.file)}
             draggable={enableReorder}
             showCaptions={showCaptions}
@@ -147,6 +179,7 @@ export function GroupImageGrid({
             scale={scale}
           />
         );
+
       })}
       {normalizedPlaceholderSlot && placeholderImage ? (
         <SortableImageTile
@@ -156,6 +189,8 @@ export function GroupImageGrid({
           key={`placeholder:${placeholderImage.id}:${fragmentId ?? group.id}`}
           onOpen={onOpenImage}
           onRemove={(imageId) => onRemoveImage(group.id, imageId)}
+          onSelect={onSelectImage}
+          selected={selectedImageIds.has(placeholderImage.id)}
           src={imageSrc(placeholderImage.file)}
           draggable={enableReorder}
           isPlaceholder
@@ -172,6 +207,51 @@ export function GroupImageGrid({
     </>
   );
 
+  const progressOverlay = importProgress ? (
+    <div
+      className="absolute left-2 right-2 top-2 z-30 rounded-lg bg-white/95 p-3 shadow-lg dark:bg-stone-900/95"
+      role="status"
+    >
+      <div className="mb-1 text-xs font-medium text-stone-700 dark:text-stone-200">
+        {t("reference.importProgressText", {
+          completed: importProgress.completed,
+          total: importProgress.total,
+          failed: importProgress.failed,
+        })}
+      </div>
+      <progress
+        aria-label={t("reference.importProgress")}
+        aria-valuemax={importProgress.total}
+        aria-valuemin={0}
+        aria-valuenow={importProgress.completed}
+        className="h-2 w-full accent-amber-500"
+        max={importProgress.total}
+        value={importProgress.completed}
+      />
+    </div>
+  ) : null;
+  const captureOverlay = captureStatus ? (
+    <div
+      className="absolute left-2 right-2 top-2 z-30 flex items-center justify-between rounded-lg bg-white/95 p-3 shadow-lg dark:bg-stone-900/95"
+      role="status"
+    >
+      <span className="text-xs font-medium text-stone-700 dark:text-stone-200">
+        {captureStatus === "waiting"
+          ? t("reference.captureWaiting")
+          : t("reference.captureImporting")}
+      </span>
+      {captureStatus === "waiting" ? (
+        <button
+          className="rounded border border-stone-300 px-2 py-1 text-xs dark:border-stone-600"
+          onClick={onCancelCapture}
+          type="button"
+        >
+          {t("reference.cancelCapture")}
+        </button>
+      ) : null}
+    </div>
+  ) : null;
+
   if (enableReorder) {
     return (
       <div
@@ -181,6 +261,8 @@ export function GroupImageGrid({
         ref={setNodeRef}
         style={{ height: `${containerHeight}px` }}
       >
+        {progressOverlay}
+        {captureOverlay}
         <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
           {gridContent}
         </SortableContext>
@@ -193,6 +275,8 @@ export function GroupImageGrid({
       className="relative"
       style={{ height: `${containerHeight}px` }}
     >
+      {progressOverlay}
+      {captureOverlay}
       {gridContent}
     </div>
   );
