@@ -35,6 +35,7 @@ import {
   REFERENCE_HEADER_HEIGHT,
   type ReferenceFlowSlot,
 } from "../../domain/plan/canvas/referenceLayout";
+import { calculateCaptionTextSizing } from "../../domain/plan/canvas/captionTextSizing";
 import { parseHtmlToBlocks } from "./htmlToBlocks";
 import {
   layoutPdfRichText,
@@ -46,7 +47,6 @@ import {
 import { slotToPageRect } from "./slotPageRect";
 
 const TITLE_SIZE = 14;
-const CAPTION_SIZE = 9;
 const TEXT_COLOR = rgb(0.11, 0.1, 0.09);
 const LINK_COLOR = rgb(0.15, 0.39, 0.92);
 const FRAME_COLOR = rgb(0.85, 0.85, 0.85);
@@ -240,7 +240,7 @@ function preparePdfTextLayouts(
       continue;
     }
 
-    if (component.description.trim()) {
+    if (component.showDescription && component.description.trim()) {
       const descriptionLayout = layoutPdfRichText(
         parseHtmlToBlocks(component.description),
         textWidth,
@@ -492,7 +492,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
           const ref = component as ReferenceComponent;
           const isContinuation = placement.kind === "continuation";
 
-          if (!isContinuation && ref.description.trim()) {
+          if (!isContinuation && ref.showDescription && ref.description.trim()) {
             const descriptionLayout =
               paginatedReferenceDescriptionLayouts.get(component.id);
             if (descriptionLayout) {
@@ -553,14 +553,24 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
               const shouldExportCaption = Boolean(imageRecord.caption?.trim());
               if (shouldExportCaption) {
                 const captionRect: Rect = slotToPageRect(contentRect, split.caption);
-                const savedY = captionRect.y + captionRect.height - CAPTION_SIZE;
-                page.drawText(imageRecord.caption!, {
-                  x: captionRect.x,
-                  y: savedY,
-                  size: CAPTION_SIZE,
-                  font: regular,
-                  color: TEXT_COLOR,
+                const sizing = calculateCaptionTextSizing({
+                  caption: imageRecord.caption,
+                  width: slot.width,
+                  imageHeight: slot.imageHeight,
                 });
+                const fontSize = slot.captionFontSize ?? sizing.fontSize;
+                const lineHeight = slot.captionLineHeight ?? sizing.lineHeight;
+                const lines = slot.captionLines ?? sizing.lines;
+                const savedY = captionRect.y + captionRect.height - fontSize - 2;
+                for (const [lineIndex, line] of lines.entries()) {
+                  page.drawText(line, {
+                    x: captionRect.x,
+                    y: savedY - lineIndex * lineHeight,
+                    size: fontSize,
+                    font: regular,
+                    color: TEXT_COLOR,
+                  });
+                }
               }
             }
           }

@@ -21,7 +21,6 @@ interface GroupImageGridProps {
   droppableId?: string;
   fragmentId?: string;
   enableReorder?: boolean;
-  showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
   slots: ReferenceFlowSlot[];
   scale: number;
@@ -41,7 +40,6 @@ export function GroupImageGrid({
   droppableId, 
   fragmentId,
   enableReorder = false, 
-  showCaptions = false, 
   onSetCaption,
   slots,
   scale,
@@ -116,7 +114,6 @@ export function GroupImageGrid({
             selected={selectedImageIds.has(image.id)}
             src={imageSrc(image.file)}
             draggable={enableReorder}
-            showCaptions={showCaptions}
             onSetCaption={onSetCaption}
             slot={slot}
             scale={scale}
@@ -137,7 +134,6 @@ export function GroupImageGrid({
           src={imageSrc(placeholderImage.file)}
           draggable={enableReorder}
           isPlaceholder
-          showCaptions={showCaptions}
           onSetCaption={onSetCaption}
           slot={normalizedPlaceholderSlot}
           scale={scale}

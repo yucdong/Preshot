@@ -20,10 +20,7 @@ function documentTitleComponentId(components: PlanComponent[]): string {
   return id;
 }
 
-function exportComponents(
-  components: PlanComponent[],
-  titleComponentId: string,
-): PlanComponent[] {
+function exportComponents(components: PlanComponent[], titleComponentId: string): PlanComponent[] {
   const titleComponent: PlanComponent[] = [{
     id: titleComponentId,
     name: "",
@@ -33,19 +30,7 @@ function exportComponents(
     html: "",
   }];
 
-  return [
-    ...titleComponent,
-    ...components.map((component) => {
-      if (component.type !== "reference") {
-        return component;
-      }
-
-      return {
-        ...component,
-        showCaptions: component.images.some((image) => Boolean(image.caption?.trim())),
-      };
-    }),
-  ];
+  return [...titleComponent, ...components];
 }
 
 export function buildCanvasLayout(

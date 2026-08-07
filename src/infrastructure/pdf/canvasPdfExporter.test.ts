@@ -121,7 +121,7 @@ describe("createCanvasPdfExporter", () => {
     expect(Math.round(page.getHeight())).toBe(842);
   }, 20000);
 
-  it("exports document and component titles, hidden captions, and cropped images", async () => {
+  it("exports document and component titles with an individual image caption", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const pdfLib = await import("pdf-lib");
     const drawText = vi.spyOn(pdfLib.PDFPage.prototype, "drawText");
@@ -145,15 +145,13 @@ describe("createCanvasPdfExporter", () => {
           type: "reference",
           width: 1,
           description: "",
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: [
             {
               id: "img1",
               file: "photo.png",
               caption: "拍摄说明",
               aspectRatio: 1,
-              crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
             },
           ],
         },
@@ -172,7 +170,7 @@ describe("createCanvasPdfExporter", () => {
       "拍摄说明",
     ]));
     expect(drawnTexts.filter((text) => text === "Editorial")).toHaveLength(1);
-    expect(pushedOperators).toEqual(expect.arrayContaining([
+    expect(pushedOperators).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ name: "W" }),
     ]));
     const operatorNames = pushedOperators.map(
@@ -183,10 +181,9 @@ describe("createCanvasPdfExporter", () => {
     );
   }, 20000);
 
-  it("uses exact crop transform coordinates for the laid-out image slot", async () => {
+  it("uses the laid-out image slot without applying legacy crop transforms", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawImage = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawImage");
-    const crop = { x: 0.25, y: 0.2, width: 0.5, height: 0.6 };
     const plan: ProjectPlan = {
       schemaVersion: 5,
       title: "Coordinates",
@@ -198,14 +195,12 @@ describe("createCanvasPdfExporter", () => {
           type: "reference",
           width: 1,
           description: "",
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: [
             {
               id: "img1",
               file: "photo.png",
               aspectRatio: 1,
-              crop,
             },
           ],
         },
@@ -236,18 +231,13 @@ describe("createCanvasPdfExporter", () => {
       width: slot.width,
       height: slot.imageHeight,
     });
-    const expectedWidth = slotRect.width / crop.width;
-    const expectedHeight = slotRect.height / crop.height;
     const options = drawImage.mock.calls[0]?.[1];
 
     expect(drawImage).toHaveBeenCalledTimes(1);
-    expect(options?.x).toBeCloseTo(slotRect.x - crop.x * expectedWidth, 8);
-    expect(options?.y).toBeCloseTo(
-      slotRect.y - (1 - crop.y - crop.height) * expectedHeight,
-      8,
-    );
-    expect(options?.width).toBeCloseTo(expectedWidth, 8);
-    expect(options?.height).toBeCloseTo(expectedHeight, 8);
+    expect(options?.x).toBeCloseTo(slotRect.x, 8);
+    expect(options?.y).toBeCloseTo(slotRect.y, 8);
+    expect(options?.width).toBeCloseTo(slotRect.width, 8);
+    expect(options?.height).toBeCloseTo(slotRect.height, 8);
   }, 20000);
 
   it("measures long plan text before layout so its tail and following component both render", async () => {
@@ -301,8 +291,7 @@ describe("createCanvasPdfExporter", () => {
           width: 1,
           name: "参考照片",
           description: "描述 <em>italic</em>",
-          showCaptions: true,
-          imageHeight: 180,
+imageHeight: 180,
           images: [
             { id: "img1", file: "photo1.png", caption: "图1", aspectRatio: 1 },
             { id: "img2", file: "photo2.png", caption: "图2", aspectRatio: 1 },
@@ -333,8 +322,7 @@ describe("createCanvasPdfExporter", () => {
           width: 1,
           name: "Reference",
           description: "",
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: [
             {
               id: "img1",
@@ -372,7 +360,7 @@ describe("createCanvasPdfExporter", () => {
           width: 1,
           name: "Measured description",
           description,
-          showCaptions: false,
+          showDescription: true,
           imageHeight: 135,
           images: [],
         },
@@ -384,6 +372,30 @@ describe("createCanvasPdfExporter", () => {
     expect(drawText.mock.calls.some(([text]) => text === "DESCRIPTION_TAIL")).toBe(
       true,
     );
+  }, 20000);
+
+  it("does not export a hidden reference description", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const drawText = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawText");
+    const plan: ProjectPlan = {
+      schemaVersion: 6,
+      title: "Demo",
+      components: [{
+        id: "r1",
+        type: "reference",
+        width: 1,
+        contentScale: 1,
+        name: "Hidden description",
+        description: "<p>HIDDEN_DESCRIPTION</p>",
+        showDescription: false,
+        imageHeight: 135,
+        images: [],
+      }],
+    };
+
+    await exporter.export(plan, {});
+
+    expect(drawText.mock.calls.map(([text]) => text)).not.toContain("HIDDEN_DESCRIPTION");
   }, 20000);
 
   it("paginates a multi-page reference description before its image row and following component", async () => {
@@ -411,7 +423,7 @@ describe("createCanvasPdfExporter", () => {
           width: 1,
           name: "Long reference",
           description,
-          showCaptions: false,
+          showDescription: true,
           imageHeight: 135,
           images: [
             { id: "img1", file: "photo.png", aspectRatio: 1 },
@@ -569,8 +581,7 @@ describe("createCanvasPdfExporter", () => {
           width: 0.5,
           name: "Right",
           description: "",
-          showCaptions: false,
-          imageHeight: 180,
+imageHeight: 180,
           images: [{ id: "img1", file: "photo.png", aspectRatio: 1 }],
         },
       ],
@@ -595,8 +606,7 @@ describe("createCanvasPdfExporter", () => {
           width: 1,
           name: "单列参考",
           description: "单列布局",
-          showCaptions: false,
-          imageHeight: 180,
+imageHeight: 180,
           images: [{ id: "img1", file: "photo.png", aspectRatio: 1 }],
         },
       ],
@@ -608,7 +618,7 @@ describe("createCanvasPdfExporter", () => {
     expect(parsed.getPageCount()).toBe(1);
   }, 20000);
 
-  it("renders per-image captions when showCaptions is true", async () => {
+  it("renders captions for images with non-empty captions", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
       schemaVersion: 5,
@@ -621,8 +631,7 @@ describe("createCanvasPdfExporter", () => {
           width: 1,
           name: "照片集",
           description: "带说明的参考照片",
-          showCaptions: true,
-          imageHeight: 180,
+imageHeight: 180,
           images: [
             { id: "img1", file: "photo1.png", caption: "日出 — 黄金时段", aspectRatio: 1 },
             { id: "img2", file: "photo2.png", caption: "中午 — 强光", aspectRatio: 1 },
@@ -693,7 +702,7 @@ describe("createCanvasPdfExporter", () => {
           width: 1,
           name: "Lookbook",
           description: "<p>Reference description</p>",
-          showCaptions: true,
+          showDescription: true,
           imageHeight: 180,
           images: Array.from({ length: 12 }, (_, index) => ({
             id: `img${index + 1}`,
@@ -736,8 +745,7 @@ describe("createCanvasPdfExporter", () => {
           width: 1,
           name: "Ratios",
           description: "",
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: [
             { id: "landscape", file: "landscape.png", aspectRatio: 4 / 3 },
             { id: "portrait", file: "portrait.png", aspectRatio: 3 / 4 },
@@ -776,8 +784,7 @@ describe("createCanvasPdfExporter", () => {
           width: 1,
           name: "Actual ratio",
           description: "",
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: [
             { id: "wide-slot", file: "square.png", aspectRatio: 2 },
           ],
@@ -810,8 +817,7 @@ describe("createCanvasPdfExporter", () => {
           width: 1,
           name: "Lookbook",
           description: "",
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: Array.from({ length: 20 }, (_, index) => ({
             id: `img${index + 1}`,
             file: `img${index + 1}.png`,

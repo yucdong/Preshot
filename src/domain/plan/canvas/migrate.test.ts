@@ -80,7 +80,6 @@ describe("migratePlan legacy schemas", () => {
         contentScale: 1,
         description: "Details",
         showDescription: true,
-        showCaptions: false,
         imageHeight: schemaVersion === 3 ? 135 : 180,
         images: [],
       },

@@ -98,7 +98,7 @@ describe("buildCanvasLayout", () => {
       name: "Reference",
       description: "",
       showDescription: true,
-      showCaptions: false, imageHeight: 180, images: [
+imageHeight: 180, images: [
         { id: "img1", file: "photo1.jpg", aspectRatio: 1 },
         { id: "img2", file: "photo2.jpg", aspectRatio: 1 },
       ],
@@ -124,8 +124,7 @@ describe("buildCanvasLayout", () => {
       name: "图片组1",
       description: "",
       showDescription: true,
-      showCaptions: false,
-      imageHeight: 135,
+imageHeight: 135,
       images: [
         {
           id: "img1",
@@ -141,11 +140,8 @@ describe("buildCanvasLayout", () => {
     const [slot] = placement.imageSlots ?? [];
 
     expect(placement.rect.height).toBeGreaterThan(135 + 24);
-    expect(slot).toMatchObject({
-      width: 135,
-      imageHeight: 135,
-      captionHeight: 45,
-    });
+    expect(slot).toMatchObject({ width: 135, imageHeight: 135 });
+    expect(slot.captionHeight).toBeCloseTo(14.8);
   });
 
   it("preserves a component whose id matches the document-title spacer id", () => {
@@ -249,8 +245,7 @@ describe("buildCanvasLayout", () => {
         name: "Photos",
         description: "",
         showDescription: true,
-        showCaptions: false,
-        imageHeight: 180,
+imageHeight: 180,
         images: Array.from({ length: 12 }, (_, index) => ({
           id: `img${index + 1}`,
           file: `${index + 1}.jpg`,
@@ -282,8 +277,7 @@ describe("buildCanvasLayout", () => {
         name: "Photos",
         description: "",
         showDescription: true,
-        showCaptions: false,
-        imageHeight: 135,
+imageHeight: 135,
         images: [
           { id: "img1", file: "1.jpg", aspectRatio: 4 / 3 },
           { id: "img2", file: "2.jpg", aspectRatio: 4 / 3 },
@@ -331,8 +325,7 @@ describe("buildCanvasLayout", () => {
       name: "Only image",
       description: "",
       showDescription: true,
-      showCaptions: false,
-      imageHeight: 100,
+imageHeight: 100,
       images: [{ id: "img1", file: "1.jpg", aspectRatio: 1 }],
     };
     const geometry = {
@@ -356,8 +349,7 @@ describe("buildCanvasLayout", () => {
       name: "Empty reference",
       description: "",
       showDescription: true,
-      showCaptions: false,
-      imageHeight: 100,
+imageHeight: 100,
       images: [],
     };
 

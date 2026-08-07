@@ -80,7 +80,7 @@ const referenceComponent: PlanComponent = {
   name: "Lookbook",
   description: "",
   showDescription: true,
-  showCaptions: false, imageHeight: 180, images: [
+imageHeight: 180, images: [
     { id: "i1", file: "references/0001.png", aspectRatio: 1 },
     { id: "i2", file: "references/0002.png", aspectRatio: 1 },
   ],

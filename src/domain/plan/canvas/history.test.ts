@@ -127,8 +127,7 @@ describe("mergeStructural", () => {
         name: "T",
         description: "OLD DESC",
         showDescription: true,
-        showCaptions: false,
-        imageHeight: 180,
+imageHeight: 180,
         images: [],
       },
     ]);
@@ -142,8 +141,7 @@ describe("mergeStructural", () => {
         name: "T2",
         description: "NEW DESC",
         showDescription: true,
-        showCaptions: true,
-        imageHeight: 400,
+imageHeight: 400,
         images: [],
       },
     ]);
@@ -153,8 +151,7 @@ describe("mergeStructural", () => {
     expect(merged.components[1]).toMatchObject({
       width: 1,
       name: "T",
-      showCaptions: false,
-      imageHeight: 180,
+imageHeight: 180,
       description: "NEW DESC",
     });
   });
@@ -181,8 +178,7 @@ describe("mergeStructural", () => {
         name: "T",
         description: "D",
         showDescription: true,
-        showCaptions: false,
-        imageHeight: 180,
+imageHeight: 180,
         images: [],
       },
     ]);
@@ -200,8 +196,7 @@ describe("mergeStructural", () => {
         name: "Reference",
         description: "",
         showDescription: true,
-        showCaptions: true,
-        imageHeight: 180,
+imageHeight: 180,
         images: [{ id: "i1", file: "references/one.png", aspectRatio: 1 }],
       },
     ]);
@@ -214,8 +209,7 @@ describe("mergeStructural", () => {
         name: "Reference",
         description: "",
         showDescription: true,
-        showCaptions: true,
-        imageHeight: 180,
+imageHeight: 180,
         images: [{
           id: "i1",
           file: "references/one.png",
@@ -240,8 +234,7 @@ describe("mergeStructural", () => {
         name: "A",
         description: "",
         showDescription: true,
-        showCaptions: true,
-        imageHeight: 180,
+imageHeight: 180,
         images: [{ id: "i1", file: "references/one.png", aspectRatio: 1 }],
       },
       {
@@ -252,8 +245,7 @@ describe("mergeStructural", () => {
         name: "B",
         description: "",
         showDescription: true,
-        showCaptions: true,
-        imageHeight: 180,
+imageHeight: 180,
         images: [],
       },
     ]);
@@ -266,8 +258,7 @@ describe("mergeStructural", () => {
         name: "A",
         description: "",
         showDescription: true,
-        showCaptions: true,
-        imageHeight: 180,
+imageHeight: 180,
         images: [],
       },
       {
@@ -278,8 +269,7 @@ describe("mergeStructural", () => {
         name: "B",
         description: "",
         showDescription: true,
-        showCaptions: true,
-        imageHeight: 180,
+imageHeight: 180,
         images: [{
           id: "i1",
           file: "references/one.png",

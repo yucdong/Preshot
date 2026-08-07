@@ -1,5 +1,6 @@
 import type { ReferenceImage } from "./models";
 import type { Rect } from "./geometry";
+import { calculateCaptionTextSizing } from "./captionTextSizing";
 
 export const COMPONENT_INSET = 12;
 export const REFERENCE_HEADER_GAP = 6;
@@ -19,6 +20,8 @@ export interface ReferenceFlowItem {
   kind: "image" | "add";
   id: string;
   aspectRatio: number;
+  caption?: string;
+  displayHeight?: number;
 }
 
 export interface ReferenceFlowSlot extends Rect {
@@ -26,6 +29,9 @@ export interface ReferenceFlowSlot extends Rect {
   id: string;
   imageHeight: number;
   captionHeight: number;
+  captionFontSize?: number;
+  captionLineHeight?: number;
+  captionLines?: readonly string[];
 }
 
 export interface ReferenceRow {
@@ -51,15 +57,25 @@ export function normalizeAspectRatio(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
-function imageSlot(image: Pick<ReferenceImage, "id" | "aspectRatio">, requestedHeight: number, innerWidth: number, captions: boolean): ReferenceFlowSlot {
+function imageSlot(
+  image: Pick<ReferenceImage, "id" | "aspectRatio" | "caption" | "displayHeight">,
+  requestedHeight: number,
+  innerWidth: number,
+): ReferenceFlowSlot {
   const ratio = normalizeAspectRatio(image.aspectRatio);
-  const safeHeight = positiveFinite(requestedHeight);
+  const safeHeight = positiveFinite(image.displayHeight ?? requestedHeight);
   const safeWidth = positiveFinite(innerWidth);
   const requestedWidth = safeHeight * ratio;
   const scale = requestedWidth > 0 ? Math.min(1, safeWidth / requestedWidth) : 0;
-  const imageHeight = safeHeight * scale;
+  const initialImageHeight = safeHeight * scale;
+  const initialWidth = initialImageHeight * ratio;
+  const sizing = calculateCaptionTextSizing({
+    caption: image.caption,
+    width: initialWidth,
+    imageHeight: initialImageHeight,
+  });
+  const imageHeight = sizing.imageHeight;
   const width = imageHeight * ratio;
-  const captionHeight = captions ? imageHeight / 3 : 0;
 
   return {
     kind: "image",
@@ -67,9 +83,12 @@ function imageSlot(image: Pick<ReferenceImage, "id" | "aspectRatio">, requestedH
     x: 0,
     y: 0,
     width,
-    height: imageHeight + captionHeight,
+    height: sizing.totalHeight,
     imageHeight,
-    captionHeight,
+    captionHeight: sizing.captionHeight,
+    captionFontSize: sizing.fontSize,
+    captionLineHeight: sizing.lineHeight,
+    captionLines: sizing.lines,
   };
 }
 
@@ -93,12 +112,12 @@ function addSlot(innerWidth: number, requestedImageHeight: number): ReferenceFlo
   };
 }
 
-function flowSlot(item: ReferenceFlowItem, imageHeight: number, showCaptions: boolean, innerWidth: number): ReferenceFlowSlot {
+function flowSlot(item: ReferenceFlowItem, imageHeight: number, innerWidth: number): ReferenceFlowSlot {
   if (item.kind === "add") {
     return addSlot(innerWidth, imageHeight);
   }
 
-  return imageSlot({ id: item.id, aspectRatio: item.aspectRatio }, imageHeight, innerWidth, showCaptions);
+  return imageSlot(item, imageHeight, innerWidth);
 }
 
 function cloneRow(row: ReferenceRow, yOffset: number, scale = 1): ReferenceRow {
@@ -127,13 +146,18 @@ function scaledRowToHeight(row: ReferenceRow, targetHeight: number): ReferenceRo
 export function packReferenceRows(input: {
   images: ReferenceImage[];
   imageHeight: number;
-  showCaptions: boolean;
   innerWidth: number;
   includeAddTile?: boolean;
 }): ReferenceRow[] {
   const rows: ReferenceRow[] = [];
   const items: ReferenceFlowItem[] = [
-    ...input.images.map((image) => ({ kind: "image" as const, id: image.id, aspectRatio: image.aspectRatio })),
+    ...input.images.map((image) => ({
+      kind: "image" as const,
+      id: image.id,
+      aspectRatio: image.aspectRatio,
+      caption: image.caption,
+      displayHeight: image.displayHeight,
+    })),
     ...(input.includeAddTile === false
       ? []
       : [{ kind: "add" as const, id: "__add__", aspectRatio: 0.5 }]),
@@ -158,7 +182,7 @@ export function packReferenceRows(input: {
   };
 
   for (const item of items) {
-    const slot = flowSlot(item, input.imageHeight, input.showCaptions, availableWidth);
+    const slot = flowSlot(item, input.imageHeight, availableWidth);
     const nextWidth = currentSlots.length === 0 ? slot.width : currentRowWidth + IMAGE_GAP + slot.width;
     if (currentSlots.length > 0 && nextWidth > availableWidth + EPS) {
       flushRow();

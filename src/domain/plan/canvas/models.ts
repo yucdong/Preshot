@@ -72,7 +72,6 @@ export interface ReferenceComponent extends BaseComponent {
   type: "reference";
   description: string;
   showDescription: boolean;
-  showCaptions: boolean;
   images: ReferenceImage[];
   imageHeight: number;
 }

@@ -38,21 +38,14 @@ vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
     onMoveComponent,
     onRemoveComponent,
     onResize,
-    onSetImageCrop,
   }: {
     title: string;
     onAddImage(id: string): void;
     onCommitTitle(title: string): unknown;
     onRenameComponent(id: string, name: string): unknown;
-    onMoveComponent?(id: string, target: { kind: "new-row"; rowId: string; toRowIndex: number }): void;
+    onMoveComponent?(id: string, target: { toIndex: number }): void;
     onRemoveComponent?(id: string): void;
     onResize?(id: string, params: { width: number }): void;
-    onSetImageCrop?(componentId: string, imageId: string, crop: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }): void;
   }) => {
     renderedPlanTitles.push(title);
     return (
@@ -63,9 +56,7 @@ vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
         <button onClick={() => onRenameComponent("p1", "Shot list")} type="button">Test name</button>
         <button
           onClick={() => onMoveComponent?.("p1", {
-            kind: "new-row",
-            rowId: "row-moved",
-            toRowIndex: 1,
+            toIndex: 1,
           })}
           type="button"
         >
@@ -74,28 +65,6 @@ vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
         <button onClick={() => onRemoveComponent?.("r1")} type="button">Test remove reference</button>
         <button onClick={() => onResize?.("r1", { width: 0.5 })} type="button">Test width</button>
         <button onClick={() => onResize?.("r2", { width: 0.5 })} type="button">Test retained width</button>
-        <button
-          onClick={() => onSetImageCrop?.("r1", "existing-image", {
-            x: 0.1,
-            y: 0.2,
-            width: 0.7,
-            height: 0.6,
-          })}
-          type="button"
-        >
-          Test crop
-        </button>
-        <button
-          onClick={() => onSetImageCrop?.("r2", "retained-image", {
-            x: 0.1,
-            y: 0.2,
-            width: 0.7,
-            height: 0.6,
-          })}
-          type="button"
-        >
-          Test retained crop
-        </button>
       </div>
     );
   },
@@ -380,7 +349,7 @@ describe("WorkspaceProvider", () => {
     });
   });
 
-  it("flushes a retiring project's deferred image delta and concurrent v5 edits before switching", async () => {
+  it("flushes a retiring project's deferred image delta and concurrent edits before switching", async () => {
     const user = userEvent.setup();
     const retiringProject = makeProject({
       updatedAt: "2026-07-09T00:00:00.000Z",
@@ -411,8 +380,7 @@ describe("WorkspaceProvider", () => {
           contentScale: 1,
           description: "",
           showDescription: true,
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: [
             {
               id: "existing-image",
@@ -475,7 +443,6 @@ describe("WorkspaceProvider", () => {
     await user.click(screen.getByRole("button", { name: "Test name" }));
     await user.click(screen.getByRole("button", { name: "Test row" }));
     await user.click(screen.getByRole("button", { name: "Test width" }));
-    await user.click(screen.getByRole("button", { name: "Test crop" }));
     await user.click(screen.getByRole("button", { name: "打开项目 Next project" }));
     await screen.findByRole("button", { name: "打开项目 Next project" });
 
@@ -495,7 +462,6 @@ describe("WorkspaceProvider", () => {
           components: expect.arrayContaining([
             expect.objectContaining({
               id: "p1",
-              rowId: "row-moved",
               name: "Shot list",
             }),
             expect.objectContaining({
@@ -504,7 +470,6 @@ describe("WorkspaceProvider", () => {
               images: expect.arrayContaining([
                 expect.objectContaining({
                   id: "existing-image",
-                  crop: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
                 }),
                 expect.objectContaining({
                   id: "imported-image",
@@ -551,8 +516,7 @@ describe("WorkspaceProvider", () => {
           contentScale: 1,
           description: "",
           showDescription: true,
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: [
             {
               id: "existing-image",
@@ -569,8 +533,7 @@ describe("WorkspaceProvider", () => {
           contentScale: 1,
           description: "",
           showDescription: true,
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: [
             {
               id: "retained-image",
@@ -607,7 +570,6 @@ describe("WorkspaceProvider", () => {
     await user.click(screen.getByRole("button", { name: "Test name" }));
     await user.click(screen.getByRole("button", { name: "Test row" }));
     await user.click(screen.getByRole("button", { name: "Test retained width" }));
-    await user.click(screen.getByRole("button", { name: "Test retained crop" }));
 
     await user.click(screen.getByRole("button", { name: "新建项目" }));
     const dialog = await screen.findByRole("dialog");
@@ -635,7 +597,6 @@ describe("WorkspaceProvider", () => {
         components: [
           expect.objectContaining({
             id: "p1",
-            rowId: "row-moved",
             name: "Shot list",
           }),
           expect.objectContaining({
@@ -644,7 +605,6 @@ describe("WorkspaceProvider", () => {
             images: [
               expect.objectContaining({
                 id: "retained-image",
-                crop: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
               }),
             ],
           }),
@@ -667,7 +627,6 @@ describe("WorkspaceProvider", () => {
       components: [
         expect.objectContaining({
           id: "p1",
-          rowId: "row-moved",
           name: "Shot list",
         }),
         expect.objectContaining({
@@ -676,7 +635,6 @@ describe("WorkspaceProvider", () => {
           images: [
             expect.objectContaining({
               id: "retained-image",
-              crop: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
             }),
           ],
         }),
@@ -719,8 +677,7 @@ describe("WorkspaceProvider", () => {
           contentScale: 1,
           description: "",
           showDescription: true,
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: [],
         },
       ],

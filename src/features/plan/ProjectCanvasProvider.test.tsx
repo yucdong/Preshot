@@ -7,13 +7,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
 import {
   EMPTY_PLAN,
-  type CropRect,
   type ProjectPlan,
   type ReferenceComponent,
 } from "../../domain/plan/canvas/models";
 import type { RenameComponentResult, SetPlanTitleResult } from "../../domain/plan/canvas/naming";
-import type { ComponentMoveTarget } from "../../domain/plan/canvas/rows";
-import { contentSize, DEFAULT_PAGE_GEOMETRY, SPACING } from "../../domain/plan/canvas/geometry";
 import { ProjectCanvasProvider, type CanvasPlanDependencies } from "./ProjectCanvasProvider";
 import { ThemeProvider } from "../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../domain/settings/ports";
@@ -41,8 +38,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
     onMeasureReferenceDescription,
     onCommitTitle,
     onRenameComponent,
-    onSetImageCrop,
-    onResetImageCrop,
+    onToggleDescription,
     imageImportProgress,
     onCaptureImage,
     onCancelCapture,
@@ -54,7 +50,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
       planHeights: ReadonlyMap<string, number>;
       referenceDescriptionHeights: ReadonlyMap<string, number>;
     };
-    onMoveComponent: (id: string, target: ComponentMoveTarget) => void;
+    onMoveComponent: (id: string, target: { toIndex: number }) => void;
     onMoveImage: (params: {
       fromComponentId: string;
       imageId: string;
@@ -74,8 +70,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
     onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
     onCommitTitle: (title: string) => SetPlanTitleResult;
     onRenameComponent: (id: string, name: string) => RenameComponentResult;
-    onSetImageCrop: (componentId: string, imageId: string, crop: CropRect) => void;
-    onResetImageCrop: (componentId: string, imageId: string) => void;
+    onToggleDescription: (componentId: string) => void;
     imageImportProgress?: {
       componentId: string;
       progress: { completed: number; total: number; failed: number };
@@ -110,8 +105,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
       onResize,
       onCommitTitle,
       onRenameComponent: handleRenameComponent,
-      onSetImageCrop,
-      onResetImageCrop,
+      onToggleDescription,
       onCaptureImage,
       onCancelCapture,
     };
@@ -149,9 +143,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
         <button
           onClick={() =>
             onMoveComponent("plan-1", {
-              kind: "new-row",
-              rowId: "row:moved-plan",
-              toRowIndex: 1,
+                toIndex: 1,
             })
           }
           type="button"
@@ -161,9 +153,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
         <button
           onClick={() =>
             onMoveComponent("plan-1", {
-              kind: "row",
-              rowId: "row:plan-1",
-              toIndex: 0,
+                toIndex: 0,
             })
           }
           type="button"
@@ -206,7 +196,7 @@ let latestPlanCanvasProps:
       ) => void;
       onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
       onChangeHtml: (id: string, html: string) => void;
-      onMoveComponent: (id: string, target: ComponentMoveTarget) => void;
+      onMoveComponent: (id: string, target: { toIndex: number }) => void;
       onMoveImage: (params: {
         fromComponentId: string;
         imageId: string;
@@ -222,8 +212,7 @@ let latestPlanCanvasProps:
       title: string;
       onCommitTitle: (title: string) => SetPlanTitleResult;
       onRenameComponent: (id: string, name: string) => RenameComponentResult;
-      onSetImageCrop: (componentId: string, imageId: string, crop: CropRect) => void;
-      onResetImageCrop: (componentId: string, imageId: string) => void;
+      onToggleDescription: (componentId: string) => void;
       onCaptureImage?: (componentId: string) => void;
       onCancelCapture?: () => void;
     }
@@ -255,7 +244,9 @@ function deps(): {
         width: 1,
         name: "Lookbook",
         description: "Warm mood",
-        showCaptions: false, imageHeight: 180, images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
+        showDescription: true,
+        imageHeight: 180,
+        images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
       },
     ],
   };
@@ -280,8 +271,7 @@ function deps(): {
             width: 1,
             name: "Lookbook",
             description: "Warm mood",
-            showCaptions: false,
-            imageHeight: 180,
+imageHeight: 180,
             images: [
               { id: "i1", file: "references/0001.png", aspectRatio: 1 },
               { id: "i2", file: "references/0002.png", aspectRatio: 1 },
@@ -401,8 +391,7 @@ describe("ProjectCanvasProvider", () => {
             width: 1,
             name: "Lookbook",
             description: "",
-            showCaptions: false,
-            imageHeight: 180,
+imageHeight: 180,
             images: [
               {
                 id: "i1",
@@ -518,9 +507,9 @@ describe("ProjectCanvasProvider", () => {
     }
     expect(seeded.title).toBe("Demo");
     expect(seeded.components.map((component) => component.name)).toEqual(["文案1", "图片组1"]);
-    expect(new Set(seeded.components.map((component) => component.rowId)).size).toBe(2);
     expect(seeded.components.find((component) => component.type === "reference")).toMatchObject({
-      showCaptions: true,
+      description: "参考图说明",
+      showDescription: true,
     });
     
     // The first component should be a plan component with the template
@@ -870,8 +859,7 @@ describe("ProjectCanvasProvider", () => {
           width: 1,
           name: "Old reference",
           description: "",
-          showCaptions: false,
-          imageHeight: 135,
+imageHeight: 135,
           images: [
             {
               id: "old-image",
@@ -1142,8 +1130,7 @@ describe("ProjectCanvasProvider", () => {
     );
     expect(reference).toMatchObject({
       name: "图片组1",
-      showCaptions: true,
-      imageHeight: 135,
+imageHeight: 135,
       images: [],
     });
     expect(reference?.rowId).not.toBe(
@@ -1151,7 +1138,7 @@ describe("ProjectCanvasProvider", () => {
     );
   });
 
-  it("wires title, component-name, and crop callbacks through provider history", async () => {
+  it("wires title, component-name, and description-visibility callbacks through provider history", async () => {
     const { dependencies, loadPlan } = deps();
     loadPlan.mockResolvedValue({
       status: "loaded",
@@ -1174,7 +1161,7 @@ describe("ProjectCanvasProvider", () => {
             type: "reference",
             width: 1,
             description: "",
-            showCaptions: true,
+            showDescription: true,
             imageHeight: 135,
             images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
           },
@@ -1211,16 +1198,11 @@ describe("ProjectCanvasProvider", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("组件名称不能重复");
 
     act(() => {
-      canvas.onSetImageCrop("ref-1", "i1", {
-        x: 0.25,
-        y: 0,
-        width: 0.5,
-        height: 1,
-      });
+      canvas.onToggleDescription("ref-1");
     });
     expect(screen.getByTestId("save-status")).toHaveTextContent("有未保存的更改");
     expect(latestPlanCanvasProps?.components.find((component) => component.id === "ref-1")).toMatchObject({
-      images: [{ id: "i1", crop: { x: 0.25, y: 0, width: 0.5, height: 1 } }],
+      showDescription: false,
     });
   });
 
@@ -1251,7 +1233,7 @@ describe("ProjectCanvasProvider", () => {
     expect(planCanvasRenderCount).toBe(rendersBeforeCommit);
   });
 
-  it("undoes only the latest completed crop drag", async () => {
+  it("undoes a description visibility change", async () => {
     const { dependencies } = deps();
 
     renderWithTheme(
@@ -1269,23 +1251,21 @@ describe("ProjectCanvasProvider", () => {
       throw new Error("Expected PlanCanvas callbacks after the plan loads.");
     }
 
-    const firstCrop: CropRect = { x: 0.1, y: 0, width: 0.8, height: 1 };
-    const secondCrop: CropRect = { x: 0.2, y: 0, width: 0.6, height: 1 };
     act(() => {
-      canvas.onSetImageCrop("ref-1", "i1", firstCrop);
-      canvas.onSetImageCrop("ref-1", "i1", secondCrop);
+      canvas.onToggleDescription("ref-1");
     });
 
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
 
-    const reference = latestPlanCanvasProps?.components.find(
-      (component): component is ReferenceComponent =>
-        component.id === "ref-1" && component.type === "reference",
-    );
-    expect(reference?.images.find((image) => image.id === "i1")?.crop).toEqual(firstCrop);
+    expect(
+      latestPlanCanvasProps?.components.find(
+        (component): component is ReferenceComponent =>
+          component.id === "ref-1" && component.type === "reference",
+      )?.showDescription,
+    ).toBe(true);
   });
 
-  it("keeps hydrated aspect ratios when undoing a crop", async () => {
+  it("keeps hydrated aspect ratios after an unrelated undo", async () => {
     const { dependencies, service } = deps();
     const imageDecode = installDeferredImageDecode(300, 100);
     vi.mocked(service.loadImage).mockResolvedValue("data:image/png;base64,delayed");
@@ -1306,9 +1286,6 @@ describe("ProjectCanvasProvider", () => {
       throw new Error("Expected PlanCanvas callbacks after the plan loads.");
     }
 
-    act(() => {
-      canvas.onSetImageCrop("ref-1", "i1", { x: 0.25, y: 0, width: 0.5, height: 1 });
-    });
     await act(async () => {
       imageDecode.resolve();
     });
@@ -1328,7 +1305,6 @@ describe("ProjectCanvasProvider", () => {
     );
     const image = reference?.images.find((candidate) => candidate.id === "i1");
     expect(image?.aspectRatio).toBe(3);
-    expect(image).not.toHaveProperty("crop");
   });
 
   it("rebases a deferred image import onto concurrent v5 metadata and saves the merged plan", async () => {
@@ -1363,13 +1339,8 @@ describe("ProjectCanvasProvider", () => {
     act(() => {
       canvas.onCommitTitle("Concurrent title");
       canvas.onRenameComponent("ref-1", "Concurrent reference");
-      canvas.onMoveComponent("ref-1", {
-        kind: "new-row",
-        rowId: "row:concurrent",
-        toRowIndex: 0,
-      });
+      canvas.onMoveComponent("ref-1", { toIndex: 0 });
       canvas.onResize("ref-1", { width: 0.5 });
-      canvas.onSetImageCrop("ref-1", "i1", { x: 0.25, y: 0, width: 0.5, height: 1 });
     });
 
     await act(async () => {
@@ -1401,13 +1372,9 @@ describe("ProjectCanvasProvider", () => {
       expect(latestPlanCanvasProps?.title).toBe("Concurrent title");
       expect(reference).toMatchObject({
         name: "Concurrent reference",
-        rowId: "row:concurrent",
         width: 0.5,
         images: [
-          {
-            id: "i1",
-            crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
-          },
+          { id: "i1" },
           { id: "i2", file: "references/0002.png" },
         ],
       });
@@ -1417,7 +1384,6 @@ describe("ProjectCanvasProvider", () => {
     expect(savedPlan.title).toBe("Concurrent title");
     expect(savedPlan.components.find((component) => component.id === "ref-1")).toMatchObject({
       name: "Concurrent reference",
-      rowId: "row:concurrent",
       width: 0.5,
     });
     expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
@@ -1438,8 +1404,7 @@ describe("ProjectCanvasProvider", () => {
             width: 1,
             name: "Reference",
             description: "",
-            showCaptions: false,
-            imageHeight: 180,
+imageHeight: 180,
             images: [],
           },
         ],
@@ -1718,8 +1683,7 @@ describe("ProjectCanvasProvider", () => {
           width: 1,
           name: "Reference",
           description: "",
-          showCaptions: false,
-          imageHeight: 180,
+imageHeight: 180,
           images: [],
         },
       ],
@@ -1878,8 +1842,7 @@ describe("ProjectCanvasProvider", () => {
             width: 1,
             name: "Reference",
             description: "",
-            showCaptions: false,
-            imageHeight: 180,
+imageHeight: 180,
             images: [],
           },
         ],
@@ -2049,8 +2012,7 @@ describe("ProjectCanvasProvider", () => {
             width: 1,
             name: "Reference",
             description: "",
-            showCaptions: false,
-            imageHeight: 180,
+imageHeight: 180,
             images: [],
           },
         ],
@@ -2433,11 +2395,7 @@ describe("ProjectCanvasProvider", () => {
     act(() => {
       canvas.onCommitTitle("Concurrent title");
       canvas.onRenameComponent("ref-1", "Concurrent reference");
-      canvas.onMoveComponent("ref-1", {
-        kind: "new-row",
-        rowId: "row:concurrent",
-        toRowIndex: 0,
-      });
+      canvas.onMoveComponent("ref-1", { toIndex: 0 });
       canvas.onResize("ref-1", { width: 0.5 });
     });
 
@@ -2460,7 +2418,6 @@ describe("ProjectCanvasProvider", () => {
       expect(latestPlanCanvasProps?.title).toBe("Concurrent title");
       expect(reference).toMatchObject({
         name: "Concurrent reference",
-        rowId: "row:concurrent",
         width: 0.5,
         images: [],
       });
@@ -2470,7 +2427,6 @@ describe("ProjectCanvasProvider", () => {
     expect(savedPlan.title).toBe("Concurrent title");
     expect(savedPlan.components.find((component) => component.id === "ref-1")).toMatchObject({
       name: "Concurrent reference",
-      rowId: "row:concurrent",
       width: 0.5,
       images: [],
     });
@@ -2494,8 +2450,7 @@ describe("ProjectCanvasProvider", () => {
             width: 1,
             name: "A",
             description: "",
-            showCaptions: true,
-            imageHeight: 135,
+imageHeight: 135,
             images: [{ id: "i1", file: "references/shared.png", aspectRatio: 1 }],
           },
           {
@@ -2505,8 +2460,7 @@ describe("ProjectCanvasProvider", () => {
             width: 1,
             name: "B",
             description: "",
-            showCaptions: true,
-            imageHeight: 135,
+imageHeight: 135,
             images: [],
           },
         ],
@@ -2597,11 +2551,7 @@ describe("ProjectCanvasProvider", () => {
     act(() => {
       canvas.onCommitTitle("Concurrent title");
       canvas.onRenameComponent("plan-1", "Concurrent plan");
-      canvas.onMoveComponent("plan-1", {
-        kind: "new-row",
-        rowId: "row:concurrent",
-        toRowIndex: 1,
-      });
+      canvas.onMoveComponent("plan-1", { toIndex: 1 });
       canvas.onResize("plan-1", { width: 0.5 });
     });
 
@@ -2619,7 +2569,6 @@ describe("ProjectCanvasProvider", () => {
       expect(latestPlanCanvasProps?.title).toBe("Concurrent title");
       expect(planComponent).toMatchObject({
         name: "Concurrent plan",
-        rowId: "row:concurrent",
         width: 0.5,
       });
       expect(latestPlanCanvasProps?.components.find((component) => component.id === "ref-1")).toBeUndefined();
@@ -2631,7 +2580,6 @@ describe("ProjectCanvasProvider", () => {
         expect.objectContaining({
           id: "plan-1",
           name: "Concurrent plan",
-          rowId: "row:concurrent",
           width: 0.5,
         }),
       ],
@@ -2662,8 +2610,7 @@ describe("ProjectCanvasProvider", () => {
             type: "reference",
             width: 0.4,
             description: "",
-            showCaptions: true,
-            imageHeight: 135,
+imageHeight: 135,
             images: [],
           },
         ],
@@ -2700,7 +2647,7 @@ describe("ProjectCanvasProvider", () => {
     expect(screen.getByTestId("component-order")).toHaveTextContent("plan-1,ref-1");
   });
 
-  it("caps a resize to its current row capacity without changing its row id", async () => {
+  it("keeps the requested resize width for automatic component packing", async () => {
     const { dependencies, loadPlan } = deps();
     loadPlan.mockResolvedValue({
       status: "loaded",
@@ -2723,8 +2670,7 @@ describe("ProjectCanvasProvider", () => {
             type: "reference",
             width: 0.4,
             description: "",
-            showCaptions: true,
-            imageHeight: 135,
+imageHeight: 135,
             images: [],
           },
         ],
@@ -2751,10 +2697,7 @@ describe("ProjectCanvasProvider", () => {
     });
 
     const resized = latestPlanCanvasProps?.components.find((component) => component.id === "plan-1");
-    expect(resized?.rowId).toBe("row:shared");
-    expect(resized?.width).toBeCloseTo(
-      1 - 0.4 - SPACING / contentSize(DEFAULT_PAGE_GEOMETRY).width,
-    );
+    expect(resized?.width).toBe(0.9);
   });
 
   it("auto-saves changed plan state every 5 seconds and reflects the save status", async () => {
@@ -2816,8 +2759,7 @@ describe("ProjectCanvasProvider", () => {
           width: 1,
           name: "A",
           description: "",
-          showCaptions: false,
-          imageHeight: 180,
+imageHeight: 180,
           images: [
             { id: "i1", file: "references/shared.png", aspectRatio: 1 },
           ],
@@ -2829,8 +2771,7 @@ describe("ProjectCanvasProvider", () => {
           width: 1,
           name: "B",
           description: "",
-          showCaptions: false,
-          imageHeight: 180,
+imageHeight: 180,
           images: [
             { id: "i2", file: "references/shared.png", aspectRatio: 1 },
           ],
@@ -2894,8 +2835,7 @@ describe("ProjectCanvasProvider", () => {
           width: 1,
           name: "Lookbook",
           description: "",
-          showCaptions: false,
-          imageHeight: 180,
+imageHeight: 180,
           images: [
             { id: "i1", file: "references/0001.png", aspectRatio: 1 },
           ],

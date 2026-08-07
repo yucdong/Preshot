@@ -43,7 +43,6 @@ const SEEDED_V6_PLAN: CanvasPlan = {
       description: "",
       showDescription: true,
       imageHeight: 135,
-      showCaptions: false,
       images: [
         { id: "img-1", file: "references/0001.png", aspectRatio: 8 / 5 },
         { id: "img-2", file: "references/0002.png", aspectRatio: 2 / 3 },

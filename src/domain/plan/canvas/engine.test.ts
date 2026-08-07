@@ -12,7 +12,7 @@ import {
   type PlanComponent,
   type ReferenceComponent,
 } from "./models";
-import { COMPONENT_INSET, REFERENCE_DESCRIPTION_GAP } from "./referenceLayout";
+import { COMPONENT_INSET, IMAGE_GAP, REFERENCE_DESCRIPTION_GAP } from "./referenceLayout";
 
 const content = contentSize(DEFAULT_PAGE_GEOMETRY);
 
@@ -160,7 +160,7 @@ function reference(overrides: Partial<ReferenceComponent> = {}): ReferenceCompon
     name: "T",
     description: "",
     showDescription: true,
-    showCaptions: false, imageHeight: 180, images: [
+imageHeight: 180, images: [
       { id: "i1", file: "references/0001.png", aspectRatio: 1 },
       { id: "i2", file: "references/0002.png", aspectRatio: 1 },
       { id: "i3", file: "references/0003.png", aspectRatio: 1 },
@@ -190,41 +190,37 @@ describe("reference image slots", () => {
     expect(slots).toHaveLength(4);
     // All images start at or below the title band
     expect(slots[0].y).toBeGreaterThanOrEqual(TITLE_BAND);
-    // First two images fit on the first row (packed by aspect ratio)
-    // innerWidth = 300 - 24 = 276; each image is 80x80, so 80+24+80 = 184 < 276 (2 fit)
+    // The first three images fit on the first row.
     expect(slots[0].y).toBe(slots[1].y);
     expect(slots[1].x).toBeGreaterThan(slots[0].x);
     // When aspect ratio defaults to 1.0 and captions off, images are square
     expect(slots[0].width).toBeCloseTo(slots[0].height, 5);
-    // Third and fourth images wrap to subsequent rows
-    expect(slots[2].y).toBeGreaterThan(slots[0].y);
+    expect(slots[2].y).toBe(slots[0].y);
     expect(slots[3].y).toBeGreaterThan(slots[0].y);
   });
 
-  it("adds a caption band to each tile when captions are on", () => {
+  it("adds a caption band only to images with captions", () => {
     const rect = { x: 0, y: 0, width: 300, height: 400 };
-    const slots = referenceImageSlots(rect, reference({ showCaptions: true }));
-    const { image, caption } = slotCaptionSplit(slots[0], true);
+    const slots = referenceImageSlots(rect, reference({
+      images: [{ id: "captioned", file: "captioned.png", aspectRatio: 1, caption: "Palette" }],
+    }));
+    const { image, caption } = slotCaptionSplit(slots[0], slots[0].captionHeight);
     expect(caption.height).toBeCloseTo(slots[0].height - image.height, 5);
     expect(caption.height).toBeGreaterThan(0);
     expect(image.width).toBe(slots[0].width);
     expect(caption.y).toBeCloseTo(image.y + image.height, 5);
   });
 
-  it("returns the whole slot as the image when captions are off", () => {
+  it("returns the whole slot as the image when an image has no caption", () => {
     const slot = { x: 1, y: 2, width: 10, height: 10 };
-    expect(slotCaptionSplit(slot, false)).toEqual({ image: slot, caption: { x: 1, y: 12, width: 10, height: 0 } });
+    expect(slotCaptionSplit(slot, 0)).toEqual({ image: slot, caption: { x: 1, y: 12, width: 10, height: 0 } });
   });
 
-  it("splits a square slot so the image portion is larger and ~square when captions are on", () => {
-    // For a tile with slotSize width, when captions are on, referenceImageSlots makes
-    // the tile height = round(slotSize*4/3), then slotCaptionSplit gives caption ~1/4
-    // of that tile height, so the image portion gets ~3/4 and stays ~square.
+  it("splits a captioned slot into image and caption regions", () => {
     const slotSize = 120;
-    const tileHeight = Math.round((slotSize * 4) / 3); // 160
+    const tileHeight = 160;
     const slot = { x: 0, y: 0, width: slotSize, height: tileHeight };
-    const { image, caption } = slotCaptionSplit(slot, true);
-    // Caption reserves ~1/4 of the tile height; image gets the rest
+    const { image, caption } = slotCaptionSplit(slot, 40);
     expect(caption.height).toBeGreaterThan(0);
     expect(image.height).toBeGreaterThan(caption.height); // image is the dominant band
     expect(image.height + caption.height).toBe(slot.height); // bands fill the slot
@@ -232,8 +228,6 @@ describe("reference image slots", () => {
     expect(caption.y).toBe(image.y + image.height);
     expect(caption.x).toBe(image.x);
     expect(caption.width).toBe(image.width);
-    // With tile height = slotSize*4/3 and caption = round(height/4),
-    // image height should be ~slotSize (stays ~square with width)
     expect(Math.abs(image.width - image.height)).toBeLessThanOrEqual(1);
   });
 
@@ -266,6 +260,20 @@ describe("reference image slots", () => {
     );
   });
 
+  it("does not reserve a hidden reference description", () => {
+    const withoutDescription = layoutPlan([reference({ description: "" })]).placements[0];
+    const hiddenDescription = layoutPlan(
+      [reference({ description: "<p>Details</p>", showDescription: false })],
+      DEFAULT_PAGE_GEOMETRY,
+      {
+        planHeights: new Map(),
+        referenceDescriptionHeights: new Map([["ref", 40]]),
+      },
+    ).placements[0];
+
+    expect(hiddenDescription.rect.height).toBe(withoutDescription.rect.height);
+  });
+
   it("fits all slots inside the gutter-inset content box (no horizontal overflow)", () => {
     const rect = { x: 0, y: 0, width: 300, height: 300 };
     const slots = referenceImageSlots(rect, reference());
@@ -279,8 +287,8 @@ describe("reference image slots", () => {
     // Create a scenario where images wrap: 3 square images, imageHeight 100,
     // rect narrow enough that only 2 fit per row
     const ih = 100;
-    const slotHeight = Math.round((ih * 4) / 3); // 133 when captions are on
-    const gutter = DEFAULT_PAGE_GEOMETRY.gutter; // 24
+    const slotHeight = 114.8; // 100pt image plus one normal caption line
+    const gutter = IMAGE_GAP;
     // Width calculation: need 2 images per row, so width > 2*(ih + gutter) but < 3*ih
     // innerWidth = width - gutter; for 2 per row: innerWidth ~= 2*ih + gutter
     const rect = { x: 0, y: 0, width: 250, height: 500 };
@@ -294,12 +302,11 @@ describe("reference image slots", () => {
       name: "Test",
       description: "",
       showDescription: true,
-      showCaptions: true,
-      imageHeight: ih,
+imageHeight: ih,
       images: [
         { id: "i1", file: "1.png", aspectRatio: 1 },
-        { id: "i2", file: "2.png", aspectRatio: 1 },
-        { id: "i3", file: "3.png", aspectRatio: 1 },
+        { id: "i2", file: "2.png", aspectRatio: 1, caption: "Palette" },
+        { id: "i3", file: "3.png", aspectRatio: 1, caption: "Palette" },
       ],
     };
     
@@ -310,7 +317,6 @@ describe("reference image slots", () => {
     expect(slots[0].y).toBe(top);
     expect(slots[1].y).toBe(top);
     
-    // Second row: slot 2 should be spaced by slotHeight + gutter (not ih + gutter)
     const expectedSecondRowY = top + slotHeight + gutter;
     expect(slots[2].y).toBe(expectedSecondRowY);
     
@@ -318,10 +324,9 @@ describe("reference image slots", () => {
     const firstRowBottom = slots[0].y + slots[0].height;
     expect(firstRowBottom).toBeLessThanOrEqual(slots[2].y);
     
-    // All slots should have the full slot height
-    expect(slots[0].height).toBe(slotHeight);
-    expect(slots[1].height).toBe(slotHeight);
-    expect(slots[2].height).toBe(slotHeight);
+    expect(slots[0].height).toBe(ih);
+    expect(slots[1].height).toBeCloseTo(slotHeight, 5);
+    expect(slots[2].height).toBeCloseTo(slotHeight, 5);
   });
 
   it("emits multiple fragments for a reference group whose rows cross pages", () => {
@@ -480,24 +485,21 @@ describe("aspect-ratio reference image slots", () => {
     expect(slots[1].x).toBeGreaterThan(slots[0].x + slots[0].width);
   });
 
-  it("adds caption band per image when showCaptions is true", () => {
+  it("adds a caption band to the individual image with a caption", () => {
     const rect = { x: 0, y: 0, width: 400, height: 400 };
     const comp = reference({
       imageHeight: 100,
-      showCaptions: true,
-      images: [
+images: [
         { id: "i1", file: "photo.png", aspectRatio: 1.5, caption: "Test" },
       ],
     });
     const slots = referenceImageSlots(rect, comp);
     expect(slots).toHaveLength(1);
-    // Slot height should be round(imageHeight * 4/3) so slotCaptionSplit gives imageHeight
-    const expectedSlotHeight = Math.round(100 * 4 / 3); // 133
-    expect(slots[0].height).toBe(expectedSlotHeight);
-    // slotCaptionSplit should split correctly: image gets imageHeight
-    const { image, caption } = slotCaptionSplit(slots[0], true);
+    const expectedSlotHeight = 114.8;
+    expect(slots[0].height).toBeCloseTo(expectedSlotHeight, 5);
+    const { image, caption } = slotCaptionSplit(slots[0], slots[0].captionHeight);
     expect(image.height).toBe(100);
-    expect(caption.height).toBe(expectedSlotHeight - 100); // 33
+    expect(caption.height).toBeCloseTo(expectedSlotHeight - 100, 5);
     expect(caption.y).toBe(image.y + image.height);
   });
 

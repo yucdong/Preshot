@@ -36,7 +36,7 @@ const refPlan: ProjectPlan = {
       name: "T",
       description: "",
       showDescription: true,
-      showCaptions: false, imageHeight: 180, images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
+imageHeight: 180, images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
     },
   ],
 };
@@ -109,8 +109,7 @@ describe("canvas plan service", () => {
           description: "",
           showDescription: true,
           imageHeight: 180,
-          showCaptions: false,
-          images: [
+images: [
             { id: "duplicate", file: "references/a.png", aspectRatio: 1 },
           ],
         },
@@ -123,8 +122,7 @@ describe("canvas plan service", () => {
           description: "",
           showDescription: true,
           imageHeight: 180,
-          showCaptions: false,
-          images: [
+images: [
             { id: "duplicate", file: "references/b.png", aspectRatio: 1 },
           ],
         },
@@ -181,8 +179,7 @@ describe("canvas plan service", () => {
           name: "T",
           description: "",
           showDescription: true,
-          showCaptions: false,
-          imageHeight: 180,
+imageHeight: 180,
           images: [
             { id: "i1", file: "references/shared.png", aspectRatio: 1 },
             { id: "i2", file: "references/shared.png", aspectRatio: 1 },
@@ -219,8 +216,7 @@ describe("canvas plan service", () => {
           name: "A",
           description: "",
           showDescription: true,
-          showCaptions: false,
-          imageHeight: 180,
+imageHeight: 180,
           images: [
             { id: "i1", file: "references/shared.png", aspectRatio: 1 },
           ],
@@ -233,8 +229,7 @@ describe("canvas plan service", () => {
           name: "B",
           description: "",
           showDescription: true,
-          showCaptions: false,
-          imageHeight: 180,
+imageHeight: 180,
           images: [
             { id: "i2", file: "references/shared.png", aspectRatio: 1 },
           ],
@@ -268,8 +263,7 @@ describe("canvas plan service", () => {
           name: "A",
           description: "",
           showDescription: true,
-          showCaptions: false,
-          imageHeight: 180,
+imageHeight: 180,
           images: [
             { id: "i1", file: "references/shared.png", aspectRatio: 1 },
             { id: "i2", file: "references/shared.png", aspectRatio: 1 },

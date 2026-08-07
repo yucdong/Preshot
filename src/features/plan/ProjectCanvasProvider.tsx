@@ -26,7 +26,7 @@ import {
   resizeComponent,
   updatePlanHtml,
   setReferenceDescription,
-  toggleReferenceCaptions,
+  toggleReferenceDescription,
   setImageCaption,
   setImageAspectRatioForFile,
   setImageHeight,
@@ -733,9 +733,8 @@ export function ProjectCanvasProvider({
             type: "reference" as const,
             width: 1,
             contentScale: 1,
-            description: "",
+            description: t("reference.defaultDescription"),
             showDescription: true,
-            showCaptions: true,
             imageHeight: DEFAULT_IMAGE_HEIGHT,
             images: [],
           };
@@ -942,9 +941,8 @@ export function ProjectCanvasProvider({
           type: "reference" as const,
           width: 1,
           contentScale: 1,
-          description: "",
+          description: t("reference.defaultDescription"),
           showDescription: true,
-          showCaptions: true,
           imageHeight: DEFAULT_IMAGE_HEIGHT,
           images: [],
         };
@@ -1074,10 +1072,10 @@ export function ProjectCanvasProvider({
     [mutate, projectPath, readyTokenFor],
   );
 
-  const handleToggleCaptions = useCallback(
+  const handleToggleDescription = useCallback(
     (id: string) => {
       if (!readyTokenFor(projectPath)) return;
-      const next = toggleReferenceCaptions(planRef.current, id);
+      const next = toggleReferenceDescription(planRef.current, id);
       mutate(next);
     },
     [mutate, projectPath, readyTokenFor],
@@ -1570,7 +1568,7 @@ export function ProjectCanvasProvider({
             onResize={handleResize}
             onCommitTitle={handleSetTitle}
             onSetDescription={handleSetDescription}
-            onToggleCaptions={handleToggleCaptions}
+            onToggleDescription={handleToggleDescription}
             onSetImageCaption={handleSetImageCaption}
             onSetImageHeight={handleSetImageHeight}
             onAddImages={handleAddImages}

@@ -19,7 +19,7 @@ function createReferenceComponent(id: string, imageIds: string[]): ReferenceComp
     width: 1,
     contentScale: 1,
     showDescription: true,
-    showCaptions: false, imageHeight: 180, images: imageIds.map((imageId) => ({ id: imageId, file: `${imageId}.jpg`, aspectRatio: 1 })),
+imageHeight: 180, images: imageIds.map((imageId) => ({ id: imageId, file: `${imageId}.jpg`, aspectRatio: 1 })),
   };
 }
 

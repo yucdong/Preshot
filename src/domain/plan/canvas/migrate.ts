@@ -313,7 +313,6 @@ function v6FromLegacy(components: LegacyComponent[], context: PlanMigrationConte
           contentScale: DEFAULT_CONTENT_SCALE,
           description: component.description,
           showDescription: true,
-          showCaptions: component.showCaptions,
           imageHeight: component.imageHeight,
           images: component.images,
         };
@@ -441,11 +440,14 @@ function v6FromV5(components: V5Component[], title: string): ProjectPlan {
             ...component,
             contentScale: DEFAULT_CONTENT_SCALE,
           }
-        : {
-            ...component,
-            contentScale: DEFAULT_CONTENT_SCALE,
-            showDescription: true,
-          },
+        : (() => {
+            const { showCaptions: _showCaptions, ...reference } = component;
+            return {
+              ...reference,
+              contentScale: DEFAULT_CONTENT_SCALE,
+              showDescription: true,
+            };
+          })(),
     ),
   };
 }
@@ -534,7 +536,6 @@ function v6Component(raw: unknown, componentIndex: number): PlanComponent {
         "contentScale",
         "description",
         "showDescription",
-        "showCaptions",
         "imageHeight",
         "images",
       ],
@@ -543,7 +544,6 @@ function v6Component(raw: unknown, componentIndex: number): PlanComponent {
     if (
       typeof raw.description !== "string" ||
       typeof raw.showDescription !== "boolean" ||
-      typeof raw.showCaptions !== "boolean" ||
       typeof raw.imageHeight !== "number" ||
       !Number.isFinite(raw.imageHeight) ||
       raw.imageHeight < MIN_IMAGE_HEIGHT ||
@@ -560,7 +560,6 @@ function v6Component(raw: unknown, componentIndex: number): PlanComponent {
       contentScale: raw.contentScale,
       description: raw.description,
       showDescription: raw.showDescription,
-      showCaptions: raw.showCaptions,
       imageHeight: raw.imageHeight,
       images: raw.images.map((image, imageIndex) => v6Image(image, componentIndex, imageIndex)),
     };

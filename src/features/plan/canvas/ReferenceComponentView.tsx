@@ -63,7 +63,7 @@ interface ReferenceComponentViewProps {
   onOpenImage: (file: string) => void;
   onSelectImage?: (imageId: string, toggle: boolean) => void;
   selectedImageIds?: ReadonlySet<string>;
-  onToggleCaptions?: (id: string) => void;
+  onToggleDescription?: (id: string) => void;
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
   enableReorder?: boolean;
   onSetImageHeight?: (id: string, height: number) => void;
@@ -93,7 +93,7 @@ export function ReferenceComponentView({
   onOpenImage,
   onSelectImage = () => undefined,
   selectedImageIds = new Set<string>(),
-  onToggleCaptions,
+  onToggleDescription,
   onSetImageCaption,
   enableReorder = false,
   onSetImageHeight,
@@ -114,7 +114,6 @@ export function ReferenceComponentView({
   captureStatus,
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
-  const [showDescription, setShowDescription] = useState(false);
   const [descriptionHeightPoints, setDescriptionHeightPoints] = useState(0);
   const isContinuation = fragmentKind === "continuation";
   const isEditableFragment = !isContinuation;
@@ -253,7 +252,7 @@ export function ReferenceComponentView({
               marginTop: `${REFERENCE_HEADER_GAP * scale}px`,
             }}
           >
-            {onToggleCaptions ? (
+            {onToggleDescription ? (
               <label
                 className="flex items-center text-stone-600 dark:text-stone-300"
                 style={{
@@ -263,13 +262,13 @@ export function ReferenceComponentView({
                 }}
               >
                 <input
-                  checked={component.showCaptions}
+                  checked={!component.showDescription}
                   className="rounded"
-                  onChange={() => onToggleCaptions(component.id)}
+                  onChange={() => onToggleDescription(component.id)}
                   style={{ height: `${14 * scale}px`, width: `${14 * scale}px` }}
                   type="checkbox"
                 />
-                {t("reference.captions")}
+                {t("reference.hideDescription")}
               </label>
             ) : <span />}
 
@@ -311,22 +310,9 @@ export function ReferenceComponentView({
               </div>
             ) : null}
 
-            {!component.description.trim() && !showDescription ? (
-              <button
-                className="w-fit text-amber-600 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 dark:text-amber-400 dark:hover:text-amber-300"
-                onClick={() => setShowDescription(true)}
-                style={{
-                  fontSize: `${14 * scale}px`,
-                  lineHeight: `${REFERENCE_CONTROL_ROW_HEIGHT * scale}px`,
-                }}
-                type="button"
-              >
-                {t("reference.addDescription")}
-              </button>
-            ) : null}
           </div>
 
-          {component.description.trim() || showDescription ? (
+          {component.showDescription ? (
             <div style={{ marginBottom: `${REFERENCE_DESCRIPTION_GAP * scale}px` }}>
               <RichTextEditor
                 ariaLabel={t("reference.descriptionAria")}
@@ -355,8 +341,11 @@ export function ReferenceComponentView({
           placeholderIndex={placeholderIndex}
           placeholderSlot={placeholderSlot}
           onRemoveImage={onRemoveImage}
-          showCaptions={component.showCaptions}
-          onSetCaption={onSetImageCaption ? (imageId, caption) => onSetImageCaption(component.id, imageId, caption) : undefined}
+          onSetCaption={
+            isEditableFragment && onSetImageCaption
+              ? (imageId, caption) => onSetImageCaption(component.id, imageId, caption)
+              : undefined
+          }
           slots={slots}
           scale={scale}
         />

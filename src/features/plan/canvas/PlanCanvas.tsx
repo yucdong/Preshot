@@ -74,7 +74,7 @@ export interface PlanCanvasProps {
   onMoveImage?: (params: MoveImageParams) => void;
   onMoveImages?: (params: MoveImagesParams) => void;
   onResize?: (id: string, params: { width: number }) => void;
-  onToggleCaptions?: (id: string) => void;
+  onToggleDescription?: (id: string) => void;
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
   onSetImageHeight?: (id: string, height: number) => void;
   onAddImages?: (id: string) => void;
@@ -206,7 +206,7 @@ export function PlanCanvas({
   onMoveImage,
   onMoveImages,
   onResize,
-  onToggleCaptions,
+  onToggleDescription,
   onSetImageCaption,
   onSetImageHeight,
   onAddImages,
@@ -587,7 +587,7 @@ export function PlanCanvas({
                       selectedImageIds={selectedImageIds}
                       onRemoveImage={onRemoveImage}
                       onSetDescription={onSetDescription}
-                      onToggleCaptions={onToggleCaptions}
+                      onToggleDescription={onToggleDescription}
                       onSetImageCaption={onSetImageCaption}
                       onSetImageHeight={onSetImageHeight}
                       onAddImages={onAddImages}

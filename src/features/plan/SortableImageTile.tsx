@@ -25,7 +25,6 @@ interface SortableImageTileProps {
   componentId: string;
   selected?: boolean;
   draggable?: boolean;
-  showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
   slot: ReferenceFlowSlot;
   scale: number;
@@ -42,7 +41,6 @@ export function SortableImageTile({
   componentId, 
   selected = false,
   draggable = true, 
-  showCaptions = false, 
   onSetCaption,
   slot,
   scale,
@@ -57,7 +55,9 @@ export function SortableImageTile({
     transition: prefersReducedMotion ? undefined : SORTABLE_LAYOUT_TRANSITION,
   });
   const imageHeight = slot.imageHeight * scale;
-  const captionHeight = showCaptions ? slot.captionHeight * scale : 0;
+  const captionVisible = Boolean(image.caption?.trim());
+  const captionHeight = slot.captionHeight * scale;
+  const captionEditorHeight = captionVisible ? captionHeight : 24 * scale;
   const placeholderVisible = isPlaceholder || isDragging;
 
   // When draggable is false, don't apply transform or drag styles
@@ -140,24 +140,27 @@ export function SortableImageTile({
           ×
         </button>
       ) : null}
-      {showCaptions && (placeholderVisible ? (
+      {captionVisible && placeholderVisible ? (
         <div
           aria-hidden="true"
           className="absolute bottom-0 left-0 right-0 rounded border border-stone-300 bg-white dark:border-stone-700 dark:bg-stone-800"
-          style={{
-            height: `${captionHeight}px`,
-            opacity: 0,
-          }}
+          style={{ height: `${captionHeight}px`, opacity: 0 }}
         />
       ) : onSetCaption ? (
         <textarea
           aria-label={t("reference.captionAria", { index: index + 1 })}
-          className="absolute resize-none rounded border border-stone-300 bg-white px-2 py-1 text-xs focus:border-amber-500 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500"
+          className={`absolute resize-none rounded border border-stone-300 bg-white px-2 py-1 focus:border-amber-500 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500 ${
+            captionVisible
+              ? ""
+              : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 focus:pointer-events-auto focus:opacity-100"
+          }`}
           style={{
             bottom: 0,
             left: 0,
             right: 0,
-            height: `${captionHeight}px`,
+            fontSize: `${(slot.captionFontSize ?? 9) * scale}px`,
+            height: `${captionEditorHeight}px`,
+            lineHeight: `${(slot.captionLineHeight ?? 10.8) * scale}px`,
           }}
           onChange={(e) => onSetCaption(image.id, e.target.value)}
           onClick={(e) => e.stopPropagation()}
@@ -165,7 +168,18 @@ export function SortableImageTile({
           placeholder={t("content.captionPlaceholder")}
           value={image.caption ?? ""}
         />
-      ) : null)}
+      ) : captionVisible ? (
+        <div
+          className="absolute bottom-0 left-0 right-0 overflow-hidden rounded border border-stone-300 bg-white px-2 py-1 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+          style={{
+            fontSize: `${(slot.captionFontSize ?? 9) * scale}px`,
+            height: `${captionHeight}px`,
+            lineHeight: `${(slot.captionLineHeight ?? 10.8) * scale}px`,
+          }}
+        >
+          {image.caption}
+        </div>
+      ) : null}
     </div>
   );
 }

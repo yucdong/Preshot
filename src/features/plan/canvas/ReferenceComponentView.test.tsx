@@ -36,7 +36,7 @@ const mockComponent: ReferenceComponent = {
   name: "Test Reference",
   description: "",
   showDescription: true,
-  showCaptions: false, imageHeight: 180, images: [],
+imageHeight: 180, images: [],
 };
 
 const mockSlots: ReferenceFlowSlot[] = [
@@ -147,7 +147,7 @@ describe("ReferenceComponentView", () => {
     expect(screen.queryByText("Lookbook（续）")).toBeNull();
     expect(screen.queryByTestId("reference-continuation-title")).toBeNull();
     expect(screen.queryByLabelText("分组标题")).toBeNull();
-    expect(screen.queryByRole("checkbox", { name: "显示说明" })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "隐藏" })).toBeNull();
     expect(screen.queryByTestId("rich-text-editor")).toBeNull();
     expect(screen.queryByRole("button", { name: "添加描述" })).toBeNull();
   });
@@ -155,7 +155,7 @@ describe("ReferenceComponentView", () => {
   it.each([0.5, 1.75])(
     "renders first-fragment title and controls from shared point geometry at scale %s",
     (scale) => {
-      renderReference({ onToggleCaptions: vi.fn(), onSetImageHeight: vi.fn(), scale });
+      renderReference({ onToggleDescription: vi.fn(), onSetImageHeight: vi.fn(), scale });
 
       const content = screen.getByTestId("reference-component-content");
       const titleRow = screen.getByTestId("reference-title-row");
@@ -191,63 +191,48 @@ describe("ReferenceComponentView", () => {
     );
   });
 
-  it("renders a caption toggle checkbox with correct accessible name", () => {
-    const onToggleCaptions = vi.fn();
+  it("renders a checked-means-hidden description checkbox", () => {
+    const onToggleDescription = vi.fn();
 
-    renderReference({ onToggleCaptions });
+    renderReference({ onToggleDescription });
 
-    const checkbox = screen.getByRole("checkbox", { name: "显示说明" });
+    const checkbox = screen.getByRole("checkbox", { name: "隐藏" });
     expect(checkbox).toBeInTheDocument();
     expect(checkbox).not.toBeChecked();
   });
 
-  it("reflects showCaptions state in the checkbox", () => {
-    const onToggleCaptions = vi.fn();
+  it("reflects hidden descriptions in the checkbox", () => {
+    const onToggleDescription = vi.fn();
 
-    renderReference({ component: { ...mockComponent, showCaptions: true }, onToggleCaptions });
+    renderReference({ component: { ...mockComponent, showDescription: false }, onToggleDescription });
 
-    const checkbox = screen.getByRole("checkbox", { name: "显示说明" });
+    const checkbox = screen.getByRole("checkbox", { name: "隐藏" });
     expect(checkbox).toBeChecked();
   });
 
-  it("calls onToggleCaptions with component id when toggled", async () => {
-    const onToggleCaptions = vi.fn();
+  it("calls onToggleDescription with component id when toggled", async () => {
+    const onToggleDescription = vi.fn();
     const user = userEvent.setup();
 
-    renderReference({ onToggleCaptions });
+    renderReference({ onToggleDescription });
 
-    const checkbox = screen.getByRole("checkbox", { name: "显示说明" });
+    const checkbox = screen.getByRole("checkbox", { name: "隐藏" });
     await user.click(checkbox);
 
-    expect(onToggleCaptions).toHaveBeenCalledWith("ref-1");
-    expect(onToggleCaptions).toHaveBeenCalledTimes(1);
+    expect(onToggleDescription).toHaveBeenCalledWith("ref-1");
+    expect(onToggleDescription).toHaveBeenCalledTimes(1);
   });
 
-  it("renders 添加描述 button when description is empty and no editor", () => {
+  it("renders the editable description while it is visible, including when empty", () => {
     renderReference();
 
-    const button = screen.getByRole("button", { name: "添加描述" });
-    expect(button).toBeInTheDocument();
+    expect(screen.getByTestId("rich-text-editor")).toBeInTheDocument();
+  });
+
+  it("omits the editor when the description is hidden", () => {
+    renderReference({ component: { ...mockComponent, showDescription: false } });
+
     expect(screen.queryByTestId("rich-text-editor")).not.toBeInTheDocument();
-  });
-
-  it("reveals editor when 添加描述 button is clicked", async () => {
-    const user = userEvent.setup();
-
-    renderReference();
-
-    const button = screen.getByRole("button", { name: "添加描述" });
-    await user.click(button);
-
-    expect(screen.getByTestId("rich-text-editor")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "添加描述" })).not.toBeInTheDocument();
-  });
-
-  it("renders editor when description is non-empty and no button", () => {
-    renderReference({ component: { ...mockComponent, description: "<p>Some description</p>" } });
-
-    expect(screen.getByTestId("rich-text-editor")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "添加描述" })).not.toBeInTheDocument();
   });
 
   it("reuses paged BlockNote measurement for the editable description", () => {

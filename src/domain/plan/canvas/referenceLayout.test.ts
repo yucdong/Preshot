@@ -22,7 +22,6 @@ describe("packReferenceRows", () => {
         { id: "tall", file: "t.png", aspectRatio: 2 / 3 },
       ],
       imageHeight: 135,
-      showCaptions: false,
       innerWidth: 500,
     });
 
@@ -31,16 +30,29 @@ describe("packReferenceRows", () => {
     expect(rows[0].slots[1]).toMatchObject({ width: 90, imageHeight: 135 });
   });
 
-  it("puts captions below images and adds one third of image height", () => {
+  it("adds a caption band only for an image with a non-blank caption", () => {
     const [row] = packReferenceRows({
-      images: [{ id: "i", file: "i.png", aspectRatio: 1 }],
+      images: [
+        { id: "captioned", file: "captioned.png", aspectRatio: 1, caption: "Palette" },
+        { id: "plain", file: "plain.png", aspectRatio: 1, caption: "  " },
+      ],
       imageHeight: 135,
-      showCaptions: true,
       innerWidth: 500,
     });
 
-    expect(row.slots[0].captionHeight).toBe(45);
-    expect(row.slots[0].height).toBe(180);
+    expect(row.slots[0].captionHeight).toBeGreaterThan(0);
+    expect(row.slots[0].captionHeight).toBeLessThanOrEqual(row.slots[0].height / 3);
+    expect(row.slots[1]).toMatchObject({ captionHeight: 0, height: 135 });
+  });
+
+  it("uses an image's display height in preference to the component image height", () => {
+    const [row] = packReferenceRows({
+      images: [{ id: "i", file: "i.png", aspectRatio: 2, displayHeight: 80 }],
+      imageHeight: 135,
+      innerWidth: 500,
+    });
+
+    expect(row.slots[0]).toMatchObject({ width: 160, imageHeight: 80, height: 80 });
   });
 
   it("wraps the add tile onto its own row when it no longer fits", () => {
@@ -50,7 +62,6 @@ describe("packReferenceRows", () => {
         { id: "tall", file: "t.png", aspectRatio: 2 / 3 },
       ],
       imageHeight: 135,
-      showCaptions: false,
       innerWidth: 350,
     });
 
@@ -66,7 +77,6 @@ describe("packReferenceRows", () => {
     const rows = packReferenceRows({
       images: [{ id: "img", file: "img.png", aspectRatio: 1 }],
       imageHeight: 60,
-      showCaptions: false,
       innerWidth,
     });
 
@@ -84,7 +94,6 @@ describe("packReferenceRows", () => {
     const rows = packReferenceRows({
       images: [],
       imageHeight: 200,
-      showCaptions: false,
       innerWidth: 500,
     });
 
@@ -100,7 +109,6 @@ describe("packReferenceRows", () => {
     const rows = packReferenceRows({
       images: [{ id: "wide", file: "wide.png", aspectRatio: 5 }],
       imageHeight: 100,
-      showCaptions: false,
       innerWidth: 300,
     });
 
@@ -111,7 +119,6 @@ describe("packReferenceRows", () => {
     const input = {
       images: [{ id: "img", file: "img.png", aspectRatio: 1 }],
       imageHeight: 100,
-      showCaptions: false,
       innerWidth: 300,
     };
 

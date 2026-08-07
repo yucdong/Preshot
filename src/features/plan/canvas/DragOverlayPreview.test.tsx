@@ -46,8 +46,7 @@ describe("DragOverlayPreview", () => {
       name: "Lookbook",
       description: "",
       showDescription: true,
-      showCaptions: false,
-      imageHeight: 135,
+imageHeight: 135,
       images: [
         { id: "img-1", file: "references/0001.png", aspectRatio: 1.5 },
         { id: "img-2", file: "references/0002.png", aspectRatio: 1.2 },
@@ -70,8 +69,7 @@ describe("DragOverlayPreview", () => {
       name: "Lookbook",
       description: "",
       showDescription: true,
-      showCaptions: true,
-      imageHeight: 135,
+imageHeight: 135,
       images: [{ id: "img-1", file: "references/0001.png", caption: "逆光侧脸", aspectRatio: 1.5 }],
     };
 

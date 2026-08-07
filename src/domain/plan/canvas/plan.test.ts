@@ -11,7 +11,7 @@ import {
   setImageCaption,
   setImageAspectRatio,
   setImageHeight,
-  toggleReferenceCaptions,
+  toggleReferenceDescription,
   updatePlanHtml,
 } from "./plan";
 import {
@@ -32,8 +32,7 @@ function reference(id: string, images: string[] = []): ReferenceComponent {
     name: id,
     description: "",
     showDescription: true,
-    showCaptions: false,
-    imageHeight: 180,
+imageHeight: 180,
     images: images.map((imageId) => ({ id: imageId, file: `references/${imageId}.png`, aspectRatio: 1 })),
   };
 }
@@ -93,11 +92,11 @@ describe("canvas reducers", () => {
     expect((updatePlanHtml(plan, { id: "a", html: "<p>x</p>" }).components[0] as { html: string }).html).toBe("<p>x</p>");
   });
 
-  it("adds and toggles captions on a reference component", () => {
+  it("adds images and toggles reference-description visibility", () => {
     const plan = withComponents([reference("r", ["i1"])]);
     const withImage = addReferenceImage(plan, { componentId: "r", image: { id: "i2", file: "references/i2.png", aspectRatio: 1 } });
     expect((withImage.components[0] as ReferenceComponent).images).toHaveLength(2);
-    expect((toggleReferenceCaptions(plan, "r").components[0] as ReferenceComponent).showCaptions).toBe(true);
+    expect((toggleReferenceDescription(plan, "r").components[0] as ReferenceComponent).showDescription).toBe(false);
   });
 
   it("sets a per-image caption", () => {

@@ -114,8 +114,11 @@ export function setReferenceDescription(plan: ProjectPlan, id: string, descripti
   );
 }
 
-export function toggleReferenceCaptions(plan: ProjectPlan, id: string): ProjectPlan {
-  return mapReference(plan, id, (component) => ({ ...component, showCaptions: !component.showCaptions }));
+export function toggleReferenceDescription(plan: ProjectPlan, id: string): ProjectPlan {
+  return mapReference(plan, id, (component) => ({
+    ...component,
+    showDescription: !component.showDescription,
+  }));
 }
 
 export function addReferenceImage(

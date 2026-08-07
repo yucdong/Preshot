@@ -93,7 +93,7 @@ describe("GroupImageGrid", () => {
     expect(props.onRemoveImage).toHaveBeenCalledWith("g1", "i2");
   });
 
-  it("renders caption textareas when showCaptions is true", () => {
+  it("renders caption editors independently for each image", () => {
     const groupWithCaptions: GroupLike = {
       id: "g1",
       images: [
@@ -107,7 +107,7 @@ describe("GroupImageGrid", () => {
       { kind: "image", id: "i2", x: 172, y: 24, width: 160, height: 120, imageHeight: 90, captionHeight: 30 },
       { kind: "image", id: "i3", x: 0, y: 156, width: 160, height: 120, imageHeight: 90, captionHeight: 30 },
     ];
-    const props = renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: true, onSetCaption: vi.fn() });
+    const props = renderGrid({ group: groupWithCaptions, slots, scale: 1, onSetCaption: vi.fn() });
 
     // Each image should have a caption textarea
     const caption1 = screen.getByRole("textbox", { name: "图片说明 1" });
@@ -124,7 +124,7 @@ describe("GroupImageGrid", () => {
     expect(props.onSetCaption).toHaveBeenCalledWith("i1", "Updated caption");
   });
 
-  it("does not render caption textareas when showCaptions is false or undefined", () => {
+  it("renders non-empty captions without an editor when captions are read-only", () => {
     const groupWithCaptions: GroupLike = {
       id: "g1",
       images: [
@@ -136,10 +136,10 @@ describe("GroupImageGrid", () => {
       { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
       { kind: "image", id: "i2", x: 172, y: 24, width: 160, height: 120, imageHeight: 120, captionHeight: 0 },
     ];
-    renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: false });
+    renderGrid({ group: groupWithCaptions, slots, scale: 1 });
 
-    // No caption textareas should render
     expect(screen.queryByRole("textbox", { name: /图片说明/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Some caption")).toBeVisible();
   });
 
   it("caption textarea does not trigger image open on pointer or click", () => {
@@ -150,7 +150,7 @@ describe("GroupImageGrid", () => {
     const slots: ReferenceFlowSlot[] = [
       { kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 90, captionHeight: 30 },
     ];
-    const props = renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: true, onSetCaption: vi.fn() });
+    const props = renderGrid({ group: groupWithCaptions, slots, scale: 1, onSetCaption: vi.fn() });
 
     const caption = screen.getByRole("textbox", { name: "图片说明 1" });
 
@@ -224,13 +224,13 @@ describe("GroupImageGrid", () => {
     expect(firstTile?.parentElement).toHaveStyle({ height: "267px" });
   });
 
-  it("renders caption textarea in the caption band when showCaptions is true", () => {
+  it("renders a non-empty caption in its caption band", () => {
     const groupWithCaptions: GroupLike = {
       id: "g1",
       images: [{ id: "i1", file: "references/0001.png", caption: "Test caption" }],
     };
     const slots: ReferenceFlowSlot[] = [{ kind: "image", id: "i1", x: 0, y: 24, width: 160, height: 120, imageHeight: 90, captionHeight: 30 }];
-    renderGrid({ group: groupWithCaptions, slots, scale: 1, showCaptions: true, onSetCaption: vi.fn() });
+    renderGrid({ group: groupWithCaptions, slots, scale: 1, onSetCaption: vi.fn() });
 
     const caption = screen.getByRole("textbox", { name: "图片说明 1" });
     expect(caption).toBeInTheDocument();

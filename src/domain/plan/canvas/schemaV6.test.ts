@@ -64,7 +64,6 @@ describe("schema v6", () => {
           contentScale: 1,
           description: "<p>Warm tones</p>",
           showDescription: true,
-          showCaptions: true,
           imageHeight: 135,
           images: [
             {
@@ -92,7 +91,6 @@ describe("schema v6", () => {
           contentScale: 1,
           description: "",
           showDescription: true,
-          showCaptions: false,
           imageHeight: 135,
           images: [
             {
@@ -133,6 +131,15 @@ describe("schema v6", () => {
     expect(() => migratePlan({ ...valid, schemaVersion: 7 }, migrationContext)).toThrow(
       /schema version/i,
     );
+    expect(() =>
+      migratePlan(
+        {
+          ...valid,
+          components: [{ ...valid.components[0], showCaptions: true }],
+        },
+        migrationContext,
+      ),
+    ).toThrow(/v6/i);
   });
 
   it("packs flat component order after a width change even when old row ids differ", () => {

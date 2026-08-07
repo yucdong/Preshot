@@ -120,8 +120,7 @@ describe("SortableImageTile", () => {
       image: { ...image, caption: "test" },
       onOpen,
       onSetCaption,
-      showCaptions: true,
-      slot: { ...mockSlot, imageHeight: 90, captionHeight: 30, height: 120 },
+slot: { ...mockSlot, imageHeight: 90, captionHeight: 30, height: 120 },
     });
 
     // Caption interaction should not trigger onOpen
@@ -141,13 +140,20 @@ describe("SortableImageTile", () => {
     renderTile({
       image: { ...image, caption: "test" },
       onSetCaption: vi.fn(),
-      showCaptions: true,
-      slot: { kind: "image", id: "i1", x: 0, y: 0, width: 180, height: 180, imageHeight: 135, captionHeight: 45 },
+slot: { kind: "image", id: "i1", x: 0, y: 0, width: 180, height: 180, imageHeight: 135, captionHeight: 45 },
     });
 
     expect(screen.getByRole("img", { name: "参考图" })).toHaveClass("object-fill");
     expect(screen.getByTestId("image-region")).toHaveStyle({ height: "135px" });
     expect(screen.getByRole("textbox", { name: "图片说明 1" })).toHaveStyle({ height: "45px" });
+  });
+
+  it("exposes an empty caption editor on hover or focus without reserving a caption band", () => {
+    renderTile({ onSetCaption: vi.fn() });
+
+    const caption = screen.getByRole("textbox", { name: "图片说明 1" });
+    expect(caption).toHaveClass("opacity-0", "group-hover:opacity-100", "focus:opacity-100");
+    expect(screen.getByTestId("image-tile-i1")).toHaveStyle({ height: "120px" });
   });
 
   it("renders a loading placeholder when src is missing", () => {
@@ -163,8 +169,7 @@ describe("SortableImageTile", () => {
     renderTile({
       image: { ...image, caption: "test" },
       onSetCaption,
-      showCaptions: true,
-      slot: { ...mockSlot, imageHeight: 90, captionHeight: 30, height: 120 },
+slot: { ...mockSlot, imageHeight: 90, captionHeight: 30, height: 120 },
     });
 
     const caption = screen.getByRole("textbox", { name: "图片说明 1" });
