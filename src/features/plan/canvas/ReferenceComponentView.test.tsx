@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CropRect, ReferenceComponent } from "../../../domain/plan/canvas/models";
 import {
   COMPONENT_INSET,
-  REFERENCE_CONTINUATION_HEADER_HEIGHT,
   REFERENCE_HEADER_HEIGHT,
   type ReferenceFlowSlot,
 } from "../../../domain/plan/canvas/referenceLayout";
@@ -94,14 +93,15 @@ describe("ReferenceComponentView", () => {
     expect(screen.queryByRole("textbox", { name: "分组标题" })).not.toBeInTheDocument();
   });
 
-  it("renders a continuation title without editable controls", () => {
+  it("renders continuation images without a repeated title or editable controls", () => {
     renderReference({
       component: { ...mockComponent, name: "Lookbook", description: "<p>desc</p>" },
       fragmentKind: "continuation",
       fragmentIndex: 1,
     });
 
-    expect(screen.getByText("Lookbook（续）")).toBeVisible();
+    expect(screen.queryByText("Lookbook（续）")).toBeNull();
+    expect(screen.queryByTestId("reference-continuation-title")).toBeNull();
     expect(screen.queryByLabelText("分组标题")).toBeNull();
     expect(screen.queryByRole("checkbox", { name: "显示说明" })).toBeNull();
     expect(screen.queryByTestId("rich-text-editor")).toBeNull();
@@ -129,23 +129,6 @@ describe("ReferenceComponentView", () => {
       expect(titleHeight + headerGap + controlHeight + headerGap).toBe(
         REFERENCE_HEADER_HEIGHT,
       );
-    },
-  );
-
-  it.each([0.5, 1.75])(
-    "renders continuation heading from shared point geometry at scale %s",
-    (scale) => {
-      renderReference({
-        component: { ...mockComponent, name: "Lookbook" },
-        fragmentKind: "continuation",
-        fragmentIndex: 1,
-        scale,
-      });
-
-      const title = screen.getByTestId("reference-continuation-title");
-      expect(title.style.height).toBe(`${18 * scale}px`);
-      expect(title.style.marginBottom).toBe(`${6 * scale}px`);
-      expect(18 + 6).toBe(REFERENCE_CONTINUATION_HEADER_HEIGHT);
     },
   );
 

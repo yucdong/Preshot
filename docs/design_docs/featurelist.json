@@ -629,7 +629,9 @@
         "Ctrl+click toggles selection across image groups and dragging a selected image moves the full selection in canvas order",
         "Rejected duplicate or empty component names restore the last committed name",
         "Batch image import shows determinate progress, retains successful imports, continues after individual failures, and reports a final summary",
-        "Each image group includes a screenshot action that opens Windows native screen clipping and imports the new clipboard image"
+        "Each image group includes a screenshot action that opens Windows native screen clipping and imports the new clipboard image",
+        "Reference image groups continue across pages without rendering repeated “name（续）” headings",
+        "Import and screenshot controls render at half the current image height with hover descriptions and a monochrome screenshot icon"
       ],
       "decisions": [
         "Keep image selection ephemeral in PlanCanvas; selection is not persisted in schema v5",
@@ -637,18 +639,22 @@
         "Use per-file CanvasPlanService.importImage calls for batch progress and partial-failure continuation while rebasing successes onto current metadata",
         "Model Windows capture as start/poll/cancel domain commands; compare clipboard sequence numbers so stale clipboard images are never imported",
         "Write native RGBA clipboard data to a unique temporary PNG and reuse the existing reference-image import path, which moves it into the project",
-        "Cancel sends Escape to dismiss Windows screen clipping and generation checks prevent an in-flight poll result from importing after cancellation"
+        "Cancel sends Escape to dismiss Windows screen clipping and generation checks prevent an in-flight poll result from importing after cancellation",
+        "Continuation fragments reserve no repeated-title header in either the canvas layout or PDF export",
+        "The editor-only add slot is two-to-one: its height is half the configured image height and its width holds two compact square controls"
       ],
       "verification": {
         "focusedUnits": "9 files, 205 tests passed",
         "canvasE2e": "26 passed",
         "pnpmLint": "passed (exit 0; unchanged ThemeProvider Fast Refresh warning)",
         "pnpmTypecheck": "passed",
-        "pnpmTest": "76 files, 678 tests passed",
+        "pnpmTest": "76 files, 677 tests passed",
         "pnpmTestInit": "passed: 4 initializer scenarios",
         "pnpmTestE2e": "35 passed",
         "cargoTest": "47 passed",
-        "pnpmBuild": "passed"
+        "pnpmBuild": "passed",
+        "continuationAndControlsFocusedUnits": "5 files, 94 tests passed",
+        "e2eFollowUp": "34/35 passed in the parallel full run; the existing same-row drag gesture passed on isolated retry"
       },
       "remaining": []
     }

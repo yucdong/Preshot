@@ -14,7 +14,6 @@ import {
 } from "../../domain/plan/canvas/pdf/exportDocument";
 import { COMPONENT_INSET } from "../../domain/plan/canvas/referenceLayout";
 import type { ProjectPlan } from "../../domain/plan/canvas/models";
-import { formatReferenceContinuedTitle } from "../../shared/i18n/referenceTitles";
 import { createCanvasPdfExporter } from "./canvasPdfExporter";
 import { slotToPageRect } from "./slotPageRect";
 
@@ -716,7 +715,7 @@ describe("createCanvasPdfExporter", () => {
 
     expect(await PDFDocument.load(bytes)).toBeDefined();
     expect(texts.filter((text) => text === "Lookbook")).toHaveLength(1);
-    expect(texts).toContain(formatReferenceContinuedTitle("Lookbook"));
+    expect(texts).not.toContain("Lookbook（续）");
     expect(texts.filter((text) => text === "Reference")).toHaveLength(1);
     expect(captionTexts).toEqual(Array.from({ length: 12 }, (_, index) => `cap${index + 1}`));
   }, 20000);

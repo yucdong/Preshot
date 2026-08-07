@@ -111,7 +111,15 @@ describe("GroupImageGrid", () => {
 
   it("starts screen capture beside the add button", () => {
     const props = renderGrid();
-    fireEvent.click(screen.getByRole("button", { name: "截图" }));
+    const importButton = screen.getByRole("button", { name: "添加参考图" });
+    const captureButton = screen.getByRole("button", { name: "截图" });
+    expect(importButton).toHaveAttribute("title", "导入图片");
+    expect(captureButton).toHaveAttribute("title", "截图");
+    expect(screen.getByTestId("screenshot-icon").querySelector("path")).toHaveAttribute(
+      "stroke",
+      "currentColor",
+    );
+    fireEvent.click(captureButton);
     expect(props.onCaptureImage).toHaveBeenCalledWith("g1");
   });
 

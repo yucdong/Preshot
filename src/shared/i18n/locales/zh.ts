@@ -1,5 +1,3 @@
-import { ZH_REFERENCE_CONTINUED_TITLE_TEMPLATE } from "../referenceTitles";
-
 export const zh = {
   common: {
     cancel: "取消",
@@ -68,6 +66,7 @@ export const zh = {
     descriptionPlaceholder: "描述这组参考——氛围、光线、造型或备注…",
     addDescription: "添加描述",
     addImage: "添加参考图",
+    importImageDescription: "导入图片",
     selectImage: "选择参考图 {{index}}",
     openImage: "打开参考图 {{index}}",
     removeImage: "移除参考图 {{index}}",
@@ -77,6 +76,7 @@ export const zh = {
     importProgressText: "已处理 {{completed}}/{{total}}（{{failed}} 张失败）",
     importSummary: "图片导入完成：{{succeeded}} 张成功，{{failed}} 张失败。",
     captureImage: "截图",
+    captureImageDescription: "截图",
     captureWaiting: "等待截图…",
     captureImporting: "正在导入截图…",
     cancelCapture: "取消截图",
@@ -91,7 +91,6 @@ export const zh = {
     resetCrop: "恢复原图",
     decreaseImageHeight: "减小图片高度",
     increaseImageHeight: "增大图片高度",
-    continuedTitle: ZH_REFERENCE_CONTINUED_TITLE_TEMPLATE,
   },
   lightbox: {
     close: "关闭图片",

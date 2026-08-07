@@ -336,6 +336,13 @@ describe("reference image slots", () => {
     expect(fragments[0]).toMatchObject({ fragmentId: "ref::0", fragmentIndex: 0, kind: "first", pageIndex: 0 });
     expect(fragments[1]).toMatchObject({ fragmentId: "ref::1", fragmentIndex: 1, kind: "continuation", pageIndex: 1 });
     expect(fragments[1].rect.y).toBe(0);
+    expect(
+      Math.min(
+        ...(fragments[1].imageSlots ?? [])
+          .filter((slot) => slot.kind === "image")
+          .map((slot) => slot.y),
+      ),
+    ).toBe(0);
     expect(new Set(fragments.map((fragment) => fragment.pageIndex)).size).toBe(fragments.length);
     expect(fragments.every((fragment) => fragment.rect.y + fragment.rect.height <= pageHeight + 0.01)).toBe(true);
     expect(fragments.flatMap((fragment) => fragment.imageSlots?.map((slot) => slot.id) ?? [])).toContain("__add__");

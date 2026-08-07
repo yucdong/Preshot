@@ -8,7 +8,6 @@ import {
 } from "../../../domain/plan/canvas/models";
 import {
   COMPONENT_INSET,
-  REFERENCE_CONTINUATION_TITLE_HEIGHT,
   REFERENCE_CONTROL_ROW_HEIGHT,
   REFERENCE_DESCRIPTION_GAP,
   REFERENCE_HEADER_GAP,
@@ -259,20 +258,7 @@ export function ReferenceComponentView({
             </div>
           ) : null}
         </>
-      ) : (
-        <div
-          className="font-semibold dark:text-stone-100"
-          data-testid="reference-continuation-title"
-          style={{
-            fontSize: `${18 * scale}px`,
-            height: `${REFERENCE_CONTINUATION_TITLE_HEIGHT * scale}px`,
-            lineHeight: `${REFERENCE_CONTINUATION_TITLE_HEIGHT * scale}px`,
-            marginBottom: `${REFERENCE_HEADER_GAP * scale}px`,
-          }}
-        >
-          {t("reference.continuedTitle", { title: component.name })}
-        </div>
-      )}
+      ) : null}
 
       <div data-testid="reference-component-body">
         <GroupImageGrid

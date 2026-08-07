@@ -41,7 +41,6 @@ import {
   REFERENCE_HEADER_HEIGHT,
   type ReferenceFlowSlot,
 } from "../../domain/plan/canvas/referenceLayout";
-import { formatReferenceContinuedTitle } from "../../shared/i18n/referenceTitles";
 import { parseHtmlToBlocks } from "./htmlToBlocks";
 import {
   layoutPdfRichText,
@@ -498,16 +497,6 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
         } else if (component.type === "reference") {
           const ref = component as ReferenceComponent;
           const isContinuation = placement.kind === "continuation";
-          const titleY = contentRect.y + contentRect.height - TITLE_SIZE;
-          if (isContinuation) {
-            page.drawText(formatReferenceContinuedTitle(ref.name), {
-              x: contentRect.x,
-              y: titleY,
-              size: TITLE_SIZE,
-              font: bold,
-              color: TEXT_COLOR,
-            });
-          }
 
           if (!isContinuation && ref.description.trim()) {
             const descriptionLayout =

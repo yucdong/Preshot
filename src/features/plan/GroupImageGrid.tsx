@@ -7,6 +7,30 @@ import type { CropRect } from "../../domain/plan/canvas/models";
 import { SortableImageTile } from "./SortableImageTile";
 import type { ImageImportProgress } from "./imageImportProgress";
 
+function ScreenshotIcon({ size }: { size: number }) {
+  return (
+    <svg
+      aria-hidden="true"
+      data-testid="screenshot-icon"
+      fill="none"
+      height={size}
+      viewBox="0 0 24 24"
+      width={size}
+    >
+      <path
+        d="M4 3h10v14H4zM7 3v14M4 7h10M17 13l4-4M18 18l3 3M16.5 16.5l4.5-4.5"
+        stroke="currentColor"
+        strokeDasharray="2 2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <circle cx="16.5" cy="16.5" fill="currentColor" r="1.7" />
+      <circle cx="21" cy="21" fill="currentColor" r="1.7" />
+    </svg>
+  );
+}
+
 // Minimal shape that both v1 ReferenceGroup and v2+ ReferenceComponent satisfy
 interface GroupLike {
   id: string;
@@ -108,6 +132,7 @@ export function GroupImageGrid({
     <>
       {normalizedSlots.map((slot, index) => {
         if (slot.kind === "add") {
+          const iconSize = Math.max(12, Math.min(24, slot.height * scale * 0.45));
           return (
             <div
               key={`add:${slot.id}:${index}`}
@@ -125,6 +150,7 @@ export function GroupImageGrid({
                   className="flex h-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600 disabled:opacity-50 dark:border-stone-700 dark:text-stone-500 dark:hover:border-amber-400 dark:hover:text-amber-400"
                   disabled={importProgress !== undefined || captureStatus !== undefined}
                   onClick={() => onAddImage(group.id)}
+                  title={t("reference.importImageDescription")}
                   type="button"
                 >
                   +
@@ -138,9 +164,10 @@ export function GroupImageGrid({
                     captureStatus !== undefined
                   }
                   onClick={() => onCaptureImage?.(group.id)}
+                  title={t("reference.captureImageDescription")}
                   type="button"
                 >
-                  {t("reference.captureImage")}
+                  <ScreenshotIcon size={iconSize} />
                 </button>
               </div>
             </div>

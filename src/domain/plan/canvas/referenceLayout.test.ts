@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  ADD_TILE,
   IMAGE_GAP,
   packReferenceRows,
   paginateReferenceRows,
@@ -59,11 +58,11 @@ describe("packReferenceRows", () => {
     expect(rows[0].slots.map((slot) => slot.kind)).toEqual(["image", "image"]);
     expect(rows[1].y).toBe(rows[0].height + IMAGE_GAP);
     expect(rows[1].slots).toHaveLength(1);
-    expect(rows[1].slots[0]).toMatchObject({ kind: "add", width: ADD_TILE.width, height: ADD_TILE.height });
+    expect(rows[1].slots[0]).toMatchObject({ kind: "add", width: 135, height: 67.5 });
   });
 
   it("scales the add tile to fit narrow widths and keeps it final", () => {
-    const innerWidth = ADD_TILE.width - 24;
+    const innerWidth = 36;
     const rows = packReferenceRows({
       images: [{ id: "img", file: "img.png", aspectRatio: 1 }],
       imageHeight: 60,
@@ -78,7 +77,23 @@ describe("packReferenceRows", () => {
     expect(addSlot.kind).toBe("add");
     expect(addSlot.x + addSlot.width).toBeLessThanOrEqual(innerWidth);
     expect(addSlot.width).toBeCloseTo(innerWidth);
-    expect(addSlot.height).toBeCloseTo(ADD_TILE.height * (innerWidth / ADD_TILE.width));
+    expect(addSlot.height).toBeCloseTo(innerWidth / 2);
+  });
+
+  it("sizes import controls to half the configured image height", () => {
+    const rows = packReferenceRows({
+      images: [],
+      imageHeight: 200,
+      showCaptions: false,
+      innerWidth: 500,
+    });
+
+    expect(rows[0].slots[0]).toMatchObject({
+      kind: "add",
+      width: 200,
+      height: 100,
+      imageHeight: 100,
+    });
   });
 
   it("scales a single oversized image proportionally to the inner width", () => {

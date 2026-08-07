@@ -10,13 +10,10 @@ export const REFERENCE_HEADER_HEIGHT =
   REFERENCE_HEADER_GAP +
   REFERENCE_CONTROL_ROW_HEIGHT +
   REFERENCE_HEADER_GAP;
-export const REFERENCE_CONTINUATION_TITLE_HEIGHT = 18;
-export const REFERENCE_CONTINUATION_HEADER_HEIGHT =
-  REFERENCE_CONTINUATION_TITLE_HEIGHT + REFERENCE_HEADER_GAP;
+export const REFERENCE_CONTINUATION_HEADER_HEIGHT = 0;
 export const REFERENCE_DESCRIPTION_HEIGHT = 44;
 export const REFERENCE_DESCRIPTION_GAP = 6;
 export const IMAGE_GAP = 12;
-export const ADD_TILE = { width: 120, height: 90 } as const;
 
 export interface ReferenceFlowItem {
   kind: "image" | "add";
@@ -76,11 +73,13 @@ function imageSlot(image: Pick<ReferenceImage, "id" | "aspectRatio">, requestedH
   };
 }
 
-function addSlot(innerWidth: number): ReferenceFlowSlot {
+function addSlot(innerWidth: number, requestedImageHeight: number): ReferenceFlowSlot {
   const safeWidth = positiveFinite(innerWidth);
-  const scale = safeWidth > 0 ? Math.min(1, safeWidth / ADD_TILE.width) : 0;
-  const width = ADD_TILE.width * scale;
-  const height = ADD_TILE.height * scale;
+  const requestedWidth = positiveFinite(requestedImageHeight);
+  const requestedHeight = requestedWidth / 2;
+  const scale = requestedWidth > 0 ? Math.min(1, safeWidth / requestedWidth) : 0;
+  const width = requestedWidth * scale;
+  const height = requestedHeight * scale;
 
   return {
     kind: "add",
@@ -96,7 +95,7 @@ function addSlot(innerWidth: number): ReferenceFlowSlot {
 
 function flowSlot(item: ReferenceFlowItem, imageHeight: number, showCaptions: boolean, innerWidth: number): ReferenceFlowSlot {
   if (item.kind === "add") {
-    return addSlot(innerWidth);
+    return addSlot(innerWidth, imageHeight);
   }
 
   return imageSlot({ id: item.id, aspectRatio: item.aspectRatio }, imageHeight, innerWidth, showCaptions);
@@ -137,7 +136,7 @@ export function packReferenceRows(input: {
     ...input.images.map((image) => ({ kind: "image" as const, id: image.id, aspectRatio: image.aspectRatio })),
     ...(input.includeAddTile === false
       ? []
-      : [{ kind: "add" as const, id: "__add__", aspectRatio: ADD_TILE.width / ADD_TILE.height }]),
+      : [{ kind: "add" as const, id: "__add__", aspectRatio: 2 }]),
   ];
 
   const availableWidth = positiveFinite(input.innerWidth);
