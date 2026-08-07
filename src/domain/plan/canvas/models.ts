@@ -7,6 +7,7 @@ export const DEFAULT_REFERENCE_HEIGHT = 320; // points
 export const DEFAULT_IMAGE_HEIGHT = 135; // points
 export const MIN_IMAGE_HEIGHT = 67.5; // points
 export const MAX_IMAGE_HEIGHT = 400; // points
+export const MIN_REFERENCE_IMAGE_DISPLAY_HEIGHT = 32; // points
 export const DOCUMENT_TITLE_HEIGHT = 36; // points
 export const UNTITLED_PLAN_TITLE = "未命名方案";
 
@@ -39,6 +40,15 @@ export function clampImageHeight(height: number): number {
     return MIN_IMAGE_HEIGHT;
   }
   return Math.min(MAX_IMAGE_HEIGHT, Math.max(MIN_IMAGE_HEIGHT, height));
+}
+
+export function clampReferenceImageDisplayHeight(height: number, imageHeight: number): number {
+  const maximum = clampImageHeight(imageHeight);
+  const minimum = Math.min(MIN_REFERENCE_IMAGE_DISPLAY_HEIGHT, maximum);
+  if (!Number.isFinite(height)) {
+    return minimum;
+  }
+  return Math.min(maximum, Math.max(minimum, height));
 }
 
 export function clampContentScale(scale: number): number {

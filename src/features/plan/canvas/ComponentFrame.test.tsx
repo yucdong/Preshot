@@ -216,6 +216,42 @@ describe("ComponentFrame", () => {
     expect(onResize).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["left", "cursor-ew-resize"],
+    ["width", "cursor-ew-resize"],
+    ["top", "cursor-ns-resize"],
+    ["bottom", "cursor-ns-resize"],
+  ] as const)("renders the %s edge as a focusable resize affordance", (edge, cursor) => {
+    renderFrame();
+
+    const handle = document.querySelector(`[data-resize-handle="${edge}"]`) as HTMLElement;
+    expect(handle).toBeInTheDocument();
+    expect(handle).toHaveClass(cursor, "hover:opacity-100", "focus-visible:opacity-100");
+    expect(handle).toHaveAttribute("tabindex", "0");
+  });
+
+  it("previews and commits proportional content scaling from the bottom edge", () => {
+    const onResize = vi.fn();
+    renderFrame(onResize);
+    const handle = document.querySelector('[data-resize-handle="bottom"]') as HTMLElement & {
+      hasPointerCapture(pointerId: number): boolean;
+      releasePointerCapture(pointerId: number): void;
+      setPointerCapture(pointerId: number): void;
+    };
+    handle.setPointerCapture = vi.fn();
+    handle.releasePointerCapture = vi.fn();
+    handle.hasPointerCapture = vi.fn().mockReturnValue(true);
+
+    fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientY: 160, pointerId: 1 });
+    fireEvent.pointerUp(handle, { pointerId: 1 });
+
+    expect(onResize).toHaveBeenCalledWith(
+      "plan1",
+      expect.objectContaining({ width: expect.any(Number), contentScale: expect.any(Number) }),
+    );
+  });
+
   it("does not commit resize after pointercancel", () => {
     const { onResize, widthHandle } = renderFrame();
 
@@ -327,4 +363,12 @@ describe("ComponentFrame", () => {
       ).toBeCloseTo(Number.parseFloat(frame.style.height), 5);
     },
   );
+
+  it("sizes the component name input to its text instead of the full top bar", () => {
+    renderFrame();
+
+    const input = screen.getByRole("textbox", { name: "组件名称" });
+    expect(input.style.width).toMatch(/ch$/);
+    expect(input.parentElement).not.toHaveClass("flex-1");
+  });
 });

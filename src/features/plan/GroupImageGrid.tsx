@@ -4,11 +4,18 @@ import { useTranslation } from "react-i18next";
 import { imageGroupDroppableId } from "./canvas/imageDropTarget";
 import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
 import { SortableImageTile } from "./SortableImageTile";
+import { ImageActionButtons } from "./ImageActionButtons";
 
 // Minimal shape that both v1 ReferenceGroup and v2+ ReferenceComponent satisfy
 interface GroupLike {
   id: string;
-  images: Array<{ id: string; file: string; caption?: string; aspectRatio?: number }>;
+  images: Array<{
+    id: string;
+    file: string;
+    caption?: string;
+    aspectRatio?: number;
+    displayHeight?: number;
+  }>;
 }
 
 interface GroupImageGridProps {
@@ -28,6 +35,12 @@ interface GroupImageGridProps {
   placeholderImage?: { id: string; file: string; caption?: string };
   placeholderSlot?: ReferenceFlowSlot;
   placeholderIndex?: number;
+  onSetDisplayHeight?: (imageId: string, displayHeight: number | undefined) => void;
+  onPreviewDisplayHeight?: (imageId: string, displayHeight: number) => void;
+  onCancelImageResize?: () => void;
+  onAddImages?: (componentId: string) => void;
+  onCaptureImage?: (componentId: string) => void;
+  imageActionsDisabled?: boolean;
 }
 
 export function GroupImageGrid({ 
@@ -47,6 +60,12 @@ export function GroupImageGrid({
   placeholderImage,
   placeholderSlot,
   placeholderIndex,
+  onSetDisplayHeight,
+  onPreviewDisplayHeight,
+  onCancelImageResize,
+  onAddImages,
+  onCaptureImage,
+  imageActionsDisabled = false,
 }: GroupImageGridProps) {
   const { t } = useTranslation();
   const actualDroppableId = enableReorder ? imageGroupDroppableId(group.id, fragmentId) : (droppableId ?? `droppable-${group.id}`);
@@ -90,7 +109,31 @@ export function GroupImageGrid({
     <>
       {normalizedSlots.map((slot, index) => {
         if (slot.kind === "add") {
-          return null;
+          return (
+            <div
+              className="group absolute overflow-hidden rounded-xl border border-dashed border-stone-300 dark:border-stone-700"
+              data-testid="image-add-slot"
+              key={`${slot.id}:${slot.x}:${slot.y}`}
+              style={{
+                height: `${slot.height * scale}px`,
+                left: `${slot.x * scale}px`,
+                top: `${slot.y * scale}px`,
+                width: `${slot.width * scale}px`,
+              }}
+            >
+              <ImageActionButtons
+                disabled={imageActionsDisabled}
+                onCapture={
+                  onCaptureImage ? () => onCaptureImage(group.id) : undefined
+                }
+                onImport={
+                  onAddImages ? () => onAddImages(group.id) : undefined
+                }
+                scale={scale}
+                variant="slot"
+              />
+            </div>
+          );
         }
 
         if (slot.id === hiddenImageId) {
@@ -115,6 +158,9 @@ export function GroupImageGrid({
             src={imageSrc(image.file)}
             draggable={enableReorder}
             onSetCaption={onSetCaption}
+            onSetDisplayHeight={onSetDisplayHeight}
+            onPreviewDisplayHeight={onPreviewDisplayHeight}
+            onCancelResize={onCancelImageResize}
             slot={slot}
             scale={scale}
           />
@@ -135,6 +181,9 @@ export function GroupImageGrid({
           draggable={enableReorder}
           isPlaceholder
           onSetCaption={onSetCaption}
+          onSetDisplayHeight={onSetDisplayHeight}
+          onPreviewDisplayHeight={onPreviewDisplayHeight}
+          onCancelResize={onCancelImageResize}
           slot={normalizedPlaceholderSlot}
           scale={scale}
         />

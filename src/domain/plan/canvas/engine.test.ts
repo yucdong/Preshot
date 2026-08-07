@@ -127,6 +127,20 @@ describe("layoutPlan placement", () => {
     expect(placements[0].rect.height).toBe(123);
   });
 
+  it("scales measured plan content height while preserving row auto-packing", () => {
+    const scaled = { ...plan("a", 0.4), contentScale: 1.5 };
+    const sibling = plan("b", 0.4);
+    const { placements } = layoutPlan(
+      [scaled, sibling],
+      DEFAULT_PAGE_GEOMETRY,
+      measurements({ a: 100, b: 100 }),
+    );
+
+    expect(placements[0].rect.height).toBe(150);
+    expect(placements[1].rect.y).toBe(0);
+    expect(placements[1].rect.x).toBeCloseTo(content.width * 0.4 + SPACING, 8);
+  });
+
   it("includes configured frame chrome exactly once in plan height and row flow", () => {
     const chrome = { topBarHeight: 24, contentGap: 4 };
     const { placements } = layoutPlan(
@@ -258,6 +272,19 @@ describe("reference image slots", () => {
     expect(withDescription.rect.height - withoutDescription.rect.height).toBe(
       40 + REFERENCE_DESCRIPTION_GAP,
     );
+  });
+
+  it("uses the unscaled logical width and scaled physical height for scaled references", () => {
+    const component = reference({
+      contentScale: 2,
+      imageHeight: 80,
+      images: [{ id: "wide", file: "wide.png", aspectRatio: 2 }],
+    });
+    const [placement] = layoutPlan([component]).placements;
+    const [slot] = placement.imageSlots ?? [];
+
+    expect(slot.width).toBeLessThanOrEqual(content.width / component.contentScale);
+    expect(placement.rect.height).toBeGreaterThan(slot.height * component.contentScale);
   });
 
   it("does not reserve a hidden reference description", () => {

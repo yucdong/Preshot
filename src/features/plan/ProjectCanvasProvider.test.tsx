@@ -30,6 +30,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
     onMoveImage,
     onChangeHtml,
     onResize,
+    onSetImageDisplayHeight,
     onRemoveComponent,
     onRemoveImage,
     onAddImage,
@@ -59,6 +60,11 @@ vi.mock("./canvas/PlanCanvas", () => ({
     }) => void;
     onChangeHtml: (id: string, html: string) => void;
     onResize: (id: string, params: { width: number }) => void;
+    onSetImageDisplayHeight: (
+      componentId: string,
+      imageId: string,
+      displayHeight: number | undefined,
+    ) => void;
     onRemoveComponent: (id: string) => void;
     onRemoveImage: (componentId: string, imageId: string) => void;
     onAddImage: (componentId: string) => void;
@@ -103,6 +109,7 @@ vi.mock("./canvas/PlanCanvas", () => ({
       onAddImage,
       onAddImages,
       onResize,
+      onSetImageDisplayHeight,
       onCommitTitle,
       onRenameComponent: handleRenameComponent,
       onToggleDescription,
@@ -208,6 +215,11 @@ let latestPlanCanvasProps:
       onAddImage: (componentId: string) => void;
       onAddImages: (componentId: string) => void;
       onResize: (id: string, params: { width: number }) => void;
+      onSetImageDisplayHeight: (
+        componentId: string,
+        imageId: string,
+        displayHeight: number | undefined,
+      ) => void;
       components: ProjectPlan["components"];
       title: string;
       onCommitTitle: (title: string) => SetPlanTitleResult;
@@ -2693,11 +2705,11 @@ imageHeight: 135,
     }
 
     act(() => {
-      canvas.onResize("plan-1", { width: 0.9 });
+      canvas.onResize("plan-1", { width: 0.9, contentScale: 1.25 });
     });
 
     const resized = latestPlanCanvasProps?.components.find((component) => component.id === "plan-1");
-    expect(resized?.width).toBe(0.9);
+    expect(resized).toMatchObject({ width: 0.9, contentScale: 1.25 });
   });
 
   it("auto-saves changed plan state every 5 seconds and reflects the save status", async () => {
@@ -2715,6 +2727,7 @@ imageHeight: 135,
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
+
       expect(screen.getByRole("status")).toHaveTextContent("已保存所有更改");
 
       // An edit updates in-memory state but is not persisted yet.
@@ -2740,6 +2753,60 @@ imageHeight: 135,
         await vi.advanceTimersByTimeAsync(5000);
       });
       expect(savePlan).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("records per-image display sizing in history and persists it on auto-save", async () => {
+    vi.useFakeTimers();
+    try {
+      const { dependencies, savePlan } = deps();
+      renderWithTheme(
+        <ProjectCanvasProvider
+          dependencies={dependencies}
+          projectName="Demo"
+          projectPath={String.raw`C:\demo`}
+        />,
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      act(() => {
+        latestPlanCanvasProps?.onSetImageDisplayHeight("ref-1", "i1", 96);
+      });
+      expect(
+        (latestPlanCanvasProps?.components.find((component) => component.id === "ref-1") as ReferenceComponent)
+          .images[0].displayHeight,
+      ).toBe(96);
+
+      fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+      expect(
+        (latestPlanCanvasProps?.components.find((component) => component.id === "ref-1") as ReferenceComponent)
+          .images[0].displayHeight,
+      ).toBeUndefined();
+
+      fireEvent.keyDown(window, { key: "y", ctrlKey: true });
+      expect(
+        (latestPlanCanvasProps?.components.find((component) => component.id === "ref-1") as ReferenceComponent)
+          .images[0].displayHeight,
+      ).toBe(96);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(savePlan).toHaveBeenCalledWith(
+        String.raw`C:\demo`,
+        expect.objectContaining({
+          components: expect.arrayContaining([
+            expect.objectContaining({
+              id: "ref-1",
+              images: [expect.objectContaining({ id: "i1", displayHeight: 96 })],
+            }),
+          ]),
+        }),
+      );
     } finally {
       vi.useRealTimers();
     }

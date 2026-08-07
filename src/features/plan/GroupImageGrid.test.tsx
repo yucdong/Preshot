@@ -237,10 +237,25 @@ describe("GroupImageGrid", () => {
     expect(caption).toHaveValue("Test caption");
   });
 
-  it("does not render image actions inside the image display area", () => {
+  it("keeps image actions outside the image display area", () => {
     renderGrid();
-    expect(screen.queryByRole("button", { name: "添加参考图" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "截图" })).toBeNull();
+    const firstImage = screen.getByTestId("image-tile-i1");
+    expect(firstImage.querySelector('[data-testid="image-action-buttons"]')).toBeNull();
+    expect(screen.getAllByRole("button", { name: "添加参考图" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "截图" })).toHaveLength(1);
+  });
+
+  it("renders the final add slot as compact editor actions instead of an image tile", () => {
+    const onAddImages = vi.fn();
+    const onCaptureImage = vi.fn();
+    renderGrid({ onAddImages, onCaptureImage });
+
+    const addSlot = screen.getByTestId("image-add-slot");
+    expect(addSlot).toHaveStyle({ height: "120px" });
+    fireEvent.click(screen.getByRole("button", { name: "添加参考图" }));
+    fireEvent.click(screen.getByRole("button", { name: "截图" }));
+    expect(onAddImages).toHaveBeenCalledWith("g1");
+    expect(onCaptureImage).toHaveBeenCalledWith("g1");
   });
 
 });

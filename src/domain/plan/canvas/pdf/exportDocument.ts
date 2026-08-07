@@ -30,7 +30,10 @@ function exportComponents(components: PlanComponent[], titleComponentId: string)
     html: "",
   }];
 
-  return [...titleComponent, ...components];
+  return [
+    ...titleComponent,
+    ...components.map((component) => ({ ...component, contentScale: 1 })),
+  ];
 }
 
 export function buildCanvasLayout(

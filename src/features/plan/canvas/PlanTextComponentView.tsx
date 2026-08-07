@@ -13,6 +13,7 @@ interface PlanTextComponentViewProps {
   onChangeHtml: (id: string, html: string) => void;
   onMeasure?: (id: string, measurement: PlanMeasurement) => void;
   scale: number;
+  contentScale?: number;
 }
 
 function assignRef<T>(targetRef: Ref<T> | undefined, value: T): void {
@@ -31,6 +32,7 @@ export function PlanTextComponentView({
   onChangeHtml,
   onMeasure,
   scale,
+  contentScale = component.contentScale,
 }: PlanTextComponentViewProps) {
   const { t } = useTranslation();
   const [contentHeightPoints, setContentHeightPoints] = useState(0);
@@ -59,11 +61,13 @@ export function PlanTextComponentView({
   );
 
   return (
-    <RichTextEditor
-      ariaLabel={t("plan.photographyPlan")}
-      html={component.html}
-      onChange={(html) => onChangeHtml(component.id, html)}
-      rootRef={setRootRef}
-    />
+    <div style={{ width: `${100 / contentScale}%`, zoom: contentScale }}>
+      <RichTextEditor
+        ariaLabel={t("plan.photographyPlan")}
+        html={component.html}
+        onChange={(html) => onChangeHtml(component.id, html)}
+        rootRef={setRootRef}
+      />
+    </div>
   );
 }

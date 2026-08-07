@@ -122,6 +122,7 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onMoveImage: vi.fn(),
     onMoveImages: vi.fn(),
     onResize: vi.fn(),
+    onSetImageDisplayHeight: vi.fn(),
     onMeasurePlan: vi.fn(),
     onMeasureReferenceDescription: vi.fn(),
     ...overrides,
@@ -520,6 +521,52 @@ describe("PlanCanvas", () => {
     expect(previewLeft + previewWidth).toBeCloseTo(initialRight, 5);
   });
 
+  it("reflows content-scale and per-image-size previews before either resize commits", () => {
+    const props = renderCanvas({
+      components: [
+        { ...planComponent, width: 0.5 },
+        { ...referenceComponent, width: 0.4 },
+      ],
+    });
+    const planFrame = document.querySelector('[data-component-id="plan1"]') as HTMLElement;
+    const componentHandle = planFrame.querySelector(
+      '[data-resize-handle="bottom"]',
+    ) as HTMLElement & {
+      setPointerCapture(pointerId: number): void;
+      releasePointerCapture(pointerId: number): void;
+      hasPointerCapture(pointerId: number): boolean;
+    };
+    componentHandle.setPointerCapture = vi.fn();
+    componentHandle.releasePointerCapture = vi.fn();
+    componentHandle.hasPointerCapture = vi.fn().mockReturnValue(true);
+    const beforeComponentHeight = Number.parseFloat(planFrame.style.height);
+
+    fireEvent.pointerDown(componentHandle, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(componentHandle, { clientY: 130, pointerId: 1 });
+    expect(Number.parseFloat(planFrame.style.height)).toBeGreaterThan(beforeComponentHeight);
+    expect(props.onResize).not.toHaveBeenCalled();
+    fireEvent.pointerCancel(componentHandle, { pointerId: 1 });
+
+    const imageTile = document.querySelector('[data-testid="image-tile-i1"]') as HTMLElement;
+    const imageHandle = imageTile.querySelector(
+      '[data-image-resize-handle="bottom"]',
+    ) as HTMLElement & {
+      setPointerCapture(pointerId: number): void;
+      releasePointerCapture(pointerId: number): void;
+      hasPointerCapture(pointerId: number): boolean;
+    };
+    imageHandle.setPointerCapture = vi.fn();
+    imageHandle.releasePointerCapture = vi.fn();
+    imageHandle.hasPointerCapture = vi.fn().mockReturnValue(true);
+    const beforeImageHeight = Number.parseFloat(imageTile.style.height);
+
+    fireEvent.pointerDown(imageHandle, { clientY: 100, pointerId: 2 });
+    fireEvent.pointerMove(imageHandle, { clientY: 76, pointerId: 2 });
+    expect(Number.parseFloat(imageTile.style.height)).toBeLessThan(beforeImageHeight);
+    expect(props.onSetImageDisplayHeight).not.toHaveBeenCalled();
+    fireEvent.pointerCancel(imageHandle, { pointerId: 2 });
+  });
+
   it("does not commit resize after pointercancel on the canvas", () => {
     const props = renderCanvas({ components: [planComponent] });
 
@@ -542,10 +589,10 @@ describe("PlanCanvas", () => {
     expect(props.onResize).not.toHaveBeenCalled();
   });
 
-  it("does not render a top resize handle", () => {
+  it("renders a top content-scale resize handle", () => {
     renderCanvas();
     const topHandle = document.querySelector('[data-resize-handle="top"]');
-    expect(topHandle).not.toBeInTheDocument();
+    expect(topHandle).toHaveClass("cursor-ns-resize");
   });
 
   it("right resize handle exists with correct attributes", () => {
@@ -555,9 +602,12 @@ describe("PlanCanvas", () => {
     expect(rightHandle).toHaveClass("cursor-ew-resize");
   });
 
-  it("does not render a bottom resize handle", () => {
+  it("renders a bottom content-scale resize handle", () => {
     renderCanvas();
     const bottomHandle = document.querySelector('[data-resize-handle="height"]');
+    expect(document.querySelector('[data-resize-handle="bottom"]')).toHaveClass(
+      "cursor-ns-resize",
+    );
     expect(bottomHandle).not.toBeInTheDocument();
   });
 

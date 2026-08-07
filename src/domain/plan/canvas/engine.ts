@@ -11,6 +11,7 @@ import {
 } from "./geometry";
 import {
   clampImageHeight,
+  clampContentScale,
   type PlanComponent,
   type ReferenceComponent,
 } from "./models";
@@ -107,6 +108,10 @@ function planHeight(id: string, measurements: LayoutMeasurements): number {
   return Number.isFinite(value) && (value ?? 0) > 0 ? value! : FALLBACK_PLAN_HEIGHT;
 }
 
+function componentScale(component: PlanComponent): number {
+  return clampContentScale(component.contentScale);
+}
+
 function referenceDescriptionHeight(component: ReferenceComponent, measurements: LayoutMeasurements): number {
   if (!component.showDescription || !component.description.trim()) {
     return 0;
@@ -162,7 +167,9 @@ function layoutPlanComponent(
   const frameChromeHeight = componentFrameChromeHeight(options.frameChrome);
 
   if (entry.component.type === "plan") {
-    const height = planHeight(entry.component.id, measurements) + frameChromeHeight;
+    const height =
+      planHeight(entry.component.id, measurements) * componentScale(entry.component) +
+      frameChromeHeight;
     const firstHeight = Math.min(height, Math.max(0, contentHeight - y));
     const end = endPosition(startSurfaceTop(pageIndex, y, geometry) + height, geometry);
     return {
@@ -183,24 +190,22 @@ function layoutPlanComponent(
     };
   }
 
+  const contentScale = componentScale(entry.component);
   const descriptionHeight = referenceDescriptionHeight(entry.component, measurements);
   const descriptionLayoutHeight =
     descriptionHeight > 0 ? descriptionHeight + REFERENCE_DESCRIPTION_GAP : 0;
-  const innerWidth = Math.max(0, entry.width - COMPONENT_INSET * 2);
+  const innerWidth = Math.max(0, entry.width / contentScale - COMPONENT_INSET * 2);
   const descriptionFrameHeight =
     frameChromeHeight +
-    COMPONENT_INSET * 2 +
-    REFERENCE_HEADER_HEIGHT +
-    descriptionLayoutHeight;
+    (COMPONENT_INSET * 2 + REFERENCE_HEADER_HEIGHT + descriptionLayoutHeight) * contentScale;
   const availableHeight = Math.max(0, contentHeight - y);
   const firstAvailableRowHeight = Math.max(
     0,
-    availableHeight - descriptionFrameHeight,
+    (availableHeight - descriptionFrameHeight) / contentScale,
   );
   const continuationAvailableRowHeight = Math.max(
     0,
-    contentHeight -
-      frameChromeHeight -
+    (contentHeight - frameChromeHeight) / contentScale -
       COMPONENT_INSET * 2 -
       REFERENCE_CONTINUATION_HEADER_HEIGHT,
   );
@@ -257,9 +262,10 @@ function layoutPlanComponent(
           width: entry.width,
           height:
             frameChromeHeight +
-            COMPONENT_INSET * 2 +
-            REFERENCE_CONTINUATION_HEADER_HEIGHT +
-            fragment.height,
+            (COMPONENT_INSET * 2 +
+              REFERENCE_CONTINUATION_HEADER_HEIGHT +
+              fragment.height) *
+              contentScale,
         },
         imageSlots: fragment.rows.flatMap((row) =>
           row.slots.map((slot) => ({
@@ -309,7 +315,8 @@ function layoutPlanComponent(
       : REFERENCE_CONTINUATION_HEADER_HEIGHT;
     const rectY = isFirst ? y : 0;
     const rectHeight =
-      frameChromeHeight + COMPONENT_INSET * 2 + headerHeight + fragment.height;
+      frameChromeHeight +
+      (COMPONENT_INSET * 2 + headerHeight + fragment.height) * contentScale;
 
     return {
       fragmentId: fragmentId(entry.component.id, fragment.fragmentIndex),

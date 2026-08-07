@@ -1,5 +1,7 @@
 import {
   clampImageHeight,
+  clampContentScale,
+  clampReferenceImageDisplayHeight,
   clampWidth,
   type PlanComponent,
   type ProjectPlan,
@@ -83,14 +85,18 @@ export function moveComponent(
 
 export function resizeComponent(
   plan: ProjectPlan,
-  params: { id: string; width: number },
+  params: { id: string; width: number; contentScale?: number },
 ): ProjectPlan {
   return mapComponent(plan, params.id, (component) => {
     const width = clampWidth(params.width);
-    if (width === component.width) {
+    const contentScale =
+      params.contentScale === undefined
+        ? component.contentScale
+        : clampContentScale(params.contentScale);
+    if (width === component.width && contentScale === component.contentScale) {
       return component;
     }
-    return { ...component, width };
+    return { ...component, width, contentScale };
   });
 }
 
@@ -328,4 +334,38 @@ export function setImageHeight(plan: ProjectPlan, id: string, imageHeight: numbe
   return mapReference(plan, id, (component) =>
     component.imageHeight === clamped ? component : { ...component, imageHeight: clamped },
   );
+}
+
+export function setImageDisplayHeight(
+  plan: ProjectPlan,
+  params: { componentId: string; imageId: string; displayHeight: number | undefined },
+): ProjectPlan {
+  return mapReference(plan, params.componentId, (component) => {
+    const target = component.images.find((image) => image.id === params.imageId);
+    if (!target) {
+      return component;
+    }
+
+    const displayHeight =
+      params.displayHeight === undefined
+        ? undefined
+        : clampReferenceImageDisplayHeight(params.displayHeight, component.imageHeight);
+    if (target.displayHeight === displayHeight) {
+      return component;
+    }
+
+    return {
+      ...component,
+      images: component.images.map((image) =>
+        image.id === params.imageId
+          ? displayHeight === undefined
+            ? (() => {
+                const { displayHeight: _displayHeight, ...reset } = image;
+                return reset;
+              })()
+            : { ...image, displayHeight }
+          : image,
+      ),
+    };
+  });
 }

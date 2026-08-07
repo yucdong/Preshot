@@ -24,6 +24,8 @@ import {
 import {
   moveComponent,
   moveImages,
+  resizeComponent,
+  setImageDisplayHeight,
   type ComponentMoveTarget,
   type MoveImageParams,
   type MoveImagesParams,
@@ -73,7 +75,7 @@ export interface PlanCanvasProps {
   onMoveComponent?: (id: string, target: ComponentMoveTarget) => void;
   onMoveImage?: (params: MoveImageParams) => void;
   onMoveImages?: (params: MoveImagesParams) => void;
-  onResize?: (id: string, params: { width: number }) => void;
+  onResize?: (id: string, params: { width: number; contentScale?: number }) => void;
   onToggleDescription?: (id: string) => void;
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
   onSetImageHeight?: (id: string, height: number) => void;
@@ -90,6 +92,11 @@ export interface PlanCanvasProps {
   };
   onCaptureImage?: (componentId: string) => void;
   onCancelCapture?: () => void;
+  onSetImageDisplayHeight?: (
+    componentId: string,
+    imageId: string,
+    displayHeight: number | undefined,
+  ) => void;
 }
 
 type ActiveDrag =
@@ -111,7 +118,7 @@ function sameComponentDragParams(
 const CANVAS_LAYOUT_OPTIONS = {
   frameChrome: EDITABLE_COMPONENT_FRAME_CHROME,
   includeDocumentTitle: true,
-  includeReferenceAddTile: "empty" as const,
+  includeReferenceAddTile: true,
 };
 
 const collisionDetection: CollisionDetection = (args) => {
@@ -216,9 +223,19 @@ export function PlanCanvas({
   screenCaptureState,
   onCaptureImage,
   onCancelCapture,
+  onSetImageDisplayHeight,
 }: PlanCanvasProps) {
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
   const [preview, setPreview] = useState<PlanComponent[] | null>(null);
+  const [resizePreview, setResizePreview] = useState<{
+    id: string;
+    params: { width: number; contentScale?: number };
+  } | null>(null);
+  const [imageResizePreview, setImageResizePreview] = useState<{
+    componentId: string;
+    imageId: string;
+    displayHeight: number;
+  } | null>(null);
   const [selectedImageIds, setSelectedImageIds] = useState<ReadonlySet<string>>(
     new Set(),
   );
@@ -232,8 +249,19 @@ export function PlanCanvas({
     ...DEFAULT_PAGE_GEOMETRY,
     pageGap: Number.isFinite(scale) && scale > 0 ? PAGE_SCREEN_GAP / scale : 0,
   };
-  const displayedComponents = components;
-  const previewComponents = preview ?? components;
+  const resizedComponents = resizePreview
+    ? resizeComponent(
+        { schemaVersion: 6, title: "", components },
+        { id: resizePreview.id, ...resizePreview.params },
+      ).components
+    : components;
+  const displayedComponents = imageResizePreview
+    ? setImageDisplayHeight(
+        { schemaVersion: 6, title: "", components: resizedComponents },
+        imageResizePreview,
+      ).components
+    : resizedComponents;
+  const previewComponents = preview ?? displayedComponents;
   const baseLayout = layoutPlan(
     displayedComponents,
     layoutGeometry,
@@ -436,10 +464,31 @@ export function PlanCanvas({
     }
   };
 
-  const handleResize = (id: string, params: { width: number }) => {
+  const handleResize = (id: string, params: { width: number; contentScale?: number }) => {
+    setResizePreview(null);
     if (onResize) {
       onResize(id, params);
     }
+  };
+
+  const handleResizePreview = (
+    id: string,
+    params: { width: number; contentScale?: number },
+  ) => {
+    setResizePreview({ id, params });
+  };
+
+  const clearResizePreview = () => {
+    setResizePreview(null);
+  };
+
+  const handleSetImageDisplayHeight = (
+    componentId: string,
+    imageId: string,
+    displayHeight: number | undefined,
+  ) => {
+    setImageResizePreview(null);
+    onSetImageDisplayHeight?.(componentId, imageId, displayHeight);
   };
 
   const selectImage = (imageId: string, toggle: boolean) => {
@@ -552,13 +601,16 @@ export function PlanCanvas({
                   component={component}
                   onRename={onRenameComponent}
                   onResize={handleResize}
+                  onResizePreview={handleResizePreview}
+                  onResizeCancel={clearResizePreview}
                 >
                   {component.type === "plan" ? (
                     <PlanTextComponentView
                       component={component}
                       onChangeHtml={onChangeHtml}
                       onMeasure={onMeasurePlan}
-                      scale={scale}
+                      scale={scale * component.contentScale}
+                      contentScale={component.contentScale}
                     />
                   ) : (
                     <ReferenceComponentView
@@ -590,6 +642,11 @@ export function PlanCanvas({
                       onToggleDescription={onToggleDescription}
                       onSetImageCaption={onSetImageCaption}
                       onSetImageHeight={onSetImageHeight}
+                      onSetImageDisplayHeight={handleSetImageDisplayHeight}
+                      onPreviewImageDisplayHeight={(componentId, imageId, displayHeight) =>
+                        setImageResizePreview({ componentId, imageId, displayHeight })
+                      }
+                      onCancelImageResize={() => setImageResizePreview(null)}
                       onAddImages={onAddImages}
                       onMeasureDescription={onMeasureReferenceDescription}
                       placeholderImage={imagePlaceholder?.image}
@@ -597,6 +654,7 @@ export function PlanCanvas({
                       placeholderSlot={imagePlaceholder?.slot}
                       slots={placement.imageSlots ?? []}
                       scale={scale}
+                      contentMeasurementScale={scale * component.contentScale}
                     />
                   )}
                 </ComponentFrame>

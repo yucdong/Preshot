@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resizeFromDrag } from "./useComponentResize";
+import { resizeContentScaleFromDrag, resizeFromDrag } from "./useComponentResize";
 
 describe("resizeFromDrag", () => {
   const contentWidth = 500;
@@ -50,5 +50,29 @@ describe("resizeFromDrag", () => {
 
     expect(first.width).toBeCloseTo(0.6, 5);
     expect(second.width).toBeCloseTo(0.7, 5);
+  });
+});
+
+describe("resizeContentScaleFromDrag", () => {
+  it("changes contentScale and width by the same proportion", () => {
+    expect(
+      resizeContentScaleFromDrag({
+        dyPoints: 100,
+        currentContentScale: 1,
+        currentHeightPoints: 200,
+        currentWidth: 0.5,
+      }),
+    ).toEqual({ contentScale: 1.5, width: 0.75 });
+  });
+
+  it("limits proportional scaling before width or model limits become invalid", () => {
+    expect(
+      resizeContentScaleFromDrag({
+        dyPoints: 1000,
+        currentContentScale: 1,
+        currentHeightPoints: 100,
+        currentWidth: 0.75,
+      }),
+    ).toEqual({ contentScale: 4 / 3, width: 1 });
   });
 });

@@ -9,6 +9,7 @@ import {
   removeComponent,
   resizeComponent,
   setImageCaption,
+  setImageDisplayHeight,
   setImageAspectRatio,
   setImageHeight,
   toggleReferenceDescription,
@@ -87,6 +88,16 @@ describe("canvas reducers", () => {
     expect(next.components[0]).not.toHaveProperty("height");
   });
 
+  it("resizes width and content scale with independent model clamping", () => {
+    const plan = withComponents([planText("a")]);
+
+    const resized = resizeComponent(plan, { id: "a", width: 0.5, contentScale: 1.5 });
+    expect(resized.components[0]).toMatchObject({ width: 0.5, contentScale: 1.5 });
+
+    const clamped = resizeComponent(plan, { id: "a", width: 2, contentScale: 3 });
+    expect(clamped.components[0]).toMatchObject({ width: 1, contentScale: 2 });
+  });
+
   it("updates plan html", () => {
     const plan = withComponents([planText("a")]);
     expect((updatePlanHtml(plan, { id: "a", html: "<p>x</p>" }).components[0] as { html: string }).html).toBe("<p>x</p>");
@@ -116,6 +127,40 @@ describe("canvas reducers", () => {
     const plan = withComponents([reference("r", ["i1"])]);
     const result = setImageCaption(plan, { componentId: "r", imageId: "unknown", caption: "sunset" });
     expect(result).toBe(plan);
+  });
+
+  it("sets and resets a per-image display height within its component bounds", () => {
+    const plan = withComponents([reference("r", ["i1"])]);
+
+    const resized = setImageDisplayHeight(plan, {
+      componentId: "r",
+      imageId: "i1",
+      displayHeight: 48,
+    });
+    expect((resized.components[0] as ReferenceComponent).images[0].displayHeight).toBe(48);
+
+    const clamped = setImageDisplayHeight(plan, {
+      componentId: "r",
+      imageId: "i1",
+      displayHeight: 999,
+    });
+    expect((clamped.components[0] as ReferenceComponent).images[0].displayHeight).toBe(180);
+
+    const minimum = setImageDisplayHeight(plan, {
+      componentId: "r",
+      imageId: "i1",
+      displayHeight: 1,
+    });
+    expect((minimum.components[0] as ReferenceComponent).images[0].displayHeight).toBe(32);
+
+    const reset = setImageDisplayHeight(resized, {
+      componentId: "r",
+      imageId: "i1",
+      displayHeight: undefined,
+    });
+    expect((reset.components[0] as ReferenceComponent).images[0]).not.toHaveProperty(
+      "displayHeight",
+    );
   });
 
   it("moves an image across reference components", () => {

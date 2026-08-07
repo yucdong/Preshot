@@ -143,7 +143,7 @@ slot: { ...mockSlot, imageHeight: 90, captionHeight: 30, height: 120 },
 slot: { kind: "image", id: "i1", x: 0, y: 0, width: 180, height: 180, imageHeight: 135, captionHeight: 45 },
     });
 
-    expect(screen.getByRole("img", { name: "参考图" })).toHaveClass("object-fill");
+    expect(screen.getByRole("img", { name: "参考图" })).toHaveClass("object-contain");
     expect(screen.getByTestId("image-region")).toHaveStyle({ height: "135px" });
     expect(screen.getByRole("textbox", { name: "图片说明 1" })).toHaveStyle({ height: "45px" });
   });
@@ -200,6 +200,45 @@ slot: { ...mockSlot, imageHeight: 90, captionHeight: 30, height: 120 },
 
     const tile = screen.getByTestId("image-placeholder-i1");
     expect(tile.style.transform).toBe("");
+  });
+
+  it.each(["top", "right", "bottom", "left"])(
+    "renders a %s resize handle for direct image sizing",
+    (edge) => {
+      renderTile({ onSetDisplayHeight: vi.fn() });
+
+      expect(document.querySelector(`[data-image-resize-handle="${edge}"]`)).toBeInTheDocument();
+    },
+  );
+
+  it("commits a resized display height from the bottom edge", () => {
+    const onSetDisplayHeight = vi.fn();
+    renderTile({ onSetDisplayHeight });
+    const handle = document.querySelector('[data-image-resize-handle="bottom"]') as HTMLElement & {
+      hasPointerCapture(pointerId: number): boolean;
+      releasePointerCapture(pointerId: number): void;
+      setPointerCapture(pointerId: number): void;
+    };
+    handle.setPointerCapture = vi.fn();
+    handle.releasePointerCapture = vi.fn();
+    handle.hasPointerCapture = vi.fn().mockReturnValue(true);
+
+    fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientY: 124, pointerId: 1 });
+    fireEvent.pointerUp(handle, { pointerId: 1 });
+
+    expect(onSetDisplayHeight).toHaveBeenCalledWith("i1", 144);
+  });
+
+  it("shows a reset affordance only for a custom display height", () => {
+    const onSetDisplayHeight = vi.fn();
+    renderTile({
+      image: { ...image, displayHeight: 96 },
+      onSetDisplayHeight,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "恢复默认图片尺寸" }));
+    expect(onSetDisplayHeight).toHaveBeenCalledWith("i1", undefined);
   });
 
 });

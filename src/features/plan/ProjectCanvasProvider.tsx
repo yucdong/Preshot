@@ -30,6 +30,7 @@ import {
   setImageCaption,
   setImageAspectRatioForFile,
   setImageHeight,
+  setImageDisplayHeight,
   type MoveImageParams,
   type MoveImagesParams,
   type ComponentMoveTarget,
@@ -1015,9 +1016,9 @@ export function ProjectCanvasProvider({
   );
 
   const handleResize = useCallback(
-    (id: string, params: { width: number }) => {
+    (id: string, params: { width: number; contentScale?: number }) => {
       if (!readyTokenFor(projectPath)) return;
-      const next = resizeComponent(planRef.current, { id, width: params.width });
+      const next = resizeComponent(planRef.current, { id, ...params });
       mutate(next, `resize:${id}`);
     },
     [mutate, projectPath, readyTokenFor],
@@ -1068,6 +1069,19 @@ export function ProjectCanvasProvider({
       if (!readyTokenFor(projectPath)) return;
       const next = setImageHeight(planRef.current, id, imageHeight);
       mutate(next, `imageHeight:${id}`);
+    },
+    [mutate, projectPath, readyTokenFor],
+  );
+
+  const handleSetImageDisplayHeight = useCallback(
+    (componentId: string, imageId: string, displayHeight: number | undefined) => {
+      if (!readyTokenFor(projectPath)) return;
+      const next = setImageDisplayHeight(planRef.current, {
+        componentId,
+        imageId,
+        displayHeight,
+      });
+      mutate(next, `imageDisplayHeight:${componentId}:${imageId}`);
     },
     [mutate, projectPath, readyTokenFor],
   );
@@ -1571,6 +1585,7 @@ export function ProjectCanvasProvider({
             onToggleDescription={handleToggleDescription}
             onSetImageCaption={handleSetImageCaption}
             onSetImageHeight={handleSetImageHeight}
+            onSetImageDisplayHeight={handleSetImageDisplayHeight}
             onAddImages={handleAddImages}
             onCaptureImage={screenCapture ? handleCaptureImage : undefined}
             onCancelCapture={handleCancelScreenCapture}

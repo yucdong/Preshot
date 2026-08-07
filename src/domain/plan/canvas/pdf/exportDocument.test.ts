@@ -115,6 +115,23 @@ imageHeight: 180, images: [
     ]);
   });
 
+  it("keeps screen-only content scaling out of PDF placement geometry", () => {
+    const ref: ReferenceComponent = {
+      id: "r1",
+      type: "reference",
+      width: 1,
+      contentScale: 2,
+      name: "Reference",
+      description: "",
+      showDescription: true,
+      imageHeight: 180,
+      images: [{ id: "img1", file: "photo1.jpg", aspectRatio: 1 }],
+    };
+
+    const [placement] = buildCanvasLayout([ref]).placements;
+    expect(placement.imageSlots?.[0]).toMatchObject({ imageHeight: 180, width: 180 });
+  });
+
   it("reserves component-name and non-empty caption bands using image ratios", () => {
     const reference: ReferenceComponent = {
       id: "r1",
