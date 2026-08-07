@@ -3,9 +3,9 @@ import { componentDropTarget } from "./dropTarget";
 import type { PlanComponent } from "./models";
 
 const components: PlanComponent[] = [
-  { id: "a", name: "文案1", type: "plan", width: 0.4, contentScale: 1, html: "" },
-  { id: "b", name: "文案2", type: "plan", width: 0.4, contentScale: 1, html: "" },
-  { id: "c", name: "文案3", type: "plan", width: 0.4, contentScale: 1, html: "" },
+  { id: "a", name: "文案1", type: "plan", x: 0, y: 60, width: 180, height: 120, html: "" },
+  { id: "b", name: "文案2", type: "plan", x: 0, y: 204, width: 180, height: 120, html: "" },
+  { id: "c", name: "文案3", type: "plan", x: 0, y: 348, width: 180, height: 120, html: "" },
 ];
 
 describe("componentDropTarget", () => {

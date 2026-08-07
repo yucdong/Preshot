@@ -12,9 +12,6 @@ interface GroupLike {
   images: Array<{
     id: string;
     file: string;
-    caption?: string;
-    aspectRatio?: number;
-    displayHeight?: number;
   }>;
 }
 
@@ -28,16 +25,12 @@ interface GroupImageGridProps {
   droppableId?: string;
   fragmentId?: string;
   enableReorder?: boolean;
-  onSetCaption?: (imageId: string, caption: string) => void;
   slots: ReferenceFlowSlot[];
   scale: number;
   hiddenImageId?: string;
   placeholderImage?: { id: string; file: string; caption?: string };
   placeholderSlot?: ReferenceFlowSlot;
   placeholderIndex?: number;
-  onSetDisplayHeight?: (imageId: string, displayHeight: number | undefined) => void;
-  onPreviewDisplayHeight?: (imageId: string, displayHeight: number) => void;
-  onCancelImageResize?: () => void;
   onAddImages?: (componentId: string) => void;
   onCaptureImage?: (componentId: string) => void;
   imageActionsDisabled?: boolean;
@@ -53,16 +46,12 @@ export function GroupImageGrid({
   droppableId, 
   fragmentId,
   enableReorder = false, 
-  onSetCaption,
   slots,
   scale,
   hiddenImageId,
   placeholderImage,
   placeholderSlot,
   placeholderIndex,
-  onSetDisplayHeight,
-  onPreviewDisplayHeight,
-  onCancelImageResize,
   onAddImages,
   onCaptureImage,
   imageActionsDisabled = false,
@@ -157,10 +146,6 @@ export function GroupImageGrid({
             selected={selectedImageIds.has(image.id)}
             src={imageSrc(image.file)}
             draggable={enableReorder}
-            onSetCaption={onSetCaption}
-            onSetDisplayHeight={onSetDisplayHeight}
-            onPreviewDisplayHeight={onPreviewDisplayHeight}
-            onCancelResize={onCancelImageResize}
             slot={slot}
             scale={scale}
           />
@@ -180,10 +165,6 @@ export function GroupImageGrid({
           src={imageSrc(placeholderImage.file)}
           draggable={enableReorder}
           isPlaceholder
-          onSetCaption={onSetCaption}
-          onSetDisplayHeight={onSetDisplayHeight}
-          onPreviewDisplayHeight={onPreviewDisplayHeight}
-          onCancelResize={onCancelImageResize}
           slot={normalizedPlaceholderSlot}
           scale={scale}
         />

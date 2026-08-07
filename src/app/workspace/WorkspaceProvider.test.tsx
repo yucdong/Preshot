@@ -43,9 +43,9 @@ vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
     onAddImage(id: string): void;
     onCommitTitle(title: string): unknown;
     onRenameComponent(id: string, name: string): unknown;
-    onMoveComponent?(id: string, target: { toIndex: number }): void;
+    onMoveComponent?(id: string, target: { x: number; y: number }): void;
     onRemoveComponent?(id: string): void;
-    onResize?(id: string, params: { width: number }): void;
+    onResize?(id: string, params: { x: number; y: number; width: number; height: number }): void;
   }) => {
     renderedPlanTitles.push(title);
     return (
@@ -56,15 +56,26 @@ vi.mock("../../features/plan/canvas/PlanCanvas", () => ({
         <button onClick={() => onRenameComponent("p1", "Shot list")} type="button">Test name</button>
         <button
           onClick={() => onMoveComponent?.("p1", {
-            toIndex: 1,
+            x: 100,
+            y: 80,
           })}
           type="button"
         >
           Test row
         </button>
         <button onClick={() => onRemoveComponent?.("r1")} type="button">Test remove reference</button>
-        <button onClick={() => onResize?.("r1", { width: 0.5 })} type="button">Test width</button>
-        <button onClick={() => onResize?.("r2", { width: 0.5 })} type="button">Test retained width</button>
+        <button
+          onClick={() => onResize?.("r1", { x: 0, y: 204, width: 120, height: 180 })}
+          type="button"
+        >
+          Test width
+        </button>
+        <button
+          onClick={() => onResize?.("r2", { x: 0, y: 408, width: 120, height: 180 })}
+          type="button"
+        >
+          Test retained width
+        </button>
       </div>
     );
   },
@@ -175,7 +186,7 @@ function planDeps(): CanvasPlanDependencies {
     service: {
       loadPlan: vi.fn().mockResolvedValue({
         status: "loaded",
-        plan: { schemaVersion: 6, title: "Demo", components: [] },
+        plan: { schemaVersion: 7, title: "Demo", components: [] },
       }),
       loadImage: vi.fn().mockResolvedValue(""),
       savePlan: vi.fn(),
@@ -361,38 +372,42 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-02T00:00:00.000Z",
     });
     const retiringPlan = {
-      schemaVersion: 6 as const,
+      schemaVersion: 7 as const,
       title: "Original title",
       components: [
         {
           id: "p1",
           name: "文案1",
           type: "plan" as const,
-          width: 0.4,
-          contentScale: 1,
+          x: 0,
+          y: 60,
+          width: 220,
+          height: 120,
           html: "",
         },
         {
           id: "r1",
           name: "图片组1",
           type: "reference" as const,
-          width: 0.4,
-          contentScale: 1,
+          x: 0,
+          y: 204,
+          width: 220,
+          height: 180,
           description: "",
-          showDescription: true,
-imageHeight: 135,
           images: [
             {
               id: "existing-image",
               file: "references/existing.png",
               aspectRatio: 1,
+              frameWidth: 135,
+              frameHeight: 135,
             },
           ],
         },
       ],
     };
     const nextPlan = {
-      schemaVersion: 6 as const,
+      schemaVersion: 7 as const,
       title: "Next title",
       components: [],
     };
@@ -400,6 +415,8 @@ imageHeight: 135,
       id: "imported-image",
       file: "references/imported.png",
       aspectRatio: 1,
+      frameWidth: 135,
+      frameHeight: 135,
     };
     const importedPlan: ProjectPlan = {
       ...retiringPlan,
@@ -411,7 +428,13 @@ imageHeight: 135,
     };
     const imported = deferred<{
       plan: ProjectPlan;
-      image: { id: string; file: string; aspectRatio: number };
+      image: {
+        id: string;
+        file: string;
+        aspectRatio: number;
+        frameWidth: number;
+        frameHeight: number;
+      };
       dataUrl: string;
     }>();
     const { dependencies, service } = createDependencies();
@@ -466,7 +489,7 @@ imageHeight: 135,
             }),
             expect.objectContaining({
               id: "r1",
-              width: 0.5,
+              width: 120,
               images: expect.arrayContaining([
                 expect.objectContaining({
                   id: "existing-image",
@@ -497,31 +520,35 @@ imageHeight: 135,
       updatedAt: "2026-07-09T00:00:00.000Z",
     });
     const plan: ProjectPlan = {
-      schemaVersion: 6,
+      schemaVersion: 7,
       title: "Original title",
       components: [
         {
           id: "p1",
           name: "Plan",
           type: "plan",
-          width: 0.4,
-          contentScale: 1,
+          x: 0,
+          y: 60,
+          width: 220,
+          height: 120,
           html: "",
         },
         {
           id: "r1",
           name: "Reference",
           type: "reference",
-          width: 0.4,
-          contentScale: 1,
+          x: 0,
+          y: 204,
+          width: 220,
+          height: 180,
           description: "",
-          showDescription: true,
-imageHeight: 135,
           images: [
             {
               id: "existing-image",
               file: "references/existing.png",
               aspectRatio: 1,
+              frameWidth: 135,
+              frameHeight: 135,
             },
           ],
         },
@@ -529,16 +556,18 @@ imageHeight: 135,
           id: "r2",
           name: "Retained reference",
           type: "reference",
-          width: 1,
-          contentScale: 1,
+          x: 0,
+          y: 408,
+          width: 320,
+          height: 180,
           description: "",
-          showDescription: true,
-imageHeight: 135,
           images: [
             {
               id: "retained-image",
               file: "references/retained.png",
               aspectRatio: 1,
+              frameWidth: 135,
+              frameHeight: 135,
             },
           ],
         },
@@ -601,7 +630,7 @@ imageHeight: 135,
           }),
           expect.objectContaining({
             id: "r2",
-            width: 0.5,
+            width: 120,
             images: [
               expect.objectContaining({
                 id: "retained-image",
@@ -631,7 +660,7 @@ imageHeight: 135,
         }),
         expect.objectContaining({
           id: "r2",
-          width: 0.5,
+          width: 120,
           images: [
             expect.objectContaining({
               id: "retained-image",
@@ -658,32 +687,34 @@ imageHeight: 135,
       updatedAt: "2026-07-08T00:00:00.000Z",
     });
     const planA: ProjectPlan = {
-      schemaVersion: 6,
+      schemaVersion: 7,
       title: "Original A metadata",
       components: [
         {
           id: "p1",
           name: "Plan",
           type: "plan",
-          width: 1,
-          contentScale: 1,
+          x: 0,
+          y: 60,
+          width: 320,
+          height: 120,
           html: "",
         },
         {
           id: "r1",
           name: "Reference",
           type: "reference",
-          width: 1,
-          contentScale: 1,
+          x: 0,
+          y: 204,
+          width: 320,
+          height: 180,
           description: "",
-          showDescription: true,
-imageHeight: 135,
           images: [],
         },
       ],
     };
     const planB: ProjectPlan = {
-      schemaVersion: 6,
+      schemaVersion: 7,
       title: "B metadata must never leak",
       components: [],
     };

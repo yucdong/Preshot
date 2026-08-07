@@ -23,13 +23,16 @@ import type {
 } from "../../domain/plan/canvas/engine";
 import type {
   ProjectPlan,
-  ReferenceComponent,
-  ReferenceImage,
 } from "../../domain/plan/canvas/models";
 import { clampContentScale } from "../../domain/plan/canvas/models";
+import type {
+  LegacyV6PlanComponent,
+  LegacyV6ReferenceImage,
+} from "../../domain/plan/canvas/legacyV6";
 import {
   buildCanvasLayout,
   PDF_COMPONENT_FRAME_CHROME,
+  temporaryPagedExportPlan,
 } from "../../domain/plan/canvas/pdf/exportDocument";
 import {
   COMPONENT_INSET,
@@ -93,7 +96,7 @@ function dataUrlToBytes(dataUrl: string): { mime: string; bytes: Uint8Array } {
 function requireReferenceImageData(
   images: Record<string, string>,
   componentId: string,
-  image: ReferenceImage,
+  image: Pick<LegacyV6ReferenceImage, "id" | "file">,
 ): string {
   const dataUrl = images[image.file];
   if (!dataUrl) {
@@ -239,7 +242,7 @@ function scaleRect(rect: Rect, scale: number): Rect {
 }
 
 function preparePdfTextLayouts(
-  components: ProjectPlan["components"],
+  components: LegacyV6PlanComponent[],
   geometry: PageGeometry,
   regular: PDFFont,
   bold: PDFFont,
@@ -318,7 +321,7 @@ function samePlanHeights(
 }
 
 function resolvePdfLayout(
-  components: ProjectPlan["components"],
+  components: LegacyV6PlanComponent[],
   geometry: PageGeometry,
   textLayouts: PdfTextLayouts,
   documentTitle: string,
@@ -438,6 +441,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
   return {
     async export(plan: ProjectPlan, images: Record<string, string>): Promise<Uint8Array> {
       validateReferenceImageData(plan, images);
+      const temporaryPlan = temporaryPagedExportPlan(plan);
       const pdf = await PDFDocument.create();
       pdf.registerFontkit(fontkit);
 
@@ -449,7 +453,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
       const regular = await pdf.embedFont(fonts.regular, { subset: true });
       const bold = await pdf.embedFont(fonts.bold, { subset: true });
       const textLayouts = preparePdfTextLayouts(
-        plan.components,
+        temporaryPlan.components,
         DEFAULT_PAGE_GEOMETRY,
         regular,
         bold,
@@ -459,7 +463,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
         paginatedPlanLayouts,
         paginatedReferenceDescriptionLayouts,
       } = resolvePdfLayout(
-        plan.components,
+        temporaryPlan.components,
         DEFAULT_PAGE_GEOMETRY,
         textLayouts,
         plan.title,
@@ -496,7 +500,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
       const frameChromeHeight = componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME);
       for (const placement of layout.placements) {
         const page = pages[placement.pageIndex];
-        const component = plan.components.find((c) => c.id === placement.componentId);
+        const component = temporaryPlan.components.find((c) => c.id === placement.componentId);
         if (!component) continue;
         const contentScale = clampContentScale(component.contentScale);
 
@@ -534,7 +538,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
             );
           }
         } else if (component.type === "reference") {
-          const ref = component as ReferenceComponent;
+          const ref = component;
           const isContinuation = placement.kind === "continuation";
 
           if (!isContinuation && ref.showDescription && ref.description.trim()) {

@@ -13,9 +13,11 @@ import {
 } from "./pdf/exportDocument";
 import {
   DEFAULT_IMAGE_HEIGHT,
-  type PlanComponent,
-  type ReferenceComponent,
 } from "./models";
+import type {
+  LegacyV6PlanComponent as PlanComponent,
+  LegacyV6ReferenceComponent as ReferenceComponent,
+} from "./legacyV6";
 import { COMPONENT_INSET, IMAGE_GAP, REFERENCE_DESCRIPTION_GAP } from "./referenceLayout";
 
 const content = contentSize(DEFAULT_PAGE_GEOMETRY);

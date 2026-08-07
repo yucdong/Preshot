@@ -27,14 +27,13 @@ describe("createBrowserCanvasPlanDependencies", () => {
     }
     expect(result.plan.components).toHaveLength(2);
     expect(result.plan).toMatchObject({
-      schemaVersion: 6,
+      schemaVersion: 7,
       components: [
-        { id: "plan-1", contentScale: 1 },
+        { id: "plan-1", x: 0, y: 60, width: expect.any(Number), height: 220 },
         {
           id: "ref-1",
-          contentScale: 1,
+          x: 0,
           description: "参考图说明",
-          showDescription: true,
         },
       ],
     });
@@ -147,19 +146,19 @@ describe("createBrowserCanvasPlanDependencies", () => {
     }));
   });
 
-  it("round-trips a flat v6 component order", async () => {
+  it("round-trips v7 card order", async () => {
     const first = createBrowserCanvasPlanDependencies();
     const loaded = await first.service.loadPlan("C:\\demo", "Demo");
     if (loaded.status !== "loaded") {
       throw new Error("Expected the seeded browser plan to load");
     }
     const plan = {
-      schemaVersion: 6 as const,
+      schemaVersion: 7 as const,
       title: "Flat order",
       components: [
-        { id: "p1", name: "文案1", type: "plan" as const, width: 0.2, contentScale: 1, html: "" },
-        { id: "p2", name: "文案2", type: "plan" as const, width: 0.2, contentScale: 1, html: "" },
-        { id: "p3", name: "文案3", type: "plan" as const, width: 0.5, contentScale: 1, html: "" },
+        { id: "p1", name: "文案1", type: "plan" as const, x: 0, y: 60, width: 120, height: 80, html: "" },
+        { id: "p2", name: "文案2", type: "plan" as const, x: 0, y: 164, width: 120, height: 80, html: "" },
+        { id: "p3", name: "文案3", type: "plan" as const, x: 0, y: 268, width: 200, height: 80, html: "" },
       ],
     };
 

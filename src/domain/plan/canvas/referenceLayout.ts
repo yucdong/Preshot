@@ -1,3 +1,4 @@
+import type { LegacyV6ReferenceImage } from "./legacyV6";
 import type { ReferenceImage } from "./models";
 import type { Rect } from "./geometry";
 import { calculateCaptionTextSizing } from "./captionTextSizing";
@@ -58,7 +59,7 @@ export function normalizeAspectRatio(value: number): number {
 }
 
 function imageSlot(
-  image: Pick<ReferenceImage, "id" | "aspectRatio" | "caption" | "displayHeight">,
+  image: Pick<LegacyV6ReferenceImage, "id" | "aspectRatio" | "caption" | "displayHeight">,
   requestedHeight: number,
   innerWidth: number,
 ): ReferenceFlowSlot {
@@ -144,7 +145,7 @@ function scaledRowToHeight(row: ReferenceRow, targetHeight: number): ReferenceRo
 }
 
 export function packReferenceRows(input: {
-  images: ReferenceImage[];
+  images: LegacyV6ReferenceImage[];
   imageHeight: number;
   innerWidth: number;
   includeAddTile?: boolean;
@@ -254,4 +255,60 @@ export function paginateReferenceRows(input: {
 
   flushFragment();
   return fragments;
+}
+
+/**
+ * v7 keeps each image frame's explicit dimensions. Frames are simply flowed
+ * within their card; captions are legacy metadata and intentionally consume no
+ * screen or export space.
+ */
+export function packReferenceFrames(input: {
+  images: readonly ReferenceImage[];
+  innerWidth: number;
+  includeAddTile?: boolean;
+}): ReferenceFlowSlot[] {
+  const slots: ReferenceFlowSlot[] = [];
+  const availableWidth = positiveFinite(input.innerWidth);
+  let x = 0;
+  let y = 0;
+  let rowHeight = 0;
+
+  const items = [
+    ...input.images.map((image) => ({
+      kind: "image" as const,
+      id: image.id,
+      width: positiveFinite(image.frameWidth),
+      height: positiveFinite(image.frameHeight),
+    })),
+    ...(input.includeAddTile === false
+      ? []
+      : [{ kind: "add" as const, id: "__add__", width: 72, height: 72 }]),
+  ];
+
+  for (const item of items) {
+    const scale = item.width > availableWidth && item.width > 0
+      ? availableWidth / item.width
+      : 1;
+    const width = item.width * scale;
+    const height = item.height * scale;
+    if (x > 0 && x + IMAGE_GAP + width > availableWidth + EPS) {
+      x = 0;
+      y += rowHeight + IMAGE_GAP;
+      rowHeight = 0;
+    }
+    slots.push({
+      kind: item.kind,
+      id: item.id,
+      x,
+      y,
+      width,
+      height,
+      imageHeight: height,
+      captionHeight: 0,
+    });
+    x += width + IMAGE_GAP;
+    rowHeight = Math.max(rowHeight, height);
+  }
+
+  return slots;
 }

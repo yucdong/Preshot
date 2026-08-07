@@ -49,11 +49,6 @@ export function DragOverlayPreview({
                 {t("reference.loading")}
               </div>
             )}
-            {image.caption?.trim() ? (
-              <div className="border-t border-black/10 bg-white px-2 py-1 text-xs text-stone-700 dark:border-white/10 dark:bg-stone-900 dark:text-stone-200">
-                {image.caption}
-              </div>
-            ) : null}
           </div>
           <div className="mt-2 text-xs text-stone-500 dark:text-stone-400">{component.name}</div>
         </div>

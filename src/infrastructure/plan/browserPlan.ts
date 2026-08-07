@@ -3,6 +3,8 @@ import { planLogger } from "../../shared/logging/logger";
 import { createCanvasPlanService, type CanvasPlanService } from "../../domain/plan/canvas/service";
 import type { CanvasPlanRepository } from "../../domain/plan/canvas/ports";
 import type { ProjectPlan as CanvasPlan } from "../../domain/plan/canvas/models";
+import { DEFAULT_IMAGE_HEIGHT } from "../../domain/plan/canvas/models";
+import { contentSize, DEFAULT_PAGE_GEOMETRY } from "../../domain/plan/canvas/geometry";
 
 const TINY_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -22,32 +24,60 @@ const SEEDED_IMAGE_DATA: Record<string, string> = {
 };
 const BROWSER_PLAN_STORAGE_KEY = "preshot.browser-canvas-plan";
 
-const SEEDED_V6_PLAN: CanvasPlan = {
-  schemaVersion: 6,
+const CANVAS_WIDTH = contentSize(DEFAULT_PAGE_GEOMETRY).width;
+
+const SEEDED_V7_PLAN: CanvasPlan = {
+  schemaVersion: 7,
   title: "日落大片",
   components: [
     {
       id: "plan-1",
       name: "文案1",
       type: "plan",
-      width: 1,
-      contentScale: 1,
+      x: 0,
+      y: 60,
+      width: CANVAS_WIDTH,
+      height: 220,
       html: "<h2>日落大片</h2><p>海滨的黄金时刻。记得带 85mm 镜头。</p>",
     },
     {
       id: "ref-1",
       name: "造型参考",
       type: "reference",
-      width: 1,
-      contentScale: 1,
+      x: 0,
+      y: 304,
+      width: CANVAS_WIDTH,
+      height: 320,
       description: "参考图说明",
-      showDescription: true,
-      imageHeight: 135,
       images: [
-        { id: "img-1", file: "references/0001.png", aspectRatio: 8 / 5 },
-        { id: "img-2", file: "references/0002.png", aspectRatio: 2 / 3 },
-        { id: "img-3", file: "references/0003.png", aspectRatio: 18 / 11 },
-        { id: "img-4", file: "references/0004.png", aspectRatio: 13 / 20 },
+        {
+          id: "img-1",
+          file: "references/0001.png",
+          aspectRatio: 8 / 5,
+          frameWidth: DEFAULT_IMAGE_HEIGHT * (8 / 5),
+          frameHeight: DEFAULT_IMAGE_HEIGHT,
+        },
+        {
+          id: "img-2",
+          file: "references/0002.png",
+          aspectRatio: 2 / 3,
+          frameWidth: DEFAULT_IMAGE_HEIGHT * (2 / 3),
+          frameHeight: DEFAULT_IMAGE_HEIGHT,
+        },
+        {
+          id: "img-3",
+          file: "references/0003.png",
+          aspectRatio: 18 / 11,
+          frameWidth: DEFAULT_IMAGE_HEIGHT * (18 / 11),
+          frameHeight: DEFAULT_IMAGE_HEIGHT,
+        },
+        {
+          id: "img-4",
+          file: "references/0004.png",
+          aspectRatio: 13 / 20,
+          frameWidth: DEFAULT_IMAGE_HEIGHT * (13 / 20),
+          frameHeight: DEFAULT_IMAGE_HEIGHT,
+        },
       ],
     },
   ],
@@ -60,7 +90,7 @@ function createMemoryCanvasStores(): {
   const storedPlan = window.sessionStorage.getItem(BROWSER_PLAN_STORAGE_KEY);
   let plan: CanvasPlan = storedPlan
     ? JSON.parse(storedPlan) as CanvasPlan
-    : structuredClone(SEEDED_V6_PLAN);
+    : structuredClone(SEEDED_V7_PLAN);
   let counter = Object.keys(SEEDED_IMAGE_DATA).length;
   return {
     repository: {

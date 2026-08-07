@@ -12,9 +12,11 @@ import {
 import {
   clampImageHeight,
   clampContentScale,
-  type PlanComponent,
-  type ReferenceComponent,
 } from "./models";
+import type {
+  LegacyV6PlanComponent,
+  LegacyV6ReferenceComponent,
+} from "./legacyV6";
 import {
   COMPONENT_INSET,
   packReferenceRows,
@@ -49,7 +51,7 @@ export function slotCaptionSplit(
 
 export function referenceImageSlots(
   rect: Rect,
-  component: ReferenceComponent,
+  component: LegacyV6ReferenceComponent,
   geometry: PageGeometry = DEFAULT_PAGE_GEOMETRY,
 ): ReferenceFlowSlot[] {
   const top = TITLE_BAND + (component.showDescription && component.description.trim() ? DESCRIPTION_BAND : 0);
@@ -108,11 +110,14 @@ function planHeight(id: string, measurements: LayoutMeasurements): number {
   return Number.isFinite(value) && (value ?? 0) > 0 ? value! : FALLBACK_PLAN_HEIGHT;
 }
 
-function componentScale(component: PlanComponent): number {
+function componentScale(component: LegacyV6PlanComponent): number {
   return clampContentScale(component.contentScale);
 }
 
-function referenceDescriptionHeight(component: ReferenceComponent, measurements: LayoutMeasurements): number {
+function referenceDescriptionHeight(
+  component: LegacyV6ReferenceComponent,
+  measurements: LayoutMeasurements,
+): number {
   if (!component.showDescription || !component.description.trim()) {
     return 0;
   }
@@ -142,7 +147,7 @@ function endPosition(surfaceBottom: number, geometry: PageGeometry): { pageIndex
 }
 
 interface PendingRowComponent {
-  component: PlanComponent;
+  component: LegacyV6PlanComponent;
   x: number;
   width: number;
 }
@@ -363,7 +368,7 @@ function layoutPlanComponent(
 }
 
 export function layoutPlan(
-  components: PlanComponent[],
+  components: LegacyV6PlanComponent[],
   geometry: PageGeometry = DEFAULT_PAGE_GEOMETRY,
   measurements: LayoutMeasurements = EMPTY_LAYOUT_MEASUREMENTS,
   options: LayoutOptions = DEFAULT_LAYOUT_OPTIONS,

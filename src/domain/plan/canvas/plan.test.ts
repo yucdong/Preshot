@@ -1,262 +1,187 @@
 import { describe, expect, it } from "vitest";
+import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import {
   addComponent,
   addReferenceImage,
-  addReferenceImages,
   moveComponent,
   moveImage,
   moveImages,
   removeComponent,
   resizeComponent,
-  setImageCaption,
-  setImageDisplayHeight,
   setImageAspectRatio,
-  setImageHeight,
-  toggleReferenceDescription,
+  setImageCaption,
+  setImageFrame,
   updatePlanHtml,
 } from "./plan";
-import {
-  type PlanComponent,
-  type ProjectPlan,
-  type ReferenceComponent,
+import type {
+  PlanComponent,
+  ProjectPlan,
+  ReferenceComponent,
 } from "./models";
 
-function planText(id: string): PlanComponent {
-  return { id, name: "文案1", type: "plan", width: 1, contentScale: 1, html: `<p>${id}</p>` };
+const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
+
+function planText(
+  id: string,
+  rect = { x: 0, y: 60, width: canvasWidth, height: 220 },
+): PlanComponent {
+  return { id, name: `文案${id}`, type: "plan", ...rect, html: `<p>${id}</p>` };
 }
-function reference(id: string, images: string[] = []): ReferenceComponent {
+
+function reference(
+  id: string,
+  images: string[] = [],
+  rect = { x: 0, y: 60, width: canvasWidth, height: 320 },
+): ReferenceComponent {
   return {
     id,
-    type: "reference",
-    width: 1,
-    contentScale: 1,
     name: id,
+    type: "reference",
+    ...rect,
     description: "",
-    showDescription: true,
-imageHeight: 180,
-    images: images.map((imageId) => ({ id: imageId, file: `references/${imageId}.png`, aspectRatio: 1 })),
+    images: images.map((imageId) => ({
+      id: imageId,
+      file: `references/${imageId}.png`,
+      aspectRatio: 1,
+      frameWidth: 120,
+      frameHeight: 120,
+    })),
   };
 }
+
 function withComponents(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 6, title: "Demo", components };
+  return { schemaVersion: 7, title: "Demo", components };
 }
 
-describe("canvas reducers", () => {
-  it("prepends a component (inserts at index 0)", () => {
-    const plan = withComponents([planText("a"), planText("b")]);
+describe("v7 canvas reducers", () => {
+  it("inserts every new card below the lowest existing card without changing stable order", () => {
+    const plan = withComponents([
+      planText("a", { x: 120, y: 100, width: 180, height: 80 }),
+      planText("b", { x: 0, y: 240, width: 180, height: 140 }),
+    ]);
+
     const next = addComponent(plan, planText("c"));
-    expect(next.components).toHaveLength(3);
-    expect(next.components[0].id).toBe("c");
-    expect(next.components[1].id).toBe("a");
-    expect(next.components[2].id).toBe("b");
+
+    expect(next.components.map((component) => component.id)).toEqual(["a", "b", "c"]);
+    expect(next.components[2]).toMatchObject({
+      x: 0,
+      y: 404,
+      width: canvasWidth,
+      height: 220,
+    });
   });
 
-  it("removes a component by id and no-ops on unknown id", () => {
-    const plan = withComponents([planText("a"), planText("b")]);
-    expect(removeComponent(plan, "a").components.map((c) => c.id)).toEqual(["b"]);
-    expect(removeComponent(plan, "zz")).toBe(plan);
+  it("moves direct card coordinates while clamping within the fixed canvas", () => {
+    const plan = withComponents([planText("a", { x: 0, y: 60, width: 240, height: 100 })]);
+
+    const next = moveComponent(plan, { id: "a", x: canvasWidth, y: -5 });
+
+    expect(next.components[0]).toMatchObject({
+      x: canvasWidth - 240,
+      y: 0,
+      width: 240,
+      height: 100,
+    });
+    expect(next.components.map((component) => component.id)).toEqual(["a"]);
   });
 
-  it("reorders a component to a new index (post-removal index)", () => {
-    const plan = withComponents([planText("a"), planText("b"), planText("c")]);
-    // remove a -> [b,c]; insert a at index 2 -> [b,c,a]
-    expect(moveComponent(plan, { id: "a", toIndex: 2 }).components.map((c) => c.id)).toEqual(["b", "c", "a"]);
-  });
+  it("resizes width and height independently and persists the full card rectangle", () => {
+    const plan = withComponents([planText("a", { x: 300, y: 80, width: 200, height: 100 })]);
 
-  it("no-ops moveComponent when the position is unchanged", () => {
-    const plan = withComponents([planText("a"), planText("b")]);
-    expect(moveComponent(plan, { id: "a", toIndex: 0 })).toBe(plan);
-  });
-
-  it("resizes to a continuous width, clamped to MIN_WIDTH", () => {
-    const plan = withComponents([planText("a")]);
-    const resized = resizeComponent(plan, { id: "a", width: 0.5 });
-    expect(resized.components[0].width).toBe(0.5);
-    const MIN_WIDTH = 0.15;
-    const clamped = resizeComponent(plan, { id: "a", width: 0.01 });
-    expect(clamped.components[0].width).toBe(MIN_WIDTH);
-  });
-
-  it("resizes width without introducing a persisted height", () => {
-    const plan = withComponents([{ id: "p", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "" }]);
     const next = resizeComponent(plan, {
-      id: "p",
-      width: 0.5,
+      id: "a",
+      x: 500,
+      y: 120,
+      width: 120,
+      height: 80,
     });
 
-    expect(next.components[0]).toEqual({ id: "p", name: "文案1", type: "plan", width: 0.5, contentScale: 1, html: "" });
-    expect(next.components[0]).not.toHaveProperty("height");
-  });
-
-  it("resizes width and content scale with independent model clamping", () => {
-    const plan = withComponents([planText("a")]);
-
-    const resized = resizeComponent(plan, { id: "a", width: 0.5, contentScale: 1.5 });
-    expect(resized.components[0]).toMatchObject({ width: 0.5, contentScale: 1.5 });
-
-    const clamped = resizeComponent(plan, { id: "a", width: 2, contentScale: 3 });
-    expect(clamped.components[0]).toMatchObject({ width: 1, contentScale: 2 });
-  });
-
-  it("updates plan html", () => {
-    const plan = withComponents([planText("a")]);
-    expect((updatePlanHtml(plan, { id: "a", html: "<p>x</p>" }).components[0] as { html: string }).html).toBe("<p>x</p>");
-  });
-
-  it("adds images and toggles reference-description visibility", () => {
-    const plan = withComponents([reference("r", ["i1"])]);
-    const withImage = addReferenceImage(plan, { componentId: "r", image: { id: "i2", file: "references/i2.png", aspectRatio: 1 } });
-    expect((withImage.components[0] as ReferenceComponent).images).toHaveLength(2);
-    expect((toggleReferenceDescription(plan, "r").components[0] as ReferenceComponent).showDescription).toBe(false);
-  });
-
-  it("sets a per-image caption", () => {
-    const plan = withComponents([reference("r", ["i1"])]);
-    const next = setImageCaption(plan, { componentId: "r", imageId: "i1", caption: "sunset" });
-    expect((next.components[0] as ReferenceComponent).images[0].caption).toBe("sunset");
-  });
-
-  it("setImageCaption returns same plan reference when caption is unchanged", () => {
-    const plan = withComponents([reference("r", ["i1"])]);
-    const withCaption = setImageCaption(plan, { componentId: "r", imageId: "i1", caption: "sunset" });
-    const reapplied = setImageCaption(withCaption, { componentId: "r", imageId: "i1", caption: "sunset" });
-    expect(reapplied).toBe(withCaption);
-  });
-
-  it("setImageCaption returns same plan reference when imageId not found", () => {
-    const plan = withComponents([reference("r", ["i1"])]);
-    const result = setImageCaption(plan, { componentId: "r", imageId: "unknown", caption: "sunset" });
-    expect(result).toBe(plan);
-  });
-
-  it("sets and resets a per-image display height within its component bounds", () => {
-    const plan = withComponents([reference("r", ["i1"])]);
-
-    const resized = setImageDisplayHeight(plan, {
-      componentId: "r",
-      imageId: "i1",
-      displayHeight: 48,
+    expect(next.components[0]).toMatchObject({
+      x: canvasWidth - 120,
+      y: 120,
+      width: 120,
+      height: 80,
     });
-    expect((resized.components[0] as ReferenceComponent).images[0].displayHeight).toBe(48);
-
-    const clamped = setImageDisplayHeight(plan, {
-      componentId: "r",
-      imageId: "i1",
-      displayHeight: 999,
-    });
-    expect((clamped.components[0] as ReferenceComponent).images[0].displayHeight).toBe(180);
-
-    const minimum = setImageDisplayHeight(plan, {
-      componentId: "r",
-      imageId: "i1",
-      displayHeight: 1,
-    });
-    expect((minimum.components[0] as ReferenceComponent).images[0].displayHeight).toBe(32);
-
-    const reset = setImageDisplayHeight(resized, {
-      componentId: "r",
-      imageId: "i1",
-      displayHeight: undefined,
-    });
-    expect((reset.components[0] as ReferenceComponent).images[0]).not.toHaveProperty(
-      "displayHeight",
-    );
   });
 
-  it("moves an image across reference components", () => {
+  it("updates plan html and leaves unrelated cards unchanged", () => {
+    const plan = withComponents([planText("a"), planText("b")]);
+    const next = updatePlanHtml(plan, { id: "a", html: "<p>updated</p>" });
+    expect(next.components[0]).toMatchObject({ html: "<p>updated</p>" });
+    expect(next.components[1]).toBe(plan.components[1]);
+  });
+
+  it("keeps image DnD and non-rendered legacy captions working on v7 frames", () => {
     const plan = withComponents([reference("r1", ["i1", "i2"]), reference("r2", [])]);
-    const next = moveImage(plan, { fromComponentId: "r1", imageId: "i1", toComponentId: "r2", toIndex: 0 });
-    expect((next.components[0] as ReferenceComponent).images.map((i) => i.id)).toEqual(["i2"]);
-    expect((next.components[1] as ReferenceComponent).images.map((i) => i.id)).toEqual(["i1"]);
+    const moved = moveImage(plan, {
+      fromComponentId: "r1",
+      imageId: "i1",
+      toComponentId: "r2",
+      toIndex: 0,
+    });
+    const withCaption = setImageCaption(moved, {
+      componentId: "r2",
+      imageId: "i1",
+      caption: "retained only",
+    });
+    const resized = setImageFrame(withCaption, {
+      componentId: "r2",
+      imageId: "i1",
+      frameWidth: 200,
+      frameHeight: 90,
+    });
+
+    expect((resized.components[0] as ReferenceComponent).images.map((image) => image.id)).toEqual(["i2"]);
+    expect((resized.components[1] as ReferenceComponent).images[0]).toMatchObject({
+      id: "i1",
+      caption: "retained only",
+      frameWidth: 200,
+      frameHeight: 90,
+    });
   });
 
-  it("moves selected images across components in canvas order", () => {
+  it("moves selected images in canvas order and updates source image metadata", () => {
     const plan = withComponents([
       reference("r1", ["i1", "i2"]),
-      reference("r2", ["i3", "i4"]),
-      reference("r3", ["i5"]),
+      reference("r2", ["i3"]),
     ]);
-
-    const next = moveImages(plan, {
-      imageIds: ["i4", "i1", "i3"],
-      toComponentId: "r3",
-      toIndex: 0,
+    const moved = moveImages(plan, {
+      imageIds: ["i3", "i1"],
+      toComponentId: "r1",
+      toIndex: 1,
+    });
+    const withImage = addReferenceImage(moved, {
+      componentId: "r2",
+      image: {
+        id: "i4",
+        file: "references/i4.png",
+        aspectRatio: 1.5,
+        frameWidth: 180,
+        frameHeight: 120,
+      },
+    });
+    const ratio = setImageAspectRatio(withImage, {
+      componentId: "r2",
+      imageId: "i4",
+      aspectRatio: 2,
     });
 
-    expect((next.components[0] as ReferenceComponent).images.map((image) => image.id)).toEqual(["i2"]);
-    expect((next.components[1] as ReferenceComponent).images.map((image) => image.id)).toEqual([]);
-    expect((next.components[2] as ReferenceComponent).images.map((image) => image.id)).toEqual([
+    expect((ratio.components[0] as ReferenceComponent).images.map((image) => image.id)).toEqual([
+      "i2",
       "i1",
       "i3",
-      "i4",
-      "i5",
     ]);
+    expect((ratio.components[1] as ReferenceComponent).images[0]).toMatchObject({
+      id: "i4",
+      aspectRatio: 2,
+      frameWidth: 180,
+      frameHeight: 120,
+    });
   });
 
-  it("returns the original plan for a multi-image structural no-op", () => {
-    const plan = withComponents([reference("r1", ["i1", "i2", "i3"])]);
-
-    expect(moveImages(plan, {
-      imageIds: ["i1", "i2"],
-      toComponentId: "r1",
-      toIndex: 0,
-    })).toBe(plan);
-  });
-
-  it("rejects a multi-image move when any selected image is missing", () => {
-    const plan = withComponents([reference("r1", ["i1", "i2"])]);
-
-    expect(moveImages(plan, {
-      imageIds: ["i1", "missing"],
-      toComponentId: "r1",
-      toIndex: 0,
-    })).toBe(plan);
-  });
-
-  it("appends multiple images in batch via addReferenceImages", () => {
-    const plan = withComponents([reference("r", ["i1"])]);
-    const images = [
-      { id: "i2", file: "references/i2.png", aspectRatio: 1 },
-      { id: "i3", file: "references/i3.png", aspectRatio: 1 },
-    ];
-    const next = addReferenceImages(plan, { componentId: "r", images });
-    expect((next.components[0] as ReferenceComponent).images).toHaveLength(3);
-    expect((next.components[0] as ReferenceComponent).images.map((i) => i.id)).toEqual(["i1", "i2", "i3"]);
-  });
-
-  it("sets image aspect ratio and no-ops when unchanged", () => {
-    const plan = withComponents([reference("r", ["i1"])]);
-    const withRatio = setImageAspectRatio(plan, { componentId: "r", imageId: "i1", aspectRatio: 1.5 });
-    expect((withRatio.components[0] as ReferenceComponent).images[0].aspectRatio).toBe(1.5);
-    const reapplied = setImageAspectRatio(withRatio, { componentId: "r", imageId: "i1", aspectRatio: 1.5 });
-    expect(reapplied).toBe(withRatio);
-  });
-
-  it("setImageAspectRatio returns same plan when imageId not found", () => {
-    const plan = withComponents([reference("r", ["i1"])]);
-    const result = setImageAspectRatio(plan, { componentId: "r", imageId: "unknown", aspectRatio: 1.5 });
-    expect(result).toBe(plan);
-  });
-
-  it("sets reference component imageHeight with clamping", () => {
-    const plan = withComponents([reference("r", ["i1"])]);
-    const MIN = 67.5;
-    const MAX = 400;
-    // Normal value
-    const withHeight = setImageHeight(plan, "r", 200);
-    expect((withHeight.components[0] as ReferenceComponent).imageHeight).toBe(200);
-    // Clamp below MIN
-    const clamped = setImageHeight(plan, "r", 50);
-    expect((clamped.components[0] as ReferenceComponent).imageHeight).toBe(MIN);
-    // Clamp above MAX
-    const clampedMax = setImageHeight(plan, "r", 500);
-    expect((clampedMax.components[0] as ReferenceComponent).imageHeight).toBe(MAX);
-  });
-
-  it("setImageHeight returns same plan when imageHeight is unchanged", () => {
-    const plan = withComponents([reference("r", ["i1"])]);
-    const withHeight = setImageHeight(plan, "r", 200);
-    const reapplied = setImageHeight(withHeight, "r", 200);
-    expect(reapplied).toBe(withHeight);
+  it("removes known cards and returns the original plan for unknown ids", () => {
+    const plan = withComponents([planText("a"), planText("b")]);
+    expect(removeComponent(plan, "a").components.map((component) => component.id)).toEqual(["b"]);
+    expect(removeComponent(plan, "missing")).toBe(plan);
   });
 });

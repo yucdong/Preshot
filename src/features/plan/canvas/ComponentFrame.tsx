@@ -1,27 +1,21 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useDroppable } from "@dnd-kit/core";
-import { useSortable } from "@dnd-kit/sortable";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  clampCardRect,
   componentFrameChromeHeight,
+  contentSize,
+  DEFAULT_PAGE_GEOMETRY,
   EDITABLE_COMPONENT_FRAME_CHROME,
-  SPACING,
+  resizeCard,
   type Rect,
 } from "../../../domain/plan/canvas/geometry";
 import { type PlanComponent } from "../../../domain/plan/canvas/models";
 import type { RenameComponentResult } from "../../../domain/plan/canvas/naming";
 import { usePrefersReducedMotion } from "../../../shared/hooks/usePrefersReducedMotion";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
-import {
-  resizeContentScaleFromDrag,
-  resizeFromDrag,
-} from "./useComponentResize";
-import {
-  createAnimateLayoutChanges,
-  createMotionStyleTransition,
-  SORTABLE_LAYOUT_TRANSITION,
-} from "./dragMotion";
+import { createMotionStyleTransition } from "./dragMotion";
 import { estimateNameInputWidthEm } from "./componentNameWidth";
 
 interface ComponentFrameProps {
@@ -29,12 +23,10 @@ interface ComponentFrameProps {
   frameId?: string;
   rect: Rect;
   scale: number;
-  topPx?: number;
   onRemove: (id: string) => void;
-  contentWidthPoints: number;
   component: PlanComponent;
-  onResize: (id: string, params: { width: number; contentScale?: number }) => void;
-  onResizePreview?: (id: string, params: { width: number; contentScale?: number }) => void;
+  onResize: (id: string, rect: Rect) => void;
+  onResizePreview?: (id: string, rect: Rect) => void;
   onResizeCancel?: () => void;
   onRename?: (id: string, name: string) => RenameComponentResult;
   children?: React.ReactNode;
@@ -74,7 +66,10 @@ function ComponentFrameNameInput({
     }
     const result = onRename(id, nameDraft);
     if (result.ok) {
-      setNameDraft(result.plan.components?.find((entry) => entry.id === id)?.name ?? nameDraft.trim());
+      setNameDraft(
+        result.plan.components?.find((entry) => entry.id === id)?.name ??
+          nameDraft.trim(),
+      );
       setNameError(null);
     } else {
       setNameDraft(name);
@@ -128,10 +123,8 @@ function ComponentFrameBody({
   frameId,
   rect,
   scale,
-  topPx,
   onRemove,
   onRename,
-  contentWidthPoints,
   component,
   onResize,
   onResizePreview,
@@ -146,29 +139,21 @@ function ComponentFrameBody({
   interactiveChrome,
 }: ComponentFrameBodyProps) {
   const { t } = useTranslation();
-  const gutterInset = (SPACING / 2) * scale;
   const prefersReducedMotion = usePrefersReducedMotion();
-
-  const [resizeSession, setResizeSession] = useState<{ element: HTMLElement; pointerId: number } | null>(null);
-  const [resizing, setResizing] = useState<"left" | "right" | "top" | "bottom" | null>(null);
-  const [resizePreview, setResizePreview] = useState<{
-    width: number;
-    contentScale?: number;
+  const [resizeSession, setResizeSession] = useState<{
+    element: HTMLElement;
+    pointerId: number;
   } | null>(null);
+  const [resizePreview, setResizePreview] = useState<Rect | null>(null);
   const [resizeStart, setResizeStart] = useState<{
     x: number;
     y: number;
     edge: "left" | "right" | "top" | "bottom";
-    width: number;
-    contentScale: number;
-    heightPoints: number;
+    rect: Rect;
   } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-
-  const currentWidth = resizePreview?.width ?? component.width;
-  const committedWidthPoints =
-    contentWidthPoints * (resizeStart?.width ?? component.width);
-  const currentWidthPoints = contentWidthPoints * currentWidth;
+  const currentRect = resizePreview ?? rect;
+  const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
 
   const onPointerDownResize = (
     edge: "left" | "right" | "top" | "bottom",
@@ -176,43 +161,37 @@ function ComponentFrameBody({
     event.preventDefault();
     event.stopPropagation();
     setResizeSession({ element: event.currentTarget, pointerId: event.pointerId });
-    setResizing(edge);
-    const start = {
-      x: event.clientX,
-      y: event.clientY,
-      edge,
-      width: component.width,
-      contentScale: component.contentScale,
-      heightPoints: rect.height,
-    };
-    setResizeStart(start);
+    setResizeStart({ x: event.clientX, y: event.clientY, edge, rect });
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
+  const nextRectForPointer = (event: React.PointerEvent<HTMLDivElement>): Rect | null => {
+    if (!resizeStart) {
+      return null;
+    }
+    const dx = (event.clientX - resizeStart.x) / scale;
+    const dy = (event.clientY - resizeStart.y) / scale;
+    const start = resizeStart.rect;
+    if (resizeStart.edge === "left" || resizeStart.edge === "right") {
+      const width = resizeStart.edge === "left" ? start.width - dx : start.width + dx;
+      const sized = resizeCard(start, { width, height: start.height }, canvasWidth);
+      const x = resizeStart.edge === "left" ? start.x + start.width - sized.width : start.x;
+      return clampCardRect({ ...sized, x, y: start.y }, canvasWidth);
+    }
+    const height = resizeStart.edge === "top" ? start.height - dy : start.height + dy;
+    const sized = resizeCard(start, { width: start.width, height }, canvasWidth);
+    const y = resizeStart.edge === "top" ? start.y + start.height - sized.height : start.y;
+    return clampCardRect({ ...sized, x: start.x, y }, canvasWidth);
+  };
+
   const onPointerMoveResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    const start = resizeStart;
-    if (!interactiveChrome || !resizing || !start) {
+    if (!interactiveChrome) {
       return;
     }
-    const next =
-      start.edge === "left" || start.edge === "right"
-        ? resizeFromDrag({
-            dxPoints:
-              start.edge === "left"
-                ? -(event.clientX - start.x) / scale
-                : (event.clientX - start.x) / scale,
-            currentWidthPoints: committedWidthPoints,
-            contentWidth: contentWidthPoints,
-          })
-        : resizeContentScaleFromDrag({
-            dyPoints:
-              start.edge === "top"
-                ? -(event.clientY - start.y) / scale
-                : (event.clientY - start.y) / scale,
-            currentContentScale: start.contentScale,
-            currentHeightPoints: start.heightPoints,
-            currentWidth: start.width,
-          });
+    const next = nextRectForPointer(event);
+    if (!next) {
+      return;
+    }
     setResizePreview(next);
     onResizePreview?.(id, next);
   };
@@ -225,28 +204,22 @@ function ComponentFrameBody({
     if (!session) {
       return;
     }
-    const currentPreview = resizePreview;
+    const next = resizePreview;
     setResizeSession(null);
-    setResizing(null);
     setResizeStart(null);
     setResizePreview(null);
     if (options.releaseCapture && session.element.hasPointerCapture(event.pointerId)) {
       session.element.releasePointerCapture?.(event.pointerId);
     }
-    if (options.commit && currentPreview && interactiveChrome) {
-      onResize(id, currentPreview);
+    if (options.commit && next && interactiveChrome) {
+      onResize(id, next);
     } else if (!options.commit) {
       onResizeCancel?.();
     }
   };
 
-  const displayWidth = currentWidthPoints * scale;
-  const displayHeight = rect.height * scale;
   const frameChromeHeight = componentFrameChromeHeight(EDITABLE_COMPONENT_FRAME_CHROME);
-  const bodyHeight = Math.max(0, rect.height - frameChromeHeight) * scale;
-  const displayLeft =
-    (SPACING + rect.x) * scale +
-    (resizing === "left" && resizePreview ? (committedWidthPoints - currentWidthPoints) * scale : 0);
+  const bodyHeight = Math.max(0, currentRect.height - frameChromeHeight) * scale;
 
   return (
     <div
@@ -260,10 +233,10 @@ function ComponentFrameBody({
       data-fragment-id={frameId ?? id}
       data-sortable-component-id={interactiveChrome ? id : undefined}
       style={{
-        left: `${displayLeft}px`,
-        top: `${topPx ?? (SPACING + rect.y) * scale}px`,
-        width: `${displayWidth}px`,
-        height: `${displayHeight}px`,
+        left: `${currentRect.x * scale}px`,
+        top: `${currentRect.y * scale}px`,
+        width: `${currentRect.width * scale}px`,
+        height: `${currentRect.height * scale}px`,
         transform:
           prefersReducedMotion || isPlaceholder || !transform
             ? undefined
@@ -314,7 +287,7 @@ function ComponentFrameBody({
             aria-label={t("canvas.removeComponent")}
             className="rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
             onClick={() => setConfirmingDelete(true)}
-            onPointerDown={(e) => e.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
             style={{
               fontSize: `${12 * scale}px`,
               height: `${20 * scale}px`,
@@ -330,11 +303,11 @@ function ComponentFrameBody({
       </div>
 
       <div
-        className="relative"
+        className="relative overflow-hidden"
         data-component-frame-body
         style={{
-          paddingLeft: `${gutterInset}px`,
-          paddingRight: `${gutterInset}px`,
+          paddingLeft: `${12 * scale}px`,
+          paddingRight: `${12 * scale}px`,
           height: `${bodyHeight}px`,
           opacity: isPlaceholder ? 0 : 1,
         }}
@@ -344,58 +317,44 @@ function ComponentFrameBody({
 
       {interactiveChrome ? (
         <>
-          <div
-            aria-label={t("canvas.resizeLeft")}
-            className="absolute left-0 top-0 h-full w-2 cursor-ew-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
-            data-resize="left"
-            data-resize-handle="left"
-            onLostPointerCapture={(event) => finishResize(event, { commit: false, releaseCapture: false })}
-            onPointerDown={onPointerDownResize("left")}
-            onPointerMove={onPointerMoveResize}
-            onPointerCancel={(event) => finishResize(event, { commit: false, releaseCapture: true })}
-            onPointerUp={(event) => finishResize(event, { commit: true, releaseCapture: true })}
-            role="separator"
-            tabIndex={0}
-          />
-          <div
-            aria-label={t("canvas.resizeRight")}
-            className="absolute right-0 top-0 h-full w-2 cursor-ew-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
-            data-resize="right"
-            data-resize-handle="right"
-            onLostPointerCapture={(event) => finishResize(event, { commit: false, releaseCapture: false })}
-            onPointerDown={onPointerDownResize("right")}
-            onPointerMove={onPointerMoveResize}
-            onPointerCancel={(event) => finishResize(event, { commit: false, releaseCapture: true })}
-            onPointerUp={(event) => finishResize(event, { commit: true, releaseCapture: true })}
-            role="separator"
-            tabIndex={0}
-          />
-          <div
-            aria-label={t("canvas.resizeTop")}
-            className="absolute left-0 top-0 h-2 w-full cursor-ns-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
-            data-resize="top"
-            data-resize-handle="top"
-            onLostPointerCapture={(event) => finishResize(event, { commit: false, releaseCapture: false })}
-            onPointerDown={onPointerDownResize("top")}
-            onPointerMove={onPointerMoveResize}
-            onPointerCancel={(event) => finishResize(event, { commit: false, releaseCapture: true })}
-            onPointerUp={(event) => finishResize(event, { commit: true, releaseCapture: true })}
-            role="separator"
-            tabIndex={0}
-          />
-          <div
-            aria-label={t("canvas.resizeBottom")}
-            className="absolute bottom-0 left-0 h-2 w-full cursor-ns-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
-            data-resize="bottom"
-            data-resize-handle="bottom"
-            onLostPointerCapture={(event) => finishResize(event, { commit: false, releaseCapture: false })}
-            onPointerDown={onPointerDownResize("bottom")}
-            onPointerMove={onPointerMoveResize}
-            onPointerCancel={(event) => finishResize(event, { commit: false, releaseCapture: true })}
-            onPointerUp={(event) => finishResize(event, { commit: true, releaseCapture: true })}
-            role="separator"
-            tabIndex={0}
-          />
+          {(["left", "right", "top", "bottom"] as const).map((edge) => (
+            <div
+              aria-label={
+                edge === "left"
+                  ? t("canvas.resizeLeft")
+                  : edge === "right"
+                    ? t("canvas.resizeRight")
+                    : edge === "top"
+                      ? t("canvas.resizeTop")
+                      : t("canvas.resizeBottom")
+              }
+              className={`absolute z-10 bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80 ${
+                edge === "left"
+                  ? "left-0 top-0 h-full w-2 cursor-ew-resize"
+                  : edge === "right"
+                    ? "right-0 top-0 h-full w-2 cursor-ew-resize"
+                    : edge === "top"
+                      ? "left-0 top-0 h-2 w-full cursor-ns-resize"
+                      : "bottom-0 left-0 h-2 w-full cursor-ns-resize"
+              }`}
+              data-resize={edge}
+              data-resize-handle={edge}
+              key={edge}
+              onLostPointerCapture={(event) =>
+                finishResize(event, { commit: false, releaseCapture: false })
+              }
+              onPointerCancel={(event) =>
+                finishResize(event, { commit: false, releaseCapture: true })
+              }
+              onPointerDown={onPointerDownResize(edge)}
+              onPointerMove={onPointerMoveResize}
+              onPointerUp={(event) =>
+                finishResize(event, { commit: true, releaseCapture: true })
+              }
+              role="separator"
+              tabIndex={0}
+            />
+          ))}
         </>
       ) : null}
 
@@ -414,13 +373,10 @@ function ComponentFrameBody({
   );
 }
 
-function SortableFrame(props: ComponentFrameProps & { sortableId: string }) {
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+function DraggableFrame(props: ComponentFrameProps & { sortableId: string }) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: props.sortableId,
     data: { type: "component", componentId: props.id },
-    animateLayoutChanges: createAnimateLayoutChanges(prefersReducedMotion),
-    transition: prefersReducedMotion ? undefined : SORTABLE_LAYOUT_TRANSITION,
   });
 
   return (
@@ -431,7 +387,6 @@ function SortableFrame(props: ComponentFrameProps & { sortableId: string }) {
       interactiveChrome
       setNodeRef={setNodeRef}
       transform={transform}
-      transition={transition}
     />
   );
 }
@@ -447,10 +402,7 @@ function PassiveFrame(props: ComponentFrameProps) {
 
 export function ComponentFrame(props: ComponentFrameProps) {
   const sortableId = props.sortableId ?? props.id;
-
-  if (sortableId.length > 0) {
-    return <SortableFrame {...props} sortableId={sortableId} />;
-  }
-
-  return <PassiveFrame {...props} />;
+  return sortableId.length > 0
+    ? <DraggableFrame {...props} sortableId={sortableId} />
+    : <PassiveFrame {...props} />;
 }

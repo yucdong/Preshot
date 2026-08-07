@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import { migratePlan } from "./migrate";
-import { DEFAULT_CONTENT_SCALE, DEFAULT_IMAGE_HEIGHT } from "./models";
 
 const context = { projectName: "Editorial" };
+const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
 
 describe("migratePlan legacy schemas", () => {
-  it("migrates v1 content to v6 defaults", () => {
+  it("migrates v1 content into v7 cards and image frames", () => {
     const plan = migratePlan(
       {
         photographyPlan: "<p>Shot list</p>",
@@ -22,71 +23,66 @@ describe("migratePlan legacy schemas", () => {
     );
 
     expect(plan).toMatchObject({
-      schemaVersion: 6,
+      schemaVersion: 7,
       title: "Editorial",
       components: [
         {
           type: "plan",
-          contentScale: DEFAULT_CONTENT_SCALE,
+          x: 0,
+          y: 60,
+          width: canvasWidth,
           html: "<p>Shot list</p>",
         },
         {
           id: "ref",
           type: "reference",
-          contentScale: DEFAULT_CONTENT_SCALE,
-          showDescription: true,
-          imageHeight: DEFAULT_IMAGE_HEIGHT,
-          images: [{ id: "image", aspectRatio: 1 }],
+          x: 0,
+          width: canvasWidth,
+          description: "Warm",
+          images: [{
+            id: "image",
+            aspectRatio: 1,
+            frameWidth: 135,
+            frameHeight: 135,
+          }],
         },
       ],
     });
   });
 
-  it.each([3, 4])("migrates v%s components to v6 without persisted rows", (schemaVersion) => {
-    const plan = migratePlan(
-      {
-        schemaVersion,
-        components: [
-          { id: "plan", type: "plan", width: 1, html: "" },
-          {
-            id: "reference",
-            type: "reference",
+  it.each([3, 4, 5])("migrates v%s components through the v6 adapter into v7", (schemaVersion) => {
+    const raw = schemaVersion === 5
+      ? {
+          schemaVersion,
+          title: "Editorial",
+          components: [{
+            id: "plan",
+            rowId: "row",
+            name: "Plan",
+            type: "plan",
             width: 1,
-            title: "Looks",
-            description: "Details",
-            showCaptions: false,
-            imageHeight: 180,
-            images: [],
-          },
-        ],
-      },
-      context,
-    );
+            html: "",
+          }],
+        }
+      : {
+          schemaVersion,
+          components: [{
+            id: "plan",
+            type: "plan",
+            width: 1,
+            ...(schemaVersion === 4 ? { title: "Plan" } : {}),
+            html: "",
+          }],
+        };
 
-    expect(plan.components).toEqual([
-      {
-        id: "plan",
-        name: "文案1",
-        type: "plan",
-        width: 1,
-        contentScale: 1,
-        html: "",
-      },
-      {
-        id: "reference",
-        name: "Looks",
-        type: "reference",
-        width: 1,
-        contentScale: 1,
-        description: "Details",
-        showDescription: true,
-        imageHeight: schemaVersion === 3 ? 135 : 180,
-        images: [],
-      },
-    ]);
+    const plan = migratePlan(raw, context);
+    expect(plan).toMatchObject({
+      schemaVersion: 7,
+      components: [{ id: "plan", type: "plan", x: 0, y: 60, width: canvasWidth }],
+    });
   });
 
-  it("remaps duplicate v2 logical ids before producing v6", () => {
+  it("remaps duplicate v2 logical ids before producing v7", () => {
     const plan = migratePlan(
       {
         schemaVersion: 2,
@@ -124,7 +120,7 @@ describe("migratePlan legacy schemas", () => {
   });
 
   it("rejects a future schema instead of modifying it", () => {
-    expect(() => migratePlan({ schemaVersion: 7, title: "Future", components: [] }, context)).toThrow(
+    expect(() => migratePlan({ schemaVersion: 8, title: "Future", components: [] }, context)).toThrow(
       /schema version/i,
     );
   });

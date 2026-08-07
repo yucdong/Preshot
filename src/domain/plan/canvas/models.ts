@@ -3,7 +3,10 @@ import { normalizeFraction } from "./fraction";
 export const MIN_COMPONENT_HEIGHT = 80; // points
 export const DEFAULT_PLAN_HEIGHT = 220; // points
 export const DEFAULT_REFERENCE_HEIGHT = 320; // points
+export const MIN_COMPONENT_WIDTH = 120; // points
 
+// These values and clamps are retained for v1-v6 migration and the temporary
+// paged PDF adapter. They are not fields in the v7 persisted schema.
 export const DEFAULT_IMAGE_HEIGHT = 135; // points
 export const MIN_IMAGE_HEIGHT = 67.5; // points
 export const MAX_IMAGE_HEIGHT = 400; // points
@@ -19,7 +22,7 @@ export const MIN_CONTENT_SCALE = 0.5;
 export const MAX_CONTENT_SCALE = 2;
 export const DEFAULT_CONTENT_SCALE = 1;
 
-export const CURRENT_SCHEMA_VERSION = 6 as const;
+export const CURRENT_SCHEMA_VERSION = 7 as const;
 
 export function clampHeight(height: number, maxHeight: number): number {
   if (!Number.isFinite(height)) {
@@ -61,16 +64,22 @@ export function clampContentScale(scale: number): number {
 export interface ReferenceImage {
   id: string;
   file: string;
+  /** Preserved from v1-v6, but intentionally not rendered by the v7 UI or PDF. */
   caption?: string;
   aspectRatio: number;
-  displayHeight?: number;
+  /** Independent frame dimensions in canvas points; they do not derive from aspectRatio. */
+  frameWidth: number;
+  frameHeight: number;
 }
 
 export interface BaseComponent {
   id: string;
   name: string;
-  width: number; // continuous width fraction (0, 1]
-  contentScale: number; // clamped to [MIN_CONTENT_SCALE, MAX_CONTENT_SCALE]
+  /** Absolute continuous-canvas coordinates and dimensions in points. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface PlanTextComponent extends BaseComponent {
@@ -80,22 +89,21 @@ export interface PlanTextComponent extends BaseComponent {
 
 export interface ReferenceComponent extends BaseComponent {
   type: "reference";
+  /** Group introduction. It is always available to the UI and may be empty. */
   description: string;
-  showDescription: boolean;
   images: ReferenceImage[];
-  imageHeight: number;
 }
 
 export type PlanComponent = PlanTextComponent | ReferenceComponent;
 
 export interface ProjectPlan {
-  schemaVersion: 6;
+  schemaVersion: 7;
   title: string;
   components: PlanComponent[];
 }
 
 export const EMPTY_PLAN: ProjectPlan = {
-  schemaVersion: 6,
+  schemaVersion: 7,
   title: UNTITLED_PLAN_TITLE,
   components: [],
 };

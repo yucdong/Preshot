@@ -3,20 +3,35 @@ import type { ProjectPlan } from "./models";
 import { nextComponentName, renameComponent, setPlanTitle } from "./naming";
 
 const plan: ProjectPlan = {
-  schemaVersion: 6,
+  schemaVersion: 7,
   title: "Editorial",
   components: [
-    { id: "p1", name: "文案1", type: "plan", width: 0.5, contentScale: 1, html: "" },
+    {
+      id: "p1",
+      name: "文案1",
+      type: "plan",
+      x: 0,
+      y: 60,
+      width: 200,
+      height: 120,
+      html: "",
+    },
     {
       id: "r1",
       name: "图片组1",
       type: "reference",
-      width: 0.4,
-      contentScale: 1,
+      x: 0,
+      y: 204,
+      width: 200,
+      height: 180,
       description: "",
-      showDescription: true,
-imageHeight: 135,
-      images: [{ id: "i1", file: "references/0001.png", aspectRatio: 2 }],
+      images: [{
+        id: "i1",
+        file: "references/0001.png",
+        aspectRatio: 2,
+        frameWidth: 240,
+        frameHeight: 120,
+      }],
     },
   ],
 };

@@ -1,13 +1,17 @@
 import {
-  clampImageHeight,
-  clampContentScale,
-  clampReferenceImageDisplayHeight,
-  clampWidth,
   type PlanComponent,
   type ProjectPlan,
   type ReferenceComponent,
   type ReferenceImage,
 } from "./models";
+import {
+  clampCardRect,
+  contentSize,
+  DEFAULT_PAGE_GEOMETRY,
+  moveCard,
+  resizeCard,
+} from "./geometry";
+import { DOCUMENT_TITLE_HEIGHT, SPACING } from "./geometry";
 
 export interface MoveImageParams {
   fromComponentId: string;
@@ -17,7 +21,8 @@ export interface MoveImageParams {
 }
 
 export interface ComponentMoveTarget {
-  toIndex: number;
+  x: number;
+  y: number;
 }
 
 export interface MoveImagesParams {
@@ -60,7 +65,21 @@ function mapReference(
 }
 
 export function addComponent(plan: ProjectPlan, component: PlanComponent): ProjectPlan {
-  return replace(plan, [component, ...plan.components]);
+  const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
+  const belowExisting = Math.max(
+    DOCUMENT_TITLE_HEIGHT + SPACING,
+    ...plan.components.map((entry) => entry.y + entry.height + SPACING),
+  );
+  const rect = clampCardRect(
+    {
+      x: 0,
+      y: belowExisting,
+      width: component.width,
+      height: component.height,
+    },
+    canvasWidth,
+  );
+  return replace(plan, [...plan.components, { ...component, ...rect }]);
 }
 
 export function removeComponent(plan: ProjectPlan, id: string): ProjectPlan {
@@ -72,31 +91,50 @@ export function moveComponent(
   plan: ProjectPlan,
   params: { id: string } & ComponentMoveTarget,
 ): ProjectPlan {
-  const current = plan.components.findIndex((component) => component.id === params.id);
-  if (current === -1) {
-    return plan;
-  }
-  const without = plan.components.filter((component) => component.id !== params.id);
-  const index = Math.max(0, Math.min(params.toIndex, without.length));
-  const next = [...without.slice(0, index), plan.components[current], ...without.slice(index)];
-  const unchanged = next.every((component, position) => component.id === plan.components[position].id);
-  return unchanged ? plan : replace(plan, next);
+  const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
+  return mapComponent(plan, params.id, (component) => {
+    const next = moveCard(component, params, canvasWidth);
+    return next.x === component.x && next.y === component.y
+      ? component
+      : { ...component, ...next };
+  });
 }
 
 export function resizeComponent(
   plan: ProjectPlan,
-  params: { id: string; width: number; contentScale?: number },
+  params: {
+    id: string;
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+  },
 ): ProjectPlan {
+  const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
   return mapComponent(plan, params.id, (component) => {
-    const width = clampWidth(params.width);
-    const contentScale =
-      params.contentScale === undefined
-        ? component.contentScale
-        : clampContentScale(params.contentScale);
-    if (width === component.width && contentScale === component.contentScale) {
+    const resized = resizeCard(
+      {
+        ...component,
+        x: params.x ?? component.x,
+        y: params.y ?? component.y,
+        width: params.width ?? component.width,
+        height: params.height ?? component.height,
+      },
+      {
+        width: params.width ?? component.width,
+        height: params.height ?? component.height,
+      },
+      canvasWidth,
+    );
+    if (
+      resized.x === component.x &&
+      resized.y === component.y &&
+      resized.width === component.width &&
+      resized.height === component.height
+    ) {
       return component;
     }
-    return { ...component, width, contentScale };
+    return { ...component, ...resized };
   });
 }
 
@@ -118,13 +156,6 @@ export function setReferenceDescription(plan: ProjectPlan, id: string, descripti
   return mapReference(plan, id, (component) =>
     component.description === description ? component : { ...component, description },
   );
-}
-
-export function toggleReferenceDescription(plan: ProjectPlan, id: string): ProjectPlan {
-  return mapReference(plan, id, (component) => ({
-    ...component,
-    showDescription: !component.showDescription,
-  }));
 }
 
 export function addReferenceImage(
@@ -329,41 +360,43 @@ export function moveImages(plan: ProjectPlan, params: MoveImagesParams): Project
   return unchanged ? plan : replace(plan, nextComponents);
 }
 
-export function setImageHeight(plan: ProjectPlan, id: string, imageHeight: number): ProjectPlan {
-  const clamped = clampImageHeight(imageHeight);
-  return mapReference(plan, id, (component) =>
-    component.imageHeight === clamped ? component : { ...component, imageHeight: clamped },
-  );
-}
-
-export function setImageDisplayHeight(
+export function setImageFrame(
   plan: ProjectPlan,
-  params: { componentId: string; imageId: string; displayHeight: number | undefined },
+  params: {
+    componentId: string;
+    imageId: string;
+    frameWidth: number;
+    frameHeight: number;
+  },
 ): ProjectPlan {
   return mapReference(plan, params.componentId, (component) => {
     const target = component.images.find((image) => image.id === params.imageId);
     if (!target) {
       return component;
     }
-
-    const displayHeight =
-      params.displayHeight === undefined
-        ? undefined
-        : clampReferenceImageDisplayHeight(params.displayHeight, component.imageHeight);
-    if (target.displayHeight === displayHeight) {
+    if (
+      !Number.isFinite(params.frameWidth) ||
+      params.frameWidth <= 0 ||
+      !Number.isFinite(params.frameHeight) ||
+      params.frameHeight <= 0
+    ) {
       return component;
     }
-
+    if (
+      target.frameWidth === params.frameWidth &&
+      target.frameHeight === params.frameHeight
+    ) {
+      return component;
+    }
     return {
       ...component,
       images: component.images.map((image) =>
         image.id === params.imageId
-          ? displayHeight === undefined
-            ? (() => {
-                const { displayHeight: _displayHeight, ...reset } = image;
-                return reset;
-              })()
-            : { ...image, displayHeight }
+          ? {
+              ...image,
+              frameWidth: params.frameWidth,
+              frameHeight: params.frameHeight,
+            }
           : image,
       ),
     };

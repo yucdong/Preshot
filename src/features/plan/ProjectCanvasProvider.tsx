@@ -2,11 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from "react-i18next";
 import {
   EMPTY_PLAN,
-  DEFAULT_IMAGE_HEIGHT,
+  DEFAULT_PLAN_HEIGHT,
+  DEFAULT_REFERENCE_HEIGHT,
   UNTITLED_PLAN_TITLE,
   type ProjectPlan,
+  type ReferenceImage,
 } from "../../domain/plan/canvas/models";
-import { A4 } from "../../domain/plan/canvas/geometry";
+import {
+  contentSize,
+  DEFAULT_PAGE_GEOMETRY,
+} from "../../domain/plan/canvas/geometry";
 import type { PlanImagePicker, ScreenCapture } from "../../domain/plan/ports";
 import type { CanvasPlanService } from "../../domain/plan/canvas/service";
 import type { WorkspaceLogger } from "../../domain/workspace/ports";
@@ -26,11 +31,8 @@ import {
   resizeComponent,
   updatePlanHtml,
   setReferenceDescription,
-  toggleReferenceDescription,
   setImageCaption,
   setImageAspectRatioForFile,
-  setImageHeight,
-  setImageDisplayHeight,
   type MoveImageParams,
   type MoveImagesParams,
   type ComponentMoveTarget,
@@ -723,8 +725,10 @@ export function ProjectCanvasProvider({
             id: planId,
             name: nextComponentName(planToUse, "plan"),
             type: "plan" as const,
-            width: 1,
-            contentScale: 1,
+            x: 0,
+            y: 0,
+            width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
+            height: DEFAULT_PLAN_HEIGHT,
             html: t("content.planTemplate"),
           };
           const referenceId = crypto.randomUUID();
@@ -732,11 +736,11 @@ export function ProjectCanvasProvider({
             id: referenceId,
             name: nextComponentName(planToUse, "reference"),
             type: "reference" as const,
-            width: 1,
-            contentScale: 1,
+            x: 0,
+            y: 0,
+            width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
+            height: DEFAULT_REFERENCE_HEIGHT,
             description: t("reference.defaultDescription"),
-            showDescription: true,
-            imageHeight: DEFAULT_IMAGE_HEIGHT,
             images: [],
           };
 
@@ -911,7 +915,7 @@ export function ProjectCanvasProvider({
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
       if (width) {
-        setScale(width / A4.width);
+        setScale(width / contentSize(DEFAULT_PAGE_GEOMETRY).width);
       }
     });
     observer.observe(containerRef.current);
@@ -929,8 +933,10 @@ export function ProjectCanvasProvider({
           id,
           name: nextComponentName(planRef.current, "plan"),
           type: "plan" as const,
-          width: 1,
-          contentScale: 1,
+          x: 0,
+          y: 0,
+          width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
+          height: DEFAULT_PLAN_HEIGHT,
           html: t("content.planTemplate"),
         };
         mutate(addComponent(planRef.current, newComponent));
@@ -940,11 +946,11 @@ export function ProjectCanvasProvider({
           id,
           name: nextComponentName(planRef.current, "reference"),
           type: "reference" as const,
-          width: 1,
-          contentScale: 1,
+          x: 0,
+          y: 0,
+          width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
+          height: DEFAULT_REFERENCE_HEIGHT,
           description: t("reference.defaultDescription"),
-          showDescription: true,
-          imageHeight: DEFAULT_IMAGE_HEIGHT,
           images: [],
         };
         mutate(addComponent(planRef.current, newComponent));
@@ -1016,7 +1022,7 @@ export function ProjectCanvasProvider({
   );
 
   const handleResize = useCallback(
-    (id: string, params: { width: number; contentScale?: number }) => {
+    (id: string, params: { x?: number; y?: number; width?: number; height?: number }) => {
       if (!readyTokenFor(projectPath)) return;
       const next = resizeComponent(planRef.current, { id, ...params });
       mutate(next, `resize:${id}`);
@@ -1062,37 +1068,6 @@ export function ProjectCanvasProvider({
       applyPlan(next);
     },
     [applyPlan, projectPath, readyTokenFor],
-  );
-
-  const handleSetImageHeight = useCallback(
-    (id: string, imageHeight: number) => {
-      if (!readyTokenFor(projectPath)) return;
-      const next = setImageHeight(planRef.current, id, imageHeight);
-      mutate(next, `imageHeight:${id}`);
-    },
-    [mutate, projectPath, readyTokenFor],
-  );
-
-  const handleSetImageDisplayHeight = useCallback(
-    (componentId: string, imageId: string, displayHeight: number | undefined) => {
-      if (!readyTokenFor(projectPath)) return;
-      const next = setImageDisplayHeight(planRef.current, {
-        componentId,
-        imageId,
-        displayHeight,
-      });
-      mutate(next, `imageDisplayHeight:${componentId}:${imageId}`);
-    },
-    [mutate, projectPath, readyTokenFor],
-  );
-
-  const handleToggleDescription = useCallback(
-    (id: string) => {
-      if (!readyTokenFor(projectPath)) return;
-      const next = toggleReferenceDescription(planRef.current, id);
-      mutate(next);
-    },
-    [mutate, projectPath, readyTokenFor],
   );
 
   const handleSetImageCaption = useCallback(
@@ -1368,7 +1343,7 @@ export function ProjectCanvasProvider({
             let persistedPlan = operationPlan;
             let failed = 0;
             const newImages: Array<{
-              image: { id: string; file: string; aspectRatio: number };
+              image: ReferenceImage;
               measuredAspectRatio: number;
               dataUrl: string;
             }> = [];
@@ -1582,10 +1557,7 @@ export function ProjectCanvasProvider({
             onResize={handleResize}
             onCommitTitle={handleSetTitle}
             onSetDescription={handleSetDescription}
-            onToggleDescription={handleToggleDescription}
             onSetImageCaption={handleSetImageCaption}
-            onSetImageHeight={handleSetImageHeight}
-            onSetImageDisplayHeight={handleSetImageDisplayHeight}
             onAddImages={handleAddImages}
             onCaptureImage={screenCapture ? handleCaptureImage : undefined}
             onCancelCapture={handleCancelScreenCapture}

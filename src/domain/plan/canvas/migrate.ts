@@ -7,14 +7,26 @@ import {
   DEFAULT_IMAGE_HEIGHT,
   MAX_CONTENT_SCALE,
   MAX_IMAGE_HEIGHT,
+  MIN_COMPONENT_HEIGHT,
+  MIN_COMPONENT_WIDTH,
   MIN_CONTENT_SCALE,
   MIN_IMAGE_HEIGHT,
   MIN_WIDTH,
   UNTITLED_PLAN_TITLE,
-  type PlanComponent,
   type ProjectPlan,
-  type ReferenceImage,
 } from "./models";
+import {
+  contentSize,
+  DEFAULT_PAGE_GEOMETRY,
+  EDITABLE_COMPONENT_FRAME_CHROME,
+  clampCardRect,
+} from "./geometry";
+import { layoutPlan } from "./engine";
+import type {
+  LegacyV6PlanComponent,
+  LegacyV6ProjectPlan,
+  LegacyV6ReferenceImage,
+} from "./legacyV6";
 import { smallestFreeSuffixedName } from "./naming";
 
 export interface PlanMigrationContext {
@@ -34,7 +46,7 @@ type LegacyComponent =
       description: string;
       showCaptions: boolean;
       imageHeight: number;
-      images: ReferenceImage[];
+      images: LegacyV6ReferenceImage[];
     };
 
 type V5Component =
@@ -47,7 +59,7 @@ type V5Component =
       description: string;
       showCaptions: boolean;
       imageHeight: number;
-      images: ReferenceImage[];
+      images: LegacyV6ReferenceImage[];
     };
 
 function defaultIdFactory(): IdFactory {
@@ -71,7 +83,11 @@ function normalizeAspectRatio(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 1;
 }
 
-function legacyImages(value: unknown, componentIndex: number, makeId: IdFactory): ReferenceImage[] {
+function legacyImages(
+  value: unknown,
+  componentIndex: number,
+  makeId: IdFactory,
+): LegacyV6ReferenceImage[] {
   if (!Array.isArray(value)) {
     throw new Error(`Stored plan component ${componentIndex} images must be an array`);
   }
@@ -86,7 +102,7 @@ function legacyImages(value: unknown, componentIndex: number, makeId: IdFactory)
         `Stored plan component ${componentIndex} image ${imageIndex} caption must be a string`,
       );
     }
-    const image: ReferenceImage = {
+    const image: LegacyV6ReferenceImage = {
       id: typeof raw.id === "string" && raw.id ? raw.id : makeId("img"),
       file: raw.file,
       aspectRatio: normalizeAspectRatio(raw.aspectRatio),
@@ -228,7 +244,11 @@ function remapLegacyLogicalIds(components: LegacyComponent[]): LegacyComponent[]
 }
 
 function validateLogicalIds(
-  components: readonly { id: string; type: string; images?: ReferenceImage[] }[],
+  components: readonly {
+    id: string;
+    type: string;
+    images?: readonly { id: string }[];
+  }[],
 ): void {
   const componentPositions = new Map<string, number>();
   components.forEach((component, componentIndex) => {
@@ -287,10 +307,13 @@ function uniqueName(base: string, names: Set<string>): string {
   return name;
 }
 
-function v6FromLegacy(components: LegacyComponent[], context: PlanMigrationContext): ProjectPlan {
+function v6FromLegacy(
+  components: LegacyComponent[],
+  context: PlanMigrationContext,
+): LegacyV6ProjectPlan {
   validateLogicalIds(components);
   const names = new Set<string>();
-  const result: PlanComponent[] = components.map((component) => {
+  const result: LegacyV6PlanComponent[] = components.map((component) => {
     const name = component.type === "plan"
       ? uniqueGeneratedName("文案", names)
       : component.title.trim()
@@ -319,7 +342,7 @@ function v6FromLegacy(components: LegacyComponent[], context: PlanMigrationConte
   });
 
   return {
-    schemaVersion: CURRENT_SCHEMA_VERSION,
+    schemaVersion: 6,
     title: titleFromProjectName(context.projectName),
     components: result,
   };
@@ -351,7 +374,11 @@ function validCrop(value: unknown): boolean {
   );
 }
 
-function v5Image(raw: unknown, componentIndex: number, imageIndex: number): ReferenceImage {
+function v5Image(
+  raw: unknown,
+  componentIndex: number,
+  imageIndex: number,
+): LegacyV6ReferenceImage {
   if (!isRecord(raw) || typeof raw.id !== "string" || !raw.id || typeof raw.file !== "string" || !raw.file) {
     throw new Error(`Stored plan component ${componentIndex} image ${imageIndex} must have non-empty string id and file fields`);
   }
@@ -364,7 +391,11 @@ function v5Image(raw: unknown, componentIndex: number, imageIndex: number): Refe
   if (raw.crop !== undefined && !validCrop(raw.crop)) {
     throw new Error(`Stored plan component ${componentIndex} image ${imageIndex} crop must be within image bounds`);
   }
-  const image: ReferenceImage = { id: raw.id, file: raw.file, aspectRatio: raw.aspectRatio };
+  const image: LegacyV6ReferenceImage = {
+    id: raw.id,
+    file: raw.file,
+    aspectRatio: raw.aspectRatio,
+  };
   if (typeof raw.caption === "string") {
     image.caption = raw.caption;
   }
@@ -428,11 +459,11 @@ function v5Component(raw: unknown, componentIndex: number): V5Component {
   throw new Error(`Stored plan component ${componentIndex} is malformed or unsupported`);
 }
 
-function v6FromV5(components: V5Component[], title: string): ProjectPlan {
+function v6FromV5(components: V5Component[], title: string): LegacyV6ProjectPlan {
   validateLogicalIds(components);
   validateComponentNames(components);
   return {
-    schemaVersion: CURRENT_SCHEMA_VERSION,
+    schemaVersion: 6,
     title,
     components: components.map((component) =>
       component.type === "plan"
@@ -452,13 +483,22 @@ function v6FromV5(components: V5Component[], title: string): ProjectPlan {
   };
 }
 
-function requireOnlyKeys(value: Record<string, unknown>, allowed: readonly string[], context: string): void {
+function requireOnlyKeys(
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+  context: string,
+  schemaVersion = 6,
+): void {
   if (Object.keys(value).some((key) => !allowed.includes(key))) {
-    throw new Error(`Stored plan ${context} has unsupported v6 fields`);
+    throw new Error(`Stored plan ${context} has unsupported v${schemaVersion} fields`);
   }
 }
 
-function v6Image(raw: unknown, componentIndex: number, imageIndex: number): ReferenceImage {
+function v6Image(
+  raw: unknown,
+  componentIndex: number,
+  imageIndex: number,
+): LegacyV6ReferenceImage {
   if (!isRecord(raw)) {
     throw new Error(`Stored plan component ${componentIndex} image ${imageIndex} must be an object`);
   }
@@ -480,7 +520,11 @@ function v6Image(raw: unknown, componentIndex: number, imageIndex: number): Refe
   ) {
     throw new Error(`Stored plan component ${componentIndex} image ${imageIndex} displayHeight must be positive`);
   }
-  const image: ReferenceImage = { id: raw.id, file: raw.file, aspectRatio: raw.aspectRatio };
+  const image: LegacyV6ReferenceImage = {
+    id: raw.id,
+    file: raw.file,
+    aspectRatio: raw.aspectRatio,
+  };
   if (typeof raw.caption === "string") {
     image.caption = raw.caption;
   }
@@ -490,7 +534,7 @@ function v6Image(raw: unknown, componentIndex: number, imageIndex: number): Refe
   return image;
 }
 
-function v6Component(raw: unknown, componentIndex: number): PlanComponent {
+function v6Component(raw: unknown, componentIndex: number): LegacyV6PlanComponent {
   if (!isRecord(raw)) {
     throw new Error(`Stored plan component ${componentIndex} has invalid v6 fields`);
   }
@@ -567,6 +611,192 @@ function v6Component(raw: unknown, componentIndex: number): PlanComponent {
   throw new Error(`Stored plan component ${componentIndex} is malformed or unsupported`);
 }
 
+function v7Image(
+  raw: unknown,
+  componentIndex: number,
+  imageIndex: number,
+) {
+  if (!isRecord(raw)) {
+    throw new Error(`Stored plan component ${componentIndex} image ${imageIndex} must be an object`);
+  }
+  requireOnlyKeys(
+    raw,
+    ["id", "file", "caption", "aspectRatio", "frameWidth", "frameHeight"],
+    `component ${componentIndex} image ${imageIndex}`,
+    7,
+  );
+  if (
+    typeof raw.id !== "string" ||
+    !raw.id ||
+    typeof raw.file !== "string" ||
+    !raw.file ||
+    typeof raw.aspectRatio !== "number" ||
+    !Number.isFinite(raw.aspectRatio) ||
+    raw.aspectRatio <= 0 ||
+    typeof raw.frameWidth !== "number" ||
+    !Number.isFinite(raw.frameWidth) ||
+    raw.frameWidth <= 0 ||
+    typeof raw.frameHeight !== "number" ||
+    !Number.isFinite(raw.frameHeight) ||
+    raw.frameHeight <= 0 ||
+    (raw.caption !== undefined && typeof raw.caption !== "string")
+  ) {
+    throw new Error(`Stored plan component ${componentIndex} image ${imageIndex} has invalid v7 fields`);
+  }
+  return {
+    id: raw.id,
+    file: raw.file,
+    ...(typeof raw.caption === "string" ? { caption: raw.caption } : {}),
+    aspectRatio: raw.aspectRatio,
+    frameWidth: raw.frameWidth,
+    frameHeight: raw.frameHeight,
+  };
+}
+
+function v7Component(raw: unknown, componentIndex: number) {
+  if (!isRecord(raw)) {
+    throw new Error(`Stored plan component ${componentIndex} has invalid v7 fields`);
+  }
+
+  const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
+  if (
+    typeof raw.id !== "string" ||
+    !raw.id ||
+    typeof raw.name !== "string" ||
+    !raw.name ||
+    raw.name !== raw.name.trim() ||
+    typeof raw.x !== "number" ||
+    !Number.isFinite(raw.x) ||
+    raw.x < 0 ||
+    typeof raw.y !== "number" ||
+    !Number.isFinite(raw.y) ||
+    raw.y < 0 ||
+    typeof raw.width !== "number" ||
+    !Number.isFinite(raw.width) ||
+    raw.width < MIN_COMPONENT_WIDTH ||
+    raw.width > canvasWidth ||
+    typeof raw.height !== "number" ||
+    !Number.isFinite(raw.height) ||
+    raw.height < MIN_COMPONENT_HEIGHT ||
+    raw.x + raw.width > canvasWidth + 0.0001
+  ) {
+    throw new Error(`Stored plan component ${componentIndex} has invalid v7 card bounds`);
+  }
+
+  if (raw.type === "plan") {
+    requireOnlyKeys(
+      raw,
+      ["id", "name", "type", "x", "y", "width", "height", "html"],
+      `component ${componentIndex}`,
+      7,
+    );
+    if (typeof raw.html !== "string") {
+      throw new Error(`Stored plan component ${componentIndex} html must be a string`);
+    }
+    return {
+      id: raw.id,
+      name: raw.name,
+      type: "plan" as const,
+      x: raw.x,
+      y: raw.y,
+      width: raw.width,
+      height: raw.height,
+      html: raw.html,
+    };
+  }
+
+  if (raw.type === "reference") {
+    requireOnlyKeys(
+      raw,
+      ["id", "name", "type", "x", "y", "width", "height", "description", "images"],
+      `component ${componentIndex}`,
+      7,
+    );
+    if (typeof raw.description !== "string" || !Array.isArray(raw.images)) {
+      throw new Error(`Stored plan component ${componentIndex} has invalid v7 reference fields`);
+    }
+    return {
+      id: raw.id,
+      name: raw.name,
+      type: "reference" as const,
+      x: raw.x,
+      y: raw.y,
+      width: raw.width,
+      height: raw.height,
+      description: raw.description,
+      images: raw.images.map((image, imageIndex) => v7Image(image, componentIndex, imageIndex)),
+    };
+  }
+  throw new Error(`Stored plan component ${componentIndex} is malformed or unsupported v7`);
+}
+
+function v7FromV6(plan: LegacyV6ProjectPlan): ProjectPlan {
+  const geometry = DEFAULT_PAGE_GEOMETRY;
+  const content = contentSize(geometry);
+  const layout = layoutPlan(plan.components, geometry, undefined, {
+    frameChrome: EDITABLE_COMPONENT_FRAME_CHROME,
+    includeDocumentTitle: true,
+    includeReferenceAddTile: true,
+  });
+  const roundPoint = (value: number) => Math.round(value * 1000) / 1000;
+  const components = plan.components.map((component) => {
+    const fragments = layout.placements.filter(
+      (placement) => placement.componentId === component.id,
+    );
+    const first = fragments[0];
+    if (!first) {
+      throw new Error(`Unable to derive v7 position for component "${component.id}"`);
+    }
+    const continuousY = (pageIndex: number, y: number) => pageIndex * content.height + y;
+    const start = continuousY(first.pageIndex, first.rect.y);
+    const end = Math.max(
+      ...fragments.map((fragment) =>
+        continuousY(fragment.pageIndex, fragment.rect.y) + fragment.rect.height,
+      ),
+    );
+    const card = clampCardRect(
+      {
+        x: roundPoint(first.rect.x),
+        y: roundPoint(start),
+        width: roundPoint(first.rect.width),
+        height: roundPoint(Math.max(MIN_COMPONENT_HEIGHT, end - start)),
+      },
+      content.width,
+    );
+
+    if (component.type === "plan") {
+      return {
+        id: component.id,
+        name: component.name,
+        type: "plan" as const,
+        ...card,
+        html: component.html,
+      };
+    }
+
+    return {
+      id: component.id,
+      name: component.name,
+      type: "reference" as const,
+      ...card,
+      description: component.description,
+      images: component.images.map((image) => {
+        const frameHeight = image.displayHeight ?? component.imageHeight;
+        return {
+          id: image.id,
+          file: image.file,
+          ...(image.caption === undefined ? {} : { caption: image.caption }),
+          aspectRatio: image.aspectRatio,
+          frameWidth: frameHeight * image.aspectRatio,
+          frameHeight,
+        };
+      }),
+    };
+  });
+
+  return { schemaVersion: CURRENT_SCHEMA_VERSION, title: plan.title, components };
+}
+
 function migrateV1ToV2(raw: Record<string, unknown>, makeId: IdFactory): Record<string, unknown> {
   const components: unknown[] = [];
   if (asString(raw.photographyPlan).trim()) {
@@ -600,6 +830,21 @@ export function migratePlan(raw: unknown, context: PlanMigrationContext): Projec
   if (typeof raw.schemaVersion === "number" && raw.schemaVersion > CURRENT_SCHEMA_VERSION) {
     throw new Error(`Unsupported stored plan schema version ${raw.schemaVersion}`);
   }
+  if (raw.schemaVersion === 7) {
+    requireOnlyKeys(raw, ["schemaVersion", "title", "components"], "document", 7);
+    if (
+      typeof raw.title !== "string" ||
+      !raw.title.trim() ||
+      raw.title !== raw.title.trim() ||
+      !Array.isArray(raw.components)
+    ) {
+      throw new Error("Stored plan schema version 7 title and components must be valid");
+    }
+    const components = raw.components.map((component, index) => v7Component(component, index));
+    validateLogicalIds(components);
+    validateComponentNames(components);
+    return { schemaVersion: CURRENT_SCHEMA_VERSION, title: raw.title, components };
+  }
   if (raw.schemaVersion === 6) {
     requireOnlyKeys(raw, ["schemaVersion", "title", "components"], "document");
     if (typeof raw.title !== "string" || !raw.title.trim() || raw.title !== raw.title.trim() || !Array.isArray(raw.components)) {
@@ -608,7 +853,7 @@ export function migratePlan(raw: unknown, context: PlanMigrationContext): Projec
     const components = raw.components.map((component, index) => v6Component(component, index));
     validateLogicalIds(components);
     validateComponentNames(components);
-    return { schemaVersion: CURRENT_SCHEMA_VERSION, title: raw.title, components };
+    return v7FromV6({ schemaVersion: 6, title: raw.title, components });
   }
   if (raw.schemaVersion === 5) {
     if (typeof raw.title !== "string" || !Array.isArray(raw.components)) {
@@ -618,30 +863,36 @@ export function migratePlan(raw: unknown, context: PlanMigrationContext): Projec
     if (!title) {
       throw new Error("Stored plan schema version 5 title must be non-blank");
     }
-    return v6FromV5(raw.components.map((component, index) => v5Component(component, index)), title);
+    return v7FromV6(
+      v6FromV5(raw.components.map((component, index) => v5Component(component, index)), title),
+    );
   }
   if (raw.schemaVersion === 4 || raw.schemaVersion === 3) {
     if (!Array.isArray(raw.components)) {
       throw new Error(`Stored plan schema version ${raw.schemaVersion} components must be an array`);
     }
     const multiplier = raw.schemaVersion === 3 ? 0.75 : 1;
-    return v6FromLegacy(
-      migrateComponents(raw.components, makeId, (component, ids, index) =>
-        legacyComponent(component, ids, index, {
-          allowMissingId: false,
-          imageHeightMultiplier: multiplier,
-        }),
+    return v7FromV6(
+      v6FromLegacy(
+        migrateComponents(raw.components, makeId, (component, ids, index) =>
+          legacyComponent(component, ids, index, {
+            allowMissingId: false,
+            imageHeightMultiplier: multiplier,
+          }),
+        ),
+        context,
       ),
-      context,
     );
   }
   if (raw.schemaVersion === 2) {
     if (!Array.isArray(raw.components)) {
       throw new Error("Stored plan schema version 2 components must be an array");
     }
-    return v6FromLegacy(
-      remapLegacyLogicalIds(migrateComponents(raw.components, makeId, v2Component)),
-      context,
+    return v7FromV6(
+      v6FromLegacy(
+        remapLegacyLogicalIds(migrateComponents(raw.components, makeId, v2Component)),
+        context,
+      ),
     );
   }
   if (typeof raw.photographyPlan === "string" || Array.isArray(raw.referenceGroups)) {
