@@ -224,10 +224,18 @@ function layoutPlanComponent(
   );
   const descriptionSpansPages =
     descriptionHeight > 0 && descriptionEnd.pageIndex > pageIndex;
+  const firstImageRow = rows.find((row) =>
+    row.slots.some((slot) => slot.kind === "image"),
+  );
   const mustStartOnFreshPage =
     y > 0 &&
     descriptionFrameHeight <= contentHeight + EPS &&
     descriptionFrameHeight > availableHeight + EPS;
+  const mustMoveForFirstImageRow =
+    y > 0 &&
+    descriptionFrameHeight <= availableHeight + EPS &&
+    firstImageRow !== undefined &&
+    firstImageRow.height > firstAvailableRowHeight + EPS;
 
   if (descriptionSpansPages) {
     const rowFragments = paginateReferenceRows({
@@ -346,6 +354,7 @@ function layoutPlanComponent(
     endY: lastPlacement ? lastPlacement.rect.y + lastPlacement.rect.height : y,
     mustStartOnFreshPage:
       mustStartOnFreshPage ||
+      mustMoveForFirstImageRow ||
       (y > 0 &&
         descriptionFrameHeight <= contentHeight + EPS &&
         firstAvailableRowHeight <= 0),

@@ -187,7 +187,7 @@
         "A4-based flow layout: components stack vertically, auto-paginate with WYSIWYG page breaks",
         "Insert menu: add Plan or Reference components via button; drag handle to reorder components",
         "Plan component: BlockNote rich-text editor, configurable height, seeds with Chinese default template (拍摄时间/拍摄地点/道具和服装/器材)",
-        "Reference component: configurable title, optional description, columns-per-row grid, image import, drag-to-reorder images within group, per-component caption toggle with per-image editable caption boxes (screen + PDF)",
+        "Reference component: configurable title, optional description, image import, drag-to-reorder images within group, and independent per-image caption editors in screen and PDF",
         "Resize handles: adjust component widths (1/2, 2/3, 1) and heights interactively",
         "PDF export: render canvas to multi-page A4 PDF preserving exact WYSIWYG layout with font subsetting (small file sizes), image slots fit gutter-inset content box",
         "Persistent schemaVersion 2 format in .preshot manifest (v1 removed)",
@@ -208,7 +208,7 @@
         "Canvas PDF exporter: reuse htmlToBlocks tokenizer + Noto Sans SC fonts, render each component with A4 pagination, square image slots, WYSIWYG to pdf-lib output",
         "Remove v1: delete ProjectPlanProvider, PlanPanel, PhotographyPlanTab, ReferenceImagesTab, dropTarget, v1 domain (models/plan/service/pdf), v1 pdfLibExporter; keep reused GroupImageGrid/SortableImageTile/ReferenceImageLightbox/htmlToBlocks/fonts; remove v1 ports/tauriPlan/browserPlan exports",
         "Wire canvas as default: planDependencies.ts returns createCanvasPlanDependencies (v2); Workspace.tsx renders ProjectCanvasProvider",
-        "Phase C: plan default template (i18n content.planTemplate) seeded on insert; per-component caption toggle (reference.captions) + per-image editable caption boxes (reference.captionAria, content.captionPlaceholder) wired to ReferenceImage.caption; add-description button (reference.addDescription) reveals description editor; PDF font subsetting enabled for smaller file sizes (~16 MB → <1 MB)",
+        "Phase C: plan default template (i18n content.planTemplate) seeded on insert; independent per-image caption editors wired to ReferenceImage.caption; PDF font subsetting enabled for smaller file sizes (~16 MB → <1 MB)",
         "Phase D: within-group image drag-reorder (@dnd-kit nested droppables: image tiles are sortable, GroupImageGrid is an image group droppable, PlanCanvas has a parallel image drag path with optimistic moveImage preview, ProjectCanvasProvider.handleMoveImage applies it client-side, 5s auto-save persists); PDF image slots now fit the gutter-inset content box (previously overflowed ~6 pt)"
       ],
       "progress": {
@@ -226,7 +226,7 @@
           "Phase B task 6: built canvasPdfExporter (htmlToBlocks-based, multi-page A4 output)",
           "Phase B task 7: wired canvas as the default plan view in Workspace.tsx + planDependencies.ts",
           "Phase B task 8 (final): removed v1 model/UI/PDF (ProjectPlanProvider, PlanPanel, PhotographyPlanTab, ReferenceImagesTab, dropTarget, domain/plan/{models,plan,service,pdf/*}, pdfLibExporter); removed v1 exports from tauriPlan/browserPlan; kept reused GroupImageGrid/SortableImageTile/ReferenceImageLightbox (structural interface), htmlToBlocks, font assets; moved PdfSaveTarget to canvas/ports",
-          "Phase C: delivered plan default template (content.planTemplate i18n key); per-component caption toggle + per-image editable caption boxes (ReferenceImage.caption, screen + PDF); add-description affordance button; PDF font subsetting (reduced file size from ~16 MB to <1 MB)",
+          "Phase C: delivered plan default template (content.planTemplate i18n key) and independent per-image caption editors (ReferenceImage.caption, screen + PDF); PDF font subsetting reduced file size from ~16 MB to <1 MB",
           "Phase D task 1: fixed PDF image slots to fit gutter-inset content box (previously overflowed ~6 pt horizontally)",
           "Phase D task 2-3: implemented within-group image drag-reorder (pure imageDropTarget helper, imageInsertAfterFromRects geometry, nested dnd-kit droppables, optimistic moveImage preview + commit via ProjectCanvasProvider.handleMoveImage, 5s auto-save persists)",
           "Phase D task 4 (final): added e2e for image reorder (mirrors component reorder test, asserts committed order change via data-image-id), updated featurelist, ran full validation matrix"
@@ -395,7 +395,7 @@
       "name": "Undo / Redo",
       "feature_descriptions": [
         "Session-scoped structural undo/redo for the canvas via 撤销/重做 toolbar buttons and Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y",
-        "Structural-only scope: add/remove/move/resize components, image add/remove/reorder/caption, image height, group title, and caption toggle are undoable",
+        "Structural-only scope: add/remove/move/resize components, image add/remove/reorder/caption, image height, group title, and description visibility are undoable",
         "Rich-text editing (plan body and reference description) is left to BlockNote's own Ctrl+Z; the global handler never fights the editor",
         "On undo/redo the structural snapshot is restored while the CURRENT html/description of components surviving by id is preserved (structural undo never rewinds typed text)",
         "Capped (~50) in-memory snapshot history, reset on each project open; never persisted",
@@ -491,7 +491,7 @@
         "Component resize is width-only; top/bottom/corner height handles are removed from the canvas chrome",
         "Drag-and-drop shows live placeholders plus compact overlays and respects reduced-motion preferences",
         "PDF export resolves every expected reference image before rendering and aborts rather than producing a partial document",
-        "SchemaVersion 5 adds document/component names, row-aware component moves, non-destructive image crops, captions, and global canvas chrome"
+        "The former v5 canvas model is superseded by schema v6 automatic packing, content scaling, per-image display sizing, and independent captions"
       ],
       "status": "completed",
       "decisions": [
@@ -517,8 +517,8 @@
         "Final blocker fix captures and flushes a ready, dirty old-project snapshot before projectPath generation invalidation, while stale loads remain unable to apply after the switch",
         "Final blocker fix deterministically suffix-remaps colliding v1/v2 component and image ids while v3/v4 stored plans continue to reject duplicate logical ids",
         "Final retirement fix tracks each ready token's latest persistence, rebases an in-flight old-project mutation onto an explicit retired plan snapshot, and only then performs the fail-safe dirty save without exposing stale errors to the replacement project",
-        "Task 7 integrates v5 public interfaces in ProjectCanvasProvider: name/title result contracts surface accessible errors, rows stay stable on resize, crops are non-destructive metadata with effective-aspect layout reflow, and CanvasToolbar replaces visible history/settings controls while keyboard shortcuts remain",
-        "Task 7 review fixes rebase each completed async image/component delta onto the latest persistence plan before a serialized save (including project retirement during image decoding), block image moves and undo/redo while destructive operations are pending, calculate row-gap targets after singleton-source removal, return identity for structural no-ops, and preserve hydrated image aspect ratios across crop history snapshots"
+        "The former v5 manual-arrangement and crop behavior is superseded by schema v6; current persistence uses flat ordered components, automatic packing, displayHeight, and contentScale.",
+        "Current retirement handling rebases completed async image/component deltas onto the latest persistence snapshot before serialized save and blocks conflicting destructive operations."
       ],
       "progress": {
         "designSpec": "docs/superpowers/specs/2026-08-05-adaptive-component-layout-design.md",
@@ -550,15 +550,15 @@
           "Final blockers: preserved dirty old-project edits during in-place project switches with a captured pre-invalidation save, while clean snapshots skip the write",
           "Final blockers: migrated legacy v1/v2 duplicate component and image identities to deterministic unique suffixes without losing records or file references, retaining strict v3/v4 rejection",
           "Final retirement blocker: waited for old-token import/remove/flush persistence before rebasing and saving the latest retired plan, preserving physical deletion ordering and preventing stale completion state or errors from reaching the new project UI",
-          "Task 7: integrated v5 rows, naming, crop metadata, project-title seeding, CanvasTitle, and CanvasToolbar through ProjectCanvasProvider and PlanCanvas; added focused provider/canvas/reference regressions",
-          "Task 7 review fixes: rebased delayed image/component operations over concurrent v5 metadata with an immediate serialized merged save; retained completed imports during retirement; blocked image moves and global undo/redo during destructive operations; corrected singleton-row drops and structural identity no-ops; retained hydrated image ratios while crop undo/redo remains history-controlled",
-          "Task 8: added focused acceptance coverage for persisted row changes, title/name persistence, crop/reset/lightbox source behavior, hidden-caption export, header settings, and keyboard-only history; later review fixes resolved the branch lint errors and reconfirmed the unchanged init-test baseline"
+          "Historical v5 canvas integration is superseded by the schema v6 completion entry.",
+          "Current retirement handling rebases delayed image/component operations before a serialized latest-snapshot save.",
+          "Current acceptance coverage uses automatic packing, per-image display-height reset, independent captions, description visibility, and keyboard history."
         ],
         "lastVerified": {
           "date": "2026-08-07",
           "targetedE2e": "pnpm test:e2e -- e2e/canvas.spec.ts e2e/undo-redo.spec.ts e2e/theme.spec.ts: 24 passed",
           "postReviewTargetedUnits": "63 tests passed: planDependencies/browserPlan (11), CanvasTitle/ComponentFrame (18), migrate (34)",
-          "postReviewTargetedE2e": "pnpm exec playwright test e2e/canvas.spec.ts --grep \"crops and restores\": 1 passed",
+          "postReviewTargetedE2e": "Superseded by schema-v6 browser smoke coverage",
           "pnpmLint": "passed (exit 0); unchanged ThemeProvider Fast Refresh warning remains",
           "pnpmTypecheck": "passed",
           "pnpmTest": "74 files, 639 tests passed",
@@ -573,30 +573,28 @@
       }
     },
     {
-      "name": "Canvas Layout, Crop, and Document Chrome Refinement",
+      "name": "Canvas Layout and Document Chrome History (superseded by v6)",
       "status": "completed",
       "feature_descriptions": [
-        "Persisted manual component rows",
+        "Historical predecessor of the schema-v6 canvas model",
         "Editable canvas and component names",
-        "Non-destructive four-edge image crop",
-        "PDF title, crop, and always-caption parity",
+        "PDF title and caption parity precursor",
         "Global settings and refined theme-aware canvas chrome"
       ],
       "decisions": [
-        "Schema v5 stores title, name, rowId, and normalized crop metadata",
-        "Width changes never change rows; valid drag is the only cross-row operation",
-        "Source images remain unchanged and lightbox rendering is uncropped",
+        "Superseded by schema v6, which persists flat component order and derives packing after every geometry change.",
+        "Current image interaction uses per-image displayHeight with reset rather than historical image geometry metadata.",
+        "Source images remain unchanged and lightbox rendering uses the original source.",
         "Final 0806 review: key retirement coordination by CanvasPlanService in a WeakMap, queue every project retirement immediately, and make fresh/remounted providers await matching and service-ordered barriers before loading.",
         "Final 0806 review: preserve the service-persisted aspect-ratio placeholder as the save baseline; apply batch-hydrated image ratios afterward as unsaved metadata so timer and retirement persistence write the measured values.",
         "Final 0806 remediation: keep deferred single and batch decode measurement inside the tracked persistence operation, update the retired persistence plan even when its UI token is stale, and apply it to React only while that token remains current.",
         "Final 0806 single-import follow-up: decode the imported data URL and update the tracked persistence plan before the current-token UI gate, so retirement saves the measured ratio after a deferred rebase while stale React state and history remain untouched.",
-        "Final 0806 fix wave: preserve retired-project persistence by keeping ProjectCanvasProvider mounted across workspace switches; its tokenized retirement path now waits for deferred image operations and saves the rebased latest v5 metadata without leaking completion into the next project.",
+        "Current project-retirement persistence waits for deferred image operations and saves the latest rebased schema-v6 snapshot without leaking completion into the next project.",
         "Final 0806 re-review: make every successor load await the retiring project's complete persistence plus latest-plan save before it enters the shared service FIFO; preserve generation-token isolation, surface retirement-save failures instead of loading stale disk state, and clear the failed barrier after that error so a later explicit selection can recover.",
         "Final 0806 unmount review: launcher/new-project unmount retirement serializes behind prior retirements, waits for pending destructive persistence to rebase its latest plan, and writes that plan once without setting unmounted React state; per-project saved snapshots prevent re-saving completed service operations or in-flight saves, while retirement errors retain contextual logging.",
-        "Centralize component-row capacity in gap-aware fraction packing with one rounding/epsilon policy; migration, row moves, resize caps, validation, and screen placement now agree, while horizontal same-row insertion and N+1 post-removal row targets stay deterministic.",
-        "Final 0806 re-review: calculate N+1 row-drop targets from scaled page-space gaps—after the document title band, between row bounds, and after the last row—rather than using a fixed-pixel hit area.",
-        "When the first logical row starts later than page one, keep its before-first target as a nonzero scaled gap below the first-page document title, so inserting at row index zero never crosses a page boundary.",
-        "Keep crop drag state ephemeral in PlanCanvas so effective aspect ratios and following slots reflow before commit and cancel restores the committed layout; freeze each crop drag's viewport dimensions at pointer-down so all four edges retain their normalized delta through live reflow; require nonblank v5 document titles, reserve the same title band in screen/PDF, and allocate generated component suffixes from the smallest free positive number."
+        "Schema-v6 packing shares one gap-aware layout engine across screen and PDF.",
+        "Late-page reference components move intact when their first complete image row cannot fit.",
+        "Schema-v6 document titles reserve the same screen/PDF band while component names use editable, unique labels."
       ],
       "verification": {
         "targetedE2e": "same-row insertion and row-target smoke: 2 passed; crop preview/persistence smoke: 2 passed",
@@ -634,7 +632,7 @@
         "Import and screenshot controls live on the left of the image-size toolbar with hover descriptions and a monochrome screenshot icon; size controls stay on the right"
       ],
       "decisions": [
-        "Keep image selection ephemeral in PlanCanvas; selection is not persisted in schema v5",
+        "Keep image selection ephemeral in PlanCanvas; selection is not persisted in schema v6",
         "Use a pure moveImages reducer and selected-image drop target so one history entry moves the ordered batch within or across groups",
         "Use per-file CanvasPlanService.importImage calls for batch progress and partial-failure continuation while rebasing successes onto current metadata",
         "Model Windows capture as start/poll/cancel domain commands; compare clipboard sequence numbers so stale clipboard images are never imported",
@@ -657,6 +655,35 @@
         "e2eFollowUp": "34/35 passed in the parallel full run; the existing same-row drag gesture passed on isolated retry"
       },
       "remaining": []
+    },
+    {
+      "name": "Canvas Schema v6 Completion",
+      "description": "Completes the approved v6 canvas model: flat automatic component packing, four-edge component scaling, per-image display sizing, independent captions, visible-description hiding, Windows capture, and screen/PDF layout parity.",
+      "status": "completed",
+      "keyDecisions": [
+        "Persist a flat ordered component list only; widths and page rows are derived by the pure layout engine after every resize or move.",
+        "Use contentScale for component content at every rendering boundary; PDF preserves the stored scale while its synthetic document-title spacer remains scale 1.",
+        "Store a per-image displayHeight override and remove it on reset; captions belong to individual images and description visibility belongs only to the group description.",
+        "Keep the reference first image row with its header when pagination begins late, rather than creating a header-only fragment.",
+        "Use ScreenCapture start/poll/cancel ports with Windows clipboard-sequence validation, then reuse the normal image import path."
+      ],
+      "migration": [
+        "Migrate schemas v1 through v5 into schemaVersion 6.",
+        "Discard obsolete persisted row, crop, and group-caption-toggle metadata while preserving component names, descriptions, images, and individual captions.",
+        "Default contentScale to 1, showDescription to true, and image displayHeight to unset for migrated records."
+      ],
+      "verification": {
+        "pnpmLint": "passed with 0 errors; one existing ThemeProvider Fast Refresh warning",
+        "pnpmTypecheck": "passed",
+        "pnpmTest": "73 files, 629 tests passed",
+        "pnpmTestInit": "4 initializer harness checks passed",
+        "pnpmTestE2e": "18 Edge smoke tests passed",
+        "cargoTest": "47 Rust tests passed with vcvars64",
+        "pnpmBuild": "passed; Vite emitted its existing large-chunk warning"
+      },
+      "remaining": [
+        "If native capture writes its temporary PNG successfully but the following import fails, the source remains for OS cleanup/manual recovery."
+      ]
     }
   ]
 }

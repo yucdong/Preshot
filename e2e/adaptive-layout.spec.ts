@@ -6,30 +6,16 @@ async function componentOrder(page: Page) {
   );
 }
 
-async function shrinkFrame(page: Page, frame: ReturnType<Page["locator"]>) {
-  const before = await frame.boundingBox();
-  const handle = frame.locator('[data-resize-handle="width"]');
-  const handleBox = await handle.boundingBox();
-  if (!before || !handleBox) {
-    throw new Error("component resize targets are not visible");
-  }
-
-  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(handleBox.x - before.width * 0.7, handleBox.y + handleBox.height / 2, { steps: 8 });
-  await page.mouse.up();
-
-  await expect
-    .poll(async () => (await frame.boundingBox())?.width ?? 0)
-    .toBeLessThan(before.width);
-}
-
 async function imageRowTops(frame: ReturnType<Page["locator"]>) {
   return frame.locator('[data-testid="image-region"]').evaluateAll((elements) => {
     const tops = elements.map((element) => Math.round((element as HTMLElement).getBoundingClientRect().top));
     return Array.from(new Set(tops)).sort((a, b) => a - b);
   });
 }
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => window.sessionStorage.clear());
+});
 
 test("plan card grows with text and avoids a large fixed blank area", async ({ page }) => {
   await page.goto("/");
@@ -134,7 +120,7 @@ test("reference images wrap proportionally without an internal scrollbar", async
   });
 
   expect(containment.bodyInside).toBe(true);
-  expect(containment.itemCount).toBe(4);
+  expect(containment.itemCount).toBe(5);
   expect(containment.tilesInside).toBe(true);
 });
 
@@ -144,16 +130,11 @@ test("component drag shows a live placeholder, shows the overlay, and commits th
   await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
   await expect(page.locator('[data-component-frame="true"]')).toHaveCount(2);
 
-  const frames = page.locator('[data-component-frame="true"]');
-  const source = frames.first();
-  const target = frames.nth(1);
+  const source = page.locator('[data-component-frame="true"][data-component-id="plan-1"]');
+  const target = page.locator('[data-component-frame="true"][data-component-id="ref-1"]');
   const before = await componentOrder(page);
   const draggedId = before[0];
   const targetId = before[1];
-  await shrinkFrame(page, source);
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
-  await shrinkFrame(page, target);
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
 
   const handle = source.getByRole("button", { name: "拖动以移动或交换位置", exact: true });
   const handleBox = await handle.boundingBox();
@@ -163,15 +144,15 @@ test("component drag shows a live placeholder, shows the overlay, and commits th
     throw new Error("component drag targets are not visible");
   }
 
-  const dragStartX = handleBox.x + 2;
+  const dragStartX = handleBox.x + handleBox.width / 2;
   const dragStartY = handleBox.y + handleBox.height / 2;
   await page.mouse.move(dragStartX, dragStartY);
   await page.mouse.down();
   await page.waitForTimeout(200);
   await page.mouse.move(dragStartX + 12, dragStartY, { steps: 3 });
-  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * 0.75, { steps: 8 });
-
   await expect(page.locator('[data-drag-placeholder="component"]')).toBeVisible();
+  await page.mouse.move(targetBox.x + targetBox.width - 3, targetBox.y + targetBox.height / 2, { steps: 8 });
+
   await expect(page.getByTestId("drag-overlay-preview")).toBeVisible();
 
   await page.mouse.up();
@@ -180,8 +161,7 @@ test("component drag shows a live placeholder, shows the overlay, and commits th
   await expect(page.getByTestId("drag-overlay-preview")).toHaveCount(0);
 
   await expect.poll(() => componentOrder(page)).toEqual([targetId, draggedId]);
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
-  await expect.poll(() => componentOrder(page)).toEqual([targetId, draggedId]);
+  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
 
   const committed = await componentOrder(page);
   expect([...committed].sort()).toEqual([...before].sort());

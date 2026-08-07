@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
 import { createAnimateLayoutChanges, createMotionStyleTransition, SORTABLE_LAYOUT_TRANSITION } from "./canvas/dragMotion";
@@ -67,18 +67,18 @@ export function SortableImageTile({
   const captionHeight = slot.captionHeight * scale;
   const captionEditorHeight = captionVisible ? captionHeight : 24 * scale;
   const placeholderVisible = isPlaceholder || isDragging;
-  const [resizeSession, setResizeSession] = useState<{
+  const resizeSessionRef = useRef<{
     element: HTMLElement;
     pointerId: number;
   } | null>(null);
-  const [resizeStart, setResizeStart] = useState<{
+  const resizeStartRef = useRef<{
     x: number;
     y: number;
     edge: "top" | "right" | "bottom" | "left";
     displayHeight: number;
     aspectRatio: number;
   } | null>(null);
-  const [resizePreview, setResizePreview] = useState<number | null>(null);
+  const resizePreviewRef = useRef<number | null>(null);
 
   // When draggable is false, don't apply transform or drag styles
   const style = draggable
@@ -105,32 +105,36 @@ export function SortableImageTile({
         transition: createMotionStyleTransition(prefersReducedMotion),
       };
 
-  const onPointerDownResize = (
-    edge: "top" | "right" | "bottom" | "left",
-  ) => (event: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerDownResize = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!onSetDisplayHeight) {
       return;
     }
+    const edge = event.currentTarget.dataset.imageResizeEdge;
+    if (edge !== "top" && edge !== "right" && edge !== "bottom" && edge !== "left") {
+      return;
+    }
+    const resizeEdge = edge as "top" | "right" | "bottom" | "left";
     event.preventDefault();
     event.stopPropagation();
-    setResizeSession({ element: event.currentTarget, pointerId: event.pointerId });
     const ratio =
       Number.isFinite(image.aspectRatio) && (image.aspectRatio ?? 0) > 0
         ? image.aspectRatio!
         : 1;
     const start = {
-      edge,
+      edge: resizeEdge,
       x: event.clientX,
       y: event.clientY,
       displayHeight: image.displayHeight ?? slot.imageHeight,
       aspectRatio: ratio,
     };
-    setResizeStart(start);
+    resizeSessionRef.current = { element: event.currentTarget, pointerId: event.pointerId };
+    resizeStartRef.current = start;
+    resizePreviewRef.current = null;
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
   const previewHeight = (event: React.PointerEvent<HTMLDivElement>): number | null => {
-    const start = resizeStart;
+    const start = resizeStartRef.current;
     if (!start) {
       return null;
     }
@@ -150,7 +154,7 @@ export function SortableImageTile({
     if (next === null) {
       return;
     }
-    setResizePreview(next);
+    resizePreviewRef.current = next;
     onPreviewDisplayHeight?.(image.id, next);
   };
 
@@ -158,14 +162,14 @@ export function SortableImageTile({
     event: React.PointerEvent<HTMLDivElement>,
     options: { commit: boolean; releaseCapture: boolean },
   ) => {
-    const session = resizeSession;
+    const session = resizeSessionRef.current;
     if (!session) {
       return;
     }
-    const next = resizePreview;
-    setResizeSession(null);
-    setResizeStart(null);
-    setResizePreview(null);
+    const next = resizePreviewRef.current;
+    resizeSessionRef.current = null;
+    resizeStartRef.current = null;
+    resizePreviewRef.current = null;
     if (options.releaseCapture && session.element.hasPointerCapture(event.pointerId)) {
       session.element.releasePointerCapture?.(event.pointerId);
     }
@@ -235,15 +239,16 @@ export function SortableImageTile({
         <>
           <div
             aria-label={t("reference.resizeImageTop")}
-            className="absolute left-0 top-0 h-2 w-full cursor-ns-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
+            className="absolute left-0 top-0 z-10 h-2 w-full cursor-ns-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
             data-image-resize-handle="top"
+            data-image-resize-edge="top"
             onLostPointerCapture={(event) =>
               finishResize(event, { commit: false, releaseCapture: false })
             }
             onPointerCancel={(event) =>
               finishResize(event, { commit: false, releaseCapture: true })
             }
-            onPointerDown={onPointerDownResize("top")}
+            onPointerDown={onPointerDownResize}
             onPointerMove={onPointerMoveResize}
             onPointerUp={(event) =>
               finishResize(event, { commit: true, releaseCapture: true })
@@ -253,15 +258,16 @@ export function SortableImageTile({
           />
           <div
             aria-label={t("reference.resizeImageRight")}
-            className="absolute right-0 top-0 h-full w-2 cursor-ew-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
+            className="absolute right-0 top-0 z-10 h-full w-2 cursor-ew-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
             data-image-resize-handle="right"
+            data-image-resize-edge="right"
             onLostPointerCapture={(event) =>
               finishResize(event, { commit: false, releaseCapture: false })
             }
             onPointerCancel={(event) =>
               finishResize(event, { commit: false, releaseCapture: true })
             }
-            onPointerDown={onPointerDownResize("right")}
+            onPointerDown={onPointerDownResize}
             onPointerMove={onPointerMoveResize}
             onPointerUp={(event) =>
               finishResize(event, { commit: true, releaseCapture: true })
@@ -271,15 +277,16 @@ export function SortableImageTile({
           />
           <div
             aria-label={t("reference.resizeImageBottom")}
-            className="absolute bottom-0 left-0 h-2 w-full cursor-ns-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
+            className="absolute bottom-0 left-0 z-10 h-2 w-full cursor-ns-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
             data-image-resize-handle="bottom"
+            data-image-resize-edge="bottom"
             onLostPointerCapture={(event) =>
               finishResize(event, { commit: false, releaseCapture: false })
             }
             onPointerCancel={(event) =>
               finishResize(event, { commit: false, releaseCapture: true })
             }
-            onPointerDown={onPointerDownResize("bottom")}
+            onPointerDown={onPointerDownResize}
             onPointerMove={onPointerMoveResize}
             onPointerUp={(event) =>
               finishResize(event, { commit: true, releaseCapture: true })
@@ -289,15 +296,16 @@ export function SortableImageTile({
           />
           <div
             aria-label={t("reference.resizeImageLeft")}
-            className="absolute left-0 top-0 h-full w-2 cursor-ew-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
+            className="absolute left-0 top-0 z-10 h-full w-2 cursor-ew-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
             data-image-resize-handle="left"
+            data-image-resize-edge="left"
             onLostPointerCapture={(event) =>
               finishResize(event, { commit: false, releaseCapture: false })
             }
             onPointerCancel={(event) =>
               finishResize(event, { commit: false, releaseCapture: true })
             }
-            onPointerDown={onPointerDownResize("left")}
+            onPointerDown={onPointerDownResize}
             onPointerMove={onPointerMoveResize}
             onPointerUp={(event) =>
               finishResize(event, { commit: true, releaseCapture: true })
@@ -308,7 +316,7 @@ export function SortableImageTile({
           {image.displayHeight !== undefined ? (
             <button
               aria-label={t("reference.resetImageSize")}
-              className="absolute bottom-1 left-1 rounded-full bg-black/60 px-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              className="absolute bottom-1 left-1 z-10 rounded-full bg-black/60 px-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
               onClick={() => onSetDisplayHeight(image.id, undefined)}
               onPointerDown={(event) => event.stopPropagation()}
               type="button"

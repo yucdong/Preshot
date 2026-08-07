@@ -35,7 +35,7 @@ function planDeps(): CanvasPlanDependencies {
     service: {
       loadPlan: vi.fn().mockResolvedValue({
         status: "loaded",
-        plan: { schemaVersion: 5, title: "Demo", components: [] },
+        plan: { schemaVersion: 6, title: "Demo", components: [] },
       }),
       loadImage: vi.fn().mockResolvedValue(""),
       savePlan: vi.fn(),

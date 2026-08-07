@@ -359,8 +359,8 @@ function ComponentFrameBody({
           <div
             aria-label={t("canvas.resizeRight")}
             className="absolute right-0 top-0 h-full w-2 cursor-ew-resize bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80"
-            data-resize="width"
-            data-resize-handle="width"
+            data-resize="right"
+            data-resize-handle="right"
             onLostPointerCapture={(event) => finishResize(event, { commit: false, releaseCapture: false })}
             onPointerDown={onPointerDownResize("right")}
             onPointerMove={onPointerMoveResize}

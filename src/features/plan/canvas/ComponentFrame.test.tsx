@@ -64,7 +64,7 @@ function renderFrame(
     </DndContext>,
   );
 
-  const widthHandle = document.querySelector('[data-resize-handle="width"]') as HTMLElement & {
+  const widthHandle = document.querySelector('[data-resize-handle="right"]') as HTMLElement & {
     hasPointerCapture(pointerId: number): boolean;
     releasePointerCapture(pointerId: number): void;
     setPointerCapture(pointerId: number): void;
@@ -218,7 +218,7 @@ describe("ComponentFrame", () => {
 
   it.each([
     ["left", "cursor-ew-resize"],
-    ["width", "cursor-ew-resize"],
+    ["right", "cursor-ew-resize"],
     ["top", "cursor-ns-resize"],
     ["bottom", "cursor-ns-resize"],
   ] as const)("renders the %s edge as a focusable resize affordance", (edge, cursor) => {

@@ -26,6 +26,7 @@ import type {
   ReferenceComponent,
   ReferenceImage,
 } from "../../domain/plan/canvas/models";
+import { clampContentScale } from "../../domain/plan/canvas/models";
 import {
   buildCanvasLayout,
   PDF_COMPONENT_FRAME_CHROME,
@@ -213,6 +214,30 @@ interface PdfTextLayouts {
   referenceDescriptionLayouts: ReadonlyMap<string, PdfTextLayout<PDFFont>>;
 }
 
+function scalePdfTextLayout(
+  layout: PdfTextLayout<PDFFont>,
+  scale: number,
+): PdfTextLayout<PDFFont> {
+  return {
+    height: layout.height * scale,
+    commands: layout.commands.map((command) => ({
+      ...command,
+      baselineFromTop: command.baselineFromTop * scale,
+      size: command.size * scale,
+      x: command.x * scale,
+    })),
+  };
+}
+
+function scaleRect(rect: Rect, scale: number): Rect {
+  return {
+    x: rect.x * scale,
+    y: rect.y * scale,
+    width: rect.width * scale,
+    height: rect.height * scale,
+  };
+}
+
 function preparePdfTextLayouts(
   components: ProjectPlan["components"],
   geometry: PageGeometry,
@@ -226,8 +251,12 @@ function preparePdfTextLayouts(
   const referenceDescriptionLayouts = new Map<string, PdfTextLayout<PDFFont>>();
 
   for (const component of components) {
+    const contentScale = clampContentScale(component.contentScale);
     const componentWidth = component.width * pageContent.width;
-    const textWidth = Math.max(0, componentWidth - COMPONENT_INSET * 2);
+    const textWidth = Math.max(
+      0,
+      componentWidth / contentScale - COMPONENT_INSET * 2,
+    );
 
     if (component.type === "plan") {
       const textLayout = layoutPdfRichText(
@@ -329,6 +358,7 @@ function resolvePdfLayout(
       if (!placement) {
         continue;
       }
+      const contentScale = clampContentScale(component.contentScale);
 
       if (component.type === "reference") {
         const descriptionLayout =
@@ -337,19 +367,25 @@ function resolvePdfLayout(
           continue;
         }
 
-        const paginated = paginatePdfTextLayout(descriptionLayout, {
+        const paginated = paginatePdfTextLayout(
+          scalePdfTextLayout(descriptionLayout, contentScale),
+          {
           textStartFromDocumentTop:
             placement.pageIndex * geometry.page.height +
             geometry.margin +
             placement.rect.y +
-            COMPONENT_INSET +
+            COMPONENT_INSET * contentScale +
             frameChromeHeight +
-            REFERENCE_HEADER_HEIGHT,
+            REFERENCE_HEADER_HEIGHT * contentScale,
           pageHeight: geometry.page.height,
           pageMargin: geometry.margin,
-        });
+          },
+        );
         paginatedReferenceDescriptionLayouts.set(component.id, paginated);
-        nextReferenceDescriptionHeights.set(component.id, paginated.height);
+        nextReferenceDescriptionHeights.set(
+          component.id,
+          paginated.height / contentScale,
+        );
         continue;
       }
 
@@ -357,20 +393,23 @@ function resolvePdfLayout(
       if (!textLayout) {
         continue;
       }
-      const paginated = paginatePdfTextLayout(textLayout, {
+      const paginated = paginatePdfTextLayout(
+        scalePdfTextLayout(textLayout, contentScale),
+        {
         textStartFromDocumentTop:
           placement.pageIndex * geometry.page.height +
           geometry.margin +
           placement.rect.y +
-          COMPONENT_INSET +
+          COMPONENT_INSET * contentScale +
           frameChromeHeight,
         pageHeight: geometry.page.height,
         pageMargin: geometry.margin,
-      });
+        },
+      );
       paginatedPlanLayouts.set(component.id, paginated);
       nextPlanHeights.set(
         component.id,
-        paginated.height + COMPONENT_INSET * 2,
+        paginated.height / contentScale + COMPONENT_INSET * 2,
       );
     }
 
@@ -459,20 +498,26 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
         const page = pages[placement.pageIndex];
         const component = plan.components.find((c) => c.id === placement.componentId);
         if (!component) continue;
+        const contentScale = clampContentScale(component.contentScale);
 
         const pageY = A4.height - SPACING - placement.rect.y;
         const contentRect: Rect = {
-          x: SPACING + placement.rect.x + COMPONENT_INSET,
-          y: pageY - placement.rect.height + COMPONENT_INSET,
-          width: placement.rect.width - COMPONENT_INSET * 2,
-          height: placement.rect.height - COMPONENT_INSET * 2 - frameChromeHeight,
+          x: SPACING + placement.rect.x + COMPONENT_INSET * contentScale,
+          y: pageY - placement.rect.height + COMPONENT_INSET * contentScale,
+          width: Math.max(0, placement.rect.width - COMPONENT_INSET * 2 * contentScale),
+          height: Math.max(
+            0,
+            placement.rect.height -
+              COMPONENT_INSET * 2 * contentScale -
+              frameChromeHeight,
+          ),
         };
 
         if (placement.kind !== "continuation") {
           page.drawText(component.name, {
             x: contentRect.x,
-            y: pageY - COMPONENT_INSET - TITLE_SIZE,
-            size: TITLE_SIZE,
+            y: pageY - COMPONENT_INSET * contentScale - TITLE_SIZE * contentScale,
+            size: TITLE_SIZE * contentScale,
             font: bold,
             color: TEXT_COLOR,
           });
@@ -531,7 +576,10 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
               }
 
               const split = splitReferenceSlot(slot);
-              const imageSlotInPage: Rect = slotToPageRect(contentRect, split.image);
+              const imageSlotInPage: Rect = slotToPageRect(
+                contentRect,
+                scaleRect(split.image, contentScale),
+              );
 
               page.drawRectangle({
                 x: imageSlotInPage.x,
@@ -552,14 +600,18 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
 
               const shouldExportCaption = Boolean(imageRecord.caption?.trim());
               if (shouldExportCaption) {
-                const captionRect: Rect = slotToPageRect(contentRect, split.caption);
+                const captionRect: Rect = slotToPageRect(
+                  contentRect,
+                  scaleRect(split.caption, contentScale),
+                );
                 const sizing = calculateCaptionTextSizing({
                   caption: imageRecord.caption,
                   width: slot.width,
                   imageHeight: slot.imageHeight,
                 });
-                const fontSize = slot.captionFontSize ?? sizing.fontSize;
-                const lineHeight = slot.captionLineHeight ?? sizing.lineHeight;
+                const fontSize = (slot.captionFontSize ?? sizing.fontSize) * contentScale;
+                const lineHeight =
+                  (slot.captionLineHeight ?? sizing.lineHeight) * contentScale;
                 const lines = slot.captionLines ?? sizing.lines;
                 const savedY = captionRect.y + captionRect.height - fontSize - 2;
                 for (const [lineIndex, line] of lines.entries()) {

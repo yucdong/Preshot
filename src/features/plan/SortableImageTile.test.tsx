@@ -207,7 +207,7 @@ slot: { ...mockSlot, imageHeight: 90, captionHeight: 30, height: 120 },
     (edge) => {
       renderTile({ onSetDisplayHeight: vi.fn() });
 
-      expect(document.querySelector(`[data-image-resize-handle="${edge}"]`)).toBeInTheDocument();
+      expect(document.querySelector(`[data-image-resize-handle="${edge}"]`)).toHaveClass("z-10");
     },
   );
 
@@ -237,7 +237,9 @@ slot: { ...mockSlot, imageHeight: 90, captionHeight: 30, height: 120 },
       onSetDisplayHeight,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "恢复默认图片尺寸" }));
+    const reset = screen.getByRole("button", { name: "恢复默认图片尺寸" });
+    expect(reset).toHaveClass("z-10");
+    fireEvent.click(reset);
     expect(onSetDisplayHeight).toHaveBeenCalledWith("i1", undefined);
   });
 

@@ -26,6 +26,18 @@ describe("createBrowserCanvasPlanDependencies", () => {
       throw new Error("Expected the seeded browser plan to load");
     }
     expect(result.plan.components).toHaveLength(2);
+    expect(result.plan).toMatchObject({
+      schemaVersion: 6,
+      components: [
+        { id: "plan-1", contentScale: 1 },
+        {
+          id: "ref-1",
+          contentScale: 1,
+          description: "参考图说明",
+          showDescription: true,
+        },
+      ],
+    });
     expect(await picker.pickImageFile("Pick")).toBe("C:\\memory\\import.png");
   });
 

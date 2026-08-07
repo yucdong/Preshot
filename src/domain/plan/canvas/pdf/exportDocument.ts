@@ -32,7 +32,7 @@ function exportComponents(components: PlanComponent[], titleComponentId: string)
 
   return [
     ...titleComponent,
-    ...components.map((component) => ({ ...component, contentScale: 1 })),
+    ...components,
   ];
 }
 

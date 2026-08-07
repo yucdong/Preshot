@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- legacy fixture conversion remains covered by focused v6 tests.
-// @ts-nocheck
 import { readFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { PDFDocument } from "pdf-lib";
@@ -91,18 +89,99 @@ afterEach(() => {
 });
 
 describe("createCanvasPdfExporter", () => {
+  it("scales PDF component geometry, rich text, titles, and captions with contentScale", async () => {
+    const exporter = createCanvasPdfExporter(loadFonts);
+    const pdfLib = await import("pdf-lib");
+    const drawText = vi.spyOn(pdfLib.PDFPage.prototype, "drawText");
+    const drawImage = vi.spyOn(pdfLib.PDFPage.prototype, "drawImage");
+    const renders: Array<{
+      scale: number;
+      planTextSize: number | undefined;
+      descriptionSize: number | undefined;
+      captionSize: number | undefined;
+      planTitleSize: number | undefined;
+      referenceTitleSize: number | undefined;
+      imageWidth: number | undefined;
+      imageHeight: number | undefined;
+    }> = [];
+
+    for (const contentScale of [0.5, 1, 2]) {
+      const suffix = String(contentScale);
+      const textStart = drawText.mock.calls.length;
+      const imageStart = drawImage.mock.calls.length;
+      const plan: ProjectPlan = {
+        schemaVersion: 6,
+        title: "",
+        components: [
+          {
+            id: `p-${suffix}`,
+            type: "plan",
+            name: `PLAN_TITLE_${suffix}`,
+            width: 1,
+            contentScale,
+            html: `<p>PLAN_TEXT_${suffix}</p>`,
+          },
+          {
+            id: `r-${suffix}`,
+            type: "reference",
+            name: `REFERENCE_TITLE_${suffix}`,
+            width: 1,
+            contentScale,
+            description: `<p>DESCRIPTION_${suffix}</p>`,
+            showDescription: true,
+            imageHeight: 100,
+            images: [{
+              id: `image-${suffix}`,
+              file: `image-${suffix}.png`,
+              caption: `CAPTION_${suffix}`,
+              aspectRatio: 1,
+            }],
+          },
+        ],
+      };
+
+      await exporter.export(plan, {
+        [`image-${suffix}.png`]: createSolidPngDataUrl(100, 100),
+      });
+
+      const textOptions = (text: string) =>
+        drawText.mock.calls
+          .slice(textStart)
+          .find(([value]) => value === text)?.[1];
+      const imageOptions = drawImage.mock.calls.slice(imageStart)[0]?.[1];
+      renders.push({
+        scale: contentScale,
+        planTextSize: textOptions(`PLAN_TEXT_${suffix}`)?.size,
+        descriptionSize: textOptions(`DESCRIPTION_${suffix}`)?.size,
+        captionSize: textOptions(`CAPTION_${suffix}`)?.size,
+        planTitleSize: textOptions(`PLAN_TITLE_${suffix}`)?.size,
+        referenceTitleSize: textOptions(`REFERENCE_TITLE_${suffix}`)?.size,
+        imageWidth: imageOptions?.width,
+        imageHeight: imageOptions?.height,
+      });
+    }
+
+    expect(renders.map((render) => render.planTextSize)).toEqual([5.5, 11, 22]);
+    expect(renders.map((render) => render.descriptionSize)).toEqual([5.5, 11, 22]);
+    expect(renders.map((render) => render.captionSize)).toEqual([4.5, 9, 18]);
+    expect(renders.map((render) => render.planTitleSize)).toEqual([7, 14, 28]);
+    expect(renders.map((render) => render.referenceTitleSize)).toEqual([7, 14, 28]);
+    expect(renders.map((render) => render.imageWidth)).toEqual([50, 100, 200]);
+    expect(renders.map((render) => render.imageHeight)).toEqual([50, 100, 200]);
+  }, 20000);
+
   it("produces a valid PDF from a canvas layout with plan component", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "p1",
-          rowId: `row:${"p1"}`,
           name: "文案1",
           type: "plan",
           width: 1,
+          contentScale: 1,
           html: "<h1>标题</h1><p>段落 <strong>粗体</strong> text</p>",
         },
       ],
@@ -127,24 +206,25 @@ describe("createCanvasPdfExporter", () => {
     const drawText = vi.spyOn(pdfLib.PDFPage.prototype, "drawText");
     const pushOperators = vi.spyOn(pdfLib.PDFPage.prototype, "pushOperators");
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Editorial",
       components: [
         {
           id: "p1",
-          rowId: `row:${"p1"}`,
           name: "文案1",
           type: "plan",
           width: 1,
+          contentScale: 1,
           html: "<p>正文</p>",
         },
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           name: "图片组1",
           type: "reference",
           width: 1,
+          contentScale: 1,
           description: "",
+          showDescription: true,
 imageHeight: 135,
           images: [
             {
@@ -181,20 +261,21 @@ imageHeight: 135,
     );
   }, 20000);
 
-  it("uses the laid-out image slot without applying legacy crop transforms", async () => {
+  it("uses the laid-out image slot directly", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawImage = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawImage");
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Coordinates",
       components: [
         {
           id: "r1",
-          rowId: "row:r1",
           name: "图片组1",
           type: "reference",
           width: 1,
+          contentScale: 1,
           description: "",
+          showDescription: true,
 imageHeight: 135,
           images: [
             {
@@ -251,16 +332,16 @@ imageHeight: 135,
       "<p>TAIL_SENTINEL</p>",
     ].join("");
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
-        { id: "p1", rowId: `row:${"p1"}`, name: "文案1", type: "plan", width: 1, html: longHtml },
+        { id: "p1", name: "文案1", type: "plan", width: 1, contentScale: 1, html: longHtml },
         {
           id: "p2",
-          rowId: `row:${"p2"}`,
           name: "文案1",
           type: "plan",
           width: 1,
+          contentScale: 1,
           html: "<p>FOLLOWING_SENTINEL</p>",
         },
       ],
@@ -281,16 +362,17 @@ imageHeight: 135,
   it("produces a valid PDF from a canvas layout with reference component", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "参考照片",
           description: "描述 <em>italic</em>",
+          showDescription: true,
 imageHeight: 180,
           images: [
             { id: "img1", file: "photo1.png", caption: "图1", aspectRatio: 1 },
@@ -312,16 +394,17 @@ imageHeight: 180,
   it("rejects missing expected image data with file and component context", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "Reference",
           description: "",
+          showDescription: true,
 imageHeight: 135,
           images: [
             {
@@ -350,14 +433,14 @@ imageHeight: 135,
       "<p>DESCRIPTION_TAIL</p>",
     ].join("");
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "Measured description",
           description,
           showDescription: true,
@@ -413,14 +496,14 @@ imageHeight: 135,
       "<p>DESCRIPTION_TAIL</p>",
     ].join("");
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "Long reference",
           description,
           showDescription: true,
@@ -431,10 +514,10 @@ imageHeight: 135,
         },
         {
           id: "p1",
-          rowId: `row:${"p1"}`,
           name: "文案1",
           type: "plan",
           width: 1,
+          contentScale: 1,
           html: "<p>FOLLOWING_SENTINEL</p>",
         },
       ],
@@ -469,15 +552,15 @@ imageHeight: 135,
   it("produces multi-page PDF when components span pages", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         ...Array.from({ length: 4 }, (_, componentIndex) => ({
           id: `p${componentIndex + 1}`,
-          rowId: `row:${`p${componentIndex + 1}`}`,
           name: "文案1",
           type: "plan" as const,
           width: 1,
+          contentScale: 1,
           html: Array.from(
             { length: 10 },
             (_, lineIndex) =>
@@ -506,10 +589,10 @@ imageHeight: 135,
     const longCjk =
       "拍摄计划详细说明：在清晨的黄金时段前往山顶记录云海与日出的层次变化，注意保留高光细节。".repeat(60);
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
-        { id: "p1", rowId: `row:${"p1"}`, name: "文案1", type: "plan", width: 1, html: `<p>${longCjk}</p>` },
+        { id: "p1", name: "文案1", type: "plan", width: 1, contentScale: 1, html: `<p>${longCjk}</p>` },
       ],
     };
 
@@ -534,9 +617,9 @@ imageHeight: 135,
       "<p>END_SENTINEL</p>",
     ].join("");
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
-      components: [{ id: "p1", rowId: `row:${"p1"}`, name: "文案1", type: "plan", width: 1, html }],
+      components: [{ id: "p1", name: "文案1", type: "plan", width: 1, contentScale: 1, html }],
     };
 
     const bytes = await exporter.export(plan, {});
@@ -563,24 +646,25 @@ imageHeight: 135,
   it("renders mixed component types correctly", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "p1",
-          rowId: `row:${"p1"}`,
           name: "文案1",
           type: "plan",
           width: 0.5,
+          contentScale: 1,
           html: "<p>Left <u>underline</u></p>",
         },
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 0.5,
+          contentScale: 1,
           name: "Right",
           description: "",
+          showDescription: true,
 imageHeight: 180,
           images: [{ id: "img1", file: "photo.png", aspectRatio: 1 }],
         },
@@ -596,16 +680,17 @@ imageHeight: 180,
   it("handles reference with single image column", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "单列参考",
           description: "单列布局",
+          showDescription: true,
 imageHeight: 180,
           images: [{ id: "img1", file: "photo.png", aspectRatio: 1 }],
         },
@@ -621,16 +706,17 @@ imageHeight: 180,
   it("renders captions for images with non-empty captions", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "照片集",
           description: "带说明的参考照片",
+          showDescription: true,
 imageHeight: 180,
           images: [
             { id: "img1", file: "photo1.png", caption: "日出 — 黄金时段", aspectRatio: 1 },
@@ -659,15 +745,15 @@ imageHeight: 180,
   it("uses SPACING margin (not hardcoded 48pt) for component placement", async () => {
     const exporter = createCanvasPdfExporter(loadFonts);
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "p1",
-          rowId: `row:${"p1"}`,
           name: "文案1",
           type: "plan",
           width: 1,
+          contentScale: 1,
           html: "<p>Full-width component</p>",
         },
       ],
@@ -692,14 +778,14 @@ imageHeight: 180,
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawText = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawText");
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "Lookbook",
           description: "<p>Reference description</p>",
           showDescription: true,
@@ -735,16 +821,17 @@ imageHeight: 180,
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawImage = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawImage");
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "Ratios",
           description: "",
+          showDescription: true,
 imageHeight: 135,
           images: [
             { id: "landscape", file: "landscape.png", aspectRatio: 4 / 3 },
@@ -774,16 +861,17 @@ imageHeight: 135,
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawImage = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawImage");
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "Actual ratio",
           description: "",
+          showDescription: true,
 imageHeight: 135,
           images: [
             { id: "wide-slot", file: "square.png", aspectRatio: 2 },
@@ -807,16 +895,17 @@ imageHeight: 135,
     const exporter = createCanvasPdfExporter(loadFonts);
     const drawImage = vi.spyOn((await import("pdf-lib")).PDFPage.prototype, "drawImage");
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "Lookbook",
           description: "",
+          showDescription: true,
 imageHeight: 135,
           images: Array.from({ length: 20 }, (_, index) => ({
             id: `img${index + 1}`,

@@ -40,7 +40,7 @@ const SEEDED_V6_PLAN: CanvasPlan = {
       type: "reference",
       width: 1,
       contentScale: 1,
-      description: "",
+      description: "参考图说明",
       showDescription: true,
       imageHeight: 135,
       images: [

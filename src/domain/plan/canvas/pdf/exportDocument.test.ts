@@ -115,21 +115,60 @@ imageHeight: 180, images: [
     ]);
   });
 
-  it("keeps screen-only content scaling out of PDF placement geometry", () => {
-    const ref: ReferenceComponent = {
-      id: "r1",
-      type: "reference",
-      width: 1,
-      contentScale: 2,
-      name: "Reference",
-      description: "",
-      showDescription: true,
-      imageHeight: 180,
-      images: [{ id: "img1", file: "photo1.jpg", aspectRatio: 1 }],
-    };
+  it("preserves content scale in PDF reference placement geometry", () => {
+    const layouts = [0.5, 1, 2].map((contentScale) => {
+      const ref: ReferenceComponent = {
+        id: "r1",
+        type: "reference",
+        width: 1,
+        contentScale,
+        name: "Reference",
+        description: "<p>Visible description</p>",
+        showDescription: true,
+        imageHeight: 180,
+        images: [{ id: "img1", file: "photo1.jpg", aspectRatio: 1 }],
+      };
 
-    const [placement] = buildCanvasLayout([ref]).placements;
-    expect(placement.imageSlots?.[0]).toMatchObject({ imageHeight: 180, width: 180 });
+      return buildCanvasLayout(
+        [ref],
+        DEFAULT_PAGE_GEOMETRY,
+        {
+          planHeights: new Map(),
+          referenceDescriptionHeights: new Map([["r1", 20]]),
+        },
+      ).placements[0];
+    });
+
+    expect(layouts.map((placement) => placement.rect.height)).toEqual([170, 312, 596]);
+    expect(layouts.map((placement, index) =>
+      (placement.imageSlots?.[0]?.width ?? 0) * [0.5, 1, 2][index],
+    )).toEqual([90, 180, 360]);
+  });
+
+  it("keeps the synthetic document-title spacer at scale 1", () => {
+    const placements = [0.5, 1, 2].map((contentScale) => {
+      const component: PlanTextComponent = {
+        id: "p1",
+        name: "Plan",
+        type: "plan",
+        width: 1,
+        contentScale,
+        html: "<p>Text</p>",
+      };
+
+      return buildCanvasLayout(
+        [component],
+        DEFAULT_PAGE_GEOMETRY,
+        measurements({ p1: 100 }),
+      ).placements[0];
+    });
+
+    expect(placements.map((placement) => placement.rect.y)).toEqual([
+      DOCUMENT_TITLE_HEIGHT + DEFAULT_PAGE_GEOMETRY.rowGap,
+      DOCUMENT_TITLE_HEIGHT + DEFAULT_PAGE_GEOMETRY.rowGap,
+      DOCUMENT_TITLE_HEIGHT + DEFAULT_PAGE_GEOMETRY.rowGap,
+    ]);
+    expect(placements.map((placement) => placement.rect.height)).toEqual([78, 128, 228]);
   });
 
   it("reserves component-name and non-empty caption bands using image ratios", () => {
@@ -333,7 +372,7 @@ imageHeight: 135,
     expect(imageSlotIds.flat()).toEqual(reference.images.map((image) => image.id));
   });
 
-  it("excludes the UI add tile so it cannot create an otherwise empty PDF page", () => {
+  it("moves a first image row below the document title without adding a PDF-only tile", () => {
     const reference: ReferenceComponent = {
       id: "r1",
       type: "reference",
@@ -352,8 +391,9 @@ imageHeight: 100,
 
     const layout = buildCanvasLayout([reference], geometry);
 
-    expect(layout.pageCount).toBe(1);
+    expect(layout.pageCount).toBe(2);
     expect(layout.placements).toHaveLength(1);
+    expect(layout.placements[0]).toMatchObject({ pageIndex: 1 });
     expect(layout.placements[0].imageSlots?.map((slot) => slot.id)).toEqual(["img1"]);
   });
 

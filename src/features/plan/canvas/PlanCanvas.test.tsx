@@ -597,7 +597,7 @@ describe("PlanCanvas", () => {
 
   it("right resize handle exists with correct attributes", () => {
     renderCanvas();
-    const rightHandle = document.querySelector('[data-resize-handle="width"]');
+    const rightHandle = document.querySelector('[data-resize-handle="right"]');
     expect(rightHandle).toBeInTheDocument();
     expect(rightHandle).toHaveClass("cursor-ew-resize");
   });

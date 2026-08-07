@@ -1,109 +1,75 @@
-# Reliability -- Observability, Clean State, and Benchmarking
+# Reliability
 
-## Structured Logging
+## Error Context and Logging
 
-### Overview
+Adapters preserve the operation and original failure when crossing a platform
+boundary. The UI reports actionable errors instead of returning empty
+success-shaped data. `src/shared/logging/logger.ts` emits bounded structured
+JSON and removes sensitive keys such as tokens, data URLs, passwords, and
+authorization values.
 
-All services in the application emit structured JSON log entries. This enables runtime debugging, post-hoc analysis, and automated monitoring of application behavior.
+The canvas provider logs failed background work with context: image batch index,
+capture cleanup, project path retirement, and PDF reveal failures. Expected
+operation errors are shown in the plan workspace; the application error
+boundary is reserved for unexpected rendering failures.
 
-### Log Format
+## Windows Screen Capture Sessions
 
-Every log entry is a single-line JSON object:
+`ScreenCapture` uses an explicit token lifecycle:
 
-```json
-{
-  "timestamp": "2026-03-30T12:00:00.000Z",
-  "level": "INFO",
-  "service": "document-service",
-  "message": "Document imported successfully",
-  "data": {
-    "documentId": "abc-123",
-    "filename": "design-notes.md",
-    "sizeBytes": 2048
-  }
-}
-```
+1. `start_screen_capture` records the current Windows clipboard sequence
+   number under a UUID token, then opens `ms-screenclip:`.
+2. `poll_screen_capture` returns `pending` while the sequence is unchanged.
+   A changed sequence is not accepted until the clipboard supplies an image.
+3. The native command writes the clipboard RGBA image to a token-specific
+   temporary PNG and returns `captured { path }`; it removes that token only
+   after the PNG is written successfully.
+4. `cancel_screen_capture` removes an active token and sends Escape to dismiss
+   the Windows overlay.
 
-### Log Levels
+The Tauri adapter validates all token and poll shapes and adds start, poll, or
+cancel context to errors. The provider additionally tracks a project token and
+generation. A completion from a cancelled capture, switched project, or stale
+generation cannot import an image or change visible capture state.
 
-| Level | When to Use | Example |
-|-------|-------------|---------|
-| DEBUG | Routine data access, file reads | "Retrieved chunks for document" |
-| INFO | Significant events | "Document imported", "Batch indexing complete" |
-| WARN | Missing but non-critical data | "Content not found for document" |
-| ERROR | Failures | "File not found during import" |
+After a captured path is returned, it enters the ordinary import pipeline; a
+successful import moves it into `references/`. PNG-write, clipboard, or import
+failures are surfaced with their operation context. A cancellation before a
+capture creates no temporary PNG. If native capture succeeds but the subsequent
+import fails, the temporary source is left for OS cleanup/manual recovery rather
+than being silently treated as a successful import.
 
-### Service Logging Points
+## Image Import Batches
 
-**PersistenceService:**
-- Directory initialization
-- File read/write operations (DEBUG)
-- Clean state reset (WARN)
+Batch selection is intentionally per-file rather than all-or-nothing. The
+provider updates progress after every file, logs each failure with its index,
+continues later files, and rebases all successful imports onto the latest plan.
+It shows a localized success/failure summary when any file fails. This avoids
+discarding valid imports because one source is unreadable or unsupported.
 
-**DocumentService:**
-- Document import with size and metadata
-- Document deletion with remaining count
-- Document metadata updates
-- File not found errors
-- Size limit violations
+Aspect-ratio measurement is asynchronous and is rebased by file onto every
+matching reference before persistence. Image removal deletes a file only when
+no reference still uses it; deletion failures are logged as warnings after the
+manifest update so the user does not receive a false success for the file
+cleanup.
 
-**IndexingService:**
-- Single and batch indexing start
-- Per-document indexing progress
-- Batch completion with throughput metrics
-- Content not found warnings
+## Project Retirement and Persistence
 
-**QaService:**
-- Question processing start
-- Answer generation with confidence and duration
-- Feedback submission
-- History clear
+Each canvas provider owns a project-scoped persistence snapshot. Metadata
+changes save only when serialized state differs; native image operations and
+rebased completion deltas are serialized through the canvas service queue.
 
-**IPC Handlers:**
-- Every channel invocation (INFO for mutations, DEBUG for reads)
-- All registered channels at startup
+On project switch or unmount, `ProjectRetirementCoordinator` queues a barrier
+for the retiring project. The provider waits for in-flight imports, image
+measurement, and destructive mutations, then saves the latest rebased
+snapshot. A later mount waits for the relevant retirement barrier before
+loading, preventing an older disk snapshot from overwriting a completed
+operation or leaking a completion into another project.
 
-### Configuring Log Level
+## Atomic Native Writes
 
-Set the `LOG_LEVEL` environment variable:
-```bash
-LOG_LEVEL=INFO npm run dev  # Only INFO, WARN, ERROR
-LOG_LEVEL=WARN npm run dev  # Only WARN and ERROR
-LOG_LEVEL=ERROR npm run dev # Only ERROR
-```
-
-Default: `DEBUG` (all messages).
-
-## Workspace Service Logging
-
-The Workspace Setup feature emits the structured single-line JSON described above
-under the `workspace-service` service name. The logger
-(`src/shared/logging/logger.ts`) sanitizes every payload before writing: it drops
-sensitive keys (any `*token`, `coverDataUrl`, `stack`, `password`, `secret`,
-`authorization`) and bounds string, array, and nesting size, so logs never leak
-cover data URLs, rollback tokens, or unbounded values.
-
-### Logging points
-
-| Level | Event | Data |
-|-------|-------|------|
-| INFO | `Workspace project created` / `opened` / `relocated` / `removed` | `projectId` |
-| WARN | `Workspace project unavailable` | `projectId`, `reason` (missing manifest, decode failure, or a manifest ID that does not match the stored record) |
-| ERROR | `Workspace project rollback failed` | `projectId`, `reason` |
-| ERROR | `Workspace project rollback token forget failed` | `projectId`, `reason` |
-
-The application layer (`WorkspaceProvider`) logs at ERROR when a guarded action or
-startup step fails -- for example `Unable to load workspace projects`, `Unable to
-open workspace project`, or `Unable to listen for workspace menu actions` -- with
-the original error attached as `cause`. Registry reads and writes never fail
-silently: the Store adapter and domain service wrap failures with operation
-context (`Unable to load workspace metadata`, `Unable to save workspace
-metadata`) so they surface as actionable ERROR entries rather than success-shaped
-fallback data.
-
-### Native menu logging
-
-The Rust menu layer (`src-tauri/src/menu.rs`) writes the same JSON shape to
-stderr under the `workspace-menu` service name. It logs WARN when it ignores an
-unknown menu ID or when no focused webview is available to receive an action, and
-ERROR when handling a menu route fails.
+The Rust manifest and PDF writers use temporary sibling files followed by
+rename, so a failed write does not replace the previous project manifest or
+PDF. Rust commands return serializable `CommandError` values with stable codes
+and actionable messages; TypeScript adapters retain that context for the
+feature layer.

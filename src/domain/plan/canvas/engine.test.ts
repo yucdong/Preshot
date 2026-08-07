@@ -8,6 +8,10 @@ import {
 } from "./geometry";
 import { layoutPlan, referenceImageSlots, slotCaptionSplit, TITLE_BAND } from "./engine";
 import {
+  buildCanvasLayout,
+  PDF_COMPONENT_FRAME_CHROME,
+} from "./pdf/exportDocument";
+import {
   DEFAULT_IMAGE_HEIGHT,
   type PlanComponent,
   type ReferenceComponent,
@@ -380,6 +384,96 @@ imageHeight: ih,
     expect(new Set(fragments.map((fragment) => fragment.pageIndex)).size).toBe(fragments.length);
     expect(fragments.every((fragment) => fragment.rect.y + fragment.rect.height <= pageHeight + 0.01)).toBe(true);
     expect(fragments.flatMap((fragment) => fragment.imageSlots?.map((slot) => slot.id) ?? [])).toContain("__add__");
+  });
+
+  it("moves a late reference to the next page when its first complete image row cannot fit", () => {
+    const geometry = {
+      ...DEFAULT_PAGE_GEOMETRY,
+      margin: 20,
+      page: { ...DEFAULT_PAGE_GEOMETRY.page, height: 500 },
+    };
+    const components = [
+      plan("before", 1),
+      reference({
+        description: "<p>Visible description</p>",
+        imageHeight: 100,
+        images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
+      }),
+    ];
+    const layoutMeasurements = {
+      planHeights: new Map([["before", 172]]),
+      referenceDescriptionHeights: new Map([["ref", 20]]),
+    };
+
+    const screen = layoutPlan(
+      components,
+      geometry,
+      layoutMeasurements,
+      {
+        frameChrome: PDF_COMPONENT_FRAME_CHROME,
+        includeDocumentTitle: true,
+        includeReferenceAddTile: false,
+      },
+    );
+    const pdf = buildCanvasLayout(components, geometry, layoutMeasurements);
+    const screenReference = screen.placements.filter(
+      (placement) => placement.componentId === "ref",
+    );
+    const pdfReference = pdf.placements.filter(
+      (placement) => placement.componentId === "ref",
+    );
+
+    expect(screen.placements.filter((placement) => placement.componentId === "before")).toEqual([
+      expect.objectContaining({ pageIndex: 0 }),
+    ]);
+    expect(screenReference).toEqual([
+      expect.objectContaining({ pageIndex: 1, rect: expect.objectContaining({ y: 0 }) }),
+    ]);
+    expect(pdfReference).toEqual(screenReference);
+  });
+
+  it("keeps normal reference flow when a component starts at the page top or its first row fits", () => {
+    const geometry = {
+      ...DEFAULT_PAGE_GEOMETRY,
+      margin: 20,
+      page: { ...DEFAULT_PAGE_GEOMETRY.page, height: 500 },
+    };
+    const ref = reference({
+      description: "<p>Visible description</p>",
+      imageHeight: 100,
+      images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
+    });
+    const referenceMeasurements = {
+      planHeights: new Map<string, number>(),
+      referenceDescriptionHeights: new Map([["ref", 20]]),
+    };
+    const atTop = layoutPlan(
+      [ref],
+      geometry,
+      referenceMeasurements,
+      { frameChrome: PDF_COMPONENT_FRAME_CHROME, includeReferenceAddTile: false },
+    );
+    const afterShortPlan = layoutPlan(
+      [plan("before", 1), ref],
+      geometry,
+      {
+        planHeights: new Map([["before", 100]]),
+        referenceDescriptionHeights: referenceMeasurements.referenceDescriptionHeights,
+      },
+      {
+        frameChrome: PDF_COMPONENT_FRAME_CHROME,
+        includeDocumentTitle: true,
+        includeReferenceAddTile: false,
+      },
+    );
+
+    expect(atTop.placements.find((placement) => placement.componentId === "ref")).toMatchObject({
+      pageIndex: 0,
+      rect: { y: 0 },
+    });
+    expect(
+      afterShortPlan.placements.find((placement) => placement.componentId === "ref"),
+    ).toMatchObject({ pageIndex: 0 });
   });
 
   it("keeps image rows and following components after a multi-page reference description", () => {
