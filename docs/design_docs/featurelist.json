@@ -665,7 +665,8 @@
         "Use contentScale for component content at every rendering boundary; PDF preserves the stored scale while its synthetic document-title spacer remains scale 1.",
         "Store a per-image displayHeight override and remove it on reset; captions belong to individual images and description visibility belongs only to the group description.",
         "Keep the reference first image row with its header when pagination begins late, rather than creating a header-only fragment.",
-        "Use ScreenCapture start/poll/cancel ports with Windows clipboard-sequence validation, then reuse the normal image import path."
+        "Use ScreenCapture start/poll/cancel ports with Windows clipboard-sequence validation, then reuse the normal image import path.",
+        "Size component-name inputs from Unicode-aware text-width estimates so CJK, full-width, emoji, and Latin names remain fully visible without consuming the entire drag bar."
       ],
       "migration": [
         "Migrate schemas v1 through v5 into schemaVersion 6.",
@@ -675,7 +676,7 @@
       "verification": {
         "pnpmLint": "passed with 0 errors; one existing ThemeProvider Fast Refresh warning",
         "pnpmTypecheck": "passed",
-        "pnpmTest": "73 files, 629 tests passed",
+        "pnpmTest": "73 files, 630 tests passed",
         "pnpmTestInit": "4 initializer harness checks passed",
         "pnpmTestE2e": "34 Edge smoke tests passed",
         "cargoTest": "47 Rust tests passed with vcvars64",

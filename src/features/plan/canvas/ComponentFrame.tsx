@@ -22,6 +22,7 @@ import {
   createMotionStyleTransition,
   SORTABLE_LAYOUT_TRANSITION,
 } from "./dragMotion";
+import { estimateNameInputWidthEm } from "./componentNameWidth";
 
 interface ComponentFrameProps {
   id: string;
@@ -104,7 +105,7 @@ function ComponentFrameNameInput({
         style={{
           fontSize: `${12 * scale}px`,
           lineHeight: `${16 * scale}px`,
-          width: `${Math.max(4, [...nameDraft].length + 1)}ch`,
+          width: `${estimateNameInputWidthEm(nameDraft)}em`,
         }}
         type="text"
         value={nameDraft}

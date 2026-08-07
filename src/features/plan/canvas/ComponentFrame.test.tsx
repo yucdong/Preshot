@@ -10,6 +10,7 @@ import {
 import type { PlanComponent } from "../../../domain/plan/canvas/models";
 import type { RenameComponentResult } from "../../../domain/plan/canvas/naming";
 import { ComponentFrame } from "./ComponentFrame";
+import { estimateNameInputWidthEm } from "./componentNameWidth";
 
 vi.mock("@dnd-kit/sortable", async () => {
   const actual = await vi.importActual<typeof import("@dnd-kit/sortable")>("@dnd-kit/sortable");
@@ -368,7 +369,12 @@ describe("ComponentFrame", () => {
     renderFrame();
 
     const input = screen.getByRole("textbox", { name: "组件名称" });
-    expect(input.style.width).toMatch(/ch$/);
+    expect(input.style.width).toBe("4em");
     expect(input.parentElement).not.toHaveClass("flex-1");
+  });
+
+  it("allocates full-width space for every Chinese character", () => {
+    expect(estimateNameInputWidthEm("小清新人像拍摄")).toBe(8);
+    expect(estimateNameInputWidthEm("Lookbook 参考")).toBeGreaterThan(8);
   });
 });
