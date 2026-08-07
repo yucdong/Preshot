@@ -20,10 +20,10 @@ describe("buildCanvasLayout", () => {
   it("returns page count 1 and a single placement for one component", () => {
     const component: PlanTextComponent = {
       id: "c1",
-      rowId: `row:${"c1"}`,
       name: "文案1",
       type: "plan",
       width: 1,
+      contentScale: 1,
       html: "<p>Text</p>",
     };
 
@@ -44,18 +44,18 @@ describe("buildCanvasLayout", () => {
   it("returns multiple placements for components on same page", () => {
     const c1: PlanTextComponent = {
       id: "c1",
-      rowId: `row:${"c1"}`,
       name: "文案1",
       type: "plan",
       width: 0.5,
+      contentScale: 1,
       html: "<p>Left</p>",
     };
     const c2: PlanTextComponent = {
       id: "c2",
-      rowId: `row:${"c2"}`,
       name: "文案1",
       type: "plan",
       width: 0.5,
+      contentScale: 1,
       html: "<p>Right</p>",
     };
 
@@ -71,10 +71,10 @@ describe("buildCanvasLayout", () => {
 
   it("returns multiple pages when components overflow page height", () => {
     const components: PlanTextComponent[] = [
-      { id: "c1", rowId: `row:${"c1"}`, name: "文案1", type: "plan", width: 1, html: "<p>Page 1A</p>" },
-      { id: "c2", rowId: `row:${"c2"}`, name: "文案1", type: "plan", width: 1, html: "<p>Page 1B</p>" },
-      { id: "c3", rowId: `row:${"c3"}`, name: "文案1", type: "plan", width: 1, html: "<p>Page 1C</p>" },
-      { id: "c4", rowId: `row:${"c4"}`, name: "文案1", type: "plan", width: 1, html: "<p>Page 2</p>" },
+      { id: "c1", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "<p>Page 1A</p>" },
+      { id: "c2", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "<p>Page 1B</p>" },
+      { id: "c3", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "<p>Page 1C</p>" },
+      { id: "c4", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "<p>Page 2</p>" },
     ];
 
     const layout = buildCanvasLayout(components, DEFAULT_PAGE_GEOMETRY, measurements({
@@ -92,11 +92,12 @@ describe("buildCanvasLayout", () => {
   it("includes fragment metadata and slot ids for reference components", () => {
     const ref: ReferenceComponent = {
       id: "r1",
-      rowId: `row:${"r1"}`,
       type: "reference",
       width: 1,
+      contentScale: 1,
       name: "Reference",
       description: "",
+      showDescription: true,
       showCaptions: false, imageHeight: 180, images: [
         { id: "img1", file: "photo1.jpg", aspectRatio: 1 },
         { id: "img2", file: "photo2.jpg", aspectRatio: 1 },
@@ -114,14 +115,15 @@ describe("buildCanvasLayout", () => {
     ]);
   });
 
-  it("reserves component-name and non-empty caption bands using cropped image ratios", () => {
+  it("reserves component-name and non-empty caption bands using image ratios", () => {
     const reference: ReferenceComponent = {
       id: "r1",
-      rowId: `row:${"r1"}`,
       type: "reference",
       width: 1,
+      contentScale: 1,
       name: "图片组1",
       description: "",
+      showDescription: true,
       showCaptions: false,
       imageHeight: 135,
       images: [
@@ -130,7 +132,6 @@ describe("buildCanvasLayout", () => {
           file: "photo1.jpg",
           caption: "拍摄说明",
           aspectRatio: 1,
-          crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
         },
       ],
     };
@@ -141,7 +142,7 @@ describe("buildCanvasLayout", () => {
 
     expect(placement.rect.height).toBeGreaterThan(135 + 24);
     expect(slot).toMatchObject({
-      width: 67.5,
+      width: 135,
       imageHeight: 135,
       captionHeight: 45,
     });
@@ -150,10 +151,10 @@ describe("buildCanvasLayout", () => {
   it("preserves a component whose id matches the document-title spacer id", () => {
     const component: PlanTextComponent = {
       id: "__pdf_document_title__",
-      rowId: `row:${"__pdf_document_title__"}`,
       name: "文案1",
       type: "plan",
       width: 1,
+      contentScale: 1,
       html: "<p>Text</p>",
     };
 
@@ -172,10 +173,10 @@ describe("buildCanvasLayout", () => {
   it("reserves only the document-title band before the first component row", () => {
     const component: PlanTextComponent = {
       id: "c1",
-      rowId: "row:c1",
       name: "文案1",
       type: "plan",
       width: 1,
+      contentScale: 1,
       html: "<p>Text</p>",
     };
 
@@ -198,10 +199,10 @@ describe("buildCanvasLayout", () => {
   it("reserves the same title band for an empty PDF title as the screen canvas", () => {
     const component: PlanTextComponent = {
       id: "c1",
-      rowId: "row:c1",
       name: "文案1",
       type: "plan",
       width: 1,
+      contentScale: 1,
       html: "<p>Text</p>",
     };
     const layoutMeasurements = measurements({ c1: 96 });
@@ -224,10 +225,10 @@ describe("buildCanvasLayout", () => {
   it("forwards plan measurements into the domain layout", () => {
     const component: PlanTextComponent = {
       id: "p1",
-      rowId: `row:${"p1"}`,
       name: "文案1",
       type: "plan",
       width: 1,
+      contentScale: 1,
       html: "<p>Measured</p>",
     };
 
@@ -242,11 +243,12 @@ describe("buildCanvasLayout", () => {
     const components: PlanComponent[] = [
       {
         id: "r1",
-        rowId: `row:${"r1"}`,
         type: "reference",
         width: 1,
+        contentScale: 1,
         name: "Photos",
         description: "",
+        showDescription: true,
         showCaptions: false,
         imageHeight: 180,
         images: Array.from({ length: 12 }, (_, index) => ({
@@ -274,11 +276,12 @@ describe("buildCanvasLayout", () => {
     const components: PlanComponent[] = [
       {
         id: "r1",
-        rowId: `row:${"r1"}`,
         type: "reference",
         width: 1,
+        contentScale: 1,
         name: "Photos",
         description: "",
+        showDescription: true,
         showCaptions: false,
         imageHeight: 135,
         images: [
@@ -322,11 +325,12 @@ describe("buildCanvasLayout", () => {
   it("excludes the UI add tile so it cannot create an otherwise empty PDF page", () => {
     const reference: ReferenceComponent = {
       id: "r1",
-      rowId: `row:${"r1"}`,
       type: "reference",
       width: 1,
+      contentScale: 1,
       name: "Only image",
       description: "",
+      showDescription: true,
       showCaptions: false,
       imageHeight: 100,
       images: [{ id: "img1", file: "1.jpg", aspectRatio: 1 }],
@@ -346,11 +350,12 @@ describe("buildCanvasLayout", () => {
   it("keeps a header-only PDF placement for a reference with no images", () => {
     const reference: ReferenceComponent = {
       id: "r1",
-      rowId: `row:${"r1"}`,
       type: "reference",
       width: 1,
+      contentScale: 1,
       name: "Empty reference",
       description: "",
+      showDescription: true,
       showCaptions: false,
       imageHeight: 100,
       images: [],
@@ -376,10 +381,10 @@ describe("buildCanvasLayout", () => {
     };
     const component: PlanTextComponent = {
       id: "c1",
-      rowId: `row:${"c1"}`,
       name: "文案1",
       type: "plan",
       width: 1,
+      contentScale: 1,
       html: "<p>Text</p>",
     };
 

@@ -1,5 +1,4 @@
 import { layoutPlan, type LayoutMeasurements, type LayoutResult } from "../engine";
-import { effectiveImageAspectRatio } from "../crop";
 import {
   componentFrameChromeHeight,
   DEFAULT_PAGE_GEOMETRY,
@@ -27,10 +26,10 @@ function exportComponents(
 ): PlanComponent[] {
   const titleComponent: PlanComponent[] = [{
     id: titleComponentId,
-    rowId: `row:${titleComponentId}`,
     name: "",
     type: "plan",
     width: 1,
+    contentScale: 1,
     html: "",
   }];
 
@@ -44,10 +43,6 @@ function exportComponents(
       return {
         ...component,
         showCaptions: component.images.some((image) => Boolean(image.caption?.trim())),
-        images: component.images.map((image) => ({
-          ...image,
-          aspectRatio: effectiveImageAspectRatio(image),
-        })),
       };
     }),
   ];

@@ -17,7 +17,7 @@ import { COMPONENT_INSET, REFERENCE_DESCRIPTION_GAP } from "./referenceLayout";
 const content = contentSize(DEFAULT_PAGE_GEOMETRY);
 
 function plan(id: string, width: number): PlanComponent {
-  return { id, rowId: `row:${id}`, name: "文案1", type: "plan", width, html: "" };
+  return { id, name: "文案1", type: "plan", width, contentScale: 1, html: "" };
 }
 
 function measurements(planHeights: Record<string, number> = {}) {
@@ -44,8 +44,8 @@ describe("layoutPlan placement", () => {
 
   it("flows two gap-aware components side by side on one row", () => {
     const { placements } = layoutPlan([
-      { ...plan("a", 0.45), rowId: "row-ab" },
-      { ...plan("b", 0.45), rowId: "row-ab" },
+      plan("a", 0.45),
+      plan("b", 0.45),
     ]);
     expect(placements[0].rect).toMatchObject({ x: 0, y: 0, width: content.width * 0.45 });
     expect(placements[1].rect.y).toBe(0);
@@ -58,8 +58,8 @@ describe("layoutPlan placement", () => {
 
   it("places same-row components after the configured horizontal spacing gap", () => {
     const { placements } = layoutPlan([
-      { ...plan("a", 0.4), rowId: "row-ab" },
-      { ...plan("b", 0.4), rowId: "row-ab" },
+      plan("a", 0.4),
+      plan("b", 0.4),
     ]);
 
     expect(placements[1].rect.x).toBeCloseTo(
@@ -68,16 +68,16 @@ describe("layoutPlan placement", () => {
     );
   });
 
-  it("starts a persisted logical row even when it could fit the previous row", () => {
+  it("ignores removed logical row metadata when ordered components fit together", () => {
     const components: PlanComponent[] = [
-      { ...plan("a", 0.4), rowId: "row-a" },
-      { ...plan("b", 0.4), rowId: "row-b" },
+      plan("a", 0.4),
+      plan("b", 0.4),
     ];
 
     const [a, b] = layoutPlan(components).placements;
 
-    expect(b.rect.x).toBe(0);
-    expect(b.rect.y).toBeGreaterThan(a.rect.y);
+    expect(b.rect.x).toBeGreaterThan(a.rect.x);
+    expect(b.rect.y).toBe(a.rect.y);
   });
 
   it("reserves title space before the first logical row when requested", () => {
@@ -95,8 +95,8 @@ describe("layoutPlan placement", () => {
     const third = content.width / 3;
     const [a, b, c] = layoutPlan([
       plan("a", 2 / 3),
-      { ...plan("b", 0.5), rowId: "row-bc" },
-      { ...plan("c", 1 / 3), rowId: "row-bc" },
+      plan("b", 0.5),
+      plan("c", 1 / 3),
     ], DEFAULT_PAGE_GEOMETRY, measurements({ a: 100, b: 100, c: 100 })).placements;
     expect(a.rect).toMatchObject({ x: 0, y: 0 });
     // b (1/2) does not fit next to a (2/3): 2/3 + 1/2 > 1 -> new row
@@ -154,11 +154,12 @@ describe("layoutPlan placement", () => {
 function reference(overrides: Partial<ReferenceComponent> = {}): ReferenceComponent {
   return {
     id: "ref",
-    rowId: `row:${"ref"}`,
     type: "reference",
     width: 1,
+    contentScale: 1,
     name: "T",
     description: "",
+    showDescription: true,
     showCaptions: false, imageHeight: 180, images: [
       { id: "i1", file: "references/0001.png", aspectRatio: 1 },
       { id: "i2", file: "references/0002.png", aspectRatio: 1 },
@@ -287,11 +288,12 @@ describe("reference image slots", () => {
     
     const comp: ReferenceComponent = {
       id: "r",
-      rowId: `row:${"r"}`,
       type: "reference",
       width: 1,
+      contentScale: 1,
       name: "Test",
       description: "",
+      showDescription: true,
       showCaptions: true,
       imageHeight: ih,
       images: [
@@ -437,18 +439,18 @@ describe("reference image slots", () => {
 
 describe("continuous width layout", () => {
   function mk(id: string, width: number): PlanComponent {
-    return { id, rowId: `row:${id}`, name: "文案1", type: "plan", width, html: "" };
+    return { id, name: "文案1", type: "plan", width, contentScale: 1, html: "" };
   }
 
   it("packs two sub-half-width components on one row and wraps wider ones", () => {
     const a = layoutPlan([
-      { ...mk("a", 0.4), rowId: "row-a" },
-      { ...mk("b", 0.4), rowId: "row-a" },
+      mk("a", 0.4),
+      mk("b", 0.4),
     ], DEFAULT_PAGE_GEOMETRY);
     expect(a.placements[0].rect.y).toBe(a.placements[1].rect.y); // same row
     const b = layoutPlan([
-      { ...mk("a", 0.6), rowId: "row-a" },
-      { ...mk("b", 0.6), rowId: "row-a" },
+      mk("a", 0.6),
+      mk("b", 0.6),
     ], DEFAULT_PAGE_GEOMETRY);
     expect(b.placements[1].rect.y).toBeGreaterThan(b.placements[0].rect.y); // wrapped
   });

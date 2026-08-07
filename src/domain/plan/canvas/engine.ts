@@ -368,20 +368,14 @@ export function layoutPlan(
 
   const rows: PendingRowComponent[][] = [];
   let currentRow: PendingRowComponent[] = [];
-  let currentRowId: string | null = null;
 
   for (const component of components) {
     const width = component.width * content.width;
-    const beginsNewLogicalRow =
-      currentRow.length > 0 && currentRowId !== component.rowId;
-    if (
-      beginsNewLogicalRow ||
-      !canAddToRow(
-        currentRow.map((entry) => entry.component.width),
-        component.width,
-        geometry,
-      )
-    ) {
+    if (!canAddToRow(
+      currentRow.map((entry) => entry.component.width),
+      component.width,
+      geometry,
+    )) {
       rows.push(currentRow);
       currentRow = [];
     }
@@ -391,7 +385,6 @@ export function layoutPlan(
       geometry,
     ) * content.width;
     currentRow.push({ component, x: currentX, width });
-    currentRowId = component.rowId;
   }
 
   if (currentRow.length > 0) {

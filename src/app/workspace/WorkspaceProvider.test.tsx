@@ -392,24 +392,25 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-02T00:00:00.000Z",
     });
     const retiringPlan = {
-      schemaVersion: 5 as const,
+      schemaVersion: 6 as const,
       title: "Original title",
       components: [
         {
           id: "p1",
-          rowId: "row-shared",
           name: "文案1",
           type: "plan" as const,
           width: 0.4,
+          contentScale: 1,
           html: "",
         },
         {
           id: "r1",
-          rowId: "row-shared",
           name: "图片组1",
           type: "reference" as const,
           width: 0.4,
+          contentScale: 1,
           description: "",
+          showDescription: true,
           showCaptions: false,
           imageHeight: 135,
           images: [
@@ -423,7 +424,7 @@ describe("WorkspaceProvider", () => {
       ],
     };
     const nextPlan = {
-      schemaVersion: 5 as const,
+      schemaVersion: 6 as const,
       title: "Next title",
       components: [],
     };
@@ -531,24 +532,25 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-09T00:00:00.000Z",
     });
     const plan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Original title",
       components: [
         {
           id: "p1",
-          rowId: "row-shared",
           name: "Plan",
           type: "plan",
           width: 0.4,
+          contentScale: 1,
           html: "",
         },
         {
           id: "r1",
-          rowId: "row-shared",
           name: "Reference",
           type: "reference",
           width: 0.4,
+          contentScale: 1,
           description: "",
+          showDescription: true,
           showCaptions: false,
           imageHeight: 135,
           images: [
@@ -561,11 +563,12 @@ describe("WorkspaceProvider", () => {
         },
         {
           id: "r2",
-          rowId: "row-retained",
           name: "Retained reference",
           type: "reference",
           width: 1,
+          contentScale: 1,
           description: "",
+          showDescription: true,
           showCaptions: false,
           imageHeight: 135,
           images: [
@@ -697,24 +700,25 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-08T00:00:00.000Z",
     });
     const planA: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Original A metadata",
       components: [
         {
           id: "p1",
-          rowId: "row-p1",
           name: "Plan",
           type: "plan",
           width: 1,
+          contentScale: 1,
           html: "",
         },
         {
           id: "r1",
-          rowId: "row-r1",
           name: "Reference",
           type: "reference",
           width: 1,
+          contentScale: 1,
           description: "",
+          showDescription: true,
           showCaptions: false,
           imageHeight: 135,
           images: [],
@@ -722,7 +726,7 @@ describe("WorkspaceProvider", () => {
       ],
     };
     const planB: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "B metadata must never leak",
       components: [],
     };

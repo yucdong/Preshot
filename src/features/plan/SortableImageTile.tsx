@@ -1,12 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { effectiveImageAspectRatio, normalizeCrop } from "../../domain/plan/canvas/crop";
 import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
-import type { CropRect } from "../../domain/plan/canvas/models";
 import { createAnimateLayoutChanges, createMotionStyleTransition, SORTABLE_LAYOUT_TRANSITION } from "./canvas/dragMotion";
-import { ImageCropOverlay } from "./ImageCropOverlay";
 import { usePrefersReducedMotion } from "../../shared/hooks/usePrefersReducedMotion";
 
 const tileButton =
@@ -17,7 +13,6 @@ interface ReferenceImageLike {
   file: string;
   caption?: string;
   aspectRatio?: number;
-  crop?: CropRect;
 }
 
 interface SortableImageTileProps {
@@ -32,10 +27,6 @@ interface SortableImageTileProps {
   draggable?: boolean;
   showCaptions?: boolean;
   onSetCaption?: (imageId: string, caption: string) => void;
-  onSetCrop?: (imageId: string, crop: CropRect) => void;
-  onPreviewCrop?: (imageId: string, crop: CropRect) => void;
-  onCancelCropPreview?: (imageId: string) => void;
-  onResetCrop?: (imageId: string) => void;
   slot: ReferenceFlowSlot;
   scale: number;
   isPlaceholder?: boolean;
@@ -53,10 +44,6 @@ export function SortableImageTile({
   draggable = true, 
   showCaptions = false, 
   onSetCaption,
-  onSetCrop,
-  onPreviewCrop,
-  onCancelCropPreview,
-  onResetCrop,
   slot,
   scale,
   isPlaceholder = false,
@@ -72,12 +59,6 @@ export function SortableImageTile({
   const imageHeight = slot.imageHeight * scale;
   const captionHeight = showCaptions ? slot.captionHeight * scale : 0;
   const placeholderVisible = isPlaceholder || isDragging;
-  const sourceAspectRatio = image.aspectRatio ?? 1;
-  const crop = image.crop && normalizeCrop(image.crop);
-  const [previewCrop, setPreviewCrop] = useState<CropRect>();
-  const visibleCrop = previewCrop ?? crop ?? { x: 0, y: 0, width: 1, height: 1 };
-  const effectiveAspectRatio = effectiveImageAspectRatio({ ...image, aspectRatio: sourceAspectRatio });
-  const cropControlsEnabled = !placeholderVisible && onSetCrop !== undefined && onResetCrop !== undefined;
 
   // When draggable is false, don't apply transform or drag styles
   const style = draggable
@@ -110,7 +91,6 @@ export function SortableImageTile({
       className="group"
       style={style}
       data-image-id={image.id}
-      data-image-cropped={crop ? "true" : "false"}
       data-selected={selected ? "true" : "false"}
       data-testid={placeholderVisible ? `image-placeholder-${image.id}` : `image-tile-${image.id}`}
     >
@@ -135,14 +115,13 @@ export function SortableImageTile({
             <img
               alt={t("reference.imageAlt")}
               className="absolute object-fill"
-              data-effective-aspect-ratio={effectiveAspectRatio}
               draggable={false}
               src={src}
               style={{
-                width: `${100 / visibleCrop.width}%`,
-                height: `${100 / visibleCrop.height}%`,
-                left: `${(-visibleCrop.x / visibleCrop.width) * 100}%`,
-                top: `${(-visibleCrop.y / visibleCrop.height) * 100}%`,
+                width: "100%",
+                height: "100%",
+                left: 0,
+                top: 0,
               }}
             />
           ) : (
@@ -150,34 +129,6 @@ export function SortableImageTile({
           )}
         </div>
       </button>
-      {cropControlsEnabled ? (
-        <div className="pointer-events-none absolute left-0 top-0 w-full" style={{ height: `${imageHeight}px` }}>
-          <ImageCropOverlay
-            crop={crop}
-            sourceAspectRatio={sourceAspectRatio}
-            viewportHeight={imageHeight}
-            viewportWidth={slot.width * scale}
-            onCancel={() => {
-              setPreviewCrop(undefined);
-              onCancelCropPreview?.(image.id);
-            }}
-            onCommit={(nextCrop) => {
-              setPreviewCrop(undefined);
-              onCancelCropPreview?.(image.id);
-              onSetCrop?.(image.id, nextCrop);
-            }}
-            onPreview={(nextCrop) => {
-              setPreviewCrop(nextCrop);
-              onPreviewCrop?.(image.id, nextCrop);
-            }}
-            onReset={() => {
-              setPreviewCrop(undefined);
-              onCancelCropPreview?.(image.id);
-              onResetCrop?.(image.id);
-            }}
-          />
-        </div>
-      ) : null}
       {!placeholderVisible ? (
         <button
           aria-label={t("reference.removeImage", { index: index + 1 })}

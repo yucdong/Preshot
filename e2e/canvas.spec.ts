@@ -113,7 +113,7 @@ test("loads the seeded canvas with plan and reference components", async ({ page
   const canvas = page.getByTestId("plan-canvas");
   await expect(canvas).toBeVisible();
 
-  // Assert seeded content from SEEDED_V2_PLAN (the rich text editor contains the HTML)
+  // Assert seeded content from the v6 browser plan (the editor contains the HTML).
   const editor = page.locator('[contenteditable="true"]').first();
   await expect(editor).toBeVisible();
   
@@ -162,51 +162,15 @@ test("inserts a reference component and marks the canvas unsaved", async ({ page
   await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
 });
 
-test("persists a valid cross-row move after resizing without changing the resized row", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1400 });
-  await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
-  await waitForReferenceImages(page);
-
-  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
-  const referenceFrame = page.locator(`${FRAME}[data-fragment-id="ref-1::0"]`);
-  const planRowId = await planFrame.getAttribute("data-row-id");
-  const referenceRowId = await referenceFrame.getAttribute("data-row-id");
-  expect(planRowId).not.toBeNull();
-  expect(referenceRowId).not.toBeNull();
-
-  await shrinkFrame(page, planFrame);
-  await expect(planFrame).toHaveAttribute("data-row-id", planRowId!);
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
-  await shrinkFrame(page, referenceFrame);
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
-
-  await dragComponentToFrame(page, planFrame, referenceFrame);
-  await expect(planFrame).toHaveAttribute("data-row-id", referenceRowId!);
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
-
-  await page.reload();
-  await expect(planFrame).toHaveAttribute("data-row-id", referenceRowId!);
-  await expect(referenceFrame).toHaveAttribute("data-row-id", referenceRowId!);
-});
-
-test("uses horizontal centers for same-row component insertion", async ({ page }) => {
+test("uses flat component order for drag reordering", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/");
   await waitForReferenceImages(page);
 
   const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
   const referenceFrame = page.locator(`${FRAME}[data-fragment-id="ref-1::0"]`);
-  const referenceRowId = await referenceFrame.getAttribute("data-row-id");
-  if (!referenceRowId) {
-    throw new Error("reference component row id is unavailable");
-  }
   await shrinkFrame(page, planFrame);
   await shrinkFrame(page, referenceFrame);
-  await dragComponentToFrame(page, planFrame, referenceFrame);
-  await expect(planFrame).toHaveAttribute("data-row-id", referenceRowId);
-  await page.waitForTimeout(300);
-
   await dragComponentAcrossTarget(page, referenceFrame, planFrame, "before");
   await expect.poll(() => componentOrder(page)).toEqual(["ref-1", "plan-1"]);
 
@@ -214,36 +178,22 @@ test("uses horizontal centers for same-row component insertion", async ({ page }
   await expect.poll(() => componentOrder(page)).toEqual(["plan-1", "ref-1"]);
 });
 
-test("renders first and last new-row drop targets", async ({ page }) => {
+test("does not render logical row drop targets", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByTestId("row-drop-zone:0")).toBeVisible();
-  await expect(page.getByTestId("row-drop-zone:1")).toBeVisible();
-  await expect(page.getByTestId("row-drop-zone:2")).toBeVisible();
+  await expect(page.getByTestId(/row-drop-zone:/)).toHaveCount(0);
 });
 
-test("rejects a component drop on a full row without changing rows or order", async ({ page }) => {
+test("reorders a component even when both components are full width", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
 
   const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
   const referenceFrame = page.locator(`${FRAME}[data-fragment-id="ref-1::0"]`);
-  const beforeOrder = await componentOrder(page);
-  const beforeRows = await page.locator(FRAME).evaluateAll((elements) =>
-    elements.map((element) => (element as HTMLElement).dataset.rowId ?? ""),
-  );
-
   await dragComponentToFrame(page, planFrame, referenceFrame);
 
-  await expect.poll(() => componentOrder(page)).toEqual(beforeOrder);
-  await expect
-    .poll(() =>
-      page.locator(FRAME).evaluateAll((elements) =>
-        elements.map((element) => (element as HTMLElement).dataset.rowId ?? ""),
-      ),
-    )
-    .toEqual(beforeRows);
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
+  await expect.poll(() => componentOrder(page)).toEqual(["ref-1", "plan-1"]);
+  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
 });
 
 test("resizes a component's width and commits the change", async ({ page }) => {

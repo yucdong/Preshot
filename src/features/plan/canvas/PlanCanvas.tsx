@@ -22,18 +22,15 @@ import {
   SPACING,
 } from "../../../domain/plan/canvas/geometry";
 import {
+  moveComponent,
   moveImages,
+  type ComponentMoveTarget,
   type MoveImageParams,
   type MoveImagesParams,
 } from "../../../domain/plan/canvas/plan";
 import { componentDropTarget } from "../../../domain/plan/canvas/dropTarget";
-import {
-  moveComponentInRows,
-  type ComponentMoveTarget,
-} from "../../../domain/plan/canvas/rows";
 import { DOCUMENT_TITLE_HEIGHT } from "../../../domain/plan/canvas/models";
 import type {
-  CropRect,
   PlanComponent,
   ReferenceComponent,
   ReferenceImage,
@@ -42,7 +39,6 @@ import type {
   RenameComponentResult,
   SetPlanTitleResult,
 } from "../../../domain/plan/canvas/naming";
-import { effectiveImageAspectRatio } from "../../../domain/plan/canvas/crop";
 import { ComponentFrame } from "./ComponentFrame";
 import { CanvasTitle } from "./CanvasTitle";
 import { PagedCanvasSurface } from "./PagedCanvasSurface";
@@ -58,8 +54,6 @@ import {
 import { buildDisplayPlacements, pageCountForDisplayedPlacements } from "./dragPreviewState";
 import { imageInsertAfterFromRects, selectedImageDropTarget } from "./imageDropTarget";
 import type { PlanMeasurement } from "./usePlanContentMeasurement";
-import { RowDropZone } from "./RowDropZone";
-import { rowDropZoneGeometry } from "./rowDropZoneGeometry";
 import type { ImageImportProgress } from "../imageImportProgress";
 
 export interface PlanCanvasProps {
@@ -84,8 +78,6 @@ export interface PlanCanvasProps {
   onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
   onSetImageHeight?: (id: string, height: number) => void;
   onAddImages?: (id: string) => void;
-  onSetImageCrop?: (componentId: string, imageId: string, crop: CropRect) => void;
-  onResetImageCrop?: (componentId: string, imageId: string) => void;
   onMeasurePlan: (id: string, measurement: PlanMeasurement) => void;
   onMeasureReferenceDescription: (id: string, heightPoints: number) => void;
   imageImportProgress?: {
@@ -104,12 +96,6 @@ type ActiveDrag =
   | { type: "component"; id: string; componentId: string }
   | { type: "image"; id: string; componentId: string; imageIds: string[] };
 
-interface ImageCropPreview {
-  componentId: string;
-  imageId: string;
-  crop: CropRect;
-}
-
 interface ComponentDragParams {
   id: string;
   target: ComponentMoveTarget;
@@ -119,20 +105,7 @@ function sameComponentDragParams(
   left: ComponentDragParams,
   right: ComponentDragParams,
 ): boolean {
-  if (
-    left.id !== right.id ||
-    left.target.kind !== right.target.kind ||
-    left.target.rowId !== right.target.rowId
-  ) {
-    return false;
-  }
-  if (left.target.kind === "new-row" && right.target.kind === "new-row") {
-    return left.target.toRowIndex === right.target.toRowIndex;
-  }
-  if (left.target.kind === "row" && right.target.kind === "row") {
-    return left.target.toIndex === right.target.toIndex;
-  }
-  return false;
+  return left.id === right.id && left.target.toIndex === right.target.toIndex;
 }
 
 const CANVAS_LAYOUT_OPTIONS = {
@@ -158,7 +131,7 @@ const collisionDetection: CollisionDetection = (args) => {
     const isValidTarget = (id: string | number) => {
       const type = typeFor(id);
       return activeType === "component"
-        ? type === "component" || type === "row-gap"
+        ? type === "component"
         : type === "image" || type === "imagegroup";
     };
     const pointerHit = pointerCollisions.find((collision) =>
@@ -185,42 +158,6 @@ const collisionDetection: CollisionDetection = (args) => {
 function referenceComponentById(components: PlanComponent[], componentId: string): ReferenceComponent | null {
   const component = components.find((entry) => entry.id === componentId);
   return component?.type === "reference" ? component : null;
-}
-
-function componentsWithEffectiveImageAspectRatios(
-  components: PlanComponent[],
-): PlanComponent[] {
-  return components.map((component) =>
-    component.type === "reference"
-      ? {
-          ...component,
-          images: component.images.map((image) => ({
-            ...image,
-            aspectRatio: effectiveImageAspectRatio(image),
-          })),
-        }
-      : component,
-  );
-}
-
-function componentsWithCropPreview(
-  components: PlanComponent[],
-  preview: ImageCropPreview | null,
-): PlanComponent[] {
-  if (!preview) {
-    return components;
-  }
-
-  return components.map((component) =>
-    component.type === "reference" && component.id === preview.componentId
-      ? {
-          ...component,
-          images: component.images.map((image) =>
-            image.id === preview.imageId ? { ...image, crop: preview.crop } : image,
-          ),
-        }
-      : component,
-  );
 }
 
 function findImageOrigin(
@@ -251,24 +188,6 @@ function findImageOrigin(
   return { component, image, imageIndex, placement };
 }
 
-function logicalRows(components: PlanComponent[]): Array<{
-  rowId: string;
-  componentIds: string[];
-}> {
-  return components.reduce<Array<{ rowId: string; componentIds: string[] }>>(
-    (rows, component) => {
-      const current = rows.at(-1);
-      if (current?.rowId === component.rowId) {
-        current.componentIds.push(component.id);
-      } else {
-        rows.push({ rowId: component.rowId, componentIds: [component.id] });
-      }
-      return rows;
-    },
-    [],
-  );
-}
-
 export function PlanCanvas({
   components,
   title,
@@ -291,8 +210,6 @@ export function PlanCanvas({
   onSetImageCaption,
   onSetImageHeight,
   onAddImages,
-  onSetImageCrop,
-  onResetImageCrop,
   onMeasurePlan,
   onMeasureReferenceDescription,
   imageImportProgress,
@@ -302,7 +219,6 @@ export function PlanCanvas({
 }: PlanCanvasProps) {
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
   const [preview, setPreview] = useState<PlanComponent[] | null>(null);
-  const [cropPreview, setCropPreview] = useState<ImageCropPreview | null>(null);
   const [selectedImageIds, setSelectedImageIds] = useState<ReadonlySet<string>>(
     new Set(),
   );
@@ -316,16 +232,16 @@ export function PlanCanvas({
     ...DEFAULT_PAGE_GEOMETRY,
     pageGap: Number.isFinite(scale) && scale > 0 ? PAGE_SCREEN_GAP / scale : 0,
   };
-  const displayedComponents = componentsWithCropPreview(components, cropPreview);
-  const previewComponents = componentsWithCropPreview(preview ?? components, cropPreview);
+  const displayedComponents = components;
+  const previewComponents = preview ?? components;
   const baseLayout = layoutPlan(
-    componentsWithEffectiveImageAspectRatios(displayedComponents),
+    displayedComponents,
     layoutGeometry,
     measurements,
     CANVAS_LAYOUT_OPTIONS,
   );
   const previewLayout = layoutPlan(
-    componentsWithEffectiveImageAspectRatios(previewComponents),
+    previewComponents,
     layoutGeometry,
     measurements,
     CANVAS_LAYOUT_OPTIONS,
@@ -344,13 +260,6 @@ export function PlanCanvas({
     previewPlacements: previewLayout.placements,
     imageOriginPlacement: imageOrigin?.placement ?? null,
   });
-  const componentRows = logicalRows(components);
-  const rowDropZones = rowDropZoneGeometry(
-    componentRows,
-    baseLayout.placements,
-    scale,
-  );
-
   const paramsFor = (event: DragOverEvent | DragEndEvent): ComponentDragParams | null => {
     const activeId = logicalComponentIdFromDnd(
       event.active.data.current as { componentId?: unknown } | null | undefined,
@@ -359,7 +268,6 @@ export function PlanCanvas({
     const overData = event.over?.data.current as {
       type?: unknown;
       componentId?: unknown;
-      toRowIndex?: unknown;
     } | null | undefined;
     const activeRect = event.active.rect.current.translated;
     const overRect = event.over?.rect ?? null;
@@ -369,46 +277,24 @@ export function PlanCanvas({
       return null;
     }
 
-    const over =
-      overData?.type === "row-gap" && typeof overData.toRowIndex === "number"
-        ? { type: "row-gap" as const, toRowIndex: overData.toRowIndex }
-        : overData?.type === "component"
-          ? (() => {
-              const componentId = logicalComponentIdFromDnd(
-                overData,
-                event.over ? String(event.over.id) : null,
-              );
-              return componentId
-                ? { type: "component" as const, id: componentId, insertAfter }
-                : null;
-            })()
-          : null;
+    const over = overData?.type === "component"
+      ? (() => {
+          const componentId = logicalComponentIdFromDnd(
+            overData,
+            event.over ? String(event.over.id) : null,
+          );
+          return componentId
+            ? { type: "component" as const, id: componentId, insertAfter }
+            : null;
+        })()
+      : null;
     const drop = componentDropTarget(components, activeId, over);
-    if (drop.kind === "invalid") {
+    if ("kind" in drop) {
       return null;
-    }
-    if (drop.kind === "row") {
-      return {
-        id: activeId,
-        target: { kind: "row", rowId: drop.rowId, toIndex: drop.toIndex },
-      };
-    }
-
-    const previous = lastParamsRef.current;
-    if (
-      previous?.id === activeId &&
-      previous.target.kind === "new-row" &&
-      previous.target.toRowIndex === drop.toRowIndex
-    ) {
-      return previous;
     }
     return {
       id: activeId,
-      target: {
-        kind: "new-row",
-        rowId: `row-${crypto.randomUUID()}`,
-        toRowIndex: drop.toRowIndex,
-      },
+      target: drop,
     };
   };
 
@@ -482,9 +368,9 @@ export function PlanCanvas({
         return;
       }
       lastParamsRef.current = params;
-      setPreview(moveComponentInRows(
-        { schemaVersion: 5, title: "", components },
-        params,
+      setPreview(moveComponent(
+        { schemaVersion: 6, title: "", components },
+        { id: params.id, ...params.target },
       ).components);
     } else if (data?.type === "image") {
       const params = paramsForImage(event);
@@ -504,7 +390,7 @@ export function PlanCanvas({
         return;
       }
       lastImageParamsRef.current = params;
-      setPreview(moveImages({ schemaVersion: 5, title: "", components }, params).components);
+      setPreview(moveImages({ schemaVersion: 6, title: "", components }, params).components);
     }
   };
 
@@ -554,31 +440,6 @@ export function PlanCanvas({
     if (onResize) {
       onResize(id, params);
     }
-  };
-
-  const previewImageCrop = (
-    componentId: string,
-    imageId: string,
-    crop: CropRect,
-  ) => {
-    setCropPreview((current) =>
-      current?.componentId === componentId &&
-      current.imageId === imageId &&
-      current.crop.x === crop.x &&
-      current.crop.y === crop.y &&
-      current.crop.width === crop.width &&
-      current.crop.height === crop.height
-        ? current
-        : { componentId, imageId, crop },
-    );
-  };
-
-  const cancelImageCropPreview = (componentId: string, imageId: string) => {
-    setCropPreview((current) =>
-      current?.componentId === componentId && current.imageId === imageId
-        ? null
-        : current,
-    );
   };
 
   const selectImage = (imageId: string, toggle: boolean) => {
@@ -659,14 +520,6 @@ export function PlanCanvas({
           >
             <CanvasTitle onCommit={onCommitTitle} scale={scale} title={title} />
           </div>
-          {rowDropZones.map(({ toRowIndex, topPx, heightPx }) => (
-            <RowDropZone
-              heightPx={heightPx}
-              key={`row-gap:${toRowIndex}`}
-              toRowIndex={toRowIndex}
-              topPx={topPx}
-            />
-          ))}
           <SortableContext items={components.map((component) => component.id)} strategy={verticalListSortingStrategy}>
             {displayPlacements.map((placement) => {
               const useBaseComponent = componentDragId === placement.componentId;
@@ -738,10 +591,6 @@ export function PlanCanvas({
                       onSetImageCaption={onSetImageCaption}
                       onSetImageHeight={onSetImageHeight}
                       onAddImages={onAddImages}
-                      onSetImageCrop={onSetImageCrop}
-                      onPreviewImageCrop={previewImageCrop}
-                      onCancelImageCropPreview={cancelImageCropPreview}
-                      onResetImageCrop={onResetImageCrop}
                       onMeasureDescription={onMeasureReferenceDescription}
                       placeholderImage={imagePlaceholder?.image}
                       placeholderIndex={imagePlaceholder?.index}

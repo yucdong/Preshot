@@ -21,23 +21,24 @@ import {
 } from "./models";
 
 function planText(id: string): PlanComponent {
-  return { id, rowId: `row:${id}`, name: "文案1", type: "plan", width: 1, html: `<p>${id}</p>` };
+  return { id, name: "文案1", type: "plan", width: 1, contentScale: 1, html: `<p>${id}</p>` };
 }
 function reference(id: string, images: string[] = []): ReferenceComponent {
   return {
     id,
-    rowId: `row:${id}`,
     type: "reference",
     width: 1,
+    contentScale: 1,
     name: id,
     description: "",
+    showDescription: true,
     showCaptions: false,
     imageHeight: 180,
     images: images.map((imageId) => ({ id: imageId, file: `references/${imageId}.png`, aspectRatio: 1 })),
   };
 }
 function withComponents(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 5, title: "Demo", components };
+  return { schemaVersion: 6, title: "Demo", components };
 }
 
 describe("canvas reducers", () => {
@@ -77,13 +78,13 @@ describe("canvas reducers", () => {
   });
 
   it("resizes width without introducing a persisted height", () => {
-    const plan = withComponents([{ id: "p", rowId: `row:${"p"}`, name: "文案1", type: "plan", width: 1, html: "" }]);
+    const plan = withComponents([{ id: "p", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "" }]);
     const next = resizeComponent(plan, {
       id: "p",
       width: 0.5,
     });
 
-    expect(next.components[0]).toEqual({ id: "p", rowId: `row:${"p"}`, name: "文案1", type: "plan", width: 0.5, html: "" });
+    expect(next.components[0]).toEqual({ id: "p", name: "文案1", type: "plan", width: 0.5, contentScale: 1, html: "" });
     expect(next.components[0]).not.toHaveProperty("height");
   });
 

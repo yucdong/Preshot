@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import {
   clampImageHeight,
   DEFAULT_IMAGE_HEIGHT,
-  type CropRect,
   type ReferenceComponent,
 } from "../../../domain/plan/canvas/models";
 import {
@@ -69,10 +68,6 @@ interface ReferenceComponentViewProps {
   enableReorder?: boolean;
   onSetImageHeight?: (id: string, height: number) => void;
   onAddImages?: (id: string) => void;
-  onSetImageCrop?: (componentId: string, imageId: string, crop: CropRect) => void;
-  onPreviewImageCrop?: (componentId: string, imageId: string, crop: CropRect) => void;
-  onCancelImageCropPreview?: (componentId: string, imageId: string) => void;
-  onResetImageCrop?: (componentId: string, imageId: string) => void;
   onMeasureDescription?: (id: string, heightPoints: number) => void;
   fragmentKind?: "whole" | "first" | "continuation";
   fragmentIndex?: number;
@@ -103,10 +98,6 @@ export function ReferenceComponentView({
   enableReorder = false,
   onSetImageHeight,
   onAddImages,
-  onSetImageCrop,
-  onPreviewImageCrop,
-  onCancelImageCropPreview,
-  onResetImageCrop,
   onMeasureDescription,
   fragmentKind = "whole",
   fragmentIndex = 0,
@@ -366,10 +357,6 @@ export function ReferenceComponentView({
           onRemoveImage={onRemoveImage}
           showCaptions={component.showCaptions}
           onSetCaption={onSetImageCaption ? (imageId, caption) => onSetImageCaption(component.id, imageId, caption) : undefined}
-          onSetCrop={onSetImageCrop ? (imageId, crop) => onSetImageCrop(component.id, imageId, crop) : undefined}
-          onPreviewCrop={onPreviewImageCrop ? (imageId, crop) => onPreviewImageCrop(component.id, imageId, crop) : undefined}
-          onCancelCropPreview={onCancelImageCropPreview ? (imageId) => onCancelImageCropPreview(component.id, imageId) : undefined}
-          onResetCrop={onResetImageCrop ? (imageId) => onResetImageCrop(component.id, imageId) : undefined}
           slots={slots}
           scale={scale}
         />

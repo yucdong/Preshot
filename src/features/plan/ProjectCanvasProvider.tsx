@@ -4,7 +4,6 @@ import {
   EMPTY_PLAN,
   DEFAULT_IMAGE_HEIGHT,
   UNTITLED_PLAN_TITLE,
-  type CropRect,
   type ProjectPlan,
 } from "../../domain/plan/canvas/models";
 import { A4 } from "../../domain/plan/canvas/geometry";
@@ -19,6 +18,7 @@ import {
   addComponent,
   addReferenceImage,
   addReferenceImages,
+  moveComponent,
   moveImage,
   moveImages,
   removeComponent as removePlanComponent,
@@ -32,18 +32,13 @@ import {
   setImageHeight,
   type MoveImageParams,
   type MoveImagesParams,
+  type ComponentMoveTarget,
 } from "../../domain/plan/canvas/plan";
 import {
   nextComponentName,
   renameComponent,
   setPlanTitle,
 } from "../../domain/plan/canvas/naming";
-import { setImageCrop, resetImageCrop } from "../../domain/plan/canvas/crop";
-import {
-  moveComponentInRows,
-  type ComponentMoveTarget,
-} from "../../domain/plan/canvas/rows";
-import { maximumAdditionalWidth } from "../../domain/plan/canvas/rowPacking";
 import {
   createHistory,
   record as recordHistory,
@@ -115,27 +110,6 @@ function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
 
 function plansEqual(a: ProjectPlan, b: ProjectPlan): boolean {
   return a === b || JSON.stringify(a) === JSON.stringify(b);
-}
-
-function resizeComponentWithinRow(
-  plan: ProjectPlan,
-  id: string,
-  width: number,
-): ProjectPlan {
-  const component = plan.components.find((candidate) => candidate.id === id);
-  if (!component) {
-    return plan;
-  }
-
-  const maximumWidth = maximumAdditionalWidth(
-    plan.components
-      .filter(
-        (candidate) =>
-          candidate.rowId === component.rowId && candidate.id !== id,
-      )
-      .map((candidate) => candidate.width),
-  );
-  return resizeComponent(plan, { id, width: Math.min(width, maximumWidth) });
 }
 
 function trackPersistence(
@@ -746,20 +720,21 @@ export function ProjectCanvasProvider({
           const planId = crypto.randomUUID();
           const planComponent = {
             id: planId,
-            rowId: crypto.randomUUID(),
             name: nextComponentName(planToUse, "plan"),
             type: "plan" as const,
             width: 1,
+            contentScale: 1,
             html: t("content.planTemplate"),
           };
           const referenceId = crypto.randomUUID();
           const referenceComponent = {
             id: referenceId,
-            rowId: crypto.randomUUID(),
             name: nextComponentName(planToUse, "reference"),
             type: "reference" as const,
             width: 1,
+            contentScale: 1,
             description: "",
+            showDescription: true,
             showCaptions: true,
             imageHeight: DEFAULT_IMAGE_HEIGHT,
             images: [],
@@ -952,10 +927,10 @@ export function ProjectCanvasProvider({
         const id = crypto.randomUUID();
         const newComponent = {
           id,
-          rowId: crypto.randomUUID(),
           name: nextComponentName(planRef.current, "plan"),
           type: "plan" as const,
           width: 1,
+          contentScale: 1,
           html: t("content.planTemplate"),
         };
         mutate(addComponent(planRef.current, newComponent));
@@ -963,11 +938,12 @@ export function ProjectCanvasProvider({
         const id = crypto.randomUUID();
         const newComponent = {
           id,
-          rowId: crypto.randomUUID(),
           name: nextComponentName(planRef.current, "reference"),
           type: "reference" as const,
           width: 1,
+          contentScale: 1,
           description: "",
+          showDescription: true,
           showCaptions: true,
           imageHeight: DEFAULT_IMAGE_HEIGHT,
           images: [],
@@ -1015,7 +991,7 @@ export function ProjectCanvasProvider({
   const handleMoveComponent = useCallback(
     (id: string, target: ComponentMoveTarget) => {
       if (!readyTokenFor(projectPath)) return;
-      const next = moveComponentInRows(planRef.current, { id, target });
+      const next = moveComponent(planRef.current, { id, ...target });
       mutate(next);
     },
     [mutate, projectPath, readyTokenFor],
@@ -1043,7 +1019,7 @@ export function ProjectCanvasProvider({
   const handleResize = useCallback(
     (id: string, params: { width: number }) => {
       if (!readyTokenFor(projectPath)) return;
-      const next = resizeComponentWithinRow(planRef.current, id, params.width);
+      const next = resizeComponent(planRef.current, { id, width: params.width });
       mutate(next, `resize:${id}`);
     },
     [mutate, projectPath, readyTokenFor],
@@ -1112,22 +1088,6 @@ export function ProjectCanvasProvider({
       if (!readyTokenFor(projectPath)) return;
       const next = setImageCaption(planRef.current, { componentId, imageId, caption });
       mutate(next);
-    },
-    [mutate, projectPath, readyTokenFor],
-  );
-
-  const handleSetImageCrop = useCallback(
-    (componentId: string, imageId: string, crop: CropRect) => {
-      if (!readyTokenFor(projectPath)) return;
-      mutate(setImageCrop(planRef.current, { componentId, imageId, crop }));
-    },
-    [mutate, projectPath, readyTokenFor],
-  );
-
-  const handleResetImageCrop = useCallback(
-    (componentId: string, imageId: string) => {
-      if (!readyTokenFor(projectPath)) return;
-      mutate(resetImageCrop(planRef.current, { componentId, imageId }));
     },
     [mutate, projectPath, readyTokenFor],
   );
@@ -1610,8 +1570,6 @@ export function ProjectCanvasProvider({
             onResize={handleResize}
             onCommitTitle={handleSetTitle}
             onSetDescription={handleSetDescription}
-            onSetImageCrop={handleSetImageCrop}
-            onResetImageCrop={handleResetImageCrop}
             onToggleCaptions={handleToggleCaptions}
             onSetImageCaption={handleSetImageCaption}
             onSetImageHeight={handleSetImageHeight}

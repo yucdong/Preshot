@@ -65,20 +65,21 @@ const mockRepository: SettingsRepository = {
 
 const planComponent: PlanComponent = {
   id: "plan1",
-  rowId: `row:${"plan1"}`,
   name: "文案1",
   type: "plan",
   width: 1,
+  contentScale: 1,
   html: "<p>拍摄清单</p>",
 };
 
 const referenceComponent: PlanComponent = {
   id: "ref1",
-  rowId: `row:${"ref1"}`,
   type: "reference",
   width: 1,
+  contentScale: 1,
   name: "Lookbook",
   description: "",
+  showDescription: true,
   showCaptions: false, imageHeight: 180, images: [
     { id: "i1", file: "references/0001.png", aspectRatio: 1 },
     { id: "i2", file: "references/0002.png", aspectRatio: 1 },
@@ -107,11 +108,11 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     title: "Demo",
     onCommitTitle: vi.fn<() => SetPlanTitleResult>(() => ({
       ok: true,
-      plan: { schemaVersion: 5, title: "Demo", components: [] },
+      plan: { schemaVersion: 6, title: "Demo", components: [] },
     })),
     onRenameComponent: vi.fn<() => RenameComponentResult>(() => ({
       ok: true,
-      plan: { schemaVersion: 5, title: "Demo", components: [] },
+      plan: { schemaVersion: 6, title: "Demo", components: [] },
     })),
     onSetDescription: vi.fn(),
     onAddImage: vi.fn(),
@@ -121,8 +122,6 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onMoveImage: vi.fn(),
     onMoveImages: vi.fn(),
     onResize: vi.fn(),
-    onSetImageCrop: vi.fn(),
-    onResetImageCrop: vi.fn(),
     onMeasurePlan: vi.fn(),
     onMeasureReferenceDescription: vi.fn(),
     ...overrides,
@@ -167,12 +166,6 @@ function componentFrameTop(fragmentId: string): number {
   return Number.parseFloat(frame!.style.top);
 }
 
-function componentFrameHeight(fragmentId: string): number {
-  const frame = document.querySelector(`[data-fragment-id="${fragmentId}"]`) as HTMLElement | null;
-  expect(frame).not.toBeNull();
-  return Number.parseFloat(frame!.style.height);
-}
-
 function makeRect(top: number, left = 0, width = 120, height = 120) {
   return { top, left, width, height };
 }
@@ -203,21 +196,6 @@ function makeComponentDragOver(
       id: overComponentId,
       data: { current: { type: "component", componentId: overComponentId } },
       rect: overRect,
-    },
-  };
-}
-
-function makeRowGapComponentDragOver(componentId: string, toRowIndex: number) {
-  return {
-    active: {
-      id: componentId,
-      data: { current: { type: "component", componentId } },
-      rect: { current: { translated: makeRect(200) } },
-    },
-    over: {
-      id: `row-gap:${toRowIndex}`,
-      data: { current: { type: "row-gap", toRowIndex } },
-      rect: makeRect(0),
     },
   };
 }
@@ -284,6 +262,12 @@ describe("PlanCanvas", () => {
     expect(pages).toHaveLength(1);
   });
 
+  it("does not render row-gap drop targets", () => {
+    renderCanvas();
+
+    expect(screen.queryAllByTestId(/row-drop-zone:/)).toHaveLength(0);
+  });
+
   it("renders one editable document title in the first-page title band", () => {
     renderCanvas({ title: "Campaign" });
 
@@ -291,52 +275,6 @@ describe("PlanCanvas", () => {
     expect(titles).toHaveLength(1);
     expect(titles[0]).toHaveValue("Campaign");
   });
-
-  it("renders a new-row drop zone before, between, and after logical rows", () => {
-    renderCanvas();
-
-    expect(screen.getAllByTestId(/row-drop-zone:/)).toHaveLength(3);
-    expect(screen.getByTestId("row-drop-zone:0")).toBeInTheDocument();
-    expect(screen.getByTestId("row-drop-zone:1")).toBeInTheDocument();
-    expect(screen.getByTestId("row-drop-zone:2")).toBeInTheDocument();
-  });
-
-  it("renders first and last new-row drop zones for a sole logical row", () => {
-    renderCanvas({ components: [planComponent] });
-
-    expect(screen.getAllByTestId(/row-drop-zone:/)).toHaveLength(2);
-    expect(screen.getByTestId("row-drop-zone:0")).toBeInTheDocument();
-    expect(screen.getByTestId("row-drop-zone:1")).toBeInTheDocument();
-  });
-
-  it.each([0.5, 1.75])(
-    "fills usable row gaps with scaled geometry at scale %s",
-    (scale) => {
-      renderCanvas({ scale });
-
-      const beforeFirst = screen.getByTestId("row-drop-zone:0");
-      const betweenRows = screen.getByTestId("row-drop-zone:1");
-      const afterLast = screen.getByTestId("row-drop-zone:2");
-      const planBottom = componentFrameTop("plan1::0") + componentFrameHeight("plan1::0");
-      const referenceTop = componentFrameTop("ref1::0");
-      const referenceBottom = referenceTop + componentFrameHeight("ref1::0");
-
-      expect(beforeFirst).toHaveStyle({
-        top: `${(SPACING + 36) * scale}px`,
-        height: `${SPACING * scale}px`,
-      });
-      expect(betweenRows).toHaveStyle({
-        top: `${planBottom}px`,
-        height: `${referenceTop - planBottom}px`,
-      });
-      expect(afterLast).toHaveStyle({
-        top: `${referenceBottom}px`,
-        height: `${SPACING * scale}px`,
-      });
-      expect(Number.parseFloat(betweenRows.style.height)).toBeGreaterThan(0);
-      expect(Number.parseFloat(betweenRows.style.top)).toBeLessThan(referenceTop);
-    },
-  );
 
   it.each([0.5, 1.75])(
     "keeps measured plan content inside frame chrome at scale %s",
@@ -541,50 +479,6 @@ describe("PlanCanvas", () => {
     expect(screen.getByDisplayValue("Lookbook")).toBeInTheDocument();
   });
 
-  it("uses a cropped image's effective aspect ratio for reference slots", () => {
-    renderCanvas({
-      components: [{
-        ...referenceComponent,
-        images: [{
-          id: "i1",
-          file: "references/0001.png",
-          aspectRatio: 2,
-          crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
-        }],
-      }],
-    });
-
-    const tile = document.querySelector('[data-image-id="i1"]') as HTMLElement;
-    expect(tile.style.width).toBe("180px");
-  });
-
-  it("reflows reference slots during a crop preview and restores them on cancellation", () => {
-    const props = renderCanvas({ components: [referenceComponent] });
-    const firstTile = document.querySelector('[data-image-id="i1"]') as HTMLElement;
-    const secondTile = document.querySelector('[data-image-id="i2"]') as HTMLElement;
-    const rightHandle = firstTile.querySelector('[data-testid="crop-handle-right"]') as HTMLElement;
-    const originalLeft = Number.parseFloat(secondTile.style.left);
-
-    fireEvent.pointerDown(rightHandle, {
-      clientX: 180,
-      clientY: 90,
-      pointerId: 1,
-    });
-    fireEvent.pointerMove(rightHandle, {
-      clientX: 90,
-      clientY: 90,
-      pointerId: 1,
-    });
-
-    expect(Number.parseFloat(secondTile.style.left)).toBeLessThan(originalLeft);
-    expect(props.onSetImageCrop).not.toHaveBeenCalled();
-
-    fireEvent.pointerCancel(rightHandle, { pointerId: 1 });
-
-    expect(Number.parseFloat(secondTile.style.left)).toBe(originalLeft);
-    expect(props.onSetImageCrop).not.toHaveBeenCalled();
-  });
-
   it("top bar has draggable attributes and cursor-grab class", () => {
     renderCanvas();
     const topBar = document.querySelector('[data-component-frame-topbar="true"]');
@@ -698,47 +592,6 @@ describe("PlanCanvas", () => {
     expect(props.onMoveComponent).not.toHaveBeenCalled();
   });
 
-  it("commits a first-row drop with a post-removal target index", () => {
-    const props = renderCanvas();
-    const handlers = getDndHandlers();
-    const event = makeRowGapComponentDragOver("plan1", 1);
-
-    act(() => {
-      handlers.onDragStart?.(makeComponentDragStart("plan1"));
-      handlers.onDragOver?.(event);
-      handlers.onDragEnd?.(event);
-    });
-
-    expect(props.onMoveComponent).toHaveBeenCalledWith("plan1", {
-      kind: "new-row",
-      rowId: expect.stringMatching(/^row-/),
-      toRowIndex: 0,
-    });
-  });
-
-  it("commits a last-row drop with a post-removal target index", () => {
-    const components: PlanComponent[] = [
-      { ...planComponent, id: "a", rowId: "row-a", name: "文案1" },
-      { ...planComponent, id: "b", rowId: "row-b", name: "文案2" },
-      { ...planComponent, id: "c", rowId: "row-c", name: "文案3" },
-    ];
-    const props = renderCanvas({ components });
-    const handlers = getDndHandlers();
-    const event = makeRowGapComponentDragOver("b", 3);
-
-    act(() => {
-      handlers.onDragStart?.(makeComponentDragStart("b"));
-      handlers.onDragOver?.(event);
-      handlers.onDragEnd?.(event);
-    });
-
-    expect(props.onMoveComponent).toHaveBeenCalledWith("b", {
-      kind: "new-row",
-      rowId: expect.stringMatching(/^row-/),
-      toRowIndex: 2,
-    });
-  });
-
   it.each([
     ["before", makeRect(100, 0), 0],
     ["after", makeRect(100, 400), 1],
@@ -746,9 +599,9 @@ describe("PlanCanvas", () => {
     "uses horizontal centers to insert a same-row component %s its target",
     (_position, activeRect, expectedIndex) => {
       const components: PlanComponent[] = [
-        { ...planComponent, id: "a", rowId: "row-shared", name: "文案1", width: 0.25 },
-        { ...planComponent, id: "b", rowId: "row-shared", name: "文案2", width: 0.25 },
-        { ...planComponent, id: "c", rowId: "row-shared", name: "文案3", width: 0.25 },
+        { ...planComponent, id: "a", name: "文案1", width: 0.25 },
+        { ...planComponent, id: "b", name: "文案2", width: 0.25 },
+        { ...planComponent, id: "c", name: "文案3", width: 0.25 },
       ];
       const props = renderCanvas({ components });
       const handlers = getDndHandlers();
@@ -766,8 +619,6 @@ describe("PlanCanvas", () => {
       });
 
       expect(props.onMoveComponent).toHaveBeenCalledWith("c", {
-        kind: "row",
-        rowId: "row-shared",
         toIndex: expectedIndex,
       });
     },

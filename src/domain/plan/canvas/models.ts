@@ -13,7 +13,12 @@ export const UNTITLED_PLAN_TITLE = "未命名方案";
 export const DEFAULT_WIDTH = 1;
 export const MIN_WIDTH = 0.15;
 
-export const CURRENT_SCHEMA_VERSION = 5 as const;
+/** Content scaling is persisted for future component controls, not yet rendered. */
+export const MIN_CONTENT_SCALE = 0.5;
+export const MAX_CONTENT_SCALE = 2;
+export const DEFAULT_CONTENT_SCALE = 1;
+
+export const CURRENT_SCHEMA_VERSION = 6 as const;
 
 export function clampHeight(height: number, maxHeight: number): number {
   if (!Number.isFinite(height)) {
@@ -36,26 +41,26 @@ export function clampImageHeight(height: number): number {
   return Math.min(MAX_IMAGE_HEIGHT, Math.max(MIN_IMAGE_HEIGHT, height));
 }
 
+export function clampContentScale(scale: number): number {
+  if (!Number.isFinite(scale)) {
+    return DEFAULT_CONTENT_SCALE;
+  }
+  return Math.min(MAX_CONTENT_SCALE, Math.max(MIN_CONTENT_SCALE, scale));
+}
+
 export interface ReferenceImage {
   id: string;
   file: string;
   caption?: string;
   aspectRatio: number;
-  crop?: CropRect;
-}
-
-export interface CropRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  displayHeight?: number;
 }
 
 export interface BaseComponent {
   id: string;
-  rowId: string;
   name: string;
   width: number; // continuous width fraction (0, 1]
+  contentScale: number; // clamped to [MIN_CONTENT_SCALE, MAX_CONTENT_SCALE]
 }
 
 export interface PlanTextComponent extends BaseComponent {
@@ -66,6 +71,7 @@ export interface PlanTextComponent extends BaseComponent {
 export interface ReferenceComponent extends BaseComponent {
   type: "reference";
   description: string;
+  showDescription: boolean;
   showCaptions: boolean;
   images: ReferenceImage[];
   imageHeight: number;
@@ -74,13 +80,13 @@ export interface ReferenceComponent extends BaseComponent {
 export type PlanComponent = PlanTextComponent | ReferenceComponent;
 
 export interface ProjectPlan {
-  schemaVersion: 5;
+  schemaVersion: 6;
   title: string;
   components: PlanComponent[];
 }
 
 export const EMPTY_PLAN: ProjectPlan = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   title: UNTITLED_PLAN_TITLE,
   components: [],
 };

@@ -29,10 +29,10 @@ vi.mock("@dnd-kit/sortable", async () => {
 
 const component: PlanComponent = {
   id: "plan1",
-  rowId: `row:${"plan1"}`,
   name: "文案1",
   type: "plan",
   width: 0.5,
+  contentScale: 1,
   html: "<p>拍摄清单</p>",
 };
 
@@ -43,7 +43,7 @@ function renderFrame(
   onRename: (id: string, name: string) => RenameComponentResult = vi.fn(
     (): RenameComponentResult => ({
       ok: true,
-      plan: { schemaVersion: 5, title: "", components: [] },
+      plan: { schemaVersion: 6, title: "", components: [] },
     }),
   ),
 ) {
@@ -94,7 +94,7 @@ describe("ComponentFrame", () => {
   it("renders an editable component name and commits a renamed value", async () => {
     const onRename = vi.fn<() => RenameComponentResult>(() => ({
       ok: true,
-      plan: { schemaVersion: 5, title: "", components: [] },
+      plan: { schemaVersion: 6, title: "", components: [] },
     }));
     const user = userEvent.setup();
 

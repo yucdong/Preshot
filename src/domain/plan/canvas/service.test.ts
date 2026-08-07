@@ -25,16 +25,17 @@ function fakes(initialRaw: unknown) {
 }
 
 const refPlan: ProjectPlan = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   title: "Project",
   components: [
     {
       id: "r",
-      rowId: `row:${"r"}`,
       type: "reference",
       width: 1,
+      contentScale: 1,
       name: "T",
       description: "",
+      showDescription: true,
       showCaptions: false, imageHeight: 180, images: [{ id: "i1", file: "references/0001.png", aspectRatio: 1 }],
     },
   ],
@@ -56,7 +57,7 @@ describe("canvas plan service", () => {
     expect(result).toMatchObject({
       status: "loaded",
       plan: {
-        schemaVersion: 5,
+        schemaVersion: 6,
         title: "Project",
         components: [{ type: "plan" }],
       },
@@ -90,22 +91,23 @@ describe("canvas plan service", () => {
     });
 
     await expect(service.loadPlan("C:/p", "Project")).rejects.toThrow(
-      /Unable to load the project plan: Unsupported stored plan schema version 6/,
+      /Unable to load the project plan: Stored plan schema version 6 title and components must be valid/,
     );
   });
 
   it("adds load context when stored logical ids are duplicated", async () => {
     const { repository, imageStore } = fakes({
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "A",
           description: "",
+          showDescription: true,
           imageHeight: 180,
           showCaptions: false,
           images: [
@@ -114,11 +116,12 @@ describe("canvas plan service", () => {
         },
         {
           id: "r2",
-          rowId: `row:${"r2"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "B",
           description: "",
+          showDescription: true,
           imageHeight: 180,
           showCaptions: false,
           images: [
@@ -167,16 +170,17 @@ describe("canvas plan service", () => {
 
   it("keeps a shared file when another image in the component still references it", async () => {
     const sharedPlan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r",
-          rowId: `row:${"r"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "T",
           description: "",
+          showDescription: true,
           showCaptions: false,
           imageHeight: 180,
           images: [
@@ -204,16 +208,17 @@ describe("canvas plan service", () => {
 
   it("keeps files referenced by another component when removing a component", async () => {
     const sharedPlan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r1",
-          rowId: `row:${"r1"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "A",
           description: "",
+          showDescription: true,
           showCaptions: false,
           imageHeight: 180,
           images: [
@@ -222,11 +227,12 @@ describe("canvas plan service", () => {
         },
         {
           id: "r2",
-          rowId: `row:${"r2"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "B",
           description: "",
+          showDescription: true,
           showCaptions: false,
           imageHeight: 180,
           images: [
@@ -251,16 +257,17 @@ describe("canvas plan service", () => {
 
   it("deduplicates physical deletes when a removed component repeats a file", async () => {
     const repeatedPlan: ProjectPlan = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "Demo",
       components: [
         {
           id: "r",
-          rowId: `row:${"r"}`,
           type: "reference",
           width: 1,
+          contentScale: 1,
           name: "A",
           description: "",
+          showDescription: true,
           showCaptions: false,
           imageHeight: 180,
           images: [

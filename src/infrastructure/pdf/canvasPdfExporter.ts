@@ -1,17 +1,11 @@
 import fontkit from "@pdf-lib/fontkit";
 import {
   PDFDocument,
-  clip,
-  endPath,
-  popGraphicsState,
-  pushGraphicsState,
-  rectangle,
   rgb,
   type PDFFont,
   type PDFImage,
   type PDFPage,
 } from "pdf-lib";
-import { normalizeCrop } from "../../domain/plan/canvas/crop";
 import {
   A4,
   componentFrameChromeHeight,
@@ -548,37 +542,13 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
                 borderWidth: 0.75,
               });
 
-              const crop = imageRecord.crop && normalizeCrop(imageRecord.crop);
-              if (crop) {
-                const width = imageSlotInPage.width / crop.width;
-                const height = imageSlotInPage.height / crop.height;
-                page.pushOperators(
-                  pushGraphicsState(),
-                  rectangle(
-                    imageSlotInPage.x,
-                    imageSlotInPage.y,
-                    imageSlotInPage.width,
-                    imageSlotInPage.height,
-                  ),
-                  clip(),
-                  endPath(),
-                );
-                page.drawImage(image, {
-                  x: imageSlotInPage.x - crop.x * width,
-                  y: imageSlotInPage.y - (1 - crop.y - crop.height) * height,
-                  width,
-                  height,
-                });
-                page.pushOperators(popGraphicsState());
-              } else {
-                const imageRect = referenceImageDrawBox(imageSlotInPage, image);
-                page.drawImage(image, {
-                  x: imageRect.x,
-                  y: imageRect.y,
-                  width: imageRect.width,
-                  height: imageRect.height,
-                });
-              }
+              const imageRect = referenceImageDrawBox(imageSlotInPage, image);
+              page.drawImage(image, {
+                x: imageRect.x,
+                y: imageRect.y,
+                width: imageRect.width,
+                height: imageRect.height,
+              });
 
               const shouldExportCaption = Boolean(imageRecord.caption?.trim());
               if (shouldExportCaption) {

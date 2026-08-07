@@ -3,17 +3,18 @@ import type { ProjectPlan } from "./models";
 import { nextComponentName, renameComponent, setPlanTitle } from "./naming";
 
 const plan: ProjectPlan = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   title: "Editorial",
   components: [
-    { id: "p1", rowId: "row-1", name: "文案1", type: "plan", width: 0.5, html: "" },
+    { id: "p1", name: "文案1", type: "plan", width: 0.5, contentScale: 1, html: "" },
     {
       id: "r1",
-      rowId: "row-1",
       name: "图片组1",
       type: "reference",
       width: 0.4,
+      contentScale: 1,
       description: "",
+      showDescription: true,
       showCaptions: true,
       imageHeight: 135,
       images: [{ id: "i1", file: "references/0001.png", aspectRatio: 2 }],

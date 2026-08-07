@@ -22,25 +22,26 @@ const SEEDED_IMAGE_DATA: Record<string, string> = {
 };
 const BROWSER_PLAN_STORAGE_KEY = "preshot.browser-canvas-plan";
 
-const SEEDED_V5_PLAN: CanvasPlan = {
-  schemaVersion: 5,
+const SEEDED_V6_PLAN: CanvasPlan = {
+  schemaVersion: 6,
   title: "日落大片",
   components: [
     {
       id: "plan-1",
-      rowId: "row:plan-1",
       name: "文案1",
       type: "plan",
       width: 1,
+      contentScale: 1,
       html: "<h2>日落大片</h2><p>海滨的黄金时刻。记得带 85mm 镜头。</p>",
     },
     {
       id: "ref-1",
-      rowId: "row:ref-1",
       name: "造型参考",
       type: "reference",
       width: 1,
+      contentScale: 1,
       description: "",
+      showDescription: true,
       imageHeight: 135,
       showCaptions: false,
       images: [
@@ -60,7 +61,7 @@ function createMemoryCanvasStores(): {
   const storedPlan = window.sessionStorage.getItem(BROWSER_PLAN_STORAGE_KEY);
   let plan: CanvasPlan = storedPlan
     ? JSON.parse(storedPlan) as CanvasPlan
-    : structuredClone(SEEDED_V5_PLAN);
+    : structuredClone(SEEDED_V6_PLAN);
   let counter = Object.keys(SEEDED_IMAGE_DATA).length;
   return {
     repository: {

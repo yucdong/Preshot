@@ -3,6 +3,7 @@ import {
   clampHeight,
   clampWidth,
   clampImageHeight,
+  clampContentScale,
   EMPTY_PLAN,
   MIN_COMPONENT_HEIGHT,
   MIN_WIDTH,
@@ -11,6 +12,9 @@ import {
   DOCUMENT_TITLE_HEIGHT,
   MIN_IMAGE_HEIGHT,
   MAX_IMAGE_HEIGHT,
+  MIN_CONTENT_SCALE,
+  MAX_CONTENT_SCALE,
+  DEFAULT_CONTENT_SCALE,
   UNTITLED_PLAN_TITLE,
 } from "./models";
 
@@ -36,13 +40,20 @@ describe("canvas models", () => {
     expect(clampHeight(Number.NaN, 500)).toBe(MIN_COMPONENT_HEIGHT);
   });
 
-  it("provides the v5 schema constants and an empty titled plan", () => {
+  it("clamps contentScale to its documented persisted range", () => {
+    expect(clampContentScale(0.1)).toBe(MIN_CONTENT_SCALE);
+    expect(clampContentScale(1.25)).toBe(1.25);
+    expect(clampContentScale(3)).toBe(MAX_CONTENT_SCALE);
+    expect(clampContentScale(Number.NaN)).toBe(DEFAULT_CONTENT_SCALE);
+  });
+
+  it("provides the v6 schema constants and an empty titled plan", () => {
     expect(MIN_IMAGE_HEIGHT).toBe(67.5);
     expect(DEFAULT_IMAGE_HEIGHT).toBe(135);
     expect(MAX_IMAGE_HEIGHT).toBe(400);
     expect(DOCUMENT_TITLE_HEIGHT).toBe(36);
     expect(EMPTY_PLAN).toEqual({
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: UNTITLED_PLAN_TITLE,
       components: [],
     });

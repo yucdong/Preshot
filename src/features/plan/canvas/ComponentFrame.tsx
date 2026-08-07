@@ -208,7 +208,6 @@ function ComponentFrameBody({
       }`}
       data-component-frame="true"
       data-component-id={id}
-      data-row-id={component.rowId}
       data-drag-placeholder={isPlaceholder ? "component" : undefined}
       data-fragment-id={frameId ?? id}
       data-sortable-component-id={interactiveChrome ? id : undefined}

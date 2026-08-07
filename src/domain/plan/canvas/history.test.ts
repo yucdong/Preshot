@@ -14,9 +14,9 @@ import type { PlanComponent } from "./models";
 
 function planWith(id: string, html: string): ProjectPlan {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     title: "Demo",
-    components: [{ id, rowId: `row:${id}`, name: "文案1", type: "plan", width: 1, html }],
+    components: [{ id, name: "文案1", type: "plan", width: 1, contentScale: 1, html }],
   };
 }
 
@@ -112,34 +112,36 @@ describe("plan history stack", () => {
 });
 
 function plan(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 5, title: "Demo", components };
+  return { schemaVersion: 6, title: "Demo", components };
 }
 
 describe("mergeStructural", () => {
   it("keeps current html/description for components surviving by id", () => {
     const target = plan([
-      { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 1, html: "OLD" },
+      { id: "a", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "OLD" },
       {
         id: "b",
-        rowId: `row:${"b"}`,
         type: "reference",
         width: 1,
+        contentScale: 1,
         name: "T",
         description: "OLD DESC",
+        showDescription: true,
         showCaptions: false,
         imageHeight: 180,
         images: [],
       },
     ]);
     const current = plan([
-      { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 0.5, html: "NEW" },
+      { id: "a", name: "文案1", type: "plan", width: 0.5, contentScale: 1, html: "NEW" },
       {
         id: "b",
-        rowId: `row:${"b"}`,
         type: "reference",
         width: 0.5,
+        contentScale: 1,
         name: "T2",
         description: "NEW DESC",
+        showDescription: true,
         showCaptions: true,
         imageHeight: 400,
         images: [],
@@ -159,7 +161,7 @@ describe("mergeStructural", () => {
 
   it("uses target's own text for components not present in current (re-added)", () => {
     const target = plan([
-      { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 1, html: "TARGET" },
+      { id: "a", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "TARGET" },
     ]);
     const current = plan([]);
     const merged = mergeStructural(target, current);
@@ -168,16 +170,17 @@ describe("mergeStructural", () => {
 
   it("ignores id matches whose type differs", () => {
     const target = plan([
-      { id: "x", rowId: `row:${"x"}`, name: "文案1", type: "plan", width: 1, html: "TARGET" },
+      { id: "x", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "TARGET" },
     ]);
     const current = plan([
       {
         id: "x",
-        rowId: `row:${"x"}`,
         type: "reference",
         width: 1,
+        contentScale: 1,
         name: "T",
         description: "D",
+        showDescription: true,
         showCaptions: false,
         imageHeight: 180,
         images: [],
@@ -187,15 +190,16 @@ describe("mergeStructural", () => {
     expect(merged.components[0]).toMatchObject({ type: "plan", html: "TARGET" });
   });
 
-  it("keeps current image aspect ratios but restores historical crops", () => {
+  it("keeps current image aspect ratios", () => {
     const target = plan([
       {
         id: "ref",
-        rowId: "row:ref",
         type: "reference",
         width: 1,
+        contentScale: 1,
         name: "Reference",
         description: "",
+        showDescription: true,
         showCaptions: true,
         imageHeight: 180,
         images: [{ id: "i1", file: "references/one.png", aspectRatio: 1 }],
@@ -204,25 +208,25 @@ describe("mergeStructural", () => {
     const current = plan([
       {
         id: "ref",
-        rowId: "row:ref",
         type: "reference",
         width: 1,
+        contentScale: 1,
         name: "Reference",
         description: "",
+        showDescription: true,
         showCaptions: true,
         imageHeight: 180,
         images: [{
           id: "i1",
           file: "references/one.png",
           aspectRatio: 2,
-          crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
         }],
       },
     ]);
 
     const merged = mergeStructural(target, current);
 
-    expect((merged.components[0] as { images: Array<{ aspectRatio: number; crop?: unknown }> }).images)
+    expect((merged.components[0] as { images: Array<{ aspectRatio: number }> }).images)
       .toEqual([{ id: "i1", file: "references/one.png", aspectRatio: 2 }]);
   });
 
@@ -230,22 +234,24 @@ describe("mergeStructural", () => {
     const target = plan([
       {
         id: "ref-a",
-        rowId: "row:ref-a",
         type: "reference",
         width: 1,
+        contentScale: 1,
         name: "A",
         description: "",
+        showDescription: true,
         showCaptions: true,
         imageHeight: 180,
         images: [{ id: "i1", file: "references/one.png", aspectRatio: 1 }],
       },
       {
         id: "ref-b",
-        rowId: "row:ref-b",
         type: "reference",
         width: 1,
+        contentScale: 1,
         name: "B",
         description: "",
+        showDescription: true,
         showCaptions: true,
         imageHeight: 180,
         images: [],
@@ -254,45 +260,46 @@ describe("mergeStructural", () => {
     const current = plan([
       {
         id: "ref-a",
-        rowId: "row:ref-a",
         type: "reference",
         width: 1,
+        contentScale: 1,
         name: "A",
         description: "",
+        showDescription: true,
         showCaptions: true,
         imageHeight: 180,
         images: [],
       },
       {
         id: "ref-b",
-        rowId: "row:ref-b",
         type: "reference",
         width: 1,
+        contentScale: 1,
         name: "B",
         description: "",
+        showDescription: true,
         showCaptions: true,
         imageHeight: 180,
         images: [{
           id: "i1",
           file: "references/one.png",
           aspectRatio: 2,
-          crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
         }],
       },
     ]);
 
     const merged = mergeStructural(target, current);
 
-    expect((merged.components[0] as { images: Array<{ aspectRatio: number; crop?: unknown }> }).images)
+    expect((merged.components[0] as { images: Array<{ aspectRatio: number }> }).images)
       .toEqual([{ id: "i1", file: "references/one.png", aspectRatio: 2 }]);
   });
 
   it("does not mutate the inputs", () => {
     const target = plan([
-      { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 1, html: "OLD" },
+      { id: "a", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "OLD" },
     ]);
     const current = plan([
-      { id: "a", rowId: `row:${"a"}`, name: "文案1", type: "plan", width: 1, html: "NEW" },
+      { id: "a", name: "文案1", type: "plan", width: 1, contentScale: 1, html: "NEW" },
     ]);
     mergeStructural(target, current);
     expect((target.components[0] as { html: string }).html).toBe("OLD");

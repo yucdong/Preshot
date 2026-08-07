@@ -14,6 +14,10 @@ export interface MoveImageParams {
   toIndex: number;
 }
 
+export interface ComponentMoveTarget {
+  toIndex: number;
+}
+
 export interface MoveImagesParams {
   imageIds: string[];
   toComponentId: string;
@@ -62,7 +66,10 @@ export function removeComponent(plan: ProjectPlan, id: string): ProjectPlan {
   return components.length === plan.components.length ? plan : replace(plan, components);
 }
 
-export function moveComponent(plan: ProjectPlan, params: { id: string; toIndex: number }): ProjectPlan {
+export function moveComponent(
+  plan: ProjectPlan,
+  params: { id: string } & ComponentMoveTarget,
+): ProjectPlan {
   const current = plan.components.findIndex((component) => component.id === params.id);
   if (current === -1) {
     return plan;

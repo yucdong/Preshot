@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CropRect, ReferenceComponent } from "../../../domain/plan/canvas/models";
+import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
 import {
   COMPONENT_INSET,
   REFERENCE_HEADER_HEIGHT,
@@ -30,11 +30,12 @@ vi.mock("../GroupImageGrid", () => ({
 
 const mockComponent: ReferenceComponent = {
   id: "ref-1",
-  rowId: `row:${"ref-1"}`,
   type: "reference",
   width: 1,
+  contentScale: 1,
   name: "Test Reference",
   description: "",
+  showDescription: true,
   showCaptions: false, imageHeight: 180, images: [],
 };
 
@@ -62,24 +63,6 @@ function renderReference(overrides: Partial<Parameters<typeof ReferenceComponent
 describe("ReferenceComponentView", () => {
   beforeEach(() => {
     usePlanContentMeasurementMock.mockClear();
-  });
-
-  it("passes crop callbacks to the image grid with the reference component id", () => {
-    const onSetImageCrop = vi.fn();
-    const onResetImageCrop = vi.fn();
-    const crop: CropRect = { x: 0.25, y: 0, width: 0.5, height: 1 };
-
-    renderReference({ onSetImageCrop, onResetImageCrop });
-
-    const props = groupImageGridMock.mock.calls.at(-1)?.[0] as {
-      onSetCrop?: (imageId: string, next: CropRect) => void;
-      onResetCrop?: (imageId: string) => void;
-    };
-    props.onSetCrop?.("i1", crop);
-    props.onResetCrop?.("i1");
-
-    expect(onSetImageCrop).toHaveBeenCalledWith("ref-1", "i1", crop);
-    expect(onResetImageCrop).toHaveBeenCalledWith("ref-1", "i1");
   });
 
   it("does not render an internal scrolling region", () => {

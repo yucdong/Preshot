@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
-import { contentSize, DEFAULT_PAGE_GEOMETRY, SPACING } from "../../domain/plan/canvas/geometry";
 import { createCanvasPdfExporter } from "../pdf/canvasPdfExporter";
 import { createBrowserCanvasPlanDependencies } from "./browserPlan";
 
@@ -136,25 +135,22 @@ describe("createBrowserCanvasPlanDependencies", () => {
     }));
   });
 
-  it("round-trips an exact gap-aware v5 row without floating-point overflow", async () => {
+  it("round-trips a flat v6 component order", async () => {
     const first = createBrowserCanvasPlanDependencies();
     const loaded = await first.service.loadPlan("C:\\demo", "Demo");
     if (loaded.status !== "loaded") {
       throw new Error("Expected the seeded browser plan to load");
     }
-    const gap = SPACING / contentSize(DEFAULT_PAGE_GEOMETRY).width;
-    const exactFitWidth = 1 - 0.2 - 0.2 - gap * 2;
     const plan = {
-      schemaVersion: 5 as const,
-      title: "Exact fit",
+      schemaVersion: 6 as const,
+      title: "Flat order",
       components: [
-        { id: "p1", rowId: "row-exact", name: "文案1", type: "plan" as const, width: 0.2, html: "" },
-        { id: "p2", rowId: "row-exact", name: "文案2", type: "plan" as const, width: 0.2, html: "" },
-        { id: "p3", rowId: "row-exact", name: "文案3", type: "plan" as const, width: exactFitWidth, html: "" },
+        { id: "p1", name: "文案1", type: "plan" as const, width: 0.2, contentScale: 1, html: "" },
+        { id: "p2", name: "文案2", type: "plan" as const, width: 0.2, contentScale: 1, html: "" },
+        { id: "p3", name: "文案3", type: "plan" as const, width: 0.5, contentScale: 1, html: "" },
       ],
     };
 
-    expect(0.2 + 0.2 + exactFitWidth + gap * 2).toBeGreaterThan(1);
     await first.service.savePlan("C:\\demo", plan);
 
     await expect(
