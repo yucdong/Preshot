@@ -144,7 +144,7 @@ export function GroupImageGrid({
                 height: `${slot.height * scale}px`,
               }}
             >
-              <div className="grid h-full grid-cols-2 gap-2">
+              <div className="grid h-full grid-rows-2 gap-2">
                 <button
                   aria-label={t("reference.addImage")}
                   className="flex h-full items-center justify-center rounded-xl border-2 border-dashed border-stone-300 text-3xl text-stone-400 hover:border-amber-500 hover:text-amber-600 disabled:opacity-50 dark:border-stone-700 dark:text-stone-500 dark:hover:border-amber-400 dark:hover:text-amber-400"

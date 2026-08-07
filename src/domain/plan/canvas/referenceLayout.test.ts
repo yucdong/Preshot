@@ -58,11 +58,11 @@ describe("packReferenceRows", () => {
     expect(rows[0].slots.map((slot) => slot.kind)).toEqual(["image", "image"]);
     expect(rows[1].y).toBe(rows[0].height + IMAGE_GAP);
     expect(rows[1].slots).toHaveLength(1);
-    expect(rows[1].slots[0]).toMatchObject({ kind: "add", width: 135, height: 67.5 });
+    expect(rows[1].slots[0]).toMatchObject({ kind: "add", width: 67.5, height: 135 });
   });
 
   it("scales the add tile to fit narrow widths and keeps it final", () => {
-    const innerWidth = 36;
+    const innerWidth = 24;
     const rows = packReferenceRows({
       images: [{ id: "img", file: "img.png", aspectRatio: 1 }],
       imageHeight: 60,
@@ -77,10 +77,10 @@ describe("packReferenceRows", () => {
     expect(addSlot.kind).toBe("add");
     expect(addSlot.x + addSlot.width).toBeLessThanOrEqual(innerWidth);
     expect(addSlot.width).toBeCloseTo(innerWidth);
-    expect(addSlot.height).toBeCloseTo(innerWidth / 2);
+    expect(addSlot.height).toBeCloseTo(innerWidth * 2);
   });
 
-  it("sizes import controls to half the configured image height", () => {
+  it("stacks half-height import controls into one full image-height column", () => {
     const rows = packReferenceRows({
       images: [],
       imageHeight: 200,
@@ -90,9 +90,9 @@ describe("packReferenceRows", () => {
 
     expect(rows[0].slots[0]).toMatchObject({
       kind: "add",
-      width: 200,
-      height: 100,
-      imageHeight: 100,
+      width: 100,
+      height: 200,
+      imageHeight: 200,
     });
   });
 

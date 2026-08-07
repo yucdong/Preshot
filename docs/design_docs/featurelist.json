@@ -641,7 +641,7 @@
         "Write native RGBA clipboard data to a unique temporary PNG and reuse the existing reference-image import path, which moves it into the project",
         "Cancel sends Escape to dismiss Windows screen clipping and generation checks prevent an in-flight poll result from importing after cancellation",
         "Continuation fragments reserve no repeated-title header in either the canvas layout or PDF export",
-        "The editor-only add slot is two-to-one: its height is half the configured image height and its width holds two compact square controls"
+        "The editor-only add slot is one-to-two: its width is half the configured image height, its full height matches an image, and it stacks two compact controls vertically"
       ],
       "verification": {
         "focusedUnits": "9 files, 205 tests passed",

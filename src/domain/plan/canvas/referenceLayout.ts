@@ -75,8 +75,8 @@ function imageSlot(image: Pick<ReferenceImage, "id" | "aspectRatio">, requestedH
 
 function addSlot(innerWidth: number, requestedImageHeight: number): ReferenceFlowSlot {
   const safeWidth = positiveFinite(innerWidth);
-  const requestedWidth = positiveFinite(requestedImageHeight);
-  const requestedHeight = requestedWidth / 2;
+  const requestedHeight = positiveFinite(requestedImageHeight);
+  const requestedWidth = requestedHeight / 2;
   const scale = requestedWidth > 0 ? Math.min(1, safeWidth / requestedWidth) : 0;
   const width = requestedWidth * scale;
   const height = requestedHeight * scale;
@@ -136,7 +136,7 @@ export function packReferenceRows(input: {
     ...input.images.map((image) => ({ kind: "image" as const, id: image.id, aspectRatio: image.aspectRatio })),
     ...(input.includeAddTile === false
       ? []
-      : [{ kind: "add" as const, id: "__add__", aspectRatio: 2 }]),
+      : [{ kind: "add" as const, id: "__add__", aspectRatio: 0.5 }]),
   ];
 
   const availableWidth = positiveFinite(input.innerWidth);

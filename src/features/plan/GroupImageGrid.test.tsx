@@ -119,6 +119,8 @@ describe("GroupImageGrid", () => {
       "stroke",
       "currentColor",
     );
+    expect(importButton.parentElement).toHaveClass("grid-rows-2");
+    expect(importButton.parentElement).not.toHaveClass("grid-cols-2");
     fireEvent.click(captureButton);
     expect(props.onCaptureImage).toHaveBeenCalledWith("g1");
   });
