@@ -27,7 +27,7 @@ Verified on 2026-08-07:
 | `pnpm typecheck` | passed |
 | `pnpm test` | 73 files, 629 tests passed |
 | `pnpm test:init` | 4 initializer harness checks passed |
-| `pnpm test:e2e` | 18 Edge smoke tests passed |
+| `pnpm test:e2e` | 34 Edge smoke tests passed |
 | `cargo test --manifest-path src-tauri\Cargo.toml` | 47 Rust tests passed |
 | `pnpm build` | passed (Vite reports the existing large-chunk warning) |
 

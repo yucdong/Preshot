@@ -677,7 +677,7 @@
         "pnpmTypecheck": "passed",
         "pnpmTest": "73 files, 629 tests passed",
         "pnpmTestInit": "4 initializer harness checks passed",
-        "pnpmTestE2e": "18 Edge smoke tests passed",
+        "pnpmTestE2e": "34 Edge smoke tests passed",
         "cargoTest": "47 Rust tests passed with vcvars64",
         "pnpmBuild": "passed; Vite emitted its existing large-chunk warning"
       },
