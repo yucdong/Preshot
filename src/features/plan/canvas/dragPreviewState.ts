@@ -1,7 +1,7 @@
 import type { ComponentFragmentPlacement } from "../../../domain/plan/canvas/engine";
 
 interface ActiveDisplayDrag {
-  type: "component" | "image";
+  type: "image";
   componentId: string;
 }
 
@@ -70,14 +70,7 @@ export function buildDisplayPlacements(input: {
 }): ComponentFragmentPlacement[] {
   const activeDrag = input.activeDrag;
 
-  if (activeDrag?.type === "component") {
-    return sortPlacements([
-      ...input.previewPlacements.filter((placement) => placement.componentId !== activeDrag.componentId),
-      ...input.basePlacements.filter((placement) => placement.componentId === activeDrag.componentId),
-    ]);
-  }
-
-  if (activeDrag?.type === "image" && input.imageOriginPlacement) {
+  if (activeDrag && input.imageOriginPlacement) {
     const imageOriginPlacement = input.imageOriginPlacement;
     const previewHasOrigin = input.previewPlacements.some(
       (placement) => placement.fragmentId === imageOriginPlacement.fragmentId,

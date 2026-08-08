@@ -1,21 +1,18 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 import {
-  clampCardRect,
   componentFrameChromeHeight,
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
   EDITABLE_COMPONENT_FRAME_CHROME,
-  resizeCard,
+  resizeCardFromEdge,
   type Rect,
+  type ResizeEdge,
 } from "../../../domain/plan/canvas/geometry";
 import { type PlanComponent } from "../../../domain/plan/canvas/models";
 import type { RenameComponentResult } from "../../../domain/plan/canvas/naming";
-import { usePrefersReducedMotion } from "../../../shared/hooks/usePrefersReducedMotion";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
-import { createMotionStyleTransition } from "./dragMotion";
 import { estimateNameInputWidthEm } from "./componentNameWidth";
 
 interface ComponentFrameProps {
@@ -26,21 +23,15 @@ interface ComponentFrameProps {
   onRemove: (id: string) => void;
   component: PlanComponent;
   onResize: (id: string, rect: Rect) => void;
-  onResizePreview?: (id: string, rect: Rect) => void;
+  onResizePreview?: (id: string, rect: Rect, edge: ResizeEdge) => Rect | undefined;
   onResizeCancel?: () => void;
   onRename?: (id: string, name: string) => RenameComponentResult;
   children?: React.ReactNode;
   sortableId?: string;
-  isPlaceholder?: boolean;
-}
-
-interface ComponentFrameBodyProps extends ComponentFrameProps {
-  setNodeRef: (node: HTMLElement | null) => void;
-  transform?: { x: number; y: number; scaleX: number; scaleY: number } | null;
-  transition?: string | null;
-  dragAttributes?: React.HTMLAttributes<HTMLDivElement>;
-  dragListeners?: React.HTMLAttributes<HTMLDivElement>;
-  interactiveChrome: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 interface ComponentFrameNameInputProps {
@@ -82,7 +73,7 @@ function ComponentFrameNameInput({
       <input
         aria-describedby={nameError ? `${id}-name-error` : undefined}
         aria-label={t("canvas.componentName")}
-        className="min-w-0 border-0 bg-transparent text-stone-700 outline-none focus:ring-2 focus:ring-amber-500 dark:text-stone-100"
+        className="min-w-0 border-0 bg-transparent text-paper-ink outline-none focus:ring-2 focus:ring-paper-primary"
         onBlur={commitName}
         onChange={(event) => setNameDraft(event.target.value)}
         onKeyDown={(event) => {
@@ -118,7 +109,7 @@ function ComponentFrameNameInput({
   );
 }
 
-function ComponentFrameBody({
+export function ComponentFrame({
   id,
   frameId,
   rect,
@@ -130,25 +121,23 @@ function ComponentFrameBody({
   onResizePreview,
   onResizeCancel,
   children,
-  isPlaceholder = false,
-  setNodeRef,
-  transform,
-  transition,
-  dragAttributes,
-  dragListeners,
-  interactiveChrome,
-}: ComponentFrameBodyProps) {
+  sortableId,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = true,
+  canMoveDown = true,
+}: ComponentFrameProps) {
   const { t } = useTranslation();
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const [resizeSession, setResizeSession] = useState<{
+  const resizeSessionRef = useRef<{
     element: HTMLElement;
     pointerId: number;
   } | null>(null);
   const [resizePreview, setResizePreview] = useState<Rect | null>(null);
-  const [resizeStart, setResizeStart] = useState<{
+  const resizePreviewRef = useRef<Rect | null>(null);
+  const resizeStartRef = useRef<{
     x: number;
     y: number;
-    edge: "left" | "right" | "top" | "bottom";
+    edge: ResizeEdge;
     rect: Rect;
   } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -156,62 +145,62 @@ function ComponentFrameBody({
   const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
 
   const onPointerDownResize = (
-    edge: "left" | "right" | "top" | "bottom",
+    edge: ResizeEdge,
   ) => (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    setResizeSession({ element: event.currentTarget, pointerId: event.pointerId });
-    setResizeStart({ x: event.clientX, y: event.clientY, edge, rect });
+    resizeSessionRef.current = { element: event.currentTarget, pointerId: event.pointerId };
+    resizeStartRef.current = { x: event.clientX, y: event.clientY, edge, rect };
+    resizePreviewRef.current = null;
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
   const nextRectForPointer = (event: React.PointerEvent<HTMLDivElement>): Rect | null => {
+    const resizeStart = resizeStartRef.current;
     if (!resizeStart) {
       return null;
     }
     const dx = (event.clientX - resizeStart.x) / scale;
     const dy = (event.clientY - resizeStart.y) / scale;
-    const start = resizeStart.rect;
-    if (resizeStart.edge === "left" || resizeStart.edge === "right") {
-      const width = resizeStart.edge === "left" ? start.width - dx : start.width + dx;
-      const sized = resizeCard(start, { width, height: start.height }, canvasWidth);
-      const x = resizeStart.edge === "left" ? start.x + start.width - sized.width : start.x;
-      return clampCardRect({ ...sized, x, y: start.y }, canvasWidth);
-    }
-    const height = resizeStart.edge === "top" ? start.height - dy : start.height + dy;
-    const sized = resizeCard(start, { width: start.width, height }, canvasWidth);
-    const y = resizeStart.edge === "top" ? start.y + start.height - sized.height : start.y;
-    return clampCardRect({ ...sized, x: start.x, y }, canvasWidth);
+    return resizeCardFromEdge(
+      resizeStart.rect,
+      resizeStart.edge,
+      resizeStart.edge === "left" || resizeStart.edge === "right" ? dx : dy,
+      canvasWidth,
+    );
   };
 
   const onPointerMoveResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!interactiveChrome) {
-      return;
-    }
     const next = nextRectForPointer(event);
     if (!next) {
       return;
     }
-    setResizePreview(next);
-    onResizePreview?.(id, next);
+    const preview = onResizePreview?.(
+      id,
+      next,
+      resizeStartRef.current?.edge ?? "right",
+    ) ?? next;
+    resizePreviewRef.current = preview;
+    setResizePreview(preview);
   };
 
   const finishResize = (
     event: React.PointerEvent<HTMLDivElement>,
     options: { commit: boolean; releaseCapture: boolean },
   ) => {
-    const session = resizeSession;
+    const session = resizeSessionRef.current;
     if (!session) {
       return;
     }
-    const next = resizePreview;
-    setResizeSession(null);
-    setResizeStart(null);
+    const next = resizePreviewRef.current;
+    resizeSessionRef.current = null;
+    resizeStartRef.current = null;
     setResizePreview(null);
+    resizePreviewRef.current = null;
     if (options.releaseCapture && session.element.hasPointerCapture(event.pointerId)) {
       session.element.releasePointerCapture?.(event.pointerId);
     }
-    if (options.commit && next && interactiveChrome) {
+    if (options.commit && next) {
       onResize(id, next);
     } else if (!options.commit) {
       onResizeCancel?.();
@@ -219,75 +208,97 @@ function ComponentFrameBody({
   };
 
   const frameChromeHeight = componentFrameChromeHeight(EDITABLE_COMPONENT_FRAME_CHROME);
-  const bodyHeight = Math.max(0, currentRect.height - frameChromeHeight) * scale;
-
+  const frameInset = 12;
+  const bodyHeight = Math.max(
+    0,
+    currentRect.height - frameChromeHeight - frameInset * 2,
+  ) * scale;
+  const moveControlHeight = 17 * scale;
+  const moveControlWidth = 20 * scale;
+  const moveControlGap = 2 * scale;
   return (
+    <div className="group contents">
+      <div
+        className="pointer-events-none absolute z-20 flex flex-col opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+        data-component-move-controls={id}
+        style={{
+          gap: `${2 * scale}px`,
+          left: `${Math.max(
+            -DEFAULT_PAGE_GEOMETRY.margin * scale,
+            currentRect.x * scale - moveControlWidth - moveControlGap,
+          )}px`,
+          top: `${currentRect.y * scale}px`,
+        }}
+      >
+        <button
+          aria-label={t("canvas.moveUp")}
+          className="flex items-center justify-center rounded border border-paper-border bg-white text-paper-muted shadow-sm transition-colors hover:border-paper-primary hover:bg-paper-primary-soft hover:text-paper-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-primary disabled:cursor-not-allowed disabled:opacity-30"
+          disabled={!canMoveUp}
+          onClick={onMoveUp}
+          style={{
+            fontSize: `${5.5 * scale}px`,
+            gap: `${0.5 * scale}px`,
+            height: `${moveControlHeight}px`,
+            width: `${moveControlWidth}px`,
+          }}
+          type="button"
+        >
+          <ChevronUp aria-hidden="true" style={{ height: `${7 * scale}px`, width: `${7 * scale}px` }} />
+          <span>{t("canvas.moveUpLabel")}</span>
+        </button>
+        <button
+          aria-label={t("canvas.moveDown")}
+          className="flex items-center justify-center rounded border border-paper-border bg-white text-paper-muted shadow-sm transition-colors hover:border-paper-primary hover:bg-paper-primary-soft hover:text-paper-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-primary disabled:cursor-not-allowed disabled:opacity-30"
+          disabled={!canMoveDown}
+          onClick={onMoveDown}
+          style={{
+            fontSize: `${5.5 * scale}px`,
+            gap: `${0.5 * scale}px`,
+            height: `${moveControlHeight}px`,
+            width: `${moveControlWidth}px`,
+          }}
+          type="button"
+        >
+          <ChevronDown aria-hidden="true" style={{ height: `${7 * scale}px`, width: `${7 * scale}px` }} />
+          <span>{t("canvas.moveDownLabel")}</span>
+        </button>
+      </div>
     <div
-      ref={setNodeRef}
-      className={`absolute rounded-xl border border-dashed border-stone-400/80 shadow-sm dark:border-stone-500 dark:shadow-black/30 ${
-        isPlaceholder ? "border-2 border-amber-500 bg-transparent" : ""
-      }`}
+      className="pointer-events-auto absolute cursor-default overflow-hidden rounded-md border border-paper-border bg-white shadow-[0_3px_12px_rgb(24_24_27_/_6%)] transition-[border-color,box-shadow] duration-200 hover:border-paper-primary/60 hover:shadow-md focus-within:border-paper-primary focus-within:shadow-[0_0_0_2px_rgb(8_145_178_/_10%)]"
       data-component-frame="true"
       data-component-id={id}
-      data-drag-placeholder={isPlaceholder ? "component" : undefined}
       data-fragment-id={frameId ?? id}
-      data-sortable-component-id={interactiveChrome ? id : undefined}
+      data-sortable-component-id={sortableId ?? id}
       style={{
         left: `${currentRect.x * scale}px`,
         top: `${currentRect.y * scale}px`,
         width: `${currentRect.width * scale}px`,
         height: `${currentRect.height * scale}px`,
-        transform:
-          prefersReducedMotion || isPlaceholder || !transform
-            ? undefined
-            : CSS.Transform.toString(transform),
-        transition: isPlaceholder
-          ? undefined
-          : createMotionStyleTransition(prefersReducedMotion, transition),
+        boxSizing: "border-box",
+        padding: `${frameInset * scale}px`,
       }}
     >
       <div
-        {...(dragAttributes ?? {})}
-        {...(dragListeners ?? {})}
-        aria-label={interactiveChrome ? t("canvas.moveHint") : undefined}
-        className={`flex items-center justify-between rounded ${
-          interactiveChrome
-            ? "cursor-grab bg-stone-200 hover:bg-stone-300 dark:bg-stone-700 dark:hover:bg-stone-600"
-            : "cursor-default bg-stone-200/70 dark:bg-stone-700/70"
-        }`}
-        data-component-drag-handle={interactiveChrome ? "true" : undefined}
-        data-component-frame-topbar
+        className="flex items-center justify-between"
+        data-component-frame-header
         style={{
           height: `${EDITABLE_COMPONENT_FRAME_CHROME.topBarHeight * scale}px`,
           marginBottom: `${EDITABLE_COMPONENT_FRAME_CHROME.contentGap * scale}px`,
-          opacity: isPlaceholder ? 0 : 1,
-          paddingLeft: `${8 * scale}px`,
-          paddingRight: `${8 * scale}px`,
         }}
-        title={interactiveChrome ? t("canvas.moveHint") : undefined}
       >
-        {interactiveChrome ? (
-          <ComponentFrameNameInput
-            id={id}
-            key={component.name}
-            name={component.name}
-            onRename={onRename}
-            scale={scale}
-          />
-        ) : (
-          <span
-            className="text-stone-400 dark:text-stone-500"
-            style={{ fontSize: `${12 * scale}px`, lineHeight: `${16 * scale}px` }}
-          >
-            {component.name}
-          </span>
-        )}
-        {interactiveChrome ? (
+        <ComponentFrameNameInput
+          id={id}
+          key={component.name}
+          name={component.name}
+          onRename={onRename}
+          scale={scale}
+        />
           <button
             aria-label={t("canvas.removeComponent")}
-            className="rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
+            className="rounded-md bg-[#25272b] text-white transition-[background-color,transform] duration-200 hover:bg-paper-danger active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-danger focus-visible:ring-offset-1"
             onClick={() => setConfirmingDelete(true)}
             onPointerDown={(event) => event.stopPropagation()}
+            data-card-interactive="true"
             style={{
               fontSize: `${12 * scale}px`,
               height: `${20 * scale}px`,
@@ -297,25 +308,24 @@ function ComponentFrameBody({
             }}
             type="button"
           >
-            ×
+            <X
+              aria-hidden="true"
+              strokeWidth={2}
+              style={{ height: `${12 * scale}px`, width: `${12 * scale}px` }}
+            />
           </button>
-        ) : null}
       </div>
 
       <div
-        className="relative overflow-hidden"
+        className="relative min-h-0 overflow-hidden"
         data-component-frame-body
         style={{
-          paddingLeft: `${12 * scale}px`,
-          paddingRight: `${12 * scale}px`,
           height: `${bodyHeight}px`,
-          opacity: isPlaceholder ? 0 : 1,
         }}
       >
         {children}
       </div>
 
-      {interactiveChrome ? (
         <>
           {(["left", "right", "top", "bottom"] as const).map((edge) => (
             <div
@@ -328,7 +338,7 @@ function ComponentFrameBody({
                       ? t("canvas.resizeTop")
                       : t("canvas.resizeBottom")
               }
-              className={`absolute z-10 bg-stone-300/80 opacity-0 hover:opacity-100 focus-visible:opacity-100 dark:bg-stone-600/80 ${
+              className={`absolute z-10 bg-transparent hover:bg-paper-primary/20 focus-visible:bg-paper-primary/30 ${
                 edge === "left"
                   ? "left-0 top-0 h-full w-2 cursor-ew-resize"
                   : edge === "right"
@@ -356,7 +366,6 @@ function ComponentFrameBody({
             />
           ))}
         </>
-      ) : null}
 
       <ConfirmDialog
         open={confirmingDelete}
@@ -370,39 +379,6 @@ function ComponentFrameBody({
         onCancel={() => setConfirmingDelete(false)}
       />
     </div>
+    </div>
   );
-}
-
-function DraggableFrame(props: ComponentFrameProps & { sortableId: string }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: props.sortableId,
-    data: { type: "component", componentId: props.id },
-  });
-
-  return (
-    <ComponentFrameBody
-      {...props}
-      dragAttributes={attributes}
-      dragListeners={listeners}
-      interactiveChrome
-      setNodeRef={setNodeRef}
-      transform={transform}
-    />
-  );
-}
-
-function PassiveFrame(props: ComponentFrameProps) {
-  const { setNodeRef } = useDroppable({
-    id: props.frameId ?? props.id,
-    data: { type: "component", componentId: props.id },
-  });
-
-  return <ComponentFrameBody {...props} interactiveChrome={false} setNodeRef={setNodeRef} />;
-}
-
-export function ComponentFrame(props: ComponentFrameProps) {
-  const sortableId = props.sortableId ?? props.id;
-  return sortableId.length > 0
-    ? <DraggableFrame {...props} sortableId={sortableId} />
-    : <PassiveFrame {...props} />;
 }

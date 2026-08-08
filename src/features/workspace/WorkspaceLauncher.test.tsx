@@ -228,7 +228,7 @@ describe("WorkspaceLauncher", () => {
     ];
     const { onOpen } = renderLauncher({ projects });
 
-    expect(screen.getByRole("heading", { name: "Preshot" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "PRESHOT" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "最近项目" })).toBeVisible();
     expect(screen.getAllByRole("button", { name: /打开项目 / })).toHaveLength(4);
     expect(screen.getByRole("region", { name: "最近项目" })).toBeVisible();

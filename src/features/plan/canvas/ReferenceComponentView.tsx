@@ -1,15 +1,24 @@
+import { Minus, Plus } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
 import {
   COMPONENT_INSET,
+  packReferenceFrames,
   REFERENCE_HEADER_GAP,
   REFERENCE_TITLE_ROW_HEIGHT,
   type ReferenceFlowSlot,
 } from "../../../domain/plan/canvas/referenceLayout";
+import type { AlignmentGuides } from "../../../domain/plan/canvas/geometry";
 import { RichTextEditor } from "../RichTextEditor";
 import { GroupImageGrid } from "../GroupImageGrid";
 import { ImageActionButtons } from "../ImageActionButtons";
 import type { ImageImportProgress } from "../imageImportProgress";
+import { useNaturalHeight } from "./useNaturalHeight";
+import { maximumFittingReferenceAverageHeight } from "../../../domain/plan/canvas/referenceContinuation";
+
+const GROUP_IMAGE_HEIGHT_MINIMUM = 24;
+const GROUP_IMAGE_HEIGHT_STEP = 4;
 
 interface ReferenceComponentViewProps {
   component: ReferenceComponent;
@@ -32,6 +41,35 @@ interface ReferenceComponentViewProps {
   onCancelCapture?: () => void;
   captureStatus?: "waiting" | "importing";
   onAddImages?: (id: string) => void;
+  onSetImageFrame?: (
+    componentId: string,
+    imageId: string,
+    frame: { frameWidth: number; frameHeight: number },
+  ) => void;
+  onMeasureDescription?: (id: string, heightPoints: number) => void;
+  onScaleImages?: (componentId: string, scale: number) => void;
+}
+
+interface ImageFramePreview {
+  imageId: string;
+  frameWidth: number;
+  frameHeight: number;
+  guides: AlignmentGuides;
+}
+
+function hasIntroductionContent(html: string): boolean {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .trim().length > 0;
+}
+
+function averageFrameHeight(component: ReferenceComponent): number {
+  if (component.images.length === 0) {
+    return 0;
+  }
+  return component.images.reduce((total, image) => total + image.frameHeight, 0) /
+    component.images.length;
 }
 
 export function ReferenceComponentView({
@@ -55,12 +93,65 @@ export function ReferenceComponentView({
   onCancelCapture,
   captureStatus,
   onAddImages,
+  onSetImageFrame,
+  onMeasureDescription,
+  onScaleImages,
 }: ReferenceComponentViewProps) {
   const { t } = useTranslation();
+  const [addingIntroduction, setAddingIntroduction] = useState(false);
+  const [imageFramePreview, setImageFramePreview] =
+    useState<ImageFramePreview | null>(null);
+  const [measuredDescriptionHeight, setMeasuredDescriptionHeight] = useState<number | undefined>();
+  const hasIntroduction = hasIntroductionContent(component.description);
+  const descriptionRef = useNaturalHeight({
+    id: component.id,
+    scale,
+    onHeight: (id, heightPoints) => {
+      setMeasuredDescriptionHeight(heightPoints);
+      onMeasureDescription?.(id, heightPoints);
+    },
+  });
+
+  const showIntroductionEditor = hasIntroduction || addingIntroduction;
+  const currentAverageHeight = averageFrameHeight(component);
+  const displayAverageHeight = Math.max(
+    GROUP_IMAGE_HEIGHT_MINIMUM,
+    GROUP_IMAGE_HEIGHT_MINIMUM +
+      Math.round((currentAverageHeight - GROUP_IMAGE_HEIGHT_MINIMUM) / GROUP_IMAGE_HEIGHT_STEP) *
+        GROUP_IMAGE_HEIGHT_STEP,
+  );
+  const maximumAverageHeight = maximumFittingReferenceAverageHeight(component, {
+    minimum: GROUP_IMAGE_HEIGHT_MINIMUM,
+    step: GROUP_IMAGE_HEIGHT_STEP,
+    measuredDescriptionHeight,
+  });
+  const groupPreviewComponent = component;
+  const displayComponent =
+    imageFramePreview === null
+      ? groupPreviewComponent
+      : {
+          ...groupPreviewComponent,
+          images: groupPreviewComponent.images.map((image) =>
+            image.id === imageFramePreview.imageId
+              ? {
+                  ...image,
+                  frameWidth: imageFramePreview.frameWidth,
+                  frameHeight: imageFramePreview.frameHeight,
+                }
+              : image,
+          ),
+        };
+  const displaySlots =
+    imageFramePreview === null
+      ? slots
+      : packReferenceFrames({
+          images: displayComponent.images,
+          innerWidth: Math.max(0, displayComponent.width - COMPONENT_INSET * 2),
+        });
 
   return (
     <div
-      className="h-full overflow-auto"
+      className="h-full min-h-0 overflow-hidden"
       data-testid="reference-component-content"
       style={{
         paddingBottom: `${COMPONENT_INSET * scale}px`,
@@ -68,7 +159,7 @@ export function ReferenceComponentView({
       }}
     >
       <div
-        className="flex items-center"
+        className="flex w-fit items-center rounded-lg border border-white/10 bg-[#202329] px-1 text-white shadow-[0_6px_18px_rgb(17_18_22_/_18%)]"
         data-testid="reference-title-row"
         style={{ height: `${REFERENCE_TITLE_ROW_HEIGHT * scale}px` }}
       >
@@ -79,6 +170,63 @@ export function ReferenceComponentView({
           scale={scale}
           variant="toolbar"
         />
+        <div
+          className="ml-1 flex items-center text-white/70"
+          style={{ gap: `${4 * scale}px` }}
+          title={t("reference.groupImageHeight")}
+        >
+          <button
+            aria-label={t("reference.decreaseGroupImageHeight")}
+            className="flex items-center justify-center rounded border border-white/10 bg-white/[0.06] transition-[background-color,transform] duration-200 hover:bg-white/15 hover:text-white active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:cursor-not-allowed disabled:opacity-30"
+            disabled={
+              component.images.length === 0 ||
+              onScaleImages === undefined ||
+              displayAverageHeight <= GROUP_IMAGE_HEIGHT_MINIMUM
+            }
+            onClick={() => {
+              const target = Math.max(
+                GROUP_IMAGE_HEIGHT_MINIMUM,
+                displayAverageHeight - GROUP_IMAGE_HEIGHT_STEP,
+              );
+              if (currentAverageHeight > 0) {
+                onScaleImages?.(component.id, target / currentAverageHeight);
+              }
+            }}
+            style={{ height: `${20 * scale}px`, width: `${20 * scale}px` }}
+            type="button"
+          >
+            <Minus aria-hidden="true" style={{ height: `${12 * scale}px`, width: `${12 * scale}px` }} />
+          </button>
+          <output
+            aria-label={t("reference.groupImageHeight")}
+            className="text-center tabular-nums"
+            style={{ fontSize: `${10 * scale}px`, minWidth: `${34 * scale}px` }}
+          >
+            {Math.round(displayAverageHeight)}pt
+          </output>
+          <button
+            aria-label={t("reference.increaseGroupImageHeight")}
+            className="flex items-center justify-center rounded border border-white/10 bg-white/[0.06] transition-[background-color,transform] duration-200 hover:bg-white/15 hover:text-white active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:cursor-not-allowed disabled:opacity-30"
+            disabled={
+              component.images.length === 0 ||
+              onScaleImages === undefined ||
+              displayAverageHeight + GROUP_IMAGE_HEIGHT_STEP > maximumAverageHeight
+            }
+            onClick={() => {
+              const target = Math.min(
+                maximumAverageHeight,
+                displayAverageHeight + GROUP_IMAGE_HEIGHT_STEP,
+              );
+              if (currentAverageHeight > 0) {
+                onScaleImages?.(component.id, target / currentAverageHeight);
+              }
+            }}
+            style={{ height: `${20 * scale}px`, width: `${20 * scale}px` }}
+            type="button"
+          >
+            <Plus aria-hidden="true" style={{ height: `${12 * scale}px`, width: `${12 * scale}px` }} />
+          </button>
+        </div>
         {importProgress ? (
           <div className="ml-auto flex min-w-0 items-center gap-2" role="status">
             <progress
@@ -86,11 +234,11 @@ export function ReferenceComponentView({
               aria-valuemax={importProgress.total}
               aria-valuemin={0}
               aria-valuenow={importProgress.completed}
-              className="h-2 w-24 accent-amber-500"
+              className="h-2 w-24 accent-paper-primary"
               max={importProgress.total}
               value={importProgress.completed}
             />
-            <span className="text-xs text-stone-600 dark:text-stone-300">
+            <span className="text-xs text-paper-muted">
               {t("reference.importProgressText", {
                 completed: importProgress.completed,
                 total: importProgress.total,
@@ -99,7 +247,7 @@ export function ReferenceComponentView({
             </span>
           </div>
         ) : captureStatus ? (
-          <div className="ml-auto flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300" role="status">
+          <div className="ml-auto flex items-center gap-2 text-xs text-paper-muted" role="status">
             <span>
               {captureStatus === "waiting"
                 ? t("reference.captureWaiting")
@@ -107,7 +255,7 @@ export function ReferenceComponentView({
             </span>
             {captureStatus === "waiting" ? (
               <button
-                className="rounded border border-stone-300 px-2 dark:border-stone-600"
+                className="rounded-md border border-paper-border px-2 transition-colors hover:border-paper-primary hover:text-paper-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-primary"
                 onClick={onCancelCapture}
                 type="button"
               >
@@ -118,20 +266,44 @@ export function ReferenceComponentView({
         ) : null}
       </div>
 
-      <div style={{ marginBottom: `${REFERENCE_HEADER_GAP * scale}px`, marginTop: `${REFERENCE_HEADER_GAP * scale}px` }}>
-        <RichTextEditor
-          ariaLabel={t("reference.descriptionAria")}
-          compact
-          html={component.description}
-          onChange={(html) => onSetDescription(component.id, html)}
-          placeholder={t("reference.descriptionPlaceholder")}
-        />
-      </div>
+      {showIntroductionEditor ? (
+        <section
+          data-testid="reference-introduction"
+          style={{
+            marginBottom: `${REFERENCE_HEADER_GAP * scale}px`,
+            marginTop: `${REFERENCE_HEADER_GAP * scale}px`,
+          }}
+        >
+          <div
+            className="mb-1 font-medium text-paper-ink"
+            style={{ fontSize: `${12 * scale}px` }}
+          >
+            {t("reference.introductionLabel")}
+          </div>
+          <RichTextEditor
+            ariaLabel={t("reference.descriptionAria")}
+            compact
+            html={component.description}
+            onChange={(html) => onSetDescription(component.id, html)}
+            rootRef={descriptionRef}
+            placeholder={t("reference.descriptionPlaceholder")}
+          />
+        </section>
+      ) : (
+        <button
+          aria-label={t("reference.addIntroduction")}
+          className="my-1 rounded-md border border-dashed border-paper-border px-2 py-1 text-xs text-paper-muted transition-colors hover:border-paper-primary hover:bg-paper-primary-soft hover:text-paper-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-primary"
+          onClick={() => setAddingIntroduction(true)}
+          type="button"
+        >
+          {t("reference.addIntroduction")}
+        </button>
+      )}
 
       <div data-testid="reference-component-body">
         <GroupImageGrid
           enableReorder={enableReorder}
-          group={component}
+          group={displayComponent}
           hiddenImageId={hiddenImageId}
           imageSrc={imageSrc}
           onOpenImage={onOpenImage}
@@ -144,7 +316,22 @@ export function ReferenceComponentView({
           onAddImages={onAddImages ?? onAddImage}
           onCaptureImage={onCaptureImage}
           imageActionsDisabled={importProgress !== undefined || captureStatus !== undefined}
-          slots={slots}
+          imageGuides={imageFramePreview?.guides}
+          onResizeCancel={() => setImageFramePreview(null)}
+          onResizeFrame={(componentId, imageId, frame) => {
+            setImageFramePreview(null);
+            onSetImageFrame?.(componentId, imageId, frame);
+          }}
+          onResizePreview={(imageId, frame, guides) => {
+            setImageFramePreview({
+              imageId,
+              frameWidth: frame.frameWidth,
+              frameHeight: frame.frameHeight,
+              guides,
+            });
+            return frame;
+          }}
+          slots={displaySlots}
           scale={scale}
         />
       </div>

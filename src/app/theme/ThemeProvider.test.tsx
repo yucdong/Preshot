@@ -6,14 +6,25 @@ import type { AppSettings } from "../../domain/settings/models";
 
 // Helper component to access and display theme context
 function TestConsumer() {
-  const { theme, resolved, setTheme } = useTheme();
+  const {
+    theme,
+    resolved,
+    setTheme,
+    projectRailWidth,
+    assistantWidth,
+    setPanelWidths,
+  } = useTheme();
   return (
     <div>
       <div data-testid="theme">{theme}</div>
       <div data-testid="resolved">{resolved}</div>
+      <div data-testid="panel-widths">{projectRailWidth},{assistantWidth}</div>
       <button onClick={() => setTheme("dark")}>Set Dark</button>
       <button onClick={() => setTheme("light")}>Set Light</button>
       <button onClick={() => setTheme("system")}>Set System</button>
+      <button onClick={() => setPanelWidths({ projectRailWidth: 260, assistantWidth: 360 })}>
+        Set Panels
+      </button>
     </div>
   );
 }
@@ -191,7 +202,11 @@ describe("ThemeProvider", () => {
     screen.getByText("Set Dark").click();
 
     await waitFor(() => {
-      expect(repository.write).toHaveBeenCalledWith({ theme: "dark" });
+      expect(repository.write).toHaveBeenCalledWith({
+        theme: "dark",
+        projectRailWidth: 192,
+        assistantWidth: 272,
+      });
     });
 
     await waitFor(() => {
@@ -228,6 +243,25 @@ describe("ThemeProvider", () => {
 
     // Listener should be cleaned up
     expect(getListenerCount()).toBe(0);
+  });
+
+  it("persists global panel widths with the current theme", async () => {
+    const repository = createMockRepository({ theme: "light" });
+    render(
+      <ThemeProvider repository={repository}>
+        <TestConsumer />
+      </ThemeProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("theme")).toHaveTextContent("light"));
+
+    screen.getByText("Set Panels").click();
+
+    await waitFor(() => expect(screen.getByTestId("panel-widths")).toHaveTextContent("260,360"));
+    expect(repository.write).toHaveBeenCalledWith({
+      theme: "light",
+      projectRailWidth: 260,
+      assistantWidth: 360,
+    });
   });
 
   it("throws error when useTheme is used outside provider", () => {

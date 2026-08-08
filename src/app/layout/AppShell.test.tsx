@@ -69,9 +69,26 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    const header = screen.getByRole("heading", { name: "Preshot" }).closest("header");
+    const header = screen.getByRole("heading", { name: "PRESHOT" }).closest("header");
     expect(header).not.toBeNull();
     expect(within(header as HTMLElement).getByRole("button", { name: "设置" })).toBeVisible();
+  });
+
+  it("renders accessible resizable panel separators", () => {
+    renderShell(
+      <AppShell currentProjectId="editorial" projects={[makeProject()]} {...handlers()}>
+        <p>Plan content</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("separator", { name: "调整项目栏宽度" })).toHaveAttribute(
+      "aria-valuemin",
+      "176",
+    );
+    expect(screen.getByRole("separator", { name: "调整助手栏宽度" })).toHaveAttribute(
+      "aria-valuemax",
+      "420",
+    );
   });
 
   it("switches, creates, and opens projects through the sidebar controls", async () => {

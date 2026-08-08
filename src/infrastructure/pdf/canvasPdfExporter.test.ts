@@ -14,7 +14,7 @@ const loadFonts = async () => ({
 });
 
 const plan: ProjectPlan = {
-  schemaVersion: 7,
+  schemaVersion: 8,
   title: "Editorial",
   components: [
     {
@@ -22,7 +22,6 @@ const plan: ProjectPlan = {
       name: "Plan",
       type: "plan",
       x: 0,
-      y: 60,
       width: 500,
       height: 180,
       html: "<p>正文</p>",
@@ -32,7 +31,6 @@ const plan: ProjectPlan = {
       name: "Reference",
       type: "reference",
       x: 0,
-      y: 264,
       width: 500,
       height: 260,
       description: "",

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../../app/theme/ThemeProvider";
 import type { Theme } from "../../domain/settings/models";
@@ -49,26 +50,34 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6 backdrop-blur-[2px]"
       onClick={handleBackdropClick}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={t("settings.title")}
-        className="rounded-lg bg-white p-6 shadow-xl dark:bg-stone-900"
+        className="w-full max-w-sm rounded-lg border border-app-border bg-app-panel-strong p-5 text-app-ink shadow-[var(--app-shadow)]"
         style={{ minWidth: "320px" }}
       >
-        <h2 className="mb-4 text-lg font-semibold text-stone-800 dark:text-stone-100">
-          {t("settings.title")}
-        </h2>
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <h2 className="text-lg font-semibold">{t("settings.title")}</h2>
+          <button
+            aria-label={t("settings.close")}
+            className="rounded-lg p-2 text-app-muted transition-colors hover:bg-app-primary-soft hover:text-app-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-primary"
+            onClick={onClose}
+            type="button"
+          >
+            <X aria-hidden="true" className="h-4 w-4" />
+          </button>
+        </div>
 
         <div className="space-y-4">
           <div>
-            <label className="mb-2 block text-sm font-medium text-stone-700 dark:text-stone-300">
+            <label className="mb-2 block text-sm font-medium text-app-muted">
               {t("settings.theme")}
             </label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-1 rounded-lg bg-app-bg p-1">
               {themeOptions.map((option) => (
                 <button
                   key={option.value}
@@ -76,12 +85,12 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   aria-pressed={theme === option.value}
                   onClick={() => handleThemeSelect(option.value)}
                   className={`
-                    flex-1 rounded-md px-3 py-2 text-sm font-medium
-                    transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300
+                    rounded-md px-3 py-2 text-sm font-medium
+                    transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-app-primary
                     ${
                       theme === option.value
-                        ? "bg-amber-500 text-white dark:bg-amber-600"
-                        : "bg-stone-200 text-stone-700 hover:bg-stone-300 dark:bg-stone-700 dark:text-stone-300 dark:hover:bg-stone-600"
+                        ? "bg-app-primary text-app-on-primary shadow-sm"
+                        : "text-app-muted hover:bg-app-panel-strong hover:text-app-ink"
                     }
                   `}
                 >

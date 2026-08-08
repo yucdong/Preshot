@@ -10,7 +10,7 @@ describe("TauriSettingsRepository", () => {
     const result = await repo.read();
 
     expect(mockInvoke).toHaveBeenCalledWith("read_settings");
-    expect(result).toEqual({ theme: "dark" });
+    expect(result).toEqual({ theme: "dark", projectRailWidth: 192, assistantWidth: 272 });
   });
 
   it("should normalize invalid settings from backend", async () => {
@@ -19,7 +19,7 @@ describe("TauriSettingsRepository", () => {
 
     const result = await repo.read();
 
-    expect(result).toEqual({ theme: "system" });
+    expect(result).toEqual({ theme: "system", projectRailWidth: 192, assistantWidth: 272 });
   });
 
   it("should normalize null from backend", async () => {
@@ -28,7 +28,7 @@ describe("TauriSettingsRepository", () => {
 
     const result = await repo.read();
 
-    expect(result).toEqual({ theme: "system" });
+    expect(result).toEqual({ theme: "system", projectRailWidth: 192, assistantWidth: 272 });
   });
 
   it("should write settings", async () => {

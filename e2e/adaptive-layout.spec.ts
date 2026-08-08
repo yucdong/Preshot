@@ -8,30 +8,38 @@ async function componentOrder(page: Page) {
   );
 }
 
-async function shrinkFrame(page: Page, frame: ReturnType<Page["locator"]>) {
-  const before = await frame.boundingBox();
-  const handle = frame.locator('[data-resize-handle="right"]');
-  const handleBox = await handle.boundingBox();
-  if (!before || !handleBox) {
-    throw new Error("component resize targets are not visible");
-  }
-
-  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(handleBox.x - before.width * 0.7, handleBox.y + handleBox.height / 2, { steps: 8 });
-  await page.mouse.up();
-
-  await expect
-    .poll(async () => (await frame.boundingBox())?.width ?? 0)
-    .toBeLessThan(before.width);
-}
-
 async function imageRowTops(frame: ReturnType<Page["locator"]>) {
   return frame.locator('[data-testid="image-region"]').evaluateAll((elements) => {
     const tops = elements.map((element) => Math.round((element as HTMLElement).getBoundingClientRect().top));
     return Array.from(new Set(tops)).sort((a, b) => a - b);
   });
 }
+
+test("keeps the A4 canvas contained at the compact desktop width", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
+  await expect(page.locator(FRAME)).toHaveCount(2);
+  await page.setViewportSize({ width: 900, height: 800 });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  });
+
+  const canvasScroller = page.getByTestId("canvas-scroller");
+  await expect
+    .poll(() =>
+      canvasScroller.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+    )
+    .toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+    ),
+  ).toBe(true);
+});
 
 test("plan card grows with text and avoids a large fixed blank area", async ({ page }) => {
   await page.goto("/");
@@ -140,47 +148,23 @@ test("reference images wrap proportionally without an internal scrollbar", async
   expect(containment.tilesInside).toBe(true);
 });
 
-test("component drag shows a live placeholder, shows the overlay, and commits the reordered layout", async ({ page }) => {
+test("component arrows commit reordered layout without drag artifacts", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/");
   await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
   await expect(page.locator(FRAME)).toHaveCount(2);
 
-  const frames = page.locator(FRAME);
-  const source = frames.first();
-  const target = frames.nth(1);
   const before = await componentOrder(page);
   const draggedId = before[0];
   const targetId = before[1];
-  await shrinkFrame(page, source);
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
-  await shrinkFrame(page, target);
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
 
-  const handle = source.getByRole("button", { name: "拖动以移动或交换位置", exact: true });
-  const handleBox = await handle.boundingBox();
-  const nameBox = await source.getByRole("textbox", { name: "组件名称" }).boundingBox();
-  const removeBox = await source.getByRole("button", { name: "移除组件" }).boundingBox();
-  const targetBox = await target.boundingBox();
+  await page.locator(`${FRAME}[data-component-id="${draggedId}"]`).hover();
+  await page
+    .locator(`[data-component-move-controls="${draggedId}"]`)
+    .getByRole("button", { name: "下移一个位置" })
+    .click();
 
-  if (!handleBox || !nameBox || !removeBox || !targetBox) {
-    throw new Error("component drag targets are not visible");
-  }
-
-  const dragStartX = (nameBox.x + nameBox.width + removeBox.x) / 2;
-  const dragStartY = handleBox.y + handleBox.height / 2;
-  await page.mouse.move(dragStartX, dragStartY);
-  await page.mouse.down();
-  await page.waitForTimeout(200);
-  await page.mouse.move(dragStartX + 12, dragStartY, { steps: 3 });
-  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * 0.75, { steps: 8 });
-
-  await expect(page.locator('[data-drag-placeholder="component"]').first()).toBeVisible();
-  await expect(page.getByTestId("drag-overlay-preview")).toBeVisible();
-
-  await page.mouse.up();
-
-  await expect(page.locator('[data-drag-placeholder="component"]')).toHaveCount(0);
+  await expect(page.locator("[data-component-drag-handle]")).toHaveCount(0);
   await expect(page.getByTestId("drag-overlay-preview")).toHaveCount(0);
 
   await expect.poll(() => componentOrder(page)).toEqual([targetId, draggedId]);

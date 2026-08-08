@@ -37,9 +37,7 @@ import {
 import {
   COMPONENT_INSET,
   REFERENCE_HEADER_HEIGHT,
-  type ReferenceFlowSlot,
 } from "../../domain/plan/canvas/referenceLayout";
-import { calculateCaptionTextSizing } from "../../domain/plan/canvas/captionTextSizing";
 import { parseHtmlToBlocks } from "./htmlToBlocks";
 import {
   layoutPdfRichText,
@@ -180,18 +178,6 @@ function drawPaginatedRichTextLayout(
   }
 }
 
-function splitReferenceSlot(slot: ReferenceFlowSlot): { image: Rect; caption: Rect } {
-  return {
-    image: { x: slot.x, y: slot.y, width: slot.width, height: slot.imageHeight },
-    caption: {
-      x: slot.x,
-      y: slot.y + slot.imageHeight,
-      width: slot.width,
-      height: slot.captionHeight,
-    },
-  };
-}
-
 function referenceImageDrawBox(slotRect: Rect, image: PDFImage): Rect {
   if (
     !Number.isFinite(image.width) ||
@@ -272,7 +258,7 @@ function preparePdfTextLayouts(
       continue;
     }
 
-    if (component.showDescription && component.description.trim()) {
+    if (component.description.trim()) {
       const descriptionLayout = layoutPdfRichText(
         parseHtmlToBlocks(component.description),
         textWidth,
@@ -541,7 +527,7 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
           const ref = component;
           const isContinuation = placement.kind === "continuation";
 
-          if (!isContinuation && ref.showDescription && ref.description.trim()) {
+          if (!isContinuation && ref.description.trim()) {
             const descriptionLayout =
               paginatedReferenceDescriptionLayouts.get(component.id);
             if (descriptionLayout) {
@@ -579,10 +565,17 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
                 embedded.set(imageFile, image);
               }
 
-              const split = splitReferenceSlot(slot);
               const imageSlotInPage: Rect = slotToPageRect(
                 contentRect,
-                scaleRect(split.image, contentScale),
+                scaleRect(
+                  {
+                    x: slot.x,
+                    y: slot.y,
+                    width: slot.width,
+                    height: slot.imageHeight,
+                  },
+                  contentScale,
+                ),
               );
 
               page.drawRectangle({
@@ -602,32 +595,6 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
                 height: imageRect.height,
               });
 
-              const shouldExportCaption = Boolean(imageRecord.caption?.trim());
-              if (shouldExportCaption) {
-                const captionRect: Rect = slotToPageRect(
-                  contentRect,
-                  scaleRect(split.caption, contentScale),
-                );
-                const sizing = calculateCaptionTextSizing({
-                  caption: imageRecord.caption,
-                  width: slot.width,
-                  imageHeight: slot.imageHeight,
-                });
-                const fontSize = (slot.captionFontSize ?? sizing.fontSize) * contentScale;
-                const lineHeight =
-                  (slot.captionLineHeight ?? sizing.lineHeight) * contentScale;
-                const lines = slot.captionLines ?? sizing.lines;
-                const savedY = captionRect.y + captionRect.height - fontSize - 2;
-                for (const [lineIndex, line] of lines.entries()) {
-                  page.drawText(line, {
-                    x: captionRect.x,
-                    y: savedY - lineIndex * lineHeight,
-                    size: fontSize,
-                    font: regular,
-                    color: TEXT_COLOR,
-                  });
-                }
-              }
             }
           }
         }

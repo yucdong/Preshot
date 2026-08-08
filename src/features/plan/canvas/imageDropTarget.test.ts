@@ -8,7 +8,6 @@ function reference(id: string, imageIds: string[]): PlanComponent {
     name: id,
     type: "reference",
     x: 0,
-    y: 60,
     width: 320,
     height: 240,
     description: "",

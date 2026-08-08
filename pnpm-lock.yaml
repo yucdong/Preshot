@@ -26,6 +26,12 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.7)
+      '@fontsource-variable/nunito-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/outfit':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@pdf-lib/fontkit':
         specifier: ^1.1.1
         version: 1.1.1
@@ -44,6 +50,9 @@ importers:
       konva:
         specifier: ^10.3.0
         version: 10.3.0
+      lucide-react:
+        specifier: ^1.28.0
+        version: 1.28.0(react@19.2.7)
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
@@ -553,6 +562,12 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha1-r+/nhZSfFqxM3R5pWTWjIVct1Wo=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@floating-ui/utils/-/utils-0.2.12.tgz}
+
+  '@fontsource-variable/nunito-sans@5.3.0':
+    resolution: {integrity: sha1-fSSTTmIpT4n2a681pyazYLs2Xfo=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@fontsource-variable/nunito-sans/-/nunito-sans-5.3.0.tgz}
+
+  '@fontsource-variable/outfit@5.3.0':
+    resolution: {integrity: sha1-EQYGHdQTt3+vcqis+2NbAfwz02I=, tarball: https://ms-feed-17.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@fontsource-variable/outfit/-/outfit-5.3.0.tgz}
 
   '@handlewithcare/prosemirror-inputrules@0.1.4':
     resolution: {integrity: sha1-080qkDG0dfHnyhS+LKLTQNn2+jY=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@handlewithcare/prosemirror-inputrules/-/prosemirror-inputrules-0.1.4.tgz}
@@ -1071,7 +1086,7 @@ packages:
       react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
 
   '@types/aria-query@5.0.4':
-    resolution: {integrity: sha1-GjHD03iFDSd42rtjdNA23LpLpwg=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@types/aria-query/-/aria-query-5.0.4.tgz}
+    resolution: {integrity: sha1-GjHD03iFDSd42rtjdNA23LpLpwg=, tarball: https://ms-feed-17.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@types/aria-query/-/aria-query-5.0.4.tgz}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha1-PfFfJ7qFMZyqB7oI0HIYibs5wBc=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@types/babel__core/-/babel__core-7.20.5.tgz}
@@ -1246,7 +1261,7 @@ packages:
     engines: {node: '>=8'}
 
   ansi-styles@5.2.0:
-    resolution: {integrity: sha1-B0SWkK1Fd30ZJKwquy/IiV26g2s=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ansi-styles/-/ansi-styles-5.2.0.tgz}
+    resolution: {integrity: sha1-B0SWkK1Fd30ZJKwquy/IiV26g2s=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ansi-styles/-/ansi-styles-5.2.0.tgz}
     engines: {node: '>=10'}
 
   argparse@2.0.1:
@@ -1305,7 +1320,7 @@ packages:
     engines: {node: '>=10'}
 
   clsx@2.1.1:
-    resolution: {integrity: sha1-7tOXyf2L2IK/sY3qtxAgSaLzKZk=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/clsx/-/clsx-2.1.1.tgz}
+    resolution: {integrity: sha1-7tOXyf2L2IK/sY3qtxAgSaLzKZk=, tarball: https://ms-feed-17.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/clsx/-/clsx-2.1.1.tgz}
     engines: {node: '>=6'}
 
   color-convert@2.0.1:
@@ -1355,7 +1370,7 @@ packages:
     resolution: {integrity: sha1-pvLc5hL63S7x9Rm3NVHxfoUZmDE=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/deep-is/-/deep-is-0.1.4.tgz}
 
   dequal@2.0.3:
-    resolution: {integrity: sha1-JkQhTxmX057Q7g7OcjNUkKesZ74=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/dequal/-/dequal-2.0.3.tgz}
+    resolution: {integrity: sha1-JkQhTxmX057Q7g7OcjNUkKesZ74=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/dequal/-/dequal-2.0.3.tgz}
     engines: {node: '>=6'}
 
   detect-libc@2.1.2:
@@ -1366,7 +1381,7 @@ packages:
     resolution: {integrity: sha1-FjrN9kMzDKoLTNfCHn7ndV1vpJM=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/detect-node-es/-/detect-node-es-1.1.0.tgz}
 
   dom-accessibility-api@0.5.16:
-    resolution: {integrity: sha1-WnQp5gZus2ZNkR4z+w5F3o6whFM=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/dom-accessibility-api/-/dom-accessibility-api-0.5.16.tgz}
+    resolution: {integrity: sha1-WnQp5gZus2ZNkR4z+w5F3o6whFM=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/dom-accessibility-api/-/dom-accessibility-api-0.5.16.tgz}
 
   dom-accessibility-api@0.6.3:
     resolution: {integrity: sha1-mT6SXMHXPyxmLn113VpURSWaj9g=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/dom-accessibility-api/-/dom-accessibility-api-0.6.3.tgz}
@@ -1755,8 +1770,13 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha1-HaJ+ZxAnGUdpXa9oSOhH8B2EuSA=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lru-cache/-/lru-cache-5.1.1.tgz}
 
+  lucide-react@1.28.0:
+    resolution: {integrity: sha1-2VVTavsN9JCk6X+vBozrjGstr78=, tarball: https://ms-feed-17.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lucide-react/-/lucide-react-1.28.0.tgz}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   lz-string@1.5.0:
-    resolution: {integrity: sha1-watQ93iHtxJiEgG6n9Tjpu0JmUE=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lz-string/-/lz-string-1.5.0.tgz}
+    resolution: {integrity: sha1-watQ93iHtxJiEgG6n9Tjpu0JmUE=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lz-string/-/lz-string-1.5.0.tgz}
     hasBin: true
 
   magic-string@0.30.21:
@@ -1872,7 +1892,7 @@ packages:
     engines: {node: '>= 0.8.0'}
 
   pretty-format@27.5.1:
-    resolution: {integrity: sha1-IYGHn96lGnpYUfs52SD6pj8B2I4=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/pretty-format/-/pretty-format-27.5.1.tgz}
+    resolution: {integrity: sha1-IYGHn96lGnpYUfs52SD6pj8B2I4=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/pretty-format/-/pretty-format-27.5.1.tgz}
     engines: {node: ^10.13.0 || ^12.13.0 || ^14.15.0 || >=15.0.0}
 
   prosemirror-changeset@2.4.1:
@@ -1984,7 +2004,7 @@ packages:
         optional: true
 
   react-is@17.0.2:
-    resolution: {integrity: sha1-5pHUqOnHiTZWVVOas3J2Kw77VPA=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-is/-/react-is-17.0.2.tgz}
+    resolution: {integrity: sha1-5pHUqOnHiTZWVVOas3J2Kw77VPA=, tarball: https://ms-feed-17.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-is/-/react-is-17.0.2.tgz}
 
   react-konva@19.2.5:
     resolution: {integrity: sha1-ybcVyxeS5tk+5ZZzAiTYCEy/tPc=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-konva/-/react-konva-19.2.5.tgz}
@@ -1994,7 +2014,7 @@ packages:
       react-dom: ^19.2.0
 
   react-number-format@5.4.5:
-    resolution: {integrity: sha1-WFXyrk5BU+YjHTo2tjXDi+aCTIo=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-number-format/-/react-number-format-5.4.5.tgz}
+    resolution: {integrity: sha1-WFXyrk5BU+YjHTo2tjXDi+aCTIo=, tarball: https://ms-feed-17.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-number-format/-/react-number-format-5.4.5.tgz}
     peerDependencies:
       react: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -2010,7 +2030,7 @@ packages:
     engines: {node: '>=0.10.0'}
 
   react-remove-scroll-bar@2.3.8:
-    resolution: {integrity: sha1-mcIPkI7kZ7OFtoo0abSj51ABIiM=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-remove-scroll-bar/-/react-remove-scroll-bar-2.3.8.tgz}
+    resolution: {integrity: sha1-mcIPkI7kZ7OFtoo0abSj51ABIiM=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-remove-scroll-bar/-/react-remove-scroll-bar-2.3.8.tgz}
     engines: {node: '>=10'}
     peerDependencies:
       '@types/react': '*'
@@ -2020,7 +2040,7 @@ packages:
         optional: true
 
   react-remove-scroll@2.7.2:
-    resolution: {integrity: sha1-ZELaVnkRF2YZeK6ZzSm+kCb+zKA=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-remove-scroll/-/react-remove-scroll-2.7.2.tgz}
+    resolution: {integrity: sha1-ZELaVnkRF2YZeK6ZzSm+kCb+zKA=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-remove-scroll/-/react-remove-scroll-2.7.2.tgz}
     engines: {node: '>=10'}
     peerDependencies:
       '@types/react': '*'
@@ -2030,7 +2050,7 @@ packages:
         optional: true
 
   react-style-singleton@2.2.3:
-    resolution: {integrity: sha1-QmVgi+aaTXDP4wR/LGyIssOs44g=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-style-singleton/-/react-style-singleton-2.2.3.tgz}
+    resolution: {integrity: sha1-QmVgi+aaTXDP4wR/LGyIssOs44g=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/react-style-singleton/-/react-style-singleton-2.2.3.tgz}
     engines: {node: '>=10'}
     peerDependencies:
       '@types/react': '*'
@@ -2126,7 +2146,7 @@ packages:
     resolution: {integrity: sha1-plEBOFpP1svVgLdUbaAXDzB7U10=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tabbable/-/tabbable-6.5.0.tgz}
 
   tagged-tag@1.0.0:
-    resolution: {integrity: sha1-oLWRfChky6VIQUlav6P2sT7c9NY=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tagged-tag/-/tagged-tag-1.0.0.tgz}
+    resolution: {integrity: sha1-oLWRfChky6VIQUlav6P2sT7c9NY=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tagged-tag/-/tagged-tag-1.0.0.tgz}
     engines: {node: '>=20'}
 
   tailwindcss@4.3.3:
@@ -2187,7 +2207,7 @@ packages:
     engines: {node: '>= 0.8.0'}
 
   type-fest@5.8.0:
-    resolution: {integrity: sha1-bVF5mCV8MxWdtNTabxjvozvUffM=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/type-fest/-/type-fest-5.8.0.tgz}
+    resolution: {integrity: sha1-bVF5mCV8MxWdtNTabxjvozvUffM=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/type-fest/-/type-fest-5.8.0.tgz}
     engines: {node: '>=20'}
 
   typescript-eslint@8.43.0:
@@ -2219,7 +2239,7 @@ packages:
     resolution: {integrity: sha1-mxpSWVIlhZ5V9mnZKPiMbFfyp34=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/uri-js/-/uri-js-4.4.1.tgz}
 
   use-callback-ref@1.3.3:
-    resolution: {integrity: sha1-mNn6sGcHWEHFssaFIJDV0P6r4r8=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/use-callback-ref/-/use-callback-ref-1.3.3.tgz}
+    resolution: {integrity: sha1-mNn6sGcHWEHFssaFIJDV0P6r4r8=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/use-callback-ref/-/use-callback-ref-1.3.3.tgz}
     engines: {node: '>=10'}
     peerDependencies:
       '@types/react': '*'
@@ -2229,7 +2249,7 @@ packages:
         optional: true
 
   use-sidecar@1.1.3:
-    resolution: {integrity: sha1-EOf9iX0TC4luLFRsY6XoIz0A79s=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/use-sidecar/-/use-sidecar-1.1.3.tgz}
+    resolution: {integrity: sha1-EOf9iX0TC4luLFRsY6XoIz0A79s=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/use-sidecar/-/use-sidecar-1.1.3.tgz}
     engines: {node: '>=10'}
     peerDependencies:
       '@types/react': '*'
@@ -2814,6 +2834,10 @@ snapshots:
       tabbable: 6.5.0
 
   '@floating-ui/utils@0.2.12': {}
+
+  '@fontsource-variable/nunito-sans@5.3.0': {}
+
+  '@fontsource-variable/outfit@5.3.0': {}
 
   '@handlewithcare/prosemirror-inputrules@0.1.4(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.1)':
     dependencies:
@@ -3944,6 +3968,10 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lucide-react@1.28.0(react@19.2.7):
+    dependencies:
+      react: 19.2.7
 
   lz-string@1.5.0: {}
 

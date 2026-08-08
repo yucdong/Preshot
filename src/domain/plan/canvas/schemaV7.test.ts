@@ -5,8 +5,8 @@ import { migratePlan } from "./migrate";
 const context = { projectName: "Editorial" };
 const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
 
-describe("schema v7", () => {
-  it("reloads saved v7 card coordinates without changing their order or dimensions", () => {
+describe("schema v7 migration", () => {
+  it("migrates saved v7 card coordinates into v8 order and dimensions", () => {
     const saved = {
       schemaVersion: 7,
       title: "Editorial",
@@ -34,7 +34,11 @@ describe("schema v7", () => {
       ],
     };
 
-    expect(migratePlan(saved, context)).toEqual(saved);
+    expect(migratePlan(saved, context)).toEqual({
+      schemaVersion: 8,
+      title: "Editorial",
+      components: saved.components.map(({ y: _y, ...component }) => component),
+    });
   });
 
   it("migrates v6 positions, image frames, and legacy captions into the continuous canvas", () => {
@@ -76,14 +80,13 @@ describe("schema v7", () => {
     );
 
     expect(migrated).toMatchObject({
-      schemaVersion: 7,
+      schemaVersion: 8,
       title: "Editorial",
       components: [
         {
           id: "plan",
           type: "plan",
           x: 0,
-          y: 60,
           width: canvasWidth,
           height: 84,
           html: "<p>Golden hour</p>",
@@ -108,7 +111,7 @@ describe("schema v7", () => {
     });
   });
 
-  it("stores a single continuous card spanning all v6 reference fragments", () => {
+  it("clamps a legacy multi-page card until v8 content normalization creates continuations", () => {
     const migrated = migratePlan(
       {
         schemaVersion: 6,
@@ -137,10 +140,48 @@ describe("schema v7", () => {
     expect(migrated.components[0]).toMatchObject({
       id: "reference",
       x: 0,
-      y: 60,
       width: canvasWidth,
-      height: 1349.89,
+      height: contentSize(DEFAULT_PAGE_GEOMETRY).height,
     });
+    expect(migrated.components[0]).not.toHaveProperty("y");
+  });
+
+  it("accepts and clamps an oversized v7 continuous-canvas reference card", () => {
+    const maximumHeight = contentSize(DEFAULT_PAGE_GEOMETRY).height;
+    const migrated = migratePlan(
+      {
+        schemaVersion: 7,
+        title: "Summer portrait",
+        components: [
+          {
+            id: "reference",
+            name: "Watermelon",
+            type: "reference",
+            x: 0,
+            y: 186.218,
+            width: 287.455,
+            height: 1120.451,
+            description: "",
+            images: [
+              {
+                id: "image",
+                file: "references/0089.png",
+                aspectRatio: 0.6612694300518135,
+                frameWidth: 99.19041450777202,
+                frameHeight: 150,
+              },
+            ],
+          },
+        ],
+      },
+      context,
+    );
+
+    expect(migrated.components[0]).toMatchObject({
+      id: "reference",
+      height: maximumHeight,
+    });
+    expect(migrated.components[0]).not.toHaveProperty("y");
   });
 
   it.each([

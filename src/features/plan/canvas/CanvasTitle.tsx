@@ -34,7 +34,7 @@ function CanvasTitleInput({ title, scale = 1, onCommit }: CanvasTitleProps) {
       <input
         aria-describedby={titleError ? "canvas-title-error" : undefined}
         aria-label={t("canvas.documentTitle")}
-        className="w-full border-0 bg-transparent px-0 font-semibold text-stone-900 outline-none focus:ring-2 focus:ring-amber-500 dark:text-stone-100"
+        className="font-editorial w-full border-0 bg-transparent px-0 font-bold text-paper-ink outline-none focus:ring-2 focus:ring-paper-primary"
         onBlur={commit}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
@@ -55,7 +55,7 @@ function CanvasTitleInput({ title, scale = 1, onCommit }: CanvasTitleProps) {
         value={draft}
       />
       {titleError ? (
-        <div className="text-sm text-red-600 dark:text-red-400" id="canvas-title-error" role="alert">
+        <div className="text-sm text-paper-danger" id="canvas-title-error" role="alert">
           {titleError}
         </div>
       ) : null}

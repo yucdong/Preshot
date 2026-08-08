@@ -43,7 +43,8 @@ function temporaryExportComponents(
         name: component.name,
         type: "plan",
         width,
-        contentScale: 1,
+        layoutX: component.x,
+        contentScale: component.contentScale ?? 1,
         html: component.html,
       };
     }
@@ -52,6 +53,7 @@ function temporaryExportComponents(
       name: component.name,
       type: "reference",
       width,
+      layoutX: component.x,
       contentScale: 1,
       description: component.description,
       showDescription: true,
@@ -120,6 +122,7 @@ export function buildCanvasLayout(
     {
       frameChrome: PDF_COMPONENT_FRAME_CHROME,
       includeReferenceAddTile: false,
+      exclusiveRows: true,
     },
   );
   return {

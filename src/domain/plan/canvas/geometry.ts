@@ -78,6 +78,24 @@ export interface CardSnapResult {
   rect: Rect;
   x: AlignmentSnapResult;
   y: AlignmentSnapResult;
+  guides: AlignmentGuides;
+}
+
+export type ResizeEdge = "left" | "right" | "top" | "bottom";
+
+export interface AlignmentGuides {
+  /** Canvas x coordinate for a vertical alignment guide. */
+  vertical: number | null;
+  /** Canvas y coordinate for a horizontal alignment guide. */
+  horizontal: number | null;
+}
+
+export interface CardResizeSnapInput extends CardSnapInput {
+  edge: ResizeEdge;
+  canvasWidth?: number;
+  minimumWidth?: number;
+  minimumHeight?: number;
+  constrainToCanvas?: boolean;
 }
 
 export function contentSize(geometry: PageGeometry): { width: number; height: number } {
@@ -140,6 +158,56 @@ export function resizeCard(
   return clampCardRect({ ...rect, ...size }, canvasWidth);
 }
 
+/**
+ * Resizes one card edge by a pointer delta while retaining the opposite edge.
+ * Unlike `resizeCard`, this deliberately changes x/y for left/top handles.
+ */
+export function resizeCardFromEdge(
+  rect: Rect,
+  edge: ResizeEdge,
+  delta: number,
+  canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width,
+): Rect {
+  const base = clampCardRect(rect, canvasWidth);
+  const safeDelta = Number.isFinite(delta) ? delta : 0;
+  const availableWidth = positiveFinite(
+    canvasWidth,
+    contentSize(DEFAULT_PAGE_GEOMETRY).width,
+  );
+  const minimumWidth = Math.min(MIN_COMPONENT_WIDTH, availableWidth);
+
+  if (edge === "left") {
+    const right = base.x + base.width;
+    const width = Math.max(
+      minimumWidth,
+      Math.min(right, base.width - safeDelta),
+    );
+    return { ...base, x: right - width, width };
+  }
+
+  if (edge === "right") {
+    const width = Math.max(
+      minimumWidth,
+      Math.min(availableWidth - base.x, base.width + safeDelta),
+    );
+    return { ...base, width };
+  }
+
+  if (edge === "top") {
+    const bottom = base.y + base.height;
+    const height = Math.max(
+      MIN_COMPONENT_HEIGHT,
+      Math.min(bottom, base.height - safeDelta),
+    );
+    return { ...base, y: bottom - height, height };
+  }
+
+  return {
+    ...base,
+    height: Math.max(MIN_COMPONENT_HEIGHT, base.height + safeDelta),
+  };
+}
+
 /** Returns enough vertical room for the lowest card plus a stable bottom gutter. */
 export function canvasHeight(rects: readonly Pick<Rect, "y" | "height">[]): number {
   const bottom = rects.reduce(
@@ -151,6 +219,71 @@ export function canvasHeight(rects: readonly Pick<Rect, "y" | "height">[]): numb
     DOCUMENT_TITLE_HEIGHT,
   );
   return bottom + SPACING;
+}
+
+function axisPoints(origin: number, size: number): number[] {
+  const safeOrigin = Number.isFinite(origin) ? origin : 0;
+  const safeSize = Number.isFinite(size) ? size : 0;
+  return [safeOrigin, safeOrigin + safeSize / 2, safeOrigin + safeSize];
+}
+
+function snapRectAxis(
+  origin: number,
+  size: number,
+  candidates: readonly Rect[],
+  axis: "x" | "y",
+  threshold: number,
+): AlignmentSnapResult {
+  const current = Number.isFinite(origin) ? origin : 0;
+  if (!Number.isFinite(threshold) || threshold < 0) {
+    return { value: current, snapped: false, guide: null, delta: 0 };
+  }
+
+  let guide: number | null = null;
+  let delta = Number.POSITIVE_INFINITY;
+  const ownPoints = axisPoints(current, size);
+
+  // Candidate order, then own-edge order, then candidate-guide order makes
+  // equally-close outcomes stable without relying on engine sort behavior.
+  for (const candidate of candidates) {
+    const candidatePoints = axisPoints(
+      axis === "x" ? candidate.x : candidate.y,
+      axis === "x" ? candidate.width : candidate.height,
+    );
+    for (const ownPoint of ownPoints) {
+      for (const candidatePoint of candidatePoints) {
+        if (!Number.isFinite(candidatePoint)) {
+          continue;
+        }
+        const candidateDelta = candidatePoint - ownPoint;
+        if (
+          Math.abs(candidateDelta) <= threshold &&
+          Math.abs(candidateDelta) < Math.abs(delta)
+        ) {
+          guide = candidatePoint;
+          delta = candidateDelta;
+        }
+      }
+    }
+  }
+
+  return guide === null
+    ? { value: current, snapped: false, guide: null, delta: 0 }
+    : {
+        value: current + delta,
+        snapped: true,
+        guide,
+        delta,
+      };
+}
+
+function unsnappedAlignment(value: number): AlignmentSnapResult {
+  return {
+    value: Number.isFinite(value) ? value : 0,
+    snapped: false,
+    guide: null,
+    delta: 0,
+  };
 }
 
 export function snapAlignment({
@@ -182,32 +315,138 @@ export function snapAlignment({
 }
 
 /**
- * Snaps the top-left of a card against candidate left/centre/right and
- * top/centre/bottom alignment guides. Rendering guides is deliberately left
- * to the interaction batch.
+ * Snaps any card left/centre/right and top/centre/bottom point against a
+ * candidate alignment guide. Rendering guides is deliberately left to the UI.
  */
 export function snapCardPosition({
   rect,
   candidates,
   threshold,
 }: CardSnapInput): CardSnapResult {
-  const xCandidates = candidates.flatMap((candidate) => [
-    candidate.x,
-    candidate.x + candidate.width / 2 - rect.width / 2,
-    candidate.x + candidate.width - rect.width,
-  ]);
-  const yCandidates = candidates.flatMap((candidate) => [
-    candidate.y,
-    candidate.y + candidate.height / 2 - rect.height / 2,
-    candidate.y + candidate.height - rect.height,
-  ]);
-  const x = snapAlignment({ value: rect.x, candidates: xCandidates, threshold });
-  const y = snapAlignment({ value: rect.y, candidates: yCandidates, threshold });
+  const x = snapRectAxis(rect.x, rect.width, candidates, "x", threshold);
+  const y = snapRectAxis(rect.y, rect.height, candidates, "y", threshold);
 
   return {
     rect: { ...rect, x: x.value, y: y.value },
     x,
     y,
+    guides: {
+      vertical: x.guide,
+      horizontal: y.guide,
+    },
+  };
+}
+
+/**
+ * Snaps the moving edge of a resize operation to another card's left/centre/
+ * right or top/centre/bottom guide. The opposite edge remains anchored.
+ */
+export function snapCardResize({
+  rect,
+  candidates,
+  edge,
+  threshold,
+  canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width,
+  minimumWidth: requestedMinimumWidth,
+  minimumHeight: requestedMinimumHeight,
+  constrainToCanvas = true,
+}: CardResizeSnapInput): CardSnapResult {
+  const base = constrainToCanvas
+    ? clampCardRect(rect, canvasWidth)
+    : {
+        x: Number.isFinite(rect.x) ? rect.x : 0,
+        y: Number.isFinite(rect.y) ? rect.y : 0,
+        width: Number.isFinite(rect.width) && rect.width > 0 ? rect.width : 0,
+        height: Number.isFinite(rect.height) && rect.height > 0 ? rect.height : 0,
+      };
+  const availableWidth = positiveFinite(
+    canvasWidth,
+    contentSize(DEFAULT_PAGE_GEOMETRY).width,
+  );
+  const minimumWidth = constrainToCanvas
+    ? Math.min(
+        Number.isFinite(requestedMinimumWidth) && requestedMinimumWidth! > 0
+          ? requestedMinimumWidth!
+          : MIN_COMPONENT_WIDTH,
+        availableWidth,
+      )
+    : Number.isFinite(requestedMinimumWidth) && requestedMinimumWidth! > 0
+      ? requestedMinimumWidth!
+      : 0;
+  const minimumHeight =
+    Number.isFinite(requestedMinimumHeight) && requestedMinimumHeight! > 0
+      ? requestedMinimumHeight!
+      : MIN_COMPONENT_HEIGHT;
+  let next = base;
+  let x = unsnappedAlignment(base.x);
+  let y = unsnappedAlignment(base.y);
+
+  if (edge === "left" || edge === "right") {
+    const activeEdge = edge === "left" ? base.x : base.x + base.width;
+    x = snapAlignment({
+      value: activeEdge,
+      candidates: candidates.flatMap((candidate) =>
+        axisPoints(candidate.x, candidate.width),
+      ),
+      threshold,
+    });
+
+    if (x.snapped && x.guide !== null) {
+      const width =
+        edge === "left"
+          ? base.x + base.width - x.guide
+          : x.guide - base.x;
+      if (
+        width >= minimumWidth &&
+        (!constrainToCanvas || width <= availableWidth) &&
+        (!constrainToCanvas || edge !== "left" || x.guide >= 0) &&
+        (!constrainToCanvas || edge !== "right" || x.guide <= availableWidth)
+      ) {
+        next =
+          edge === "left"
+            ? { ...base, x: x.guide, width }
+            : { ...base, width };
+      } else {
+        x = unsnappedAlignment(activeEdge);
+      }
+    }
+  } else {
+    const activeEdge = edge === "top" ? base.y : base.y + base.height;
+    y = snapAlignment({
+      value: activeEdge,
+      candidates: candidates.flatMap((candidate) =>
+        axisPoints(candidate.y, candidate.height),
+      ),
+      threshold,
+    });
+
+    if (y.snapped && y.guide !== null) {
+      const height =
+        edge === "top"
+          ? base.y + base.height - y.guide
+          : y.guide - base.y;
+      if (
+        height >= minimumHeight &&
+        (!constrainToCanvas || edge !== "top" || y.guide >= 0)
+      ) {
+        next =
+          edge === "top"
+            ? { ...base, y: y.guide, height }
+            : { ...base, height };
+      } else {
+        y = unsnappedAlignment(activeEdge);
+      }
+    }
+  }
+
+  return {
+    rect: next,
+    x,
+    y,
+    guides: {
+      vertical: x.guide,
+      horizontal: y.guide,
+    },
   };
 }
 

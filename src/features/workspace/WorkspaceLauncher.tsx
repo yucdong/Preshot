@@ -19,7 +19,7 @@ export interface WorkspaceLauncherProps {
 }
 
 const actionButtonClassName =
-  "inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-app-primary disabled:cursor-not-allowed disabled:opacity-50";
 
 export function WorkspaceLauncher({
   projects,
@@ -55,26 +55,23 @@ export function WorkspaceLauncher({
   }
 
   return (
-    <main className="min-h-screen bg-stone-50 px-8 py-10 text-stone-800 dark:bg-stone-950 dark:text-stone-100">
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-7xl flex-col rounded-[2rem] border border-stone-200 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.08),_transparent_45%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(250,250,249,1))] p-8 shadow-2xl shadow-black/10 dark:border-white/10 dark:bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.12),_transparent_45%),linear-gradient(180deg,_rgba(28,25,23,0.98),_rgba(12,10,9,1))] dark:shadow-black/30">
-        <header className="flex flex-wrap items-start justify-between gap-6 border-b border-stone-200 pb-8 dark:border-white/10">
+    <main className="min-h-screen bg-app-bg text-app-ink">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-8 py-8">
+        <header className="flex flex-wrap items-center justify-between gap-6 rounded-lg bg-[#17191d] px-6 py-5 text-white shadow-[0_8px_24px_rgb(23_25_29_/_16%)]">
           <div className="max-w-2xl">
-            <p className="text-xs uppercase tracking-[0.3em] text-stone-500 dark:text-stone-400">
-              Preshot
-            </p>
-            <h1 className="mt-3 text-5xl font-semibold tracking-tight text-stone-900 dark:text-white">
-              Preshot
+            <h1 className="font-editorial text-3xl font-extrabold">
+              PRESHOT
             </h1>
-            <p className="mt-4 text-base leading-7 text-stone-600 dark:text-stone-300">
+            <p className="mt-2 text-sm leading-6 text-white/75">
               {t("workspace.intro")}
             </p>
-            <p className="mt-3 text-sm text-stone-500 dark:text-stone-500">
+            <p className="mt-1 text-xs text-white/40">
               {t("workspace.menuHint")}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button
-              className={`${actionButtonClassName} bg-amber-300 text-stone-950 hover:bg-amber-200`}
+              className={`${actionButtonClassName} bg-app-accent text-white hover:bg-app-accent-hover active:scale-[0.98]`}
               disabled={Boolean(busyAction)}
               onClick={() =>
                 void runAction("request-create", () => onRequestCreate())
@@ -84,7 +81,7 @@ export function WorkspaceLauncher({
               {t("workspace.newProject")}
             </button>
             <button
-              className={`${actionButtonClassName} border border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-100 dark:hover:border-white/20 dark:hover:bg-white/8`}
+              className={`${actionButtonClassName} border border-white/15 bg-white/[0.06] text-white hover:bg-white/10 active:scale-[0.98]`}
               disabled={Boolean(busyAction)}
               onClick={() =>
                 void runAction("open-existing", () => onOpenExisting())
@@ -100,10 +97,10 @@ export function WorkspaceLauncher({
           {loading ? (
             <div
               aria-live="polite"
-              className="mb-6 inline-flex items-center gap-3 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm text-stone-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-300"
+              className="mb-6 inline-flex items-center gap-3 rounded-lg border border-app-border bg-app-panel px-4 py-2 text-sm text-app-muted"
               role="status"
             >
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
+              <span className="h-2.5 w-2.5 rounded-full bg-app-primary" />
               {t("workspace.loading")}
             </div>
           ) : null}
@@ -132,14 +129,14 @@ export function WorkspaceLauncher({
               projects={projects}
             />
           ) : (
-            <section className="rounded-[2rem] border border-dashed border-stone-300 bg-stone-50 p-10 text-center dark:border-white/15 dark:bg-white/[0.02]">
-              <p className="text-xs uppercase tracking-[0.24em] text-stone-500 dark:text-stone-400">
+            <section className="py-16 text-center">
+              <p className="text-xs font-semibold text-app-primary">
                 {t("workspace.launcherEyebrow")}
               </p>
-              <h2 className="mt-4 text-3xl font-semibold text-stone-900 dark:text-white">
+              <h2 className="mt-4 text-2xl font-semibold">
                 {t("workspace.emptyTitle")}
               </h2>
-              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-stone-600 dark:text-stone-300">
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-app-muted">
                 {t("workspace.emptyBody")}
               </p>
             </section>

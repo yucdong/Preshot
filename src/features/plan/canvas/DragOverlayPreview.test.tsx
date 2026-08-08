@@ -9,7 +9,6 @@ const component: PlanComponent = {
   name: "Reference",
   type: "reference",
   x: 0,
-  y: 60,
   width: 320,
   height: 240,
   description: "",
@@ -27,7 +26,7 @@ describe("DragOverlayPreview", () => {
   it("does not surface legacy captions in a v7 image preview", () => {
     render(
       <DragOverlayPreview
-        active={{ type: "image", id: "image" }}
+        activeId="image"
         component={component}
         imageSrc={() => undefined}
       />,

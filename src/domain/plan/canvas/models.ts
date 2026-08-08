@@ -22,7 +22,7 @@ export const MIN_CONTENT_SCALE = 0.5;
 export const MAX_CONTENT_SCALE = 2;
 export const DEFAULT_CONTENT_SCALE = 1;
 
-export const CURRENT_SCHEMA_VERSION = 7 as const;
+export const CURRENT_SCHEMA_VERSION = 8 as const;
 
 export function clampHeight(height: number, maxHeight: number): number {
   if (!Number.isFinite(height)) {
@@ -75,15 +75,16 @@ export interface ReferenceImage {
 export interface BaseComponent {
   id: string;
   name: string;
-  /** Absolute continuous-canvas coordinates and dimensions in points. */
+  /** Horizontal offset and dimensions inside the printable A4 content box. */
   x: number;
-  y: number;
   width: number;
   height: number;
 }
 
 export interface PlanTextComponent extends BaseComponent {
   type: "plan";
+  /** Optional per-component content scale; values below 1 compact text to fit one page. */
+  contentScale?: number;
   html: string;
 }
 
@@ -97,13 +98,13 @@ export interface ReferenceComponent extends BaseComponent {
 export type PlanComponent = PlanTextComponent | ReferenceComponent;
 
 export interface ProjectPlan {
-  schemaVersion: 7;
+  schemaVersion: 8;
   title: string;
   components: PlanComponent[];
 }
 
 export const EMPTY_PLAN: ProjectPlan = {
-  schemaVersion: 7,
+  schemaVersion: 8,
   title: UNTITLED_PLAN_TITLE,
   components: [],
 };

@@ -1,4 +1,4 @@
-import { useCallback, useState, type MutableRefObject, type Ref } from "react";
+import { useCallback, useEffect, useState, type MutableRefObject, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlanTextComponent } from "../../../domain/plan/canvas/models";
 import { RichTextEditor } from "../RichTextEditor";
@@ -33,7 +33,13 @@ export function PlanTextComponentView({
   scale,
 }: PlanTextComponentViewProps) {
   const { t } = useTranslation();
+  const contentScale = component.contentScale ?? 1;
   const [contentHeightPoints, setContentHeightPoints] = useState(0);
+  const [blockContent, setBlockContent] = useState<{
+    sourceHtml: string;
+    blocks: string[];
+  } | null>(null);
+  const [measurement, setMeasurement] = useState<PlanMeasurement | null>(null);
   const naturalHeightRef = useNaturalHeight({
     id: component.id,
     scale,
@@ -48,8 +54,31 @@ export function PlanTextComponentView({
     contentKey: component.html,
     scale,
     contentHeightPoints,
-    onMeasure: onMeasure ?? (() => undefined),
+    onMeasure: (id, next) => {
+      setMeasurement(next);
+      onMeasure?.(id, next);
+    },
   });
+
+  useEffect(() => {
+    if (
+      !onMeasure ||
+      !measurement ||
+      !blockContent ||
+      blockContent.sourceHtml !== component.html ||
+      blockContent.blocks.length !== measurement.blockHeightsPoints.length
+    ) {
+      return;
+    }
+    onMeasure(component.id, {
+      ...measurement,
+      sourceHtml: blockContent.sourceHtml,
+      blocks: blockContent.blocks.map((html, index) => ({
+        html,
+        heightPoints: measurement.blockHeightsPoints[index],
+      })),
+    });
+  }, [blockContent, component.html, component.id, measurement, onMeasure]);
   const setRootRef = useCallback(
     (node: HTMLDivElement | null) => {
       assignRef(naturalHeightRef, node);
@@ -59,13 +88,24 @@ export function PlanTextComponentView({
   );
 
   return (
-    <div className="h-full overflow-auto">
-      <RichTextEditor
-        ariaLabel={t("plan.photographyPlan")}
-        html={component.html}
-        onChange={(html) => onChangeHtml(component.id, html)}
-        rootRef={setRootRef}
-      />
+    <div className="h-full overflow-hidden">
+      <div
+        data-testid="plan-text-scale"
+        style={{
+          width: `${100 / contentScale}%`,
+          zoom: contentScale,
+        }}
+      >
+        <RichTextEditor
+          ariaLabel={t("plan.photographyPlan")}
+          html={component.html}
+          onBlockHtmlChange={(sourceHtml, blocks) => {
+            setBlockContent({ sourceHtml, blocks });
+          }}
+          onChange={(html) => onChangeHtml(component.id, html)}
+          rootRef={setRootRef}
+        />
+      </div>
     </div>
   );
 }

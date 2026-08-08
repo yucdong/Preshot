@@ -3,6 +3,10 @@ import { rectSortingStrategy, SortableContext } from "@dnd-kit/sortable";
 import { useTranslation } from "react-i18next";
 import { imageGroupDroppableId } from "./canvas/imageDropTarget";
 import type { ReferenceFlowSlot } from "../../domain/plan/canvas/referenceLayout";
+import type {
+  AlignmentGuides,
+  Rect,
+} from "../../domain/plan/canvas/geometry";
 import { SortableImageTile } from "./SortableImageTile";
 import { ImageActionButtons } from "./ImageActionButtons";
 
@@ -12,6 +16,9 @@ interface GroupLike {
   images: Array<{
     id: string;
     file: string;
+    aspectRatio?: number;
+    frameWidth?: number;
+    frameHeight?: number;
   }>;
 }
 
@@ -34,6 +41,18 @@ interface GroupImageGridProps {
   onAddImages?: (componentId: string) => void;
   onCaptureImage?: (componentId: string) => void;
   imageActionsDisabled?: boolean;
+  onResizeFrame?: (
+    componentId: string,
+    imageId: string,
+    frame: { frameWidth: number; frameHeight: number },
+  ) => void;
+  onResizePreview?: (
+    imageId: string,
+    frame: { frameWidth: number; frameHeight: number },
+    guides: AlignmentGuides,
+  ) => { frameWidth: number; frameHeight: number } | undefined;
+  onResizeCancel?: () => void;
+  imageGuides?: AlignmentGuides;
 }
 
 export function GroupImageGrid({ 
@@ -55,6 +74,10 @@ export function GroupImageGrid({
   onAddImages,
   onCaptureImage,
   imageActionsDisabled = false,
+  onResizeFrame,
+  onResizePreview,
+  onResizeCancel,
+  imageGuides,
 }: GroupImageGridProps) {
   const { t } = useTranslation();
   const actualDroppableId = enableReorder ? imageGroupDroppableId(group.id, fragmentId) : (droppableId ?? `droppable-${group.id}`);
@@ -100,7 +123,7 @@ export function GroupImageGrid({
         if (slot.kind === "add") {
           return (
             <div
-              className="group absolute overflow-hidden rounded-xl border border-dashed border-stone-300 dark:border-stone-700"
+              className="group absolute overflow-hidden rounded-md border border-dashed border-[#bfc2c8] bg-[#fafafa] transition-colors hover:border-paper-primary"
               data-testid="image-add-slot"
               key={`${slot.id}:${slot.x}:${slot.y}`}
               style={{
@@ -146,6 +169,26 @@ export function GroupImageGrid({
             selected={selectedImageIds.has(image.id)}
             src={imageSrc(image.file)}
             draggable={enableReorder}
+            onResizeCancel={onResizeCancel}
+            onResizeFrame={
+              onResizeFrame
+                ? (imageId, frame) => onResizeFrame(group.id, imageId, frame)
+                : undefined
+            }
+            onResizePreview={onResizePreview}
+            snapCandidates={normalizedSlots
+              .filter(
+                (candidate) =>
+                  candidate.kind === "image" && candidate.id !== image.id,
+              )
+              .map(
+                (candidate): Rect => ({
+                  x: candidate.x,
+                  y: candidate.y,
+                  width: candidate.width,
+                  height: candidate.height,
+                }),
+              )}
             slot={slot}
             scale={scale}
           />
@@ -169,13 +212,35 @@ export function GroupImageGrid({
           scale={scale}
         />
       ) : null}
+      {imageGuides?.vertical != null ? (
+        <div
+          className="pointer-events-none absolute z-20 w-px bg-paper-primary/80"
+          data-testid="image-alignment-guide-vertical"
+          style={{
+            height: `${displayHeight}px`,
+            left: `${imageGuides.vertical * scale}px`,
+            top: "0px",
+          }}
+        />
+      ) : null}
+      {imageGuides?.horizontal != null ? (
+        <div
+          className="pointer-events-none absolute z-20 h-px bg-paper-primary/80"
+          data-testid="image-alignment-guide-horizontal"
+          style={{
+            left: "0px",
+            top: `${imageGuides.horizontal * scale}px`,
+            width: "100%",
+          }}
+        />
+      ) : null}
     </>
   );
 
   const emptyDropZone = group.images.length === 0 ? (
     <div
       aria-label={t("reference.emptyDropTarget")}
-      className="absolute inset-0 flex items-center justify-center rounded-lg border border-dashed border-stone-300 text-xs text-stone-400 dark:border-stone-700 dark:text-stone-500"
+      className="absolute inset-0 flex items-center justify-center rounded-md border border-dashed border-[#bfc2c8] bg-[#fafafa] text-xs text-paper-muted"
     >
       {t("reference.emptyDropTarget")}
     </div>

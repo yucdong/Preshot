@@ -27,7 +27,7 @@ const BROWSER_PLAN_STORAGE_KEY = "preshot.browser-canvas-plan";
 const CANVAS_WIDTH = contentSize(DEFAULT_PAGE_GEOMETRY).width;
 
 const SEEDED_V7_PLAN: CanvasPlan = {
-  schemaVersion: 7,
+  schemaVersion: 8,
   title: "日落大片",
   components: [
     {
@@ -35,7 +35,6 @@ const SEEDED_V7_PLAN: CanvasPlan = {
       name: "文案1",
       type: "plan",
       x: 0,
-      y: 60,
       width: CANVAS_WIDTH,
       height: 220,
       html: "<h2>日落大片</h2><p>海滨的黄金时刻。记得带 85mm 镜头。</p>",
@@ -45,9 +44,8 @@ const SEEDED_V7_PLAN: CanvasPlan = {
       name: "造型参考",
       type: "reference",
       x: 0,
-      y: 304,
       width: CANVAS_WIDTH,
-      height: 320,
+      height: 452,
       description: "参考图说明",
       images: [
         {

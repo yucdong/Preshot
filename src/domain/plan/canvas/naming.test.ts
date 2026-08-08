@@ -3,7 +3,7 @@ import type { ProjectPlan } from "./models";
 import { nextComponentName, renameComponent, setPlanTitle } from "./naming";
 
 const plan: ProjectPlan = {
-  schemaVersion: 7,
+  schemaVersion: 8,
   title: "Editorial",
   components: [
     {
@@ -11,7 +11,6 @@ const plan: ProjectPlan = {
       name: "文案1",
       type: "plan",
       x: 0,
-      y: 60,
       width: 200,
       height: 120,
       html: "",
@@ -21,7 +20,6 @@ const plan: ProjectPlan = {
       name: "图片组1",
       type: "reference",
       x: 0,
-      y: 204,
       width: 200,
       height: 180,
       description: "",

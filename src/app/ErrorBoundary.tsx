@@ -22,12 +22,12 @@ export class ErrorBoundary extends Component<
   render() {
     if (this.state.failed) {
       return (
-        <main className="grid min-h-screen place-items-center bg-stone-100 p-8 text-stone-800 dark:bg-stone-950 dark:text-stone-100">
+        <main className="grid min-h-screen place-items-center bg-app-bg p-8 text-app-ink">
           <section role="alert" className="max-w-md text-center">
             <h1 className="text-2xl font-semibold">
               {i18n.t("errors.boundaryTitle")}
             </h1>
-            <p className="mt-3 text-stone-600 dark:text-stone-400">
+            <p className="mt-3 text-app-muted">
               {i18n.t("errors.boundaryBody")}
             </p>
           </section>

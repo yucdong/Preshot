@@ -186,7 +186,7 @@ function planDeps(): CanvasPlanDependencies {
     service: {
       loadPlan: vi.fn().mockResolvedValue({
         status: "loaded",
-        plan: { schemaVersion: 7, title: "Demo", components: [] },
+        plan: { schemaVersion: 8, title: "Demo", components: [] },
       }),
       loadImage: vi.fn().mockResolvedValue(""),
       savePlan: vi.fn(),
@@ -372,7 +372,7 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-02T00:00:00.000Z",
     });
     const retiringPlan = {
-      schemaVersion: 7 as const,
+      schemaVersion: 8 as const,
       title: "Original title",
       components: [
         {
@@ -380,7 +380,6 @@ describe("WorkspaceProvider", () => {
           name: "文案1",
           type: "plan" as const,
           x: 0,
-          y: 60,
           width: 220,
           height: 120,
           html: "",
@@ -390,7 +389,6 @@ describe("WorkspaceProvider", () => {
           name: "图片组1",
           type: "reference" as const,
           x: 0,
-          y: 204,
           width: 220,
           height: 180,
           description: "",
@@ -407,7 +405,7 @@ describe("WorkspaceProvider", () => {
       ],
     };
     const nextPlan = {
-      schemaVersion: 7 as const,
+      schemaVersion: 8 as const,
       title: "Next title",
       components: [],
     };
@@ -456,7 +454,11 @@ describe("WorkspaceProvider", () => {
     await waitFor(() => {
       expect(canvasDependencies.service.importImage).toHaveBeenCalledWith(
         retiringProject.path,
-        retiringPlan,
+        expect.objectContaining({
+          components: expect.arrayContaining([
+            expect.objectContaining({ id: "r1", height: 247 }),
+          ]),
+        }),
         "r1",
         "C:\\source\\new.png",
       );
@@ -520,7 +522,7 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-09T00:00:00.000Z",
     });
     const plan: ProjectPlan = {
-      schemaVersion: 7,
+      schemaVersion: 8,
       title: "Original title",
       components: [
         {
@@ -528,7 +530,6 @@ describe("WorkspaceProvider", () => {
           name: "Plan",
           type: "plan",
           x: 0,
-          y: 60,
           width: 220,
           height: 120,
           html: "",
@@ -538,7 +539,6 @@ describe("WorkspaceProvider", () => {
           name: "Reference",
           type: "reference",
           x: 0,
-          y: 204,
           width: 220,
           height: 180,
           description: "",
@@ -557,7 +557,6 @@ describe("WorkspaceProvider", () => {
           name: "Retained reference",
           type: "reference",
           x: 0,
-          y: 408,
           width: 320,
           height: 180,
           description: "",
@@ -687,7 +686,7 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-08T00:00:00.000Z",
     });
     const planA: ProjectPlan = {
-      schemaVersion: 7,
+      schemaVersion: 8,
       title: "Original A metadata",
       components: [
         {
@@ -695,7 +694,6 @@ describe("WorkspaceProvider", () => {
           name: "Plan",
           type: "plan",
           x: 0,
-          y: 60,
           width: 320,
           height: 120,
           html: "",
@@ -705,7 +703,6 @@ describe("WorkspaceProvider", () => {
           name: "Reference",
           type: "reference",
           x: 0,
-          y: 204,
           width: 320,
           height: 180,
           description: "",
@@ -714,7 +711,7 @@ describe("WorkspaceProvider", () => {
       ],
     };
     const planB: ProjectPlan = {
-      schemaVersion: 7,
+      schemaVersion: 8,
       title: "B metadata must never leak",
       components: [],
     };
@@ -852,7 +849,7 @@ describe("WorkspaceProvider", () => {
     );
 
     expect(service.createProject).toHaveBeenCalledWith("C:\\shoots", "Editorial");
-    expect(await screen.findByText("Editorial")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "打开项目 Editorial" })).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -939,7 +936,7 @@ describe("WorkspaceProvider", () => {
     await user.click(await screen.findByRole("button", { name: "打开项目" }));
 
     expect(service.openProject).toHaveBeenCalledWith(project.path);
-    expect(await screen.findByText("Editorial")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "打开项目 Editorial" })).toBeVisible();
   });
 
   it("relocates unavailable projects and removes stale records from the launcher", async () => {
@@ -1015,7 +1012,7 @@ describe("WorkspaceProvider", () => {
     await waitFor(() => {
       expect(service.openProject).toHaveBeenCalledWith(project.path);
     });
-    expect(await screen.findByText("Editorial")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "打开项目 Editorial" })).toBeVisible();
   });
 
   it("reports a failing native menu action without leaving an unhandled rejection", async () => {
@@ -1085,7 +1082,7 @@ describe("WorkspaceProvider", () => {
     );
 
     expect(service.createProject).toHaveBeenCalledWith("C:\\shoots", "Editorial");
-    expect(await screen.findByText("Editorial")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "打开项目 Editorial" })).toBeVisible();
   });
 
   it("cleans up the menu listener and ignores async completions after unmount", async () => {

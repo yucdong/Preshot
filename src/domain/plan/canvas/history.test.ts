@@ -13,14 +13,13 @@ import type { PlanComponent, ProjectPlan } from "./models";
 
 function planWith(id: string, html: string): ProjectPlan {
   return {
-    schemaVersion: 7,
+    schemaVersion: 8,
     title: "Demo",
     components: [{
       id,
       name: "文案1",
       type: "plan",
       x: 0,
-      y: 60,
       width: 300,
       height: 120,
       html,
@@ -60,7 +59,7 @@ describe("plan history stack", () => {
 });
 
 function plan(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 7, title: "Demo", components };
+  return { schemaVersion: 8, title: "Demo", components };
 }
 
 function reference(
@@ -73,7 +72,6 @@ function reference(
     name: "Reference",
     type: "reference",
     x: 0,
-    y: 60,
     width: 300,
     height: 200,
     description,

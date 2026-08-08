@@ -1,9 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  calculatePlanPageBreaks,
-  usePlanContentMeasurement,
-} from "./usePlanContentMeasurement";
+import { usePlanContentMeasurement } from "./usePlanContentMeasurement";
 
 type ResizeObserverEntryLike = Pick<ResizeObserverEntry, "target" | "contentRect">;
 
@@ -100,7 +97,7 @@ function MeasurementHarness({
   contentKey?: string;
   onMeasure: (
     id: string,
-    measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
+    measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[]; blockHeightsPoints: number[] },
   ) => void;
 }) {
   const { rootRef } = usePlanContentMeasurement({
@@ -140,7 +137,7 @@ function NestedBlockGroupHarness({
   contentKey?: string;
   onMeasure: (
     id: string,
-    measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[] },
+    measurement: { heightPoints: number; pageBreakBeforeBlockIds: string[]; blockHeightsPoints: number[] },
   ) => void;
 }) {
   const { rootRef } = usePlanContentMeasurement({
@@ -176,22 +173,6 @@ function NestedBlockGroupHarness({
   );
 }
 
-describe("calculatePlanPageBreaks", () => {
-  it("marks the first whole block that would cross a page boundary", () => {
-    const result = calculatePlanPageBreaks({
-      blocks: [
-        { id: "a", top: 0, bottom: 200 },
-        { id: "b", top: 200, bottom: 430 },
-      ],
-      pageContentHeightPoints: 400,
-      pageMarginPoints: 0,
-      pageSurfaceHeightPoints: 400,
-    });
-
-    expect(result.pageBreakBeforeBlockIds).toEqual(["b"]);
-  });
-});
-
 describe("usePlanContentMeasurement", () => {
   const originalResizeObserver = globalThis.ResizeObserver;
   const originalMutationObserver = globalThis.MutationObserver;
@@ -210,7 +191,7 @@ describe("usePlanContentMeasurement", () => {
     vi.useRealTimers();
   });
 
-  it("adds runtime page-break metadata without rewriting editor html", () => {
+  it("reports natural height without adding internal page spacing near a page boundary", () => {
     const onMeasure = vi.fn();
     const { container } = render(
       <MeasurementHarness contentHeightPoints={200} onMeasure={onMeasure} />,
@@ -231,11 +212,11 @@ describe("usePlanContentMeasurement", () => {
     expect(onMeasure).toHaveBeenCalledWith(
       "plan-1",
       expect.objectContaining({
-        pageBreakBeforeBlockIds: ["plan-1:block-1"],
+        pageBreakBeforeBlockIds: [],
       }),
     );
-    expect(onMeasure.mock.calls.at(-1)?.[1].heightPoints).toBeCloseTo(321.89, 2);
-    expect(blocks[1]).toHaveClass("bn-page-break-before");
+    expect(onMeasure.mock.calls.at(-1)?.[1].heightPoints).toBe(200);
+    expect(blocks[1]).not.toHaveClass("bn-page-break-before");
     expect(blocks[1]).toHaveAttribute("data-preshot-block-id", "plan-1:block-1");
     expect(container.querySelector(".bn-block-group")?.innerHTML).toContain("First");
     expect(container.querySelector(".bn-block-group")?.innerHTML).toContain("Second");
@@ -279,11 +260,11 @@ describe("usePlanContentMeasurement", () => {
     expect(onMeasure).toHaveBeenCalledWith(
       "plan-1",
       expect.objectContaining({
-        pageBreakBeforeBlockIds: ["plan-1:block-1"],
+        pageBreakBeforeBlockIds: [],
       }),
     );
-    expect(onMeasure.mock.calls.at(-1)?.[1].heightPoints).toBeCloseTo(321.89, 2);
-    expect(replacementBlocks[1]).toHaveClass("bn-page-break-before");
+    expect(onMeasure.mock.calls.at(-1)?.[1].heightPoints).toBe(200);
+    expect(replacementBlocks[1]).not.toHaveClass("bn-page-break-before");
   });
 
   it("recalculates when BlockNote replaces top-level blocks asynchronously without a resize callback", async () => {
@@ -314,19 +295,20 @@ describe("usePlanContentMeasurement", () => {
     `;
 
     const replacementBlocks = container.querySelectorAll('[data-node-type="blockOuter"]');
-    setRect(replacementBlocks[0], { top: 700, bottom: 760, height: 60 });
-    setRect(replacementBlocks[1], { top: 760, bottom: 900, height: 140 });
+    setRect(replacementBlocks[0], { top: 700, bottom: 765, height: 65 });
+    setRect(replacementBlocks[1], { top: 765, bottom: 910, height: 145 });
 
     await flushMutationRecalculation();
 
     expect(onMeasure).toHaveBeenCalledWith(
       "plan-1",
       expect.objectContaining({
-        pageBreakBeforeBlockIds: ["plan-1:block-1"],
+        pageBreakBeforeBlockIds: [],
+        blockHeightsPoints: [65, 145],
       }),
     );
-    expect(onMeasure.mock.calls.at(-1)?.[1].heightPoints).toBeCloseTo(321.89, 2);
-    expect(replacementBlocks[1]).toHaveClass("bn-page-break-before");
+    expect(onMeasure.mock.calls.at(-1)?.[1].heightPoints).toBe(200);
+    expect(replacementBlocks[1]).not.toHaveClass("bn-page-break-before");
   });
 
   it("observes a top-level block replacement after the former 96ms retry window", async () => {
@@ -361,18 +343,19 @@ describe("usePlanContentMeasurement", () => {
     `;
 
     const replacementBlocks = container.querySelectorAll('[data-node-type="blockOuter"]');
-    setRect(replacementBlocks[0], { top: 700, bottom: 760, height: 60 });
-    setRect(replacementBlocks[1], { top: 760, bottom: 900, height: 140 });
+    setRect(replacementBlocks[0], { top: 700, bottom: 765, height: 65 });
+    setRect(replacementBlocks[1], { top: 765, bottom: 910, height: 145 });
 
     await flushMutationRecalculation();
 
     expect(onMeasure).toHaveBeenCalledWith(
       "plan-1",
       expect.objectContaining({
-        pageBreakBeforeBlockIds: ["plan-1:block-1"],
+        pageBreakBeforeBlockIds: [],
+        blockHeightsPoints: [65, 145],
       }),
     );
-    expect(replacementBlocks[1]).toHaveClass("bn-page-break-before");
+    expect(replacementBlocks[1]).not.toHaveClass("bn-page-break-before");
   });
 
   it("continues observing a second top-level block replacement", async () => {
@@ -399,9 +382,7 @@ describe("usePlanContentMeasurement", () => {
     setRect(firstReplacement[1], { top: 760, bottom: 900, height: 140 });
 
     await flushMutationRecalculation();
-    expect(onMeasure.mock.calls.at(-1)?.[1].pageBreakBeforeBlockIds).toEqual([
-      "plan-1:block-1",
-    ]);
+    expect(onMeasure.mock.calls.at(-1)?.[1].pageBreakBeforeBlockIds).toEqual([]);
     onMeasure.mockClear();
 
     blockGroup!.innerHTML = `
@@ -409,8 +390,8 @@ describe("usePlanContentMeasurement", () => {
       <div class="bn-block-outer" data-node-type="blockOuter"><div>Second B</div></div>
     `;
     const secondReplacement = container.querySelectorAll('[data-node-type="blockOuter"]');
-    setRect(secondReplacement[0], { top: 0, bottom: 60, height: 60 });
-    setRect(secondReplacement[1], { top: 60, bottom: 200, height: 140 });
+    setRect(secondReplacement[0], { top: 0, bottom: 70, height: 70 });
+    setRect(secondReplacement[1], { top: 70, bottom: 220, height: 150 });
 
     await flushMutationRecalculation();
 
@@ -440,10 +421,10 @@ describe("usePlanContentMeasurement", () => {
     expect(onMeasure).toHaveBeenCalledWith(
       "plan-1",
       expect.objectContaining({
-        pageBreakBeforeBlockIds: ["plan-1:block-1"],
+        pageBreakBeforeBlockIds: [],
       }),
     );
-    expect(topBlock2).toHaveClass("bn-page-break-before");
+    expect(topBlock2).not.toHaveClass("bn-page-break-before");
     expect(topBlock2).toHaveAttribute("data-preshot-block-id", "plan-1:block-1");
     expect(decoyBlock).not.toHaveAttribute("data-preshot-block-id");
   });
@@ -565,13 +546,14 @@ describe("usePlanContentMeasurement", () => {
 
     emitResize([{ target: root, contentRect: { height: 200 } as DOMRectReadOnly }]);
     const readsAfterInitialMeasurement = blockReadCount;
+    const callsAfterInitialMeasurement = onMeasure.mock.calls.length;
 
     const span = document.createElement("span");
     span.textContent = "nested";
     nested.appendChild(span);
     await flushMutationRecalculation();
 
-    expect(onMeasure).toHaveBeenCalledTimes(1);
+    expect(onMeasure).toHaveBeenCalledTimes(callsAfterInitialMeasurement);
     expect(blockReadCount).toBe(readsAfterInitialMeasurement);
   });
 });

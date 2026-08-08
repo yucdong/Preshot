@@ -730,7 +730,114 @@ function v7Component(raw: unknown, componentIndex: number) {
   throw new Error(`Stored plan component ${componentIndex} is malformed or unsupported v7`);
 }
 
-function v7FromV6(plan: LegacyV6ProjectPlan): ProjectPlan {
+function v8Component(raw: unknown, componentIndex: number) {
+  if (!isRecord(raw)) {
+    throw new Error(`Stored plan component ${componentIndex} has invalid v8 fields`);
+  }
+
+  const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
+  if (
+    typeof raw.id !== "string" ||
+    !raw.id ||
+    typeof raw.name !== "string" ||
+    !raw.name ||
+    raw.name !== raw.name.trim() ||
+    typeof raw.x !== "number" ||
+    !Number.isFinite(raw.x) ||
+    raw.x < 0 ||
+    typeof raw.width !== "number" ||
+    !Number.isFinite(raw.width) ||
+    raw.width < MIN_COMPONENT_WIDTH ||
+    raw.width > canvasWidth ||
+    typeof raw.height !== "number" ||
+    !Number.isFinite(raw.height) ||
+    raw.height < MIN_COMPONENT_HEIGHT ||
+    raw.x + raw.width > canvasWidth + 0.0001
+  ) {
+    throw new Error(`Stored plan component ${componentIndex} has invalid v8 card bounds`);
+  }
+
+  if (raw.type === "plan") {
+    requireOnlyKeys(
+      raw,
+      ["id", "name", "type", "x", "width", "height", "contentScale", "html"],
+      `component ${componentIndex}`,
+      8,
+    );
+    if (
+      typeof raw.html !== "string" ||
+      (raw.contentScale !== undefined &&
+        (typeof raw.contentScale !== "number" ||
+          !Number.isFinite(raw.contentScale) ||
+          raw.contentScale < MIN_CONTENT_SCALE ||
+          raw.contentScale > MAX_CONTENT_SCALE))
+    ) {
+      throw new Error(`Stored plan component ${componentIndex} html and contentScale must be valid`);
+    }
+    return {
+      id: raw.id,
+      name: raw.name,
+      type: "plan" as const,
+      x: raw.x,
+      width: raw.width,
+      height: raw.height,
+      ...(typeof raw.contentScale === "number" ? { contentScale: raw.contentScale } : {}),
+      html: raw.html,
+    };
+  }
+
+  if (raw.type === "reference") {
+    requireOnlyKeys(
+      raw,
+      ["id", "name", "type", "x", "width", "height", "description", "images"],
+      `component ${componentIndex}`,
+      8,
+    );
+    if (typeof raw.description !== "string" || !Array.isArray(raw.images)) {
+      throw new Error(`Stored plan component ${componentIndex} has invalid v8 reference fields`);
+    }
+    return {
+      id: raw.id,
+      name: raw.name,
+      type: "reference" as const,
+      x: raw.x,
+      width: raw.width,
+      height: raw.height,
+      description: raw.description,
+      images: raw.images.map((image, imageIndex) => v7Image(image, componentIndex, imageIndex)),
+    };
+  }
+  throw new Error(`Stored plan component ${componentIndex} is malformed or unsupported v8`);
+}
+
+type V7Component = ReturnType<typeof v7Component>;
+
+interface V7ProjectPlan {
+  schemaVersion: 7;
+  title: string;
+  components: V7Component[];
+}
+
+function v8FromV7(plan: V7ProjectPlan): ProjectPlan {
+  const components = plan.components
+    .map((component, sourceIndex) => ({ component, sourceIndex }))
+    .sort((left, right) =>
+      left.component.y - right.component.y ||
+      left.component.x - right.component.x ||
+      left.sourceIndex - right.sourceIndex,
+    )
+    .map(({ component }) => {
+      const { y: _legacyY, ...current } = component;
+      return {
+        ...current,
+        height: Math.min(current.height, contentSize(DEFAULT_PAGE_GEOMETRY).height),
+      };
+    });
+
+  return { schemaVersion: CURRENT_SCHEMA_VERSION, title: plan.title, components };
+}
+
+function v7FromV6(plan: LegacyV6ProjectPlan): V7ProjectPlan {
   const geometry = DEFAULT_PAGE_GEOMETRY;
   const content = contentSize(geometry);
   const layout = layoutPlan(plan.components, geometry, undefined, {
@@ -794,7 +901,7 @@ function v7FromV6(plan: LegacyV6ProjectPlan): ProjectPlan {
     };
   });
 
-  return { schemaVersion: CURRENT_SCHEMA_VERSION, title: plan.title, components };
+  return { schemaVersion: 7, title: plan.title, components };
 }
 
 function migrateV1ToV2(raw: Record<string, unknown>, makeId: IdFactory): Record<string, unknown> {
@@ -830,6 +937,21 @@ export function migratePlan(raw: unknown, context: PlanMigrationContext): Projec
   if (typeof raw.schemaVersion === "number" && raw.schemaVersion > CURRENT_SCHEMA_VERSION) {
     throw new Error(`Unsupported stored plan schema version ${raw.schemaVersion}`);
   }
+  if (raw.schemaVersion === 8) {
+    requireOnlyKeys(raw, ["schemaVersion", "title", "components"], "document", 8);
+    if (
+      typeof raw.title !== "string" ||
+      !raw.title.trim() ||
+      raw.title !== raw.title.trim() ||
+      !Array.isArray(raw.components)
+    ) {
+      throw new Error("Stored plan schema version 8 title and components must be valid");
+    }
+    const components = raw.components.map((component, index) => v8Component(component, index));
+    validateLogicalIds(components);
+    validateComponentNames(components);
+    return { schemaVersion: CURRENT_SCHEMA_VERSION, title: raw.title, components };
+  }
   if (raw.schemaVersion === 7) {
     requireOnlyKeys(raw, ["schemaVersion", "title", "components"], "document", 7);
     if (
@@ -843,7 +965,7 @@ export function migratePlan(raw: unknown, context: PlanMigrationContext): Projec
     const components = raw.components.map((component, index) => v7Component(component, index));
     validateLogicalIds(components);
     validateComponentNames(components);
-    return { schemaVersion: CURRENT_SCHEMA_VERSION, title: raw.title, components };
+    return v8FromV7({ schemaVersion: 7, title: raw.title, components });
   }
   if (raw.schemaVersion === 6) {
     requireOnlyKeys(raw, ["schemaVersion", "title", "components"], "document");
@@ -853,7 +975,7 @@ export function migratePlan(raw: unknown, context: PlanMigrationContext): Projec
     const components = raw.components.map((component, index) => v6Component(component, index));
     validateLogicalIds(components);
     validateComponentNames(components);
-    return v7FromV6({ schemaVersion: 6, title: raw.title, components });
+    return v8FromV7(v7FromV6({ schemaVersion: 6, title: raw.title, components }));
   }
   if (raw.schemaVersion === 5) {
     if (typeof raw.title !== "string" || !Array.isArray(raw.components)) {
@@ -863,16 +985,16 @@ export function migratePlan(raw: unknown, context: PlanMigrationContext): Projec
     if (!title) {
       throw new Error("Stored plan schema version 5 title must be non-blank");
     }
-    return v7FromV6(
+    return v8FromV7(v7FromV6(
       v6FromV5(raw.components.map((component, index) => v5Component(component, index)), title),
-    );
+    ));
   }
   if (raw.schemaVersion === 4 || raw.schemaVersion === 3) {
     if (!Array.isArray(raw.components)) {
       throw new Error(`Stored plan schema version ${raw.schemaVersion} components must be an array`);
     }
     const multiplier = raw.schemaVersion === 3 ? 0.75 : 1;
-    return v7FromV6(
+    return v8FromV7(v7FromV6(
       v6FromLegacy(
         migrateComponents(raw.components, makeId, (component, ids, index) =>
           legacyComponent(component, ids, index, {
@@ -882,18 +1004,18 @@ export function migratePlan(raw: unknown, context: PlanMigrationContext): Projec
         ),
         context,
       ),
-    );
+    ));
   }
   if (raw.schemaVersion === 2) {
     if (!Array.isArray(raw.components)) {
       throw new Error("Stored plan schema version 2 components must be an array");
     }
-    return v7FromV6(
+    return v8FromV7(v7FromV6(
       v6FromLegacy(
         remapLegacyLogicalIds(migrateComponents(raw.components, makeId, v2Component)),
         context,
       ),
-    );
+    ));
   }
   if (typeof raw.photographyPlan === "string" || Array.isArray(raw.referenceGroups)) {
     return migratePlan(migrateV1ToV2(raw, makeId), context);

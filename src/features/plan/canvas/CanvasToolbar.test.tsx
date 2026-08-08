@@ -20,6 +20,6 @@ describe("CanvasToolbar", () => {
 
     const buttons = screen.getAllByRole("button");
     expect(buttons[buttons.length - 1]).toHaveTextContent("导出 PDF");
-    expect(buttons[buttons.length - 1]).toHaveClass("bg-amber-500");
+    expect(buttons[buttons.length - 1]).toHaveClass("bg-app-accent");
   });
 });

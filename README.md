@@ -65,6 +65,10 @@ winget install --id Rustlang.Rustup --exact
 pnpm tauri:dev
 ```
 
+该命令会在当前 VS Code 进程尚未刷新 `PATH` 时，自动查找 Rustup 默认目录
+`%USERPROFILE%\.cargo\bin`。如果 Rust 安装在自定义目录，请将对应的 Cargo
+目录加入用户 `PATH` 后重启 VS Code。
+
 只启动浏览器中的前端开发服务器：
 
 ```powershell

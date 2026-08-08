@@ -21,7 +21,7 @@ export function PagedCanvasSurface({ pageCount, scale, children }: PagedCanvasSu
 
   return (
     <div
-      className="relative"
+      className="relative shrink-0"
       data-testid="paged-canvas-surface"
       ref={setNodeRef}
       style={{ width: `${A4.width * scale}px`, height: `${height}px` }}

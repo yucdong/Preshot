@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { ReactNode } from "react";
-import { act, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../../domain/settings/ports";
@@ -20,6 +20,7 @@ vi.mock("@dnd-kit/core", () => ({
     dndState.props = props as Record<string, unknown>;
     return children;
   },
+  DragOverlay: ({ children }: { children: ReactNode }) => children,
   PointerSensor: class PointerSensor {},
   useSensor: (sensor: unknown, options: unknown) => ({ sensor, options }),
   useSensors: (...sensors: unknown[]) => sensors,
@@ -58,7 +59,6 @@ const plan: PlanComponent = {
   name: "Plan",
   type: "plan",
   x: 20,
-  y: 100,
   width: 260,
   height: 140,
   html: "<p>Shot list</p>",
@@ -69,7 +69,6 @@ const reference: PlanComponent = {
   name: "Reference",
   type: "reference",
   x: 310,
-  y: 280,
   width: 200,
   height: 220,
   description: "",
@@ -92,17 +91,17 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onChangeHtml: vi.fn(),
     onCommitTitle: vi.fn<() => SetPlanTitleResult>(() => ({
       ok: true,
-      plan: { schemaVersion: 7, title: "Demo", components: [] },
+      plan: { schemaVersion: 8, title: "Demo", components: [] },
     })),
     onRenameComponent: vi.fn<() => RenameComponentResult>(() => ({
       ok: true,
-      plan: { schemaVersion: 7, title: "Demo", components: [] },
+      plan: { schemaVersion: 8, title: "Demo", components: [] },
     })),
     onSetDescription: vi.fn(),
     onAddImage: vi.fn(),
     onRemoveImage: vi.fn(),
     onOpenImage: vi.fn(),
-    onMoveComponent: vi.fn(),
+    onReorderComponent: vi.fn(),
     onResize: vi.fn(),
     ...overrides,
   };
@@ -114,51 +113,80 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
   return props;
 }
 
-describe("PlanCanvas v7", () => {
+describe("PlanCanvas v8", () => {
   beforeEach(() => {
     dndState.props = null;
   });
 
-  it("renders one fixed-width continuous surface without A4 page backgrounds", () => {
+  it("renders exact A4 page backgrounds instead of a continuous surface", () => {
     renderCanvas();
 
-    expect(screen.getByTestId("continuous-canvas-surface")).toBeInTheDocument();
-    expect(screen.queryByTestId("paged-canvas-surface")).not.toBeInTheDocument();
-    expect(screen.queryAllByTestId("canvas-page-background")).toHaveLength(0);
+    expect(screen.queryByTestId("continuous-canvas-surface")).not.toBeInTheDocument();
+    expect(screen.getByTestId("paged-canvas-surface")).toBeInTheDocument();
+    expect(screen.queryAllByTestId("canvas-page-background")).toHaveLength(1);
   });
 
-  it("renders card rectangles from direct x/y/width/height points", () => {
+  it("renders card rectangles from document order while retaining x/width/height", () => {
     renderCanvas();
     const frame = document.querySelector('[data-component-id="plan1"]') as HTMLElement;
 
     expect(frame).toHaveStyle({
       left: "20px",
-      top: "100px",
+      top: "60px",
       width: "260px",
       height: "140px",
     });
   });
 
-  it("moves a card by pointer delta instead of reordering component order", () => {
+  it("reorders components one position with edge arrow buttons", () => {
     const props = renderCanvas();
-    const handlers = dndState.props as {
-      onDragStart?: (event: unknown) => void;
-      onDragEnd?: (event: unknown) => void;
-    };
-    const event = {
-      active: {
-        id: "plan1",
-        data: { current: { type: "component", componentId: "plan1" } },
-      },
-      delta: { x: 50, y: -20 },
+    const upButtons = screen.getAllByRole("button", { name: "上移一个位置" });
+    const downButtons = screen.getAllByRole("button", { name: "下移一个位置" });
+
+    expect(upButtons[0]).toBeDisabled();
+    expect(downButtons[1]).toBeDisabled();
+    fireEvent.click(downButtons[0]);
+    fireEvent.click(upButtons[1]);
+    expect(props.onReorderComponent).toHaveBeenNthCalledWith(1, "plan1", 1);
+    expect(props.onReorderComponent).toHaveBeenNthCalledWith(2, "ref1", 0);
+    expect(document.querySelector("[data-component-drag-handle]")).not.toBeInTheDocument();
+  });
+
+  it("previews snapped card resizing with a guide and reverts it when cancelled", () => {
+    const props = renderCanvas();
+    const resize = () => {
+      const right = document.querySelector(
+        '[data-component-id="plan1"] [data-resize-handle="right"]',
+      ) as HTMLElement & {
+        setPointerCapture(pointerId: number): void;
+        hasPointerCapture(pointerId: number): boolean;
+        releasePointerCapture(pointerId: number): void;
+      };
+      right.setPointerCapture = vi.fn();
+      right.hasPointerCapture = vi.fn().mockReturnValue(true);
+      right.releasePointerCapture = vi.fn();
+      fireEvent.pointerDown(right, { clientX: 100, pointerId: 1 });
+      fireEvent.pointerMove(right, { clientX: 126, pointerId: 1 });
+      return right;
     };
 
-    act(() => {
-      handlers.onDragStart?.(event);
-      handlers.onDragEnd?.(event);
+    let right = resize();
+    expect(document.querySelector('[data-component-id="plan1"]')).toHaveStyle({
+      width: "290px",
+    });
+    fireEvent.pointerCancel(right, { pointerId: 1 });
+    expect(document.querySelector('[data-component-id="plan1"]')).toHaveStyle({
+      width: "260px",
     });
 
-    expect(props.onMoveComponent).toHaveBeenCalledWith("plan1", { x: 70, y: 80 });
+    right = resize();
+    fireEvent.pointerUp(right, { pointerId: 1 });
+    expect(props.onResize).toHaveBeenCalledWith("plan1", {
+      x: 20,
+      y: 60,
+      width: 290,
+      height: 140,
+    });
   });
 
   it("keeps reference image DnD infrastructure inside the continuous card", () => {

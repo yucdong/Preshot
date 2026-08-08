@@ -16,26 +16,6 @@ function entryHeightPx(entry: ResizeObserverEntry, node: HTMLDivElement): number
   return entry.contentRect.height;
 }
 
-function spacerHeightPoints(node: HTMLDivElement, scale: number): number {
-  if (!Number.isFinite(scale) || scale <= 0) {
-    return 0;
-  }
-
-  let totalPx = 0;
-  node.querySelectorAll(".bn-page-break-before").forEach((element) => {
-    if (!(element instanceof HTMLElement)) {
-      return;
-    }
-
-    const px = Number.parseFloat(element.style.getPropertyValue("--bn-page-break-space"));
-    if (Number.isFinite(px) && px > 0) {
-      totalPx += px;
-    }
-  });
-
-  return totalPx / scale;
-}
-
 export function useNaturalHeight(input: {
   id: string;
   scale: number;
@@ -67,8 +47,7 @@ export function useNaturalHeight(input: {
         return;
       }
 
-      const rawHeightPoints = entryHeightPx(entry, node) / scale;
-      const heightPoints = rawHeightPoints - spacerHeightPoints(node, scale);
+      const heightPoints = entryHeightPx(entry, node) / scale;
       if (!Number.isFinite(heightPoints) || heightPoints < 0) {
         return;
       }

@@ -6,12 +6,22 @@ import {
   type ReactNode,
 } from "react";
 import type { SettingsRepository } from "../../domain/settings/ports";
-import type { Theme } from "../../domain/settings/models";
+import {
+  ASSISTANT_WIDTH,
+  DEFAULT_SETTINGS,
+  PROJECT_RAIL_WIDTH,
+  normalizeSettings,
+  type AppSettings,
+  type Theme,
+} from "../../domain/settings/models";
 
 interface ThemeContextValue {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   resolved: "light" | "dark";
+  projectRailWidth: number;
+  assistantWidth: number;
+  setPanelWidths: (widths: { projectRailWidth: number; assistantWidth: number }) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
@@ -30,15 +40,16 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ repository, children }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>("system");
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [resolved, setResolved] = useState<"light" | "dark">("light");
+  const theme = settings.theme;
 
   // Load theme from repository on mount
   useEffect(() => {
     repository
       .read()
       .then((settings) => {
-        setThemeState(settings.theme);
+        setSettings(normalizeSettings(settings));
       })
       .catch((error) => {
         console.error("Failed to load theme settings:", error);
@@ -83,14 +94,30 @@ export function ThemeProvider({ repository, children }: ThemeProviderProps) {
   }, [resolved]);
 
   const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    repository.write({ theme: newTheme }).catch((error) => {
+    const next = normalizeSettings({ ...settings, theme: newTheme });
+    setSettings(next);
+    repository.write(next).catch((error) => {
       console.error("Failed to save theme setting:", error);
     });
   };
 
+  const setPanelWidths = (widths: { projectRailWidth: number; assistantWidth: number }) => {
+    const next = normalizeSettings({ ...settings, ...widths });
+    setSettings(next);
+    repository.write(next).catch((error) => {
+      console.error("Failed to save panel settings:", error);
+    });
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolved }}>
+    <ThemeContext.Provider value={{
+      theme,
+      setTheme,
+      resolved,
+      projectRailWidth: settings.projectRailWidth ?? PROJECT_RAIL_WIDTH.default,
+      assistantWidth: settings.assistantWidth ?? ASSISTANT_WIDTH.default,
+      setPanelWidths,
+    }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -3,9 +3,9 @@ import {
   closestCorners,
   pointerWithin,
   rectIntersection,
+  DragOverlay,
   DndContext,
   PointerSensor,
-  useDroppable,
   useSensor,
   useSensors,
   type CollisionDetection,
@@ -13,16 +13,18 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
-  canvasHeight,
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
   DOCUMENT_TITLE_HEIGHT,
+  snapCardResize,
+  type Rect,
+  type ResizeEdge,
 } from "../../../domain/plan/canvas/geometry";
 import {
-  type ComponentMoveTarget,
   type MoveImageParams,
   type MoveImagesParams,
 } from "../../../domain/plan/canvas/plan";
+import { layoutDocumentFlow } from "../../../domain/plan/canvas/documentFlow";
 import type {
   PlanComponent,
   ReferenceComponent,
@@ -36,7 +38,6 @@ import {
   packReferenceFrames,
   type ReferenceFlowSlot,
 } from "../../../domain/plan/canvas/referenceLayout";
-import { logicalComponentIdFromDnd } from "./componentDragIdentity";
 import { ComponentFrame } from "./ComponentFrame";
 import { CanvasTitle } from "./CanvasTitle";
 import { PlanTextComponentView } from "./PlanTextComponentView";
@@ -45,6 +46,9 @@ import { imageInsertAfterFromRects, selectedImageDropTarget } from "./imageDropT
 import type { PlanMeasurement } from "./usePlanContentMeasurement";
 import type { ImageImportProgress } from "../imageImportProgress";
 import { DRAG_ACTIVATION_CONSTRAINT } from "./dragMotion";
+import { DragOverlayPreview } from "./DragOverlayPreview";
+import { PagedCanvasSurface } from "./PagedCanvasSurface";
+import { pageTopPx } from "./pagedCanvasMetrics";
 
 export interface PlanCanvasProps {
   components: PlanComponent[];
@@ -61,7 +65,7 @@ export interface PlanCanvasProps {
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
   onOpenImage: (file: string) => void;
-  onMoveComponent?: (id: string, target: ComponentMoveTarget) => void;
+  onReorderComponent?: (id: string, toIndex: number) => void;
   onMoveImage?: (params: MoveImageParams) => void;
   onMoveImages?: (params: MoveImagesParams) => void;
   onResize?: (
@@ -71,7 +75,12 @@ export interface PlanCanvasProps {
   onAddImages?: (id: string) => void;
   onMeasurePlan?: (id: string, measurement: PlanMeasurement) => void;
   onMeasureReferenceDescription?: (id: string, heightPoints: number) => void;
-  onSetImageCaption?: (componentId: string, imageId: string, caption: string) => void;
+  onSetImageFrame?: (
+    componentId: string,
+    imageId: string,
+    frame: { frameWidth: number; frameHeight: number },
+  ) => void;
+  onScaleReferenceImages?: (componentId: string, scale: number) => void;
   imageImportProgress?: {
     componentId: string;
     progress: ImageImportProgress;
@@ -84,9 +93,12 @@ export interface PlanCanvasProps {
   onCancelCapture?: () => void;
 }
 
-type ActiveDrag =
-  | { type: "component"; id: string; componentId: string }
-  | { type: "image"; id: string; componentId: string; imageIds: string[] };
+type ActiveDrag = { type: "image"; id: string; componentId: string; imageIds: string[] };
+
+interface ComponentPreview {
+  id: string;
+  rect: Rect;
+}
 
 function referenceComponentById(
   components: PlanComponent[],
@@ -122,38 +134,7 @@ function collisionForImage(args: Parameters<CollisionDetection>[0]) {
   );
 }
 
-const collisionDetection: CollisionDetection = (args) =>
-  args.active.data.current?.type === "image" ? collisionForImage(args) : [];
-
-function ContinuousCanvasSurface({
-  scale,
-  components,
-  children,
-}: {
-  scale: number;
-  components: PlanComponent[];
-  children: React.ReactNode;
-}) {
-  const { setNodeRef } = useDroppable({
-    id: "continuous-canvas",
-    data: { type: "canvas" },
-  });
-  const contentWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
-
-  return (
-    <div
-      className="relative"
-      data-testid="continuous-canvas-surface"
-      ref={setNodeRef}
-      style={{
-        width: `${contentWidth * scale}px`,
-        height: `${canvasHeight(components) * scale}px`,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+const collisionDetection: CollisionDetection = collisionForImage;
 
 export function PlanCanvas({
   components,
@@ -168,12 +149,15 @@ export function PlanCanvas({
   onAddImage,
   onRemoveImage,
   onOpenImage,
-  onMoveComponent,
+  onReorderComponent,
   onMoveImage,
   onMoveImages,
   onResize,
   onAddImages,
   onMeasurePlan,
+  onMeasureReferenceDescription,
+  onSetImageFrame,
+  onScaleReferenceImages,
   imageImportProgress,
   screenCaptureState,
   onCaptureImage,
@@ -183,13 +167,43 @@ export function PlanCanvas({
   const [selectedImageIds, setSelectedImageIds] = useState<ReadonlySet<string>>(
     new Set(),
   );
+  const [componentPreview, setComponentPreview] = useState<ComponentPreview | null>(
+    null,
+  );
   const selectedImageIdsRef = useRef<ReadonlySet<string>>(new Set());
   const activeImageIdsRef = useRef<string[]>([]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: DRAG_ACTIVATION_CONSTRAINT }),
   );
-  const displayedComponents = components;
   const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+
+  const setPreview = (preview: ComponentPreview | null) => {
+    setComponentPreview(preview);
+  };
+
+  const clearComponentPreview = () => {
+    setPreview(null);
+  };
+
+  const previewComponentResize = (
+    componentId: string,
+    rect: Rect,
+    edge: ResizeEdge,
+  ): Rect => {
+    const snapped = snapCardResize({
+      rect,
+      edge,
+      candidates: layoutDocumentFlow(components).placements
+        .filter((placement) => placement.componentId !== componentId)
+        .map((placement) => placement.rect),
+      threshold: 6,
+    });
+    setPreview({
+      id: componentId,
+      rect: snapped.rect,
+    });
+    return snapped.rect;
+  };
 
   const paramsForImage = (event: DragEndEvent): MoveImagesParams | null => {
     const activeId = String(event.active.id);
@@ -211,17 +225,11 @@ export function PlanCanvas({
   const resetDrag = () => {
     setActiveDrag(null);
     activeImageIdsRef.current = [];
+    clearComponentPreview();
   };
 
   const onDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { type?: string; componentId?: string } | undefined;
-    if (data?.type === "component") {
-      const componentId = logicalComponentIdFromDnd(data, String(event.active.id));
-      if (componentId) {
-        setActiveDrag({ type: "component", id: componentId, componentId });
-      }
-      return;
-    }
     if (data?.type !== "image" || typeof data.componentId !== "string") {
       return;
     }
@@ -247,20 +255,6 @@ export function PlanCanvas({
 
   const onDragEnd = (event: DragEndEvent) => {
     const data = event.active.data.current as { type?: string; componentId?: string } | undefined;
-    if (data?.type === "component") {
-      const componentId = logicalComponentIdFromDnd(data, String(event.active.id));
-      const component = componentId
-        ? components.find((entry) => entry.id === componentId)
-        : undefined;
-      resetDrag();
-      if (component && componentId && onMoveComponent) {
-        onMoveComponent(componentId, {
-          x: component.x + event.delta.x / safeScale,
-          y: component.y + event.delta.y / safeScale,
-        });
-      }
-      return;
-    }
     if (data?.type !== "image") {
       resetDrag();
       return;
@@ -315,7 +309,7 @@ export function PlanCanvas({
   }, []);
 
   const imageOrigin =
-    activeDrag?.type === "image" && activeDrag.imageIds.length === 1
+    activeDrag && activeDrag.imageIds.length === 1
       ? (() => {
           const component = referenceComponentById(components, activeDrag.componentId);
           const image = component?.images.find((entry) => entry.id === activeDrag.id);
@@ -326,6 +320,27 @@ export function PlanCanvas({
             : null;
         })()
       : null;
+  const surfaceComponents =
+    componentPreview === null
+      ? components
+      : components.map((component) =>
+          component.id === componentPreview.id
+            ? {
+                ...component,
+                x: componentPreview.rect.x,
+                width: componentPreview.rect.width,
+                height: componentPreview.rect.height,
+              }
+            : component,
+        );
+  const flow = layoutDocumentFlow(surfaceComponents);
+  const placementById = new Map(
+    flow.placements.map((placement) => [placement.componentId, placement]),
+  );
+  const activeComponent = activeDrag
+    ? components.find((component) => component.id === activeDrag.componentId)
+    : undefined;
+  const pageMargin = DEFAULT_PAGE_GEOMETRY.margin * safeScale;
 
   return (
     <DndContext
@@ -336,44 +351,68 @@ export function PlanCanvas({
       sensors={sensors}
     >
       <div className="flex justify-center" data-testid="plan-canvas">
-        <ContinuousCanvasSurface scale={safeScale} components={displayedComponents}>
+        <PagedCanvasSurface pageCount={flow.pageCount} scale={safeScale}>
           <div
             className="absolute"
             data-testid="canvas-document-title"
             style={{
-              left: "0px",
-              top: "0px",
+              left: `${pageMargin}px`,
+              top: `${pageMargin}px`,
               width: `${contentSize(DEFAULT_PAGE_GEOMETRY).width * safeScale}px`,
               height: `${DOCUMENT_TITLE_HEIGHT * safeScale}px`,
             }}
           >
             <CanvasTitle onCommit={onCommitTitle} scale={safeScale} title={title} />
           </div>
-          {displayedComponents.map((component) => {
-            const reference = component.type === "reference" ? component : null;
-            const slots = reference ? referenceSlots(reference) : [];
-            const useBaseComponent =
-              activeDrag?.type === "component" && activeDrag.componentId === component.id;
-            const visibleComponent =
-              useBaseComponent
-                ? components.find((entry) => entry.id === component.id) ?? component
-                : component;
-            if (!visibleComponent) {
+          {components.map((component, componentIndex) => {
+            const preview =
+              componentPreview?.id === component.id ? componentPreview.rect : null;
+            const visibleComponent = preview
+              ? {
+                  ...component,
+                  x: preview.x,
+                  width: preview.width,
+                  height: preview.height,
+                }
+              : component;
+            const placement = placementById.get(component.id);
+            if (!placement) {
               return null;
             }
+            const reference =
+              visibleComponent.type === "reference" ? visibleComponent : null;
+            const slots = reference ? referenceSlots(reference) : [];
 
             return (
+              <div
+                className="pointer-events-none absolute z-10"
+                key={visibleComponent.id}
+                style={{
+                  left: `${pageMargin}px`,
+                  top: `${pageTopPx(placement.pageIndex, safeScale) + pageMargin}px`,
+                  width: `${contentSize(DEFAULT_PAGE_GEOMETRY).width * safeScale}px`,
+                  height: `${contentSize(DEFAULT_PAGE_GEOMETRY).height * safeScale}px`,
+                }}
+              >
               <ComponentFrame
                 component={visibleComponent}
                 frameId={visibleComponent.id}
                 id={visibleComponent.id}
-                key={visibleComponent.id}
                 onRemove={onRemoveComponent}
                 onRename={onRenameComponent}
-                onResize={(id, rect) => onResize?.(id, rect)}
-                rect={visibleComponent}
+                onResize={(id, rect) => {
+                  clearComponentPreview();
+                  onResize?.(id, rect);
+                }}
+                onResizeCancel={clearComponentPreview}
+                onResizePreview={previewComponentResize}
+                rect={placement.rect}
                 scale={safeScale}
                 sortableId={visibleComponent.id}
+                canMoveUp={componentIndex > 0}
+                canMoveDown={componentIndex < components.length - 1}
+                onMoveUp={() => onReorderComponent?.(component.id, componentIndex - 1)}
+                onMoveDown={() => onReorderComponent?.(component.id, componentIndex + 1)}
               >
                 {visibleComponent.type === "plan" ? (
                   <PlanTextComponentView
@@ -386,7 +425,7 @@ export function PlanCanvas({
                   <ReferenceComponentView
                     component={visibleComponent}
                     enableReorder
-                    hiddenImageId={activeDrag?.type === "image" ? activeDrag.id : undefined}
+                    hiddenImageId={activeDrag?.id}
                     imageSrc={imageSrc}
                     importProgress={
                       imageImportProgress?.componentId === visibleComponent.id
@@ -412,6 +451,9 @@ export function PlanCanvas({
                       });
                     }}
                     onSetDescription={onSetDescription}
+                    onMeasureDescription={onMeasureReferenceDescription}
+                    onSetImageFrame={onSetImageFrame}
+                    onScaleImages={onScaleReferenceImages}
                     placeholderImage={
                       imageOrigin?.component.id === visibleComponent.id
                         ? imageOrigin.image
@@ -438,10 +480,20 @@ export function PlanCanvas({
                   />
                 )}
               </ComponentFrame>
+              </div>
             );
           })}
-        </ContinuousCanvasSurface>
+        </PagedCanvasSurface>
       </div>
+      <DragOverlay>
+        {activeDrag && activeComponent?.type === "reference" ? (
+          <DragOverlayPreview
+            activeId={activeDrag.id}
+            component={activeComponent}
+            imageSrc={imageSrc}
+          />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

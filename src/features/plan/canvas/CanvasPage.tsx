@@ -13,12 +13,12 @@ export function CanvasPage({ scale, top }: CanvasPageProps) {
   return (
     <div
       aria-hidden="true"
-      className="absolute left-0 bg-white shadow-sm dark:bg-stone-900"
+      className="pointer-events-none absolute left-0 bg-white shadow-[0_18px_44px_rgb(23_25_29_/_18%)]"
       data-testid="canvas-page-background"
       style={{ top: `${top}px`, width: `${width}px`, height: `${height}px` }}
     >
       <div
-        className="pointer-events-none absolute border border-dashed border-stone-200 dark:border-stone-700"
+        className="pointer-events-none absolute border border-paper-border/55"
         style={{
           left: `${marginScaled}px`,
           top: `${marginScaled}px`,

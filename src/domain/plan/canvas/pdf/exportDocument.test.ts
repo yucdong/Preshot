@@ -7,7 +7,7 @@ import {
 } from "./exportDocument";
 
 const plan: ProjectPlan = {
-  schemaVersion: 7,
+  schemaVersion: 8,
   title: "Editorial",
   components: [
     {
@@ -15,17 +15,16 @@ const plan: ProjectPlan = {
       name: "Plan",
       type: "plan",
       x: 0,
-      y: 60,
       width: 500,
       height: 200,
+      contentScale: 0.7,
       html: "<p>Text</p>",
     },
     {
       id: "r1",
       name: "Reference",
       type: "reference",
-      x: 0,
-      y: 284,
+      x: 40,
       width: 500,
       height: 300,
       description: "<p>Details</p>",
@@ -42,14 +41,14 @@ const plan: ProjectPlan = {
 };
 
 describe("temporary PDF layout adapter", () => {
-  it("adapts v7 cards to the retained paged layout input", () => {
+  it("adapts v8 components to the retained paged layout input", () => {
     const temporary = temporaryPagedExportPlan(plan);
 
     expect(temporary).toMatchObject({
       schemaVersion: 6,
       title: "Editorial",
       components: [
-        { id: "p1", contentScale: 1, width: expect.any(Number) },
+        { id: "p1", contentScale: 0.7, width: expect.any(Number) },
         {
           id: "r1",
           showDescription: true,
@@ -67,7 +66,7 @@ describe("temporary PDF layout adapter", () => {
     });
   });
 
-  it("continues to produce pageable placements without changing v7 card persistence", () => {
+  it("continues to produce pageable placements without changing v8 component persistence", () => {
     const temporary = temporaryPagedExportPlan(plan);
     const layout = buildCanvasLayout(
       temporary.components,
@@ -80,6 +79,11 @@ describe("temporary PDF layout adapter", () => {
 
     expect(layout.pageCount).toBeGreaterThan(0);
     expect(layout.placements.map((placement) => placement.componentId)).toEqual(["p1", "r1"]);
-    expect(plan.components[0]).toMatchObject({ x: 0, y: 60, width: 500, height: 200 });
+    expect(layout.placements[1].rect.x).toBeCloseTo(40, 3);
+    expect(layout.placements[1].rect.y).toBeGreaterThan(
+      layout.placements[0].rect.y + layout.placements[0].rect.height,
+    );
+    expect(plan.components[0]).toMatchObject({ x: 0, width: 500, height: 200 });
+    expect(plan.components[0]).not.toHaveProperty("y");
   });
 });

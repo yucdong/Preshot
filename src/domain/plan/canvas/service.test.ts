@@ -4,14 +4,13 @@ import { EMPTY_PLAN, type ProjectPlan, type ReferenceComponent } from "./models"
 
 function referencePlan(): ProjectPlan {
   return {
-    schemaVersion: 7,
+    schemaVersion: 8,
     title: "Project",
     components: [{
       id: "r",
       name: "Reference",
       type: "reference",
       x: 0,
-      y: 60,
       width: 320,
       height: 240,
       description: "",
@@ -61,11 +60,11 @@ function serviceFor(initialRaw: unknown) {
 }
 
 describe("canvas plan service", () => {
-  it("migrates legacy raw data and treats an empty v7 plan as stored", async () => {
+  it("migrates legacy raw data and treats an empty v8 plan as stored", async () => {
     const legacy = serviceFor({ photographyPlan: "<p>x</p>", referenceGroups: [] });
     await expect(legacy.service.loadPlan("C:/p", "Project")).resolves.toMatchObject({
       status: "loaded",
-      plan: { schemaVersion: 7, components: [expect.objectContaining({ type: "plan" })] },
+      plan: { schemaVersion: 8, components: [expect.objectContaining({ type: "plan" })] },
     });
 
     const current = serviceFor(EMPTY_PLAN);
@@ -75,7 +74,7 @@ describe("canvas plan service", () => {
     });
   });
 
-  it("imports an image with persistent v7 frame dimensions", async () => {
+  it("imports an image with persistent v8 frame dimensions", async () => {
     const plan = referencePlan();
     const { service, repository } = serviceFor(plan);
     const result = await service.importImage("C:/p", plan, "r", "C:/source.png");

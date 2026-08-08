@@ -24,7 +24,8 @@
         "Resolve covers from manifest coverImage, then the first supported root image.",
         "Keep invalid projects visible and require matching project IDs for relocation.",
         "Use a native Tauri File menu; new windows start the same auto-open flow.",
-        "Auto-open the most recently edited available project on startup into a left project-switcher rail (sorted by updatedAt desc); show the launcher only when no available project exists, and route unavailable-project clicks there to recover them."
+        "Auto-open the most recently edited available project on startup into a left project-switcher rail (sorted by updatedAt desc); show the launcher only when no available project exists, and route unavailable-project clicks there to recover them.",
+        "Route pnpm Tauri commands through a Windows wrapper that discovers Cargo in the standard rustup directory when the parent VS Code PATH is stale."
       ],
       "progress": {
         "completedAt": "2026-07-28",
@@ -38,7 +39,8 @@
           "Hardened the native menu callback so guarded-action failures never surface as unhandled promise rejections.",
           "Made the in-memory workspace adapter fail closed in production builds so it stays end-to-end only.",
           "Prevented a busy create submission from closing the dialog without creating a project.",
-          "Added the memory-adapter E2E browser flow and documented workspace architecture, testing, and reliability."
+          "Added the memory-adapter E2E browser flow and documented workspace architecture, testing, and reliability.",
+          "2026-08-08: added scripts/tauri.ps1 so pnpm tauri:dev and pnpm tauri:build work when Cargo exists under %USERPROFILE%\\.cargo\\bin but the current VS Code PATH has not refreshed."
         ],
         "lastVerified": [
           "114 frontend tests passed (Vitest).",
@@ -312,7 +314,11 @@
         "Dark mode styling for BlockNote rich text editor",
         "Browser-based settings adapter for e2e tests (memory storage)",
         "Theme state managed via ThemeProvider with read/write to SettingsRepository",
-        "Settings panel supports light (浅色), dark (深色), and system (跟随系统) theme selection"
+        "Settings panel supports light (浅色), dark (深色), and system (跟随系统) theme selection",
+        "Editorial Studio visual system with graphite global chrome, paper-white content, berry creation/export actions, functional-cyan editing states, and restrained 8px corners",
+        "Bundled Outfit Variable display typography plus Noto Sans SC body typography with Lucide outline icons",
+        "Globally persisted draggable project/assistant panel widths with keyboard operation, double-click reset, and safe min/max constraints",
+        "Canvas-first default panel widths (192px project rail / 272px assistant) and pointer-anchored Ctrl+wheel A4 zoom with bounded 25%-150% scaling"
       ],
       "status": "completed",
       "decisions": [
@@ -323,12 +329,21 @@
         "Theme changes apply immediately with dark class toggle on document.documentElement",
         "Wire settings adapter selection via VITE_WORKSPACE_ADAPTER environment variable",
         "E2E tests use browserSettingsRepository (memory storage) instead of Tauri commands",
-        "System theme detection via window.matchMedia('(prefers-color-scheme: dark)')"
+        "System theme detection via window.matchMedia('(prefers-color-scheme: dark)')",
+        "Use semantic app-* tokens for theme-aware shell chrome and invariant paper-* tokens for white A4 document content",
+        "Keep the three-column desktop workbench expanded while constraining side widths so the A4 canvas remains the visual focus",
+        "Use Lucide icons for scissors, settings, close, and rail navigation controls; preserve localized accessible names",
+        "Persist the canonical visual rules in design-system/preshot/MASTER.md",
+        "Persist project rail and assistant widths in AppSettings; preview locally during pointer drag and write once on release",
+        "Use project rail 176–320px, assistant 240–420px, and a 480px canvas drag constraint; CSS safely degrades below the native 960px minimum window",
+        "Cap automatic A4 scale at 0.92 so wide desktop windows remain creative workbenches rather than oversized reading views"
       ],
       "progress": {
         "completedAt": "2026-08-04",
+        "visualRefreshCompletedAt": "2026-08-08",
         "implementationPlan": "docs/superpowers/plans/2026-08-04-theming.md",
         "designSpec": "docs/superpowers/specs/2026-08-04-theming-design.md",
+        "designSystem": "design-system/preshot/MASTER.md",
         "completed": [
           "T1: Domain models and ports (AppSettings, Theme type, SettingsRepository interface)",
           "T2: Settings persistence (read_settings/write_settings Rust commands, tauriSettingsRepository adapter)",
@@ -337,16 +352,23 @@
           "T5: Settings UI (SettingsButton, SettingsPanel with theme selection)",
           "T6: Wire settings adapter for e2e (settingsDependencies.ts selects adapter based on VITE_WORKSPACE_ADAPTER)",
           "T7: E2E tests for theme switching (theme.spec.ts with light/dark/system toggle verification)",
-          "T8: Featurelist update and full validation matrix"
+          "T8: Featurelist update and full validation matrix",
+          "2026-08-08: applied the Clear Editorial system to the app shell, A4 canvas, image controls, dialogs, launcher, project cards, overlays, statuses, and error surfaces",
+          "2026-08-08: refined component delete controls with a soft paper-danger state and replaced the screenshot glyph with a Lucide scissors icon",
+          "2026-08-08: bundled Nunito Sans Variable, reused bundled Noto Sans SC, added reduced-motion handling, and removed legacy stone/amber classes from user-facing TSX",
+          "2026-08-08: confirmed and implemented Editorial Studio from docs/design_refs/preshot-editorial-hifi.html: graphite top bar, cover-based project rail, berry actions, cyan editing states, grid canvas, floating insert toolbar, and neutral A4 paper",
+          "2026-08-08: bundled Outfit Variable and added global pointer/keyboard-resizable side panels with persisted widths and double-click defaults",
+          "2026-08-08: increased the default center-column share by narrowing side-panel defaults, migrated the former 208/304 default pair, and added non-passive Ctrl+wheel canvas zoom in exact 10% steps while preserving ordinary wheel scrolling"
         ],
         "lastVerified": {
-          "date": "2026-08-04",
-          "unitTests": "377 passed",
-          "e2eTests": "pending",
+          "date": "2026-08-08",
+          "unitTests": "77 files, 429 tests passed",
+          "e2eTests": "38 Edge tests passed",
           "typecheck": "clean",
-          "lint": "clean",
-          "rustTests": "30 passed",
-          "build": "succeeded"
+          "lint": "0 errors; existing ThemeProvider Fast Refresh warning remains",
+          "rustTests": "not rerun; no native code changed",
+          "build": "succeeded with bundled Outfit/Noto/Nunito fonts and existing Vite chunk-size warning",
+          "visualAcceptance": "1600x1000 light and 960x720 dark remain accepted; at 1200x800 the default columns are 192/6/724/6/272px with no horizontal overflow, Ctrl+wheel changes A4 width 547.66px -> 602.42px (110%), ordinary wheel preserves zoom, and reverse Ctrl+wheel restores 547.66px"
         },
         "remaining": []
       }
@@ -685,6 +707,80 @@
       "remaining": [
         "If native capture writes its temporary PNG successfully but the following import fails, the source remains for OS cleanup/manual recovery."
       ]
+    },
+    {
+      "name": "A4 Document Flow Canvas",
+      "description": "Replaces the schema-v7 continuous free canvas with a print-first A4 document flow where adjustable-size components occupy exclusive rows, reorder one position through edge arrow controls, never cross pages, and create persisted continuation components when content overflows.",
+      "status": "in_progress",
+      "feature_descriptions": [
+        "Screen canvas renders exact A4 sheets and printable margins for screen/PDF WYSIWYG parity",
+        "Every component occupies an exclusive row while retaining adjustable width and height",
+        "Component edge arrows move cards one array position; manual component dragging is disabled while image dragging remains available",
+        "Components move intact to the next page when the current page has insufficient height",
+        "Reference groups shrink images to a 67.5pt minimum before creating persisted (2), (3), ... continuation groups",
+        "Plan text splits into persisted continuation components at BlockNote block boundaries without reducing font size",
+        "Plan text cards shrink and grow to their measured BlockNote content, including numbered-list wrapping, without internal page spacer margins",
+        "Reference-card borders shrink and grow to the final packed image row so compact consecutive groups can share an A4 page",
+        "Reference toolbars provide 24pt-minimum, 4pt-step proportional whole-group image-height buttons with a dynamic one-page maximum, card resizing, and automatic page reflow",
+        "Historical schema-v7 continuous-canvas cards taller than one A4 page migrate safely before v8 normalization"
+      ],
+      "decisions": [
+        "Introduce schema v8 with persisted x/width/height and array order, removing free vertical y",
+        "Migrate v7 once by stable y/x/source-index sorting so existing visual order is retained",
+        "Persist continuation components as normal editable, sortable, undoable project components",
+        "Share A4 geometry, exclusive-row ordering, persisted continuations, and horizontal offsets between screen and PDF while the retained PDF engine is retired incrementally",
+        "Treat oversized unsplit components as an explicit normalization error rather than allowing cross-page rendering",
+        "Validate source schemas according to their own geometry: v7 accepts finite continuous-canvas heights, then v7-to-v8 clamps to A4 before continuation normalization; v8 remains strict",
+        "Use compact 20pt×17pt hover/focus-revealed Lucide up/down controls with visible 上移/下移 labels, fully outside the left card border with a 2pt gap; first/last boundaries use native disabled state and component DnD code is removed",
+        "Use average frameHeight as the group value; minus/plus commit one proportional 4pt scale mutation, preserve per-image frame ratios, and disable growth at the calculated one-page maximum"
+      ],
+      "progress": {
+        "designSpec": "docs/superpowers/specs/2026-08-08-a4-document-flow-design.md",
+        "compatibilitySpec": "docs/superpowers/specs/2026-08-08-schema-v7-oversized-card-compatibility.md",
+        "textAutoSizeSpec": "docs/superpowers/specs/2026-08-08-text-card-natural-height.md",
+        "referenceAutoSizeSpec": "docs/superpowers/specs/2026-08-08-reference-card-natural-height.md",
+        "referenceGroupScalingSpec": "docs/superpowers/specs/2026-08-08-reference-group-scaling.md",
+        "arrowOrderingRequirement": "docs/design_docs/requirement_01.md",
+        "implementationPlan": "docs/superpowers/plans/2026-08-08-a4-document-flow.md",
+        "completed": [
+          "Clarified width/height retention, persisted continuations, 67.5pt image minimum, and BlockNote block splitting",
+          "Added the pure layoutDocumentFlow foundation for exclusive rows and intact A4 page moves",
+          "Introduced strict schema v8 and migrated v1-v7 through stable y/x/source-index ordering while removing persisted y",
+          "Restored an active A4 paged surface fitted to the middle panel without horizontal overflow",
+          "Replaced coordinate dragging with sortable component order, source placeholders, compact overlays, and one-entry undo history",
+          "Added reference-group natural sizing, 67.5pt uniform scaling, complete-row splitting, and persisted uniquely named continuation groups",
+          "Added BlockNote-owned top-level block HTML serialization, DOM block measurement, and persisted text continuations",
+          "Removed plan/reference internal scrolling so normalized component height contains all visible content",
+          "Preserved exclusive rows and horizontal offsets in PDF export and kept complete-image readiness validation",
+          "Aligned browser smoke coverage with the approved removal of image captions, description hiding, and the group image-height stepper",
+          "Fixed schema-v7 oversized-card compatibility: continuous-canvas heights above one A4 page now reach the existing v8 clamp and continuation normalization instead of failing source-schema validation",
+          "Validated the complete 小清新人像拍摄 manifest in memory, then preserved its original schema-v7 manifest as a verified backup before live migration",
+          "Made fitting plan components converge bidirectionally to natural BlockNote height and retired legacy in-editor page spacer injection",
+          "Added generation-tagged BlockNote block serialization so stale block HTML cannot be paired with newer DOM measurements and duplicate continuation content",
+          "Added optional validated v8 plan contentScale with compensated screen zoom and PDF adapter parity",
+          "Persisted loaded-component height normalization immediately without adding undo history, while inserted components and later user edits retain normal unsaved behavior",
+          "Merged all 小清新人像拍摄 (2)/(3) components into their bases using the user-selected force-fit policy; retained 7 components and 0 numbered continuations",
+          "Made fitting reference cards converge bidirectionally to the final packed image-row bottom; compacted 延安西路/夏日西瓜 to 297.77pt/397.38pt so each shares an A4 page with its adjacent plan card",
+          "Added minus/value/plus controls after reference import/capture: 24pt minimum, exact 4pt steps, and a domain-calculated maximum that keeps the full group on one A4 page",
+          "Removed component useSortable, component collision/drop helpers, drag handles/placeholders/overlays, and replaced them with hover/focus-revealed labeled one-position up/down edge controls"
+        ],
+        "lastVerified": {
+          "date": "2026-08-08",
+          "pnpmLint": "passed with 0 errors; one existing ThemeProvider Fast Refresh warning",
+          "pnpmTypecheck": "passed",
+          "pnpmTest": "77 files, 424 tests passed",
+          "pnpmTestE2e": "36 Edge smoke tests passed",
+          "pnpmTestInit": "4 initializer harness checks passed",
+          "cargoTest": "47 Rust tests passed via ~/.cargo/bin/cargo.exe",
+          "pnpmBuild": "passed with the existing Vite >500 kB chunk-size warning",
+          "visualChecks": "1440x1000 and 900x800: A4 surface and all frames contained; no horizontal overflow",
+          "schemaV7Compatibility": "小清新人像拍摄 persists schema v8 with 7 merged components, no numbered continuation names, and all 107 images; reference cards persist exact natural heights; page 1 contains 拍摄计划 + 延安西路 and page 2 contains 拍摄注意点 + 夏日西瓜; recovery manifests are retained"
+        },
+        "remaining": [
+          "Split a single indivisible BlockNote block taller than one printable page at measured visual-line boundaries; current behavior fails closed with a contextual error",
+          "Remove the retained v8-to-v6 PDF adapter after porting text measurement/drawing directly to document-flow placements"
+        ]
+      }
     }
   ]
 }

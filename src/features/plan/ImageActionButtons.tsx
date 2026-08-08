@@ -1,26 +1,15 @@
+import { Scissors } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-export function ScreenshotIcon({ size }: { size: number }) {
+export function ScissorsIcon({ size }: { size: number }) {
   return (
-    <svg
+    <Scissors
       aria-hidden="true"
+      data-icon="scissors"
       data-testid="screenshot-icon"
-      fill="none"
-      height={size}
-      viewBox="0 0 24 24"
-      width={size}
-    >
-      <path
-        d="M4 3h10v14H4zM7 3v14M4 7h10M17 13l4-4M18 18l3 3M16.5 16.5l4.5-4.5"
-        stroke="currentColor"
-        strokeDasharray="2 2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-      <circle cx="16.5" cy="16.5" fill="currentColor" r="1.7" />
-      <circle cx="21" cy="21" fill="currentColor" r="1.7" />
-    </svg>
+      size={size}
+      strokeWidth={1.8}
+    />
   );
 }
 
@@ -51,7 +40,7 @@ export function ImageActionButtons({
       >
         <button
           aria-label={t("reference.addImage")}
-          className="flex h-1/2 w-full items-center justify-center border-b border-stone-300/80 text-stone-600 hover:bg-stone-100 focus-visible:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 dark:border-stone-600/80 dark:text-stone-300 dark:hover:bg-stone-700 dark:focus-visible:bg-stone-700"
+          className="flex h-1/2 w-full items-center justify-center border-b border-paper-border text-paper-muted hover:bg-paper-primary-soft hover:text-paper-primary focus-visible:bg-paper-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-primary disabled:opacity-50"
           disabled={unavailable}
           onClick={onImport}
           title={t("reference.importImageDescription")}
@@ -61,13 +50,13 @@ export function ImageActionButtons({
         </button>
         <button
           aria-label={t("reference.captureImage")}
-          className="flex h-1/2 w-full items-center justify-center text-stone-600 hover:bg-stone-100 focus-visible:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 dark:text-stone-300 dark:hover:bg-stone-700 dark:focus-visible:bg-stone-700"
+          className="flex h-1/2 w-full items-center justify-center text-paper-muted hover:bg-paper-primary-soft hover:text-paper-primary focus-visible:bg-paper-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-primary disabled:opacity-50"
           disabled={captureUnavailable}
           onClick={onCapture}
           title={t("reference.captureImageDescription")}
           type="button"
         >
-          <ScreenshotIcon size={14 * scale} />
+          <ScissorsIcon size={14 * scale} />
         </button>
       </div>
     );
@@ -77,7 +66,7 @@ export function ImageActionButtons({
     <div className="order-first flex items-center" data-testid="image-action-buttons" style={{ gap: `${6 * scale}px` }}>
       <button
         aria-label={t("reference.addImage")}
-        className="flex items-center justify-center rounded border border-stone-300 text-stone-600 hover:border-amber-500 hover:text-amber-600 disabled:opacity-50 dark:border-stone-600 dark:text-stone-300"
+        className="flex items-center justify-center rounded-md border border-white/10 bg-white/[0.06] text-white/75 transition-[background-color,transform] duration-200 hover:bg-white/15 hover:text-white active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:opacity-50"
         disabled={unavailable}
         onClick={onImport}
         style={{ height: `${20 * scale}px`, width: `${24 * scale}px` }}
@@ -88,14 +77,14 @@ export function ImageActionButtons({
       </button>
       <button
         aria-label={t("reference.captureImage")}
-        className="flex items-center justify-center rounded border border-stone-300 text-stone-600 hover:border-amber-500 hover:text-amber-600 disabled:opacity-50 dark:border-stone-600 dark:text-stone-300"
+        className="flex items-center justify-center rounded-md border border-white/10 bg-white/[0.06] text-white/75 transition-[background-color,transform] duration-200 hover:bg-white/15 hover:text-white active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:opacity-50"
         disabled={captureUnavailable}
         onClick={onCapture}
         style={{ height: `${20 * scale}px`, width: `${24 * scale}px` }}
         title={t("reference.captureImageDescription")}
         type="button"
       >
-        <ScreenshotIcon size={14 * scale} />
+        <ScissorsIcon size={14 * scale} />
       </button>
     </div>
   );

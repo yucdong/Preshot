@@ -85,7 +85,11 @@ describe("SettingsPanel", () => {
     await user.click(darkButton);
 
     // setTheme should have been called, which triggers repository.write
-    expect(writeSpy).toHaveBeenCalledWith({ theme: "dark" });
+    expect(writeSpy).toHaveBeenCalledWith({
+      theme: "dark",
+      projectRailWidth: 192,
+      assistantWidth: 272,
+    });
   });
 
   it("calls onClose when Escape is pressed", async () => {

@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { ProjectCard } from "./ProjectCard";
@@ -215,39 +216,39 @@ export function ProjectRail({
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2
-            className="text-3xl font-semibold tracking-tight text-stone-900 dark:text-white"
+            className="font-editorial text-2xl font-bold text-app-ink"
             id="recent-projects-heading"
           >
             {t("rail.recentProjects")}
           </h2>
-          <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
+          <p className="mt-2 text-sm text-app-muted">
             {t("rail.recentProjectsHint")}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             aria-label={t("rail.previous")}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 transition hover:border-stone-400 hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-200 dark:hover:border-white/25 dark:hover:bg-white/8"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-app-border bg-app-panel-strong text-app-muted transition-colors duration-200 hover:border-[#202329] hover:text-app-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:cursor-not-allowed disabled:opacity-50"
             disabled={disabled || (railBoundaries ? railBoundaries.isAtStart : safeOffset <= 0)}
             onClick={() => moveOffset(safeOffset - 1)}
             type="button"
           >
-            ←
+            <ArrowLeft aria-hidden="true" className="h-4 w-4" />
           </button>
           <button
             aria-label={t("rail.next")}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 transition hover:border-stone-400 hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-200 dark:hover:border-white/25 dark:hover:bg-white/8"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-app-border bg-app-panel-strong text-app-muted transition-colors duration-200 hover:border-[#202329] hover:text-app-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:cursor-not-allowed disabled:opacity-50"
             disabled={disabled || (railBoundaries ? railBoundaries.isAtEnd : safeOffset >= maxOffset)}
             onClick={() => moveOffset(safeOffset + 1)}
             type="button"
           >
-            →
+            <ArrowRight aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
       </div>
       <div
         aria-label={t("rail.recentProjects")}
-        className="grid auto-cols-[calc((100%-2rem)/3)] grid-flow-col gap-4 overflow-x-auto scroll-smooth pb-4 pr-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+        className="grid auto-cols-[calc((100%-2rem)/3)] grid-flow-col gap-4 overflow-x-auto scroll-smooth pb-4 pr-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-app-primary"
         onKeyDown={(event) => {
           if (event.key === "ArrowRight") {
             event.preventDefault();

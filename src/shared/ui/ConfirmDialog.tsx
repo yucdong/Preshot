@@ -36,7 +36,7 @@ export function ConfirmDialog({ open, title, confirmLabel, cancelLabel, onConfir
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6 backdrop-blur-[2px]"
       onClick={handleBackdropClick}
     >
       <div
@@ -44,15 +44,15 @@ export function ConfirmDialog({ open, title, confirmLabel, cancelLabel, onConfir
         aria-modal="true"
         aria-label={title}
         onKeyDown={handleKeyDown}
-        className="rounded-lg bg-white p-6 shadow-xl dark:bg-stone-900"
+        className="w-full max-w-sm rounded-lg border border-app-border bg-app-panel-strong p-5 text-app-ink shadow-[var(--app-shadow)]"
         style={{ minWidth: "320px" }}
       >
-        <h2 className="mb-4 text-lg font-semibold text-stone-800 dark:text-stone-100">{title}</h2>
+        <h2 className="mb-5 text-lg font-semibold">{title}</h2>
         <div className="flex justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded bg-stone-200 px-4 py-2 text-sm text-stone-700 hover:bg-stone-300 dark:bg-stone-700 dark:text-stone-300 dark:hover:bg-stone-600"
+            className="rounded-lg border border-app-border bg-app-panel px-4 py-2 text-sm font-medium text-app-muted transition-colors hover:border-app-primary hover:text-app-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-primary"
           >
             {cancelLabel}
           </button>
@@ -60,7 +60,7 @@ export function ConfirmDialog({ open, title, confirmLabel, cancelLabel, onConfir
             ref={confirmButtonRef}
             type="button"
             onClick={onConfirm}
-            className="rounded bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+            className="rounded-lg bg-app-danger px-4 py-2 text-sm font-semibold text-app-on-danger transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger focus-visible:ring-offset-2"
           >
             {confirmLabel}
           </button>

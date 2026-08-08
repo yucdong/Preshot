@@ -16,6 +16,8 @@ export interface LegacyV6BaseComponent {
   name: string;
   width: number;
   contentScale: number;
+  /** Runtime PDF adapter offset; never accepted from persisted schema v6. */
+  layoutX?: number;
 }
 
 export interface LegacyV6PlanTextComponent extends LegacyV6BaseComponent {

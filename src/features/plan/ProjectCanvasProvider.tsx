@@ -9,6 +9,7 @@ import {
   type ReferenceImage,
 } from "../../domain/plan/canvas/models";
 import {
+  A4,
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
 } from "../../domain/plan/canvas/geometry";
@@ -23,19 +24,19 @@ import {
   addComponent,
   addReferenceImage,
   addReferenceImages,
-  moveComponent,
   moveImage,
   moveImages,
+  reorderComponent,
   removeComponent as removePlanComponent,
   removeReferenceImage,
   resizeComponent,
+  scaleReferenceImages,
   updatePlanHtml,
   setReferenceDescription,
-  setImageCaption,
+  setImageFrame,
   setImageAspectRatioForFile,
   type MoveImageParams,
   type MoveImagesParams,
-  type ComponentMoveTarget,
 } from "../../domain/plan/canvas/plan";
 import {
   nextComponentName,
@@ -52,6 +53,8 @@ import {
 } from "../../domain/plan/canvas/history";
 import { PlanCanvas } from "./canvas/PlanCanvas";
 import type { PlanMeasurement } from "./canvas/usePlanContentMeasurement";
+import { normalizeReferenceContinuations } from "../../domain/plan/canvas/referenceContinuation";
+import { normalizePlanContinuations } from "../../domain/plan/canvas/planContinuation";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
 import { CanvasToolbar } from "./canvas/CanvasToolbar";
 import type { SaveState } from "./SaveStatus";
@@ -105,10 +108,6 @@ function detail(error: unknown): string {
 
 function sameToken(a: ProjectToken | null, b: ProjectToken): boolean {
   return a?.projectPath === b.projectPath && a.generation === b.generation;
-}
-
-function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
 function plansEqual(a: ProjectPlan, b: ProjectPlan): boolean {
@@ -166,6 +165,14 @@ async function measureAspectRatio(dataUrl: string): Promise<number> {
 
 const AUTO_SAVE_INTERVAL_MS = 5000;
 const SCREEN_CAPTURE_POLL_INTERVAL_MS = 250;
+const MAX_CANVAS_SCALE = 0.92;
+const MIN_USER_CANVAS_SCALE = 0.25;
+const MAX_USER_CANVAS_SCALE = 1.5;
+const CANVAS_ZOOM_STEP = 1.1;
+
+function clampCanvasScale(scale: number): number {
+  return Math.min(MAX_USER_CANVAS_SCALE, Math.max(MIN_USER_CANVAS_SCALE, scale));
+}
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
@@ -198,7 +205,8 @@ export function ProjectCanvasProvider({
     componentId: string;
     status: "waiting" | "importing";
   } | null>(null);
-  const [scale, setScale] = useState(0.5);
+  const [fitScale, setFitScale] = useState(0.5);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [lifecycle, setLifecycle] = useState<ProviderLifecycleState>({
     projectPath,
     generation: 0,
@@ -213,6 +221,15 @@ export function ProjectCanvasProvider({
     values: new Map(),
   });
   const containerRef = useRef<HTMLDivElement>(null);
+  const fitScaleRef = useRef(fitScale);
+  const zoomLevelRef = useRef(zoomLevel);
+  const zoomAnchorRef = useRef<{
+    contentX: number;
+    contentY: number;
+    viewportX: number;
+    viewportY: number;
+    previousScale: number;
+  } | null>(null);
   const mountedRef = useRef(false);
   const activeProjectPathRef = useRef(projectPath);
   const generationRef = useRef(0);
@@ -232,11 +249,24 @@ export function ProjectCanvasProvider({
     ) => {},
   );
   const historyRef = useRef<PlanHistory>(createHistory());
+  const initialPlanMeasurementIdsRef = useRef<Set<string>>(new Set());
+  const initialReferenceMeasurementIdsRef = useRef<Set<string>>(new Set());
   const captureGenerationRef = useRef(0);
   const captureTokenRef = useRef<string | null>(null);
   const captureProjectTokenRef = useRef<ProjectToken | null>(null);
   const lifecycleStatus =
     lifecycle.projectPath === projectPath ? lifecycle.status : "loading";
+  const scale = clampCanvasScale(fitScale * zoomLevel);
+
+  useLayoutEffect(() => {
+    const anchor = zoomAnchorRef.current;
+    const container = containerRef.current;
+    if (!anchor || !container || anchor.previousScale === scale) return;
+    const ratio = scale / anchor.previousScale;
+    container.scrollLeft = anchor.contentX * ratio - anchor.viewportX;
+    container.scrollTop = anchor.contentY * ratio - anchor.viewportY;
+    zoomAnchorRef.current = null;
+  }, [scale]);
 
   const isTokenCurrent = useCallback(
     (token: ProjectToken) =>
@@ -340,11 +370,15 @@ export function ProjectCanvasProvider({
 
   const mutate = useCallback(
     (next: ProjectPlan, coalesceKey?: string) => {
-      if (!readyTokenFor(projectPath) || next === planRef.current) {
+      if (!readyTokenFor(projectPath)) {
         return;
       }
+      const normalized = normalizeReferenceContinuations(next, {
+        makeId: () => crypto.randomUUID(),
+      });
+      if (normalized === planRef.current) return;
       recordHistoryEntry(planRef.current, coalesceKey);
-      applyPlan(next);
+      applyPlan(normalized);
     },
     [applyPlan, projectPath, readyTokenFor, recordHistoryEntry],
   );
@@ -386,7 +420,9 @@ export function ProjectCanvasProvider({
       rebase: (latest: ProjectPlan) => ProjectPlan,
     ) => {
       const previous = persistence.plan;
-      const next = rebase(previous);
+      const next = normalizeReferenceContinuations(rebase(previous), {
+        makeId: () => crypto.randomUUID(),
+      });
       const rebasedCurrentOperationPlan = plansEqual(previous, operationPlan);
       persistence.plan = next;
       if (rebasedCurrentOperationPlan) {
@@ -421,11 +457,14 @@ export function ProjectCanvasProvider({
       persistence: ProjectPersistenceState,
       measurements: ReadonlyArray<{ file: string; aspectRatio: number }>,
     ) => {
-      const next = measurements.reduce(
+      const measured = measurements.reduce(
         (latest, { file, aspectRatio }) =>
           setImageAspectRatioForFile(latest, { file, aspectRatio }),
         persistence.plan,
       );
+      const next = normalizeReferenceContinuations(measured, {
+        makeId: () => crypto.randomUUID(),
+      });
       persistence.plan = next;
       if (isTokenReady(token)) {
         applyPlan(next);
@@ -699,6 +738,8 @@ export function ProjectCanvasProvider({
     imageSrcRef.current = {};
     lastSavedRef.current = JSON.stringify(EMPTY_PLAN);
     historyRef.current = createHistory();
+    initialPlanMeasurementIdsRef.current = new Set();
+    initialReferenceMeasurementIdsRef.current = new Set();
     setPlan(EMPTY_PLAN);
     setImageSrc({});
     setLightbox(null);
@@ -740,7 +781,7 @@ export function ProjectCanvasProvider({
             y: 0,
             width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
             height: DEFAULT_REFERENCE_HEIGHT,
-            description: t("reference.defaultDescription"),
+            description: "",
             images: [],
           };
 
@@ -748,7 +789,23 @@ export function ProjectCanvasProvider({
           planToUse = addComponent(planToUse, planComponent);
         }
 
-        const savedSnapshot = JSON.stringify(planToUse);
+        planToUse = normalizeReferenceContinuations(planToUse, {
+          makeId: () => crypto.randomUUID(),
+        });
+        initialPlanMeasurementIdsRef.current = new Set(
+          planToUse.components
+            .filter((component) => component.type === "plan")
+            .map((component) => component.id),
+        );
+        initialReferenceMeasurementIdsRef.current = new Set(
+          planToUse.components
+            .filter((component) => component.type === "reference")
+            .map((component) => component.id),
+        );
+
+        const savedSnapshot = JSON.stringify(
+          loadResult.status === "loaded" ? loadResult.plan : planToUse,
+        );
         projectPersistenceRef.current = {
           token,
           plan: planToUse,
@@ -760,7 +817,7 @@ export function ProjectCanvasProvider({
         historyRef.current = createHistory();
         setPlan(planToUse);
         setError(null);
-        setSaveState("saved");
+        setSaveState(JSON.stringify(planToUse) === savedSnapshot ? "saved" : "unsaved");
         setLifecycleStatus("ready");
 
         for (const file of expectedReferenceImageFiles(planToUse)) {
@@ -792,6 +849,8 @@ export function ProjectCanvasProvider({
         imageSrcRef.current = {};
         lastSavedRef.current = JSON.stringify(EMPTY_PLAN);
         historyRef.current = createHistory();
+        initialPlanMeasurementIdsRef.current = new Set();
+        initialReferenceMeasurementIdsRef.current = new Set();
         setPlan(EMPTY_PLAN);
         setImageSrc({});
         setSaveState("saved");
@@ -915,11 +974,47 @@ export function ProjectCanvasProvider({
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
       if (width) {
-        setScale(width / contentSize(DEFAULT_PAGE_GEOMETRY).width);
+        const nextFitScale = Math.min(MAX_CANVAS_SCALE, width / A4.width);
+        fitScaleRef.current = nextFitScale;
+        setFitScale(nextFitScale);
       }
     });
     observer.observe(containerRef.current);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey || event.deltaY === 0) return;
+      event.preventDefault();
+
+      const previousScale = clampCanvasScale(
+        fitScaleRef.current * zoomLevelRef.current,
+      );
+      const requestedScale = previousScale * (
+        event.deltaY < 0 ? CANVAS_ZOOM_STEP : 1 / CANVAS_ZOOM_STEP
+      );
+      const nextScale = clampCanvasScale(requestedScale);
+      if (nextScale === previousScale) return;
+
+      const bounds = container.getBoundingClientRect();
+      const viewportX = event.clientX - bounds.left;
+      const viewportY = event.clientY - bounds.top;
+      zoomAnchorRef.current = {
+        contentX: container.scrollLeft + viewportX,
+        contentY: container.scrollTop + viewportY,
+        viewportX,
+        viewportY,
+        previousScale,
+      };
+      const nextZoomLevel = nextScale / fitScaleRef.current;
+      zoomLevelRef.current = nextZoomLevel;
+      setZoomLevel(nextZoomLevel);
+    };
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => container.removeEventListener("wheel", onWheel);
   }, []);
 
   const handleInsert = useCallback(
@@ -950,7 +1045,7 @@ export function ProjectCanvasProvider({
           y: 0,
           width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
           height: DEFAULT_REFERENCE_HEIGHT,
-          description: t("reference.defaultDescription"),
+          description: "",
           images: [],
         };
         mutate(addComponent(planRef.current, newComponent));
@@ -993,10 +1088,10 @@ export function ProjectCanvasProvider({
     ],
   );
 
-  const handleMoveComponent = useCallback(
-    (id: string, target: ComponentMoveTarget) => {
+  const handleReorderComponent = useCallback(
+    (id: string, toIndex: number) => {
       if (!readyTokenFor(projectPath)) return;
-      const next = moveComponent(planRef.current, { id, ...target });
+      const next = reorderComponent(planRef.current, { id, toIndex });
       mutate(next);
     },
     [mutate, projectPath, readyTokenFor],
@@ -1070,11 +1165,28 @@ export function ProjectCanvasProvider({
     [applyPlan, projectPath, readyTokenFor],
   );
 
-  const handleSetImageCaption = useCallback(
-    (componentId: string, imageId: string, caption: string) => {
+  const handleSetImageFrame = useCallback(
+    (
+      componentId: string,
+      imageId: string,
+      frame: { frameWidth: number; frameHeight: number },
+    ) => {
       if (!readyTokenFor(projectPath)) return;
-      const next = setImageCaption(planRef.current, { componentId, imageId, caption });
-      mutate(next);
+      const next = setImageFrame(planRef.current, {
+        componentId,
+        imageId,
+        ...frame,
+      });
+      mutate(next, `image-frame:${componentId}:${imageId}`);
+    },
+    [mutate, projectPath, readyTokenFor],
+  );
+
+  const handleScaleReferenceImages = useCallback(
+    (componentId: string, scale: number) => {
+      if (!readyTokenFor(projectPath)) return;
+      const next = scaleReferenceImages(planRef.current, { componentId, scale });
+      mutate(next, `image-group-scale:${componentId}`);
     },
     [mutate, projectPath, readyTokenFor],
   );
@@ -1090,22 +1202,47 @@ export function ProjectCanvasProvider({
     const pageBreakBeforeBlockIds = next.pageBreakBeforeBlockIds.filter(
       (blockId): blockId is string => typeof blockId === "string" && blockId.length > 0,
     );
+    const measurement: PlanMeasurement = {
+      ...next,
+      pageBreakBeforeBlockIds,
+      blockHeightsPoints: next.blockHeightsPoints.filter(
+        (height) => Number.isFinite(height) && height >= 0,
+      ),
+    };
     setPlanMeasurements((current) => {
       const values = current.projectPath === projectPath ? current.values : new Map<string, PlanMeasurement>();
       const previous = values.get(id);
-      if (
-        previous &&
-        Math.abs(previous.heightPoints - next.heightPoints) < 1 &&
-        arraysEqual(previous.pageBreakBeforeBlockIds, pageBreakBeforeBlockIds)
-      ) {
+      if (previous && JSON.stringify(previous) === JSON.stringify(measurement)) {
         return current;
       }
 
       const updated = new Map(values);
-      updated.set(id, { heightPoints: next.heightPoints, pageBreakBeforeBlockIds });
+      updated.set(id, measurement);
       return { projectPath, values: updated };
     });
-  }, [projectPath, readyTokenFor]);
+
+    if (measurement.sourceHtml && measurement.blocks) {
+      try {
+        const persistInitialNormalization = initialPlanMeasurementIdsRef.current.delete(id);
+        const normalized = normalizePlanContinuations(planRef.current, {
+          makeId: () => crypto.randomUUID(),
+          measurements: new Map([[id, {
+            sourceHtml: measurement.sourceHtml,
+            heightPoints: measurement.heightPoints,
+            blocks: measurement.blocks,
+          }]]),
+        });
+        if (applyPlan(normalized)) {
+          if (persistInitialNormalization) {
+            void flush().then(() => flush());
+          }
+        }
+      } catch (measurementError) {
+        logger.error("Unable to paginate plan text", { error: measurementError });
+        setError(detail(measurementError));
+      }
+    }
+  }, [applyPlan, flush, logger, projectPath, readyTokenFor]);
 
   const handleMeasureReferenceDescription = useCallback((id: string, heightPoints: number) => {
     if (!readyTokenFor(projectPath)) {
@@ -1115,6 +1252,12 @@ export function ProjectCanvasProvider({
       return;
     }
 
+    const currentValues =
+      referenceDescriptionHeights.projectPath === projectPath
+        ? referenceDescriptionHeights.values
+        : new Map<string, number>();
+    const updatedValues = new Map(currentValues);
+    updatedValues.set(id, heightPoints);
     setReferenceDescriptionHeights((current) => {
       const values = current.projectPath === projectPath ? current.values : new Map<string, number>();
       const previous = values.get(id);
@@ -1126,7 +1269,15 @@ export function ProjectCanvasProvider({
       updated.set(id, heightPoints);
       return { projectPath, values: updated };
     });
-  }, [projectPath, readyTokenFor]);
+    const persistInitialNormalization = initialReferenceMeasurementIdsRef.current.delete(id);
+    const normalized = normalizeReferenceContinuations(planRef.current, {
+      makeId: () => crypto.randomUUID(),
+      descriptionHeights: updatedValues,
+    });
+    if (applyPlan(normalized) && persistInitialNormalization) {
+      void flush().then(() => flush());
+    }
+  }, [applyPlan, flush, projectPath, readyTokenFor, referenceDescriptionHeights]);
 
   const handleCancelScreenCapture = useCallback(() => {
     captureGenerationRef.current += 1;
@@ -1518,9 +1669,9 @@ export function ProjectCanvasProvider({
   ]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       {error && (
-        <div className="bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-900 dark:text-red-200">
+        <div className="border-b border-app-danger/25 bg-app-danger-soft px-4 py-2 text-sm text-app-danger">
           {error}
         </div>
       )}
@@ -1531,7 +1682,11 @@ export function ProjectCanvasProvider({
         onInsert={handleInsert}
         saveState={saveState}
       />
-      <div className="flex-1 overflow-auto bg-stone-100 p-6 dark:bg-stone-800" ref={containerRef}>
+      <div
+        className="editor-workspace-grid flex-1 overflow-auto px-6 pb-6 pt-20"
+        data-testid="canvas-scroller"
+        ref={containerRef}
+      >
         {lifecycleStatus === "ready" ? (
           <PlanCanvas
             components={plan.components}
@@ -1543,7 +1698,7 @@ export function ProjectCanvasProvider({
             onChangeHtml={handleChangeHtml}
             onMeasurePlan={handleMeasurePlan}
             onMeasureReferenceDescription={handleMeasureReferenceDescription}
-            onMoveComponent={handleMoveComponent}
+            onReorderComponent={handleReorderComponent}
             onMoveImage={handleMoveImage}
             onMoveImages={handleMoveImages}
             onOpenImage={(file) => {
@@ -1557,7 +1712,8 @@ export function ProjectCanvasProvider({
             onResize={handleResize}
             onCommitTitle={handleSetTitle}
             onSetDescription={handleSetDescription}
-            onSetImageCaption={handleSetImageCaption}
+            onSetImageFrame={handleSetImageFrame}
+            onScaleReferenceImages={handleScaleReferenceImages}
             onAddImages={handleAddImages}
             onCaptureImage={screenCapture ? handleCaptureImage : undefined}
             onCancelCapture={handleCancelScreenCapture}
@@ -1566,7 +1722,7 @@ export function ProjectCanvasProvider({
           />
         ) : (
           <div
-            className="mx-auto max-w-xl rounded-lg border border-stone-300 bg-white p-6 text-center text-sm text-stone-700 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-200"
+            className="mx-auto max-w-xl rounded-lg border border-app-border bg-app-panel p-6 text-center text-sm text-app-muted"
             role={lifecycleStatus === "failed" ? "alert" : "status"}
           >
             {lifecycleStatus === "failed" ? t("plan.loadFailed") : t("plan.loading")}

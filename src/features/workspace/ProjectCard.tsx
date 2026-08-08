@@ -23,7 +23,7 @@ function getNameGradient(name: string) {
 function ProjectArt({ project, dimmed = false }: { project: WorkspaceProjectView; dimmed?: boolean }) {
   const { t } = useTranslation();
   const sharedClassName =
-    "relative flex aspect-[4/5] w-full items-end overflow-hidden rounded-[2rem] border border-stone-200 bg-stone-100 dark:border-white/10 dark:bg-stone-900";
+    "relative flex aspect-[4/5] w-full items-end overflow-hidden rounded-lg border border-app-border bg-app-panel";
 
   if (project.coverDataUrl) {
     return (
@@ -49,7 +49,7 @@ function ProjectArt({ project, dimmed = false }: { project: WorkspaceProjectView
 }
 
 const actionButtonClassName =
-  "inline-flex items-center justify-center rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 transition hover:border-stone-400 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:text-stone-100 dark:hover:border-white/30 dark:hover:bg-white/8";
+  "inline-flex items-center justify-center rounded-lg border border-app-border px-4 py-2 text-sm font-medium text-app-ink transition-[border-color,color,background-color,transform] duration-200 hover:border-[#202329] hover:bg-app-primary-soft active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:cursor-not-allowed disabled:opacity-50";
 
 export function ProjectCard({
   project,
@@ -62,14 +62,14 @@ export function ProjectCard({
   const { t } = useTranslation();
   const details = (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-6 text-left dark:from-black/85 dark:via-black/35">
-      <p className="text-xs uppercase tracking-[0.24em] text-stone-200 dark:text-stone-300">
+      <p className="text-xs font-semibold text-white/80">
         {project.status === "available" ? t("card.recentProject") : t("card.unavailable")}
       </p>
-      <h3 className="mt-3 text-2xl font-semibold text-white">{project.name}</h3>
+      <h3 className="font-editorial mt-3 text-2xl font-bold text-white">{project.name}</h3>
       {project.status === "available" ? (
-        <p className="mt-2 text-sm text-stone-200 dark:text-stone-300">{t("card.openHint")}</p>
+        <p className="mt-2 text-sm text-white/80">{t("card.openHint")}</p>
       ) : (
-        <p className="mt-2 text-sm text-stone-200 dark:text-stone-300">
+        <p className="mt-2 text-sm text-white/80">
           {t("card.movedHint")}
         </p>
       )}
@@ -81,7 +81,7 @@ export function ProjectCard({
       <article className="relative min-w-0">
         <button
           aria-label={t("card.openAria", { name: project.name })}
-          className="group relative block w-full rounded-[2rem] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="group relative block w-full rounded-lg text-left transition-transform duration-200 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:cursor-not-allowed disabled:opacity-50"
           disabled={disabled}
           onClick={() => onOpen(project)}
           ref={primaryActionRef}
@@ -95,7 +95,7 @@ export function ProjectCard({
   }
 
   return (
-    <article className="rounded-[2rem] border border-stone-200 bg-white p-4 shadow-2xl shadow-black/10 dark:border-white/10 dark:bg-white/[0.03] dark:shadow-black/20">
+    <article className="rounded-lg border border-app-border bg-app-panel-strong p-4 shadow-[var(--app-shadow)]">
       <div className="relative">
         <ProjectArt dimmed project={project} />
         <div className="absolute inset-0">{details}</div>

@@ -92,6 +92,7 @@ export interface LayoutOptions {
   frameChrome: ComponentFrameChrome;
   includeReferenceAddTile?: boolean | "empty";
   includeDocumentTitle?: boolean;
+  exclusiveRows?: boolean;
 }
 
 export type Placement = ComponentFragmentPlacement;
@@ -385,7 +386,10 @@ export function layoutPlan(
 
   for (const component of components) {
     const width = component.width * content.width;
-    if (!canAddToRow(
+    if (options.exclusiveRows && currentRow.length > 0) {
+      rows.push(currentRow);
+      currentRow = [];
+    } else if (!canAddToRow(
       currentRow.map((entry) => entry.component.width),
       component.width,
       geometry,
@@ -394,10 +398,12 @@ export function layoutPlan(
       currentRow = [];
     }
 
-    const currentX = nextRowItemOffset(
-      currentRow.map((entry) => entry.component.width),
-      geometry,
-    ) * content.width;
+    const currentX = options.exclusiveRows
+      ? Math.max(0, Math.min(content.width - width, component.layoutX ?? 0))
+      : nextRowItemOffset(
+          currentRow.map((entry) => entry.component.width),
+          geometry,
+        ) * content.width;
     currentRow.push({ component, x: currentX, width });
   }
 

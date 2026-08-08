@@ -33,7 +33,7 @@ describe("schema v6 migration adapter", () => {
     );
 
     expect(migrated).toMatchObject({
-      schemaVersion: 7,
+      schemaVersion: 8,
       components: [{
         id: "reference",
         type: "reference",
@@ -71,7 +71,7 @@ describe("schema v6 migration adapter", () => {
       }],
     };
 
-    expect(migratePlan(valid, context)).toMatchObject({ schemaVersion: 7 });
+    expect(migratePlan(valid, context)).toMatchObject({ schemaVersion: 8 });
     expect(() =>
       migratePlan({ ...valid, components: [{ ...valid.components[0], contentScale: 3 }] }, context),
     ).toThrow(/contentScale/i);

@@ -11,6 +11,7 @@ interface RichTextEditorProps {
   placeholder?: string;
   compact?: boolean;
   rootRef?: React.Ref<HTMLDivElement>;
+  onBlockHtmlChange?(sourceHtml: string, blocks: string[]): void;
 }
 
 function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null): void {
@@ -31,12 +32,16 @@ export function RichTextEditor({
   placeholder,
   compact,
   rootRef,
+  onBlockHtmlChange,
 }: RichTextEditorProps) {
   const { resolved } = useTheme();
   const editor = useCreateBlockNote({ dictionary: zh });
   const lastEmitRef = useRef<string | null>(null);
   const lastPropHtmlRef = useRef<string | null>(null);
   const onChangeRef = useRef(onChange);
+  const onBlockHtmlChangeRef = useRef(onBlockHtmlChange);
+  const lastBlockHtmlRef = useRef<string | null>(null);
+  const blockEmissionGenerationRef = useRef(0);
   const setRootRef = useCallback(
     (node: HTMLDivElement | null) => {
       assignRef(rootRef, node);
@@ -47,6 +52,30 @@ export function RichTextEditor({
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  useEffect(() => {
+    onBlockHtmlChangeRef.current = onBlockHtmlChange;
+  }, [onBlockHtmlChange]);
+
+  const emitBlockHtml = useCallback(async (sourceHtml: string) => {
+    if (!onBlockHtmlChangeRef.current) {
+      return;
+    }
+    const generation = blockEmissionGenerationRef.current + 1;
+    blockEmissionGenerationRef.current = generation;
+    const blocks = await Promise.all(
+      editor.document.map((block) => Promise.resolve(editor.blocksToHTMLLossy([block]))),
+    );
+    if (generation !== blockEmissionGenerationRef.current) {
+      return;
+    }
+    const serialized = JSON.stringify({ sourceHtml, blocks });
+    if (serialized === lastBlockHtmlRef.current) {
+      return;
+    }
+    lastBlockHtmlRef.current = serialized;
+    onBlockHtmlChangeRef.current(sourceHtml, blocks);
+  }, [editor]);
 
   useEffect(() => {
     if (html === lastPropHtmlRef.current) {
@@ -72,14 +101,16 @@ export function RichTextEditor({
         // suppressed. blocksToHTMLLossy is synchronous in BlockNote 0.52; awaiting it
         // here would defer the assignment past the queued echo and reintroduce the race.
         lastEmitRef.current = editor.blocksToHTMLLossy(editor.document);
+        await emitBlockHtml(html);
       } catch (error) {
         console.error("RichTextEditor failed to load HTML content", error);
       }
     })();
     return () => {
       cancelled = true;
+      blockEmissionGenerationRef.current += 1;
     };
-  }, [editor, html]);
+  }, [editor, emitBlockHtml, html]);
 
   const handleChange = async () => {
     try {
@@ -90,6 +121,7 @@ export function RichTextEditor({
       lastEmitRef.current = next;
       lastPropHtmlRef.current = next;
       onChangeRef.current(next);
+      await emitBlockHtml(next);
     } catch (error) {
       console.error("RichTextEditor failed to serialize content", error);
     }

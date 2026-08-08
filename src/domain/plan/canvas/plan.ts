@@ -1,4 +1,5 @@
 import {
+  DEFAULT_IMAGE_HEIGHT,
   type PlanComponent,
   type ProjectPlan,
   type ReferenceComponent,
@@ -11,7 +12,6 @@ import {
   moveCard,
   resizeCard,
 } from "./geometry";
-import { DOCUMENT_TITLE_HEIGHT, SPACING } from "./geometry";
 
 export interface MoveImageParams {
   fromComponentId: string;
@@ -29,6 +29,25 @@ export interface MoveImagesParams {
   imageIds: string[];
   toComponentId: string;
   toIndex: number;
+}
+
+export function defaultImageFrame(aspectRatio: number): {
+  frameWidth: number;
+  frameHeight: number;
+} {
+  const ratio = Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1;
+  return {
+    frameWidth: DEFAULT_IMAGE_HEIGHT * ratio,
+    frameHeight: DEFAULT_IMAGE_HEIGHT,
+  };
+}
+
+function hasDefaultImageFrame(image: ReferenceImage): boolean {
+  const expected = defaultImageFrame(image.aspectRatio);
+  return (
+    Math.abs(image.frameWidth - expected.frameWidth) < 0.001 &&
+    Math.abs(image.frameHeight - expected.frameHeight) < 0.001
+  );
 }
 
 function replace(plan: ProjectPlan, components: PlanComponent[]): ProjectPlan {
@@ -66,20 +85,19 @@ function mapReference(
 
 export function addComponent(plan: ProjectPlan, component: PlanComponent): ProjectPlan {
   const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
-  const belowExisting = Math.max(
-    DOCUMENT_TITLE_HEIGHT + SPACING,
-    ...plan.components.map((entry) => entry.y + entry.height + SPACING),
-  );
   const rect = clampCardRect(
     {
-      x: 0,
-      y: belowExisting,
+      x: component.x,
+      y: 0,
       width: component.width,
       height: component.height,
     },
     canvasWidth,
   );
-  return replace(plan, [...plan.components, { ...component, ...rect }]);
+  return replace(plan, [
+    { ...component, x: rect.x, width: rect.width, height: rect.height },
+    ...plan.components,
+  ]);
 }
 
 export function removeComponent(plan: ProjectPlan, id: string): ProjectPlan {
@@ -93,11 +111,30 @@ export function moveComponent(
 ): ProjectPlan {
   const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
   return mapComponent(plan, params.id, (component) => {
-    const next = moveCard(component, params, canvasWidth);
-    return next.x === component.x && next.y === component.y
+    const next = moveCard({ ...component, y: 0 }, { x: params.x, y: 0 }, canvasWidth);
+    return next.x === component.x
       ? component
-      : { ...component, ...next };
+      : { ...component, x: next.x };
   });
+}
+
+export function reorderComponent(
+  plan: ProjectPlan,
+  params: { id: string; toIndex: number },
+): ProjectPlan {
+  const activeIndex = plan.components.findIndex((component) => component.id === params.id);
+  if (activeIndex < 0) {
+    return plan;
+  }
+
+  const active = plan.components[activeIndex];
+  const remaining = plan.components.filter((component) => component.id !== params.id);
+  const toIndex = Math.max(0, Math.min(remaining.length, Math.trunc(params.toIndex)));
+  const components = [...remaining.slice(0, toIndex), active, ...remaining.slice(toIndex)];
+
+  return components.every((component, index) => component === plan.components[index])
+    ? plan
+    : replace(plan, components);
 }
 
 export function resizeComponent(
@@ -116,7 +153,7 @@ export function resizeComponent(
       {
         ...component,
         x: params.x ?? component.x,
-        y: params.y ?? component.y,
+        y: 0,
         width: params.width ?? component.width,
         height: params.height ?? component.height,
       },
@@ -128,13 +165,17 @@ export function resizeComponent(
     );
     if (
       resized.x === component.x &&
-      resized.y === component.y &&
       resized.width === component.width &&
       resized.height === component.height
     ) {
       return component;
     }
-    return { ...component, ...resized };
+    return {
+      ...component,
+      x: resized.x,
+      width: resized.width,
+      height: resized.height,
+    };
   });
 }
 
@@ -228,6 +269,9 @@ export function setImageAspectRatioForFile(
   plan: ProjectPlan,
   params: { file: string; aspectRatio: number },
 ): ProjectPlan {
+  if (!Number.isFinite(params.aspectRatio) || params.aspectRatio <= 0) {
+    return plan;
+  }
   let changed = false;
   const components = plan.components.map((component) => {
     if (component.type !== "reference") {
@@ -240,7 +284,13 @@ export function setImageAspectRatioForFile(
         return image;
       }
       imagesChanged = true;
-      return { ...image, aspectRatio: params.aspectRatio };
+      return {
+        ...image,
+        aspectRatio: params.aspectRatio,
+        ...(hasDefaultImageFrame(image)
+          ? defaultImageFrame(params.aspectRatio)
+          : {}),
+      };
     });
 
     if (!imagesChanged) {
@@ -400,5 +450,46 @@ export function setImageFrame(
           : image,
       ),
     };
+  });
+}
+
+export function scaleReferenceImages(
+  plan: ProjectPlan,
+  params: { componentId: string; scale: number },
+): ProjectPlan {
+  if (!Number.isFinite(params.scale) || params.scale <= 0 || params.scale === 1) {
+    return plan;
+  }
+  return mapReference(plan, params.componentId, (component) => {
+    if (component.images.length === 0) {
+      return component;
+    }
+    return {
+      ...component,
+      images: component.images.map((image) => ({
+        ...image,
+        frameWidth: Math.round(image.frameWidth * params.scale * 1000) / 1000,
+        frameHeight: Math.round(image.frameHeight * params.scale * 1000) / 1000,
+      })),
+    };
+  });
+}
+
+export function resetImageFrame(
+  plan: ProjectPlan,
+  params: { componentId: string; imageId: string },
+): ProjectPlan {
+  const component = plan.components.find(
+    (entry): entry is ReferenceComponent =>
+      entry.type === "reference" && entry.id === params.componentId,
+  );
+  const image = component?.images.find((entry) => entry.id === params.imageId);
+  if (!image) {
+    return plan;
+  }
+
+  return setImageFrame(plan, {
+    ...params,
+    ...defaultImageFrame(image.aspectRatio),
   });
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 interface ReferenceImageLightboxProps {
@@ -38,12 +39,12 @@ export function ReferenceImageLightbox({ src, alt, onClose }: ReferenceImageLigh
         <img alt={alt} className="max-h-[85vh] max-w-[90vw] object-contain" src={src} />
         <button
           aria-label={t("lightbox.close")}
-          className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+          className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-black/65 text-white transition-colors hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           onClick={onClose}
           ref={closeRef}
           type="button"
         >
-          ×
+          <X aria-hidden="true" className="h-4 w-4" data-icon="close" />
         </button>
       </div>
     </div>
