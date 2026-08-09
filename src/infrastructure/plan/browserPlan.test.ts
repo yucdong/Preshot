@@ -1,14 +1,15 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createCanvasPdfExporter } from "../pdf/canvasPdfExporter";
+import { imageDataFromDataUrl } from "../pdf/pdfImageOptimizer";
 import { createBrowserCanvasPlanDependencies } from "./browserPlan";
 
 const loadFonts = async () => ({
   regular: new Uint8Array(
-    readFileSync("src/infrastructure/pdf/fonts/NotoSansSC-Regular.otf"),
+    readFileSync("src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf"),
   ),
   bold: new Uint8Array(
-    readFileSync("src/infrastructure/pdf/fonts/NotoSansSC-Bold.otf"),
+    readFileSync("src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf"),
   ),
 });
 
@@ -123,7 +124,9 @@ describe("createBrowserCanvasPlanDependencies", () => {
       ),
     );
 
-    const bytes = await createCanvasPdfExporter(loadFonts).export(
+    const bytes = await createCanvasPdfExporter(loadFonts, {
+      optimizeImage: async (dataUrl) => imageDataFromDataUrl(dataUrl),
+    }).export(
       result.plan,
       images,
     );

@@ -47,6 +47,12 @@ import {
   type PdfTextLayout,
 } from "./pdfTextLayout";
 import { slotToPageRect } from "./slotPageRect";
+import {
+  optimizePdfImage,
+  type PdfImageDrawBox,
+  type PdfImageOptimizer,
+} from "./pdfImageOptimizer";
+import { pdfDocumentText, subsetPdfFont } from "./pdfFontSubset";
 
 const TITLE_SIZE = 14;
 const TEXT_COLOR = rgb(0.11, 0.1, 0.09);
@@ -81,15 +87,6 @@ function parseColor(value: string): Rgb | undefined {
   return undefined;
 }
 
-
-function dataUrlToBytes(dataUrl: string): { mime: string; bytes: Uint8Array } {
-  const match = /^data:([^;]+);base64,(.*)$/.exec(dataUrl);
-  if (!match) throw new Error("Unsupported image data URL");
-  const binary = atob(match[2]);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return { mime: match[1], bytes };
-}
 
 function requireReferenceImageData(
   images: Record<string, string>,
@@ -285,6 +282,70 @@ interface ResolvedPdfLayout {
   >;
 }
 
+function placementContentRect(
+  placement: ComponentFragmentPlacement,
+  contentScale: number,
+  frameChromeHeight: number,
+): { contentRect: Rect; pageY: number } {
+  const pageY = A4.height - SPACING - placement.rect.y;
+  return {
+    pageY,
+    contentRect: {
+      x: SPACING + placement.rect.x + COMPONENT_INSET * contentScale,
+      y: pageY - placement.rect.height + COMPONENT_INSET * contentScale,
+      width: Math.max(0, placement.rect.width - COMPONENT_INSET * 2 * contentScale),
+      height: Math.max(
+        0,
+        placement.rect.height -
+          COMPONENT_INSET * 2 * contentScale -
+          frameChromeHeight,
+      ),
+    },
+  };
+}
+
+function largestImageDrawBoxes(
+  layout: LayoutResult,
+  components: readonly LegacyV6PlanComponent[],
+  frameChromeHeight: number,
+): ReadonlyMap<string, PdfImageDrawBox> {
+  const boxes = new Map<string, PdfImageDrawBox>();
+  for (const placement of layout.placements) {
+    const component = components.find((entry) => entry.id === placement.componentId);
+    if (component?.type !== "reference" || !placement.imageSlots) continue;
+    const contentScale = clampContentScale(component.contentScale);
+    const { contentRect } = placementContentRect(
+      placement,
+      contentScale,
+      frameChromeHeight,
+    );
+    const imagesById = new Map(component.images.map((image) => [image.id, image]));
+    for (const slot of placement.imageSlots) {
+      if (slot.kind !== "image") continue;
+      const image = imagesById.get(slot.id);
+      if (!image) continue;
+      const drawBox = slotToPageRect(
+        contentRect,
+        scaleRect(
+          {
+            x: slot.x,
+            y: slot.y,
+            width: slot.width,
+            height: slot.imageHeight,
+          },
+          contentScale,
+        ),
+      );
+      const previous = boxes.get(image.file);
+      boxes.set(image.file, {
+        width: Math.max(previous?.width ?? 0, drawBox.width),
+        height: Math.max(previous?.height ?? 0, drawBox.height),
+      });
+    }
+  }
+  return boxes;
+}
+
 function planPlacement(
   layout: LayoutResult,
   componentId: string,
@@ -423,7 +484,11 @@ function resolvePdfLayout(
   }
 }
 
-export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
+export function createCanvasPdfExporter(
+  loadFonts: () => Promise<Fonts>,
+  options: { optimizeImage?: PdfImageOptimizer } = {},
+) {
+  const optimizeImage = options.optimizeImage ?? optimizePdfImage;
   return {
     async export(plan: ProjectPlan, images: Record<string, string>): Promise<Uint8Array> {
       validateReferenceImageData(plan, images);
@@ -432,12 +497,15 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
       pdf.registerFontkit(fontkit);
 
       const fonts = await loadFonts();
-      // Embed with subset: true for small output (full-font embeds are ~16 MB). fontkit's
-      // CFFSubset.encode throws on an EMPTY subset, so a font that is embedded but never
-      // drawn (e.g. no bold text in the document) would crash at save — the fonts are primed
-      // with an invisible glyph below to guarantee both subsets are non-empty.
-      const regular = await pdf.embedFont(fonts.regular, { subset: true });
-      const bold = await pdf.embedFont(fonts.bold, { subset: true });
+      const fontText = pdfDocumentText(plan);
+      // fontkit corrupts some CJK glyf records when it subsets these fonts. Build valid,
+      // document-specific TTFs first, then embed them without a second subset pass.
+      const regular = await pdf.embedFont(subsetPdfFont(fonts.regular, fontText), {
+        subset: false,
+      });
+      const bold = await pdf.embedFont(subsetPdfFont(fonts.bold, fontText), {
+        subset: false,
+      });
       const textLayouts = preparePdfTextLayouts(
         temporaryPlan.components,
         DEFAULT_PAGE_GEOMETRY,
@@ -456,21 +524,24 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
       );
 
       const embedded = new Map<string, PDFImage>();
+      const frameChromeHeight = componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME);
+      const imageDrawBoxes = largestImageDrawBoxes(
+        layout,
+        temporaryPlan.components,
+        frameChromeHeight,
+      );
 
-      const embed = async (dataUrl: string): Promise<PDFImage> => {
-        const { mime, bytes } = dataUrlToBytes(dataUrl);
+      const embed = async (
+        dataUrl: string,
+        drawBox: PdfImageDrawBox,
+      ): Promise<PDFImage> => {
+        const { mime, bytes } = await optimizeImage(dataUrl, drawBox);
         return mime.includes("png") ? pdf.embedPng(bytes) : pdf.embedJpg(bytes);
       };
 
       const pages: PDFPage[] = [];
       for (let i = 0; i < layout.pageCount; i += 1) {
         pages.push(pdf.addPage([595.28, 841.89]));
-      }
-
-      // Prime both fonts with an invisible space so neither CFF subset is ever empty
-      // (an unused subset:true font otherwise makes fontkit's CFFSubset.encode throw).
-      for (const font of [regular, bold]) {
-        pages[0].drawText(" ", { x: 0, y: 0, size: 1, font, color: rgb(1, 1, 1) });
       }
 
       if (plan.title.trim()) {
@@ -483,25 +554,17 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
         });
       }
 
-      const frameChromeHeight = componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME);
       for (const placement of layout.placements) {
         const page = pages[placement.pageIndex];
         const component = temporaryPlan.components.find((c) => c.id === placement.componentId);
         if (!component) continue;
         const contentScale = clampContentScale(component.contentScale);
 
-        const pageY = A4.height - SPACING - placement.rect.y;
-        const contentRect: Rect = {
-          x: SPACING + placement.rect.x + COMPONENT_INSET * contentScale,
-          y: pageY - placement.rect.height + COMPONENT_INSET * contentScale,
-          width: Math.max(0, placement.rect.width - COMPONENT_INSET * 2 * contentScale),
-          height: Math.max(
-            0,
-            placement.rect.height -
-              COMPONENT_INSET * 2 * contentScale -
-              frameChromeHeight,
-          ),
-        };
+        const { contentRect, pageY } = placementContentRect(
+          placement,
+          contentScale,
+          frameChromeHeight,
+        );
 
         if (placement.kind !== "continuation") {
           page.drawText(component.name, {
@@ -561,7 +624,13 @@ export function createCanvasPdfExporter(loadFonts: () => Promise<Fonts>) {
 
               let image = embedded.get(imageFile);
               if (!image) {
-                image = await embed(dataUrl);
+                image = await embed(
+                  dataUrl,
+                  imageDrawBoxes.get(imageFile) ?? {
+                    width: A4.width,
+                    height: A4.height,
+                  },
+                );
                 embedded.set(imageFile, image);
               }
 

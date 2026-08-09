@@ -9,7 +9,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("./infrastructure/pdf/fonts/NotoSansSC-Regular.otf") format("opentype");
+  src: url("./infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype");
 }
 
 @font-face {
@@ -17,7 +17,7 @@
   font-style: normal;
   font-weight: 600 800;
   font-display: swap;
-  src: url("./infrastructure/pdf/fonts/NotoSansSC-Bold.otf") format("opentype");
+  src: url("./infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype");
 }
 
 :root {

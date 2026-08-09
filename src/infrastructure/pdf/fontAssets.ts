@@ -1,5 +1,5 @@
-import boldUrl from "./fonts/NotoSansSC-Bold.otf?url";
-import regularUrl from "./fonts/NotoSansSC-Regular.otf?url";
+import boldUrl from "./fonts/NotoSansSC-Bold.ttf?url";
+import regularUrl from "./fonts/NotoSansSC-Regular.ttf?url";
 
 async function fetchBytes(url: string): Promise<Uint8Array> {
   const response = await fetch(url);

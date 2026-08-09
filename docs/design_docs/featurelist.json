@@ -722,7 +722,9 @@
         "Plan text cards shrink and grow to their measured BlockNote content, including numbered-list wrapping, without internal page spacer margins",
         "Reference-card borders shrink and grow to the final packed image row so compact consecutive groups can share an A4 page",
         "Reference toolbars provide 24pt-minimum, 4pt-step proportional whole-group image-height buttons with a dynamic one-page maximum, card resizing, and automatic page reflow",
-        "Historical schema-v7 continuous-canvas cards taller than one A4 page migrate safely before v8 normalization"
+        "Historical schema-v7 continuous-canvas cards taller than one A4 page migrate safely before v8 normalization",
+        "Android-compatible Chinese PDF output using valid document-specific TrueType Noto Sans SC Regular/Bold subsets with ToUnicode maps",
+        "PDF reference images are downsampled to their largest actual placement at 144 DPI and encoded as 76% JPEG instead of embedding full-resolution originals"
       ],
       "decisions": [
         "Introduce schema v8 with persisted x/width/height and array order, removing free vertical y",
@@ -732,7 +734,9 @@
         "Treat oversized unsplit components as an explicit normalization error rather than allowing cross-page rendering",
         "Validate source schemas according to their own geometry: v7 accepts finite continuous-canvas heights, then v7-to-v8 clamps to A4 before continuation normalization; v8 remains strict",
         "Use compact 20pt×17pt hover/focus-revealed Lucide up/down controls with visible 上移/下移 labels, fully outside the left card border with a 2pt gap; first/last boundaries use native disabled state and component DnD code is removed",
-        "Use average frameHeight as the group value; minus/plus commit one proportional 4pt scale mutation, preserve per-image frame ratios, and disable growth at the calculated one-page maximum"
+        "Use average frameHeight as the group value; minus/plus commit one proportional 4pt scale mutation, preserve per-image frame ratios, and disable growth at the calculated one-page maximum",
+        "Compress each unique PDF image once using the maximum final placement across all pages; preserve aspect ratio, never upscale, flatten transparency against paper white, and use browser Canvas high-quality resampling",
+        "Generate document-specific TTFs with fonteditor-core from the exact plan characters, then embed with pdf-lib subset:false; direct fontkit TrueType subsetting is forbidden because it emits malformed CJK glyf records"
       ],
       "progress": {
         "designSpec": "docs/superpowers/specs/2026-08-08-a4-document-flow-design.md",
@@ -762,17 +766,22 @@
           "Merged all 小清新人像拍摄 (2)/(3) components into their bases using the user-selected force-fit policy; retained 7 components and 0 numbered continuations",
           "Made fitting reference cards converge bidirectionally to the final packed image-row bottom; compacted 延安西路/夏日西瓜 to 297.77pt/397.38pt so each shares an A4 page with its adjacent plan card",
           "Added minus/value/plus controls after reference import/capture: 24pt minimum, exact 4pt steps, and a domain-calculated maximum that keeps the full group on one A4 page",
-          "Removed component useSortable, component collision/drop helpers, drag handles/placeholders/overlays, and replaced them with hover/focus-revealed labeled one-position up/down edge controls"
+          "Removed component useSortable, component collision/drop helpers, drag handles/placeholders/overlays, and replaced them with hover/focus-revealed labeled one-position up/down edge controls",
+          "2026-08-09: replaced CFF OpenType Noto Sans SC assets with OFL static TrueType 400/700 instances, then diagnosed that direct fontkit TrueType subsetting still corrupts CJK glyf records after the user supplied a rendered failure screenshot",
+          "2026-08-09: added fonteditor-core document-character subsetting and changed pdf-lib to embed the finished Regular/Bold TTFs with subset:false; the real browser-exported 36,994-byte diagnostic PDF renders all Chinese title/body/list text continuously and extracts exact Unicode in Poppler",
+          "2026-08-09: replaced full-resolution PDF image embedding with placement-aware 144 DPI JPEG compression at 76% quality; a 2400×1600 3.93 MB PNG rendered into a 100×75pt slot became a 200×133 6.8 KB JPEG in Chromium, reducing the complete comparison PDF from 1,452,901 bytes to 32,393 bytes (97.8%)"
         ],
         "lastVerified": {
-          "date": "2026-08-08",
+          "date": "2026-08-09",
           "pnpmLint": "passed with 0 errors; one existing ThemeProvider Fast Refresh warning",
           "pnpmTypecheck": "passed",
-          "pnpmTest": "77 files, 424 tests passed",
-          "pnpmTestE2e": "36 Edge smoke tests passed",
+          "pnpmTest": "79 files, 434 tests passed",
+          "pnpmTestE2e": "39 Edge smoke tests passed",
           "pnpmTestInit": "4 initializer harness checks passed",
           "cargoTest": "47 Rust tests passed via ~/.cargo/bin/cargo.exe",
-          "pnpmBuild": "passed with the existing Vite >500 kB chunk-size warning",
+          "pnpmBuild": "passed with static TrueType Noto Sans SC assets and the existing Vite >500 kB chunk-size warning",
+          "androidPdfCompatibility": "Both document-specific CJK weights embed as valid CIDFontType2 fonts with Identity-H encoding and ToUnicode maps; tests extract both FontFile2 streams and verify every expected Chinese glyph has a nonempty outline; Poppler rendering and exact text extraction passed on a real browser export",
+          "pdfImageCompression": "Each unique source is downsampled once to its largest final draw box at 144 DPI, flattened to paper white, and encoded as 76% JPEG; Chromium size/dimension regression and four existing PDF export browser flows passed",
           "visualChecks": "1440x1000 and 900x800: A4 surface and all frames contained; no horizontal overflow",
           "schemaV7Compatibility": "小清新人像拍摄 persists schema v8 with 7 merged components, no numbered continuation names, and all 107 images; reference cards persist exact natural heights; page 1 contains 拍摄计划 + 延安西路 and page 2 contains 拍摄注意点 + 夏日西瓜; recovery manifests are retained"
         },
