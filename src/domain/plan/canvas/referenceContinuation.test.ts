@@ -30,7 +30,7 @@ function reference(images: number, frameHeight: number): ReferenceComponent {
 }
 
 function plan(component: ReferenceComponent): ProjectPlan {
-  return { schemaVersion: 8, title: "Demo", components: [component] };
+  return { schemaVersion: 10, title: "Demo", components: [component] };
 }
 
 describe("normalizeReferenceContinuations", () => {
@@ -159,7 +159,7 @@ describe("normalizeReferenceContinuations", () => {
       x: 0,
       width: content.width,
       height: 400,
-      html: "<p>Leading</p>",
+      textRoot: { kind: "leaf" as const, id: "leading:root", html: "<p>Leading</p>" },
     };
     const originalReference = normalizeReferenceContinuations(
       plan(reference(12, 100)),

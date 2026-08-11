@@ -1,6 +1,7 @@
 import { createFont } from "fonteditor-core";
 import type { ProjectPlan } from "../../domain/plan/canvas/models";
 import { parseHtmlToBlocks, type Block } from "./htmlToBlocks";
+import { textLeaves } from "../../domain/plan/canvas/textTree";
 
 const GENERATED_PDF_CHARACTERS = " 0123456789.•";
 
@@ -15,8 +16,13 @@ export function pdfDocumentText(plan: ProjectPlan): string {
   const text = [plan.title, GENERATED_PDF_CHARACTERS];
   for (const component of plan.components) {
     text.push(component.name);
-    const html = component.type === "plan" ? component.html : component.description;
-    text.push(...parseHtmlToBlocks(html).map(blockText));
+    if (component.type === "plan") {
+      for (const leaf of textLeaves(component.textRoot)) {
+        text.push(...parseHtmlToBlocks(leaf.html).map(blockText));
+      }
+    } else {
+      text.push(...parseHtmlToBlocks(component.description).map(blockText));
+    }
   }
   return text.join("");
 }

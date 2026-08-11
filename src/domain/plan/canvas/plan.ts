@@ -12,6 +12,7 @@ import {
   moveCard,
   resizeCard,
 } from "./geometry";
+import { firstTextLeaf, updateTextLeafHtml } from "./textTree";
 
 export interface MoveImageParams {
   fromComponentId: string;
@@ -180,11 +181,17 @@ export function resizeComponent(
 }
 
 export function updatePlanHtml(plan: ProjectPlan, params: { id: string; html: string }): ProjectPlan {
-  return mapComponent(plan, params.id, (component) =>
-    component.type === "plan" && component.html !== params.html
-      ? { ...component, html: params.html }
-      : component,
+  const component = plan.components.find(
+    (entry): entry is Extract<PlanComponent, { type: "plan" }> =>
+      entry.id === params.id && entry.type === "plan",
   );
+  return component
+    ? updateTextLeafHtml(plan, {
+        componentId: component.id,
+        leafId: firstTextLeaf(component.textRoot).id,
+        html: params.html,
+      })
+    : plan;
 }
 
 export function setReferenceTitle(plan: ProjectPlan, id: string, title: string): ProjectPlan {

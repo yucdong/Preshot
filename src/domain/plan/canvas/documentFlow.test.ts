@@ -14,7 +14,7 @@ function planComponent(
     name: `文案${id}`,
     type: "plan",
     ...rect,
-    html: `<p>${id}</p>`,
+    textRoot: { kind: "leaf", id: `${id}:root`, html: `<p>${id}</p>` },
   };
 }
 

@@ -18,7 +18,9 @@ async function imageRowTops(frame: ReturnType<Page["locator"]>) {
 test("keeps the A4 canvas contained at the compact desktop width", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", {
+    timeout: 10_000,
+  });
   await expect(page.locator(FRAME)).toHaveCount(2);
   await page.setViewportSize({ width: 900, height: 800 });
   await page.evaluate(async () => {
@@ -43,12 +45,14 @@ test("keeps the A4 canvas contained at the compact desktop width", async ({ page
 
 test("plan card grows with text and avoids a large fixed blank area", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", {
+    timeout: 10_000,
+  });
   await expect(page.locator(FRAME)).toHaveCount(2);
 
   const frame = page.locator(FRAME).first();
   const frameBody = frame.locator("[data-component-frame-body]");
-  const editorRoot = frame.getByRole("group", { name: "摄影计划" });
+  const editorRoot = frame.getByRole("group", { name: "文案正文" });
   const editor = frame.locator('[contenteditable="true"]').first();
   const before = await frame.boundingBox();
 

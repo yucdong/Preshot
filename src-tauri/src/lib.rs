@@ -49,6 +49,7 @@ pub fn run() {
             plan::remove_reference_image,
             pdf::save_pdf,
             reveal::reveal_path,
+            reveal::open_project_directory,
             screenshot::start_screen_capture,
             screenshot::poll_screen_capture,
             screenshot::cancel_screen_capture,

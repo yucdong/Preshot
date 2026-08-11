@@ -278,7 +278,7 @@ where
     let manifest = ProjectManifest {
         schema_version: 1,
         id: Uuid::new_v4().to_string(),
-        name: resolved,
+        name: name.to_string(),
         created_at: now.clone(),
         updated_at: now,
         cover_image: None,
@@ -972,7 +972,11 @@ mod tests {
 
         let deduped = parent.path().join("Editorial (2)");
         assert_eq!(created.path, canonical_string(&deduped));
-        assert_eq!(created.manifest.name, "Editorial (2)");
+        assert_eq!(created.manifest.name, "Editorial");
+        assert_eq!(
+            Path::new(&created.path).file_name().and_then(|value| value.to_str()),
+            Some("Editorial (2)")
+        );
         assert!(deduped.join(".preshotproj").is_file());
     }
 

@@ -61,7 +61,7 @@ const plan: PlanComponent = {
   x: 20,
   width: 260,
   height: 140,
-  html: "<p>Shot list</p>",
+  textRoot: { kind: "leaf", id: "plan1:root", html: "<p>Shot list</p>" },
 };
 
 const reference: PlanComponent = {
@@ -91,11 +91,11 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onChangeHtml: vi.fn(),
     onCommitTitle: vi.fn<() => SetPlanTitleResult>(() => ({
       ok: true,
-      plan: { schemaVersion: 8, title: "Demo", components: [] },
+      plan: { schemaVersion: 10, title: "Demo", components: [] },
     })),
     onRenameComponent: vi.fn<() => RenameComponentResult>(() => ({
       ok: true,
-      plan: { schemaVersion: 8, title: "Demo", components: [] },
+      plan: { schemaVersion: 10, title: "Demo", components: [] },
     })),
     onSetDescription: vi.fn(),
     onAddImage: vi.fn(),
@@ -183,10 +183,78 @@ describe("PlanCanvas v8", () => {
     fireEvent.pointerUp(right, { pointerId: 1 });
     expect(props.onResize).toHaveBeenCalledWith("plan1", {
       x: 20,
-      y: 60,
       width: 290,
-      height: 140,
     });
+  });
+
+  it("stops plan resizing at recursive content limits and clears feedback when enlarged", () => {
+    renderCanvas({
+      components: [{
+        ...plan,
+        textRoot: {
+          kind: "split",
+          id: "split",
+          direction: "columns",
+          gap: 10,
+          children: [
+            plan.textRoot,
+            { kind: "leaf", id: "right", html: "<p>Right</p>" },
+          ],
+        },
+      }, reference],
+      measurements: {
+        planHeights: new Map([["plan1", 100]]),
+        referenceDescriptionHeights: new Map(),
+      },
+    });
+    const right = document.querySelector(
+      '[data-component-id="plan1"] [data-resize-handle="right"]',
+    ) as HTMLElement & {
+      setPointerCapture(pointerId: number): void;
+      hasPointerCapture(pointerId: number): boolean;
+      releasePointerCapture(pointerId: number): void;
+    };
+    right.setPointerCapture = vi.fn();
+    right.hasPointerCapture = vi.fn().mockReturnValue(true);
+    right.releasePointerCapture = vi.fn();
+
+    fireEvent.pointerDown(right, { clientX: 300, pointerId: 1 });
+    fireEvent.pointerMove(right, { clientX: 0, pointerId: 1 });
+    expect(document.querySelector('[data-component-id="plan1"]')).toHaveStyle({
+      width: "290px",
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("内容已达到最小尺寸");
+    expect(right).toHaveAttribute("data-resize-limited", "true");
+
+    fireEvent.pointerMove(right, { clientX: 400, pointerId: 1 });
+    expect(screen.queryByText("内容已达到最小尺寸")).not.toBeInTheDocument();
+    expect(right).not.toHaveAttribute("data-resize-limited");
+  });
+
+  it("stops vertical plan resizing at measured natural content height", () => {
+    renderCanvas({
+      measurements: {
+        planHeights: new Map([["plan1", 100]]),
+        referenceDescriptionHeights: new Map(),
+      },
+    });
+    const bottom = document.querySelector(
+      '[data-component-id="plan1"] [data-resize-handle="bottom"]',
+    ) as HTMLElement & {
+      setPointerCapture(pointerId: number): void;
+      hasPointerCapture(pointerId: number): boolean;
+      releasePointerCapture(pointerId: number): void;
+    };
+    bottom.setPointerCapture = vi.fn();
+    bottom.hasPointerCapture = vi.fn().mockReturnValue(true);
+    bottom.releasePointerCapture = vi.fn();
+
+    fireEvent.pointerDown(bottom, { clientY: 140, pointerId: 1 });
+    fireEvent.pointerMove(bottom, { clientY: 0, pointerId: 1 });
+    expect(document.querySelector('[data-component-id="plan1"]')).toHaveStyle({
+      height: "112px",
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("内容已达到最小尺寸");
   });
 
   it("keeps reference image DnD infrastructure inside the continuous card", () => {

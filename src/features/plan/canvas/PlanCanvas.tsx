@@ -16,10 +16,12 @@ import {
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
   DOCUMENT_TITLE_HEIGHT,
+  PLAN_COMPONENT_VISUAL_INSET,
   snapCardResize,
   type Rect,
   type ResizeEdge,
 } from "../../../domain/plan/canvas/geometry";
+import type { LayoutMeasurements } from "../../../domain/plan/canvas/engine";
 import {
   type MoveImageParams,
   type MoveImagesParams,
@@ -29,6 +31,10 @@ import type {
   PlanComponent,
   ReferenceComponent,
 } from "../../../domain/plan/canvas/models";
+import {
+  MIN_TEXT_LEAF_HEIGHT,
+  textTreeMinimumWidth,
+} from "../../../domain/plan/canvas/textTree";
 import type {
   RenameComponentResult,
   SetPlanTitleResult,
@@ -54,11 +60,17 @@ export interface PlanCanvasProps {
   components: PlanComponent[];
   title: string;
   scale: number;
-  /** Retained while provider measurement state is shared with the PDF path. */
-  measurements?: unknown;
+  measurements?: LayoutMeasurements;
   imageSrc: (file: string) => string | undefined;
   onRemoveComponent: (id: string) => void;
-  onChangeHtml: (id: string, html: string) => void;
+  onChangeHtml: (componentId: string, leafId: string, html: string) => void;
+  onSplitTextLeaf?: (
+    componentId: string,
+    leafId: string,
+    direction: "columns" | "rows",
+  ) => void;
+  onRemoveTextLeaf?: (componentId: string, leafId: string) => void;
+  onUndo?: () => void;
   onCommitTitle: (title: string) => SetPlanTitleResult;
   onRenameComponent: (id: string, name: string) => RenameComponentResult;
   onSetDescription: (id: string, description: string) => void;
@@ -70,7 +82,7 @@ export interface PlanCanvasProps {
   onMoveImages?: (params: MoveImagesParams) => void;
   onResize?: (
     id: string,
-    rect: { x: number; y: number; width: number; height: number },
+    rect: { x?: number; y?: number; width?: number; height?: number },
   ) => void;
   onAddImages?: (id: string) => void;
   onMeasurePlan?: (id: string, measurement: PlanMeasurement) => void;
@@ -98,6 +110,7 @@ type ActiveDrag = { type: "image"; id: string; componentId: string; imageIds: st
 interface ComponentPreview {
   id: string;
   rect: Rect;
+  limitedEdge: ResizeEdge | null;
 }
 
 function referenceComponentById(
@@ -140,9 +153,13 @@ export function PlanCanvas({
   components,
   title,
   scale,
+  measurements,
   imageSrc,
   onRemoveComponent,
   onChangeHtml,
+  onSplitTextLeaf,
+  onRemoveTextLeaf,
+  onUndo,
   onCommitTitle,
   onRenameComponent,
   onSetDescription,
@@ -190,6 +207,22 @@ export function PlanCanvas({
     rect: Rect,
     edge: ResizeEdge,
   ): Rect => {
+    const component = components.find((entry) => entry.id === componentId);
+    const minimumWidth = component?.type === "plan"
+      ? textTreeMinimumWidth(component.textRoot) + PLAN_COMPONENT_VISUAL_INSET * 2
+      : undefined;
+    const measuredHeight = measurements?.planHeights.get(componentId);
+    const minimumHeight = component?.type === "plan"
+      ? Math.max(
+          MIN_TEXT_LEAF_HEIGHT,
+          Number.isFinite(measuredHeight) ? measuredHeight! : 0,
+        ) + PLAN_COMPONENT_VISUAL_INSET * 2
+      : undefined;
+    const limited =
+      ((edge === "left" || edge === "right") &&
+        minimumWidth !== undefined && rect.width < minimumWidth) ||
+      ((edge === "top" || edge === "bottom") &&
+        minimumHeight !== undefined && rect.height < minimumHeight);
     const snapped = snapCardResize({
       rect,
       edge,
@@ -197,10 +230,13 @@ export function PlanCanvas({
         .filter((placement) => placement.componentId !== componentId)
         .map((placement) => placement.rect),
       threshold: 6,
+      minimumWidth,
+      minimumHeight,
     });
     setPreview({
       id: componentId,
       rect: snapped.rect,
+      limitedEdge: limited ? edge : null,
     });
     return snapped.rect;
   };
@@ -322,7 +358,13 @@ export function PlanCanvas({
       : null;
   const surfaceComponents =
     componentPreview === null
-      ? components
+      ? components.map((component) => {
+          if (component.type !== "plan") return component;
+          const screenHeight = measurements?.planScreenHeights?.get(component.id);
+          return Number.isFinite(screenHeight) && screenHeight! > component.height
+            ? { ...component, height: screenHeight! + PLAN_COMPONENT_VISUAL_INSET * 2 }
+            : component;
+        })
       : components.map((component) =>
           component.id === componentPreview.id
             ? {
@@ -367,14 +409,20 @@ export function PlanCanvas({
           {components.map((component, componentIndex) => {
             const preview =
               componentPreview?.id === component.id ? componentPreview.rect : null;
+            const screenHeight = component.type === "plan"
+              ? measurements?.planScreenHeights?.get(component.id)
+              : undefined;
+            const runtimeComponent = Number.isFinite(screenHeight) && screenHeight! > component.height
+              ? { ...component, height: screenHeight! + PLAN_COMPONENT_VISUAL_INSET * 2 }
+              : component;
             const visibleComponent = preview
               ? {
-                  ...component,
+                  ...runtimeComponent,
                   x: preview.x,
                   width: preview.width,
                   height: preview.height,
                 }
-              : component;
+              : runtimeComponent;
             const placement = placementById.get(component.id);
             if (!placement) {
               return null;
@@ -400,15 +448,27 @@ export function PlanCanvas({
                 id={visibleComponent.id}
                 onRemove={onRemoveComponent}
                 onRename={onRenameComponent}
-                onResize={(id, rect) => {
+                onResize={(id, rect, edge) => {
                   clearComponentPreview();
-                  onResize?.(id, rect);
+                  onResize?.(
+                    id,
+                    component.type === "plan" && (edge === "left" || edge === "right")
+                      ? { x: rect.x, width: rect.width }
+                      : rect,
+                  );
                 }}
                 onResizeCancel={clearComponentPreview}
                 onResizePreview={previewComponentResize}
+                resizeLimitedEdge={
+                  componentPreview?.id === component.id
+                    ? componentPreview.limitedEdge
+                    : null
+                }
                 rect={placement.rect}
                 scale={safeScale}
                 sortableId={visibleComponent.id}
+                showName={visibleComponent.type !== "plan"}
+                allowContentOverflow={visibleComponent.type === "plan"}
                 canMoveUp={componentIndex > 0}
                 canMoveDown={componentIndex < components.length - 1}
                 onMoveUp={() => onReorderComponent?.(component.id, componentIndex - 1)}
@@ -419,6 +479,9 @@ export function PlanCanvas({
                     component={visibleComponent}
                     onChangeHtml={onChangeHtml}
                     onMeasure={onMeasurePlan}
+                    onSplitLeaf={onSplitTextLeaf}
+                    onRemoveLeaf={onRemoveTextLeaf}
+                    onUndo={onUndo}
                     scale={safeScale}
                   />
                 ) : (

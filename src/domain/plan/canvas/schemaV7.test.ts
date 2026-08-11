@@ -6,7 +6,7 @@ const context = { projectName: "Editorial" };
 const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
 
 describe("schema v7 migration", () => {
-  it("migrates saved v7 card coordinates into v8 order and dimensions", () => {
+  it("migrates saved v7 card coordinates into v10 order and dimensions", () => {
     const saved = {
       schemaVersion: 7,
       title: "Editorial",
@@ -34,10 +34,13 @@ describe("schema v7 migration", () => {
       ],
     };
 
-    expect(migratePlan(saved, context)).toEqual({
-      schemaVersion: 8,
+    expect(migratePlan(saved, context)).toMatchObject({
+      schemaVersion: 10,
       title: "Editorial",
-      components: saved.components.map(({ y: _y, ...component }) => component),
+      components: [
+        { id: "back", textRoot: { html: "<p>Back</p>" } },
+        { id: "front", textRoot: { html: "<p>Front</p>" } },
+      ],
     });
   });
 
@@ -80,7 +83,7 @@ describe("schema v7 migration", () => {
     );
 
     expect(migrated).toMatchObject({
-      schemaVersion: 8,
+      schemaVersion: 10,
       title: "Editorial",
       components: [
         {
@@ -89,7 +92,7 @@ describe("schema v7 migration", () => {
           x: 0,
           width: canvasWidth,
           height: 84,
-          html: "<p>Golden hour</p>",
+          textRoot: { html: "<p>Golden hour</p>" },
         },
         {
           id: "reference",

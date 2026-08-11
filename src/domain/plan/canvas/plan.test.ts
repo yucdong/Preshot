@@ -30,7 +30,13 @@ function planText(
   id: string,
   rect = { x: 0, width: canvasWidth, height: 220 },
 ): PlanComponent {
-  return { id, name: `文案${id}`, type: "plan", ...rect, html: `<p>${id}</p>` };
+  return {
+    id,
+    name: `文案${id}`,
+    type: "plan",
+    ...rect,
+    textRoot: { kind: "leaf", id: `${id}:root`, html: `<p>${id}</p>` },
+  };
 }
 
 function reference(
@@ -55,7 +61,7 @@ function reference(
 }
 
 function withComponents(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 8, title: "Demo", components };
+  return { schemaVersion: 10, title: "Demo", components };
 }
 
 describe("v7 canvas reducers", () => {
@@ -119,7 +125,7 @@ describe("v7 canvas reducers", () => {
   it("updates plan html and leaves unrelated cards unchanged", () => {
     const plan = withComponents([planText("a"), planText("b")]);
     const next = updatePlanHtml(plan, { id: "a", html: "<p>updated</p>" });
-    expect(next.components[0]).toMatchObject({ html: "<p>updated</p>" });
+    expect(next.components[0]).toMatchObject({ textRoot: { html: "<p>updated</p>" } });
     expect(next.components[1]).toBe(plan.components[1]);
   });
 

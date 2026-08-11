@@ -70,6 +70,7 @@ export function referenceImageSlots(
 
 export interface LayoutMeasurements {
   planHeights: ReadonlyMap<string, number>;
+  planScreenHeights?: ReadonlyMap<string, number>;
   referenceDescriptionHeights: ReadonlyMap<string, number>;
 }
 
@@ -90,6 +91,7 @@ export interface LayoutResult {
 
 export interface LayoutOptions {
   frameChrome: ComponentFrameChrome;
+  planFrameChrome?: ComponentFrameChrome;
   includeReferenceAddTile?: boolean | "empty";
   includeDocumentTitle?: boolean;
   exclusiveRows?: boolean;
@@ -170,7 +172,11 @@ function layoutPlanComponent(
   geometry: PageGeometry,
   options: LayoutOptions,
 ): ComponentLayout {
-  const frameChromeHeight = componentFrameChromeHeight(options.frameChrome);
+  const frameChromeHeight = componentFrameChromeHeight(
+    entry.component.type === "plan"
+      ? options.planFrameChrome ?? options.frameChrome
+      : options.frameChrome,
+  );
 
   if (entry.component.type === "plan") {
     const height =

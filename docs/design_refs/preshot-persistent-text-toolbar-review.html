@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preshot 常驻文本工具栏设计评审</title>
+<style>
+@font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype");font-weight:600 800;font-display:swap}
+:root{--chrome:#191b1f;--chrome-2:#25282d;--canvas:#dfe1e5;--paper:#fff;--ink:#25292d;--muted:#70767d;--line:#d7dadd;--line-strong:#aeb5ba;--cyan:#0891b2;--cyan-soft:#e6f6f8;--berry:#c2385c;--danger:#b42342;--shadow:0 16px 42px rgba(23,25,29,.17);--zoom:1}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}body{font-family:NotoSC,"Microsoft YaHei UI",sans-serif;color:var(--ink);background:var(--canvas);letter-spacing:0}button,input{font:inherit}button{cursor:pointer}.app{display:grid;grid-template-rows:56px minmax(0,1fr);height:100vh;min-width:820px}.topbar{display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--chrome);color:#fff;border-bottom:1px solid #34373d}.mark{display:grid;place-items:center;width:28px;height:28px;border-radius:6px;background:var(--berry);font-weight:800}.brand{font-size:16px;font-weight:800}.divider{width:1px;height:18px;background:#44484f}.title{font-size:11px;font-weight:700}.badge{padding:4px 7px;border-radius:4px;background:#30343a;color:#c1c5cb;font-size:8px}.spacer{flex:1}.saved{font-size:9px;color:#9fd8cc}.workspace{display:grid;grid-template-columns:minmax(580px,1fr) 308px;min-height:0}.stage{position:relative;overflow:auto;padding:36px 42px 80px;background-color:var(--canvas);background-image:radial-gradient(rgba(45,50,56,.08) .7px,transparent .7px);background-size:16px 16px}.page-wrap{width:min(780px,92%);margin:0 auto;transform:scale(var(--zoom));transform-origin:top center}.paper{position:relative;min-height:760px;padding:36px 42px 84px;background:var(--paper);box-shadow:var(--shadow)}.paper-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;padding-bottom:13px;border-bottom:1px solid #e9ebec}.paper-head h1{margin:0;font-size:21px}.paper-head span{font-size:8px;color:#8a8e93}.component{position:relative;padding:5px;border:1.5px solid var(--cyan);border-radius:6px;background:#fff;box-shadow:0 0 0 2px rgba(8,145,178,.09)}.component-close{position:absolute;z-index:50;right:4px;top:4px;display:grid;place-items:center;width:clamp(18px,calc(18px * var(--zoom)),22px);height:clamp(18px,calc(18px * var(--zoom)),22px);padding:0;border:0;border-radius:4px;background:var(--chrome-2);color:#fff;line-height:1;box-shadow:0 2px 7px rgba(18,20,23,.2)}.component-close:hover,.component-close:focus-visible{background:var(--danger);outline:2px solid rgba(180,35,66,.25);outline-offset:1px}.leaf-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.82fr);gap:10px}.leaf{position:relative;min-width:0;border:1px solid var(--line);background:#fff}.leaf-toolbar{display:flex;align-items:center;gap:2px;min-height:36px;padding:3px 28px 3px 4px;border-bottom:1px solid #dfe2e4;background:#fafafa;box-shadow:0 2px 8px rgba(25,28,31,.05)}.tool{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;padding:0;border:0;border-radius:4px;background:transparent;color:#3e4348;font-size:13px}.tool:hover,.tool:focus-visible,.tool.active{background:#e8ebed;color:#17191d;outline:none}.tool:focus-visible{box-shadow:0 0 0 2px var(--cyan)}.paragraph{position:relative;display:flex;align-items:center;justify-content:space-between;flex:0 1 112px;min-width:88px;height:28px;padding:0 8px;border:1px solid #d4d8da;border-radius:4px;background:#fff;color:#30353a;font-size:10px;font-weight:700;white-space:nowrap}.chevron{width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-2px)}.size{display:flex;flex:0 0 58px;height:28px;border:1px solid #d4d8da;border-radius:4px;background:#fff}.size b{display:grid;place-items:center;width:36px;font-size:10px;font-variant-numeric:tabular-nums}.size button{display:grid;place-items:center;width:22px;border:0;border-left:1px solid #dfe2e4;background:transparent}.color-tool{position:relative}.color-tool::after{content:"";position:absolute;left:7px;right:7px;bottom:3px;height:3px;border-radius:2px;background:#6f56a6}.more{font-weight:800;letter-spacing:1px}.editor{min-height:120px;padding:18px 14px 16px;color:#2f3438;font-size:21px;font-weight:700;line-height:1.55;outline:none;cursor:text}.editor::selection{background:#bdebf3}.secondary .editor{font-size:13px;font-weight:400}.menu{position:fixed;z-index:1000;width:220px;max-height:min(420px,calc(100vh - 16px));overflow:auto;padding:5px;border:1px solid #cdd2d5;border-radius:7px;background:#fff;box-shadow:0 15px 36px rgba(22,25,28,.24)}.menu[hidden]{display:none}.menu-item{display:grid;grid-template-columns:22px minmax(0,1fr) 16px;align-items:center;gap:8px;width:100%;min-height:36px;padding:7px 8px;border:0;border-radius:4px;background:transparent;color:#2b3035;text-align:left;font-size:12px;line-height:20px;white-space:nowrap}.menu-item:hover,.menu-item:focus-visible{background:var(--cyan-soft);color:#08758b;outline:none}.menu-item.selected{font-weight:700}.type-icon{display:grid;place-items:center;width:22px;height:22px;color:#565d63;font-size:10px;font-weight:800}.check{color:var(--cyan);font-weight:900}.inspector{overflow:auto;border-left:1px solid #c7cbd0;background:#f6f6f4}.inspector-head{padding:19px 18px 15px;border-bottom:1px solid #dadcde}.eyebrow{color:var(--berry);font-size:8px;font-weight:800}.inspector h2{margin:5px 0 4px;font-size:15px}.inspector-head p{margin:0;color:var(--muted);font-size:9px;line-height:1.6}.section{padding:15px 18px;border-bottom:1px solid #dcdee0}.section h3{margin:0 0 10px;font-size:10px}.segments{display:grid;grid-template-columns:1fr 1fr;gap:5px}.segments button{height:31px;border:1px solid #d0d4d7;border-radius:5px;background:#fff;color:#5b6268;font-size:9px}.segments button.active{border-color:var(--cyan);background:var(--cyan-soft);color:#06778e;font-weight:700}.range{display:grid;grid-template-columns:65px minmax(0,1fr) 36px;align-items:center;gap:7px;margin-top:11px;color:#656b71;font-size:8px}.range input{width:100%;accent-color:var(--cyan)}.rule-list{display:grid;gap:11px}.rule{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px}.rule strong{display:grid;place-items:center;width:22px;height:22px;border-radius:4px;background:#e5e8ea;color:#545b61;font-size:8px}.rule b{display:block;font-size:9px}.rule p{margin:2px 0 0;color:#72787e;font-size:8px;line-height:1.55}.metric{display:grid;grid-template-columns:1fr auto;gap:7px;padding:9px 0;border-top:1px solid #e2e3e4;font-size:8px}.metric:first-of-type{border-top:0}.metric b{font-size:9px}.metric span{color:var(--muted)}.decision{margin:14px 18px;padding:11px;border-left:3px solid var(--cyan);background:#edf8f9;color:#365d65;font-size:8px;line-height:1.6}
+.component.narrow .leaf-grid{grid-template-columns:minmax(0,1fr)}.component.narrow .secondary{display:none}.component.narrow .paragraph{flex-basis:72px;min-width:72px}.component.narrow .paragraph-label{display:none}.component.narrow .tool[data-optional="true"]{display:none}.component.narrow .size{flex-basis:54px}.component.narrow .leaf-toolbar{padding-right:28px}.component.narrow .editor{font-size:18px}
+@media(max-width:1060px){.workspace{grid-template-columns:minmax(520px,1fr) 276px}.stage{padding:28px 24px 70px}.page-wrap{width:96%}.paper{padding:30px 32px 72px}.tool[data-optional="true"]{display:none}.paragraph{flex-basis:92px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>
+:root{--chrome-size-local:18px;--chrome-inset-local:5px;--chrome-font-local:12px;--active-color:#202329}
+.component-close{right:var(--chrome-inset-local);top:var(--chrome-inset-local);width:var(--chrome-size-local);height:var(--chrome-size-local);font-size:var(--chrome-font-local)}
+.leaf{container-type:inline-size}
+.color-tool::after{background:var(--active-color)}
+.color-menu{position:fixed;z-index:1001;width:148px;padding:8px;border:1px solid #cdd2d5;border-radius:7px;background:#fff;box-shadow:0 15px 36px rgba(22,25,28,.24)}
+.color-menu[hidden]{display:none}.color-title{display:block;margin-bottom:7px;color:#6e747a;font-size:10px}.color-grid{display:grid;grid-template-columns:repeat(5,22px);gap:5px}.swatch{position:relative;width:22px;height:22px;padding:0;border:1px solid rgba(24,24,27,.22);border-radius:4px;background:var(--swatch)}.swatch:hover,.swatch:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}.swatch[aria-selected="true"]::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:800;text-shadow:0 1px 2px #000}.color-result{margin-top:8px;padding-top:7px;border-top:1px solid #e1e3e5;color:#62686e;font-size:10px;font-variant-numeric:tabular-nums}
+@container(max-width:419px){.tool[data-optional="true"]{display:none}.paragraph{flex-basis:86px;min-width:78px}}
+@container(max-width:339px){.paragraph{flex:0 0 50px;min-width:50px;padding:0 5px}.paragraph-label{display:none}.tool{flex-basis:24px;width:24px}.leaf-toolbar{padding-right:26px}.size{flex-basis:50px}.size b{width:30px}.size button{width:20px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="title">常驻文本工具栏评审</span><span class="badge">推荐方案</span><span class="spacer"></span><span class="saved">设计状态 · 已同步</span></header>
+<div class="workspace">
+<main class="stage">
+  <div class="page-wrap" id="page-wrap">
+    <article class="paper">
+      <header class="paper-head"><h1>夏日人像拍摄</h1><span>文本组件 · 常驻格式工具</span></header>
+      <section class="component" id="component">
+        <button class="component-close" aria-label="删除文案组件" title="删除文案组件">×</button>
+        <div class="leaf-grid">
+          <section class="leaf">
+            <div class="leaf-toolbar" role="toolbar" aria-label="正文一格式">
+              <button class="paragraph" id="paragraph-trigger" aria-expanded="true" type="button"><span class="paragraph-label">二级标题</span><span class="type-icon">H2</span><span class="chevron"></span></button>
+              <button class="tool" title="加粗"><b>B</b></button><button class="tool" title="斜体"><i>I</i></button><button class="tool" title="下划线"><u>U</u></button><button class="tool" title="删除线"><s>S</s></button>
+              <span class="size"><b>24</b><button aria-label="选择字号"><span class="chevron"></span></button></span>
+              <button class="tool color-tool" id="color-trigger" aria-expanded="false" aria-label="选择文字颜色" title="文字颜色">A</button><button class="tool active" data-optional="true" title="左对齐">≡</button><button class="tool" data-optional="true" title="添加链接">↗</button><button class="tool more" title="更多格式">···</button>
+            </div>
+            <div class="editor" id="primary-editor" contenteditable="true" spellcheck="false">35mm 人像写真<br><span style="font-size:14px;font-weight:400">自然光 · 清爽蓝白 · 情绪特写</span></div>
+          </section>
+          <section class="leaf secondary">
+            <div class="leaf-toolbar" role="toolbar" aria-label="正文二格式">
+              <button class="paragraph" type="button"><span class="paragraph-label">段落</span><span class="type-icon">T</span><span class="chevron"></span></button>
+              <button class="tool"><b>B</b></button><button class="tool"><i>I</i></button><button class="tool"><u>U</u></button><span class="size"><b>14</b><button><span class="chevron"></span></button></span><button class="tool color-tool">A</button><button class="tool more">···</button>
+            </div>
+            <div class="editor" contenteditable="true" spellcheck="false">镜头顺序：环境全景、人物互动、情绪特写。<br>逆光时增加白色反光板。</div>
+          </section>
+        </div>
+      </section>
+    </article>
+  </div>
+  <div class="menu" id="type-menu" role="menu" aria-label="段落类型">
+    <button class="menu-item" role="menuitem"><span class="type-icon">T</span><span>段落</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">H1</span><span>一级标题</span><span></span></button>
+    <button class="menu-item selected" role="menuitem"><span class="type-icon">H2</span><span>二级标题</span><span class="check">✓</span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">H3</span><span>三级标题</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">H4</span><span>四级标题</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">H5</span><span>五级标题</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">H6</span><span>六级标题</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">▸H1</span><span>可折叠一级标题</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">▸H2</span><span>可折叠二级标题</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">▸H3</span><span>可折叠三级标题</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">❞</span><span>引用</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">•</span><span>无序列表</span><span></span></button>
+  </div>
+  <div class="color-menu" id="color-menu" role="listbox" aria-label="文字颜色" hidden>
+    <span class="color-title">主题颜色</span>
+    <div class="color-grid">
+      <button class="swatch" style="--swatch:#202329" data-color="#202329" aria-label="石墨黑 #202329" aria-selected="true" role="option"></button>
+      <button class="swatch" style="--swatch:#6B6F76" data-color="#6B6F76" aria-label="中性灰 #6B6F76" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#C2385C" data-color="#C2385C" aria-label="浆果红 #C2385C" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#C78218" data-color="#C78218" aria-label="琥珀 #C78218" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#2F7D65" data-color="#2F7D65" aria-label="松绿 #2F7D65" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#0891B2" data-color="#0891B2" aria-label="功能青 #0891B2" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#2563A9" data-color="#2563A9" aria-label="钴蓝 #2563A9" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#6F56A6" data-color="#6F56A6" aria-label="鸢尾紫 #6F56A6" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#B42342" data-color="#B42342" aria-label="深红 #B42342" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#FFFFFF" data-color="#FFFFFF" aria-label="白色 #FFFFFF" aria-selected="false" role="option"></button>
+    </div>
+    <div class="color-result" id="color-result" role="status">当前：#202329</div>
+  </div>
+</main>
+<aside class="inspector">
+  <header class="inspector-head"><span class="eyebrow">UI/UX PRO MAX · DENSE CREATIVE TOOL</span><h2>常驻、可读、缩放稳定</h2><p>核心格式能力不再依赖 hover；弹层保持 portal，不占文本框布局。</p></header>
+  <section class="section"><h3>预览状态</h3><div class="segments"><button class="active" data-layout="wide">双栏常规</button><button data-layout="narrow">窄文本框</button></div><label class="range"><span>画布缩放</span><input id="zoom" type="range" min="72" max="125" value="100"><output id="zoom-value">100%</output></label></section>
+  <section class="section"><h3>关键尺寸</h3><div class="metric"><b>叶子工具栏</b><span>36px / 常驻</span></div><div class="metric"><b>段落菜单</b><span>220px / 行高 ≥ 36px</span></div><div class="metric"><b>关闭按钮</b><span>18–22px / 右上内嵌</span></div><div class="metric"><b>弹层安全距</b><span>8px / viewport</span></div></section>
+  <section class="section"><h3>实施规则</h3><div class="rule-list"><div class="rule"><strong>01</strong><div><b>工具栏属于叶子</b><p>每个文本框独立常驻，进入布局测量但不进入 PDF。</p></div></div><div class="rule"><strong>02</strong><div><b>窄宽度自动降级</b><p>隐藏文字标签与低频项，保留段落、B/I/U、字号、颜色和更多。</p></div></div><div class="rule"><strong>03</strong><div><b>菜单禁止换行</b><p>图标、标签、勾选三列；标签单行，项目高度按内容计算。</p></div></div><div class="rule"><strong>04</strong><div><b>组件 chrome 独立测量</b><p>关闭按钮锚定外框 rect，不再依赖正文自然高度或内部 padding。</p></div></div></div></section>
+  <div class="decision">推荐：采用“叶子常驻工具栏 + portal 菜单 + 屏幕空间组件按钮”。这比继续修改 BlockNote 选区浮动条更稳定。</div>
+</aside>
+</div>
+</div>
+<script>
+const component=document.getElementById('component'),menu=document.getElementById('type-menu'),trigger=document.getElementById('paragraph-trigger'),zoom=document.getElementById('zoom'),zoomValue=document.getElementById('zoom-value');
+const colorTrigger=document.getElementById('color-trigger'),colorMenu=document.getElementById('color-menu'),colorResult=document.getElementById('color-result'),primaryEditor=document.getElementById('primary-editor');let savedRange=null;
+function placeMenu(){const r=trigger.getBoundingClientRect(),m=menu.getBoundingClientRect(),gap=5,margin=8;let left=Math.min(innerWidth-m.width-margin,Math.max(margin,r.left));let top=r.bottom+gap;if(top+m.height>innerHeight-margin)top=Math.max(margin,r.top-m.height-gap);menu.style.left=`${left}px`;menu.style.top=`${top}px`}
+function setMenu(open){menu.hidden=!open;trigger.setAttribute('aria-expanded',String(open));if(open)requestAnimationFrame(placeMenu)}
+function placeColorMenu(){const r=colorTrigger.getBoundingClientRect(),m=colorMenu.getBoundingClientRect(),margin=8,gap=5;const left=Math.min(innerWidth-m.width-margin,Math.max(margin,r.left+(r.width-m.width)/2));let top=r.bottom+gap;if(top+m.height>innerHeight-margin)top=Math.max(margin,r.top-m.height-gap);colorMenu.style.left=`${left}px`;colorMenu.style.top=`${top}px`}
+function setColorMenu(open){colorMenu.hidden=!open;colorTrigger.setAttribute('aria-expanded',String(open));if(open){setMenu(false);requestAnimationFrame(placeColorMenu)}}
+function captureSelection(){const selection=getSelection();if(selection&&selection.rangeCount){const range=selection.getRangeAt(0);if(primaryEditor.contains(range.commonAncestorContainer))savedRange=range.cloneRange()}}
+function applyColor(color){primaryEditor.focus();if(savedRange){const selection=getSelection();selection.removeAllRanges();selection.addRange(savedRange)}document.execCommand('foreColor',false,color);captureSelection();document.documentElement.style.setProperty('--active-color',color);colorResult.textContent=`已应用：${color}`;document.querySelectorAll('.swatch').forEach(item=>item.setAttribute('aria-selected',String(item.dataset.color===color)));setColorMenu(false)}
+primaryEditor.addEventListener('mouseup',captureSelection);primaryEditor.addEventListener('keyup',captureSelection);document.addEventListener('selectionchange',captureSelection);colorTrigger.addEventListener('mousedown',event=>event.preventDefault());colorTrigger.addEventListener('click',()=>setColorMenu(colorMenu.hidden));colorMenu.addEventListener('mousedown',event=>event.preventDefault());colorMenu.addEventListener('click',event=>{const swatch=event.target.closest('.swatch');if(swatch)applyColor(swatch.dataset.color)});
+function updateChrome(){const value=Number(zoom.value)/100,target=Math.min(22,Math.max(18,18*value));document.documentElement.style.setProperty('--chrome-size-local',`${target/value}px`);document.documentElement.style.setProperty('--chrome-inset-local',`${Math.min(8,Math.max(4,5*value))/value}px`);document.documentElement.style.setProperty('--chrome-font-local',`${12/value}px`)}
+trigger.addEventListener('click',()=>setMenu(menu.hidden));document.querySelectorAll('[data-layout]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-layout]').forEach(item=>item.classList.toggle('active',item===button));component.classList.toggle('narrow',button.dataset.layout==='narrow');requestAnimationFrame(()=>{placeMenu();placeColorMenu()})}));zoom.addEventListener('input',()=>{document.documentElement.style.setProperty('--zoom',String(Number(zoom.value)/100));zoomValue.value=`${zoom.value}%`;updateChrome();requestAnimationFrame(()=>{placeMenu();placeColorMenu()})});addEventListener('resize',()=>{placeMenu();placeColorMenu()});updateChrome();setMenu(true);
+</script>
+</body>
+</html>

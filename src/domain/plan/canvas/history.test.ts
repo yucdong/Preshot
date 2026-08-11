@@ -13,7 +13,7 @@ import type { PlanComponent, ProjectPlan } from "./models";
 
 function planWith(id: string, html: string): ProjectPlan {
   return {
-    schemaVersion: 8,
+    schemaVersion: 10,
     title: "Demo",
     components: [{
       id,
@@ -22,7 +22,7 @@ function planWith(id: string, html: string): ProjectPlan {
       x: 0,
       width: 300,
       height: 120,
-      html,
+      textRoot: { kind: "leaf", id: `${id}:root`, html },
     }],
   };
 }
@@ -53,13 +53,16 @@ describe("plan history stack", () => {
   it("does not mutate recorded v7 snapshots", () => {
     const mutable = planWith("p", "original");
     const history = record(createHistory(), mutable);
-    (mutable.components[0] as { html: string }).html = "changed";
-    expect((undo(history, B)!.next.components[0] as { html: string }).html).toBe("original");
+    const mutablePlan = mutable.components[0];
+    if (mutablePlan.type !== "plan" || mutablePlan.textRoot.kind !== "leaf") throw new Error("Expected leaf");
+    mutablePlan.textRoot.html = "changed";
+    const restored = undo(history, B)!.next.components[0];
+    expect(restored.type === "plan" && restored.textRoot.kind === "leaf" ? restored.textRoot.html : "").toBe("original");
   });
 });
 
 function plan(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 8, title: "Demo", components };
+  return { schemaVersion: 10, title: "Demo", components };
 }
 
 function reference(
@@ -98,7 +101,10 @@ describe("mergeStructural", () => {
 
     const merged = mergeStructural(target, current);
 
-    expect(merged.components[0]).toMatchObject({ width: 400, html: "new" });
+    expect(merged.components[0]).toMatchObject({
+      width: 400,
+      textRoot: { html: "new" },
+    });
     expect(merged.components[1]).toMatchObject({
       width: 300,
       description: "new description",

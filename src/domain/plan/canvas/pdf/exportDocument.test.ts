@@ -7,7 +7,7 @@ import {
 } from "./exportDocument";
 
 const plan: ProjectPlan = {
-  schemaVersion: 8,
+  schemaVersion: 10,
   title: "Editorial",
   components: [
     {
@@ -18,7 +18,7 @@ const plan: ProjectPlan = {
       width: 500,
       height: 200,
       contentScale: 0.7,
-      html: "<p>Text</p>",
+      textRoot: { kind: "leaf", id: "p1:root", html: "<p>Text</p>" },
     },
     {
       id: "r1",
@@ -79,6 +79,7 @@ describe("temporary PDF layout adapter", () => {
 
     expect(layout.pageCount).toBeGreaterThan(0);
     expect(layout.placements.map((placement) => placement.componentId)).toEqual(["p1", "r1"]);
+    expect(layout.placements[0].rect.height).toBeCloseTo(96 * 0.7, 5);
     expect(layout.placements[1].rect.x).toBeCloseTo(40, 3);
     expect(layout.placements[1].rect.y).toBeGreaterThan(
       layout.placements[0].rect.y + layout.placements[0].rect.height,

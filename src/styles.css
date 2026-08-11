@@ -161,18 +161,236 @@ button:disabled {
   }
 }
 
-/* BlockNote remains paper-white so the editor matches the exported document. */
-.bn-wrap .bn-editor {
+/* Rich text remains paper-white so the editor matches the exported document. */
+.preshot-editor-wrap,
+.preshot-editor-container,
+.preshot-editor-content,
+.tiptap-editor {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+.preshot-editor-wrap {
+  overflow-x: hidden;
+  overflow-y: visible;
+  container-type: inline-size;
+}
+
+.preshot-editor-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.preshot-formatting-toolbar {
+  position: relative;
+  z-index: 50;
+}
+
+.preshot-formatting-toolbar > .preshot-tiptap-toolbar {
+  width: 100%;
+  min-height: 36px;
+  overflow: hidden;
+  border-radius: 0;
+  box-shadow: 0 2px 8px rgb(24 24 27 / 6%);
+}
+
+.preshot-toolbar-scroll {
+  scrollbar-width: none;
+}
+
+.preshot-toolbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@container (max-width: 419px) {
+  .preshot-formatting-toolbar .preshot-tool-button {
+    width: 28px;
+    min-width: 28px;
+    padding-inline: 0;
+  }
+
+  .preshot-formatting-toolbar .preshot-more-control {
+    display: block;
+  }
+}
+
+@container (max-width: 339px) {
+  .preshot-block-trigger span {
+    display: none;
+  }
+
+  .preshot-block-trigger {
+    min-width: 2.25rem;
+    padding-inline: 0.25rem;
+  }
+
+  .preshot-formatting-toolbar .preshot-tool-button {
+    width: 22px;
+    min-width: 22px;
+  }
+
+  .preshot-formatting-toolbar [data-toolbar-link="true"] button,
+  .preshot-formatting-toolbar .preshot-more-control > button {
+    width: 24px;
+  }
+
+  .preshot-formatting-toolbar > .preshot-tiptap-toolbar {
+    gap: 1px;
+  }
+
+  .preshot-formatting-toolbar .relative.mx-1 {
+    margin-inline: 0;
+  }
+
+  .preshot-formatting-toolbar .relative.mx-1 button:first-child {
+    width: 34px;
+  }
+}
+
+.tiptap-editor {
+  overflow-wrap: anywhere;
+  min-height: 2.75rem;
+  padding: 0.75rem;
+  cursor: text;
   background: #ffffff;
   color: #23302d;
   border: 1px solid #d5e0dd;
   border-radius: 0.5rem;
+  outline: none;
+  line-height: 1.55;
 }
-.bn-wrap.bn-compact .bn-editor {
+
+.tiptap-editor * {
+  cursor: text;
+}
+
+.tiptap-editor > :first-child {
+  margin-top: 0;
+}
+
+.tiptap-editor > :last-child {
+  margin-bottom: 0;
+}
+
+.tiptap-editor em {
+  font-style: italic;
+  font-synthesis-style: auto;
+}
+
+.tiptap-editor p,
+.tiptap-editor blockquote,
+.tiptap-editor pre,
+.tiptap-editor ul,
+.tiptap-editor ol,
+.tiptap-editor table {
+  margin-block: 0.45em;
+}
+
+.tiptap-editor h1,
+.tiptap-editor h2,
+.tiptap-editor h3,
+.tiptap-editor h4,
+.tiptap-editor h5,
+.tiptap-editor h6 {
+  margin-block: 0.55em 0.3em;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.tiptap-editor h1 {
+  font-size: 32px;
+}
+
+.tiptap-editor h2 {
+  font-size: 24px;
+}
+
+.tiptap-editor h3 {
+  font-size: 20px;
+}
+
+.tiptap-editor h4 {
+  font-size: 18px;
+}
+
+.tiptap-editor h5 {
+  font-size: 16px;
+}
+
+.tiptap-editor h6 {
+  font-size: 14px;
+}
+
+.tiptap-editor ul,
+.tiptap-editor ol {
+  padding-left: 1.5rem;
+}
+
+.tiptap-editor blockquote {
+  border-left: 3px solid #b9c8c4;
+  padding-left: 0.75rem;
+  color: #56635f;
+}
+
+.tiptap-editor pre {
+  overflow-x: auto;
+  border-radius: 0.35rem;
+  background: #f0f3f2;
+  padding: 0.65rem;
+  font-family: Consolas, monospace;
+}
+
+.tiptap-editor table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tiptap-editor th,
+.tiptap-editor td {
+  border: 1px solid #cbd5d2;
+  padding: 0.35rem 0.45rem;
+  vertical-align: top;
+}
+
+.tiptap-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap-editor li[data-type="taskItem"] {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.tiptap-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #8b9390;
+  pointer-events: none;
+}
+
+.text-leaf .preshot-editor-wrap,
+.text-leaf .preshot-editor-container,
+.text-leaf .preshot-editor-content,
+.text-leaf .tiptap-editor {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.text-leaf .tiptap-editor {
+  border: 0;
+  border-radius: 0;
+}
+
+.preshot-editor-compact .tiptap-editor {
   padding-inline: 0.25rem;
 }
 
-html.dark .bn-wrap .bn-editor {
+html.dark .tiptap-editor {
   background: #ffffff;
   color: #23302d;
   border-color: #c4d2ce;

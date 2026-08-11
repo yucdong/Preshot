@@ -1,4 +1,5 @@
 import { useState, type PropsWithChildren } from "react";
+import { FolderOpen, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   ASSISTANT_WIDTH,
@@ -8,6 +9,7 @@ import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { AgentPanel } from "../../features/agent/AgentPanel";
 import { SettingsButton } from "../../features/settings/SettingsButton";
 import { useTheme } from "../theme/ThemeProvider";
+import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 
 interface AppShellProps extends PropsWithChildren {
   projects: WorkspaceProjectView[];
@@ -16,6 +18,8 @@ interface AppShellProps extends PropsWithChildren {
   onSelectProject(project: WorkspaceProjectView): void;
   onNewProject(): void;
   onOpenProject(): void;
+  onRevealProject(project: WorkspaceProjectView): void;
+  onRemoveProject(project: WorkspaceProjectView): void;
 }
 
 const railButtonClassName =
@@ -42,9 +46,12 @@ export function AppShell({
   onSelectProject,
   onNewProject,
   onOpenProject,
+  onRevealProject,
+  onRemoveProject,
 }: AppShellProps) {
   const { t } = useTranslation();
   const settings = useTheme();
+  const [projectToRemove, setProjectToRemove] = useState<WorkspaceProjectView | null>(null);
   const [panelWidthPreview, setPanelWidthPreview] = useState<{
     projectRailWidth: number;
     assistantWidth: number;
@@ -162,35 +169,38 @@ export function AppShell({
 
               return (
                 <li key={project.projectId}>
-                  <button
-                    aria-current={isCurrent ? "page" : undefined}
-                    aria-label={
-                      isAvailable
-                        ? t("shell.openProjectNamed", { name: project.name })
-                        : t("shell.projectUnavailableNamed", { name: project.name })
-                    }
-                    className={`${railButtonClassName} flex items-center gap-2.5 border text-left ${
-                      isCurrent
-                        ? "border-app-border bg-app-panel-strong text-app-ink shadow-[0_3px_12px_rgb(24_24_27_/_7%)]"
-                        : "border-transparent text-app-muted hover:bg-app-panel-strong hover:text-app-ink"
-                    }`}
-                    onClick={() => onSelectProject(project)}
-                    type="button"
-                  >
-                    {project.coverDataUrl ? (
-                      <img alt="" className="h-10 w-12 shrink-0 rounded-md object-cover" src={project.coverDataUrl} />
-                    ) : (
-                      <span className="font-editorial grid h-10 w-12 shrink-0 place-items-center rounded-md bg-app-primary-soft text-xs font-bold text-app-muted">
-                        {project.name.slice(0, 2).toUpperCase()}
+                  <article className={`group/project relative overflow-hidden rounded-lg border ${isCurrent ? "border-app-border bg-app-panel-strong shadow-[0_3px_12px_rgb(24_24_27_/_7%)]" : "border-transparent hover:bg-app-panel-strong focus-within:bg-app-panel-strong"}`}>
+                    <button
+                      aria-current={isCurrent ? "page" : undefined}
+                      aria-label={
+                        isAvailable
+                          ? t("shell.openProjectNamed", { name: project.name })
+                          : t("shell.projectUnavailableNamed", { name: project.name })
+                      }
+                      className={`${railButtonClassName} flex items-center gap-2.5 text-left text-app-muted hover:text-app-ink`}
+                      onClick={() => onSelectProject(project)}
+                      type="button"
+                    >
+                      {project.coverDataUrl ? (
+                        <img alt="" className="h-10 w-12 shrink-0 rounded-md object-cover" src={project.coverDataUrl} />
+                      ) : (
+                        <span className="font-editorial grid h-10 w-12 shrink-0 place-items-center rounded-md bg-app-primary-soft text-xs font-bold text-app-muted">
+                          {project.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block w-full truncate text-[11px] font-bold">{project.name}</span>
+                        <span className={`mt-1 block truncate text-[9px] font-normal ${!isAvailable ? "text-app-accent" : "text-app-muted"}`}>
+                          {!isAvailable ? t("shell.unavailable") : new Date(project.updatedAt).toLocaleDateString("zh-CN")}
+                        </span>
                       </span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block w-full truncate text-[11px] font-bold">{project.name}</span>
-                      <span className={`mt-1 block truncate text-[9px] font-normal ${!isAvailable ? "text-app-accent" : "text-app-muted"}`}>
-                        {!isAvailable ? t("shell.unavailable") : new Date(project.updatedAt).toLocaleDateString("zh-CN")}
-                      </span>
-                    </span>
-                  </button>
+                    </button>
+                    <div className="absolute inset-x-1 bottom-1 flex items-center gap-1 rounded bg-app-panel-strong/95 px-1 py-0.5 opacity-0 shadow-sm transition-opacity group-hover/project:opacity-100 group-focus-within/project:opacity-100">
+                      <span className="min-w-0 flex-1 truncate text-[8px] text-app-muted" title={project.path}>{project.path}</span>
+                      <button aria-label={`打开项目目录 ${project.name}`} className="grid h-5 w-5 place-items-center rounded text-app-muted hover:bg-app-primary-soft hover:text-app-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional" onClick={() => onRevealProject(project)} type="button"><FolderOpen aria-hidden className="h-3 w-3" /></button>
+                      <button aria-label={`移除项目 ${project.name}`} className="grid h-5 w-5 place-items-center rounded text-app-danger hover:bg-app-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger" onClick={() => setProjectToRemove(project)} type="button"><Trash2 aria-hidden className="h-3 w-3" /></button>
+                    </div>
+                  </article>
                 </li>
               );
             })}
@@ -240,6 +250,17 @@ export function AppShell({
         </div>
         <AgentPanel />
       </div>
+      <ConfirmDialog
+        cancelLabel="取消"
+        confirmLabel="从列表移除"
+        onCancel={() => setProjectToRemove(null)}
+        onConfirm={() => {
+          if (projectToRemove) onRemoveProject(projectToRemove);
+          setProjectToRemove(null);
+        }}
+        open={projectToRemove !== null}
+        title="仅从最近项目移除，磁盘文件不会被删除"
+      />
     </div>
   );
 }

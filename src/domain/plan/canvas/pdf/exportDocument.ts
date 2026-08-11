@@ -4,6 +4,7 @@ import {
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
   EDITABLE_COMPONENT_FRAME_CHROME,
+  PLAN_COMPONENT_FRAME_CHROME,
   type PageGeometry,
 } from "../geometry";
 import {
@@ -17,10 +18,12 @@ import type {
   LegacyV6PlanComponent,
   LegacyV6ProjectPlan,
 } from "../legacyV6";
+import { textTreeHtml } from "../textTree";
 
 export type CanvasLayout = LayoutResult;
 
 export const PDF_COMPONENT_FRAME_CHROME = EDITABLE_COMPONENT_FRAME_CHROME;
+export const PDF_PLAN_COMPONENT_FRAME_CHROME = PLAN_COMPONENT_FRAME_CHROME;
 
 function documentTitleComponentId(components: LegacyV6PlanComponent[]): string {
   const componentIds = new Set(components.map((component) => component.id));
@@ -45,7 +48,7 @@ function temporaryExportComponents(
         width,
         layoutX: component.x,
         contentScale: component.contentScale ?? 1,
-        html: component.html,
+        html: textTreeHtml(component.textRoot),
       };
     }
     return {
@@ -112,7 +115,7 @@ export function buildCanvasLayout(
   };
   planHeights.set(
     titleComponentId,
-    DOCUMENT_TITLE_HEIGHT - componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME),
+    DOCUMENT_TITLE_HEIGHT - componentFrameChromeHeight(PDF_PLAN_COMPONENT_FRAME_CHROME),
   );
 
   const layout = layoutPlan(
@@ -121,6 +124,7 @@ export function buildCanvasLayout(
     exportMeasurements,
     {
       frameChrome: PDF_COMPONENT_FRAME_CHROME,
+      planFrameChrome: PDF_PLAN_COMPONENT_FRAME_CHROME,
       includeReferenceAddTile: false,
       exclusiveRows: true,
     },

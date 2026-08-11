@@ -37,6 +37,10 @@ export interface WorkspaceDirectoryPicker {
   ): Promise<string | null>;
 }
 
+export interface ProjectDirectoryRevealer {
+  revealProjectDirectory(path: string): Promise<void>;
+}
+
 export interface WorkspaceClock {
   now(): string;
 }

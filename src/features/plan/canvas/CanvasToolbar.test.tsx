@@ -9,7 +9,6 @@ describe("CanvasToolbar", () => {
         disabled={false}
         exporting={false}
         onExport={vi.fn()}
-        onInsert={vi.fn()}
         saveState="saved"
       />,
     );

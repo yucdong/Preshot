@@ -2,7 +2,8 @@ import {
   componentFrameChromeHeight,
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
-  EDITABLE_COMPONENT_FRAME_CHROME,
+  PLAN_COMPONENT_FRAME_CHROME,
+  PLAN_COMPONENT_VISUAL_INSET,
   type PageGeometry,
 } from "./geometry";
 import {
@@ -12,7 +13,6 @@ import {
   type ProjectPlan,
 } from "./models";
 
-const FRAME_VERTICAL_INSET = 24;
 const EPSILON = 0.001;
 
 export interface PlanBlockContentMeasurement {
@@ -23,6 +23,7 @@ export interface PlanBlockContentMeasurement {
 export interface PlanContinuationMeasurement {
   sourceHtml: string;
   heightPoints?: number;
+  screenHeightPoints?: number;
   blocks: readonly PlanBlockContentMeasurement[];
 }
 
@@ -33,7 +34,8 @@ export interface PlanContinuationOptions {
 }
 
 function outerHeight(): number {
-  return componentFrameChromeHeight(EDITABLE_COMPONENT_FRAME_CHROME) + FRAME_VERTICAL_INSET;
+  return componentFrameChromeHeight(PLAN_COMPONENT_FRAME_CHROME) +
+    PLAN_COMPONENT_VISUAL_INSET * 2;
 }
 
 function continuationName(baseName: string, suffix: number, occupied: Set<string>): string {
@@ -58,7 +60,22 @@ function normalizeComponent(
   makeId: () => string,
   occupiedNames: Set<string>,
 ): PlanTextComponent[] {
-  if (measurement.sourceHtml !== component.html || measurement.blocks.length === 0) {
+  if (component.textRoot.kind !== "leaf") {
+    const naturalHeight = Math.max(
+      MIN_COMPONENT_HEIGHT,
+      outerHeight() + normalizedBlockHeight(measurement.heightPoints ?? 0),
+    );
+    if (naturalHeight > maximumHeight + EPSILON) {
+      throw new RangeError(
+        `Split plan component ${component.id} is taller than one printable A4 page`,
+      );
+    }
+    return Math.abs(component.height - naturalHeight) <= EPSILON
+      ? [component]
+      : [{ ...component, height: naturalHeight }];
+  }
+  const leaf = component.textRoot;
+  if (measurement.sourceHtml !== leaf.html || measurement.blocks.length === 0) {
     return [component];
   }
 
@@ -74,7 +91,7 @@ function normalizeComponent(
   const oversized = blocks.find((block) => block.heightPoints > availableBlockHeight + EPSILON);
   if (oversized) {
     throw new RangeError(
-      `Plan component ${component.id} has a BlockNote block taller than one printable A4 page`,
+      `Plan component ${component.id} has a rich-text block taller than one printable A4 page`,
     );
   }
 
@@ -108,14 +125,23 @@ function normalizeComponent(
       fixedHeight + group.reduce((total, block) => total + block.heightPoints, 0),
     );
     if (index === 0) {
-      return { ...component, height, html: group.map((block) => block.html).join("") };
+      return {
+        ...component,
+        height,
+        textRoot: { ...leaf, html: group.map((block) => block.html).join("") },
+      };
     }
+    const id = makeId();
     return {
       ...component,
-      id: makeId(),
+      id,
       name: continuationName(component.name, index + 1, occupiedNames),
       height,
-      html: group.map((block) => block.html).join(""),
+      textRoot: {
+        ...leaf,
+        id: `${id}:root`,
+        html: group.map((block) => block.html).join(""),
+      },
     };
   });
 }

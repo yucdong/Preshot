@@ -790,6 +790,125 @@
           "Remove the retained v8-to-v6 PDF adapter after porting text measurement/drawing directly to document-flow placements"
         ]
       }
+    },
+    {
+      "name": "Requirement 0809 Editor UX Enhancements",
+      "description": "Extends the Editorial Studio workbench with recursive text layouts, contextual selected-text formatting, direct image pixel sizing, GUID-based project actions, and occupancy-based responsive A4 fitting.",
+      "status": "completed",
+      "feature_descriptions": [
+        "Schema v10 stores each text component as a recursively splittable columns/rows tree of title-free rich-text leaves; v9 leaf titles are removed during migration",
+        "Text cards render exactly two visible frame levels: the outer component and one or more leaf editors; recursive split parents are geometry-only",
+        "Text leaves never scroll internally; columns align to the tallest natural sibling and width reflow grows or shrinks the whole card in both directions",
+        "BlockNote formatting is contextual to an active selection and includes persistent 10/12/14/16/18/24px font sizing",
+        "Reference group average image height supports controlled px input with validation, Escape restore, and existing 4pt minus/plus steps",
+        "Project rail reveals full paths plus Open Directory and confirmed registry-only Remove actions without deleting files",
+        "Duplicate project display titles are allowed; only colliding directory names receive a numeric suffix",
+        "Insert aligns to the A4 left edge and automatic fitting keeps white paper near 82% of the full gray canvas width",
+        "PDF export renders title-free recursive text leaves in matching split rectangles without title spacing",
+        "Split text leaves keep Columns2/Rows2 controls followed by a rightmost delete control; deletion requires confirmation, promotes the sibling subtree, and supports visible or keyboard undo",
+        "Text cards use compact 6pt visual insets and content-aware four-edge resize locks; every recursive leaf stays inside the frame with no scrollbar while natural height follows width reflow",
+        "Formatting-toolbar pointer interactions preserve and restore the active ProseMirror selection so bold, italic, underline, strike, and font-size commands apply reliably in full-width and narrow split leaves"
+      ],
+      "decisions": [
+        "Keep component and tree node IDs internal; component names remain display metadata while text leaves have no title field",
+        "Migrate v8 text HTML deterministically into a single leaf named <componentId>:root, then migrate v9 trees to v10 by recursively removing titles without changing IDs or geometry",
+        "Use a fixed 10pt gap for new splits, preserve legacy persisted gaps, and preserve the outer component bounds at split time",
+        "Keep split controls separate from the BlockNote selection formatting toolbar",
+        "Persist image geometry in points and convert UI values with 1pt = 4/3px",
+        "Soft removal targets projectId and automatically opens the next recent available project",
+        "Use a dedicated open_project_directory Tauri command rather than exposing filesystem behavior to React",
+        "Calculate fit from scroller clientWidth so padding does not reduce the visible paper occupancy",
+        "Measure the title-free full leaf/tree surface at its current width; split trees grow or shrink their component border instead of clipping or scrolling content",
+        "Keep the Insert toolbar inside the canvas scroller so it shares exact centering and horizontal scroll geometry with the A4 paper",
+        "Use a custom click-safe font-size menu because a native select cannot both open normally and preserve the BlockNote selection",
+        "Keep BlockNote rather than migrate to Lexical; use plan-specific zero-height chrome, a 5pt frame padding plus 1pt border, a recursive 132pt leaf-width floor, and measured 64pt-or-natural height limits",
+        "Clamp pointer previews before rendering, preserve the opposite edge for left/top resizes, and announce blocked movement with an amber edge plus an aria-live status"
+      ],
+      "progress": {
+        "completedAt": "2026-08-10",
+        "designSpec": "docs/superpowers/specs/2026-08-09-editor-ux-enhancements-design.md",
+        "designReference": "docs/design_refs/preshot-requirement-0809-workbench.html",
+        "twoLayerTextCardSpec": "docs/superpowers/specs/2026-08-10-two-layer-text-card-design.md",
+        "twoLayerTextCardReference": "docs/design_refs/preshot-text-card-two-layer.html",
+        "contentFitResizeSpec": "docs/superpowers/specs/2026-08-10-text-card-content-fit-resize-design.md",
+        "lastVerified": {
+          "unitTests": "83 files, 456 tests passed",
+          "e2eTests": "42 Edge tests passed",
+          "typecheck": "passed",
+          "lint": "0 errors; existing ThemeProvider Fast Refresh warning remains",
+          "rustTests": "48 passed",
+          "build": "passed with existing Vite chunk-size warning",
+          "followUpVisualAcceptance": "960x720: Insert toolbar/A4 left-edge delta 0px, component close icon renders at 10.3px under active scale, font-size menu opens by real click, text frame has no overflow, and page has no horizontal overflow",
+          "twoLayerTextCardAcceptance": "Schema v1-v9 converges to strict title-free v10; recursive E2E verifies exactly two visible frame levels, 10pt new split gaps, equal-height column leaves, no internal scroll containers, narrow-grow/wide-shrink convergence, globally portaled delete confirmation, sibling promotion, visible Undo, Ctrl+Z restoration, persistence, and title-free PDF export",
+          "contentFitResizeAcceptance": "Single-leaf body occupancy measured 97.96% x 92.05%; a two-column card stopped at 286pt with both leaves about 132.96pt, fully contained and scrollbar-free; horizontal preview height changed immediately with wrapping; amber aria-live feedback appeared at the limit; page horizontal overflow remained false; screen and PDF use matching compact plan geometry"
+        },
+        "remaining": []
+      }
+    },
+    {
+      "name": "PowerPoint-style Font Size and Color Controls",
+      "description": "Redesigns the contextual rich-text toolbar with compact font-size and font-color split dropdowns, a theme palette, and progressive custom hue/RGB selection.",
+      "status": "completed",
+      "feature_descriptions": [
+        "Font size moves immediately after strike and before paragraph alignment, displaying a compact numeric value plus a dedicated dropdown arrow without a visible px suffix",
+        "Font color sits beside font size as an A split button with a current-color underline, quick reapply action, and a compact 10-color theme palette",
+        "The palette exposes More Colors as a second-level panel with a hue wheel, exact integer RGB fields from 0 to 255, a read-only HEX preview, and apply/cancel actions",
+        "All formatting interactions preserve the active ProseMirror selection and retain existing HTML persistence, undo/redo, autosave, reload, and PDF rendering",
+        "Paragraph, font-size, font-color, and link surfaces use controlled WebView-safe popups that remain open through full pointer clicks",
+        "All formatting dropdowns portal to the document body, escape the BlockNote toolbar clipping boundary, track their trigger while scrolling, and flip or shift to stay inside the viewport",
+        "Every text leaf always displays its own formatting toolbar; narrow leaves retain core commands and expose alignment plus nesting through a responsive More portal without horizontal overflow",
+        "Block menus use a readable 220px single-line layout, while the component close control remains a fixed 18px screen-space button in a reserved internal top-right slot at every canvas zoom"
+      ],
+      "decisions": [
+        "Keep BlockNote and schema v10; persist font size and text color as editor-generated inline HTML styles",
+        "Use the approved Editorial Studio palette and compact white toolbar rather than the generic purple marketing style returned by the design database",
+        "Keep size presets at 10, 12, 14, 16, 18, and 24 and omit px from the collapsed control",
+        "Use ten opaque theme colors, with color indicated by both accessible labels and visual swatches",
+        "Normalize custom RGB colors to uppercase six-digit HEX before applying the BlockNote textColor style",
+        "Do not support alpha transparency or direct HEX editing in this phase",
+        "Use progressive disclosure so RGB controls appear only after More Colors is selected",
+        "Prefer a maintained React color-wheel dependency after package-size and license review instead of hand-rolling wheel geometry"
+      ],
+      "progress": {
+        "approvedAt": "2026-08-10",
+        "completedAt": "2026-08-10",
+        "designSpec": "docs/design_docs/formatting_toolbar_size_color_design.md",
+        "designReference": "docs/design_refs/preshot-font-size-dropdown-review.html",
+        "visualValidation": "1440x900 review: 473px toolbar, 146px theme palette, and 244x225px custom color panel remained within the paper and viewport with no horizontal or vertical overflow",
+        "implementation": "Installed react-colorful 5.8.0; added strict RGB/HEX normalization utilities; implemented a persistent toolbar above every text leaf, responsive More access for low-frequency commands, compact size and color split controls with palette and custom RGB panel, selection preservation, target-level WebView-safe pointerdown activation, viewport-aware body portals, readable 220px block menus, fixed 18px component close chrome, runtime-only toolbar height measurement, HTML persistence, and PDF input coverage.",
+        "lastVerified": "84 Vitest files / 461 tests and 47 Playwright tests passed; UI coverage verifies one persistent overflow-free toolbar per text leaf, readable block menus, fixed close-button geometry, pointerdown and full-click opening for all secondary surfaces, responsive More commands, bold, italic, underline, strike, alignment, nest/unnest, paragraph type, link, font-size, theme color and custom RGB mutations, autosave/reload persistence, and PDF parity; TypeScript and build passed; lint has 0 errors and the existing ThemeProvider Fast Refresh warning.",
+        "remaining": []
+      }
+    },
+    {
+      "name": "TipTap Rich Text Editor Migration",
+      "description": "Replaces BlockNote with TipTap 3 while preserving schema-v10 HTML, the persistent Preshot toolbar, runtime text sizing, autosave, and PDF parity.",
+      "status": "completed",
+      "feature_descriptions": [
+        "TipTap remains behind the existing RichTextEditor props so domain models, recursive text leaves, project files, and PDF inputs do not change",
+        "The current persistent toolbar, responsive More menu, 220px block menu, theme/custom colors, font sizes, links, and portal geometry remain visually consistent",
+        "TipTap TextStyle, Color, FontSize, TextAlign, StarterKit Link and block commands emit HTML already understood by the current PDF parser",
+        "Top-level block serialization moves from BlockNote lossy helpers to ProseMirror doc.content plus DOMSerializer",
+        "Top-level TipTap DOM children provide editor-neutral block measurement boundaries"
+      ],
+      "decisions": [
+        "Target TipTap 3.29.2 and use only MIT open-source editor packages",
+        "Keep schema v10 and HTML persistence; do not bulk-rewrite existing project files",
+        "Keep the RichTextEditor public adapter stable and remove BlockNote only after focused and full validation pass",
+        "Use official FontSize from @tiptap/extension-text-style rather than restoring the previous custom extension",
+        "Treat collapsible headings as an explicit custom-node follow-up instead of claiming StarterKit supports them"
+      ],
+      "progress": {
+        "designedAt": "2026-08-10",
+        "designSpec": "docs/design_docs/tiptap_migration_design.md",
+        "interactivePoc": "docs/design_refs/preshot-tiptap-editor-demo.html",
+        "splitInteractivePoc": "docs/design_refs/preshot-tiptap-split-editor-demo.html",
+        "pocValidation": "Actual TipTap 3.29.2 loaded; color wrote rgb(8, 145, 178), font size wrote 24px, HTML persisted across reload, the 220px block menu kept 36px single-line rows, More commands executed, and 920x720 had no page or toolbar overflow.",
+        "splitPocValidation": "Actual independent TipTap instances rendered in recursive columns/rows nodes; mixed nesting grew from three to four leaves, formatting stayed isolated per leaf, removing a nested leaf collapsed its sibling into place, narrow toolbars exposed hover-only left/right scroll arrows, and per-leaf color controls preserve the original ProseMirror selection across portal interactions while supporting theme colors plus a circular HSV wheel, brightness, strict RGB input, and verified TipTap HTML output.",
+        "implementation": "TipTap 3.29.2 now powers every production RichTextEditor leaf with StarterKit, TextStyle, Color, FontSize, TextAlign, TableKit, TaskList and TaskItem. The persistent toolbar retains viewport-safe portals, selection restoration, 220px block menus, responsive More commands and adds hover-only horizontal scroll arrows for narrow leaves. H1-H6 restore explicit 32/24/20/18/16/14px visual hierarchy with 700 weight, and heading conversion removes a prior explicit font-size mark so it cannot hide the selected heading level. The size control reports the selected text's effective visual size from inline marks or its paragraph/heading level, offers every heading size, and formatting portals close on outside pointer input. TipTap em marks locally enable synthesized italic rendering because the bundled Noto Sans SC faces are upright-only and the application otherwise disables font synthesis. Custom colors use a circular HSV wheel, brightness, strict RGB input and HTML persistence. ProseMirror DOMSerializer emits top-level blocks for pagination measurement. BlockNote, Mantine editor styles and react-colorful were removed.",
+        "lastVerified": "84 Vitest files / 463 tests and 47 Playwright tests passed; TypeScript and production build passed; lint has 0 errors and the existing ThemeProvider Fast Refresh warning. Browser coverage verifies recursive splits, narrow-toolbar arrows, all direct formatting including computed italic rendering, paragraph and H1-H6 effective-size display, outside-pointer popup dismissal, nesting, theme/custom RGB colors, circular color picker visibility, color application collapsing the original selection for immediate visual feedback, I-beam cursors throughout editable text, persistence, autosave, PDF export and undo ownership.",
+        "remaining": []
+      }
     }
   ]
 }

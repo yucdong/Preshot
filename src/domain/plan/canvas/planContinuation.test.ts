@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import type { PlanTextComponent, ProjectPlan } from "./models";
 import { normalizePlanContinuations } from "./planContinuation";
+import { splitTextLeaf } from "./textTree";
 
 const content = contentSize(DEFAULT_PAGE_GEOMETRY);
 
@@ -13,16 +14,16 @@ function component(html: string): PlanTextComponent {
     x: 0,
     width: content.width,
     height: 220,
-    html,
+    textRoot: { kind: "leaf", id: "plan:root", html },
   };
 }
 
 function plan(html: string): ProjectPlan {
-  return { schemaVersion: 8, title: "Demo", components: [component(html)] };
+  return { schemaVersion: 10, title: "Demo", components: [component(html)] };
 }
 
 describe("normalizePlanContinuations", () => {
-  it("splits at BlockNote top-level block boundaries into persisted components", () => {
+  it("splits at rich-text top-level block boundaries into persisted components", () => {
     const blocks = Array.from({ length: 6 }, (_, index) => ({
       html: `<p>Block ${index + 1}</p>`,
       heightPoints: 180,
@@ -31,14 +32,19 @@ describe("normalizePlanContinuations", () => {
     let id = 1;
     const normalized = normalizePlanContinuations(original, {
       makeId: () => `continuation-${id++}`,
-      measurements: new Map([["plan", { sourceHtml: original.components[0].type === "plan" ? original.components[0].html : "", blocks }]]),
+      measurements: new Map([["plan", {
+        sourceHtml: original.components[0].type === "plan" && original.components[0].textRoot.kind === "leaf"
+          ? original.components[0].textRoot.html
+          : "",
+        blocks,
+      }]]),
     });
     const components = normalized.components as PlanTextComponent[];
 
     expect(components).toHaveLength(2);
     expect(components.map((entry) => entry.name)).toEqual(["文案1", "文案1 (2)"]);
     expect(components[1].id).toBe("continuation-1");
-    expect(components.map((entry) => entry.html).join("")).toBe(
+    expect(components.map((entry) => entry.textRoot.kind === "leaf" ? entry.textRoot.html : "").join("")).toBe(
       blocks.map((block) => block.html).join(""),
     );
     expect(components.every((entry) => entry.height <= content.height)).toBe(true);
@@ -103,5 +109,54 @@ describe("normalizePlanContinuations", () => {
         blocks: [{ html: "<p>Too tall</p>", heightPoints: content.height }],
       }]]),
     })).toThrow(/block.*taller/i);
+  });
+
+  it("grows a recursive split component to its measured natural content height", () => {
+    const split = splitTextLeaf(plan("<p>Left</p>"), {
+      componentId: "plan",
+      leafId: "plan:root",
+      splitId: "split",
+      secondLeafId: "right",
+      direction: "columns",
+    });
+    const normalized = normalizePlanContinuations(split, {
+      makeId: () => "unused",
+      measurements: new Map([["plan", {
+        sourceHtml: "",
+        heightPoints: 360,
+        blocks: [],
+      }]]),
+    });
+
+    expect(normalized.components[0].height).toBeGreaterThan(360);
+  });
+
+  it("adds only compact plan padding to measured content height", () => {
+    const original = plan("<p>Compact</p>");
+    const normalized = normalizePlanContinuations(original, {
+      makeId: () => "unused",
+      measurements: new Map([["plan", {
+        sourceHtml: "<p>Compact</p>",
+        heightPoints: 100,
+        blocks: [{ html: "<p>Compact</p>", heightPoints: 100 }],
+      }]]),
+    });
+
+    expect(normalized.components[0].height).toBe(112);
+  });
+
+  it("keeps screen-only editor chrome out of persisted document height", () => {
+    const original = plan("<p>Toolbar content</p>");
+    const normalized = normalizePlanContinuations(original, {
+      makeId: () => "unused",
+      measurements: new Map([["plan", {
+        sourceHtml: "",
+        heightPoints: 100,
+        screenHeightPoints: 136,
+        blocks: [],
+      }]]),
+    });
+
+    expect(normalized.components[0].height).toBe(220);
   });
 });

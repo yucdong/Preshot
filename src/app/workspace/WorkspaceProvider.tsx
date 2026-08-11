@@ -272,11 +272,27 @@ export function WorkspaceProvider({
           setMountedState(() => {
             setAlert(null);
             setProjects(nextProjects);
+            if (activeProjectRef.current?.projectId === project.projectId) {
+              const [nextProject] = sortProjectsByRecentEdit(
+                nextProjects.filter((candidate) => candidate.status === "available"),
+              );
+              activeProjectRef.current = nextProject ?? null;
+              setView(nextProject ? { kind: "project", project: nextProject } : { kind: "launcher" });
+            }
           });
         },
       );
     },
     [dependencies, runGuardedAction, setMountedState],
+  );
+
+  const revealProjectDirectory = useCallback(
+    async (project: WorkspaceProjectView) => {
+      await runGuardedAction("Unable to open project directory", async () => {
+        await dependencies.projectDirectoryRevealer.revealProjectDirectory(project.path);
+      });
+    },
+    [dependencies, runGuardedAction],
   );
 
   useEffect(() => {
@@ -383,6 +399,12 @@ export function WorkspaceProvider({
         }}
         onOpenProject={() => {
           void openExistingProject();
+        }}
+        onRemoveProject={(project) => {
+          void removeProject(project);
+        }}
+        onRevealProject={(project) => {
+          void revealProjectDirectory(project);
         }}
         onSelectProject={selectProject}
         projects={orderedProjects}

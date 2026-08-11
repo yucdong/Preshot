@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const SEEDED_REFERENCE_IMAGE_COUNT = 4;
 const FRAME = '[data-sortable-component-id]';
@@ -64,6 +64,12 @@ test("gives the canvas more default space and zooms it with Ctrl+wheel", async (
   const scroller = page.getByTestId("canvas-scroller");
   const paper = page.getByTestId("canvas-page-background").first();
   const initialWidth = (await paper.boundingBox())?.width ?? 0;
+  const scrollerWidth = (await scroller.boundingBox())?.width ?? 1;
+  expect(initialWidth / scrollerWidth).toBeGreaterThanOrEqual(0.8);
+  expect(initialWidth / scrollerWidth).toBeLessThanOrEqual(0.84);
+  const paperBox = await paper.boundingBox();
+  const insertToolbarBox = await page.getByTestId("canvas-insert-toolbar").boundingBox();
+  expect(Math.abs((paperBox?.x ?? 0) - (insertToolbarBox?.x ?? 0))).toBeLessThanOrEqual(2);
   await scroller.hover({ position: { x: 300, y: 250 } });
   await page.keyboard.down("Control");
   await page.mouse.wheel(0, -100);
@@ -88,6 +94,20 @@ test("gives the canvas more default space and zooms it with Ctrl+wheel", async (
     initialWidth,
     1,
   );
+
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await expect.poll(async () => {
+    const paperWidth = (await paper.boundingBox())?.width ?? 0;
+    const workspaceWidth = (await scroller.boundingBox())?.width ?? 1;
+    return paperWidth / workspaceWidth;
+  }).toBeGreaterThanOrEqual(0.8);
+
+  await page.setViewportSize({ width: 960, height: 720 });
+  await expect.poll(async () => {
+    const paperBox = await paper.boundingBox();
+    const toolbarBox = await page.getByTestId("canvas-insert-toolbar").boundingBox();
+    return Math.abs((paperBox?.x ?? 0) - (toolbarBox?.x ?? 0));
+  }).toBeLessThanOrEqual(3);
 });
 
 test("inserts a plan component and marks the canvas unsaved", async ({ page }) => {
@@ -306,6 +326,626 @@ test("inserts a plan component and the editor becomes editable", async ({ page }
   await expect(editor).toContainText("器材：");
 });
 
+test("keeps recursive text leaves title-free, aligned, auto-sized, and undoable", async ({ page }) => {
+  await page.goto("/");
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
+  const firstLeaf = planFrame.locator("[data-text-leaf-id]").first();
+
+  await firstLeaf.hover();
+  await firstLeaf.getByRole("button", { name: "左右拆分当前文案" }).click();
+  await expect(planFrame.locator("[data-text-leaf-id]")).toHaveCount(2);
+  await expect(planFrame.locator("[data-text-split-id]")).toHaveCount(1);
+  await expect(planFrame.getByRole("button", { name: "+ 插入标题" })).toHaveCount(0);
+  await expect(planFrame.getByRole("textbox", { name: "子文案标题" })).toHaveCount(0);
+
+  const leafHeights = await planFrame.locator("[data-text-leaf-id]").evaluateAll((leaves) =>
+    leaves.map((leaf) => leaf.getBoundingClientRect().height),
+  );
+  expect(Math.abs(leafHeights[0] - leafHeights[1])).toBeLessThanOrEqual(1);
+  await expect.poll(() => planFrame.evaluate((frame) =>
+    Array.from(frame.querySelectorAll("[data-text-leaf-id], .preshot-editor-wrap, .preshot-editor-container, .tiptap-editor, .ProseMirror")).every(
+      (element) => {
+        const html = element as HTMLElement;
+        const overflowY = getComputedStyle(html).overflowY;
+        return overflowY !== "auto" && overflowY !== "scroll" && html.scrollHeight <= html.clientHeight + 1;
+      },
+    ),
+  )).toBe(true);
+
+  const beforeNarrowing = await planFrame.boundingBox();
+  const rightHandle = planFrame.locator('[data-resize-handle="right"]');
+  let handleBox = await rightHandle.boundingBox();
+  if (!handleBox || !beforeNarrowing) throw new Error("Plan resize handle is not visible");
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x - 1_000, handleBox.y + handleBox.height / 2, { steps: 8 });
+  await expect(planFrame.getByRole("status")).toHaveText("内容已达到最小尺寸");
+  await expect(planFrame.locator('[data-resize-handle="right"]')).toHaveAttribute(
+    "data-resize-limited",
+    "true",
+  );
+  const constrainedLeaves = await planFrame.locator("[data-text-leaf-id]").evaluateAll(
+    (leaves) => {
+      const frame = leaves[0]?.closest('[data-component-frame="true"]');
+      const surface = frame?.closest('[data-testid="paged-canvas-surface"]');
+      if (!(frame instanceof HTMLElement) || !(surface instanceof HTMLElement)) return [];
+      const frameRect = frame.getBoundingClientRect();
+      const scale = surface.getBoundingClientRect().width / 595.28;
+      return leaves.map((leaf) => {
+        const element = leaf as HTMLElement;
+        const rect = element.getBoundingClientRect();
+        return {
+          contained:
+            rect.left >= frameRect.left &&
+            rect.right <= frameRect.right &&
+            rect.top >= frameRect.top &&
+            rect.bottom <= frameRect.bottom,
+          logicalWidth: rect.width / scale,
+          scrollbars:
+            element.scrollWidth > element.clientWidth ||
+            element.scrollHeight > element.clientHeight,
+        };
+      });
+    },
+  );
+  expect(constrainedLeaves).toHaveLength(2);
+  expect(constrainedLeaves.every((leaf) => leaf.contained && !leaf.scrollbars)).toBe(true);
+  expect(constrainedLeaves.every((leaf) => leaf.logicalWidth >= 132)).toBe(true);
+  await page.mouse.up();
+  await expect.poll(async () => (await planFrame.boundingBox())?.height ?? 0).toBeGreaterThan(
+    beforeNarrowing.height,
+  );
+  const narrowed = await planFrame.boundingBox();
+  handleBox = await rightHandle.boundingBox();
+  if (!handleBox || !narrowed) throw new Error("Narrow plan resize handle is not visible");
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x + 500, handleBox.y + handleBox.height / 2, { steps: 8 });
+  await expect(planFrame.getByRole("status")).toHaveCount(0);
+  await page.mouse.up();
+  await expect.poll(async () => (await planFrame.boundingBox())?.height ?? 0).toBeLessThan(
+    narrowed.height,
+  );
+
+  const secondLeaf = planFrame.locator("[data-text-leaf-id]").nth(1);
+  await secondLeaf.hover();
+  await secondLeaf.getByRole("button", { name: "上下拆分当前文案" }).click();
+
+  await expect(planFrame.locator("[data-text-leaf-id]")).toHaveCount(3);
+  await expect(planFrame.locator("[data-text-split-id]")).toHaveCount(2);
+  await expect.poll(() => planFrame.evaluate((frame) => {
+    const frameRight = frame.getBoundingClientRect().right;
+    return Array.from(frame.querySelectorAll("[data-text-leaf-id], .preshot-editor-wrap, .tiptap-editor")).every(
+      (element) => element.getBoundingClientRect().right <= frameRight + 1,
+    );
+  })).toBe(true);
+  const beforeGrowth = await planFrame.boundingBox();
+  const bottomEditor = planFrame.locator("[data-text-leaf-id]").nth(2).locator('[contenteditable="true"]');
+  await bottomEditor.click();
+  await page.keyboard.type("第一行\n第二行\n第三行\n第四行\n第五行\n第六行");
+  await expect.poll(async () => (await planFrame.boundingBox())?.height ?? 0).toBeGreaterThan(
+    beforeGrowth?.height ?? 0,
+  );
+  await expect.poll(() => planFrame.evaluate((frame) => {
+    const frameBottom = frame.getBoundingClientRect().bottom;
+    return Array.from(frame.querySelectorAll("[data-text-leaf-id]")).every(
+      (leaf) => leaf.getBoundingClientRect().bottom <= frameBottom + 1,
+    );
+  })).toBe(true);
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", {
+    timeout: 10_000,
+  });
+
+  await page.reload();
+  await expect(planFrame.locator("[data-text-leaf-id]")).toHaveCount(3, {
+    timeout: 10_000,
+  });
+  await expect(planFrame.getByRole("textbox", { name: "子文案标题" })).toHaveCount(0);
+
+  await planFrame.locator("[data-text-leaf-id]").nth(2).hover();
+  await planFrame.locator("[data-text-leaf-id]").nth(2).getByRole("button", { name: "删除当前子文案" }).click();
+  const deleteDialog = page.getByRole("dialog");
+  await expect(deleteDialog).toContainText("删除这块文案？");
+  await expect(planFrame.locator("[data-text-leaf-id]")).toHaveCount(3);
+  await deleteDialog.getByRole("button", { name: "取消" }).click();
+  await planFrame.locator("[data-text-leaf-id]").nth(2).hover();
+  await planFrame.locator("[data-text-leaf-id]").nth(2).getByRole("button", { name: "删除当前子文案" }).click();
+  await deleteDialog.getByRole("button", { name: "删除" }).click();
+  await expect(planFrame.locator("[data-text-leaf-id]")).toHaveCount(2);
+  await expect(planFrame.locator("[data-text-split-id]")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "撤销" })).toBeVisible();
+  await page.keyboard.press("Control+z");
+  await expect(planFrame.locator("[data-text-leaf-id]")).toHaveCount(3);
+  await expect(page.getByRole("button", { name: "撤销" })).toHaveCount(0);
+  await planFrame.locator("[data-text-leaf-id]").nth(2).hover();
+  await planFrame.locator("[data-text-leaf-id]").nth(2).getByRole("button", { name: "删除当前子文案" }).click();
+  await deleteDialog.getByRole("button", { name: "删除" }).click();
+  await expect(planFrame.locator("[data-text-leaf-id]")).toHaveCount(2);
+
+  await planFrame.locator("[data-text-leaf-id]").nth(1).hover();
+  await planFrame.locator("[data-text-leaf-id]").nth(1).getByRole("button", { name: "删除当前子文案" }).click();
+  await deleteDialog.getByRole("button", { name: "删除" }).click();
+  await expect(planFrame.locator("[data-text-leaf-id]")).toHaveCount(1);
+  await expect(planFrame.locator("[data-text-split-id]")).toHaveCount(0);
+});
+
+test("shows contextual formatting for a text selection and persists font size", async ({ page }) => {
+  await page.goto("/");
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
+  const editor = planFrame.locator('[contenteditable="true"]').first();
+  const toolbar = planFrame.locator("[data-text-leaf-id]").first().getByRole("toolbar");
+  await editor.click();
+  await editor.evaluate((element) => {
+    const textNode = element.querySelector("p")?.firstChild;
+    if (!textNode) throw new Error("Expected paragraph text");
+    const range = document.createRange();
+    range.selectNodeContents(textNode);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    element.dispatchEvent(new Event("mouseup", { bubbles: true }));
+  });
+
+  const fontSize = toolbar.getByRole("button", { name: "选择字号" });
+  await expect(fontSize).toBeVisible();
+  await toolbar.getByRole("button", { name: "加粗" }).click();
+  await expect.poll(() => editor.innerHTML()).toContain("<strong>");
+  await fontSize.click();
+  await page.getByRole("option", { name: "24" }).click();
+  await expect.poll(() => editor.innerHTML()).toContain("font-size");
+  await expect.poll(() => editor.innerHTML()).toContain("24px");
+  await expect(page.getByTestId("save-status")).toHaveText("有未保存的更改");
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", {
+    timeout: 10_000,
+  });
+
+  await page.reload();
+  await expect.poll(() => editor.innerHTML()).toContain("font-size");
+  await expect.poll(() => editor.innerHTML()).toContain("24px");
+});
+
+test("shows the visual font size for each block type and closes the size menu outside", async ({ page }) => {
+  await page.goto("/");
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
+  const firstLeaf = planFrame.locator("[data-text-leaf-id]").first();
+  const editor = firstLeaf.locator('[contenteditable="true"]');
+  const toolbar = firstLeaf.getByRole("toolbar");
+  const pointer = { button: 0, isPrimary: true, pointerType: "mouse" };
+
+  await editor.evaluate((element) => {
+    const textNode = element.querySelector("p")?.firstChild;
+    if (!textNode) throw new Error("Expected paragraph text");
+    element.focus();
+    const range = document.createRange();
+    range.selectNodeContents(textNode);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  });
+
+  const blockTypes = [
+    ["段落", 16],
+    ["一级标题", 32],
+    ["二级标题", 24],
+    ["三级标题", 20],
+    ["四级标题", 18],
+    ["五级标题", 16],
+    ["六级标题", 14],
+  ] as const;
+  for (const [label, size] of blockTypes) {
+    await toolbar.getByRole("button", { name: /段落|标题/ }).dispatchEvent("pointerdown", pointer);
+    await page.getByRole("menuitem", { name: label, exact: true }).dispatchEvent("pointerdown", pointer);
+    await expect(toolbar.getByRole("button", { name: `当前字号 ${size}` })).toHaveText(String(size));
+  }
+
+  await toolbar.getByRole("button", { name: "选择字号" }).dispatchEvent("pointerdown", pointer);
+  const sizeMenu = page.getByRole("listbox", { name: "字号" });
+  await expect(sizeMenu).toBeVisible();
+  await editor.click();
+  await expect(sizeMenu).toBeHidden();
+});
+
+test("keeps one formatting toolbar above every text leaf with readable block menus", async ({ page }) => {
+  await page.goto("/");
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
+  const firstLeaf = planFrame.locator("[data-text-leaf-id]").first();
+  const firstToolbar = firstLeaf.getByRole("toolbar");
+  await expect(firstToolbar).toBeVisible();
+  const frameBounds = await planFrame.boundingBox();
+  const closeBounds = await planFrame.getByRole("button", { name: "移除组件" }).boundingBox();
+  expect(frameBounds).not.toBeNull();
+  expect(closeBounds).not.toBeNull();
+  expect(closeBounds?.width).toBeCloseTo(18, 1);
+  expect(closeBounds?.height).toBeCloseTo(18, 1);
+  expect(Math.abs(
+    (closeBounds?.x ?? 0) + (closeBounds?.width ?? 0) / 2 -
+      ((frameBounds?.x ?? 0) + (frameBounds?.width ?? 0)),
+  )).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(
+    (closeBounds?.y ?? 0) + (closeBounds?.height ?? 0) / 2 - (frameBounds?.y ?? 0),
+  )).toBeLessThanOrEqual(1.5);
+  expect(await firstToolbar.evaluate((element) =>
+    Array.from(element.querySelectorAll<HTMLButtonElement>("button"))
+      .filter((button) => button.getBoundingClientRect().width > 0)
+      .every((button) => {
+        const rect = button.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2,
+        );
+        return hit === button || button.contains(hit);
+      }),
+  )).toBe(true);
+
+  await firstLeaf.hover();
+  await firstLeaf.getByRole("button", { name: "左右拆分当前文案" }).click();
+  await expect(planFrame.locator("[data-text-leaf-id]")).toHaveCount(2);
+  for (const leaf of await planFrame.locator("[data-text-leaf-id]").all()) {
+    const toolbar = leaf.getByRole("toolbar");
+    await expect(toolbar).toBeVisible();
+    expect(await toolbar.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  }
+  await firstLeaf.hover();
+  const firstSplitToolbar = firstLeaf.getByRole("toolbar");
+  const rightScroll = firstSplitToolbar.getByRole("button", { name: "向右移动工具栏" });
+  await expect(rightScroll).toBeVisible();
+  await rightScroll.click();
+  await expect.poll(() => firstSplitToolbar.locator(".preshot-toolbar-scroll").evaluate(
+    (element) => element.scrollLeft,
+  )).toBeGreaterThan(0);
+  await expect(firstSplitToolbar.getByRole("button", { name: "向左移动工具栏" })).toBeVisible();
+
+  await firstLeaf.getByRole("button", { name: /段落|标题/ }).click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  const geometry = await menu.evaluate((element) => {
+    const items = Array.from(element.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    return {
+      width: element.getBoundingClientRect().width,
+      items: items.map((item) => ({
+        height: item.getBoundingClientRect().height,
+        scrollHeight: item.scrollHeight,
+        whiteSpace: getComputedStyle(item).whiteSpace,
+      })),
+    };
+  });
+  expect(geometry.width).toBeGreaterThanOrEqual(220);
+  expect(geometry.items.every((item) =>
+    item.height >= 36 && item.scrollHeight <= item.height + 1 && item.whiteSpace === "nowrap"
+  )).toBe(true);
+});
+
+test("formats selected text with a custom RGB color", async ({ page }) => {
+  await page.goto("/");
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
+  const editor = planFrame.locator('[contenteditable="true"]').first();
+  const toolbar = planFrame.locator("[data-text-leaf-id]").first().getByRole("toolbar");
+  await editor.click();
+  await editor.evaluate((element) => {
+    const textNode = element.querySelector("p")?.firstChild;
+    if (!textNode) throw new Error("Expected paragraph text");
+    const range = document.createRange();
+    range.selectNodeContents(textNode);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    element.dispatchEvent(new Event("mouseup", { bubbles: true }));
+  });
+
+  await toolbar.getByRole("button", { name: "选择文字颜色" }).click();
+  await page.getByRole("option", { name: "功能青 #0891B2" }).click();
+  await expect.poll(() => editor.innerHTML()).toContain("rgb(8, 145, 178)");
+  await editor.evaluate((element) => {
+    const textNode = element.querySelector("p")?.firstChild;
+    if (!textNode) throw new Error("Expected paragraph text");
+    const range = document.createRange();
+    range.selectNodeContents(textNode);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    element.dispatchEvent(new Event("mouseup", { bubbles: true }));
+  });
+  await toolbar.getByRole("button", { name: "选择文字颜色" }).click();
+  await page.getByRole("button", { name: "更多颜色..." }).click();
+  const customColorPanel = page.getByRole("dialog", { name: "更多颜色" });
+  await expect(customColorPanel).toBeVisible();
+  const customColorBounds = await customColorPanel.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      insideToolbar: element.closest(".preshot-tiptap-toolbar") !== null,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+      width: rect.width,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(customColorBounds.insideToolbar).toBe(false);
+  expect(customColorBounds.width).toBeCloseTo(260, 0);
+  expect(customColorBounds.left).toBeGreaterThanOrEqual(8);
+  expect(customColorBounds.top).toBeGreaterThanOrEqual(8);
+  expect(customColorBounds.right).toBeLessThanOrEqual(customColorBounds.viewportWidth - 8);
+  expect(customColorBounds.bottom).toBeLessThanOrEqual(customColorBounds.viewportHeight - 8);
+  await expect(page.getByRole("application", { name: "圆形颜色选择盘" })).toBeVisible();
+  await page.getByRole("spinbutton", { name: "R 颜色值" }).fill("194");
+  await page.getByRole("spinbutton", { name: "G 颜色值" }).fill("56");
+  await page.getByRole("spinbutton", { name: "B 颜色值" }).fill("92");
+  await expect(page.getByText("#C2385C", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "应用", exact: true }).click();
+  await expect.poll(() => editor.innerHTML()).toContain("rgb(194, 56, 92)");
+  const appliedState = await editor.evaluate((element) => {
+    const coloredText = element.querySelector<HTMLElement>('[style*="color"]');
+    const selection = window.getSelection();
+    return {
+      cursor: getComputedStyle(element).cursor,
+      coloredCursor: coloredText ? getComputedStyle(coloredText).cursor : null,
+      selectedText: selection?.toString() ?? "",
+      selectionCollapsed: selection?.isCollapsed ?? false,
+    };
+  });
+  expect(appliedState).toEqual({
+    cursor: "text",
+    coloredCursor: "text",
+    selectedText: "",
+    selectionCollapsed: true,
+  });
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", {
+    timeout: 10_000,
+  });
+  await page.reload();
+  await expect.poll(() => editor.innerHTML()).toContain("rgb(194, 56, 92)");
+});
+
+test("opens every secondary formatting surface on pointerdown", async ({ page }) => {
+  const editor = page.locator(`${FRAME}[data-component-id="plan-1"] [contenteditable="true"]`).first();
+  const toolbar = page.locator(`${FRAME}[data-component-id="plan-1"] [data-text-leaf-id]`).first().getByRole("toolbar");
+  const prepareSelection = async () => {
+    await page.goto("/");
+    await editor.evaluate((element) => {
+      element.focus();
+      const textNode = element.querySelector("p")?.firstChild;
+      if (!textNode) throw new Error("Expected paragraph text");
+      const range = document.createRange();
+      range.selectNodeContents(textNode);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    });
+    await page.waitForTimeout(100);
+  };
+  const pointerDown = async (name: string) => {
+    await toolbar.getByRole("button", { name }).dispatchEvent("pointerdown", {
+      button: 0,
+      isPrimary: true,
+      pointerType: "mouse",
+    });
+  };
+
+  await prepareSelection();
+  await pointerDown("段落");
+  await expect(page.getByRole("menu")).toBeVisible();
+
+  await prepareSelection();
+  await pointerDown("选择字号");
+  await expect(page.getByRole("listbox", { name: "字号" })).toBeVisible();
+
+  await prepareSelection();
+  await pointerDown("选择文字颜色");
+  await expect(page.getByRole("listbox", { name: "文字颜色" })).toBeVisible();
+
+  await prepareSelection();
+  await pointerDown("添加链接");
+  await expect(page.locator('input[name="url"]')).toBeVisible();
+});
+
+test("keeps every secondary formatting surface open after a full pointer click", async ({ page }) => {
+  const editor = page.locator(`${FRAME}[data-component-id="plan-1"] [contenteditable="true"]`).first();
+  const toolbar = page.locator(`${FRAME}[data-component-id="plan-1"] [data-text-leaf-id]`).first().getByRole("toolbar");
+  const prepareSelection = async () => {
+    await page.goto("/");
+    await editor.evaluate((element) => {
+      element.focus();
+      const textNode = element.querySelector("p")?.firstChild;
+      if (!textNode) throw new Error("Expected paragraph text");
+      const range = document.createRange();
+      range.selectNodeContents(textNode);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    });
+    await page.waitForTimeout(100);
+  };
+  const pointerClick = async (name: string) => {
+    const box = await toolbar.getByRole("button", { name }).boundingBox();
+    if (!box) throw new Error(`Toolbar button ${name} is not visible`);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(120);
+    await page.mouse.up();
+  };
+  const expectOutsideToolbar = async (surface: Locator) => {
+    await expect.poll(() => surface.evaluate((element) =>
+      element.closest(".preshot-tiptap-toolbar") === null,
+    )).toBe(true);
+  };
+
+  await prepareSelection();
+  await pointerClick("段落");
+  const blockMenu = page.getByRole("menu");
+  await expect(blockMenu).toBeVisible();
+  await expectOutsideToolbar(blockMenu);
+
+  await prepareSelection();
+  await pointerClick("选择字号");
+  const sizeMenu = page.getByRole("listbox", { name: "字号" });
+  await expect(sizeMenu).toBeVisible();
+  await expectOutsideToolbar(sizeMenu);
+
+  await prepareSelection();
+  await pointerClick("选择文字颜色");
+  const colorMenu = page.getByRole("listbox", { name: "文字颜色" });
+  await expect(colorMenu).toBeVisible();
+  await expectOutsideToolbar(colorMenu);
+
+  await prepareSelection();
+  await pointerClick("添加链接");
+  const linkSurface = page.locator('form[aria-label="添加链接"]');
+  await expect(linkSurface).toBeVisible();
+  await expectOutsideToolbar(linkSurface);
+});
+
+test("applies every direct text style and representative submenu commands", async ({ page }) => {
+  await page.goto("/");
+  const editor = page.locator(`${FRAME}[data-component-id="plan-1"] [contenteditable="true"]`).first();
+  const toolbar = page.locator(`${FRAME}[data-component-id="plan-1"] [data-text-leaf-id]`).first().getByRole("toolbar");
+  const selectParagraph = async () => {
+    await editor.evaluate((element) => {
+      element.focus();
+      const textNode = element.querySelector("p")?.firstChild;
+      if (!textNode) throw new Error("Expected paragraph text");
+      const range = document.createRange();
+      range.selectNodeContents(textNode);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    });
+    await page.waitForTimeout(100);
+  };
+  const pointerClick = async (locator: Locator) => {
+    await locator.hover();
+    await page.mouse.down();
+    await page.waitForTimeout(80);
+    await page.mouse.up();
+  };
+  const formattingControl = async (name: string, exact = false) => {
+    const direct = toolbar.getByRole("button", { name, exact });
+    if (await direct.isVisible()) return direct;
+    const moreSurface = page.getByRole("dialog", { name: "更多格式" });
+    if (!await moreSurface.isVisible()) {
+      await toolbar.getByRole("button", { name: "更多格式" }).dispatchEvent("pointerdown", {
+        button: 0,
+        isPrimary: true,
+        pointerType: "mouse",
+      });
+      await expect(moreSurface).toBeVisible();
+    }
+    return moreSurface.getByRole("button", { name, exact });
+  };
+
+  await selectParagraph();
+  for (const name of ["加粗", "斜体", "下划线", "删除线"]) {
+    await pointerClick(await formattingControl(name));
+  }
+  await expect.poll(() => editor.innerHTML()).toContain("<strong>");
+  await expect.poll(() => editor.innerHTML()).toContain("<em>");
+  await expect.poll(() => editor.evaluate((element) => {
+    const mark = element.querySelector("em");
+    if (!mark) return null;
+    const style = getComputedStyle(mark);
+    return [style.fontStyle, style.getPropertyValue("font-synthesis-style")];
+  })).toEqual(["italic", "auto"]);
+  await expect.poll(() => editor.innerHTML()).toContain("<u>");
+  await expect.poll(() => editor.innerHTML()).toContain("<s>");
+
+  await selectParagraph();
+  await pointerClick(toolbar.getByRole("button", { name: "选择文字颜色" }));
+  await pointerClick(page.getByRole("option", { name: "功能青 #0891B2" }));
+  await expect.poll(() => editor.innerHTML()).toMatch(/#0891B2|rgb\(8, 145, 178\)/i);
+
+  await selectParagraph();
+  await pointerClick(await formattingControl("居中"));
+  await expect(await formattingControl("居中")).toHaveAttribute("aria-pressed", "true");
+
+  await selectParagraph();
+  await pointerClick(await formattingControl("嵌套", true));
+  await expect(await formattingControl("取消嵌套", true)).toBeEnabled();
+  await pointerClick(await formattingControl("取消嵌套", true));
+
+  await page.evaluate(() => sessionStorage.clear());
+  await page.reload();
+  await selectParagraph();
+  await pointerClick(toolbar.getByRole("button", { name: "段落" }));
+  await pointerClick(page.getByRole("menuitem", { name: "二级标题", exact: true }));
+  await expect.poll(() => editor.locator("h2").count()).toBeGreaterThan(1);
+  await expect.poll(() => editor.locator("h2").last().evaluate((heading) =>
+    heading.querySelector<HTMLElement>('[style*="font-size"]')?.style.fontSize ?? null,
+  )).toBeNull();
+
+  await page.evaluate(() => sessionStorage.clear());
+  await page.reload();
+  await selectParagraph();
+  await pointerClick(toolbar.getByRole("button", { name: "添加链接" }));
+  await page.locator('input[name="url"]').fill("example.com");
+  await page.getByRole("button", { name: "应用", exact: true }).click();
+  await expect.poll(() => editor.innerHTML()).toContain('href="https://example.com"');
+});
+
+test("preserves the selection when formatting a narrow split text leaf", async ({ page }) => {
+  await page.goto("/");
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
+  const firstLeaf = planFrame.locator("[data-text-leaf-id]").first();
+  await firstLeaf.hover();
+  await firstLeaf.getByRole("button", { name: "左右拆分当前文案" }).click();
+  await expect(planFrame.locator("[data-text-leaf-id]")).toHaveCount(2);
+
+  const rightHandle = planFrame.locator('[data-resize-handle="right"]');
+  const handleBox = await rightHandle.boundingBox();
+  if (!handleBox) throw new Error("Plan resize handle is not visible");
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x - 1_000, handleBox.y + handleBox.height / 2, { steps: 8 });
+  await page.mouse.up();
+
+  const editor = firstLeaf.locator('[contenteditable="true"]');
+  await editor.evaluate((element) => {
+    element.focus();
+    const textNode = element.querySelector("p")?.firstChild;
+    if (!textNode) throw new Error("Expected paragraph text");
+    const range = document.createRange();
+    range.selectNodeContents(textNode);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  });
+
+  await firstLeaf.getByRole("toolbar").getByRole("button", { name: "加粗" }).click();
+  await expect.poll(() => editor.innerHTML()).toContain("<strong>");
+});
+
+test("converts selected text through every heading level", async ({ page }) => {
+  await page.goto("/");
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
+  const editor = planFrame.locator('[contenteditable="true"]').first();
+  const toolbar = planFrame.locator("[data-text-leaf-id]").first().getByRole("toolbar");
+  const labels = ["一级标题", "二级标题", "三级标题", "四级标题", "五级标题", "六级标题"];
+
+  for (const [index, label] of labels.entries()) {
+    await editor.evaluate((element) => {
+      const block = Array.from(element.querySelectorAll("p,h1,h2,h3,h4,h5,h6"))
+        .find((candidate) => candidate.textContent?.includes("海滨的黄金时刻"));
+      const textNode = block?.firstChild;
+      if (!textNode) throw new Error("Expected plan text block");
+      element.focus();
+      const range = document.createRange();
+      range.selectNodeContents(textNode);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    });
+    await toolbar.getByRole("button", { name: /段落|标题/ }).click();
+    await page.getByRole("menuitem", { name: label, exact: true }).click();
+    await expect(editor.locator(`h${index + 1}`).filter({ hasText: "海滨的黄金时刻" })).toHaveCount(1);
+  }
+});
+
 test("drags to reorder images within a reference component and commits the move", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
@@ -432,7 +1072,9 @@ test("exports the canvas to PDF without legacy image-caption controls", async ({
 
 test("drags the right edge to resize component width", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", {
+    timeout: 10_000,
+  });
 
   const frames = page.locator(FRAME);
   const firstFrame = frames.nth(0);
@@ -578,27 +1220,25 @@ test("exports PDF and operation completes successfully", async ({ page }) => {
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
-test("persists an edited canvas title and component name after reload", async ({ page }) => {
+test("persists an edited canvas title without text leaf title controls", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
 
   const title = page.getByRole("textbox", { name: "画布标题" });
-  const planName = page
-    .locator(`${FRAME}[data-component-id="plan-1"]`)
-    .getByRole("textbox", { name: "组件名称" });
+  const planFrame = page.locator(`${FRAME}[data-component-id="plan-1"]`);
 
   await title.fill("海滨肖像拍摄");
   await title.press("Enter");
-  await planName.fill("拍摄文案");
-  await planName.press("Enter");
+  await expect(planFrame.getByRole("button", { name: "+ 插入标题" })).toHaveCount(0);
+  await expect(planFrame.getByRole("textbox", { name: "子文案标题" })).toHaveCount(0);
 
   await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", { timeout: 10_000 });
   await page.reload();
 
   await expect(page.getByRole("textbox", { name: "画布标题" })).toHaveValue("海滨肖像拍摄");
   await expect(
-    page.locator(`${FRAME}[data-component-id="plan-1"]`).getByRole("textbox", { name: "组件名称" }),
-  ).toHaveValue("拍摄文案");
+    page.locator(`${FRAME}[data-component-id="plan-1"]`).getByRole("textbox", { name: "子文案标题" }),
+  ).toHaveCount(0);
 });
 
 test("resizes and restores a tile while the lightbox keeps the full source image", async ({ page }) => {
@@ -677,9 +1317,10 @@ test("steps a whole reference group by 4pt and persists the compact card", async
     throw new Error("reference component is not visible");
   }
 
-  await expect(reference.getByText("136pt", { exact: true })).toBeVisible();
+  const pixelInput = reference.getByRole("spinbutton", { name: "整体图片高度（像素）" });
+  await expect(pixelInput).toHaveValue("181");
   await decrease.click();
-  await expect(reference.getByText("132pt", { exact: true })).toBeVisible();
+  await expect(pixelInput).toHaveValue("176");
   await expect(reference.getByRole("slider")).toHaveCount(0);
   await expect.poll(async () => (await reference.boundingBox())?.height ?? 0).toBeLessThan(before.height);
   await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", {
@@ -687,7 +1328,7 @@ test("steps a whole reference group by 4pt and persists the compact card", async
   });
 
   await page.reload();
-  await expect(reference.getByText("132pt", { exact: true })).toBeVisible();
+  await expect(reference.getByRole("spinbutton", { name: "整体图片高度（像素）" })).toHaveValue("176");
   await expect.poll(async () => (await reference.boundingBox())?.height ?? 0).toBeLessThan(before.height);
 });
 

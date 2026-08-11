@@ -2,7 +2,7 @@ import type { PlanComponent, ProjectPlan } from "./models";
 
 export type RenameComponentResult =
   | { ok: true; plan: ProjectPlan }
-  | { ok: false; reason: "empty" | "duplicate" };
+  | { ok: false; reason: "empty" };
 
 export type SetPlanTitleResult =
   | { ok: true; plan: ProjectPlan }
@@ -41,9 +41,6 @@ export function renameComponent(
   const trimmed = name.trim();
   if (!trimmed) {
     return { ok: false, reason: "empty" };
-  }
-  if (plan.components.some((component) => component.id !== id && component.name.trim() === trimmed)) {
-    return { ok: false, reason: "duplicate" };
   }
   const components = plan.components.map((component) =>
     component.id === id && component.name !== trimmed ? { ...component, name: trimmed } : component,

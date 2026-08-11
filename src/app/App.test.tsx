@@ -78,6 +78,9 @@ function createDependencies(project: WorkspaceProjectView): WorkspaceDependencie
     native: {
       onMenuAction: vi.fn().mockResolvedValue(vi.fn()),
     },
+    projectDirectoryRevealer: {
+      revealProjectDirectory: vi.fn(),
+    },
     logger,
   };
 }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { PlanTextComponent } from "../../../domain/plan/canvas/models";
 import type { PlanMeasurement } from "./usePlanContentMeasurement";
@@ -40,7 +40,7 @@ function component(html: string): PlanTextComponent {
     x: 0,
     width: 300,
     height: 220,
-    html,
+    textRoot: { kind: "leaf", id: "plan:root", html },
   };
 }
 
@@ -53,6 +53,54 @@ function measurement(): PlanMeasurement {
 }
 
 describe("PlanTextComponentView", () => {
+  it("keeps delete rightmost and removes a leaf only after confirmation", () => {
+    const onRemoveLeaf = vi.fn();
+    const onUndo = vi.fn();
+    const splitComponent: PlanTextComponent = {
+      ...component("<p>Left</p>"),
+      textRoot: {
+        kind: "split",
+        id: "split",
+        direction: "columns",
+        gap: 10,
+        children: [
+          { kind: "leaf", id: "left", html: "<p>Left</p>" },
+          { kind: "leaf", id: "right", html: "<p>Right</p>" },
+        ],
+      },
+    };
+    const view = render(
+      <PlanTextComponentView
+        component={splitComponent}
+        onChangeHtml={vi.fn()}
+        onRemoveLeaf={onRemoveLeaf}
+        onUndo={onUndo}
+        scale={1}
+      />,
+    );
+    const leftLeaf = view.container.querySelector('[data-text-leaf-id="left"]');
+    expect(leftLeaf).not.toBeNull();
+    const controls = within(leftLeaf as HTMLElement).getAllByRole("button");
+    expect(controls.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "左右拆分当前文案",
+      "上下拆分当前文案",
+      "删除当前子文案",
+    ]);
+
+    fireEvent.click(controls[2]);
+    expect(onRemoveLeaf).not.toHaveBeenCalled();
+    const dialog = view.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    expect(onRemoveLeaf).not.toHaveBeenCalled();
+
+    fireEvent.click(controls[2]);
+    fireEvent.click(within(view.getByRole("dialog")).getByRole("button", { name: "删除" }));
+    expect(onRemoveLeaf).toHaveBeenCalledWith("plan", "left");
+    expect(view.getByRole("status")).toHaveTextContent("已删除子文案");
+    fireEvent.click(view.getByRole("button", { name: "撤销" }));
+    expect(onUndo).toHaveBeenCalledTimes(1);
+  });
+
   it("applies persisted content scale while compensating the editor width", () => {
     const scaled = { ...component("<p>Scaled</p>"), contentScale: 0.7 };
     const { getByTestId } = render(

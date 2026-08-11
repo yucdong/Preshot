@@ -191,6 +191,11 @@ export function createBrowserWorkspaceDependencies(
         return native.onMenuAction(() => undefined);
       },
     },
+    projectDirectoryRevealer: {
+      async revealProjectDirectory(): Promise<void> {
+        return undefined;
+      },
+    },
     logger: browserLogger,
   };
 }

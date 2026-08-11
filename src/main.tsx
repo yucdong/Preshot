@@ -4,7 +4,6 @@ import { I18nextProvider } from "react-i18next";
 import { App } from "./app/App";
 import { ErrorBoundary } from "./app/ErrorBoundary";
 import i18n from "./shared/i18n/config";
-import "@blocknote/mantine/style.css";
 import "./styles.css";
 
 const root = document.getElementById("root");

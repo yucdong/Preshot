@@ -27,7 +27,7 @@ const testExporter = () =>
   });
 
 const plan: ProjectPlan = {
-  schemaVersion: 8,
+  schemaVersion: 10,
   title: "Editorial",
   components: [
     {
@@ -37,7 +37,7 @@ const plan: ProjectPlan = {
       x: 0,
       width: 500,
       height: 180,
-      html: "<p>正文</p>",
+      textRoot: { kind: "leaf", id: "p1:root", html: "<p>正文</p>" },
     },
     {
       id: "r1",
@@ -157,6 +157,44 @@ describe("createCanvasPdfExporter", () => {
       /Missing reference image data/,
     );
   });
+
+  it("exports nested title-free text leaves", async () => {
+    const splitPlan: ProjectPlan = {
+      schemaVersion: 10,
+      title: "递归文案",
+      components: [{
+        id: "split-plan",
+        name: "内部名称不导出",
+        type: "plan",
+        x: 0,
+        width: 500,
+        height: 360,
+        textRoot: {
+          kind: "split",
+          id: "split-root",
+          direction: "columns",
+          gap: 12,
+          children: [
+            { kind: "leaf", id: "left", html: "<p>左侧内容</p>" },
+            {
+              kind: "split",
+              id: "right",
+              direction: "rows",
+              gap: 12,
+              children: [
+                { kind: "leaf", id: "top", html: "<p>上方内容</p>" },
+                { kind: "leaf", id: "bottom", html: "<p>下方内容</p>" },
+              ],
+            },
+          ],
+        },
+      }],
+    };
+
+    const bytes = await testExporter().export(splitPlan, {});
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(0);
+    expect(bytes.length).toBeLessThan(2_000_000);
+  }, 20000);
 
   it("optimizes each source image once for its largest PDF draw box", async () => {
     const optimizeImage = vi.fn(async (dataUrl: string) => {

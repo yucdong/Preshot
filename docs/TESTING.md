@@ -19,24 +19,24 @@ browser workspace and canvas adapters, never a live Tauri backend.
 
 ## Verified Matrix
 
-Verified on 2026-08-07:
+Verified on 2026-08-10:
 
 | Command | Result |
 | --- | --- |
 | `pnpm lint` | passed with 0 errors (one existing fast-refresh warning) |
 | `pnpm typecheck` | passed |
-| `pnpm test` | 73 files, 629 tests passed |
+| `pnpm test` | 84 files, 461 tests passed |
 | `pnpm test:init` | 4 initializer harness checks passed |
-| `pnpm test:e2e` | 34 Edge smoke tests passed |
-| `cargo test --manifest-path src-tauri\Cargo.toml` | 47 Rust tests passed |
+| `pnpm test:e2e` | 47 Edge smoke tests passed |
+| `cargo test --manifest-path src-tauri\Cargo.toml` | 48 Rust tests passed |
 | `pnpm build` | passed (Vite reports the existing large-chunk warning) |
 
 ## Coverage by Layer
 
 ### Domain
 
-The schema-v6 canvas tests cover migration from legacy payloads, strict v6
-validation, flat ordered component movement, continuous width packing,
+The schema-v10 canvas tests cover migration from legacy payloads, strict v10
+validation, v9 leaf-title removal, flat ordered component movement, continuous width packing,
 four-edge content-scale math, and per-image `displayHeight` clamping/reset.
 `engine.test.ts` covers reference pagination, including the regression that
 moves a late component when no complete first image row fits while preserving
@@ -62,7 +62,7 @@ React Testing Library tests assert accessible UI behavior:
 ### Adapters and PDF
 
 Tauri/browser adapter tests validate command names, payloads, result shapes,
-and contextual failures. Browser seed tests assert schema-v6 data, including
+and contextual failures. Browser seed tests assert schema-v10 data, including
 `contentScale`, visible group description, and deterministic image IDs.
 
 PDF tests use real pdf-lib fonts and generated PNGs. They cover hidden
@@ -79,11 +79,17 @@ the screen-snipping UI.
 
 ### Browser Smoke
 
-The focused Playwright suite verifies schema-v6 seed loading, automatic
+The focused Playwright suite verifies schema-v10 seed loading, automatic
 packing after resize, toolbar placement, final-slot hover actions, four-edge
 component controls, per-image resize/reset, group-description Hide,
 independent captions, capture import, PDF export, layout growth, component
-drag preview/commit, workspace navigation, settings, and undo/redo.
+drag preview/commit, workspace navigation, settings, and undo/redo. Recursive
+text coverage verifies title-free two-layer leaves, equal-height columns,
+scrollbar-free content, width-driven growth/shrink, confirmed deletion, and
+visible/keyboard undo. Formatting coverage uses pointerdown and complete pointer
+clicks for paragraph, font-size, font-color, and link surfaces, then verifies
+every direct style plus representative paragraph, alignment, nesting, and link
+mutations.
 
 ## Expectations
 

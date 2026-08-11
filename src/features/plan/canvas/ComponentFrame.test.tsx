@@ -34,24 +34,40 @@ const component: PlanComponent = {
   x: 40,
   width: 200,
   height: 120,
-  html: "<p>Shot list</p>",
+  textRoot: { kind: "leaf", id: "plan1:root", html: "<p>Shot list</p>" },
+};
+
+const referenceComponent: PlanComponent = {
+  id: "reference1",
+  name: "Reference",
+  type: "reference",
+  x: 40,
+  width: 200,
+  height: 120,
+  description: "",
+  images: [],
 };
 
 function successfulRename(): RenameComponentResult {
-  return { ok: true, plan: { schemaVersion: 8, title: "", components: [] } };
+  return { ok: true, plan: { schemaVersion: 10, title: "", components: [] } };
 }
 
-function renderFrame(onResize = vi.fn(), onRename = vi.fn(successfulRename)) {
+function renderFrame(
+  onResize = vi.fn(),
+  onRename = vi.fn(successfulRename),
+  frameComponent = component,
+  scale = 1,
+) {
   render(
     <DndContext>
       <ComponentFrame
-        component={component}
-        id={component.id}
+        component={frameComponent}
+        id={frameComponent.id}
         onRemove={vi.fn()}
         onRename={onRename}
         onResize={onResize}
-        rect={{ ...component, y: 80 }}
-        scale={1}
+        rect={{ ...frameComponent, y: 80 }}
+        scale={scale}
       >
         <div>content</div>
       </ComponentFrame>
@@ -71,6 +87,24 @@ describe("ComponentFrame", () => {
     expect(frame).toHaveStyle({ left: "40px", top: "80px", width: "200px", height: "120px" });
   });
 
+  it("keeps plan close chrome inside the top-right corner at every canvas scale", () => {
+    renderFrame(vi.fn(), vi.fn(successfulRename), component, 0.72);
+    const frame = document.querySelector('[data-component-id="plan1"]') as HTMLElement;
+    const body = frame.querySelector('[data-component-frame-body]') as HTMLElement;
+    const close = screen.getByRole("button", { name: "移除组件" });
+
+    expect(Number.parseFloat(frame.style.padding)).toBeCloseTo(3.6, 5);
+    expect(Number.parseFloat(body.style.height)).toBeCloseTo(77.76, 5);
+    expect(frame.querySelector("[data-component-frame-header]")).not.toBeInTheDocument();
+    expect(close).toHaveStyle({
+      position: "absolute",
+      right: "-9px",
+      top: "-9px",
+      width: "18px",
+      height: "18px",
+    });
+  });
+
   it("renders arrow movement controls without a component drag handle", () => {
     renderFrame();
     expect(screen.queryByRole("button", { name: "拖动以移动或交换位置" })).not.toBeInTheDocument();
@@ -81,6 +115,10 @@ describe("ComponentFrame", () => {
       "text-white",
       "hover:bg-paper-danger",
     );
+    expect(screen.getByRole("button", { name: "移除组件" })).toHaveStyle({
+      width: "18px",
+      height: "18px",
+    });
     expect(document.querySelector("[data-component-drag-handle]")).not.toBeInTheDocument();
     expect(document.querySelector('[data-component-move-controls="plan1"]')).toHaveClass(
       "opacity-0",
@@ -147,8 +185,24 @@ describe("ComponentFrame", () => {
       y: 80,
       width: 200,
       height: 170,
-    });
+    }, "bottom");
 
+  });
+
+  it("uses immediate natural height while horizontally previewing a plan resize", () => {
+    renderFrame();
+    const right = document.querySelector('[data-resize-handle="right"]') as HTMLElement & {
+      setPointerCapture(pointerId: number): void;
+    };
+    right.setPointerCapture = vi.fn();
+
+    fireEvent.pointerDown(right, { clientX: 200, pointerId: 1 });
+    fireEvent.pointerMove(right, { clientX: 160, pointerId: 1 });
+
+    const frame = document.querySelector('[data-component-id="plan1"]') as HTMLElement;
+    const body = frame.querySelector('[data-component-frame-body]') as HTMLElement;
+    expect(frame).toHaveStyle({ height: "auto" });
+    expect(body).toHaveStyle({ height: "auto" });
   });
 
   it("anchors the opposing side for left, right, top, and bottom resizes", () => {
@@ -183,34 +237,38 @@ describe("ComponentFrame", () => {
       y: 80,
       width: 170,
       height: 120,
-    });
+    }, "left");
     expect(onResize).toHaveBeenNthCalledWith(2, "plan1", {
       x: 40,
       y: 80,
       width: 230,
       height: 120,
-    });
+    }, "right");
     expect(onResize).toHaveBeenNthCalledWith(3, "plan1", {
       x: 40,
       y: 110,
       width: 200,
       height: 90,
-    });
+    }, "top");
     expect(onResize).toHaveBeenNthCalledWith(4, "plan1", {
       x: 40,
       y: 80,
       width: 200,
       height: 150,
-    });
+    }, "bottom");
   });
 
   it("commits an editable component name", async () => {
-    const { onRename } = renderFrame();
+    const { onRename } = renderFrame(
+      vi.fn(),
+      vi.fn(successfulRename),
+      referenceComponent,
+    );
     const user = userEvent.setup();
     const input = screen.getByRole("textbox", { name: "组件名称" });
     await user.clear(input);
     await user.type(input, "NewPlan");
     fireEvent.blur(input);
-    expect(onRename).toHaveBeenCalledWith("plan1", "NewPlan");
+    expect(onRename).toHaveBeenCalledWith("reference1", "NewPlan");
   });
 });

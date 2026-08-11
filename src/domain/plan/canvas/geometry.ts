@@ -23,6 +23,10 @@ export const EDITABLE_COMPONENT_FRAME_CHROME: ComponentFrameChrome = {
   contentGap: 4,
 };
 
+export const PLAN_COMPONENT_FRAME_CHROME = NO_COMPONENT_FRAME_CHROME;
+export const PLAN_COMPONENT_FRAME_INSET = 5;
+export const PLAN_COMPONENT_VISUAL_INSET = PLAN_COMPONENT_FRAME_INSET + 1;
+
 export function componentFrameChromeHeight(chrome: ComponentFrameChrome): number {
   const topBarHeight =
     Number.isFinite(chrome.topBarHeight) && chrome.topBarHeight > 0
@@ -351,7 +355,7 @@ export function snapCardResize({
   minimumHeight: requestedMinimumHeight,
   constrainToCanvas = true,
 }: CardResizeSnapInput): CardSnapResult {
-  const base = constrainToCanvas
+  let base = constrainToCanvas
     ? clampCardRect(rect, canvasWidth)
     : {
         x: Number.isFinite(rect.x) ? rect.x : 0,
@@ -377,6 +381,30 @@ export function snapCardResize({
     Number.isFinite(requestedMinimumHeight) && requestedMinimumHeight! > 0
       ? requestedMinimumHeight!
       : MIN_COMPONENT_HEIGHT;
+  if (edge === "left" && base.width < minimumWidth) {
+    const requestedRight = rect.x + rect.width;
+    const right = Number.isFinite(requestedRight)
+      ? Math.min(availableWidth, Math.max(0, requestedRight))
+      : base.x + base.width;
+    const width = Math.min(minimumWidth, right);
+    base = { ...base, x: right - width, width };
+  } else if (edge === "right" && base.width < minimumWidth) {
+    base = {
+      ...base,
+      width: constrainToCanvas
+        ? Math.min(minimumWidth, availableWidth - base.x)
+        : minimumWidth,
+    };
+  } else if (edge === "top" && base.height < minimumHeight) {
+    const requestedBottom = rect.y + rect.height;
+    const bottom = Number.isFinite(requestedBottom)
+      ? Math.max(0, requestedBottom)
+      : base.y + base.height;
+    const height = constrainToCanvas ? Math.min(minimumHeight, bottom) : minimumHeight;
+    base = { ...base, y: bottom - height, height };
+  } else if (edge === "bottom" && base.height < minimumHeight) {
+    base = { ...base, height: minimumHeight };
+  }
   let next = base;
   let x = unsnappedAlignment(base.x);
   let y = unsnappedAlignment(base.y);

@@ -12,6 +12,7 @@ import {
   containSize,
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
+  PLAN_COMPONENT_VISUAL_INSET,
   SPACING,
   type PageGeometry,
   type Rect,
@@ -32,6 +33,7 @@ import type {
 import {
   buildCanvasLayout,
   PDF_COMPONENT_FRAME_CHROME,
+  PDF_PLAN_COMPONENT_FRAME_CHROME,
   temporaryPagedExportPlan,
 } from "../../domain/plan/canvas/pdf/exportDocument";
 import {
@@ -53,6 +55,7 @@ import {
   type PdfImageOptimizer,
 } from "./pdfImageOptimizer";
 import { pdfDocumentText, subsetPdfFont } from "./pdfFontSubset";
+import { layoutTextTree } from "../../domain/plan/canvas/textTree";
 
 const TITLE_SIZE = 14;
 const TEXT_COLOR = rgb(0.11, 0.1, 0.09);
@@ -86,7 +89,6 @@ function parseColor(value: string): Rgb | undefined {
   }
   return undefined;
 }
-
 
 function requireReferenceImageData(
   images: Record<string, string>,
@@ -239,9 +241,12 @@ function preparePdfTextLayouts(
   for (const component of components) {
     const contentScale = clampContentScale(component.contentScale);
     const componentWidth = component.width * pageContent.width;
+    const frameInset = component.type === "plan"
+      ? PLAN_COMPONENT_VISUAL_INSET
+      : COMPONENT_INSET;
     const textWidth = Math.max(
       0,
-      componentWidth / contentScale - COMPONENT_INSET * 2,
+      componentWidth / contentScale - frameInset * 2,
     );
 
     if (component.type === "plan") {
@@ -251,7 +256,7 @@ function preparePdfTextLayouts(
         { regular, bold },
       );
       planLayouts.set(component.id, textLayout);
-      planHeights.set(component.id, textLayout.height + COMPONENT_INSET * 2);
+      planHeights.set(component.id, textLayout.height + frameInset * 2);
       continue;
     }
 
@@ -285,19 +290,20 @@ interface ResolvedPdfLayout {
 function placementContentRect(
   placement: ComponentFragmentPlacement,
   contentScale: number,
+  frameInset: number,
   frameChromeHeight: number,
 ): { contentRect: Rect; pageY: number } {
   const pageY = A4.height - SPACING - placement.rect.y;
   return {
     pageY,
     contentRect: {
-      x: SPACING + placement.rect.x + COMPONENT_INSET * contentScale,
-      y: pageY - placement.rect.height + COMPONENT_INSET * contentScale,
-      width: Math.max(0, placement.rect.width - COMPONENT_INSET * 2 * contentScale),
+      x: SPACING + placement.rect.x + frameInset * contentScale,
+      y: pageY - placement.rect.height + frameInset * contentScale,
+      width: Math.max(0, placement.rect.width - frameInset * 2 * contentScale),
       height: Math.max(
         0,
         placement.rect.height -
-          COMPONENT_INSET * 2 * contentScale -
+          frameInset * 2 * contentScale -
           frameChromeHeight,
       ),
     },
@@ -317,6 +323,7 @@ function largestImageDrawBoxes(
     const { contentRect } = placementContentRect(
       placement,
       contentScale,
+      COMPONENT_INSET,
       frameChromeHeight,
     );
     const imagesById = new Map(component.images.map((image) => [image.id, image]));
@@ -391,7 +398,12 @@ function resolvePdfLayout(
     seenHeightSignatures.add(signature);
 
     const layout = buildCanvasLayout(components, geometry, measurements, documentTitle);
-    const frameChromeHeight = componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME);
+    const referenceFrameChromeHeight = componentFrameChromeHeight(
+      PDF_COMPONENT_FRAME_CHROME,
+    );
+    const planFrameChromeHeight = componentFrameChromeHeight(
+      PDF_PLAN_COMPONENT_FRAME_CHROME,
+    );
     const paginatedPlanLayouts = new Map<
       string,
       PaginatedPdfTextLayout<PDFFont>
@@ -425,7 +437,7 @@ function resolvePdfLayout(
             geometry.margin +
             placement.rect.y +
             COMPONENT_INSET * contentScale +
-            frameChromeHeight +
+            referenceFrameChromeHeight +
             REFERENCE_HEADER_HEIGHT * contentScale,
           pageHeight: geometry.page.height,
           pageMargin: geometry.margin,
@@ -450,8 +462,8 @@ function resolvePdfLayout(
           placement.pageIndex * geometry.page.height +
           geometry.margin +
           placement.rect.y +
-          COMPONENT_INSET * contentScale +
-          frameChromeHeight,
+          PLAN_COMPONENT_VISUAL_INSET * contentScale +
+          planFrameChromeHeight,
         pageHeight: geometry.page.height,
         pageMargin: geometry.margin,
         },
@@ -459,7 +471,7 @@ function resolvePdfLayout(
       paginatedPlanLayouts.set(component.id, paginated);
       nextPlanHeights.set(
         component.id,
-        paginated.height / contentScale + COMPONENT_INSET * 2,
+        paginated.height / contentScale + PLAN_COMPONENT_VISUAL_INSET * 2,
       );
     }
 
@@ -524,11 +536,13 @@ export function createCanvasPdfExporter(
       );
 
       const embedded = new Map<string, PDFImage>();
-      const frameChromeHeight = componentFrameChromeHeight(PDF_COMPONENT_FRAME_CHROME);
+      const referenceFrameChromeHeight = componentFrameChromeHeight(
+        PDF_COMPONENT_FRAME_CHROME,
+      );
       const imageDrawBoxes = largestImageDrawBoxes(
         layout,
         temporaryPlan.components,
-        frameChromeHeight,
+        referenceFrameChromeHeight,
       );
 
       const embed = async (
@@ -563,10 +577,13 @@ export function createCanvasPdfExporter(
         const { contentRect, pageY } = placementContentRect(
           placement,
           contentScale,
-          frameChromeHeight,
+          component.type === "plan" ? PLAN_COMPONENT_VISUAL_INSET : COMPONENT_INSET,
+          component.type === "plan"
+            ? componentFrameChromeHeight(PDF_PLAN_COMPONENT_FRAME_CHROME)
+            : referenceFrameChromeHeight,
         );
 
-        if (placement.kind !== "continuation") {
+        if (placement.kind !== "continuation" && component.type === "reference") {
           page.drawText(component.name, {
             x: contentRect.x,
             y: pageY - COMPONENT_INSET * contentScale - TITLE_SIZE * contentScale,
@@ -577,14 +594,38 @@ export function createCanvasPdfExporter(
         }
 
         if (component.type === "plan") {
-          const textLayout = paginatedPlanLayouts.get(component.id);
-          if (textLayout) {
-            drawPaginatedRichTextLayout(
-              pages,
-              textLayout,
-              contentRect.x,
-              DEFAULT_PAGE_GEOMETRY.page.height,
-            );
+          const sourceComponent = plan.components.find(
+            (entry) => entry.id === component.id && entry.type === "plan",
+          );
+          if (sourceComponent?.type === "plan" && sourceComponent.textRoot.kind === "split") {
+            for (const leafPlacement of layoutTextTree(sourceComponent.textRoot, contentRect)) {
+              const leafLayout = scalePdfTextLayout(
+                layoutPdfRichText(
+                  parseHtmlToBlocks(leafPlacement.leaf.html),
+                  leafPlacement.rect.width / contentScale,
+                  { regular, bold },
+                ),
+                contentScale,
+              );
+              for (const command of leafLayout.commands) {
+                drawTextCommand(
+                  page,
+                  command,
+                  leafPlacement.rect.x + command.x,
+                  leafPlacement.rect.y + leafPlacement.rect.height - command.baselineFromTop,
+                );
+              }
+            }
+          } else {
+            const textLayout = paginatedPlanLayouts.get(component.id);
+            if (textLayout) {
+              drawPaginatedRichTextLayout(
+                pages,
+                textLayout,
+                contentRect.x,
+                DEFAULT_PAGE_GEOMETRY.page.height,
+              );
+            }
           }
         } else if (component.type === "reference") {
           const ref = component;

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preshot 字号下拉设计评审</title>
+<style>
+@font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype");font-weight:600 700;font-display:swap}
+:root{--canvas:#dfe1e5;--paper:#fff;--ink:#25292d;--muted:#6b6f76;--line:#d7d6d3;--graphite:#202329;--graphite-2:#2c3036;--cyan:#0891b2;--cyan-soft:#e6f6f8;--berry:#c2385c;--shadow:0 18px 46px rgba(23,25,29,.16);--toolbar-shadow:0 9px 24px rgba(20,23,27,.20)}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%}body{min-width:980px;overflow:hidden;background:var(--canvas);color:var(--ink);font-family:NotoSC,"Microsoft YaHei UI",sans-serif;letter-spacing:0}button{font:inherit;cursor:pointer}.review{display:grid;grid-template-rows:54px minmax(0,1fr);height:100vh}.topbar{display:flex;align-items:center;gap:12px;padding:0 18px;background:#191b1f;color:#fff}.mark{display:grid;place-items:center;width:28px;height:28px;border-radius:6px;background:var(--berry);font-weight:700}.brand{font-size:15px;font-weight:700}.divider{width:1px;height:18px;background:#454950}.title{font-size:11px;color:#c8ccd2}.badge{margin-left:4px;padding:3px 6px;border-radius:4px;background:#30343a;color:#b8bdc5;font-size:8px}.spacer{flex:1}.state{font-size:9px;color:#aeb3bb}.workspace{display:grid;grid-template-columns:minmax(620px,1fr) 320px;min-height:0}.stage{position:relative;display:grid;place-items:center;overflow:hidden;padding:44px;background-color:var(--canvas);background-image:linear-gradient(rgba(55,60,66,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(55,60,66,.035) 1px,transparent 1px);background-size:20px 20px}.paper{position:relative;width:min(760px,92%);height:560px;padding:52px 54px;background:var(--paper);box-shadow:var(--shadow)}.paper-title{margin:0 0 38px;font-size:21px;font-weight:650}.text-card{position:relative;padding:26px 30px 32px;border:1px solid #dadddf;background:#fff}.copy{font-size:19px;line-height:1.85;color:#30363a}.selection{background:#c7eaf0;color:#132f34}.toolbar{position:absolute;z-index:20;left:50%;top:142px;display:flex;align-items:center;height:40px;padding:4px;border:1px solid #dedfe1;border-radius:7px;background:#fff;box-shadow:var(--toolbar-shadow);transform:translateX(-50%)}.tool{display:grid;place-items:center;height:30px;min-width:30px;padding:0 8px;border:0;border-radius:5px;background:transparent;color:#3d4248;font-size:14px}.tool:hover,.tool:focus-visible{background:#eef0f2;outline:none}.tool.active{background:#41454b;color:#fff}.tool.italic{font-style:italic}.tool.underline{text-decoration:underline;text-underline-offset:3px}.tool.strike{text-decoration:line-through}.tool-label{display:flex;align-items:center;gap:5px;min-width:78px}.paragraph-chevron,.size-chevron{display:block;width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-1px)}.separator{width:1px;height:20px;margin:0 3px;background:#e2e3e5}.font-size{position:relative;display:flex;height:30px;margin:0 3px;border:1px solid #cfd2d5;border-radius:5px;background:#fff;box-shadow:inset 0 1px rgba(255,255,255,.7)}.size-value,.size-trigger{height:28px;border:0;background:transparent;color:#2c3136}.size-value{width:39px;padding:0 4px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums}.size-trigger{display:grid;place-items:center;width:23px;border-left:1px solid #e0e2e4;border-radius:0 4px 4px 0}.size-trigger:hover,.size-trigger[aria-expanded="true"]{background:#eef7f8;color:#087b95}.size-trigger:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}.size-menu{position:absolute;z-index:50;left:0;top:34px;width:86px;padding:4px;border:1px solid #cfd2d5;border-radius:6px;background:#fff;box-shadow:0 12px 28px rgba(23,25,29,.22)}.size-menu[hidden]{display:none}.size-option{position:relative;display:flex;align-items:center;width:100%;height:29px;padding:0 8px 0 25px;border:0;border-radius:4px;background:transparent;color:#30353a;text-align:left;font-size:12px;font-variant-numeric:tabular-nums}.size-option:hover,.size-option:focus-visible{background:var(--cyan-soft);color:#076f87;outline:none}.size-option[aria-selected="true"]{font-weight:650}.size-option[aria-selected="true"]::before{content:"";position:absolute;left:9px;top:8px;width:7px;height:4px;border-left:1.7px solid var(--cyan);border-bottom:1.7px solid var(--cyan);transform:rotate(-45deg)}.align-icon{display:grid;gap:3px;width:14px}.align-icon i{display:block;height:1.5px;border-radius:2px;background:currentColor}.align-icon i:nth-child(2){width:11px}.inspector{overflow:auto;border-left:1px solid #c9ccd0;background:#f7f6f4}.inspector-head{padding:22px 20px 16px;border-bottom:1px solid #dcddde}.eyebrow{color:var(--berry);font-size:8px;font-weight:700}.inspector h1{margin:5px 0 4px;font-size:17px}.inspector-head p{margin:0;color:var(--muted);font-size:9px;line-height:1.6}.section{padding:18px 20px;border-bottom:1px solid #dcddde}.section h2{margin:0 0 11px;font-size:10px}.diagram{display:grid;grid-template-columns:52px 20px 1fr;align-items:center;gap:7px}.mini-control{display:flex;height:26px;border:1px solid #cfd2d5;border-radius:5px;background:#fff}.mini-control b{display:grid;place-items:center;width:32px;font-size:10px}.mini-control span{display:grid;place-items:center;width:18px;border-left:1px solid #e0e2e4}.arrow{color:#8a8e93;text-align:center}.diagram strong{font-size:10px}.diagram small{display:block;margin-top:2px;color:var(--muted);font-size:8px;line-height:1.5}.rules{display:grid;gap:10px}.rule{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px}.rule b{display:grid;place-items:center;width:20px;height:20px;border-radius:4px;background:#e6e8ea;color:#565c62;font-size:8px}.rule strong{display:block;font-size:9px}.rule span{display:block;margin-top:2px;color:var(--muted);font-size:8px;line-height:1.5}.keyboard{display:flex;flex-wrap:wrap;gap:5px}.key{padding:4px 6px;border:1px solid #cfd2d5;border-bottom-width:2px;border-radius:4px;background:#fff;color:#4e545a;font-size:8px}.decision{margin-top:auto;padding:18px 20px}.decision-box{padding:12px;border-left:3px solid var(--cyan);background:#edf8f9;color:#33565e;font-size:9px;line-height:1.6}
+.font-color{position:relative;display:flex;height:30px;margin:0 3px;border:1px solid #cfd2d5;border-radius:5px;background:#fff}.color-apply,.color-trigger{height:28px;border:0;background:transparent;color:#2c3136}.color-apply{position:relative;display:grid;place-items:center;width:32px;padding-bottom:3px;font-size:15px}.color-apply::after{content:"";position:absolute;left:7px;right:7px;bottom:4px;height:3px;border-radius:2px;background:var(--current-color,#202329)}.color-trigger{display:grid;place-items:center;width:23px;border-left:1px solid #e0e2e4;border-radius:0 4px 4px 0}.color-trigger:hover,.color-trigger[aria-expanded="true"]{background:#eef7f8;color:#087b95}.color-trigger:focus-visible,.color-apply:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}.color-menu{position:absolute;z-index:50;left:-42px;top:34px;width:146px;padding:8px;border:1px solid #cfd2d5;border-radius:6px;background:#fff;box-shadow:0 12px 28px rgba(23,25,29,.22)}.color-menu[hidden]{display:none}.color-title{display:block;margin-bottom:7px;color:#6e747a;font-size:8px}.swatches{display:grid;grid-template-columns:repeat(5,22px);gap:5px}.swatch{position:relative;width:22px;height:22px;padding:0;border:1px solid rgba(24,24,27,.2);border-radius:4px;background:var(--swatch)}.swatch:hover,.swatch:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}.swatch[aria-selected="true"]::after{content:"";position:absolute;inset:5px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg);filter:drop-shadow(0 1px 1px rgba(0,0,0,.55))}.mini-color b{position:relative}.mini-color b::after{content:"";position:absolute;left:8px;right:8px;bottom:3px;height:2px;background:var(--berry)}
+.custom-color[hidden]{display:none}.more-colors{width:100%;height:27px;margin-top:7px;border:0;border-top:1px solid #e5e6e7;background:transparent;color:#3d444a;font-size:9px;text-align:left}.more-colors:hover,.more-colors:focus-visible{color:#087b95;outline:none}.custom-color{position:absolute;z-index:60;left:-54px;top:34px;width:244px;padding:12px;border:1px solid #c7cacf;border-radius:7px;background:#fff;box-shadow:0 16px 38px rgba(23,25,29,.25)}.custom-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.custom-head strong{font-size:10px}.custom-close{display:grid;place-items:center;width:22px;height:22px;border:0;border-radius:4px;background:transparent;color:#686e74}.custom-close:hover{background:#eef0f2}.custom-body{display:grid;grid-template-columns:104px minmax(0,1fr);gap:13px}.hue-wheel{position:relative;width:104px;height:104px;border-radius:50%;background:conic-gradient(#f33,#ff3,#3f3,#3ff,#33f,#f3f,#f33);box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}.hue-wheel::after{content:"";position:absolute;inset:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,rgba(255,255,255,.25) 42%,rgba(0,0,0,.52));box-shadow:0 0 0 1px rgba(255,255,255,.75)}.hue-cursor{position:absolute;z-index:2;left:79px;top:47px;width:10px;height:10px;border:2px solid #fff;border-radius:50%;background:#0891b2;box-shadow:0 0 0 1px rgba(0,0,0,.55)}.color-preview{height:25px;margin-bottom:7px;border:1px solid #cfd2d5;border-radius:4px;background:#0891b2}.rgb-grid{display:grid;grid-template-columns:15px minmax(0,1fr);align-items:center;gap:5px 6px}.rgb-grid label{font-size:9px;color:#5f666c}.rgb-grid input{width:100%;height:23px;border:1px solid #cfd2d5;border-radius:4px;padding:0 5px;color:#2f353a;font:9px NotoSC;text-align:right;outline:none}.rgb-grid input:focus{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}.hex-row{display:flex;align-items:center;gap:5px;margin-top:6px}.hex-row label{font-size:8px;color:#6b7177}.hex-row output{font-size:9px;font-variant-numeric:tabular-nums}.custom-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:11px}.custom-actions button{height:26px;padding:0 10px;border-radius:5px;font-size:9px}.custom-cancel{border:1px solid #cfd2d5;background:#fff;color:#555c62}.custom-apply{border:1px solid var(--graphite);background:var(--graphite);color:#fff}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="review">
+  <header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="title">字号控件设计评审</span><span class="badge">推荐方案</span><span class="spacer"></span><span class="state">PowerPoint 式组合下拉</span></header>
+  <div class="workspace">
+    <main class="stage">
+      <article class="paper">
+        <h1 class="paper-title">夏日人像拍摄</h1>
+        <section class="text-card">
+          <div class="copy">拍摄时间：2026.8.9 / 2026.8.10<br>拍摄地点：上海，摄影棚、<span class="selection">上生新所、志屋、延安西路</span>、小乔治咖啡厅<br>道具和服装：常服</div>
+          <div class="toolbar" role="toolbar" aria-label="文字格式">
+            <button class="tool tool-label" type="button"><span>段落</span><span class="paragraph-chevron" aria-hidden="true"></span></button>
+            <span class="separator"></span>
+            <button class="tool" type="button" aria-label="加粗"><b>B</b></button>
+            <button class="tool italic" type="button" aria-label="斜体">I</button>
+            <button class="tool underline" type="button" aria-label="下划线">U</button>
+            <button class="tool strike" type="button" aria-label="删除线">S</button>
+            <div class="font-size" id="font-size-control">
+              <button class="size-value" id="size-value" type="button" aria-label="当前字号 14">14</button>
+              <button class="size-trigger" id="size-trigger" type="button" aria-label="选择字号" aria-expanded="true" aria-haspopup="listbox"><span class="size-chevron" aria-hidden="true"></span></button>
+              <div class="size-menu" id="size-menu" role="listbox" aria-label="字号">
+                <button class="size-option" role="option" aria-selected="false" data-size="10" type="button">10</button>
+                <button class="size-option" role="option" aria-selected="false" data-size="12" type="button">12</button>
+                <button class="size-option" role="option" aria-selected="true" data-size="14" type="button">14</button>
+                <button class="size-option" role="option" aria-selected="false" data-size="16" type="button">16</button>
+                <button class="size-option" role="option" aria-selected="false" data-size="18" type="button">18</button>
+                <button class="size-option" role="option" aria-selected="false" data-size="24" type="button">24</button>
+              </div>
+            </div>
+            <div class="font-color" id="font-color-control" style="--current-color:#202329">
+              <button class="color-apply" id="color-apply" type="button" aria-label="应用当前文字颜色">A</button>
+              <button class="color-trigger" id="color-trigger" type="button" aria-label="选择文字颜色" aria-expanded="false" aria-haspopup="listbox"><span class="size-chevron" aria-hidden="true"></span></button>
+              <div class="color-menu" id="color-menu" role="listbox" aria-label="文字颜色" hidden>
+                <span class="color-title">主题颜色</span>
+                <div class="swatches">
+                  <button class="swatch" style="--swatch:#202329" data-color="#202329" aria-label="石墨黑" aria-selected="true" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#6b6f76" data-color="#6b6f76" aria-label="中性灰" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#c2385c" data-color="#c2385c" aria-label="浆果红" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#b42342" data-color="#b42342" aria-label="深红" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#c78218" data-color="#c78218" aria-label="琥珀" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#2f7d65" data-color="#2f7d65" aria-label="松绿" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#0891b2" data-color="#0891b2" aria-label="功能青" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#2563a9" data-color="#2563a9" aria-label="钴蓝" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#6f56a6" data-color="#6f56a6" aria-label="鸢尾紫" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#ffffff" data-color="#ffffff" aria-label="白色" aria-selected="false" role="option" type="button"></button>
+                </div>
+                <button class="more-colors" id="more-colors" type="button">更多颜色…</button>
+              </div>
+              <div class="custom-color" id="custom-color" role="dialog" aria-label="更多颜色" hidden>
+                <div class="custom-head"><strong>更多颜色</strong><button class="custom-close" id="custom-close" aria-label="关闭更多颜色" type="button">×</button></div>
+                <div class="custom-body">
+                  <div class="hue-wheel" id="hue-wheel" aria-label="色相盘"><span class="hue-cursor"></span></div>
+                  <div>
+                    <div class="color-preview" id="color-preview"></div>
+                    <div class="rgb-grid"><label for="red">R</label><input id="red" type="number" min="0" max="255" value="8"><label for="green">G</label><input id="green" type="number" min="0" max="255" value="145"><label for="blue">B</label><input id="blue" type="number" min="0" max="255" value="178"></div>
+                    <div class="hex-row"><label>HEX</label><output id="hex-value">#0891B2</output></div>
+                  </div>
+                </div>
+                <div class="custom-actions"><button class="custom-cancel" id="custom-cancel" type="button">取消</button><button class="custom-apply" id="custom-apply" type="button">应用</button></div>
+              </div>
+            </div>
+            <span class="separator"></span>
+            <button class="tool active" type="button" aria-label="左对齐"><span class="align-icon"><i></i><i></i><i></i></span></button>
+            <button class="tool" type="button" aria-label="居中"><span class="align-icon"><i></i><i></i><i></i></span></button>
+            <button class="tool" type="button" aria-label="右对齐"><span class="align-icon"><i></i><i></i><i></i></span></button>
+            <button class="tool" type="button" aria-label="添加链接">↗</button>
+          </div>
+        </section>
+      </article>
+    </main>
+    <aside class="inspector">
+      <header class="inspector-head"><span class="eyebrow">UI/UX PRO MAX · DENSE TOOL</span><h1>推荐：组合字号下拉</h1><p>沿用当前工具栏，只调整字号控件的位置、结构和菜单密度。</p></header>
+      <section class="section"><h2>控件结构</h2><div class="diagram"><div class="mini-control"><b>14</b><span>⌄</span></div><span class="arrow">→</span><div><strong>数字 + 独立箭头</strong><small>数字区域可直接应用当前字号；右侧箭头仅负责展开菜单。</small></div></div><div style="height:9px"></div><div class="diagram"><div class="mini-control mini-color"><b>A</b><span>⌄</span></div><span class="arrow">→</span><div><strong>字体颜色组合按钮</strong><small>A 下方显示当前颜色；主按钮复用颜色，箭头展开色板。</small></div></div></section>
+      <section class="section"><h2>位置调整</h2><div class="rules"><div class="rule"><b>1</b><div><strong>移动到删除线之后</strong><span>与粗体、斜体、下划线归为同一组，早于段落对齐。</span></div></div><div class="rule"><b>2</b><div><strong>收起态不显示 px</strong><span>字号单位在编辑器中已明确，减少约 14px 横向占用。</span></div></div><div class="rule"><b>3</b><div><strong>当前字号始终可扫描</strong><span>使用等宽数字，菜单当前项同时用勾选和字重标识。</span></div></div></div></section>
+      <section class="section"><h2>自定义颜色</h2><div class="rules"><div class="rule"><b>1</b><div><strong>更多颜色…</strong><span>标准色板保持紧凑，需要时再进入色相盘。</span></div></div><div class="rule"><b>2</b><div><strong>RGB 精确输入</strong><span>R/G/B 限定 0–255，HEX 同步预览；不支持透明度。</span></div></div></div></section>
+      <section class="section"><h2>键盘行为</h2><div class="keyboard"><span class="key">Enter / Space 展开</span><span class="key">↑ ↓ 移动</span><span class="key">Enter 应用</span><span class="key">Esc 关闭</span></div></section>
+      <div class="decision"><div class="decision-box">确认后，生产实现会复用已经修复的 ProseMirror 选区保护，不改变 schema、HTML 持久化或 PDF 字号与颜色渲染。</div></div>
+    </aside>
+  </div>
+</div>
+<script>
+const trigger=document.getElementById("size-trigger");
+const menu=document.getElementById("size-menu");
+const value=document.getElementById("size-value");
+const options=[...document.querySelectorAll(".size-option")];
+const colorTrigger=document.getElementById("color-trigger"),colorMenu=document.getElementById("color-menu"),colorControl=document.getElementById("font-color-control"),swatches=[...document.querySelectorAll(".swatch")];
+const customColor=document.getElementById("custom-color"),red=document.getElementById("red"),green=document.getElementById("green"),blue=document.getElementById("blue"),preview=document.getElementById("color-preview"),hexValue=document.getElementById("hex-value");
+function setOpen(open){menu.hidden=!open;trigger.setAttribute("aria-expanded",String(open));if(open){const selected=options.find(option=>option.getAttribute("aria-selected")==="true");selected?.focus()}}
+function choose(option){options.forEach(item=>item.setAttribute("aria-selected",String(item===option)));value.textContent=option.dataset.size;value.setAttribute("aria-label",`当前字号 ${option.dataset.size}`);setOpen(false);trigger.focus()}
+trigger.addEventListener("click",()=>setOpen(menu.hidden));
+value.addEventListener("click",()=>setOpen(true));
+options.forEach(option=>option.addEventListener("click",()=>choose(option)));
+menu.addEventListener("keydown",event=>{const current=options.indexOf(document.activeElement);if(event.key==="Escape"){event.preventDefault();setOpen(false)}if(event.key==="ArrowDown"){event.preventDefault();options[(current+1)%options.length].focus()}if(event.key==="ArrowUp"){event.preventDefault();options[(current-1+options.length)%options.length].focus()}if(event.key==="Enter"&&current>=0){event.preventDefault();choose(options[current])}});
+function setColorOpen(open){colorMenu.hidden=!open;colorTrigger.setAttribute("aria-expanded",String(open));if(open){setOpen(false);swatches.find(item=>item.getAttribute("aria-selected")==="true")?.focus()}}
+function chooseColor(option){swatches.forEach(item=>item.setAttribute("aria-selected",String(item===option)));colorControl.style.setProperty("--current-color",option.dataset.color);setColorOpen(false);colorTrigger.focus()}
+colorTrigger.addEventListener("click",()=>setColorOpen(colorMenu.hidden));
+document.getElementById("color-apply").addEventListener("click",()=>setColorOpen(true));
+swatches.forEach(option=>option.addEventListener("click",()=>chooseColor(option)));
+function channel(value){return Math.max(0,Math.min(255,Number(value)||0))}
+function customValue(){return`#${[red,green,blue].map(input=>channel(input.value).toString(16).padStart(2,"0")).join("").toUpperCase()}`}
+function updateCustom(){const color=customValue();preview.style.background=color;hexValue.textContent=color}
+function openCustom(){colorMenu.hidden=true;customColor.hidden=false;red.focus();red.select()}
+function closeCustom(){customColor.hidden=true;colorTrigger.setAttribute("aria-expanded","false");colorTrigger.focus()}
+document.getElementById("more-colors").addEventListener("click",openCustom);
+document.getElementById("custom-close").addEventListener("click",closeCustom);
+document.getElementById("custom-cancel").addEventListener("click",closeCustom);
+document.getElementById("custom-apply").addEventListener("click",()=>{colorControl.style.setProperty("--current-color",customValue());swatches.forEach(item=>item.setAttribute("aria-selected","false"));closeCustom()});
+[red,green,blue].forEach(input=>input.addEventListener("input",updateCustom));
+document.getElementById("hue-wheel").addEventListener("click",event=>{const rect=event.currentTarget.getBoundingClientRect(),angle=Math.atan2(event.clientY-(rect.top+rect.height/2),event.clientX-(rect.left+rect.width/2))*180/Math.PI+180;const color=`hsl(${Math.round(angle)} 85% 42%)`;preview.style.background=color;hexValue.textContent=`H ${Math.round(angle)}°`});
+</script>
+</body>
+</html>

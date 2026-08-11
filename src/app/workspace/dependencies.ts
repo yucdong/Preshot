@@ -1,6 +1,7 @@
 import { createWorkspaceService } from "../../domain/workspace/service";
 import type {
   NativeWorkspace,
+  ProjectDirectoryRevealer,
   WorkspaceDirectoryPicker,
   WorkspaceLogger,
   WorkspaceService,
@@ -12,11 +13,13 @@ import { tauriWorkspace } from "../../infrastructure/workspace/tauriWorkspace";
 import { workspaceDirectoryPicker } from "../../infrastructure/workspace/workspaceDialog";
 import { workspaceRegistry } from "../../infrastructure/workspace/workspaceStore";
 import { workspaceLogger } from "../../shared/logging/logger";
+import { projectDirectoryRevealer } from "../../infrastructure/workspace/projectDirectoryRevealer";
 
 export interface WorkspaceDependencies {
   service: WorkspaceService;
   directoryPicker: WorkspaceDirectoryPicker;
   native: Pick<NativeWorkspace, "onMenuAction">;
+  projectDirectoryRevealer: ProjectDirectoryRevealer;
   logger: WorkspaceLogger;
 }
 
@@ -35,6 +38,7 @@ function createProductionWorkspaceDependencies(): WorkspaceDependencies {
     }),
     directoryPicker: workspaceDirectoryPicker,
     native,
+    projectDirectoryRevealer,
     logger,
   };
 }

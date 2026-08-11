@@ -7,7 +7,7 @@ afterEach(() => {
   cleanup();
 });
 
-// BlockNote/ProseMirror rely on browser APIs jsdom lacks. Shim the minimum.
+// ProseMirror relies on browser APIs jsdom lacks. Shim the minimum.
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}

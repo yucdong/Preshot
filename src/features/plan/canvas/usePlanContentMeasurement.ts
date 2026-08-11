@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 
 export interface PlanMeasurement {
   heightPoints: number;
+  screenHeightPoints?: number;
   pageBreakBeforeBlockIds: string[];
   blockHeightsPoints: number[];
   sourceHtml?: string;
@@ -24,15 +25,19 @@ function cleanupBlock(element: HTMLElement): void {
   element.removeAttribute("data-preshot-block-id");
 }
 
-function blockNoteEditorRoot(root: HTMLDivElement): HTMLElement | null {
-  const editorRoot = root.querySelector(".bn-editor");
+function richTextEditorRoot(root: HTMLDivElement): HTMLElement | null {
+  const editorRoot = root.querySelector(".tiptap-editor, .bn-editor");
   return editorRoot instanceof HTMLElement ? editorRoot : null;
 }
 
 function topLevelBlockGroup(root: HTMLDivElement): HTMLElement | null {
-  const editorRoot = blockNoteEditorRoot(root);
+  const editorRoot = richTextEditorRoot(root);
   if (!editorRoot) {
     return null;
+  }
+
+  if (editorRoot.classList.contains("tiptap-editor")) {
+    return editorRoot;
   }
 
   return (
@@ -46,6 +51,12 @@ function topLevelBlockGroup(root: HTMLDivElement): HTMLElement | null {
 function topLevelBlocksInGroup(blockGroup: HTMLElement | null): HTMLElement[] {
   if (!blockGroup) {
     return [];
+  }
+
+  if (blockGroup.classList.contains("tiptap-editor")) {
+    return Array.from(blockGroup.children).filter(
+      (element): element is HTMLElement => element instanceof HTMLElement,
+    );
   }
 
   return Array.from(blockGroup.children).filter(

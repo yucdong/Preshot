@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preshot TipTap 编辑器迁移 Demo</title>
+<style>
+@font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype");font-weight:600 800;font-display:swap}
+:root{--chrome:#191b1f;--graphite:#25282d;--canvas:#dfe1e5;--paper:#fff;--ink:#25292d;--muted:#6b6f76;--line:#d7dadd;--cyan:#0891b2;--cyan-soft:#e6f6f8;--berry:#c2385c;--danger:#b42342;--shadow:0 16px 42px rgba(23,25,29,.18)}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}body{font-family:NotoSC,"Microsoft YaHei UI",sans-serif;color:var(--ink);background:var(--canvas);letter-spacing:0}button,input{font:inherit}button{cursor:pointer}.app{height:100vh;display:grid;grid-template-rows:56px minmax(0,1fr);min-width:840px}.topbar{display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--chrome);color:#fff;border-bottom:1px solid #34373d}.mark{display:grid;place-items:center;width:28px;height:28px;border-radius:6px;background:var(--berry);font-weight:800}.brand{font-size:16px;font-weight:800}.divider{width:1px;height:18px;background:#464a51}.title{font-size:11px;font-weight:700}.badge{padding:4px 7px;border-radius:4px;background:#30343a;color:#c4c8ce;font-size:8px}.spacer{flex:1}.save{display:flex;align-items:center;gap:6px;color:#b8bdc5;font-size:9px}.save::before{content:"";width:7px;height:7px;border-radius:50%;background:#43c6ad}.workspace{display:grid;grid-template-columns:minmax(570px,1fr) 310px;min-height:0}.stage{overflow:auto;padding:36px 42px 76px;background-color:var(--canvas);background-image:radial-gradient(rgba(45,50,56,.08) .7px,transparent .7px);background-size:16px 16px}.page{width:min(760px,94%);min-height:760px;margin:0 auto;padding:35px 40px 80px;background:var(--paper);box-shadow:var(--shadow)}.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;padding-bottom:13px;border-bottom:1px solid #e8eaeb}.page-head h1{margin:0;font-size:21px}.page-head span{font-size:8px;color:#8b8f94}.component{position:relative;padding:5px;border:1.5px solid var(--cyan);border-radius:6px;background:#fff;box-shadow:0 0 0 2px rgba(8,145,178,.09)}.close{position:absolute;right:-9px;top:-9px;z-index:40;display:grid;place-items:center;width:18px;height:18px;padding:0;border:0;border-radius:4px;background:var(--graphite);color:#fff}.close:hover{background:var(--danger)}.leaf{border:1px solid var(--line);background:#fff;container-type:inline-size}.toolbar{display:flex;align-items:center;gap:2px;width:100%;min-height:36px;padding:3px 4px;border-bottom:1px solid #dfe2e4;background:#fafafa;box-shadow:0 2px 8px rgba(25,28,31,.05);overflow:hidden}.tool{display:grid;place-items:center;flex:0 0 27px;width:27px;height:28px;padding:0;border:0;border-radius:4px;background:transparent;color:#3d4348;font-size:13px}.tool:hover,.tool.active,.tool:focus-visible{background:#e7eaec;color:#15181b;outline:none}.tool:focus-visible{box-shadow:0 0 0 2px var(--cyan)}.paragraph{display:flex;align-items:center;justify-content:space-between;flex:0 1 106px;min-width:84px;height:28px;padding:0 7px;border:1px solid #d4d8da;border-radius:4px;background:#fff;color:#30353a;font-size:10px;font-weight:700;white-space:nowrap}.type-icon{display:grid;place-items:center;width:20px;height:20px;color:#565d63;font-size:9px;font-weight:800}.chevron{width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-2px)}.split{display:flex;flex:0 0 56px;height:28px;border:1px solid #d4d8da;border-radius:4px;background:#fff}.split-value{display:grid;place-items:center;width:34px;font-size:10px}.split-trigger{display:grid;place-items:center;width:22px;border:0;border-left:1px solid #dfe2e4;background:transparent}.color-main{position:relative}.color-main::after{content:"";position:absolute;left:6px;right:6px;bottom:3px;height:3px;border-radius:2px;background:var(--active-color,#202329)}.editor-shell .tiptap{min-height:145px;padding:17px 15px 18px;color:#30353a;font-size:14px;line-height:1.68;outline:none;overflow-wrap:anywhere}.editor-shell .tiptap p{margin:.45em 0}.editor-shell .tiptap h1,.editor-shell .tiptap h2,.editor-shell .tiptap h3,.editor-shell .tiptap h4,.editor-shell .tiptap h5,.editor-shell .tiptap h6{margin:.35em 0;line-height:1.35}.editor-shell .tiptap h1{font-size:24px}.editor-shell .tiptap h2{font-size:21px}.editor-shell .tiptap h3{font-size:18px}.editor-shell .tiptap ul,.editor-shell .tiptap ol{padding-left:1.5em}.editor-shell .tiptap blockquote{margin:.7em 0;padding-left:12px;border-left:3px solid var(--cyan);color:#51575d}.editor-shell .tiptap a{color:#087994;text-decoration:underline}.editor-shell .tiptap ::selection{background:#bdebf3}.menu{position:fixed;z-index:1000;width:220px;max-height:min(420px,calc(100vh - 16px));overflow:auto;padding:5px;border:1px solid #cdd2d5;border-radius:7px;background:#fff;box-shadow:0 15px 36px rgba(22,25,28,.24)}.menu[hidden]{display:none}.menu-item{display:grid;grid-template-columns:22px minmax(0,1fr) 16px;align-items:center;gap:8px;width:100%;min-height:36px;padding:7px 8px;border:0;border-radius:4px;background:transparent;color:#2b3035;text-align:left;font-size:12px;line-height:20px;white-space:nowrap}.menu-item:hover,.menu-item:focus-visible{background:var(--cyan-soft);color:#08758b;outline:none}.menu-item[aria-checked="true"]{font-weight:700}.menu-item[disabled]{cursor:not-allowed;color:#a3a7ab}.menu-item small{color:#999;font-size:8px}.palette{position:fixed;z-index:1000;width:148px;padding:8px;border:1px solid #cdd2d5;border-radius:7px;background:#fff;box-shadow:0 15px 36px rgba(22,25,28,.24)}.palette[hidden]{display:none}.palette-title{display:block;margin-bottom:7px;color:#6e747a;font-size:10px}.swatches{display:grid;grid-template-columns:repeat(5,22px);gap:5px}.swatch{position:relative;width:22px;height:22px;padding:0;border:1px solid rgba(24,24,27,.22);border-radius:4px;background:var(--swatch)}.swatch:hover,.swatch:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}.swatch[aria-selected="true"]::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:800;text-shadow:0 1px 2px #000}.link-pop{position:fixed;z-index:1000;display:flex;gap:6px;width:252px;padding:8px;border:1px solid #cdd2d5;border-radius:7px;background:#fff;box-shadow:0 15px 36px rgba(22,25,28,.24)}.link-pop[hidden]{display:none}.link-pop input{min-width:0;flex:1;height:28px;border:1px solid #d4d8da;border-radius:4px;padding:0 7px;font-size:11px;outline:none}.link-pop input:focus{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}.link-pop button{height:28px;border:0;border-radius:4px;padding:0 9px;background:var(--graphite);color:#fff;font-size:10px}.inspector{overflow:auto;border-left:1px solid #c8ccd0;background:#f6f6f4}.inspector-head{padding:19px 18px 15px;border-bottom:1px solid #dadcde}.eyebrow{color:var(--berry);font-size:8px;font-weight:800}.inspector h2{margin:5px 0 4px;font-size:15px}.inspector-head p{margin:0;color:var(--muted);font-size:9px;line-height:1.6}.section{padding:15px 18px;border-bottom:1px solid #dcdee0}.section h3{margin:0 0 9px;font-size:10px}.metric{display:grid;grid-template-columns:1fr auto;gap:7px;padding:8px 0;border-top:1px solid #e2e3e4;font-size:8px}.metric:first-of-type{border-top:0}.metric b{font-size:9px}.metric span{color:var(--muted)}.html-preview{max-height:150px;overflow:auto;margin:0;padding:9px;border:1px solid #d7d9db;border-radius:5px;background:#fff;color:#596068;font:9px/1.55 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.proof{padding:10px;border-left:3px solid var(--cyan);background:#edf8f9;color:#365d65;font-size:9px;line-height:1.6}.proof b{display:block;margin-bottom:3px;color:#204b54}.decision{margin:14px 18px;padding:11px;border-left:3px solid var(--berry);background:#f8e8ed;color:#713347;font-size:8px;line-height:1.6}
+@container(max-width:420px){.toolbar .secondary{display:none}.paragraph{flex-basis:64px;min-width:54px}.paragraph-label{display:none}}
+@media(max-width:1050px){.workspace{grid-template-columns:minmax(540px,1fr) 280px}.stage{padding:28px 24px 70px}.page{width:96%;padding-inline:30px}.toolbar .secondary{display:none}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+.component .close{right:10px;top:14px;width:18px;height:18px}.component .close:hover,.component .close:focus-visible{background:var(--danger);outline:2px solid rgba(180,35,66,.25);outline-offset:1px}.component .toolbar{padding-right:34px}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="title">TipTap 编辑器迁移 Demo</span><span class="badge">实际 TipTap 3.29.2</span><span class="spacer"></span><span class="save" id="save-status">已保存</span></header>
+<div class="workspace">
+<main class="stage">
+  <article class="page">
+    <header class="page-head"><h1>夏日人像拍摄</h1><span>schema v10 · HTML 边界不变</span></header>
+    <section class="component">
+      <button class="close" aria-label="删除文案组件" title="删除文案组件">×</button>
+      <section class="leaf">
+        <div class="toolbar" id="toolbar" role="toolbar" aria-label="文案正文格式">
+          <button class="paragraph" id="block-trigger" aria-expanded="false" aria-label="段落类型" type="button"><span class="type-icon" id="block-icon">T</span><span class="paragraph-label" id="block-label">段落</span><span class="chevron"></span></button>
+          <button class="tool" data-command="bold" aria-label="加粗" aria-pressed="false"><b>B</b></button>
+          <button class="tool" data-command="italic" aria-label="斜体" aria-pressed="false"><i>I</i></button>
+          <button class="tool" data-command="underline" aria-label="下划线" aria-pressed="false"><u>U</u></button>
+          <button class="tool" data-command="strike" aria-label="删除线" aria-pressed="false"><s>S</s></button>
+          <span class="split"><button class="split-value" id="size-value" aria-label="当前字号">14</button><button class="split-trigger" id="size-trigger" aria-label="选择字号" aria-expanded="false"><span class="chevron"></span></button></span>
+          <span class="split"><button class="tool color-main" id="color-main" aria-label="应用当前文字颜色">A</button><button class="split-trigger" id="color-trigger" aria-label="选择文字颜色" aria-expanded="false"><span class="chevron"></span></button></span>
+          <button class="tool secondary" data-command="align-left" aria-label="左对齐" aria-pressed="false">≡</button>
+          <button class="tool secondary" data-command="align-center" aria-label="居中" aria-pressed="false">≣</button>
+          <button class="tool secondary" data-command="align-right" aria-label="右对齐" aria-pressed="false">≡</button>
+          <button class="tool" id="link-trigger" aria-label="添加链接" aria-expanded="false">↗</button>
+          <button class="tool" id="more-trigger" aria-label="更多格式" aria-expanded="false">···</button>
+        </div>
+        <div class="editor-shell" id="editor"></div>
+      </section>
+    </section>
+  </article>
+</main>
+<aside class="inspector">
+  <header class="inspector-head"><span class="eyebrow">TIPTAP POC · HEADLESS / MIT</span><h2>保留 Preshot UI，仅换内核</h2><p>工具栏、portal、色板和画布几何保持现有视觉。正文由 TipTap/ProseMirror 实际驱动。</p></header>
+  <section class="section"><h3>能力验证</h3><div class="metric"><b>HTML 持久化</b><span>getHTML / setContent</span></div><div class="metric"><b>字体样式</b><span>TextStyleKit</span></div><div class="metric"><b>链接</b><span>StarterKit Link</span></div><div class="metric"><b>对齐</b><span>TextAlign</span></div><div class="metric"><b>顶层块</b><span>ProseMirror doc.content</span></div></section>
+  <section class="section"><h3>颜色验收</h3><div class="proof"><b id="color-proof">尚未应用颜色</b><span>选中文字后选择主题色；此处读取 TipTap `getHTML()` 与 DOM 计算色双重确认。</span></div></section>
+  <section class="section"><h3>实时 HTML</h3><pre class="html-preview" id="html-preview"></pre></section>
+  <div class="decision">迁移建议：先建立 TipTap adapter 与块序列化契约，再替换 React UI，最后移除 BlockNote/Mantine。不要一次改完依赖、测量、工具栏和 PDF。</div>
+</aside>
+</div>
+</div>
+<div class="menu" id="block-menu" role="menu" aria-label="段落类型" hidden></div>
+<div class="menu" id="size-menu" role="listbox" aria-label="字号" hidden></div>
+<div class="menu" id="more-menu" role="dialog" aria-label="更多格式" hidden></div>
+<div class="palette" id="color-menu" role="listbox" aria-label="文字颜色" hidden><span class="palette-title">主题颜色</span><div class="swatches" id="swatches"></div></div>
+<form class="link-pop" id="link-pop" aria-label="添加链接" hidden><input aria-label="链接地址" name="url" placeholder="输入 URL"><button type="submit">应用</button></form>
+<script type="module">
+import { Editor } from 'https://esm.sh/@tiptap/core@3.29.2'
+import StarterKit from 'https://esm.sh/@tiptap/starter-kit@3.29.2'
+import { TextStyle, Color, FontSize } from 'https://esm.sh/@tiptap/extension-text-style@3.29.2'
+import TextAlign from 'https://esm.sh/@tiptap/extension-text-align@3.29.2'
+
+const colors=[['石墨黑','#202329'],['中性灰','#6B6F76'],['浆果红','#C2385C'],['深红','#B42342'],['琥珀','#C78218'],['松绿','#2F7D65'],['功能青','#0891B2'],['钴蓝','#2563A9'],['鸢尾紫','#6F56A6'],['白色','#FFFFFF']]
+const sizes=[10,12,14,16,18,24]
+const blocks=[
+  ['T','段落',()=>editor.chain().focus().setParagraph().run()],
+  ['H1','一级标题',()=>editor.chain().focus().setHeading({level:1}).run()],
+  ['H2','二级标题',()=>editor.chain().focus().setHeading({level:2}).run()],
+  ['H3','三级标题',()=>editor.chain().focus().setHeading({level:3}).run()],
+  ['H4','四级标题',()=>editor.chain().focus().setHeading({level:4}).run()],
+  ['H5','五级标题',()=>editor.chain().focus().setHeading({level:5}).run()],
+  ['H6','六级标题',()=>editor.chain().focus().setHeading({level:6}).run()],
+  ['❞','引用',()=>editor.chain().focus().toggleBlockquote().run()],
+  ['•','无序列表',()=>editor.chain().focus().toggleBulletList().run()],
+  ['1.','有序列表',()=>editor.chain().focus().toggleOrderedList().run()],
+]
+let lastColor='#202329', saveTimer
+const storageKey='preshot-tiptap-editor-demo-html'
+const initialContent=localStorage.getItem(storageKey)||'<h2>35mm 人像写真</h2><p>拍摄时间：2026.8.10 / 17:00</p><p>地点：延安西路、上生新所</p><p><span style="font-size: 14px">造型：清爽蓝白，自然妆感</span></p>'
+const editor=new Editor({
+  element:document.querySelector('#editor'),
+  extensions:[
+    StarterKit.configure({heading:{levels:[1,2,3,4,5,6]},link:{openOnClick:false,defaultProtocol:'https'}}),
+    TextStyle,
+    Color,
+    FontSize,
+    TextAlign.configure({types:['heading','paragraph']}),
+  ],
+  content:initialContent,
+  editorProps:{attributes:{'aria-label':'文案正文','aria-multiline':'true',role:'textbox'}},
+  onTransaction:updateUI,
+  onSelectionUpdate:updateUI,
+  onUpdate:({editor})=>{const html=editor.getHTML();document.querySelector('#save-status').textContent='有未保存的更改';clearTimeout(saveTimer);saveTimer=setTimeout(()=>{localStorage.setItem(storageKey,html);document.querySelector('#save-status').textContent='已保存'},700);renderHTML(html)},
+})
+
+function renderHTML(html){document.querySelector('#html-preview').textContent=html}
+function updateUI(){
+  const states={bold:editor.isActive('bold'),italic:editor.isActive('italic'),underline:editor.isActive('underline'),strike:editor.isActive('strike'),'align-left':editor.isActive({textAlign:'left'}),'align-center':editor.isActive({textAlign:'center'}),'align-right':editor.isActive({textAlign:'right'})}
+  for(const [name,active] of Object.entries(states)){const button=document.querySelector(`[data-command="${name}"]`);if(button){button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active))}}
+  let label='段落',icon='T';for(let level=1;level<=6;level++){if(editor.isActive('heading',{level})){label=`${['一','二','三','四','五','六'][level-1]}级标题`;icon=`H${level}`}}
+  document.querySelector('#block-label').textContent=label;document.querySelector('#block-icon').textContent=icon
+  const size=editor.getAttributes('textStyle').fontSize;document.querySelector('#size-value').textContent=size?String(parseInt(size,10)):'-'
+}
+function place(surface,trigger,align='start'){
+  surface.hidden=false;const r=trigger.getBoundingClientRect(),m=surface.getBoundingClientRect(),gap=5,margin=8;let left=align==='end'?r.right-m.width:align==='center'?r.left+(r.width-m.width)/2:r.left;left=Math.min(innerWidth-m.width-margin,Math.max(margin,left));let top=r.bottom+gap;if(top+m.height>innerHeight-margin)top=Math.max(margin,r.top-m.height-gap);surface.style.left=`${left}px`;surface.style.top=`${top}px`
+}
+function closeAll(except){for(const id of ['block-menu','size-menu','color-menu','more-menu','link-pop'])if(id!==except)document.querySelector(`#${id}`).hidden=true}
+function toggle(surface,trigger,align='start'){const opening=surface.hidden;closeAll(opening?surface.id:null);if(opening)place(surface,trigger,align);else surface.hidden=true;trigger.setAttribute('aria-expanded',String(opening))}
+
+const blockMenu=document.querySelector('#block-menu');for(const [icon,label,action] of blocks){const button=document.createElement('button');button.className='menu-item';button.role='menuitem';button.innerHTML=`<span class="type-icon">${icon}</span><span>${label}</span><span></span>`;button.addEventListener('pointerdown',event=>{event.preventDefault();action();blockMenu.hidden=true});blockMenu.append(button)}
+for(const [icon,label] of [['▸H1','可折叠一级标题'],['▸H2','可折叠二级标题'],['▸H3','可折叠三级标题']]){const button=document.createElement('button');button.className='menu-item';button.disabled=true;button.innerHTML=`<span class="type-icon">${icon}</span><span>${label}</span><small>自定义节点</small>`;blockMenu.append(button)}
+document.querySelector('#block-trigger').addEventListener('click',event=>toggle(blockMenu,event.currentTarget))
+
+const sizeMenu=document.querySelector('#size-menu');for(const size of sizes){const button=document.createElement('button');button.className='menu-item';button.role='option';button.innerHTML=`<span></span><span>${size}</span><span></span>`;button.addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus().setFontSize(`${size}px`).run();sizeMenu.hidden=true});sizeMenu.append(button)}
+document.querySelector('#size-trigger').addEventListener('click',event=>toggle(sizeMenu,event.currentTarget))
+document.querySelector('#size-value').addEventListener('click',event=>toggle(sizeMenu,event.currentTarget))
+
+const swatches=document.querySelector('#swatches');for(const [label,color] of colors){const button=document.createElement('button');button.className='swatch';button.role='option';button.style.setProperty('--swatch',color);button.setAttribute('aria-label',`${label} ${color}`);button.addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus().setColor(color).run();lastColor=color;document.documentElement.style.setProperty('--active-color',color);colorMenu.hidden=true;requestAnimationFrame(()=>{const span=document.querySelector('#editor [style*="color"]');const computed=span?getComputedStyle(span).color:'未找到';document.querySelector('#color-proof').textContent=`已生效：${color} / ${computed}`;renderHTML(editor.getHTML())})});swatches.append(button)}
+const colorMenu=document.querySelector('#color-menu');document.querySelector('#color-trigger').addEventListener('click',event=>toggle(colorMenu,event.currentTarget,'center'));document.querySelector('#color-main').addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus().setColor(lastColor).run()})
+
+for(const [name,command] of Object.entries({bold:'toggleBold',italic:'toggleItalic',underline:'toggleUnderline',strike:'toggleStrike'})){document.querySelector(`[data-command="${name}"]`).addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus()[command]().run()})}
+for(const [name,align] of [['align-left','left'],['align-center','center'],['align-right','right']])document.querySelector(`[data-command="${name}"]`).addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus().setTextAlign(align).run()})
+const linkPop=document.querySelector('#link-pop'),linkTrigger=document.querySelector('#link-trigger');linkTrigger.addEventListener('click',()=>{toggle(linkPop,linkTrigger,'end');if(!linkPop.hidden){linkPop.elements.url.value=editor.getAttributes('link').href||'';linkPop.elements.url.focus()}});linkPop.addEventListener('submit',event=>{event.preventDefault();const url=linkPop.elements.url.value.trim();if(url)editor.chain().focus().extendMarkRange('link').setLink({href:/^[a-z][a-z\d+.-]*:/i.test(url)?url:`https://${url}`}).run();else editor.chain().focus().unsetLink().run();linkPop.hidden=true})
+const moreMenu=document.querySelector('#more-menu'),moreTrigger=document.querySelector('#more-trigger');for(const [label,action] of [['无序列表',()=>editor.chain().focus().toggleBulletList().run()],['有序列表',()=>editor.chain().focus().toggleOrderedList().run()],['引用',()=>editor.chain().focus().toggleBlockquote().run()],['代码块',()=>editor.chain().focus().toggleCodeBlock().run()],['清除格式',()=>editor.chain().focus().unsetAllMarks().clearNodes().run()]]){const button=document.createElement('button');button.className='menu-item';button.type='button';button.innerHTML=`<span></span><span>${label}</span><span></span>`;button.addEventListener('pointerdown',event=>{event.preventDefault();action();moreMenu.hidden=true});moreMenu.append(button)}moreTrigger.addEventListener('click',()=>toggle(moreMenu,moreTrigger,'end'))
+document.querySelector('#toolbar').addEventListener('mousedown',event=>event.preventDefault())
+document.addEventListener('keydown',event=>{if(event.key==='Escape')closeAll()})
+renderHTML(editor.getHTML());updateUI();window.__preshotTipTapDemo={editor}
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@ import { EMPTY_PLAN, type ProjectPlan, type ReferenceComponent } from "./models"
 
 function referencePlan(): ProjectPlan {
   return {
-    schemaVersion: 8,
+    schemaVersion: 10,
     title: "Project",
     components: [{
       id: "r",
@@ -60,11 +60,11 @@ function serviceFor(initialRaw: unknown) {
 }
 
 describe("canvas plan service", () => {
-  it("migrates legacy raw data and treats an empty v8 plan as stored", async () => {
+  it("migrates legacy raw data and treats an empty v10 plan as stored", async () => {
     const legacy = serviceFor({ photographyPlan: "<p>x</p>", referenceGroups: [] });
     await expect(legacy.service.loadPlan("C:/p", "Project")).resolves.toMatchObject({
       status: "loaded",
-      plan: { schemaVersion: 8, components: [expect.objectContaining({ type: "plan" })] },
+      plan: { schemaVersion: 10, components: [expect.objectContaining({ type: "plan" })] },
     });
 
     const current = serviceFor(EMPTY_PLAN);

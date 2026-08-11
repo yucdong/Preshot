@@ -152,4 +152,26 @@ describe("free canvas geometry", () => {
       guides: { vertical: 260, horizontal: null },
     });
   });
+
+  it("clamps custom left and top minima while preserving opposite edges", () => {
+    const left = snapCardResize({
+      rect: { x: 220, y: 100, width: 80, height: 140 },
+      edge: "left",
+      candidates: [],
+      threshold: 6,
+      minimumWidth: 180,
+    });
+    const top = snapCardResize({
+      rect: { x: 100, y: 190, width: 200, height: 50 },
+      edge: "top",
+      candidates: [],
+      threshold: 6,
+      minimumHeight: 120,
+    });
+
+    expect(left.rect).toMatchObject({ x: 120, width: 180 });
+    expect(left.rect.x + left.rect.width).toBe(300);
+    expect(top.rect).toMatchObject({ y: 120, height: 120 });
+    expect(top.rect.y + top.rect.height).toBe(240);
+  });
 });

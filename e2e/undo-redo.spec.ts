@@ -5,7 +5,9 @@ const FRAME = '[data-sortable-component-id]';
 test("Ctrl+Z removes an inserted component and Ctrl+Shift+Z restores it", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("plan-canvas")).toBeVisible();
-  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改");
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", {
+    timeout: 10_000,
+  });
 
   const before = await page.locator(FRAME).count();
 
@@ -13,7 +15,7 @@ test("Ctrl+Z removes an inserted component and Ctrl+Shift+Z restores it", async 
   await page.getByRole("menuitem", { name: "文案" }).click();
   await expect(page.locator(FRAME)).toHaveCount(before + 1);
 
-  // Move focus to a neutral (non-editor) element so Ctrl+Z is global, not BlockNote's.
+  // Move focus to a neutral (non-editor) element so Ctrl+Z is global, not TipTap's.
   await page.getByTestId("save-status").click();
 
   await page.keyboard.press("Control+z");

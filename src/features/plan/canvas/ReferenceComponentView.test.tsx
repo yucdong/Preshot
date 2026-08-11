@@ -149,13 +149,30 @@ describe("ReferenceComponentView", () => {
     const increase = within(toolbar).getByRole("button", { name: "增大整体图片高度" });
     expect(capture.compareDocumentPosition(decrease) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(toolbar).queryByRole("slider")).not.toBeInTheDocument();
-    expect(within(toolbar).getByText("100pt")).toBeInTheDocument();
+    expect(within(toolbar).getByRole("spinbutton", { name: "整体图片高度（像素）" })).toHaveValue(133);
 
     fireEvent.click(decrease);
     expect(onScaleImages).toHaveBeenCalledWith("ref", 0.96);
-    expect(within(toolbar).getByText("100pt")).toBeInTheDocument();
+    expect(within(toolbar).getByRole("spinbutton", { name: "整体图片高度（像素）" })).toHaveValue(133);
 
     expect(increase).not.toBeDisabled();
+  });
+
+  it("commits valid pixel input and restores an invalid value", () => {
+    const onScaleImages = vi.fn();
+    renderView(component, { onScaleImages });
+    const input = screen.getByRole("spinbutton", { name: "整体图片高度（像素）" });
+
+    fireEvent.change(input, { target: { value: "160" } });
+    fireEvent.blur(input);
+    expect(onScaleImages).toHaveBeenCalledWith("ref", 1.2);
+
+    onScaleImages.mockClear();
+    fireEvent.change(input, { target: { value: "9999" } });
+    fireEvent.blur(input);
+    expect(onScaleImages).not.toHaveBeenCalled();
+    expect(input).toHaveValue(133);
+    expect(screen.getByRole("alert")).toHaveTextContent(/请输入 32-/);
   });
 
   it("disables group image growth at the largest whole-page size", () => {

@@ -6,6 +6,9 @@ import {
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
   EDITABLE_COMPONENT_FRAME_CHROME,
+  PLAN_COMPONENT_FRAME_CHROME,
+  PLAN_COMPONENT_FRAME_INSET,
+  PLAN_COMPONENT_VISUAL_INSET,
   resizeCardFromEdge,
   type Rect,
   type ResizeEdge,
@@ -22,7 +25,7 @@ interface ComponentFrameProps {
   scale: number;
   onRemove: (id: string) => void;
   component: PlanComponent;
-  onResize: (id: string, rect: Rect) => void;
+  onResize: (id: string, rect: Rect, edge: ResizeEdge) => void;
   onResizePreview?: (id: string, rect: Rect, edge: ResizeEdge) => Rect | undefined;
   onResizeCancel?: () => void;
   onRename?: (id: string, name: string) => RenameComponentResult;
@@ -32,6 +35,9 @@ interface ComponentFrameProps {
   onMoveDown?: () => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  showName?: boolean;
+  allowContentOverflow?: boolean;
+  resizeLimitedEdge?: ResizeEdge | null;
 }
 
 interface ComponentFrameNameInputProps {
@@ -126,6 +132,9 @@ export function ComponentFrame({
   onMoveDown,
   canMoveUp = true,
   canMoveDown = true,
+  showName = true,
+  allowContentOverflow = false,
+  resizeLimitedEdge = null,
 }: ComponentFrameProps) {
   const { t } = useTranslation();
   const resizeSessionRef = useRef<{
@@ -133,6 +142,7 @@ export function ComponentFrame({
     pointerId: number;
   } | null>(null);
   const [resizePreview, setResizePreview] = useState<Rect | null>(null);
+  const [activeResizeEdge, setActiveResizeEdge] = useState<ResizeEdge | null>(null);
   const resizePreviewRef = useRef<Rect | null>(null);
   const resizeStartRef = useRef<{
     x: number;
@@ -151,6 +161,7 @@ export function ComponentFrame({
     event.stopPropagation();
     resizeSessionRef.current = { element: event.currentTarget, pointerId: event.pointerId };
     resizeStartRef.current = { x: event.clientX, y: event.clientY, edge, rect };
+    setActiveResizeEdge(edge);
     resizePreviewRef.current = null;
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
@@ -192,26 +203,38 @@ export function ComponentFrame({
     if (!session) {
       return;
     }
+    const edge = resizeStartRef.current?.edge;
     const next = resizePreviewRef.current;
     resizeSessionRef.current = null;
     resizeStartRef.current = null;
+    setActiveResizeEdge(null);
     setResizePreview(null);
     resizePreviewRef.current = null;
     if (options.releaseCapture && session.element.hasPointerCapture(event.pointerId)) {
       session.element.releasePointerCapture?.(event.pointerId);
     }
-    if (options.commit && next) {
-      onResize(id, next);
+    if (options.commit && next && edge) {
+      onResize(id, next, edge);
     } else if (!options.commit) {
       onResizeCancel?.();
     }
   };
 
-  const frameChromeHeight = componentFrameChromeHeight(EDITABLE_COMPONENT_FRAME_CHROME);
-  const frameInset = 12;
+  const isPlan = component.type === "plan";
+  const horizontalPlanPreview =
+    isPlan &&
+    resizePreview !== null &&
+    (activeResizeEdge === "left" || activeResizeEdge === "right");
+  const frameChrome = isPlan
+    ? PLAN_COMPONENT_FRAME_CHROME
+    : EDITABLE_COMPONENT_FRAME_CHROME;
+  const frameChromeHeight = componentFrameChromeHeight(frameChrome);
+  const frameInset = isPlan ? PLAN_COMPONENT_FRAME_INSET : 12;
   const bodyHeight = Math.max(
     0,
-    currentRect.height - frameChromeHeight - frameInset * 2,
+    currentRect.height -
+      frameChromeHeight -
+      (isPlan ? PLAN_COMPONENT_VISUAL_INSET : frameInset) * 2,
   ) * scale;
   const moveControlHeight = 17 * scale;
   const moveControlWidth = 20 * scale;
@@ -264,7 +287,7 @@ export function ComponentFrame({
         </button>
       </div>
     <div
-      className="pointer-events-auto absolute cursor-default overflow-hidden rounded-md border border-paper-border bg-white shadow-[0_3px_12px_rgb(24_24_27_/_6%)] transition-[border-color,box-shadow] duration-200 hover:border-paper-primary/60 hover:shadow-md focus-within:border-paper-primary focus-within:shadow-[0_0_0_2px_rgb(8_145_178_/_10%)]"
+      className={`pointer-events-auto absolute cursor-default rounded-md border border-paper-border bg-white shadow-[0_3px_12px_rgb(24_24_27_/_6%)] transition-[border-color,box-shadow] duration-200 hover:border-paper-primary/60 hover:shadow-md focus-within:border-paper-primary focus-within:shadow-[0_0_0_2px_rgb(8_145_178_/_10%)] ${allowContentOverflow ? "overflow-visible" : "overflow-hidden"}`}
       data-component-frame="true"
       data-component-id={id}
       data-fragment-id={frameId ?? id}
@@ -273,54 +296,74 @@ export function ComponentFrame({
         left: `${currentRect.x * scale}px`,
         top: `${currentRect.y * scale}px`,
         width: `${currentRect.width * scale}px`,
-        height: `${currentRect.height * scale}px`,
+        height: horizontalPlanPreview ? "auto" : `${currentRect.height * scale}px`,
         boxSizing: "border-box",
         padding: `${frameInset * scale}px`,
       }}
     >
-      <div
-        className="flex items-center justify-between"
-        data-component-frame-header
-        style={{
-          height: `${EDITABLE_COMPONENT_FRAME_CHROME.topBarHeight * scale}px`,
-          marginBottom: `${EDITABLE_COMPONENT_FRAME_CHROME.contentGap * scale}px`,
-        }}
-      >
-        <ComponentFrameNameInput
-          id={id}
-          key={component.name}
-          name={component.name}
-          onRename={onRename}
-          scale={scale}
-        />
+      {isPlan ? (
           <button
             aria-label={t("canvas.removeComponent")}
-            className="rounded-md bg-[#25272b] text-white transition-[background-color,transform] duration-200 hover:bg-paper-danger active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-danger focus-visible:ring-offset-1"
+            className="absolute z-[70] grid place-items-center rounded bg-[#25272b] p-0 text-white transition-[background-color,transform] duration-200 hover:bg-paper-danger active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-danger focus-visible:ring-offset-1"
             onClick={() => setConfirmingDelete(true)}
             onPointerDown={(event) => event.stopPropagation()}
             data-card-interactive="true"
             style={{
-              fontSize: `${12 * scale}px`,
-              height: `${20 * scale}px`,
-              lineHeight: `${16 * scale}px`,
-              paddingLeft: `${8 * scale}px`,
-              paddingRight: `${8 * scale}px`,
+              height: "18px",
+              position: "absolute",
+              right: "-9px",
+              top: "-9px",
+              width: "18px",
             }}
             type="button"
           >
             <X
               aria-hidden="true"
               strokeWidth={2}
-              style={{ height: `${12 * scale}px`, width: `${12 * scale}px` }}
+              style={{ height: "10px", width: "10px" }}
             />
           </button>
-      </div>
+      ) : (
+        <div
+          className="flex items-center justify-between"
+          data-component-frame-header
+          style={{
+            height: `${frameChrome.topBarHeight * scale}px`,
+            marginBottom: `${frameChrome.contentGap * scale}px`,
+          }}
+        >
+          {showName ? (
+            <ComponentFrameNameInput
+              id={id}
+              key={component.name}
+              name={component.name}
+              onRename={onRename}
+              scale={scale}
+            />
+          ) : <span />}
+          <button
+            aria-label={t("canvas.removeComponent")}
+            className="grid place-items-center rounded bg-[#25272b] p-0 text-white transition-[background-color,transform] duration-200 hover:bg-paper-danger active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-danger focus-visible:ring-offset-1"
+            onClick={() => setConfirmingDelete(true)}
+            onPointerDown={(event) => event.stopPropagation()}
+            data-card-interactive="true"
+            style={{ height: `${16 * scale}px`, width: `${16 * scale}px` }}
+            type="button"
+          >
+            <X
+              aria-hidden="true"
+              strokeWidth={2}
+              style={{ height: `${9 * scale}px`, width: `${9 * scale}px` }}
+            />
+          </button>
+        </div>
+      )}
 
       <div
-        className="relative min-h-0 overflow-hidden"
+        className={`relative min-h-0 ${allowContentOverflow ? "overflow-visible" : "overflow-hidden"}`}
         data-component-frame-body
         style={{
-          height: `${bodyHeight}px`,
+          height: horizontalPlanPreview ? "auto" : `${bodyHeight}px`,
         }}
       >
         {children}
@@ -339,6 +382,8 @@ export function ComponentFrame({
                       : t("canvas.resizeBottom")
               }
               className={`absolute z-10 bg-transparent hover:bg-paper-primary/20 focus-visible:bg-paper-primary/30 ${
+                resizeLimitedEdge === edge ? "bg-amber-300/60 hover:bg-amber-300/70" : ""
+              } ${
                 edge === "left"
                   ? "left-0 top-0 h-full w-2 cursor-ew-resize"
                   : edge === "right"
@@ -349,6 +394,7 @@ export function ComponentFrame({
               }`}
               data-resize={edge}
               data-resize-handle={edge}
+              data-resize-limited={resizeLimitedEdge === edge ? "true" : undefined}
               key={edge}
               onLostPointerCapture={(event) =>
                 finishResize(event, { commit: false, releaseCapture: false })
@@ -366,6 +412,16 @@ export function ComponentFrame({
             />
           ))}
         </>
+
+      {resizeLimitedEdge ? (
+        <div
+          aria-live="polite"
+          className="pointer-events-none absolute bottom-2 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-800 shadow-sm"
+          role="status"
+        >
+          {t("canvas.resizeContentLimit")}
+        </div>
+      ) : null}
 
       <ConfirmDialog
         open={confirmingDelete}

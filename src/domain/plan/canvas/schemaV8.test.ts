@@ -3,7 +3,7 @@ import { migratePlan } from "./migrate";
 
 const context = { projectName: "Editorial" };
 
-describe("schema v8", () => {
+describe("schema v8 compatibility", () => {
   it("migrates v7 cards into stable document order and removes free vertical coordinates", () => {
     const migrated = migratePlan(
       {
@@ -55,7 +55,7 @@ describe("schema v8", () => {
       context,
     );
 
-    expect(migrated.schemaVersion).toBe(8);
+    expect(migrated.schemaVersion).toBe(10);
     expect(migrated.components.map((component) => component.id)).toEqual([
       "first",
       "second",
@@ -65,7 +65,7 @@ describe("schema v8", () => {
     expect(migrated.components.every((component) => !("y" in component))).toBe(true);
   });
 
-  it("reloads a strict v8 document without changing component order or dimensions", () => {
+  it("migrates a strict v8 document without changing component order or dimensions", () => {
     const saved = {
       schemaVersion: 8,
       title: "Editorial",
@@ -93,7 +93,27 @@ describe("schema v8", () => {
       ],
     };
 
-    expect(migratePlan(saved, context)).toEqual(saved);
+    expect(migratePlan(saved, context)).toEqual({
+      ...saved,
+      schemaVersion: 10,
+      components: [
+        {
+          id: "narrow",
+          name: "Narrow",
+          type: "plan",
+          x: 40,
+          width: 220,
+          height: 140,
+          contentScale: 0.7,
+          textRoot: {
+            kind: "leaf",
+            id: "narrow:root",
+            html: "<p>Narrow</p>",
+          },
+        },
+        saved.components[1],
+      ],
+    });
   });
 
   it("fails closed when a v8 component includes the removed y field", () => {

@@ -1,4 +1,5 @@
 import type { PlanComponent, ProjectPlan } from "./models";
+import { mergeTextTreeContent } from "./textTree";
 
 export interface PlanHistory {
   past: ProjectPlan[];
@@ -127,7 +128,10 @@ export function mergeStructural(
         return component;
       }
       if (component.type === "plan" && existing.type === "plan") {
-        return { ...component, html: existing.html };
+        return {
+          ...component,
+          textRoot: mergeTextTreeContent(component.textRoot, existing.textRoot),
+        };
       }
       if (component.type === "reference" && existing.type === "reference") {
         return {

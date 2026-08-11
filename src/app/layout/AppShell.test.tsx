@@ -29,6 +29,8 @@ function handlers() {
     onSelectProject: vi.fn(),
     onNewProject: vi.fn(),
     onOpenProject: vi.fn(),
+    onRevealProject: vi.fn(),
+    onRemoveProject: vi.fn(),
   };
 }
 
@@ -113,6 +115,26 @@ describe("AppShell", () => {
 
     await user.click(screen.getByRole("button", { name: "打开项目" }));
     expect(h.onOpenProject).toHaveBeenCalledTimes(1);
+  });
+
+  it("reveals a project directory and confirms registry-only removal", async () => {
+    const user = userEvent.setup();
+    const h = handlers();
+    const project = makeProject({ name: "Editorial", path: "C:\\shoots\\Editorial" });
+    renderShell(
+      <AppShell currentProjectId={project.projectId} projects={[project]} {...h}>
+        <p>Plan content</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByTitle(project.path)).toHaveTextContent(project.path);
+    await user.click(screen.getByRole("button", { name: "打开项目目录 Editorial" }));
+    expect(h.onRevealProject).toHaveBeenCalledWith(project);
+
+    await user.click(screen.getByRole("button", { name: "移除项目 Editorial" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("磁盘文件不会被删除");
+    await user.click(screen.getByRole("button", { name: "从列表移除" }));
+    expect(h.onRemoveProject).toHaveBeenCalledWith(project);
   });
 
   it("marks unavailable projects and surfaces a workspace error", () => {

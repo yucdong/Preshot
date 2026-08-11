@@ -266,6 +266,9 @@ function createDependencies() {
         return unlisten;
       }),
     },
+    projectDirectoryRevealer: {
+      revealProjectDirectory: vi.fn(),
+    },
     logger,
   };
 
@@ -372,7 +375,7 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-02T00:00:00.000Z",
     });
     const retiringPlan = {
-      schemaVersion: 8 as const,
+      schemaVersion: 10 as const,
       title: "Original title",
       components: [
         {
@@ -382,7 +385,7 @@ describe("WorkspaceProvider", () => {
           x: 0,
           width: 220,
           height: 120,
-          html: "",
+          textRoot: { kind: "leaf" as const, id: "p1:root", html: "" },
         },
         {
           id: "r1",
@@ -405,7 +408,7 @@ describe("WorkspaceProvider", () => {
       ],
     };
     const nextPlan = {
-      schemaVersion: 8 as const,
+      schemaVersion: 10 as const,
       title: "Next title",
       components: [],
     };
@@ -522,7 +525,7 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-09T00:00:00.000Z",
     });
     const plan: ProjectPlan = {
-      schemaVersion: 8,
+      schemaVersion: 10,
       title: "Original title",
       components: [
         {
@@ -532,7 +535,7 @@ describe("WorkspaceProvider", () => {
           x: 0,
           width: 220,
           height: 120,
-          html: "",
+          textRoot: { kind: "leaf", id: "p1:root", html: "" },
         },
         {
           id: "r1",
@@ -686,7 +689,7 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-08T00:00:00.000Z",
     });
     const planA: ProjectPlan = {
-      schemaVersion: 8,
+      schemaVersion: 10,
       title: "Original A metadata",
       components: [
         {
@@ -696,7 +699,7 @@ describe("WorkspaceProvider", () => {
           x: 0,
           width: 320,
           height: 120,
-          html: "",
+          textRoot: { kind: "leaf", id: "p1:root", html: "" },
         },
         {
           id: "r1",
@@ -711,7 +714,7 @@ describe("WorkspaceProvider", () => {
       ],
     };
     const planB: ProjectPlan = {
-      schemaVersion: 8,
+      schemaVersion: 10,
       title: "B metadata must never leak",
       components: [],
     };

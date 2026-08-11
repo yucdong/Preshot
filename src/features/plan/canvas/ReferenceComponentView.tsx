@@ -19,6 +19,7 @@ import { maximumFittingReferenceAverageHeight } from "../../../domain/plan/canva
 
 const GROUP_IMAGE_HEIGHT_MINIMUM = 24;
 const GROUP_IMAGE_HEIGHT_STEP = 4;
+const POINTS_TO_PIXELS = 4 / 3;
 
 interface ReferenceComponentViewProps {
   component: ReferenceComponent;
@@ -125,6 +126,28 @@ export function ReferenceComponentView({
     step: GROUP_IMAGE_HEIGHT_STEP,
     measuredDescriptionHeight,
   });
+  const currentPixels = Math.round(displayAverageHeight * POINTS_TO_PIXELS);
+  const minimumPixels = Math.round(GROUP_IMAGE_HEIGHT_MINIMUM * POINTS_TO_PIXELS);
+  const maximumPixels = Math.floor(maximumAverageHeight * POINTS_TO_PIXELS);
+  const [sizeDraft, setSizeDraft] = useState<string | null>(null);
+  const [sizeError, setSizeError] = useState("");
+  const commitPixelSize = () => {
+    const pixels = Number(sizeDraft ?? currentPixels);
+    if (
+      !Number.isInteger(pixels) ||
+      pixels < minimumPixels ||
+      pixels > maximumPixels ||
+      currentAverageHeight <= 0
+    ) {
+      setSizeDraft(null);
+      setSizeError(`请输入 ${minimumPixels}-${maximumPixels}px`);
+      return;
+    }
+    setSizeError("");
+    setSizeDraft(null);
+    const targetPoints = pixels / POINTS_TO_PIXELS;
+    onScaleImages?.(component.id, targetPoints / currentAverageHeight);
+  };
   const groupPreviewComponent = component;
   const displayComponent =
     imageFramePreview === null
@@ -197,13 +220,34 @@ export function ReferenceComponentView({
           >
             <Minus aria-hidden="true" style={{ height: `${12 * scale}px`, width: `${12 * scale}px` }} />
           </button>
-          <output
-            aria-label={t("reference.groupImageHeight")}
-            className="text-center tabular-nums"
-            style={{ fontSize: `${10 * scale}px`, minWidth: `${34 * scale}px` }}
-          >
-            {Math.round(displayAverageHeight)}pt
-          </output>
+          <label className="flex items-center rounded border border-white/10 bg-white/[0.06] px-1">
+            <span className="sr-only">整体图片高度（像素）</span>
+            <input
+              aria-describedby={sizeError ? `${component.id}-image-size-error` : undefined}
+              aria-invalid={sizeError ? "true" : undefined}
+              aria-label="整体图片高度（像素）"
+              className="w-14 appearance-none border-0 bg-transparent p-0 text-right text-[10px] tabular-nums text-white outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              inputMode="numeric"
+              max={maximumPixels}
+              min={minimumPixels}
+              onBlur={commitPixelSize}
+              onChange={(event) => {
+                setSizeDraft(event.target.value);
+                setSizeError("");
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+                if (event.key === "Escape") {
+                  setSizeDraft(null);
+                  setSizeError("");
+                  event.currentTarget.blur();
+                }
+              }}
+              type="number"
+              value={sizeDraft ?? String(currentPixels)}
+            />
+            <span className="text-[9px] text-white/55">px</span>
+          </label>
           <button
             aria-label={t("reference.increaseGroupImageHeight")}
             className="flex items-center justify-center rounded border border-white/10 bg-white/[0.06] transition-[background-color,transform] duration-200 hover:bg-white/15 hover:text-white active:scale-[0.9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:cursor-not-allowed disabled:opacity-30"
@@ -227,6 +271,15 @@ export function ReferenceComponentView({
             <Plus aria-hidden="true" style={{ height: `${12 * scale}px`, width: `${12 * scale}px` }} />
           </button>
         </div>
+        {sizeError ? (
+          <span
+            className="ml-2 whitespace-nowrap text-[9px] text-app-danger"
+            id={`${component.id}-image-size-error`}
+            role="alert"
+          >
+            {sizeError}
+          </span>
+        ) : null}
         {importProgress ? (
           <div className="ml-auto flex min-w-0 items-center gap-2" role="status">
             <progress

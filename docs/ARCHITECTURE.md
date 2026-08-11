@@ -20,7 +20,7 @@ commands serialize OS work only and do not contain UI or planning rules.
   error boundary.
 - `src/features`: canvas/editor UI, interactions, image import progress, and
   project-retirement orchestration.
-- `src/domain`: workspace and schema-v6 canvas models, pure layout/reducers,
+- `src/domain`: workspace and schema-v10 canvas models, pure layout/reducers,
   migration, and ports.
 - `src/infrastructure`: Tauri and browser implementations of those ports.
 - `src-tauri`: filesystem, PDF, screen-capture, menu, and settings commands.
@@ -32,12 +32,13 @@ a `.preshot` manifest containing project identity and the optional plan. The
 workspace service serializes mutations; unavailable manifests remain visible
 for recovery but cannot be opened as a project.
 
-Canvas plans are migrated at the manifest boundary to `schemaVersion: 6`.
-Earlier schemas are accepted only as migration input. A valid v6 plan has a
-flat, ordered `components` array; it does not persist row IDs, manual rows, or
-crop metadata.
+Canvas plans are migrated at the manifest boundary to `schemaVersion: 10`.
+Earlier schemas are accepted only as migration input. A valid v10 plan has a
+flat, ordered `components` array. Plan components contain a recursive
+columns/rows text tree whose leaves store only immutable IDs and rich-text
+HTML; v9 leaf titles are discarded during migration.
 
-## Schema v6 Canvas
+## Schema v10 Canvas
 
 Each component has a continuous `width` and `contentScale` in `[0.5, 2]`.
 The pure `layoutPlan` engine packs the ordered components left-to-right with
@@ -45,6 +46,21 @@ the configured gap, then wraps and paginates them. Resizing or moving a
 component changes the flat order/geometry only; rows are always recomputed.
 The same engine drives the editable screen canvas and PDF placement so their
 page and reference-row fragmentation rules stay aligned.
+
+Plan text split parents are geometry-only and render no frame. The screen has
+exactly two visible levels: the outer component and its leaf editors. New
+splits use a 10pt gap. Columns share the tallest natural row height; rows use
+their natural content heights. Width changes remeasure TipTap content in
+both directions, so cards grow when wrapping increases and shrink when it
+decreases. Horizontal clipping uses non-scrolling overflow, and no text leaf
+owns an internal scrollbar. PDF export uses the same recursive rectangles and
+renders leaf HTML without title bands.
+
+Each text leaf owns one TipTap 3 editor behind the shared `RichTextEditor`
+contract. Project files continue to store schema-v10 HTML. Top-level
+ProseMirror nodes are serialized independently for pagination measurement,
+while theme colors, circular custom colors, font sizes, links, and alignment
+emit HTML already understood by the PDF adapter.
 
 Reference components contain:
 

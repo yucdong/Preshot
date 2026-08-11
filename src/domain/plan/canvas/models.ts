@@ -22,7 +22,7 @@ export const MIN_CONTENT_SCALE = 0.5;
 export const MAX_CONTENT_SCALE = 2;
 export const DEFAULT_CONTENT_SCALE = 1;
 
-export const CURRENT_SCHEMA_VERSION = 8 as const;
+export const CURRENT_SCHEMA_VERSION = 10 as const;
 
 export function clampHeight(height: number, maxHeight: number): number {
   if (!Number.isFinite(height)) {
@@ -81,11 +81,27 @@ export interface BaseComponent {
   height: number;
 }
 
+export interface PlanTextLeaf {
+  kind: "leaf";
+  id: string;
+  html: string;
+}
+
+export interface PlanTextSplit {
+  kind: "split";
+  id: string;
+  direction: "columns" | "rows";
+  gap: number;
+  children: [PlanTextNode, PlanTextNode];
+}
+
+export type PlanTextNode = PlanTextLeaf | PlanTextSplit;
+
 export interface PlanTextComponent extends BaseComponent {
   type: "plan";
   /** Optional per-component content scale; values below 1 compact text to fit one page. */
   contentScale?: number;
-  html: string;
+  textRoot: PlanTextNode;
 }
 
 export interface ReferenceComponent extends BaseComponent {
@@ -98,13 +114,13 @@ export interface ReferenceComponent extends BaseComponent {
 export type PlanComponent = PlanTextComponent | ReferenceComponent;
 
 export interface ProjectPlan {
-  schemaVersion: 8;
+  schemaVersion: 10;
   title: string;
   components: PlanComponent[];
 }
 
 export const EMPTY_PLAN: ProjectPlan = {
-  schemaVersion: 8,
+  schemaVersion: 10,
   title: UNTITLED_PLAN_TITLE,
   components: [],
 };

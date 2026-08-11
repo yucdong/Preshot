@@ -41,7 +41,7 @@ export function InsertComponentMenu({ onInsert, disabled = false }: InsertCompon
   };
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="pointer-events-auto relative" ref={menuRef}>
       <button
         aria-expanded={isOpen}
         aria-haspopup="menu"

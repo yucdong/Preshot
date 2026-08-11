@@ -42,11 +42,19 @@ describe("parseHtmlToBlocks", () => {
     expect(runs[2]?.size).toBe(20);
   });
 
-  it("keeps inline-style text color from BlockNote lossy html", () => {
+  it("keeps inline-style text color from rich-text html", () => {
     const [block] = parseHtmlToBlocks('<p><span style="color: #dd3333">warm</span></p>');
     const runs = block.type === "paragraph" ? block.runs : [];
     expect(runs[0]).toMatchObject({ text: "warm" });
     expect(runs[0]?.color).toBeTruthy();
+  });
+
+  it("keeps custom hex text color and font size for PDF layout", () => {
+    const [block] = parseHtmlToBlocks(
+      '<p><span style="color: #C2385C; font-size: 24px">custom</span></p>',
+    );
+    const runs = block.type === "paragraph" ? block.runs : [];
+    expect(runs).toEqual([{ text: "custom", color: "rgb(194, 56, 92)", size: 24 }]);
   });
 
   it("renders a checklist as a bullet list without checkbox glyphs", () => {

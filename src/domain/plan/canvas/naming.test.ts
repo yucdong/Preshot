@@ -3,7 +3,7 @@ import type { ProjectPlan } from "./models";
 import { nextComponentName, renameComponent, setPlanTitle } from "./naming";
 
 const plan: ProjectPlan = {
-  schemaVersion: 8,
+  schemaVersion: 10,
   title: "Editorial",
   components: [
     {
@@ -13,7 +13,7 @@ const plan: ProjectPlan = {
       x: 0,
       width: 200,
       height: 120,
-      html: "",
+      textRoot: { kind: "leaf", id: "p:root", html: "" },
     },
     {
       id: "r1",
@@ -55,11 +55,14 @@ describe("canvas naming", () => {
     expect(nextComponentName(namesWithGaps, "reference")).toBe("图片组2");
   });
 
-  it("rejects empty and duplicate component names after trimming", () => {
+  it("rejects empty names and allows duplicate display names", () => {
     expect(renameComponent(plan, "p1", "   ")).toEqual({ ok: false, reason: "empty" });
     expect(renameComponent(plan, "p1", " 图片组1 ")).toEqual({
-      ok: false,
-      reason: "duplicate",
+      ok: true,
+      plan: {
+        ...plan,
+        components: [{ ...plan.components[0], name: "图片组1" }, plan.components[1]],
+      },
     });
   });
 

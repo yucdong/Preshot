@@ -116,9 +116,11 @@ vi.mock("./canvas/PlanCanvas", () => ({
 }));
 
 vi.mock("./canvas/CanvasToolbar", () => ({
-  CanvasToolbar: ({
-    onInsert,
-  }: {
+  CanvasToolbar: () => null,
+}));
+
+vi.mock("./canvas/InsertComponentMenu", () => ({
+  InsertComponentMenu: ({ onInsert }: {
     onInsert: (type: "plan" | "reference") => void;
   }) => (
     <button onClick={() => onInsert("plan")} type="button">
@@ -128,7 +130,7 @@ vi.mock("./canvas/CanvasToolbar", () => ({
 }));
 
 const initialPlan: ProjectPlan = {
-  schemaVersion: 8,
+  schemaVersion: 10,
   title: "Demo",
   components: [{
     id: "plan-1",
@@ -137,7 +139,7 @@ const initialPlan: ProjectPlan = {
     x: 0,
     width: 300,
     height: 220,
-    html: "<p>Demo</p>",
+    textRoot: { kind: "leaf", id: "plan-1:root", html: "<p>Demo</p>" },
   }, {
     id: "reference-1",
     name: "References",
@@ -198,7 +200,7 @@ async function flush() {
   await Promise.resolve();
 }
 
-describe("ProjectCanvasProvider v8 cards", () => {
+describe("ProjectCanvasProvider v10 cards", () => {
   let resizeObserverCallback: ResizeObserverCallback;
 
   beforeEach(() => {
@@ -225,7 +227,7 @@ describe("ProjectCanvasProvider v8 cards", () => {
         contentRect: { width: 476.224 },
       } as ResizeObserverEntry], {} as ResizeObserver);
     });
-    expect(canvasState.props?.scale).toBeCloseTo(0.8);
+    expect(canvasState.props?.scale).toBeCloseTo(0.656);
 
     const scroller = screen.getByTestId("canvas-scroller");
     const zoomIn = new WheelEvent("wheel", {
@@ -235,7 +237,7 @@ describe("ProjectCanvasProvider v8 cards", () => {
       deltaY: -100,
     });
     expect(scroller.dispatchEvent(zoomIn)).toBe(false);
-    await waitFor(() => expect(canvasState.props?.scale).toBeCloseTo(0.88));
+    await waitFor(() => expect(canvasState.props?.scale).toBeCloseTo(0.7216));
 
     const normalWheel = new WheelEvent("wheel", {
       bubbles: true,
@@ -243,7 +245,7 @@ describe("ProjectCanvasProvider v8 cards", () => {
       deltaY: 100,
     });
     expect(scroller.dispatchEvent(normalWheel)).toBe(true);
-    expect(canvasState.props?.scale).toBeCloseTo(0.88);
+    expect(canvasState.props?.scale).toBeCloseTo(0.7216);
   });
 
   it("persists automatic text height normalization immediately", async () => {
@@ -265,7 +267,7 @@ describe("ProjectCanvasProvider v8 cards", () => {
         "C:\\project",
         expect.objectContaining({
           components: expect.arrayContaining([
-            expect.objectContaining({ id: "plan-1", height: 96 }),
+            expect.objectContaining({ id: "plan-1", height: 80 }),
           ]),
         }),
       ),
@@ -283,7 +285,9 @@ describe("ProjectCanvasProvider v8 cards", () => {
       x: 0,
       width: 547.28,
       height: 220,
+      textRoot: { kind: "leaf", html: expect.any(String) },
     });
+    expect(inserted).not.toHaveProperty("textRoot.title");
 
     await flush();
     await waitFor(() =>
