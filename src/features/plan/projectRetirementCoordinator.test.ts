@@ -14,6 +14,9 @@ function service(): CanvasPlanService {
   return {
     loadPlan: async () => ({ status: "missing" }),
     loadImage: async () => "",
+    importAsset: async () => {
+      throw new Error("Not used by retirement coordination tests.");
+    },
     savePlan: async () => {},
     importImage: async () => {
       throw new Error("Not used by retirement coordination tests.");

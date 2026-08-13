@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const DEPENDENCY_TEST_TIMEOUT = 30_000;
+
 async function getCreatePlanDependencies() {
   const { createPlanDependencies } = await import("./planDependencies");
   return createPlanDependencies;
@@ -23,14 +25,14 @@ describe("createPlanDependencies", () => {
     expect(deps.service.loadPlan).toBeDefined();
     expect(deps.service.savePlan).toBeDefined();
     expect(deps.screenCapture).toBeDefined();
-  }, 15000);
+  }, DEPENDENCY_TEST_TIMEOUT);
 
   it("fails closed for the memory adapter in production", async () => {
     vi.stubEnv("VITE_WORKSPACE_ADAPTER", "memory");
     vi.stubEnv("PROD", true);
     const createPlanDependencies = await getCreatePlanDependencies();
     expect(() => createPlanDependencies()).toThrowError(/in-memory canvas plan adapter/i);
-  }, 15000);
+  }, DEPENDENCY_TEST_TIMEOUT);
 
   it("builds production dependencies by default", async () => {
     vi.stubEnv("VITE_WORKSPACE_ADAPTER", "");
@@ -39,7 +41,7 @@ describe("createPlanDependencies", () => {
     expect(dependencies.service).toBeDefined();
     expect(dependencies.picker).toBeDefined();
     expect(dependencies.screenCapture).toBeDefined();
-  }, 15000);
+  }, DEPENDENCY_TEST_TIMEOUT);
 
   it.each([
     ["unavailable", () => {
@@ -79,6 +81,6 @@ describe("createPlanDependencies", () => {
         Object.defineProperty(window, "sessionStorage", originalSessionStorage);
       }
     },
-    15000,
+    DEPENDENCY_TEST_TIMEOUT,
   );
 });

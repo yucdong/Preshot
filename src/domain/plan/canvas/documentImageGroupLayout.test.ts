@@ -1,0 +1,50 @@
+import { describe, expect, it } from "vitest";
+import type { ReferenceImage } from "./models";
+import {
+  DOCUMENT_IMAGE_GROUP_INSET,
+  layoutDocumentImageGroup,
+} from "./documentImageGroupLayout";
+
+function image(id: string, frameWidth: number, frameHeight: number): ReferenceImage {
+  return {
+    id,
+    file: `references/${id}.png`,
+    aspectRatio: frameWidth / frameHeight,
+    frameWidth,
+    frameHeight,
+  };
+}
+
+describe("layoutDocumentImageGroup", () => {
+  it("preserves image sizes while they fit and wraps into another row", () => {
+    const layout = layoutDocumentImageGroup(
+      [image("a", 120, 80), image("b", 120, 80), image("c", 120, 80)],
+      280,
+      200,
+    );
+
+    expect(layout.scale).toBe(1);
+    expect(layout.slots).toMatchObject([
+      { id: "a", x: 0, y: 0, width: 120, height: 80 },
+      { id: "b", x: 127, y: 0, width: 120, height: 80 },
+      { id: "c", x: 0, y: 87, width: 120, height: 80 },
+    ]);
+  });
+
+  it("uses one proportional fit scale only when the group cannot contain its images", () => {
+    const width = 180;
+    const height = 120;
+    const layout = layoutDocumentImageGroup(
+      [image("a", 160, 100), image("b", 160, 100)],
+      width,
+      height,
+    );
+    const availableWidth = width - DOCUMENT_IMAGE_GROUP_INSET * 2;
+    const availableHeight = height - DOCUMENT_IMAGE_GROUP_INSET * 2;
+
+    expect(layout.scale).toBeLessThan(1);
+    expect(layout.slots).toHaveLength(2);
+    expect(layout.slots.every((slot) => slot.x + slot.width <= availableWidth + 0.001)).toBe(true);
+    expect(layout.slots.every((slot) => slot.y + slot.height <= availableHeight + 0.001)).toBe(true);
+  });
+});

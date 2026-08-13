@@ -140,6 +140,10 @@ class SharedFifoCanvasService implements CanvasPlanService {
     return Promise.resolve("");
   }
 
+  importAsset(): never {
+    throw new Error("Not used by this shared FIFO regression.");
+  }
+
   importImage(): never {
     throw new Error("Not used by this shared FIFO regression.");
   }
@@ -189,6 +193,7 @@ function planDeps(): CanvasPlanDependencies {
         plan: { schemaVersion: 8, title: "Demo", components: [] },
       }),
       loadImage: vi.fn().mockResolvedValue(""),
+      importAsset: vi.fn(),
       savePlan: vi.fn(),
       removeComponent: vi.fn(),
       importImage: vi.fn(),
@@ -375,7 +380,7 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-02T00:00:00.000Z",
     });
     const retiringPlan = {
-      schemaVersion: 10 as const,
+      schemaVersion: 12 as const,
       title: "Original title",
       components: [
         {
@@ -408,7 +413,7 @@ describe("WorkspaceProvider", () => {
       ],
     };
     const nextPlan = {
-      schemaVersion: 10 as const,
+      schemaVersion: 12 as const,
       title: "Next title",
       components: [],
     };
@@ -525,7 +530,7 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-09T00:00:00.000Z",
     });
     const plan: ProjectPlan = {
-      schemaVersion: 10,
+      schemaVersion: 12,
       title: "Original title",
       components: [
         {
@@ -689,7 +694,7 @@ describe("WorkspaceProvider", () => {
       updatedAt: "2026-07-08T00:00:00.000Z",
     });
     const planA: ProjectPlan = {
-      schemaVersion: 10,
+      schemaVersion: 12,
       title: "Original A metadata",
       components: [
         {
@@ -714,7 +719,7 @@ describe("WorkspaceProvider", () => {
       ],
     };
     const planB: ProjectPlan = {
-      schemaVersion: 10,
+      schemaVersion: 12,
       title: "B metadata must never leak",
       components: [],
     };

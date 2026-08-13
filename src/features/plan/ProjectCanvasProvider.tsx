@@ -29,10 +29,12 @@ import {
   reorderComponent,
   removeComponent as removePlanComponent,
   removeReferenceImage,
+  resetImageFrame,
   resizeComponent,
   scaleReferenceImages,
   setReferenceDescription,
   setImageFrame,
+  setImageCrop,
   setImageAspectRatioForFile,
   type MoveImageParams,
   type MoveImagesParams,
@@ -40,6 +42,7 @@ import {
 import {
   splitTextLeaf,
   removeTextLeaf,
+  textLeaves,
   updateTextLeafHtml,
 } from "../../domain/plan/canvas/textTree";
 import {
@@ -138,13 +141,25 @@ function trackPersistence(
   return operation;
 }
 
-function expectedReferenceImageFiles(plan: ProjectPlan): string[] {
+function richTextImageFiles(html: string): string[] {
+  if (!html.includes("<img")) return [];
+  const document = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+  return Array.from(document.body.querySelectorAll("img"), (image) => image.getAttribute("src"))
+    .filter((file): file is string => file?.startsWith("references/") === true);
+}
+
+function expectedImageFiles(plan: ProjectPlan): string[] {
   return Array.from(
     new Set(
       plan.components.flatMap((component) =>
         component.type === "reference"
-          ? component.images.map((image) => image.file)
-          : [],
+          ? [
+              ...component.images.map((image) => image.file),
+              ...richTextImageFiles(component.description),
+            ]
+          : textLeaves(component.textRoot).flatMap((leaf) =>
+              richTextImageFiles(leaf.html),
+            ),
       ),
     ),
   );
@@ -157,14 +172,16 @@ function isTextEditingTarget(node: EventTarget | null): boolean {
   return node.closest('.tiptap-editor, .ProseMirror, [contenteditable="true"]') !== null;
 }
 
-async function measureAspectRatio(dataUrl: string): Promise<number> {
+async function measureImageDimensions(dataUrl: string) {
   const img = new Image();
   img.src = dataUrl;
   try {
     await img.decode();
-    return img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 1;
+    const sourceWidth = img.naturalWidth || 1;
+    const sourceHeight = img.naturalHeight || 1;
+    return { sourceWidth, sourceHeight, aspectRatio: sourceWidth / sourceHeight };
   } catch {
-    return 1;
+    return { sourceWidth: 1, sourceHeight: 1, aspectRatio: 1 };
   }
 }
 
@@ -201,7 +218,11 @@ export function ProjectCanvasProvider({
   const [plan, setPlan] = useState<ProjectPlan>(EMPTY_PLAN);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{
+    file: string;
+    componentId?: string;
+    imageId?: string;
+  } | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [exporting, setExporting] = useState(false);
   const [imageImportProgress, setImageImportProgress] = useState<{
@@ -231,9 +252,7 @@ export function ProjectCanvasProvider({
   const fitScaleRef = useRef(fitScale);
   const zoomLevelRef = useRef(zoomLevel);
   const zoomAnchorRef = useRef<{
-    contentX: number;
     contentY: number;
-    viewportX: number;
     viewportY: number;
     previousScale: number;
   } | null>(null);
@@ -270,8 +289,15 @@ export function ProjectCanvasProvider({
     const container = containerRef.current;
     if (!anchor || !container || anchor.previousScale === scale) return;
     const ratio = scale / anchor.previousScale;
-    container.scrollLeft = anchor.contentX * ratio - anchor.viewportX;
     container.scrollTop = anchor.contentY * ratio - anchor.viewportY;
+    const surface = container.querySelector<HTMLElement>('[data-testid="paged-canvas-surface"]');
+    if (surface) {
+      const containerRect = container.getBoundingClientRect();
+      const surfaceRect = surface.getBoundingClientRect();
+      const viewportCenter = containerRect.left + container.clientWidth / 2;
+      const surfaceCenter = surfaceRect.left + surfaceRect.width / 2;
+      container.scrollLeft += surfaceCenter - viewportCenter;
+    }
     zoomAnchorRef.current = null;
   }, [scale]);
 
@@ -386,9 +412,11 @@ export function ProjectCanvasProvider({
       if (!readyTokenFor(projectPath)) {
         return;
       }
-      const normalized = normalizeReferenceContinuations(next, {
-        makeId: () => crypto.randomUUID(),
-      });
+      const normalized = next.documentHtml === undefined
+        ? normalizeReferenceContinuations(next, {
+            makeId: () => crypto.randomUUID(),
+          })
+        : next;
       if (normalized === planRef.current) return;
       recordHistoryEntry(planRef.current, coalesceKey);
       applyPlan(normalized);
@@ -433,9 +461,12 @@ export function ProjectCanvasProvider({
       rebase: (latest: ProjectPlan) => ProjectPlan,
     ) => {
       const previous = persistence.plan;
-      const next = normalizeReferenceContinuations(rebase(previous), {
-        makeId: () => crypto.randomUUID(),
-      });
+      const rebased = rebase(previous);
+      const next = rebased.documentHtml === undefined
+        ? normalizeReferenceContinuations(rebased, {
+            makeId: () => crypto.randomUUID(),
+          })
+        : rebased;
       const rebasedCurrentOperationPlan = plansEqual(previous, operationPlan);
       persistence.plan = next;
       if (rebasedCurrentOperationPlan) {
@@ -464,20 +495,27 @@ export function ProjectCanvasProvider({
     ],
   );
 
-  const applyMeasuredAspectRatios = useCallback(
+  const applyMeasuredImageDimensions = useCallback(
     (
       token: ProjectToken,
       persistence: ProjectPersistenceState,
-      measurements: ReadonlyArray<{ file: string; aspectRatio: number }>,
+      measurements: ReadonlyArray<{
+        file: string;
+        aspectRatio: number;
+        sourceWidth: number;
+        sourceHeight: number;
+      }>,
     ) => {
       const measured = measurements.reduce(
-        (latest, { file, aspectRatio }) =>
-          setImageAspectRatioForFile(latest, { file, aspectRatio }),
+        (latest, measurement) =>
+          setImageAspectRatioForFile(latest, measurement),
         persistence.plan,
       );
-      const next = normalizeReferenceContinuations(measured, {
-        makeId: () => crypto.randomUUID(),
-      });
+      const next = measured.documentHtml === undefined
+        ? normalizeReferenceContinuations(measured, {
+            makeId: () => crypto.randomUUID(),
+          })
+        : measured;
       persistence.plan = next;
       if (isTokenReady(token)) {
         applyPlan(next);
@@ -774,41 +812,18 @@ export function ProjectCanvasProvider({
             ? loadResult.plan
             : { ...EMPTY_PLAN, title: projectName.trim() || UNTITLED_PLAN_TITLE };
         if (loadResult.status === "missing") {
-          const planId = crypto.randomUUID();
-          const planComponent = {
-            id: planId,
-            name: nextComponentName(planToUse, "plan"),
-            type: "plan" as const,
-            x: 0,
-            y: 0,
-            width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
-            height: DEFAULT_PLAN_HEIGHT,
-            textRoot: {
-              kind: "leaf" as const,
-              id: crypto.randomUUID(),
-              html: t("content.planTemplate"),
-            },
+          planToUse = {
+            ...EMPTY_PLAN,
+            title: projectName.trim() || UNTITLED_PLAN_TITLE,
+            documentHtml: t("content.planTemplate"),
           };
-          const referenceId = crypto.randomUUID();
-          const referenceComponent = {
-            id: referenceId,
-            name: nextComponentName(planToUse, "reference"),
-            type: "reference" as const,
-            x: 0,
-            y: 0,
-            width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
-            height: DEFAULT_REFERENCE_HEIGHT,
-            description: "",
-            images: [],
-          };
-
-          planToUse = addComponent(planToUse, referenceComponent);
-          planToUse = addComponent(planToUse, planComponent);
         }
 
-        planToUse = normalizeReferenceContinuations(planToUse, {
-          makeId: () => crypto.randomUUID(),
-        });
+        if (planToUse.documentHtml === undefined) {
+          planToUse = normalizeReferenceContinuations(planToUse, {
+            makeId: () => crypto.randomUUID(),
+          });
+        }
         initialPlanMeasurementIdsRef.current = new Set(
           planToUse.components
             .filter((component) => component.type === "plan")
@@ -838,11 +853,11 @@ export function ProjectCanvasProvider({
         setLifecycleStatus("ready");
 
         const loadedImages = await Promise.all(
-          expectedReferenceImageFiles(planToUse).map(async (file) => {
+          expectedImageFiles(planToUse).map(async (file) => {
             try {
               const src = await service.loadImage(projectPath, file);
-              const aspectRatio = await measureAspectRatio(src);
-              return { file, src, aspectRatio };
+              const dimensions = await measureImageDimensions(src);
+              return { file, src, ...dimensions };
             } catch (err) {
               if (isCurrent()) report("Unable to load a reference image", err, token);
               return null;
@@ -860,6 +875,8 @@ export function ProjectCanvasProvider({
           nextPlan = setImageAspectRatioForFile(nextPlan, {
             file: image.file,
             aspectRatio: image.aspectRatio,
+            sourceWidth: image.sourceWidth,
+            sourceHeight: image.sourceHeight,
           });
         }
         imageSrcRef.current = nextImageSrc;
@@ -908,7 +925,7 @@ export function ProjectCanvasProvider({
       planToExport: ProjectPlan,
       token: ProjectToken,
     ): Promise<Record<string, string>> => {
-      const expectedFiles = expectedReferenceImageFiles(planToExport);
+      const expectedFiles = expectedImageFiles(planToExport);
       const loadedEntries = await Promise.all(
         expectedFiles.map(async (file) => {
           const existing = imageSrcRef.current[file];
@@ -1030,12 +1047,9 @@ export function ProjectCanvasProvider({
       if (nextScale === previousScale) return;
 
       const bounds = container.getBoundingClientRect();
-      const viewportX = event.clientX - bounds.left;
       const viewportY = event.clientY - bounds.top;
       zoomAnchorRef.current = {
-        contentX: container.scrollLeft + viewportX,
         contentY: container.scrollTop + viewportY,
-        viewportX,
         viewportY,
         previousScale,
       };
@@ -1059,7 +1073,6 @@ export function ProjectCanvasProvider({
           name: nextComponentName(planRef.current, "plan"),
           type: "plan" as const,
           x: 0,
-          y: 0,
           width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
           height: DEFAULT_PLAN_HEIGHT,
           textRoot: {
@@ -1076,7 +1089,6 @@ export function ProjectCanvasProvider({
           name: nextComponentName(planRef.current, "reference"),
           type: "reference" as const,
           x: 0,
-          y: 0,
           width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
           height: DEFAULT_REFERENCE_HEIGHT,
           description: "",
@@ -1168,6 +1180,33 @@ export function ProjectCanvasProvider({
     [applyPlan, projectPath, readyTokenFor],
   );
 
+  const handleChangeDocumentHtml = useCallback(
+    (documentHtml: string) => {
+      if (!readyTokenFor(projectPath) || documentHtml === planRef.current.documentHtml) return;
+      applyPlan({ ...planRef.current, documentHtml });
+    },
+    [applyPlan, projectPath, readyTokenFor],
+  );
+
+  const handleCreateImageGroup = useCallback(
+    (id: string) => {
+      if (!readyTokenFor(projectPath)) return;
+      if (planRef.current.components.some((component) => component.id === id)) return;
+      const component = {
+        id,
+        name: nextComponentName(planRef.current, "reference"),
+        type: "reference" as const,
+        x: 0,
+        width: contentSize(DEFAULT_PAGE_GEOMETRY).width,
+        height: DEFAULT_REFERENCE_HEIGHT,
+        description: "",
+        images: [],
+      };
+      mutate(addComponent(planRef.current, component));
+    },
+    [mutate, projectPath, readyTokenFor],
+  );
+
   const handleSplitTextLeaf = useCallback(
     (componentId: string, leafId: string, direction: "columns" | "rows") => {
       if (!readyTokenFor(projectPath)) return;
@@ -1238,6 +1277,28 @@ export function ProjectCanvasProvider({
     [mutate, projectPath, readyTokenFor],
   );
 
+  const handleSetImageCrop = useCallback(
+    (
+      componentId: string,
+      imageId: string,
+      crop: { x: number; y: number; width: number; height: number },
+    ) => {
+      if (!readyTokenFor(projectPath)) return;
+      const next = setImageCrop(planRef.current, { componentId, imageId, crop });
+      mutate(next, `image-crop:${componentId}:${imageId}`);
+    },
+    [mutate, projectPath, readyTokenFor],
+  );
+
+  const handleResetImage = useCallback(
+    (componentId: string, imageId: string) => {
+      if (!readyTokenFor(projectPath)) return;
+      const next = resetImageFrame(planRef.current, { componentId, imageId });
+      mutate(next, `image-reset:${componentId}:${imageId}`);
+    },
+    [mutate, projectPath, readyTokenFor],
+  );
+
   const handleScaleReferenceImages = useCallback(
     (componentId: string, scale: number) => {
       if (!readyTokenFor(projectPath)) return;
@@ -1251,6 +1312,7 @@ export function ProjectCanvasProvider({
     if (!readyTokenFor(projectPath)) {
       return;
     }
+    if (planRef.current.documentHtml !== undefined) return;
     if (!Number.isFinite(next.heightPoints) || next.heightPoints < 0) {
       return;
     }
@@ -1306,6 +1368,7 @@ export function ProjectCanvasProvider({
     if (!Number.isFinite(heightPoints) || heightPoints < 0) {
       return;
     }
+    if (planRef.current.documentHtml !== undefined) return;
 
     const currentValues =
       referenceDescriptionHeights.projectPath === projectPath
@@ -1424,9 +1487,9 @@ export function ProjectCanvasProvider({
                     image: imported.image,
                   }),
               );
-              const aspectRatio = await measureAspectRatio(imported.dataUrl);
-              applyMeasuredAspectRatios(token, persistence, [
-                { file: imported.image.file, aspectRatio },
+              const dimensions = await measureImageDimensions(imported.dataUrl);
+              applyMeasuredImageDimensions(token, persistence, [
+                { file: imported.image.file, ...dimensions },
               ]);
               if (!isTokenReady(token)) {
                 return;
@@ -1465,7 +1528,7 @@ export function ProjectCanvasProvider({
       })();
     },
     [
-      applyMeasuredAspectRatios,
+      applyMeasuredImageDimensions,
       isTokenCurrent,
       isTokenReady,
       logger,
@@ -1505,9 +1568,9 @@ export function ProjectCanvasProvider({
                 image: result.image,
               }),
           );
-          const aspectRatio = await measureAspectRatio(result.dataUrl);
-          applyMeasuredAspectRatios(token, persistence, [
-            { file: result.image.file, aspectRatio },
+          const dimensions = await measureImageDimensions(result.dataUrl);
+          applyMeasuredImageDimensions(token, persistence, [
+            { file: result.image.file, ...dimensions },
           ]);
           if (!isTokenReady(token)) return;
 
@@ -1522,7 +1585,7 @@ export function ProjectCanvasProvider({
       });
     },
     [
-      applyMeasuredAspectRatios,
+      applyMeasuredImageDimensions,
       guard,
       isTokenReady,
       persisting,
@@ -1532,6 +1595,36 @@ export function ProjectCanvasProvider({
       service,
     ],
   );
+
+  const handleInsertTextImage = useCallback(async () => {
+    let asset: {
+      file: string;
+      dataUrl: string;
+      alt?: string;
+      width?: number;
+      height?: number;
+    } | null = null;
+    await guard(projectPath, "Unable to import the text image", async (token) => {
+      const sourcePath = await picker.pickImageFile("Select a JPG or PNG text image");
+      if (sourcePath === null || !isTokenReady(token)) return;
+      const imported = await service.importAsset(projectPath, sourcePath);
+      if (!isTokenReady(token)) return;
+      const dimensions = await measureImageDimensions(imported.dataUrl);
+      const nextImageSrc = {
+        ...imageSrcRef.current,
+        [imported.file]: imported.dataUrl,
+      };
+      imageSrcRef.current = nextImageSrc;
+      setImageSrc(nextImageSrc);
+      asset = {
+        ...imported,
+        alt: sourcePath.split(/[\\/]/).pop() ?? "",
+        width: dimensions.sourceWidth,
+        height: dimensions.sourceHeight,
+      };
+    });
+    return asset;
+  }, [guard, isTokenReady, picker, projectPath, service]);
 
   const handleAddImages = useCallback(
     (componentId: string) => {
@@ -1550,7 +1643,11 @@ export function ProjectCanvasProvider({
             let failed = 0;
             const newImages: Array<{
               image: ReferenceImage;
-              measuredAspectRatio: number;
+              measuredDimensions: {
+                aspectRatio: number;
+                sourceWidth: number;
+                sourceHeight: number;
+              };
               dataUrl: string;
             }> = [];
 
@@ -1563,10 +1660,10 @@ export function ProjectCanvasProvider({
                   sourcePath,
                 );
                 persistedPlan = result.plan;
-                const aspectRatio = await measureAspectRatio(result.dataUrl);
+                const dimensions = await measureImageDimensions(result.dataUrl);
                 newImages.push({
                   image: result.image,
-                  measuredAspectRatio: aspectRatio,
+                  measuredDimensions: dimensions,
                   dataUrl: result.dataUrl,
                 });
               } catch (error) {
@@ -1600,12 +1697,12 @@ export function ProjectCanvasProvider({
                     images: newImages.map(({ image }) => image),
                   }),
               );
-              applyMeasuredAspectRatios(
+              applyMeasuredImageDimensions(
                 token,
                 persistence,
-                newImages.map(({ image, measuredAspectRatio }) => ({
+                newImages.map(({ image, measuredDimensions }) => ({
                   file: image.file,
-                  aspectRatio: measuredAspectRatio,
+                  ...measuredDimensions,
                 })),
               );
             }
@@ -1637,7 +1734,7 @@ export function ProjectCanvasProvider({
       });
     },
     [
-      applyMeasuredAspectRatios,
+      applyMeasuredImageDimensions,
       guard,
       isTokenCurrent,
       isTokenReady,
@@ -1741,29 +1838,35 @@ export function ProjectCanvasProvider({
         data-testid="canvas-scroller"
         ref={containerRef}
       >
-        <div
-          className="pointer-events-none sticky top-3 z-[80] mx-auto h-14"
-          style={{ width: `${A4.width * scale}px` }}
-        >
+        {plan.documentHtml === undefined ? (
           <div
-            className="absolute left-0 top-0 flex min-h-11 items-center rounded-[9px] border border-white/10 bg-[#202329] px-1.5 py-1.5 text-white shadow-[0_8px_26px_rgb(17_18_22_/_25%)]"
-            data-testid="canvas-insert-toolbar"
+            className="pointer-events-none sticky top-3 z-[80] mx-auto h-14"
+            style={{ width: `${A4.width * scale}px` }}
           >
-            <InsertComponentMenu
-              disabled={lifecycleStatus !== "ready"}
-              onInsert={handleInsert}
-            />
+            <div
+              className="absolute left-0 top-0 flex min-h-11 items-center rounded-[9px] border border-white/10 bg-[#202329] px-1.5 py-1.5 text-white shadow-[0_8px_26px_rgb(17_18_22_/_25%)]"
+              data-testid="canvas-insert-toolbar"
+            >
+              <InsertComponentMenu
+                disabled={lifecycleStatus !== "ready"}
+                onInsert={handleInsert}
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
         {lifecycleStatus === "ready" ? (
           <PlanCanvas
             components={plan.components}
+            documentHtml={plan.documentHtml}
             imageSrc={(file) => imageSrc[file]}
             imageImportProgress={imageImportProgress ?? undefined}
             screenCaptureState={screenCaptureState ?? undefined}
             measurements={measurements}
             onAddImage={handleAddImage}
             onChangeHtml={handleChangeHtml}
+            onChangeDocumentHtml={handleChangeDocumentHtml}
+            onCreateImageGroup={handleCreateImageGroup}
+            onInsertTextImage={handleInsertTextImage}
             onSplitTextLeaf={handleSplitTextLeaf}
             onRemoveTextLeaf={handleRemoveTextLeaf}
             onUndo={undo}
@@ -1774,7 +1877,12 @@ export function ProjectCanvasProvider({
             onMoveImages={handleMoveImages}
             onOpenImage={(file) => {
               if (readyTokenFor(projectPath)) {
-                setLightbox(file);
+                setLightbox({ file });
+              }
+            }}
+            onOpenDocumentImage={(componentId, imageId, file) => {
+              if (readyTokenFor(projectPath)) {
+                setLightbox({ componentId, imageId, file });
               }
             }}
             onRemoveComponent={handleRemoveComponent}
@@ -1784,6 +1892,7 @@ export function ProjectCanvasProvider({
             onCommitTitle={handleSetTitle}
             onSetDescription={handleSetDescription}
             onSetImageFrame={handleSetImageFrame}
+            onSetImageCrop={handleSetImageCrop}
             onScaleReferenceImages={handleScaleReferenceImages}
             onAddImages={handleAddImages}
             onCaptureImage={screenCapture ? handleCaptureImage : undefined}
@@ -1800,11 +1909,16 @@ export function ProjectCanvasProvider({
           </div>
         )}
       </div>
-      {lifecycleStatus === "ready" && lightbox && imageSrc[lightbox] ? (
+      {lifecycleStatus === "ready" && lightbox && imageSrc[lightbox.file] ? (
         <ReferenceImageLightbox
           alt={t("reference.imageAlt")}
           onClose={() => setLightbox(null)}
-          src={imageSrc[lightbox]}
+          onReset={
+            lightbox.componentId && lightbox.imageId
+              ? () => handleResetImage(lightbox.componentId!, lightbox.imageId!)
+              : undefined
+          }
+          src={imageSrc[lightbox.file]}
         />
       ) : null}
     </div>

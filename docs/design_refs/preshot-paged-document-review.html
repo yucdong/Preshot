@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preshot 分页连续文档评审</title>
+  <style>
+    @font-face { font-family: NotoSC; src: url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+    @font-face { font-family: NotoSC; src: url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+    :root {
+      --chrome: #202329;
+      --stage: #dfe2e6;
+      --paper: #fff;
+      --ink: #24272c;
+      --muted: #747a82;
+      --line: #cfd3d8;
+      --line-soft: #e8eaed;
+      --cyan: #078ba8;
+      --cyan-soft: #e4f5f8;
+      --berry: #bf385b;
+      --shadow: 0 16px 42px rgb(27 30 35 / 14%);
+    }
+    * { box-sizing: border-box; }
+    html, body { min-width: 320px; min-height: 100%; margin: 0; }
+    body { overflow-x: hidden; color: var(--ink); background: var(--stage); font-family: NotoSC, "Microsoft YaHei UI", sans-serif; letter-spacing: 0; }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible, [contenteditable]:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    .app { min-height: 100vh; }
+    .topbar { position: sticky; top: 0; z-index: 50; display: flex; height: 48px; align-items: center; gap: 10px; padding: 0 16px; color: #fff; background: #191b1f; }
+    .mark { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 5px; background: var(--berry); font-size: 12px; font-weight: 700; }
+    .brand { font-size: 13px; font-weight: 700; }
+    .title { color: #bdc1c7; font-size: 10px; }
+    .spacer { flex: 1; }
+    .status { color: #cbd0d6; font-size: 9px; }
+    .status::before { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #58b97d; content: ""; }
+    .review-layout { display: grid; min-height: calc(100vh - 48px); grid-template-columns: minmax(0, 1fr) 260px; }
+    .stage { min-width: 0; overflow: auto; padding: 18px 30px 64px; background-color: var(--stage); background-image: linear-gradient(rgb(36 39 44 / 3%) 1px, transparent 1px), linear-gradient(90deg, rgb(36 39 44 / 3%) 1px, transparent 1px); background-size: 20px 20px; }
+    .insert-row { width: 680px; max-width: 100%; height: 36px; margin: 0 auto 9px; }
+    .insert { display: inline-flex; height: 30px; align-items: center; gap: 6px; padding: 0 11px; border: 0; border-radius: 5px; color: #fff; background: var(--chrome); box-shadow: 0 4px 12px rgb(27 30 35 / 18%); font-size: 10px; font-weight: 700; }
+    .insert:hover { background: #343840; }
+    .document { width: 680px; max-width: 100%; margin: 0 auto; outline: none; }
+    .paper { position: relative; width: 100%; height: 962px; overflow: hidden; border: 1px solid #c9cdd2; background: var(--paper); box-shadow: var(--shadow); }
+    .paper + .paper { margin-top: 32px; }
+    .page-number { position: absolute; right: 18px; bottom: 14px; color: #a2a6ac; font-size: 8px; user-select: none; }
+    .page-content { height: 100%; padding: 54px 58px 58px; }
+    .document-title { margin: 0 0 26px; font-size: 24px; line-height: 1.28; }
+    .text-flow { font-size: 14px; line-height: 1.72; }
+    .text-flow h2 { margin: 21px 0 7px; font-size: 18px; line-height: 1.35; }
+    .text-flow p { min-height: 24px; margin: 0 0 9px; }
+    .text-flow ul { margin: 6px 0 14px; padding-left: 1.3em; }
+    .text-flow ul[data-type="taskList"] { padding-left: 0; list-style: none; }
+    .text-flow li[data-type="taskItem"] { display: flex; align-items: flex-start; gap: 7px; }
+    .text-flow li[data-type="taskItem"] > label { flex: none; padding-top: 2px; }
+    .text-flow pre { margin: 8px 0; padding: 9px 11px; border-radius: 4px; background: #f1f2f3; font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; }
+    .text-flow blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid #c9cdd2; color: #5f656d; }
+    .editable-space { min-height: 245px; padding-top: 6px; color: var(--ink); }
+    .editable-space:empty::before { color: #a3a7ad; content: "这里仍可继续输入文字；图片组已整体移到下一页"; }
+    .page-rule { position: absolute; right: 58px; bottom: 58px; left: 58px; border-top: 1px dashed #e1e3e6; pointer-events: none; }
+    .image-group { position: relative; width: 100%; margin: 0 0 20px; padding: 10px; border: 1px solid #aeb4bb; border-radius: 4px; background: #fafbfb; break-inside: avoid; user-select: none; }
+    .image-group.selected { border-color: var(--cyan); box-shadow: 0 0 0 2px rgb(7 139 168 / 18%); }
+    .image-group-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: #656b73; font-size: 9px; }
+    .keep-badge { padding: 3px 6px; border-radius: 3px; color: #076f86; background: var(--cyan-soft); font-weight: 700; }
+    .gallery { display: grid; height: 205px; grid-template-columns: 1.35fr .9fr 1.15fr; gap: 7px; }
+    .gallery figure { min-width: 0; overflow: hidden; margin: 0; border-radius: 2px; background: #e5e7e9; }
+    .gallery img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .after-group { min-height: 140px; }
+    .blank-line-insert { position: fixed; z-index: 105; display: none; width: 24px; height: 24px; place-items: center; padding: 0; border: 1px solid #bfc4ca; border-radius: 50%; color: #5d636b; background: #fff; box-shadow: 0 3px 10px rgb(26 29 34 / 14%); font-size: 16px; line-height: 1; }
+    .blank-line-insert[data-open="true"] { display: grid; }
+    .blank-line-insert:hover, .blank-line-insert[aria-expanded="true"] { border-color: var(--cyan); color: var(--cyan); }
+    .component-menu { position: fixed; z-index: 115; display: none; width: 148px; padding: 4px; border: 1px solid #343840; border-radius: 5px; color: #fff; background: var(--chrome); box-shadow: 0 10px 26px rgb(26 29 34 / 25%); }
+    .component-menu[data-open="true"] { display: block; }
+    .component-menu button { width: 100%; height: 30px; padding: 0 8px; border: 0; border-radius: 3px; color: #fff; background: transparent; font-size: 9px; text-align: left; }
+    .component-menu button:hover { background: rgb(255 255 255 / 10%); }
+    .selection-toolbar { position: fixed; z-index: 100; display: none; width: max-content; max-width: calc(100vw - 12px); padding: 4px; border: 1px solid #c8ccd1; border-radius: 5px; color: var(--ink); background: #fff; box-shadow: 0 8px 24px rgb(26 29 34 / 20%); transform-origin: right bottom; }
+    .selection-toolbar[data-open="true"] { display: block; }
+    .selection-toolbar::after { position: absolute; right: 20px; bottom: -5px; width: 9px; height: 9px; transform: rotate(45deg); border-right: 1px solid #c8ccd1; border-bottom: 1px solid #c8ccd1; background: #fff; content: ""; }
+    .toolbar-row { display: flex; width: max-content; max-width: 100%; height: 28px; align-items: center; gap: 1px; }
+    .toolbar-row + .toolbar-row { margin-top: 2px; padding-top: 2px; border-top: 1px solid #e5e7ea; }
+    .toolbar-label { display: none; }
+    .tool { display: grid; width: 26px; height: 26px; place-items: center; border: 0; border-radius: 3px; color: #34383e; background: transparent; font-size: 11px; }
+    .tool svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .tool:hover { background: #eef0f2; }
+    .tool.active { color: #076f86; background: var(--cyan-soft); }
+    .select-tool { width: 116px; height: 26px; padding: 0 4px; border: 1px solid #d3d6da; border-radius: 3px; color: var(--ink); background: #fff; font-size: 9px; }
+    .font-stepper { display: flex; height: 26px; overflow: hidden; border: 1px solid #d3d6da; border-radius: 3px; }
+    .font-stepper button { width: 24px; border: 0; color: #34383e; background: #fff; font-size: 13px; }
+    .font-stepper button:hover { background: #eef0f2; }
+    .font-stepper output { display: grid; width: 36px; place-items: center; border-right: 1px solid #e1e3e6; border-left: 1px solid #e1e3e6; font-size: 9px; font-variant-numeric: tabular-nums; }
+    .divider { width: 1px; height: 18px; margin: 0 1px; background: #dfe1e4; }
+    .color-control { display: flex; height: 26px; overflow: hidden; border: 1px solid #d3d6da; border-radius: 3px; }
+    .current-color { position: relative; width: 32px; border: 0; color: #34383e; background: #fff; font-weight: 700; }
+    .current-color::after { position: absolute; right: 7px; bottom: 3px; left: 7px; height: 3px; border-radius: 2px; background: var(--current-color, #202329); content: ""; }
+    .current-color:hover, .color-menu-trigger:hover { background: #eef0f2; }
+    .color-menu-trigger { width: 21px; border: 0; border-left: 1px solid #e1e3e6; color: #666c73; background: #fff; font-size: 9px; }
+    .color-swatch { width: 21px; height: 21px; flex: none; padding: 0; border: 1px solid rgb(32 35 41 / 18%); border-radius: 2px; background: var(--swatch); }
+    .color-swatch:hover, .color-swatch.active { outline: 2px solid var(--cyan); outline-offset: 1px; }
+    .color-panel { position: absolute; top: calc(100% + 6px); right: 0; display: none; width: 246px; padding: 9px; border: 1px solid #c8ccd1; border-radius: 5px; background: #fff; box-shadow: 0 8px 24px rgb(26 29 34 / 18%); }
+    .color-panel[data-open="true"] { display: block; }
+    .panel-heading { margin-bottom: 8px; color: #4f555c; font-size: 9px; font-weight: 700; }
+    .standard-grid { display: grid; grid-template-columns: repeat(8, 21px); gap: 6px 8px; }
+    .more-colors { width: 100%; height: 28px; margin-top: 9px; border: 0; border-top: 1px solid #e2e4e7; color: #34383e; background: #fff; font-size: 9px; text-align: left; }
+    .more-colors:hover { color: #076f86; background: #f3f8f9; }
+    .more-colors-panel { position: fixed; z-index: 130; display: none; width: 408px; max-width: calc(100vw - 12px); padding: 12px; border: 1px solid #bfc4ca; border-radius: 6px; background: #fff; box-shadow: 0 16px 42px rgb(26 29 34 / 24%); }
+    .more-colors-panel[data-open="true"] { display: block; }
+    .more-colors-copy { margin: -3px 0 10px; color: #777c83; font-size: 8px; }
+    .custom-color-layout { display: grid; grid-template-columns: minmax(0, 250px) 1fr; gap: 12px; }
+    .spectrum-zone { display: grid; grid-template-columns: minmax(0, 1fr) 22px; gap: 8px; }
+    .spectrum { position: relative; width: 100%; height: 170px; overflow: hidden; border: 1px solid #c4c8cd; border-radius: 3px; background: linear-gradient(to bottom, transparent, #fff), linear-gradient(to right, #f00 0%, #ff0 16.67%, #0f0 33.33%, #0ff 50%, #00f 66.67%, #f0f 83.33%, #f00 100%); cursor: crosshair; }
+    .spectrum-marker { position: absolute; width: 9px; height: 9px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #202329; pointer-events: none; }
+    .brightness-control { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #666c73; font-size: 7px; }
+    .brightness-range { width: 18px; height: 148px; margin: 0; writing-mode: vertical-lr; direction: rtl; accent-color: var(--cyan); }
+    .rgb-fields { display: grid; align-content: start; grid-template-columns: 20px 1fr; gap: 5px; color: #5f656d; font-size: 8px; }
+    .rgb-fields input { width: 78px; height: 25px; padding: 0 4px; border: 1px solid #d3d6da; border-radius: 2px; font-size: 9px; }
+    .color-preview { height: 48px; margin-top: 11px; border: 1px solid #bfc3c8; border-radius: 2px; background: var(--draft-color, #078ba8); }
+    .hex-preview { display: block; margin-top: 5px; color: #656b72; font-size: 8px; text-align: center; text-transform: uppercase; }
+    .color-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 9px; }
+    .color-actions button { height: 26px; padding: 0 10px; border: 1px solid #c9cdd2; border-radius: 3px; color: #34383e; background: #fff; font-size: 8px; }
+    .color-actions .apply-color { border-color: #087f99; color: #fff; background: #078ba8; }
+    .annotation { position: sticky; top: 48px; height: calc(100vh - 48px); overflow: auto; padding: 22px 18px; border-left: 1px solid #c8ccd1; background: #f7f8f8; }
+    .annotation h1 { margin: 0 0 7px; font-size: 15px; }
+    .annotation > p { margin: 0 0 20px; color: var(--muted); font-size: 9px; line-height: 1.65; }
+    .note { margin-bottom: 12px; padding: 11px; border-left: 3px solid var(--cyan); background: #fff; box-shadow: 0 1px 3px rgb(27 30 35 / 7%); }
+    .note strong { display: block; margin-bottom: 5px; font-size: 10px; }
+    .note span { display: block; color: #676d75; font-size: 9px; line-height: 1.65; }
+    .legend { display: flex; align-items: center; gap: 7px; margin-top: 18px; color: #737980; font-size: 8px; }
+    .legend i { width: 18px; height: 12px; border: 1px solid #aeb4bb; border-radius: 2px; background: #fafbfb; }
+    .toast { position: fixed; bottom: 18px; left: 50%; z-index: 120; padding: 7px 11px; transform: translate(-50%, 12px); border-radius: 4px; color: #fff; background: var(--chrome); opacity: 0; font-size: 9px; pointer-events: none; transition: 150ms ease; }
+    .toast.show { transform: translate(-50%, 0); opacity: 1; }
+    @media (max-width: 980px) {
+      .review-layout { display: block; }
+      .annotation { position: relative; top: auto; height: auto; border-top: 1px solid #c8ccd1; border-left: 0; }
+    }
+    @media (max-width: 720px) {
+      .stage { padding: 8px 0 36px; }
+      .insert-row { padding-inline: 8px; }
+      .paper { height: 780px; border-right: 0; border-left: 0; box-shadow: none; }
+      .page-content { padding: 38px 25px 48px; }
+      .page-rule { right: 25px; bottom: 48px; left: 25px; }
+      .gallery { height: 150px; grid-template-columns: 1fr 1fr; }
+      .gallery figure:last-child { display: none; }
+      .selection-toolbar { width: max-content; }
+      .select-tool { width: 112px; }
+      .more-colors-panel { width: calc(100vw - 12px); }
+      .custom-color-layout { grid-template-columns: minmax(0, 1fr) 92px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <span class="mark">P</span><span class="brand">PRESHOT</span><span class="title">分页连续文档 · 设计评审</span>
+      <span class="spacer"></span><span class="status">交互原型</span>
+    </header>
+    <div class="review-layout">
+      <main class="stage" id="stage">
+        <div class="insert-row"><button class="insert" type="button">＋ 插入图片组</button></div>
+        <div class="document" id="document" contenteditable="true" role="textbox" aria-label="跨页连续方案正文" spellcheck="false">
+          <section class="paper" aria-label="第 1 页">
+            <div class="page-content text-flow">
+              <h1 class="document-title">夏季小清新人像拍摄经验</h1>
+              <h2>镜头选择</h2>
+              <p>1. 85mm 镜头：特写、远景</p>
+              <p>2. 35mm 镜头：环境人像、半身</p>
+              <h2>服装</h2>
+              <p>夏季常服，草帽等轻量配饰，颜色以清透低饱和为主。</p>
+              <h2>拍摄顺序</h2>
+              <ul><li>先拍窗边近景，确认肤色和高光。</li><li>再拍环境半身，保留背景空间。</li></ul>
+              <h2>现场备注</h2>
+              <div class="editable-space" id="editable-space"><p>图片组高度超过本页剩余区域，因此整体进入下一页。</p><p id="mixed-size-demo"><span style="font-size:12px">混合字号 12px</span><span style="font-size:20px"> 与 20px 示例</span></p><p><br></p></div>
+            </div>
+            <div class="page-rule" aria-hidden="true"></div><span class="page-number">1 / 2</span>
+          </section>
+          <section class="paper" aria-label="第 2 页">
+            <div class="page-content text-flow">
+              <div class="image-group" id="image-group" contenteditable="false" tabindex="0" role="group" aria-label="参考图片组，3 张图片">
+                <div class="image-group-label"><span>参考图片组</span><span class="keep-badge">整体换页，不拆分</span></div>
+                <div class="gallery">
+                  <figure><img src="../../resources/city-07.png" alt="街道纵深参考"></figure>
+                  <figure><img src="../../resources/city-08.png" alt="环境留白参考"></figure>
+                  <figure><img src="../../resources/city-09.png" alt="侧逆光参考"></figure>
+                </div>
+              </div>
+              <h2>图片组之后仍可继续写</h2>
+              <p class="after-group">正文保持为同一份文档，键盘导航可以越过图片组继续编辑。</p>
+            </div>
+            <div class="page-rule" aria-hidden="true"></div><span class="page-number">2 / 2</span>
+          </section>
+        </div>
+      </main>
+      <aside class="annotation">
+        <h1>本轮确认点</h1>
+        <p>在左侧原型中选择任意文字，或点击参考图片组。点击灰色工作区可清除选择。</p>
+        <div class="note"><strong>01 · 只保留 Canvas 边框</strong><span>文字区域没有卡片、描边和独立容器感。白色 A4 纸张是唯一画布边界。</span></div>
+        <div class="note"><strong>02 · 图片组保留边框</strong><span>参考图片组用轻量 1px 边框表达原子组件；选中时切换为青色状态。</span></div>
+        <div class="note"><strong>03 · 图片组整体换页</strong><span>当图片组放不进当前页剩余空间时，整个组件进入下一页，不能跨页或拆成多行。</span></div>
+        <div class="note"><strong>04 · 空白仍可输入文字</strong><span>图片组换页后，上一页剩余空间仍属于连续正文。点击“现场备注”下方可继续输入。</span></div>
+        <div class="note"><strong>05 · Compact 两行 Style 栏</strong><span>内容自适应宽度，无装饰空白。第一行是块类型、字号、颜色；第二行是字形、标准对齐图标和缩进。</span></div>
+        <div class="note"><strong>06 · 独立完整色盘</strong><span>工具栏显示当前颜色。Standard Colors 与 More Colors 是两个互斥表面；More Colors 独立居中，提供完整色盘和 RGB/HEX。</span></div>
+        <div class="note"><strong>07 · 完整块类型与段落命令</strong><span>支持正文、H1–H6、引用、无序/有序/任务列表、代码块，以及左中右对齐和增加/减少缩进。</span></div>
+        <div class="note"><strong>08 · 混合字号归一</strong><span>12px 与 20px 的混合选区显示 12+；点击 ± 后以最小值计算，并把整个选区统一为新字号。</span></div>
+        <div class="note"><strong>09 · 空白行插入</strong><span>点击任意空白段落，A4 左侧显示 +。菜单当前只有图片组，并在该行位置插入，原空白行继续保留。</span></div>
+        <div class="legend"><i></i><span>带边框区域仅表示图片组，不表示文案框</span></div>
+      </aside>
+    </div>
+  </div>
+  <button class="blank-line-insert" id="blank-line-insert" data-open="false" aria-expanded="false" aria-haspopup="menu" aria-label="在空白行插入组件" title="在空白行插入组件" type="button">+</button>
+  <div class="component-menu" id="component-menu" data-open="false" role="menu" aria-label="选择组件">
+    <button id="insert-image-group" role="menuitem" type="button">图片组</button>
+  </div>
+  <div class="selection-toolbar" id="toolbar" data-open="false" role="toolbar" aria-label="文字样式">
+    <div class="toolbar-row">
+      <span class="toolbar-label">层级</span>
+      <select class="select-tool" id="block-level" aria-label="文字层级">
+        <option value="p">正文</option>
+        <option value="h1">一级标题</option><option value="h2">二级标题</option><option value="h3">三级标题</option>
+        <option value="h4">四级标题</option><option value="h5">五级标题</option><option value="h6">六级标题</option>
+        <option value="blockquote">引用</option><option value="ul">无序列表</option><option value="ol">有序列表</option>
+        <option value="taskList">任务列表</option><option value="pre">代码块</option>
+      </select>
+      <span class="divider"></span><span class="toolbar-label">字号</span>
+      <div class="font-stepper" aria-label="字号调整">
+        <button id="font-smaller" type="button" aria-label="减小字号">−</button><output id="font-size">16 px</output><button id="font-larger" type="button" aria-label="增大字号">＋</button>
+      </div>
+      <span class="divider"></span>
+      <div class="color-control" aria-label="当前文字颜色">
+        <button class="current-color" id="current-color" type="button" aria-label="应用当前文字颜色" title="应用当前文字颜色">A</button>
+        <button class="color-menu-trigger" id="color-menu-trigger" type="button" aria-label="选择文字颜色" title="选择文字颜色">▼</button>
+      </div>
+    </div>
+    <div class="toolbar-row">
+      <button class="tool" data-command="bold" type="button" aria-label="加粗"><b>B</b></button>
+      <button class="tool" data-command="italic" type="button" aria-label="倾斜"><i>I</i></button>
+      <button class="tool" data-command="underline" type="button" aria-label="下划线"><u>U</u></button>
+      <button class="tool" data-command="strikeThrough" type="button" aria-label="删除线"><s>S</s></button>
+      <span class="divider"></span>
+      <button class="tool" data-command="justifyLeft" type="button" aria-label="左对齐"><i data-lucide="align-left"></i></button>
+      <button class="tool" data-command="justifyCenter" type="button" aria-label="居中对齐"><i data-lucide="align-center"></i></button>
+      <button class="tool" data-command="justifyRight" type="button" aria-label="右对齐"><i data-lucide="align-right"></i></button>
+      <span class="divider"></span>
+      <button class="tool" data-command="outdent" type="button" aria-label="减少缩进"><i data-lucide="indent-decrease"></i></button>
+      <button class="tool" data-command="indent" type="button" aria-label="增加缩进"><i data-lucide="indent-increase"></i></button>
+    </div>
+    <div class="color-panel" id="color-panel" data-open="false" role="menu" aria-label="标准颜色">
+      <div class="panel-heading">Standard Colors</div>
+      <div class="standard-grid">
+        <button class="color-swatch" data-color="#202329" style="--swatch:#202329" type="button" aria-label="石墨黑"></button>
+        <button class="color-swatch" data-color="#6B6F76" style="--swatch:#6B6F76" type="button" aria-label="中性灰"></button>
+        <button class="color-swatch" data-color="#C2385C" style="--swatch:#C2385C" type="button" aria-label="浆果红"></button>
+        <button class="color-swatch" data-color="#C78218" style="--swatch:#C78218" type="button" aria-label="琥珀色"></button>
+        <button class="color-swatch" data-color="#2E7D4F" style="--swatch:#2E7D4F" type="button" aria-label="松绿色"></button>
+        <button class="color-swatch" data-color="#078BA8" style="--swatch:#078BA8" type="button" aria-label="青蓝色"></button>
+        <button class="color-swatch" data-color="#2457D6" style="--swatch:#2457D6" type="button" aria-label="钴蓝色"></button>
+        <button class="color-swatch" data-color="#7C3AAD" style="--swatch:#7C3AAD" type="button" aria-label="紫罗兰"></button>
+        <button class="color-swatch" data-color="#D92D20" style="--swatch:#D92D20" type="button" aria-label="标准红"></button>
+        <button class="color-swatch" data-color="#F79009" style="--swatch:#F79009" type="button" aria-label="标准橙"></button>
+        <button class="color-swatch" data-color="#84CC16" style="--swatch:#84CC16" type="button" aria-label="标准绿"></button>
+        <button class="color-swatch" data-color="#06B6D4" style="--swatch:#06B6D4" type="button" aria-label="标准青"></button>
+        <button class="color-swatch" data-color="#0EA5E9" style="--swatch:#0EA5E9" type="button" aria-label="标准蓝"></button>
+        <button class="color-swatch" data-color="#1D4ED8" style="--swatch:#1D4ED8" type="button" aria-label="深蓝色"></button>
+        <button class="color-swatch" data-color="#581C87" style="--swatch:#581C87" type="button" aria-label="深紫色"></button>
+        <button class="color-swatch" data-color="#000000" style="--swatch:#000000" type="button" aria-label="纯黑色"></button>
+      </div>
+      <button class="more-colors" id="more-colors" type="button">More Colors…</button>
+    </div>
+  </div>
+  <div class="more-colors-panel" id="more-colors-panel" data-open="false" role="dialog" aria-label="更多颜色">
+    <div class="panel-heading">More Colors</div>
+    <p class="more-colors-copy">完整 RGB 色域 · Hue × Saturation × Brightness</p>
+    <div class="custom-color-layout">
+      <div class="spectrum-zone">
+        <div class="spectrum" id="spectrum" role="slider" aria-label="完整色相与饱和度色盘" tabindex="0"><span class="spectrum-marker" id="spectrum-marker"></span></div>
+        <label class="brightness-control"><span>亮</span><input class="brightness-range" id="brightness" type="range" min="0" max="100" value="66" aria-label="明度"><span>暗</span></label>
+      </div>
+      <div>
+        <div class="rgb-fields">
+          <label for="red">R</label><input id="red" type="number" min="0" max="255" value="7">
+          <label for="green">G</label><input id="green" type="number" min="0" max="255" value="139">
+          <label for="blue">B</label><input id="blue" type="number" min="0" max="255" value="168">
+        </div>
+        <div class="color-preview" id="color-preview"></div><output class="hex-preview" id="custom-color-value">#078BA8</output>
+      </div>
+    </div>
+    <div class="color-actions"><button id="cancel-color" type="button">Cancel</button><button class="apply-color" id="apply-color" type="button">Apply</button></div>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script>
+    const documentRoot = document.getElementById("document");
+    const toolbar = document.getElementById("toolbar");
+    const imageGroup = document.getElementById("image-group");
+    const blankLineInsert = document.getElementById("blank-line-insert");
+    const componentMenu = document.getElementById("component-menu");
+    const stage = document.getElementById("stage");
+    const toast = document.getElementById("toast");
+    const blockLevel = document.getElementById("block-level");
+    const fontSizeOutput = document.getElementById("font-size");
+    const colorPanel = document.getElementById("color-panel");
+    const moreColorsPanel = document.getElementById("more-colors-panel");
+    const currentColorButton = document.getElementById("current-color");
+    const colorMenuTrigger = document.getElementById("color-menu-trigger");
+    const spectrum = document.getElementById("spectrum");
+    const spectrumMarker = document.getElementById("spectrum-marker");
+    const brightnessInput = document.getElementById("brightness");
+    const redInput = document.getElementById("red");
+    const greenInput = document.getElementById("green");
+    const blueInput = document.getElementById("blue");
+    const colorPreview = document.getElementById("color-preview");
+    const customColorValue = document.getElementById("custom-color-value");
+    let savedRange = null;
+    let currentFontSize = 16;
+    let currentColor = "#202329";
+    let draftHsv = { h: 190, s: 0.96, v: 0.66 };
+    let activeBlankLine = null;
+    let timer;
+    window.lucide?.createIcons();
+
+    function notify(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(timer);
+      timer = setTimeout(() => toast.classList.remove("show"), 1300);
+    }
+
+    function selectedTextRange() {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null;
+      const range = selection.getRangeAt(0);
+      return documentRoot.contains(range.commonAncestorContainer) ? range : null;
+    }
+
+    function showTextToolbar() {
+      const range = selectedTextRange();
+      if (!range) {
+        toolbar.dataset.open = "false";
+        return;
+      }
+      savedRange = range.cloneRange();
+      imageGroup.classList.remove("selected");
+      toolbar.dataset.open = "true";
+      const selectionRect = range.getBoundingClientRect();
+      const toolbarRect = toolbar.getBoundingClientRect();
+      const inset = 8;
+      const gap = 9;
+      let left = selectionRect.right + 10;
+      if (left + toolbarRect.width > window.innerWidth - inset) {
+        left = selectionRect.right - toolbarRect.width;
+      }
+      left = Math.max(inset, Math.min(left, window.innerWidth - toolbarRect.width - inset));
+      let top = selectionRect.top - toolbarRect.height - gap;
+      if (top < 52) top = selectionRect.bottom + gap;
+      toolbar.style.left = `${left}px`;
+      toolbar.style.top = `${top}px`;
+      updateCommandStates();
+    }
+
+    function restoreRange() {
+      if (!savedRange) return false;
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(savedRange);
+      return true;
+    }
+
+    function rememberRange() {
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
+        savedRange = selection.getRangeAt(0).cloneRange();
+      }
+    }
+
+    function updateCommandStates() {
+      toolbar.querySelectorAll("[data-command]").forEach((button) => {
+        button.classList.toggle("active", document.queryCommandState(button.dataset.command));
+      });
+      updateSelectionFontSize();
+    }
+
+    function selectedTextNodes(range) {
+      const root = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+        ? range.commonAncestorContainer.parentElement
+        : range.commonAncestorContainer;
+      if (!(root instanceof Element)) return [];
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          if (!node.textContent || !range.intersectsNode(node)) return NodeFilter.FILTER_REJECT;
+          const startsAfterEnd = node === range.endContainer && range.endOffset === 0;
+          const endsBeforeStart = node === range.startContainer && range.startOffset === node.textContent.length;
+          return startsAfterEnd || endsBeforeStart ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        },
+      });
+      const nodes = [];
+      let node;
+      while ((node = walker.nextNode())) nodes.push(node);
+      return nodes;
+    }
+
+    function selectionFontSizes(range) {
+      return [...new Set(selectedTextNodes(range).map((node) => {
+        const parent = node.parentElement;
+        return parent ? Math.round(parseFloat(getComputedStyle(parent).fontSize)) : 16;
+      }))].sort((left, right) => left - right);
+    }
+
+    function updateSelectionFontSize() {
+      const range = selectedTextRange() ?? savedRange;
+      if (!range) return;
+      const sizes = selectionFontSizes(range);
+      if (sizes.length === 0) return;
+      currentFontSize = sizes[0];
+      const mixed = sizes.length > 1;
+      fontSizeOutput.textContent = `${currentFontSize}${mixed ? "+" : " px"}`;
+      fontSizeOutput.setAttribute("aria-label", mixed
+        ? `混合字号，最小值 ${currentFontSize} 像素`
+        : `字号 ${currentFontSize} 像素`);
+      fontSizeOutput.dataset.mixed = String(mixed);
+    }
+
+    function finishFormat(message) {
+      const selection = window.getSelection();
+      if (selection?.rangeCount) savedRange = selection.getRangeAt(0).cloneRange();
+      updateCommandStates();
+      notify(message);
+      requestAnimationFrame(showTextToolbar);
+    }
+
+    function applyCommand(command, label) {
+      if (!restoreRange()) return;
+      document.execCommand(command, false);
+      finishFormat(`${label}已应用`);
+    }
+
+    function applyBlockLevel(level) {
+      if (!restoreRange()) return;
+      if (level === "ul" || level === "ol") {
+        const selection = window.getSelection();
+        const anchor = selection?.anchorNode;
+        const element = anchor instanceof Element ? anchor : anchor?.parentElement;
+        const block = element?.closest("p,h1,h2,h3,h4,h5,h6,blockquote,pre,li");
+        if (!block) return;
+        const list = document.createElement(level);
+        const item = document.createElement("li");
+        item.innerHTML = block.innerHTML;
+        list.append(item);
+        block.replaceWith(list);
+        const range = document.createRange();
+        range.selectNodeContents(item);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      } else if (level === "taskList") {
+        const selection = window.getSelection();
+        const anchor = selection?.anchorNode;
+        const element = anchor instanceof Element ? anchor : anchor?.parentElement;
+        const block = element?.closest("p,h1,h2,h3,h4,h5,h6,blockquote,pre,li");
+        if (!block) return;
+        const list = document.createElement("ul");
+        list.dataset.type = "taskList";
+        const item = document.createElement("li");
+        item.dataset.type = "taskItem";
+        item.dataset.checked = "false";
+        const label = document.createElement("label");
+        label.contentEditable = "false";
+        label.innerHTML = '<input type="checkbox" aria-label="任务完成状态">';
+        const content = document.createElement("div");
+        content.innerHTML = block.innerHTML;
+        item.append(label, content);
+        list.append(item);
+        block.replaceWith(list);
+        const range = document.createRange();
+        range.selectNodeContents(content);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      } else {
+        document.execCommand("formatBlock", false, level);
+      }
+      finishFormat(`${blockLevel.selectedOptions[0].textContent}已应用`);
+    }
+
+    function applyFontSize(nextSize) {
+      if (!restoreRange()) return;
+      currentFontSize = Math.max(8, Math.min(72, nextSize));
+      document.execCommand("fontSize", false, "7");
+      documentRoot.querySelectorAll('font[size="7"]').forEach((font) => {
+        font.removeAttribute("size");
+        font.style.fontSize = `${currentFontSize}px`;
+      });
+      fontSizeOutput.textContent = `${currentFontSize} px`;
+      fontSizeOutput.dataset.mixed = "false";
+      finishFormat(`字号已调整为 ${currentFontSize}px`);
+    }
+
+    function applyColor(color, label) {
+      if (!restoreRange()) return;
+      document.execCommand("foreColor", false, color);
+      currentColor = color.toUpperCase();
+      currentColorButton.style.setProperty("--current-color", currentColor);
+      toolbar.querySelectorAll("[data-color]").forEach((swatch) => swatch.classList.toggle("active", swatch.dataset.color.toLowerCase() === color.toLowerCase()));
+      finishFormat(`${label}已应用`);
+    }
+
+    function clamp(value, minimum, maximum) {
+      return Math.min(maximum, Math.max(minimum, value));
+    }
+
+    function hexFromRgb({ red, green, blue }) {
+      return `#${[red, green, blue].map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+    }
+
+    function rgbFromHex(hex) {
+      const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+      return match ? { red: parseInt(match[1], 16), green: parseInt(match[2], 16), blue: parseInt(match[3], 16) } : { red: 32, green: 35, blue: 41 };
+    }
+
+    function hsvFromRgb({ red, green, blue }) {
+      const r = red / 255; const g = green / 255; const b = blue / 255;
+      const maximum = Math.max(r, g, b); const minimum = Math.min(r, g, b); const delta = maximum - minimum;
+      let hue = 0;
+      if (delta && maximum === r) hue = 60 * (((g - b) / delta) % 6);
+      else if (delta && maximum === g) hue = 60 * ((b - r) / delta + 2);
+      else if (delta) hue = 60 * ((r - g) / delta + 4);
+      return { h: hue < 0 ? hue + 360 : hue, s: maximum ? delta / maximum : 0, v: maximum };
+    }
+
+    function rgbFromHsv({ h, s, v }) {
+      const chroma = v * s; const x = chroma * (1 - Math.abs((h / 60) % 2 - 1)); const match = v - chroma;
+      const values = h < 60 ? [chroma, x, 0] : h < 120 ? [x, chroma, 0] : h < 180 ? [0, chroma, x] : h < 240 ? [0, x, chroma] : h < 300 ? [x, 0, chroma] : [chroma, 0, x];
+      return { red: Math.round((values[0] + match) * 255), green: Math.round((values[1] + match) * 255), blue: Math.round((values[2] + match) * 255) };
+    }
+
+    function updateColorDraft(rgb, updateHsv = true) {
+      if (updateHsv) draftHsv = hsvFromRgb(rgb);
+      redInput.value = String(rgb.red); greenInput.value = String(rgb.green); blueInput.value = String(rgb.blue);
+      brightnessInput.value = String(Math.round(draftHsv.v * 100));
+      spectrumMarker.style.left = `${draftHsv.h / 360 * 100}%`;
+      spectrumMarker.style.top = `${(1 - draftHsv.s) * 100}%`;
+      const hex = hexFromRgb(rgb);
+      colorPreview.style.setProperty("--draft-color", hex);
+      customColorValue.textContent = hex;
+    }
+
+    function rgbFromFields() {
+      return {
+        red: clamp(Number(redInput.value) || 0, 0, 255),
+        green: clamp(Number(greenInput.value) || 0, 0, 255),
+        blue: clamp(Number(blueInput.value) || 0, 0, 255),
+      };
+    }
+
+    function setSpectrumFromPointer(event) {
+      const rect = spectrum.getBoundingClientRect();
+      draftHsv.h = clamp((event.clientX - rect.left) / rect.width, 0, 1) * 360;
+      draftHsv.s = 1 - clamp((event.clientY - rect.top) / rect.height, 0, 1);
+      updateColorDraft(rgbFromHsv(draftHsv), false);
+    }
+
+    function positionMoreColors() {
+      if (moreColorsPanel.dataset.open !== "true") return;
+      const rect = moreColorsPanel.getBoundingClientRect();
+      const inset = 6;
+      moreColorsPanel.style.left = `${Math.max(inset, (window.innerWidth - rect.width) / 2)}px`;
+      moreColorsPanel.style.top = `${Math.max(54, (window.innerHeight - rect.height) / 2)}px`;
+    }
+
+    function isBlankParagraph(element) {
+      return element instanceof HTMLParagraphElement && (element.textContent ?? "").trim() === "";
+    }
+
+    function positionBlankLineInsert() {
+      if (!activeBlankLine || blankLineInsert.dataset.open !== "true") return;
+      const lineRect = activeBlankLine.getBoundingClientRect();
+      const page = activeBlankLine.closest(".paper");
+      const pageRect = page?.getBoundingClientRect();
+      const left = Math.max(4, (pageRect?.left ?? lineRect.left) + 28);
+      blankLineInsert.style.left = `${left}px`;
+      blankLineInsert.style.top = `${lineRect.top + Math.max(0, (lineRect.height - 24) / 2)}px`;
+      if (componentMenu.dataset.open === "true") {
+        componentMenu.style.left = `${Math.min(window.innerWidth - 154, left + 30)}px`;
+        componentMenu.style.top = `${lineRect.top}px`;
+      }
+    }
+
+    function activateBlankLine(line) {
+      activeBlankLine = line;
+      blankLineInsert.dataset.open = "true";
+      requestAnimationFrame(positionBlankLineInsert);
+    }
+
+    function closeBlankLineInsert() {
+      activeBlankLine = null;
+      blankLineInsert.dataset.open = "false";
+      blankLineInsert.setAttribute("aria-expanded", "false");
+      componentMenu.dataset.open = "false";
+    }
+
+    function createInsertedImageGroup() {
+      const group = document.createElement("div");
+      group.className = "image-group inserted-image-group";
+      group.contentEditable = "false";
+      group.tabIndex = 0;
+      group.setAttribute("role", "group");
+      group.setAttribute("aria-label", "新图片组，0 张图片");
+      group.innerHTML = '<div class="image-group-label"><span>图片组</span><span class="keep-badge">0 张图片</span></div><div style="display:grid;height:84px;place-items:center;border:1px dashed #c7cbd0;border-radius:3px;color:#777c83;font-size:9px">＋ 添加图片</div>';
+      return group;
+    }
+
+    function clearContext() {
+      toolbar.dataset.open = "false";
+      colorPanel.dataset.open = "false";
+      moreColorsPanel.dataset.open = "false";
+      imageGroup.classList.remove("selected");
+      savedRange = null;
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      documentRoot.blur();
+    }
+
+    documentRoot.addEventListener("click", (event) => {
+      const target = event.target;
+      const line = target instanceof Element ? target.closest("p") : null;
+      if (isBlankParagraph(line)) {
+        activateBlankLine(line);
+      } else if (!(target instanceof Element && target.closest(".inserted-image-group"))) {
+        closeBlankLineInsert();
+      }
+    });
+    documentRoot.addEventListener("mouseup", (event) => {
+      if (event.target instanceof Element && event.target.closest(".image-group")) return;
+      requestAnimationFrame(showTextToolbar);
+    });
+    documentRoot.addEventListener("keyup", showTextToolbar);
+    imageGroup.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toolbar.dataset.open = "false";
+      imageGroup.classList.add("selected");
+      window.getSelection()?.removeAllRanges();
+      notify("图片组属性栏将在组件右上显示");
+    });
+    toolbar.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+      rememberRange();
+    });
+    moreColorsPanel.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+      rememberRange();
+    });
+    blankLineInsert.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const open = componentMenu.dataset.open !== "true";
+      componentMenu.dataset.open = String(open);
+      blankLineInsert.setAttribute("aria-expanded", String(open));
+      positionBlankLineInsert();
+    });
+    componentMenu.addEventListener("pointerdown", (event) => event.stopPropagation());
+    document.getElementById("insert-image-group").addEventListener("click", () => {
+      if (!activeBlankLine) return;
+      activeBlankLine.before(createInsertedImageGroup());
+      componentMenu.dataset.open = "false";
+      blankLineInsert.setAttribute("aria-expanded", "false");
+      positionBlankLineInsert();
+      notify("已在空白行插入图片组");
+    });
+    toolbar.querySelectorAll("[data-command]").forEach((button) => button.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      applyCommand(button.dataset.command, button.getAttribute("aria-label"));
+    }));
+    blockLevel.addEventListener("change", () => applyBlockLevel(blockLevel.value));
+    document.getElementById("font-smaller").addEventListener("pointerdown", (event) => { event.preventDefault(); applyFontSize(currentFontSize - 1); });
+    document.getElementById("font-larger").addEventListener("pointerdown", (event) => { event.preventDefault(); applyFontSize(currentFontSize + 1); });
+    toolbar.querySelectorAll("[data-color]").forEach((swatch) => swatch.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      applyColor(swatch.dataset.color, swatch.getAttribute("aria-label"));
+      colorPanel.dataset.open = "false";
+      moreColorsPanel.dataset.open = "false";
+    }));
+    currentColorButton.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      applyColor(currentColor, "当前颜色");
+    });
+    colorMenuTrigger.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      colorPanel.dataset.open = colorPanel.dataset.open === "true" ? "false" : "true";
+      if (colorPanel.dataset.open === "false") moreColorsPanel.dataset.open = "false";
+    });
+    document.getElementById("more-colors").addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      updateColorDraft(rgbFromHex(currentColor));
+      colorPanel.dataset.open = "false";
+      moreColorsPanel.dataset.open = "true";
+      requestAnimationFrame(positionMoreColors);
+    });
+    spectrum.addEventListener("pointerdown", (event) => { event.preventDefault(); spectrum.setPointerCapture(event.pointerId); setSpectrumFromPointer(event); });
+    spectrum.addEventListener("pointermove", (event) => { if (spectrum.hasPointerCapture(event.pointerId)) setSpectrumFromPointer(event); });
+    brightnessInput.addEventListener("input", () => { draftHsv.v = Number(brightnessInput.value) / 100; updateColorDraft(rgbFromHsv(draftHsv), false); });
+    [redInput, greenInput, blueInput].forEach((input) => input.addEventListener("input", () => updateColorDraft(rgbFromFields())));
+    document.getElementById("cancel-color").addEventListener("pointerdown", (event) => { event.preventDefault(); moreColorsPanel.dataset.open = "false"; });
+    document.getElementById("apply-color").addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      applyColor(hexFromRgb(rgbFromFields()), "自定义颜色");
+      moreColorsPanel.dataset.open = "false";
+      colorPanel.dataset.open = "false";
+    });
+    document.addEventListener("pointerdown", (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (toolbar.contains(target) || moreColorsPanel.contains(target) || blankLineInsert.contains(target) || componentMenu.contains(target) || documentRoot.contains(target)) return;
+      closeBlankLineInsert();
+      clearContext();
+    }, true);
+    stage.addEventListener("pointerdown", (event) => {
+      if (event.target === stage) clearContext();
+    });
+    document.addEventListener("selectionchange", () => {
+      if (toolbar.contains(document.activeElement) || moreColorsPanel.contains(document.activeElement)) return;
+      if (toolbar.dataset.open === "true" && !selectedTextRange()) toolbar.dataset.open = "false";
+    });
+    updateColorDraft(rgbFromHex(currentColor));
+    window.addEventListener("resize", () => { showTextToolbar(); positionMoreColors(); positionBlankLineInsert(); });
+    document.addEventListener("scroll", () => { showTextToolbar(); positionBlankLineInsert(); }, true);
+  </script>
+</body>
+</html>

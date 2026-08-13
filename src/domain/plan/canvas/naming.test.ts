@@ -3,7 +3,7 @@ import type { ProjectPlan } from "./models";
 import { nextComponentName, renameComponent, setPlanTitle } from "./naming";
 
 const plan: ProjectPlan = {
-  schemaVersion: 10,
+  schemaVersion: 12,
   title: "Editorial",
   components: [
     {

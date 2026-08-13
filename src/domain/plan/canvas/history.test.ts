@@ -13,7 +13,7 @@ import type { PlanComponent, ProjectPlan } from "./models";
 
 function planWith(id: string, html: string): ProjectPlan {
   return {
-    schemaVersion: 10,
+    schemaVersion: 12,
     title: "Demo",
     components: [{
       id,
@@ -62,7 +62,7 @@ describe("plan history stack", () => {
 });
 
 function plan(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 10, title: "Demo", components };
+  return { schemaVersion: 12, title: "Demo", components };
 }
 
 function reference(

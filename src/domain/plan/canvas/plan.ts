@@ -13,6 +13,13 @@ import {
   resizeCard,
 } from "./geometry";
 import { firstTextLeaf, updateTextLeafHtml } from "./textTree";
+import {
+  centeredCoverCrop,
+  cropForResizedFrame,
+  normalizeImageCrop,
+  type NormalizedImageCrop,
+} from "./imageView";
+import { removeImageGroupMarker } from "./document";
 
 export interface MoveImageParams {
   fromComponentId: string;
@@ -95,15 +102,39 @@ export function addComponent(plan: ProjectPlan, component: PlanComponent): Proje
     },
     canvasWidth,
   );
-  return replace(plan, [
-    { ...component, x: rect.x, width: rect.width, height: rect.height },
-    ...plan.components,
-  ]);
+  const storedComponent: PlanComponent = component.type === "plan"
+    ? {
+        id: component.id,
+        name: component.name,
+        type: "plan",
+        x: rect.x,
+        width: rect.width,
+        height: rect.height,
+        ...(component.contentScale === undefined ? {} : { contentScale: component.contentScale }),
+        textRoot: component.textRoot,
+      }
+    : {
+        id: component.id,
+        name: component.name,
+        type: "reference",
+        x: rect.x,
+        width: rect.width,
+        height: rect.height,
+        description: component.description,
+        images: component.images,
+      };
+  return replace(plan, [storedComponent, ...plan.components]);
 }
 
 export function removeComponent(plan: ProjectPlan, id: string): ProjectPlan {
   const components = plan.components.filter((component) => component.id !== id);
-  return components.length === plan.components.length ? plan : replace(plan, components);
+  if (components.length === plan.components.length) return plan;
+  return {
+    ...replace(plan, components),
+    ...(plan.documentHtml === undefined
+      ? {}
+      : { documentHtml: removeImageGroupMarker(plan.documentHtml, id) }),
+  };
 }
 
 export function moveComponent(
@@ -274,7 +305,7 @@ export function setImageAspectRatio(
 
 export function setImageAspectRatioForFile(
   plan: ProjectPlan,
-  params: { file: string; aspectRatio: number },
+  params: { file: string; aspectRatio: number; sourceWidth?: number; sourceHeight?: number },
 ): ProjectPlan {
   if (!Number.isFinite(params.aspectRatio) || params.aspectRatio <= 0) {
     return plan;
@@ -287,16 +318,36 @@ export function setImageAspectRatioForFile(
 
     let imagesChanged = false;
     const images = component.images.map((image) => {
-      if (image.file !== params.file || image.aspectRatio === params.aspectRatio) {
+      if (image.file !== params.file) {
+        return image;
+      }
+      const measuredSource =
+        typeof params.sourceWidth === "number" && params.sourceWidth > 0 &&
+        typeof params.sourceHeight === "number" && params.sourceHeight > 0
+          ? { sourceWidth: params.sourceWidth, sourceHeight: params.sourceHeight }
+          : {};
+      const frame = hasDefaultImageFrame(image)
+        ? defaultImageFrame(params.aspectRatio)
+        : { frameWidth: image.frameWidth, frameHeight: image.frameHeight };
+      const crop = image.crop ?? centeredCoverCrop(
+        params.aspectRatio,
+        frame.frameWidth / frame.frameHeight,
+      );
+      if (
+        image.aspectRatio === params.aspectRatio &&
+        image.sourceWidth === measuredSource.sourceWidth &&
+        image.sourceHeight === measuredSource.sourceHeight &&
+        image.crop !== undefined
+      ) {
         return image;
       }
       imagesChanged = true;
       return {
         ...image,
         aspectRatio: params.aspectRatio,
-        ...(hasDefaultImageFrame(image)
-          ? defaultImageFrame(params.aspectRatio)
-          : {}),
+        ...measuredSource,
+        ...frame,
+        crop,
       };
     });
 
@@ -453,8 +504,38 @@ export function setImageFrame(
               ...image,
               frameWidth: params.frameWidth,
               frameHeight: params.frameHeight,
+              crop: cropForResizedFrame(image, params),
             }
           : image,
+      ),
+    };
+  });
+}
+
+export function setImageCrop(
+  plan: ProjectPlan,
+  params: {
+    componentId: string;
+    imageId: string;
+    crop: NormalizedImageCrop;
+  },
+): ProjectPlan {
+  const crop = normalizeImageCrop(params.crop);
+  return mapReference(plan, params.componentId, (component) => {
+    const target = component.images.find((image) => image.id === params.imageId);
+    if (!target) return component;
+    if (
+      target.crop?.x === crop.x &&
+      target.crop.y === crop.y &&
+      target.crop.width === crop.width &&
+      target.crop.height === crop.height
+    ) {
+      return component;
+    }
+    return {
+      ...component,
+      images: component.images.map((image) =>
+        image.id === params.imageId ? { ...image, crop } : image
       ),
     };
   });
@@ -495,8 +576,12 @@ export function resetImageFrame(
     return plan;
   }
 
-  return setImageFrame(plan, {
+  const frameReset = setImageFrame(plan, {
     ...params,
     ...defaultImageFrame(image.aspectRatio),
+  });
+  return setImageCrop(frameReset, {
+    ...params,
+    crop: { x: 0, y: 0, width: 1, height: 1 },
   });
 }

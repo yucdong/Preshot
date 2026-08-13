@@ -49,7 +49,7 @@ const referenceComponent: PlanComponent = {
 };
 
 function successfulRename(): RenameComponentResult {
-  return { ok: true, plan: { schemaVersion: 10, title: "", components: [] } };
+  return { ok: true, plan: { schemaVersion: 12, title: "", components: [] } };
 }
 
 function renderFrame(
@@ -96,13 +96,35 @@ describe("ComponentFrame", () => {
     expect(Number.parseFloat(frame.style.padding)).toBeCloseTo(3.6, 5);
     expect(Number.parseFloat(body.style.height)).toBeCloseTo(77.76, 5);
     expect(frame.querySelector("[data-component-frame-header]")).not.toBeInTheDocument();
-    expect(close).toHaveStyle({
-      position: "absolute",
-      right: "-9px",
-      top: "-9px",
-      width: "18px",
-      height: "18px",
-    });
+    expect(close).toHaveClass("absolute");
+    expect(Number.parseFloat(close.style.right)).toBeCloseTo(3.6, 5);
+    expect(Number.parseFloat(close.style.top)).toBeCloseTo(3.6, 5);
+    expect(Number.parseFloat(close.style.width)).toBeCloseTo(11.52, 5);
+    expect(Number.parseFloat(close.style.height)).toBeCloseTo(11.52, 5);
+    expect(body.style.boxSizing).toBe("border-box");
+    expect(Number.parseFloat(body.style.paddingRight)).toBeCloseTo(14.4, 5);
+  });
+
+  it("uses the same close control geometry and style for reference cards", () => {
+    renderFrame(vi.fn(), vi.fn(successfulRename), referenceComponent, 0.72);
+    const frame = document.querySelector('[data-component-id="reference1"]') as HTMLElement;
+    const header = frame.querySelector("[data-component-frame-header]") as HTMLElement;
+    const close = screen.getByRole("button", { name: "移除组件" });
+
+    expect(close).toHaveClass(
+      "absolute",
+      "bg-[#25272b]",
+      "text-white",
+      "hover:bg-paper-danger",
+    );
+    expect(Number.parseFloat(close.style.right)).toBeCloseTo(3.6, 5);
+    expect(Number.parseFloat(close.style.top)).toBeCloseTo(3.6, 5);
+    expect(Number.parseFloat(close.style.width)).toBeCloseTo(11.52, 5);
+    expect(Number.parseFloat(close.style.height)).toBeCloseTo(11.52, 5);
+    expect(Number.parseFloat(header.style.paddingRight)).toBeCloseTo(14.4, 5);
+    const nameInput = screen.getByRole("textbox", { name: "组件名称" });
+    expect(nameInput).toHaveClass("max-w-full");
+    expect(nameInput.parentElement).toHaveClass("min-w-0", "flex-1");
   });
 
   it("renders arrow movement controls without a component drag handle", () => {
@@ -116,8 +138,8 @@ describe("ComponentFrame", () => {
       "hover:bg-paper-danger",
     );
     expect(screen.getByRole("button", { name: "移除组件" })).toHaveStyle({
-      width: "18px",
-      height: "18px",
+      width: "16px",
+      height: "16px",
     });
     expect(document.querySelector("[data-component-drag-handle]")).not.toBeInTheDocument();
     expect(document.querySelector('[data-component-move-controls="plan1"]')).toHaveClass(

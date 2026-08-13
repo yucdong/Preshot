@@ -18,7 +18,7 @@ describe("createBrowserCanvasPlanDependencies", () => {
     window.sessionStorage.clear();
   });
 
-  it("seeds a canvas plan with components and picker returns deterministic path", async () => {
+  it("seeds one v12 document and picker returns deterministic path", async () => {
     const { service, picker } = createBrowserCanvasPlanDependencies();
 
     const result = await service.loadPlan("C:\\demo", "Demo");
@@ -26,15 +26,17 @@ describe("createBrowserCanvasPlanDependencies", () => {
     if (result.status !== "loaded") {
       throw new Error("Expected the seeded browser plan to load");
     }
-    expect(result.plan.components).toHaveLength(2);
+    expect(result.plan.components).toHaveLength(1);
     expect(result.plan).toMatchObject({
-      schemaVersion: 10,
+      schemaVersion: 12,
+      documentHtml: expect.stringContaining(
+        'data-preshot-node="image-group" data-preshot-group-id="ref-1"',
+      ),
       components: [
-        { id: "plan-1", x: 0, width: expect.any(Number), height: 220 },
         {
           id: "ref-1",
           x: 0,
-          description: "参考图说明",
+          description: "",
         },
       ],
     });
@@ -150,19 +152,26 @@ describe("createBrowserCanvasPlanDependencies", () => {
     }));
   });
 
-  it("round-trips v8 component order", async () => {
+  it("round-trips v12 document markers and image-group records", async () => {
     const first = createBrowserCanvasPlanDependencies();
     const loaded = await first.service.loadPlan("C:\\demo", "Demo");
     if (loaded.status !== "loaded") {
       throw new Error("Expected the seeded browser plan to load");
     }
+    const sourceGroup = loaded.plan.components.find(
+      (component) => component.type === "reference",
+    );
+    if (!sourceGroup || sourceGroup.type !== "reference") {
+      throw new Error("Expected a seeded image group");
+    }
     const plan = {
-      schemaVersion: 10 as const,
+      schemaVersion: 12 as const,
       title: "Flat order",
+      documentHtml:
+        '<p>Before</p><figure data-preshot-node="image-group" data-preshot-group-id="g1"></figure><p>Middle</p><figure data-preshot-node="image-group" data-preshot-group-id="g2"></figure><p></p>',
       components: [
-        { id: "p1", name: "文案1", type: "plan" as const, x: 0, width: 120, height: 80, textRoot: { kind: "leaf" as const, id: "p1:root", html: "" } },
-        { id: "p2", name: "文案2", type: "plan" as const, x: 0, width: 120, height: 80, textRoot: { kind: "leaf" as const, id: "p2:root", html: "" } },
-        { id: "p3", name: "文案3", type: "plan" as const, x: 0, width: 200, height: 80, textRoot: { kind: "leaf" as const, id: "p3:root", html: "" } },
+        { ...sourceGroup, id: "g1", name: "图片组1", images: [] },
+        { ...sourceGroup, id: "g2", name: "图片组2", images: [] },
       ],
     };
 
@@ -173,9 +182,11 @@ describe("createBrowserCanvasPlanDependencies", () => {
     ).resolves.toEqual({
       status: "loaded",
       plan: expect.objectContaining({
-        components: expect.arrayContaining([
-          expect.objectContaining({ id: "p3", width: expect.any(Number) }),
-        ]),
+        documentHtml: plan.documentHtml,
+        components: [
+          expect.objectContaining({ id: "g1" }),
+          expect.objectContaining({ id: "g2" }),
+        ],
       }),
     });
   });

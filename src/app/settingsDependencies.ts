@@ -3,10 +3,13 @@ import { browserSettingsRepository } from "../infrastructure/settings/browserSet
 import { tauriSettingsRepository } from "../infrastructure/settings/tauriSettings";
 
 export function createSettingsRepository(): SettingsRepository {
-  if (import.meta.env.VITE_WORKSPACE_ADAPTER === "memory") {
+  if (
+    import.meta.env.VITE_WORKSPACE_ADAPTER === "memory" ||
+    import.meta.env.VITE_WORKSPACE_ADAPTER === "midscene"
+  ) {
     if (import.meta.env.PROD) {
       throw new Error(
-        "The in-memory settings adapter is only available in end-to-end mode and must never run in a production build.",
+        "The browser settings adapter is only available in test mode and must never run in a production build.",
       );
     }
     return browserSettingsRepository;

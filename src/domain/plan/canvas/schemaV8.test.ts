@@ -55,14 +55,11 @@ describe("schema v8 compatibility", () => {
       context,
     );
 
-    expect(migrated.schemaVersion).toBe(10);
-    expect(migrated.components.map((component) => component.id)).toEqual([
-      "first",
-      "second",
-      "same-position",
-      "third",
-    ]);
-    expect(migrated.components.every((component) => !("y" in component))).toBe(true);
+    expect(migrated.schemaVersion).toBe(12);
+    expect(migrated.documentHtml).toBe(
+      "<p>First</p><p>Second</p><p>Same position</p><p>Third</p><p></p>",
+    );
+    expect(migrated.components).toEqual([]);
   });
 
   it("migrates a strict v8 document without changing component order or dimensions", () => {
@@ -94,25 +91,14 @@ describe("schema v8 compatibility", () => {
     };
 
     expect(migratePlan(saved, context)).toEqual({
-      ...saved,
-      schemaVersion: 10,
-      components: [
-        {
-          id: "narrow",
-          name: "Narrow",
-          type: "plan",
-          x: 40,
-          width: 220,
-          height: 140,
-          contentScale: 0.7,
-          textRoot: {
-            kind: "leaf",
-            id: "narrow:root",
-            html: "<p>Narrow</p>",
-          },
-        },
-        saved.components[1],
-      ],
+      schemaVersion: 12,
+      title: "Editorial",
+      documentHtml:
+        '<p>Narrow</p><h2>Reference</h2><figure data-preshot-node="image-group" data-preshot-group-id="reference"></figure><p></p>',
+      components: [{
+        ...saved.components[1],
+        width: 547.28,
+      }],
     });
   });
 

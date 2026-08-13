@@ -52,6 +52,109 @@ describe("layoutPdfRichText", () => {
     expect(bold.widthOfTextAtSize).toHaveBeenCalledWith("bold", PDF_BODY_SIZE);
   });
 
+  it("fits image blocks to the text width and keeps their aspect ratio", () => {
+    const regular = metricFont();
+    const bold = metricFont();
+    const layout = layoutPdfRichText(
+      [{ type: "image", src: "references/portrait.png", alt: "", width: 1200, height: 800 }],
+      300,
+      { regular, bold },
+    );
+
+    expect(layout.images).toEqual([
+      {
+        src: "references/portrait.png",
+        x: 0,
+        topFromTop: 0,
+        width: 300,
+        height: 200,
+      },
+    ]);
+    expect(layout.height).toBe(200 + PDF_PARAGRAPH_GAP);
+  });
+
+  it("moves an image block to the next page when it does not fit", () => {
+    const regular = metricFont();
+    const bold = metricFont();
+    const rawLayout = layoutPdfRichText(
+      [
+        { type: "paragraph", runs: [{ text: "line" }] },
+        { type: "image", src: "references/portrait.png", alt: "", width: 60, height: 30 },
+      ],
+      100,
+      { regular, bold },
+    );
+    const paginated = paginatePdfTextLayout(rawLayout, {
+      textStartFromDocumentTop: 65,
+      pageHeight: 100,
+      pageMargin: 10,
+    });
+
+    expect(paginated.images[0]).toMatchObject({
+      pageIndex: 1,
+      topFromPageTop: 10,
+      width: 60,
+      height: 30,
+    });
+  });
+
+  it("lays out image-group frames inside the persisted group rectangle", () => {
+    const regular = metricFont();
+    const bold = metricFont();
+    const groups = new Map([[
+      "looks",
+      {
+        id: "looks",
+        name: "图片组1",
+        type: "reference" as const,
+        x: 40,
+        width: 300,
+        height: 200,
+        description: "",
+        images: [
+          {
+            id: "first",
+            file: "references/first.png",
+            aspectRatio: 2,
+            frameWidth: 120,
+            frameHeight: 60,
+            crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+          },
+          {
+            id: "second",
+            file: "references/second.png",
+            aspectRatio: 1,
+            frameWidth: 60,
+            frameHeight: 60,
+          },
+        ],
+      },
+    ]]);
+
+    const layout = layoutPdfRichText(
+      [{ type: "imageGroup", groupId: "looks" }],
+      300,
+      { regular, bold },
+      { imageGroups: groups },
+    );
+
+    const documentToPdf = 300 / (595.28 - 48);
+    expect(layout.images[0]).toMatchObject({
+      src: "references/first.png",
+      crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+    });
+    expect(layout.images[0].x).toBeCloseTo((40 + 9) * documentToPdf);
+    expect(layout.images[0].topFromTop).toBeCloseTo(9 * documentToPdf);
+    expect(layout.images[0].width).toBeCloseTo(120 * documentToPdf);
+    expect(layout.images[0].height).toBeCloseTo(60 * documentToPdf);
+    expect(layout.images[1]).toMatchObject({ src: "references/second.png" });
+    expect(layout.images[1].x).toBeCloseTo((40 + 9 + 120 + 7) * documentToPdf);
+    expect(layout.images[1].topFromTop).toBeCloseTo(9 * documentToPdf);
+    expect(layout.images[1].width).toBeCloseTo(60 * documentToPdf);
+    expect(layout.images[1].height).toBeCloseTo(60 * documentToPdf);
+    expect(layout.height).toBeCloseTo(200 * documentToPdf + PDF_PARAGRAPH_GAP);
+  });
+
   it("adds page-margin spacers and assigns commands to their rendered pages", () => {
     const regular = metricFont();
     const bold = metricFont();

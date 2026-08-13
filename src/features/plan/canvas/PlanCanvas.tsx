@@ -16,6 +16,7 @@ import {
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
   DOCUMENT_TITLE_HEIGHT,
+  COMPONENT_CLOSE_GUTTER,
   PLAN_COMPONENT_VISUAL_INSET,
   snapCardResize,
   type Rect,
@@ -55,15 +56,26 @@ import { DRAG_ACTIVATION_CONSTRAINT } from "./dragMotion";
 import { DragOverlayPreview } from "./DragOverlayPreview";
 import { PagedCanvasSurface } from "./PagedCanvasSurface";
 import { pageTopPx } from "./pagedCanvasMetrics";
+import { PlanDocumentCanvas } from "./PlanDocumentCanvas";
 
 export interface PlanCanvasProps {
   components: PlanComponent[];
+  documentHtml?: string;
   title: string;
   scale: number;
   measurements?: LayoutMeasurements;
   imageSrc: (file: string) => string | undefined;
+  onInsertTextImage?: () => Promise<{
+    file: string;
+    dataUrl: string;
+    alt?: string;
+    width?: number;
+    height?: number;
+  } | null>;
   onRemoveComponent: (id: string) => void;
   onChangeHtml: (componentId: string, leafId: string, html: string) => void;
+  onChangeDocumentHtml?: (html: string) => void;
+  onCreateImageGroup?: (id: string) => void;
   onSplitTextLeaf?: (
     componentId: string,
     leafId: string,
@@ -77,6 +89,7 @@ export interface PlanCanvasProps {
   onAddImage: (id: string) => void;
   onRemoveImage: (componentId: string, imageId: string) => void;
   onOpenImage: (file: string) => void;
+  onOpenDocumentImage?: (componentId: string, imageId: string, file: string) => void;
   onReorderComponent?: (id: string, toIndex: number) => void;
   onMoveImage?: (params: MoveImageParams) => void;
   onMoveImages?: (params: MoveImagesParams) => void;
@@ -91,6 +104,11 @@ export interface PlanCanvasProps {
     componentId: string,
     imageId: string,
     frame: { frameWidth: number; frameHeight: number },
+  ) => void;
+  onSetImageCrop?: (
+    componentId: string,
+    imageId: string,
+    crop: { x: number; y: number; width: number; height: number },
   ) => void;
   onScaleReferenceImages?: (componentId: string, scale: number) => void;
   imageImportProgress?: {
@@ -149,12 +167,48 @@ function collisionForImage(args: Parameters<CollisionDetection>[0]) {
 
 const collisionDetection: CollisionDetection = collisionForImage;
 
-export function PlanCanvas({
+export function PlanCanvas(props: PlanCanvasProps) {
+  if (
+    props.documentHtml !== undefined &&
+    props.onChangeDocumentHtml &&
+    props.onCreateImageGroup
+  ) {
+    return (
+      <PlanDocumentCanvas
+        documentHtml={props.documentHtml}
+        imageGroups={props.components.filter(
+          (component): component is ReferenceComponent => component.type === "reference",
+        )}
+        imageSrc={props.imageSrc}
+        onAddImages={props.onAddImages ?? props.onAddImage}
+        onChangeDocumentHtml={props.onChangeDocumentHtml}
+        onCreateImageGroup={props.onCreateImageGroup}
+        onOpenImage={(componentId, imageId, file) => {
+          if (props.onOpenDocumentImage) {
+            props.onOpenDocumentImage(componentId, imageId, file);
+          } else {
+            props.onOpenImage(file);
+          }
+        }}
+        onRemoveImage={props.onRemoveImage}
+        onRemoveImageGroup={props.onRemoveComponent}
+        onResizeImageGroup={props.onResize ?? (() => undefined)}
+        onSetImageFrame={props.onSetImageFrame ?? (() => undefined)}
+        onScaleImages={props.onScaleReferenceImages ?? (() => undefined)}
+        scale={props.scale}
+      />
+    );
+  }
+  return <LegacyPlanCanvas {...props} />;
+}
+
+function LegacyPlanCanvas({
   components,
   title,
   scale,
   measurements,
   imageSrc,
+  onInsertTextImage,
   onRemoveComponent,
   onChangeHtml,
   onSplitTextLeaf,
@@ -174,6 +228,7 @@ export function PlanCanvas({
   onMeasurePlan,
   onMeasureReferenceDescription,
   onSetImageFrame,
+  onSetImageCrop,
   onScaleReferenceImages,
   imageImportProgress,
   screenCaptureState,
@@ -209,7 +264,7 @@ export function PlanCanvas({
   ): Rect => {
     const component = components.find((entry) => entry.id === componentId);
     const minimumWidth = component?.type === "plan"
-      ? textTreeMinimumWidth(component.textRoot) + PLAN_COMPONENT_VISUAL_INSET * 2
+      ? textTreeMinimumWidth(component.textRoot) + PLAN_COMPONENT_VISUAL_INSET * 2 + COMPONENT_CLOSE_GUTTER
       : undefined;
     const measuredHeight = measurements?.planHeights.get(componentId);
     const minimumHeight = component?.type === "plan"
@@ -477,7 +532,9 @@ export function PlanCanvas({
                 {visibleComponent.type === "plan" ? (
                   <PlanTextComponentView
                     component={visibleComponent}
+                    imageSrc={imageSrc}
                     onChangeHtml={onChangeHtml}
+                    onInsertImage={onInsertTextImage}
                     onMeasure={onMeasurePlan}
                     onSplitLeaf={onSplitTextLeaf}
                     onRemoveLeaf={onRemoveTextLeaf}
@@ -516,6 +573,7 @@ export function PlanCanvas({
                     onSetDescription={onSetDescription}
                     onMeasureDescription={onMeasureReferenceDescription}
                     onSetImageFrame={onSetImageFrame}
+                    onSetImageCrop={onSetImageCrop}
                     onScaleImages={onScaleReferenceImages}
                     placeholderImage={
                       imageOrigin?.component.id === visibleComponent.id

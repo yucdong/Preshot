@@ -7,7 +7,7 @@ import {
 } from "./exportDocument";
 
 const plan: ProjectPlan = {
-  schemaVersion: 10,
+  schemaVersion: 12,
   title: "Editorial",
   components: [
     {

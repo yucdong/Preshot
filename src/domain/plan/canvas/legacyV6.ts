@@ -9,6 +9,9 @@ export interface LegacyV6ReferenceImage {
   caption?: string;
   aspectRatio: number;
   displayHeight?: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
+  crop?: { x: number; y: number; width: number; height: number };
 }
 
 export interface LegacyV6BaseComponent {

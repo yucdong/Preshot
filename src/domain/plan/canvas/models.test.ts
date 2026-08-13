@@ -48,15 +48,16 @@ describe("canvas models", () => {
     expect(clampContentScale(Number.NaN)).toBe(DEFAULT_CONTENT_SCALE);
   });
 
-  it("provides the v10 schema constants and an empty titled plan", () => {
+  it("provides the v12 schema constants and an empty titled document", () => {
     expect(MIN_IMAGE_HEIGHT).toBe(67.5);
     expect(DEFAULT_IMAGE_HEIGHT).toBe(135);
     expect(MAX_IMAGE_HEIGHT).toBe(400);
     expect(DOCUMENT_TITLE_HEIGHT).toBe(36);
     expect(MIN_COMPONENT_WIDTH).toBe(120);
     expect(EMPTY_PLAN).toEqual({
-      schemaVersion: 10,
+      schemaVersion: 12,
       title: UNTITLED_PLAN_TITLE,
+      documentHtml: "<p></p>",
       components: [],
     });
   });

@@ -9,5 +9,5 @@ test("auto-opens the most recently edited project into the workspace", async ({ 
   ).toHaveAttribute("aria-current", "page");
 
   // Assert the canvas is rendered (not the old plan panel)
-  await expect(page.getByTestId("plan-canvas")).toBeVisible();
+  await expect(page.getByTestId("plan-document-canvas")).toBeVisible();
 });

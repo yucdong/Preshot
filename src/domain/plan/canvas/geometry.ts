@@ -26,6 +26,9 @@ export const EDITABLE_COMPONENT_FRAME_CHROME: ComponentFrameChrome = {
 export const PLAN_COMPONENT_FRAME_CHROME = NO_COMPONENT_FRAME_CHROME;
 export const PLAN_COMPONENT_FRAME_INSET = 5;
 export const PLAN_COMPONENT_VISUAL_INSET = PLAN_COMPONENT_FRAME_INSET + 1;
+export const COMPONENT_CLOSE_SIZE = 16;
+export const COMPONENT_CLOSE_INSET = 5;
+export const COMPONENT_CLOSE_GUTTER = 20;
 
 export function componentFrameChromeHeight(chrome: ComponentFrameChrome): number {
   const topBarHeight =

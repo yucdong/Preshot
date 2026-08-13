@@ -24,7 +24,7 @@ const component: PlanTextComponent = {
 };
 
 function plan(): ProjectPlan {
-  return { schemaVersion: 10, title: "Demo", components: [component] };
+  return { schemaVersion: 12, title: "Demo", components: [component] };
 }
 
 describe("recursive text tree reducers", () => {

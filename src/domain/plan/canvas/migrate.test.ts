@@ -6,7 +6,133 @@ const context = { projectName: "Editorial" };
 const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
 
 describe("migratePlan legacy schemas", () => {
-  it("migrates v1 content into v10 components and image frames", () => {
+  it("migrates v11 into one visual-order document with atomic image-group markers", () => {
+    const migrated = migratePlan({
+      schemaVersion: 11,
+      title: "Editorial",
+      components: [
+        {
+          id: "plan",
+          name: "文案1",
+          type: "plan",
+          x: 0,
+          width: canvasWidth,
+          height: 300,
+          textRoot: {
+            kind: "split",
+            id: "root",
+            direction: "rows",
+            gap: 10,
+            children: [
+              { kind: "leaf", id: "bottom", html: "<p>Bottom</p>" },
+              {
+                kind: "split",
+                id: "top",
+                direction: "columns",
+                gap: 10,
+                children: [
+                  { kind: "leaf", id: "left", html: "<p>Left</p>" },
+                  { kind: "leaf", id: "right", html: "<p>Right</p>" },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          id: "looks",
+          name: "造型参考",
+          type: "reference",
+          x: 0,
+          width: canvasWidth,
+          height: 300,
+          description: "<p>暖色自然光</p>",
+          images: [{
+            id: "portrait",
+            file: "references/portrait.png",
+            caption: "半身构图",
+            aspectRatio: 1.5,
+            sourceWidth: 1800,
+            sourceHeight: 1200,
+            frameWidth: 144,
+            frameHeight: 120,
+            crop: { x: 0.1, y: 0, width: 0.8, height: 1 },
+          }],
+        },
+      ],
+    }, context) as unknown as {
+      schemaVersion: number;
+      title: string;
+      documentHtml: string;
+      components: Array<Record<string, unknown>>;
+    };
+
+    expect(migrated).toMatchObject({
+      schemaVersion: 12,
+      title: "Editorial",
+      documentHtml:
+        '<p>Left</p><p>Right</p><p>Bottom</p><h2>造型参考</h2><p>暖色自然光</p><figure data-preshot-node="image-group" data-preshot-group-id="looks"></figure><p></p>',
+      components: [{
+        id: "looks",
+        type: "reference",
+        x: 0,
+        width: canvasWidth,
+        description: "",
+        images: [{
+          id: "portrait",
+          file: "references/portrait.png",
+          caption: "半身构图",
+          sourceWidth: 1800,
+          sourceHeight: 1200,
+          frameWidth: 144,
+          frameHeight: 120,
+          crop: { x: 0.1, y: 0, width: 0.8, height: 1 },
+        }],
+      }],
+    });
+  });
+
+  it("strictly reloads v12 and rejects broken image-group marker integrity", () => {
+    const saved = {
+      schemaVersion: 12,
+      title: "Editorial",
+      documentHtml:
+        '<p>正文</p><figure data-preshot-node="image-group" data-preshot-group-id="looks"></figure><p></p>',
+      components: [{
+        id: "looks",
+        name: "图片组1",
+        type: "reference",
+        x: 0,
+        width: canvasWidth,
+        height: 300,
+        description: "",
+        images: [],
+      }],
+    };
+
+    expect(migratePlan(saved, context)).toEqual(saved);
+    expect(() => migratePlan({
+      ...saved,
+      documentHtml: '<p>正文</p><figure data-preshot-node="image-group" data-preshot-group-id="missing"></figure><p></p>',
+    }, context)).toThrow(/missing image group/i);
+    expect(() => migratePlan({
+      ...saved,
+      documentHtml: "<p>正文</p>",
+    }, context)).toThrow(/exactly once/i);
+    expect(() => migratePlan({
+      ...saved,
+      components: [{
+        id: "plan",
+        name: "旧文案",
+        type: "plan",
+        x: 0,
+        width: canvasWidth,
+        height: 220,
+        textRoot: { kind: "leaf", id: "leaf", html: "<p>旧内容</p>" },
+      }],
+    }, context)).toThrow(/only contain image groups/i);
+  });
+
+  it("migrates v1 content into a v12 document and image groups", () => {
     const plan = migratePlan(
       {
         photographyPlan: "<p>Shot list</p>",
@@ -23,21 +149,17 @@ describe("migratePlan legacy schemas", () => {
     );
 
     expect(plan).toMatchObject({
-      schemaVersion: 10,
+      schemaVersion: 12,
       title: "Editorial",
+      documentHtml:
+        '<p>Shot list</p><h2>Looks</h2><p>Warm</p><figure data-preshot-node="image-group" data-preshot-group-id="ref"></figure><p></p>',
       components: [
-        {
-          type: "plan",
-          x: 0,
-          width: canvasWidth,
-          textRoot: { html: "<p>Shot list</p>" },
-        },
         {
           id: "ref",
           type: "reference",
           x: 0,
           width: canvasWidth,
-          description: "Warm",
+          description: "",
           images: [{
             id: "image",
             aspectRatio: 1,
@@ -49,7 +171,7 @@ describe("migratePlan legacy schemas", () => {
     });
   });
 
-  it.each([3, 4, 5])("migrates v%s components through the v6 adapter into v10", (schemaVersion) => {
+  it.each([3, 4, 5])("migrates v%s text through the v6 adapter into v12", (schemaVersion) => {
     const raw = schemaVersion === 5
       ? {
           schemaVersion,
@@ -76,8 +198,9 @@ describe("migratePlan legacy schemas", () => {
 
     const plan = migratePlan(raw, context);
     expect(plan).toMatchObject({
-      schemaVersion: 10,
-      components: [{ id: "plan", type: "plan", x: 0, width: canvasWidth }],
+      schemaVersion: 12,
+      documentHtml: "<p></p>",
+      components: [],
     });
   });
 
@@ -119,7 +242,7 @@ describe("migratePlan legacy schemas", () => {
   });
 
   it("rejects a future schema instead of modifying it", () => {
-    expect(() => migratePlan({ schemaVersion: 11, title: "Future", components: [] }, context)).toThrow(
+    expect(() => migratePlan({ schemaVersion: 13, title: "Future", components: [] }, context)).toThrow(
       /schema version/i,
     );
   });

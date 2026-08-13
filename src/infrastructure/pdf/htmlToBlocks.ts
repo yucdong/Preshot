@@ -12,7 +12,15 @@ export interface Run {
 export type Block =
   | { type: "heading"; level: 1 | 2; runs: Run[] }
   | { type: "paragraph"; runs: Run[] }
-  | { type: "list"; ordered: boolean; items: Run[][] };
+  | { type: "list"; ordered: boolean; items: Run[][] }
+  | {
+      type: "image";
+      src: string;
+      alt: string;
+      width?: number;
+      height?: number;
+    }
+  | { type: "imageGroup"; groupId: string };
 
 interface Marks {
   bold?: boolean;
@@ -89,6 +97,12 @@ function runsOf(element: Element): Run[] {
   return runs;
 }
 
+function positiveNumber(value: string | null): number | undefined {
+  if (value === null) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 export function parseHtmlToBlocks(html: string): Block[] {
   const document = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
   const blocks: Block[] = [];
@@ -119,6 +133,29 @@ export function parseHtmlToBlocks(html: string): Block[] {
       blocks.push({ type: "heading", level: 1, runs: runsOf(element) });
     } else if (tag === "h2" || tag === "h3") {
       blocks.push({ type: "heading", level: 2, runs: runsOf(element) });
+    } else if (tag === "img") {
+      const src = element.getAttribute("src");
+      if (src) {
+        blocks.push({
+          type: "image",
+          src,
+          alt: element.getAttribute("alt") ?? "",
+          ...(positiveNumber(element.getAttribute("width")) !== undefined
+            ? { width: positiveNumber(element.getAttribute("width")) }
+            : {}),
+          ...(positiveNumber(element.getAttribute("height")) !== undefined
+            ? { height: positiveNumber(element.getAttribute("height")) }
+            : {}),
+        });
+      }
+    } else if (
+      tag === "figure" &&
+      element.getAttribute("data-preshot-node") === "image-group"
+    ) {
+      const encodedGroupId = element.getAttribute("data-preshot-group-id");
+      if (encodedGroupId) {
+        blocks.push({ type: "imageGroup", groupId: decodeURIComponent(encodedGroupId) });
+      }
     } else if (tag === "ul" || tag === "ol") {
       const items = Array.from(element.querySelectorAll(":scope > li")).map((item) => runsOf(item));
       blocks.push({ type: "list", ordered: tag === "ol", items });

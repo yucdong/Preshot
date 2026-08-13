@@ -35,12 +35,10 @@ describe("schema v7 migration", () => {
     };
 
     expect(migratePlan(saved, context)).toMatchObject({
-      schemaVersion: 10,
+      schemaVersion: 12,
       title: "Editorial",
-      components: [
-        { id: "back", textRoot: { html: "<p>Back</p>" } },
-        { id: "front", textRoot: { html: "<p>Front</p>" } },
-      ],
+      documentHtml: "<p>Back</p><p>Front</p><p></p>",
+      components: [],
     });
   });
 
@@ -83,17 +81,11 @@ describe("schema v7 migration", () => {
     );
 
     expect(migrated).toMatchObject({
-      schemaVersion: 10,
+      schemaVersion: 12,
       title: "Editorial",
+      documentHtml:
+        '<p>Golden hour</p><h2>Looks</h2><figure data-preshot-node="image-group" data-preshot-group-id="reference"></figure><p></p>',
       components: [
-        {
-          id: "plan",
-          type: "plan",
-          x: 0,
-          width: canvasWidth,
-          height: 84,
-          textRoot: { html: "<p>Golden hour</p>" },
-        },
         {
           id: "reference",
           type: "reference",

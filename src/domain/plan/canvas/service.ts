@@ -36,6 +36,10 @@ export interface CanvasPlanService {
   loadPlan(projectPath: string, projectName: string): Promise<CanvasPlanLoadResult>;
   savePlan(projectPath: string, plan: ProjectPlan): Promise<void>;
   loadImage(projectPath: string, file: string): Promise<string>;
+  importAsset(projectPath: string, sourcePath: string): Promise<{
+    file: string;
+    dataUrl: string;
+  }>;
   importImage(
     projectPath: string,
     plan: ProjectPlan,
@@ -124,6 +128,15 @@ export function createCanvasPlanService({
       } catch (error) {
         throw contextualError("Unable to load a reference image", error);
       }
+    },
+    importAsset(projectPath, sourcePath) {
+      return enqueue(async () => {
+        try {
+          return await imageStore.importImage(projectPath, sourcePath);
+        } catch (error) {
+          throw contextualError("Unable to import a text image", error);
+        }
+      });
     },
     importImage(projectPath, plan, componentId, sourcePath) {
       return enqueue(async () => {

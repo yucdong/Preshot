@@ -29,6 +29,34 @@ describe("parseHtmlToBlocks", () => {
     expect(parseHtmlToBlocks("<div>x</div>")).toEqual([{ type: "paragraph", runs: [{ text: "x" }] }]);
   });
 
+  it("parses a project image as an independent PDF content block", () => {
+    expect(
+      parseHtmlToBlocks(
+        '<p>Before</p><img src="references/portrait.png" alt="Portrait" width="1200" height="800"><p>After</p>',
+      ),
+    ).toEqual([
+      { type: "paragraph", runs: [{ text: "Before" }] },
+      {
+        type: "image",
+        src: "references/portrait.png",
+        alt: "Portrait",
+        width: 1200,
+        height: 800,
+      },
+      { type: "paragraph", runs: [{ text: "After" }] },
+    ]);
+  });
+
+  it("parses an atomic image-group marker in document order", () => {
+    expect(parseHtmlToBlocks(
+      '<p>Before</p><figure data-preshot-node="image-group" data-preshot-group-id="looks"></figure><p>After</p>',
+    )).toEqual([
+      { type: "paragraph", runs: [{ text: "Before" }] },
+      { type: "imageGroup", groupId: "looks" },
+      { type: "paragraph", runs: [{ text: "After" }] },
+    ]);
+  });
+
   it("parses underline, strikethrough, color, and font-size marks", () => {
     const [block] = parseHtmlToBlocks(
       '<p><u>u</u><s>s</s><span style="color: #ff0000; font-size: 20px">c</span></p>',

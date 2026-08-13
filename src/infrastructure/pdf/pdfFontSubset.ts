@@ -6,6 +6,9 @@ import { textLeaves } from "../../domain/plan/canvas/textTree";
 const GENERATED_PDF_CHARACTERS = " 0123456789.•";
 
 function blockText(block: Block): string {
+  if (block.type === "image" || block.type === "imageGroup") {
+    return "";
+  }
   if (block.type === "list") {
     return block.items.flatMap((item) => item.map((run) => run.text)).join("");
   }
@@ -14,6 +17,10 @@ function blockText(block: Block): string {
 
 export function pdfDocumentText(plan: ProjectPlan): string {
   const text = [plan.title, GENERATED_PDF_CHARACTERS];
+  if (plan.documentHtml !== undefined) {
+    text.push(...parseHtmlToBlocks(plan.documentHtml).map(blockText));
+    return text.join("");
+  }
   for (const component of plan.components) {
     text.push(component.name);
     if (component.type === "plan") {

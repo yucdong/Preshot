@@ -29,6 +29,23 @@ export function PagedCanvasSurface({ pageCount, scale, children }: PagedCanvasSu
       {Array.from({ length: pageCount }, (_unused, index) => (
         <CanvasPage key={index} scale={scale} top={pageTopPx(index, scale)} />
       ))}
+      {Array.from({ length: Math.max(0, pageCount - 1) }, (_unused, index) => (
+        <div
+          aria-hidden="true"
+          className="absolute left-0 z-30 cursor-default"
+          data-testid="canvas-page-gap"
+          key={`gap-${index}`}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          style={{
+            top: `${pageTopPx(index, scale) + pageHeight}px`,
+            width: `${A4.width * scale}px`,
+            height: `${PAGE_SCREEN_GAP}px`,
+          }}
+        />
+      ))}
       {children}
     </div>
   );

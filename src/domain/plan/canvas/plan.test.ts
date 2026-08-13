@@ -16,6 +16,7 @@ import {
   setImageAspectRatioForFile,
   setImageCaption,
   setImageFrame,
+  setImageCrop,
   updatePlanHtml,
 } from "./plan";
 import type {
@@ -61,7 +62,7 @@ function reference(
 }
 
 function withComponents(components: PlanComponent[]): ProjectPlan {
-  return { schemaVersion: 10, title: "Demo", components };
+  return { schemaVersion: 12, title: "Demo", components };
 }
 
 describe("v7 canvas reducers", () => {
@@ -79,6 +80,17 @@ describe("v7 canvas reducers", () => {
       width: canvasWidth,
       height: 220,
     });
+  });
+
+  it("strips runtime geometry fields at the compatibility component boundary", () => {
+    const runtimeComponent = {
+      ...planText("new"),
+      y: 0,
+    } as unknown as PlanComponent;
+
+    const next = addComponent(withComponents([]), runtimeComponent);
+
+    expect(next.components[0]).not.toHaveProperty("y");
   });
 
   it("moves a card horizontally while vertical position remains derived from order", () => {
@@ -127,6 +139,35 @@ describe("v7 canvas reducers", () => {
     const next = updatePlanHtml(plan, { id: "a", html: "<p>updated</p>" });
     expect(next.components[0]).toMatchObject({ textRoot: { html: "<p>updated</p>" } });
     expect(next.components[1]).toBe(plan.components[1]);
+  });
+
+  it("persists a centered crop when an image frame changes ratio", () => {
+    const source = reference("r1", ["i1"]);
+    source.images[0] = {
+      ...source.images[0],
+      aspectRatio: 2,
+      frameWidth: 200,
+      frameHeight: 100,
+    };
+    const resized = setImageFrame(withComponents([source]), {
+      componentId: "r1",
+      imageId: "i1",
+      frameWidth: 100,
+      frameHeight: 100,
+    });
+
+    expect((resized.components[0] as ReferenceComponent).images[0]).toMatchObject({
+      frameWidth: 100,
+      frameHeight: 100,
+      crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+    });
+    expect(setImageCrop(resized, {
+      componentId: "r1",
+      imageId: "i1",
+      crop: { x: 0.1, y: 0, width: 0.5, height: 1 },
+    })).toMatchObject({
+      components: [{ images: [{ crop: { x: 0.1, y: 0, width: 0.5, height: 1 } }] }],
+    });
   });
 
   it("keeps image DnD and non-rendered legacy captions working on v7 frames", () => {
@@ -222,6 +263,7 @@ describe("v7 canvas reducers", () => {
       frameWidth: 270,
       frameHeight: 135,
       aspectRatio: 2,
+      crop: { x: 0, y: 0, width: 1, height: 1 },
     });
   });
 
@@ -303,5 +345,23 @@ describe("v7 canvas reducers", () => {
     const plan = withComponents([planText("a"), planText("b")]);
     expect(removeComponent(plan, "a").components.map((component) => component.id)).toEqual(["b"]);
     expect(removeComponent(plan, "missing")).toBe(plan);
+  });
+
+  it("removes the matching v12 image-group marker with its metadata", () => {
+    const source = reference("group", ["image"]);
+    const plan: ProjectPlan = {
+      schemaVersion: 12,
+      title: "Demo",
+      documentHtml:
+        '<p>Before</p><figure data-preshot-node="image-group" data-preshot-group-id="group"></figure><p>After</p>',
+      components: [source],
+    };
+
+    expect(removeComponent(plan, "group")).toEqual({
+      schemaVersion: 12,
+      title: "Demo",
+      documentHtml: "<p>Before</p><p>After</p>",
+      components: [],
+    });
   });
 });

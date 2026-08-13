@@ -178,6 +178,38 @@ button:disabled {
   container-type: inline-size;
 }
 
+.preshot-document-editor .tiptap-editor {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: text;
+}
+
+.preshot-document-editor .tiptap-editor p,
+.preshot-document-editor .tiptap-editor h1,
+.preshot-document-editor .tiptap-editor h2,
+.preshot-document-editor .tiptap-editor h3,
+.preshot-document-editor .tiptap-editor h4,
+.preshot-document-editor .tiptap-editor h5,
+.preshot-document-editor .tiptap-editor h6,
+.preshot-document-editor .tiptap-editor li,
+.preshot-document-editor .tiptap-editor blockquote,
+.preshot-document-editor .tiptap-editor pre {
+  cursor: text;
+}
+
+.preshot-document-page-spacer {
+  display: block;
+  width: 100%;
+  pointer-events: none;
+}
+
+.preshot-document-page-fitted {
+  overflow: visible;
+}
+
 .preshot-editor-container {
   display: flex;
   flex-direction: column;
@@ -186,6 +218,82 @@ button:disabled {
 .preshot-formatting-toolbar {
   position: relative;
   z-index: 50;
+}
+
+.preshot-contextual-toolbar {
+  position: fixed;
+  z-index: 90;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+}
+
+.preshot-contextual-formatting-rows {
+  display: grid;
+  gap: 2px;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  padding: 4px;
+  border: 1px solid var(--app-border);
+  border-radius: 5px;
+  background: var(--app-panel-strong);
+  color: var(--app-ink);
+  box-shadow: 0 8px 24px rgb(17 18 22 / 24%);
+}
+
+.preshot-contextual-formatting-row {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 1px;
+}
+
+.preshot-contextual-formatting-row + .preshot-contextual-formatting-row {
+  padding-top: 2px;
+  border-top: 1px solid var(--app-border);
+}
+
+.preshot-contextual-formatting-row .preshot-block-trigger {
+  min-width: 7.25rem;
+  height: 26px;
+  padding-inline: 0.25rem;
+  font-size: 11px;
+}
+
+.preshot-contextual-formatting-row .preshot-font-stepper,
+.preshot-contextual-formatting-row .relative.mx-1 {
+  height: 26px;
+  margin-inline: 0;
+}
+
+.preshot-contextual-formatting-row .preshot-font-stepper > button {
+  width: 24px;
+}
+
+.preshot-contextual-formatting-row .preshot-font-stepper > span {
+  width: 36px;
+}
+
+.preshot-contextual-formatting-row .preshot-tool-button {
+  width: 26px;
+  height: 26px;
+}
+
+.preshot-contextual-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  margin-inline: 1px;
+  background: var(--app-border);
+}
+
+.preshot-contextual-toolbar > .preshot-tiptap-toolbar {
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-panel-strong);
+  color: var(--app-ink);
+  box-shadow: 0 8px 24px rgb(17 18 22 / 24%);
 }
 
 .preshot-formatting-toolbar > .preshot-tiptap-toolbar {
@@ -279,6 +387,359 @@ button:disabled {
   font-synthesis-style: auto;
 }
 
+.tiptap-editor img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+.tiptap-editor [data-resize-container][data-node="image"] {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.5rem 0;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+.tiptap-editor [data-resize-wrapper] {
+  width: 100%;
+  line-height: 0;
+}
+
+.tiptap-editor .preshot-resizable-image-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  margin: 0;
+  overflow: hidden;
+}
+
+.tiptap-editor .preshot-resizable-image-frame > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100% !important;
+  max-width: 100%;
+  margin: 0;
+  object-fit: contain;
+}
+
+.tiptap-editor [data-resize-handle="bottom-right"] {
+  position: absolute;
+  z-index: 30;
+  width: 14px;
+  height: 14px;
+  right: -5px !important;
+  bottom: -5px !important;
+  border: 2px solid white;
+  border-radius: 3px;
+  background: var(--app-functional);
+  box-shadow: 0 1px 4px rgb(24 24 27 / 28%);
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.tiptap-editor [data-resize-container][data-node="image"]:hover [data-resize-handle],
+.tiptap-editor [data-resize-container][data-node="image"].ProseMirror-selectednode [data-resize-handle],
+.tiptap-editor [data-resize-container][data-resize-state="true"] [data-resize-handle] {
+  opacity: 1;
+}
+
+.tiptap-editor [data-resize-container][data-resize-state="true"] [data-resize-handle] {
+  transform: scale(1.12);
+}
+
+.tiptap-editor img.ProseMirror-selectednode,
+.tiptap-editor [data-resize-container][data-node="image"].ProseMirror-selectednode [data-resize-wrapper] {
+  outline: 2px solid var(--app-functional);
+  outline-offset: 2px;
+}
+
+.preshot-document-image-group {
+  position: relative;
+  margin: 0.65rem 0;
+  padding: 0.5rem;
+  border: 1px solid var(--app-border);
+  border-radius: 4px;
+  background: var(--app-panel);
+  outline: none;
+}
+
+.preshot-document-image-group.is-selected {
+  background: color-mix(in srgb, var(--app-panel) 88%, var(--app-ink) 12%);
+}
+
+.preshot-document-image-group-grid {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 7px;
+  overflow: hidden;
+}
+
+.preshot-document-image-frame {
+  position: relative;
+  flex: none;
+  border: 0;
+  border-radius: 3px;
+  background: #e7e8ea;
+  padding: 0;
+}
+
+.preshot-document-image-button {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 3px;
+  background: #e7e8ea;
+}
+
+.preshot-document-image-frame img {
+  position: absolute;
+  max-width: none;
+  margin: 0;
+}
+
+.preshot-document-image-index {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 12;
+  display: none;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 3px;
+  background: rgb(25 27 31 / 68%);
+  color: white;
+  font-size: 8px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.preshot-document-image-frame.is-selected .preshot-document-image-index {
+  display: grid;
+}
+
+.preshot-document-image-resize-edge,
+.preshot-document-image-resize-corner {
+  position: absolute;
+  z-index: 10;
+  display: none;
+}
+
+.preshot-document-image-group.is-selected
+  .preshot-document-image-frame.is-selected
+  :is(.preshot-document-image-resize-edge, .preshot-document-image-resize-corner) {
+  display: block;
+}
+
+.preshot-document-image-resize-edge.is-left,
+.preshot-document-image-resize-edge.is-right {
+  top: 12px;
+  bottom: 12px;
+  width: 24px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.preshot-document-image-resize-edge.is-left { left: 0; }
+.preshot-document-image-resize-edge.is-right { right: 0; }
+
+.preshot-document-image-resize-edge.is-top,
+.preshot-document-image-resize-edge.is-bottom {
+  right: 14px;
+  left: 14px;
+  height: 18px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.preshot-document-image-resize-edge.is-top { top: 0; }
+.preshot-document-image-resize-edge.is-bottom { bottom: 0; }
+
+.preshot-document-image-resize-corner,
+.preshot-document-image-group-corner {
+  width: 22px;
+  height: 22px;
+  touch-action: none;
+}
+
+:is(.preshot-document-image-resize-corner, .preshot-document-image-group-corner).is-top-left {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+:is(.preshot-document-image-resize-corner, .preshot-document-image-group-corner).is-top-right {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+:is(.preshot-document-image-resize-corner, .preshot-document-image-group-corner).is-bottom-left {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+:is(.preshot-document-image-resize-corner, .preshot-document-image-group-corner).is-bottom-right {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.preshot-document-image-guide {
+  position: absolute;
+  z-index: 12;
+  display: none;
+  background: #ee8b2d;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 75%);
+  pointer-events: none;
+}
+
+.preshot-document-image-guide[data-visible="true"] { display: block; }
+.preshot-document-image-guide.is-vertical { top: 4px; bottom: 4px; width: 1px; }
+.preshot-document-image-guide.is-horizontal { right: 4px; left: 4px; height: 1px; }
+
+.preshot-document-image-group-drag {
+  position: absolute;
+  top: 50%;
+  left: -31px;
+  z-index: 5;
+  display: grid;
+  width: 24px;
+  height: 36px;
+  transform: translateY(-50%);
+  place-items: center;
+  border: 1px solid var(--app-border);
+  border-radius: 5px;
+  background: white;
+  color: var(--app-muted);
+  opacity: 0;
+  cursor: grab;
+  box-shadow: 0 3px 10px rgb(25 27 31 / 12%);
+}
+
+.preshot-document-image-group:hover .preshot-document-image-group-drag,
+.preshot-document-image-group.is-selected .preshot-document-image-group-drag {
+  opacity: 1;
+}
+
+.preshot-document-image-group-empty {
+  display: grid;
+  width: 100%;
+  height: 112px;
+  place-items: center;
+  border: 1px dashed #aeb3ba;
+  border-radius: 4px;
+  background: #fafafa;
+  color: var(--app-muted);
+  font-size: 20px;
+}
+
+.preshot-document-image-group-edge {
+  position: absolute;
+  z-index: 14;
+  display: none;
+  touch-action: none;
+}
+
+.preshot-document-image-group.is-selected .preshot-document-image-group-edge { display: block; }
+.preshot-document-image-group-edge:is(.is-left, .is-right) { top: 18px; bottom: 18px; width: 18px; cursor: ew-resize; }
+.preshot-document-image-group-edge:is(.is-top, .is-bottom) { right: 18px; left: 18px; height: 18px; cursor: ns-resize; }
+.preshot-document-image-group-edge.is-left { left: 0; }
+.preshot-document-image-group-edge.is-right { right: 0; }
+.preshot-document-image-group-edge.is-top { top: 0; }
+.preshot-document-image-group-edge.is-bottom { bottom: 0; }
+
+.preshot-document-image-group-corner {
+  position: absolute;
+  z-index: 14;
+  display: none;
+  width: 24px;
+  height: 24px;
+}
+
+.preshot-document-image-group.is-selected .preshot-document-image-group-corner {
+  display: block;
+}
+
+.preshot-document-blank-insert-control {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 50%;
+  background: var(--app-panel-strong);
+  color: var(--app-muted);
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: 0 2px 7px rgb(25 27 31 / 10%);
+}
+
+.preshot-document-blank-insert-control:hover,
+.preshot-document-blank-insert-control[aria-expanded="true"] {
+  border-color: var(--app-functional);
+  color: var(--app-functional);
+}
+
+.preshot-document-blank-insert-menu {
+  position: absolute;
+  width: 170px;
+  padding: 4px;
+  border: 1px solid #3b3f47;
+  border-radius: 6px;
+  background: #202329;
+  color: white;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 25%);
+}
+
+.preshot-document-blank-insert-menu button {
+  display: flex;
+  width: 100%;
+  height: 34px;
+  align-items: center;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: white;
+  font-size: 11px;
+}
+
+.preshot-document-blank-insert-menu button:hover,
+.preshot-document-blank-insert-menu button:focus-visible {
+  background: rgb(255 255 255 / 10%);
+}
+
+@media (hover: none) {
+  .preshot-document-image-group-drag {
+    top: 4px;
+    left: 4px;
+    height: 28px;
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  .tiptap-editor [data-resize-handle="bottom-right"] {
+    width: 18px;
+    height: 18px;
+    opacity: 1;
+  }
+}
+
 .tiptap-editor p,
 .tiptap-editor blockquote,
 .tiptap-editor pre,
@@ -326,6 +787,14 @@ button:disabled {
 .tiptap-editor ul,
 .tiptap-editor ol {
   padding-left: 1.5rem;
+}
+
+.tiptap-editor ul:not([data-type="taskList"]) {
+  list-style-type: disc;
+}
+
+.tiptap-editor ol {
+  list-style-type: decimal;
 }
 
 .tiptap-editor blockquote {

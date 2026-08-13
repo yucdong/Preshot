@@ -22,7 +22,7 @@ export const MIN_CONTENT_SCALE = 0.5;
 export const MAX_CONTENT_SCALE = 2;
 export const DEFAULT_CONTENT_SCALE = 1;
 
-export const CURRENT_SCHEMA_VERSION = 10 as const;
+export const CURRENT_SCHEMA_VERSION = 12 as const;
 
 export function clampHeight(height: number, maxHeight: number): number {
   if (!Number.isFinite(height)) {
@@ -67,9 +67,17 @@ export interface ReferenceImage {
   /** Preserved from v1-v6, but intentionally not rendered by the v7 UI or PDF. */
   caption?: string;
   aspectRatio: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
   /** Independent frame dimensions in canvas points; they do not derive from aspectRatio. */
   frameWidth: number;
   frameHeight: number;
+  crop?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface BaseComponent {
@@ -114,13 +122,16 @@ export interface ReferenceComponent extends BaseComponent {
 export type PlanComponent = PlanTextComponent | ReferenceComponent;
 
 export interface ProjectPlan {
-  schemaVersion: 10;
+  schemaVersion: 12;
   title: string;
+  /** Canonical v12 text and image-group ordering. Optional only for transient legacy test fixtures. */
+  documentHtml?: string;
   components: PlanComponent[];
 }
 
 export const EMPTY_PLAN: ProjectPlan = {
-  schemaVersion: 10,
+  schemaVersion: 12,
   title: UNTITLED_PLAN_TITLE,
+  documentHtml: "<p></p>",
   components: [],
 };

@@ -107,7 +107,7 @@ export const zh = {
     cropBottom: "从下方裁剪图片",
     cropLeft: "从左侧裁剪图片",
     resetCrop: "恢复原图",
-    resetImageSize: "恢复默认图片尺寸",
+    resetImageSize: "恢复原图视图",
     resizeImageTop: "调整图片顶部",
     resizeImageRight: "调整图片右侧",
     resizeImageBottom: "调整图片底部",

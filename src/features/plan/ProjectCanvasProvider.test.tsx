@@ -130,7 +130,7 @@ vi.mock("./canvas/InsertComponentMenu", () => ({
 }));
 
 const initialPlan: ProjectPlan = {
-  schemaVersion: 10,
+  schemaVersion: 12,
   title: "Demo",
   components: [{
     id: "plan-1",
@@ -164,6 +164,7 @@ function dependencies() {
     loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan: initialPlan }),
     savePlan,
     loadImage: vi.fn().mockRejectedValue(new Error("Image loading is not needed in this provider test")),
+    importAsset: vi.fn(),
     importImage: vi.fn(),
     importImages: vi.fn(),
     removeImage: vi.fn(),

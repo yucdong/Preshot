@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preshot 卡片关闭按钮统一方案</title>
+<style>
+@font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype");font-weight:600 800;font-display:swap}
+:root{--chrome:#191b1f;--stage:#dfe1e5;--panel:#f7f6f4;--paper:#fff;--ink:#202329;--muted:#6b6f76;--line:#d7d6d3;--cyan:#0891b2;--cyan-soft:#e1f4f7;--berry:#c2385c;--danger:#b42342;--danger-soft:#fdecef;--close-size:16px;--close-inset:5px;--close-gutter:20px;--card-width:100%;--canvas-zoom:1;--shadow:0 12px 32px rgb(24 24 27 / 12%)}
+*{box-sizing:border-box}html,body{margin:0;min-width:720px;width:100%;height:100%;overflow:hidden}body{font-family:NotoSC,"Microsoft YaHei UI",sans-serif;color:var(--ink);background:var(--stage);letter-spacing:0}button,input{font:inherit}button{cursor:pointer}.app{height:100vh;display:grid;grid-template-rows:52px minmax(0,1fr)}
+.topbar{display:flex;align-items:center;gap:11px;padding:0 16px;background:var(--chrome);color:#fff}.brand-mark{display:grid;place-items:center;width:27px;height:27px;border-radius:5px;background:var(--berry);font-weight:800}.brand{font-size:14px;font-weight:800}.divider{width:1px;height:18px;background:#41444a}.title{font-size:11px;color:#d6d8dc}.tag{padding:3px 6px;border:1px solid #4c5057;border-radius:4px;color:#bfc3c9;font-size:9px}.topbar-spacer{flex:1}.status{display:flex;align-items:center;gap:6px;font-size:9px;color:#bdc2c8}.status::before{content:"";width:6px;height:6px;border-radius:50%;background:#47b881}
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 292px;min-height:0}.stage{min-width:0;overflow:auto;padding:28px 34px 64px;background-color:var(--stage);background-image:linear-gradient(rgb(32 35 41 / 3%) 1px,transparent 1px),linear-gradient(90deg,rgb(32 35 41 / 3%) 1px,transparent 1px);background-size:20px 20px}.page-wrap{width:min(860px,92%);min-width:500px;margin:0 auto;transform:scale(var(--canvas-zoom));transform-origin:top center;transition:transform 180ms ease}.paper{min-height:760px;padding:34px 40px 68px;background:var(--paper);box-shadow:var(--shadow)}
+.paper-head{display:flex;align-items:end;justify-content:space-between;margin-bottom:24px;padding-bottom:13px;border-bottom:1px solid #ececeb}.paper-head h1{margin:0;font-size:19px}.paper-head span{font-size:9px;color:#8a8e94}.section-kicker{display:flex;align-items:center;gap:8px;margin:20px 0 7px;color:var(--muted);font-size:9px;font-weight:700}.section-kicker::before{content:"";width:14px;height:1px;background:var(--cyan)}
+.card{position:relative;width:var(--card-width);padding:5px;padding-right:calc(5px + var(--close-gutter));border:1px solid var(--line);border-radius:6px;background:#fff;box-shadow:0 3px 12px rgb(24 24 27 / 6%);transition:width 180ms ease,border-color 160ms ease,box-shadow 160ms ease}.card:hover{border-color:rgb(8 145 178 / 55%);box-shadow:0 5px 16px rgb(24 24 27 / 10%)}
+.card-close{position:absolute;z-index:20;top:var(--close-inset);right:var(--close-inset);display:grid;place-items:center;width:var(--close-size);height:var(--close-size);padding:0;border:0;border-radius:4px;background:#25272b;color:#fff;box-shadow:0 1px 3px rgb(0 0 0 / 18%);transition:background-color 160ms ease,transform 160ms ease,box-shadow 160ms ease}.card-close:hover,.card-close.demo-danger{background:var(--danger);box-shadow:0 2px 6px rgb(180 35 66 / 28%)}.card-close:active{transform:scale(.92)}.card-close:focus-visible{outline:2px solid var(--danger);outline-offset:2px}.card-close svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.text-card{min-height:130px}.formatbar{display:flex;align-items:center;gap:2px;height:32px;padding:2px 4px;border-bottom:1px solid var(--line);background:#fbfbfa}.formatbar button{display:grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:4px;background:transparent;color:#43484e;font-size:10px}.formatbar .block{width:58px;justify-content:start;padding-left:7px}.formatbar .size{width:34px;border:1px solid var(--line);background:#fff}.formatbar .dot{width:2px;height:16px;margin:0 2px;background:var(--line)}.editor{min-height:84px;padding:10px 9px;color:#28322f;font-size:11px;line-height:1.65}.editor p{margin:0}.editor strong{font-weight:700}
+.reference-card{min-height:222px}.reference-head{display:flex;align-items:center;height:26px;padding:0 4px;border-bottom:1px solid #eceeec}.reference-head strong{max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}.photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding-top:7px}.photo{position:relative;aspect-ratio:4/3;overflow:hidden;border:1px solid #e1e3e2;border-radius:3px;background:#eef0ef}.photo img{width:100%;height:100%;object-fit:cover;display:block}.caption{padding:5px 2px 2px;font-size:8px;color:var(--muted)}
+.guides .card::before{content:"";position:absolute;z-index:11;top:var(--close-inset);right:var(--close-inset);width:var(--close-size);height:var(--close-size);outline:1px dashed var(--cyan);outline-offset:3px;pointer-events:none}.guides .card::after{content:"5pt";position:absolute;z-index:11;top:calc(var(--close-inset) + var(--close-size) + 7px);right:var(--close-inset);padding:2px 4px;border-radius:3px;background:var(--cyan-soft);color:#06758d;font-size:7px;font-weight:700;pointer-events:none}.guides .card-close{box-shadow:0 0 0 1px #fff,0 0 0 2px var(--cyan)}
+.inspector{min-height:0;overflow:auto;border-left:1px solid #cfd1d3;background:var(--panel)}.inspector-head{padding:17px 16px 14px;border-bottom:1px solid var(--line);background:#fff}.inspector-head b{display:block;font-size:12px}.inspector-head span{display:block;margin-top:4px;color:var(--muted);font-size:9px;line-height:1.55}.section{padding:14px 16px;border-bottom:1px solid var(--line)}.section-label{display:block;margin-bottom:9px;color:#767b81;font-size:8px;font-weight:800;text-transform:uppercase}.decision{padding:10px;border-left:3px solid var(--cyan);background:#fff;color:#46504d;font-size:9px;line-height:1.6}.decision b{color:var(--ink)}.control{display:grid;grid-template-columns:54px 1fr 34px;align-items:center;gap:7px;margin-top:8px;font-size:9px;color:var(--muted)}.control input{width:100%;accent-color:var(--cyan)}.control output{text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}.segments{display:grid;grid-template-columns:1fr 1fr;gap:5px}.segments button{height:28px;border:1px solid var(--line);border-radius:4px;background:#fff;color:#555b61;font-size:9px}.segments button.active{border-color:var(--cyan);background:var(--cyan-soft);color:#06758d;font-weight:700}.token-list{display:grid;gap:6px}.token{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;padding:7px;border:1px solid var(--line);border-radius:4px;background:#fff}.token-swatch{display:grid;place-items:center;width:22px;height:22px;border-radius:4px;background:#25272b;color:#fff;font-size:12px}.token b{display:block;font-size:9px}.token span{font-size:8px;color:var(--muted)}.token code{font-family:Consolas,monospace;font-size:8px;color:#454b51}.checklist{display:grid;gap:7px}.check{display:grid;grid-template-columns:16px 1fr;gap:6px;font-size:9px;line-height:1.5}.check::before{content:"✓";display:grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#dff3e9;color:#247451;font-size:8px;font-weight:800}
+.toast{position:fixed;left:50%;bottom:22px;z-index:100;transform:translateX(-50%) translateY(12px);padding:8px 12px;border-radius:5px;background:#25272b;color:#fff;font-size:9px;opacity:0;pointer-events:none;transition:opacity 160ms ease,transform 160ms ease}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(max-width:900px){.workspace{grid-template-columns:minmax(0,1fr) 250px}.stage{padding:22px 22px 50px}.paper{padding:28px 28px 56px}.photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.photo:nth-child(3){display:none}}
+@media(max-width:720px){html,body{min-width:0;height:auto;overflow:auto}.app{height:auto;min-height:100vh}.topbar{position:sticky;top:0;z-index:50}.topbar .title,.topbar .tag{display:none}.workspace{display:block}.stage{padding:14px;overflow:hidden}.page-wrap{width:100%;min-width:0}.paper{min-height:0;padding:22px 16px 38px}.paper-head{margin-bottom:18px}.paper-head h1{font-size:17px}.inspector{border-top:1px solid #cfd1d3;border-left:0}.photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.photo:nth-child(3){display:none}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar"><span class="brand-mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="title">卡片关闭按钮统一方案</span><span class="tag">参考 Demo</span><span class="topbar-spacer"></span><span class="status">共享组件规范</span></header>
+  <div class="workspace">
+    <main class="stage" id="stage">
+      <div class="page-wrap" id="page-wrap">
+        <article class="paper">
+          <header class="paper-head"><h1>夏日人像拍摄</h1><span>按钮位置与样式对照</span></header>
+          <div class="section-kicker">文案卡片</div>
+          <section class="card text-card" aria-label="文案卡片">
+            <button class="card-close" aria-label="删除文案卡片" title="删除文案卡片" type="button"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"></path></svg></button>
+            <div class="formatbar"><button class="block" type="button">段落⌄</button><button type="button"><b>B</b></button><button type="button"><i>I</i></button><span class="dot"></span><button class="size" type="button">16</button><button type="button">A</button></div>
+            <div class="editor"><p><strong>拍摄时间：</strong>2026.8.16 / 17:20</p><p><strong>拍摄地点：</strong>延安西路、上生新所、小河边</p><p><strong>器材：</strong>Z5 II · 24–120mm · 85mm F1.8</p></div>
+          </section>
+          <div class="section-kicker">参考图组卡片</div>
+          <section class="card reference-card" aria-label="参考图组卡片">
+            <button class="card-close" aria-label="删除参考图组卡片" title="删除参考图组卡片" type="button"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"></path></svg></button>
+            <header class="reference-head"><strong>延安西路 · 构图与光线参考</strong></header>
+            <div class="photo-grid">
+              <figure class="photo"><img src="../../resources/city-07.png" alt="城市建筑参考"><figcaption class="caption">街道纵深</figcaption></figure>
+              <figure class="photo"><img src="../../resources/city-08.png" alt="城市街景参考"><figcaption class="caption">环境留白</figcaption></figure>
+              <figure class="photo"><img src="../../resources/city-09.png" alt="城市光线参考"><figcaption class="caption">侧逆光</figcaption></figure>
+            </div>
+          </section>
+        </article>
+      </div>
+    </main>
+    <aside class="inspector" aria-label="设计检查器">
+      <header class="inspector-head"><b>统一关闭按钮</b><span>两个卡片引用同一组 token、同一相对锚点和同一交互状态。</span></header>
+      <section class="section"><span class="section-label">推荐决策</span><div class="decision"><b>统一定位在外卡片右上角内部。</b><br>按钮不参与 header 排版；正文和图片标题统一预留右侧 gutter。这样拖动尺寸时，按钮只跟随外框，不受内部内容影响。</div></section>
+      <section class="section"><span class="section-label">交互验证</span><div class="control"><label for="width">卡片宽度</label><input id="width" type="range" min="58" max="100" value="100"><output id="width-value">100%</output></div><div class="control"><label for="zoom">画布缩放</label><input id="zoom" type="range" min="70" max="110" value="100"><output id="zoom-value">100%</output></div><div class="segments" style="margin-top:10px"><button class="active" id="guide-toggle" type="button">定位辅助线</button><button id="danger-toggle" type="button">Hover 状态</button></div></section>
+      <section class="section"><span class="section-label">共享 Token</span><div class="token-list"><div class="token"><span class="token-swatch">×</span><div><b>尺寸</b><span>画布逻辑单位</span></div><code>16pt</code></div><div class="token"><span class="token-swatch" style="outline:1px dashed #0891b2;outline-offset:3px">×</span><div><b>右上内边距</b><span>与外框共同缩放</span></div><code>5pt</code></div><div class="token"><span class="token-swatch" style="background:#b42342">×</span><div><b>危险态</b><span>hover / focus</span></div><code>#B42342</code></div><div class="token"><span class="token-swatch" style="border-radius:4px">×</span><div><b>圆角</b><span>一致的命令层级</span></div><code>4px</code></div></div></section>
+      <section class="section"><span class="section-label">验收条件</span><div class="checklist"><div class="check">文案与参考图组的 X 中心距右上角相同</div><div class="check">缩放或改变宽度时始终完全位于框内</div><div class="check">标题、工具栏和正文不与按钮重叠</div><div class="check">默认、hover、focus、active 状态一致</div></div></section>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" role="status">Demo：此处只预览删除按钮，不执行删除</div>
+<script>
+const root=document.documentElement;
+const stage=document.getElementById('stage');
+const widthInput=document.getElementById('width');
+const zoomInput=document.getElementById('zoom');
+const widthValue=document.getElementById('width-value');
+const zoomValue=document.getElementById('zoom-value');
+const guideToggle=document.getElementById('guide-toggle');
+const dangerToggle=document.getElementById('danger-toggle');
+const toast=document.getElementById('toast');
+let toastTimer;
+function updateWidth(){root.style.setProperty('--card-width',`${widthInput.value}%`);widthValue.value=`${widthInput.value}%`}
+function updateZoom(){root.style.setProperty('--canvas-zoom',String(Number(zoomInput.value)/100));zoomValue.value=`${zoomInput.value}%`}
+widthInput.addEventListener('input',updateWidth);zoomInput.addEventListener('input',updateZoom);
+guideToggle.addEventListener('click',()=>{stage.classList.toggle('guides');guideToggle.classList.toggle('active',stage.classList.contains('guides'))});
+dangerToggle.addEventListener('click',()=>{document.querySelectorAll('.card-close').forEach(button=>button.classList.toggle('demo-danger'));dangerToggle.classList.toggle('active')});
+document.querySelectorAll('.card-close').forEach(button=>button.addEventListener('click',()=>{clearTimeout(toastTimer);toast.classList.add('show');toastTimer=setTimeout(()=>toast.classList.remove('show'),1800)}));
+stage.classList.add('guides');updateWidth();updateZoom();
+</script>
+</body>
+</html>

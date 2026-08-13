@@ -4,7 +4,7 @@ import { EMPTY_PLAN, type ProjectPlan, type ReferenceComponent } from "./models"
 
 function referencePlan(): ProjectPlan {
   return {
-    schemaVersion: 10,
+    schemaVersion: 12,
     title: "Project",
     components: [{
       id: "r",
@@ -60,11 +60,15 @@ function serviceFor(initialRaw: unknown) {
 }
 
 describe("canvas plan service", () => {
-  it("migrates legacy raw data and treats an empty v10 plan as stored", async () => {
+  it("migrates legacy raw data into a v12 document and treats an empty v12 plan as stored", async () => {
     const legacy = serviceFor({ photographyPlan: "<p>x</p>", referenceGroups: [] });
     await expect(legacy.service.loadPlan("C:/p", "Project")).resolves.toMatchObject({
       status: "loaded",
-      plan: { schemaVersion: 10, components: [expect.objectContaining({ type: "plan" })] },
+      plan: {
+        schemaVersion: 12,
+        documentHtml: "<p>x</p><p></p>",
+        components: [],
+      },
     });
 
     const current = serviceFor(EMPTY_PLAN);
@@ -87,6 +91,18 @@ describe("canvas plan service", () => {
       aspectRatio: 1,
     });
     expect(repository.saveRawPlan).toHaveBeenCalledWith("C:/p", result.plan);
+  });
+
+  it("imports a text image asset without changing or saving the plan", async () => {
+    const plan = referencePlan();
+    const { service, imageStore, repository } = serviceFor(plan);
+
+    await expect(service.importAsset("C:/p", "C:/source.png")).resolves.toEqual({
+      file: "references/0009.png",
+      dataUrl: "data:image/png;base64,AA",
+    });
+    expect(imageStore.importImage).toHaveBeenCalledWith("C:/p", "C:/source.png");
+    expect(repository.saveRawPlan).not.toHaveBeenCalled();
   });
 
   it("removes unshared files and retains shared files across cards", async () => {

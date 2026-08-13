@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preshot 统一文档流画布设计</title>
+  <style>
+    @font-face { font-family: NotoSC; src: url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+    @font-face { font-family: NotoSC; src: url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+    :root {
+      --chrome: #191b1f;
+      --chrome-2: #25282e;
+      --stage: #dfe1e5;
+      --paper: #fff;
+      --panel: #f7f7f6;
+      --ink: #202329;
+      --muted: #73777e;
+      --line: #d8dade;
+      --line-soft: #ececee;
+      --berry: #c2385c;
+      --berry-dark: #a72c4c;
+      --cyan: #0891b2;
+      --cyan-soft: #e2f4f7;
+      --danger: #b42342;
+      --shadow: 0 18px 52px rgb(25 27 31 / 15%);
+      --gallery-height: 158px;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-width: 320px; min-height: 100%; margin: 0; }
+    body { color: var(--ink); background: var(--stage); font-family: NotoSC, "Microsoft YaHei UI", sans-serif; letter-spacing: 0; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible, [contenteditable]:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    .app { display: grid; min-height: 100vh; grid-template-rows: 52px minmax(0, 1fr); }
+    .topbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 10px; padding: 0 16px; color: #fff; background: var(--chrome); box-shadow: 0 1px 0 rgb(255 255 255 / 8%); }
+    .mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 5px; background: var(--berry); font-size: 13px; font-weight: 700; }
+    .brand { font-size: 14px; font-weight: 700; }
+    .top-divider { width: 1px; height: 18px; background: rgb(255 255 255 / 16%); }
+    .project-title { overflow: hidden; color: #d9dbe0; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .top-spacer { flex: 1; }
+    .save { display: inline-flex; align-items: center; gap: 7px; color: #c9ccd2; font-size: 10px; }
+    .save::before { width: 7px; height: 7px; border-radius: 50%; background: #55bc7e; content: ""; }
+    .export { display: inline-flex; height: 30px; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid rgb(255 255 255 / 12%); border-radius: 5px; color: #fff; background: rgb(255 255 255 / 7%); font-size: 10px; font-weight: 700; }
+    .export:hover { background: rgb(255 255 255 / 12%); }
+    .workspace { display: grid; min-height: 0; grid-template-columns: 190px minmax(520px, 1fr) 270px; }
+    .rail, .assistant { min-height: 0; background: var(--panel); }
+    .rail { border-right: 1px solid #cfd1d5; }
+    .assistant { border-left: 1px solid #cfd1d5; }
+    .panel-title { padding: 15px 14px 9px; color: #61666d; font-size: 10px; font-weight: 700; }
+    .project { display: flex; align-items: center; gap: 9px; margin: 0 8px; padding: 8px; border-radius: 6px; background: #fff; box-shadow: 0 1px 3px rgb(25 27 31 / 8%); }
+    .project-cover { display: grid; width: 42px; height: 34px; flex: none; place-items: center; border-radius: 4px; color: #fff; background: #596069; font-size: 9px; font-weight: 700; }
+    .project strong { display: block; font-size: 10px; }
+    .project span { display: block; margin-top: 3px; color: var(--muted); font-size: 8px; }
+    .assistant-head { display: flex; height: 47px; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--line); background: #fff; }
+    .assistant-head strong { font-size: 11px; }
+    .assistant-head span { color: var(--muted); font-size: 8px; }
+    .assistant-copy { margin: 16px 14px; color: var(--muted); font-size: 9px; line-height: 1.7; }
+    .stage { min-width: 0; overflow: auto; padding: 14px 26px 64px; background-color: var(--stage); background-image: linear-gradient(rgb(32 35 41 / 3%) 1px, transparent 1px), linear-gradient(90deg, rgb(32 35 41 / 3%) 1px, transparent 1px); background-size: 20px 20px; }
+    .canvas-toolbar { position: fixed; top: 0; left: 0; z-index: 80; display: none; width: max-content; max-width: calc(100vw - 16px); min-height: 40px; align-items: center; gap: 3px; overflow-x: auto; margin: 0; padding: 5px 6px; border: 1px solid rgb(255 255 255 / 9%); border-radius: 7px; color: #fff; background: var(--chrome-2); box-shadow: 0 8px 24px rgb(25 27 31 / 24%); scrollbar-width: none; }
+    .canvas-toolbar[data-open="true"] { display: flex; }
+    .canvas-toolbar::after { position: absolute; left: var(--anchor-x, 50%); width: 9px; height: 9px; border-right: 1px solid rgb(255 255 255 / 9%); border-bottom: 1px solid rgb(255 255 255 / 9%); background: var(--chrome-2); content: ""; pointer-events: none; }
+    .canvas-toolbar[data-placement="top"]::after { bottom: -5px; transform: translateX(-50%) rotate(45deg); }
+    .canvas-toolbar[data-placement="bottom"]::after { top: -5px; transform: translateX(-50%) rotate(225deg); }
+    .canvas-toolbar::-webkit-scrollbar { display: none; }
+    .tool, .block-select, .size-input { height: 28px; flex: none; border: 1px solid transparent; border-radius: 4px; color: #f5f5f6; background: transparent; }
+    .tool { display: grid; min-width: 28px; place-items: center; padding: 0 7px; }
+    .tool:hover, .block-select:hover, .size-input:hover { background: rgb(255 255 255 / 10%); }
+    .tool.active { background: rgb(255 255 255 / 14%); }
+    .tool.primary { display: flex; align-items: center; gap: 6px; margin-left: 3px; padding-inline: 10px; background: var(--berry); font-size: 10px; font-weight: 700; }
+    .tool.primary:hover { background: var(--berry-dark); }
+    .tool.danger { color: #ffb8c7; }
+    .tool svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .block-select { width: 86px; padding: 0 7px; color-scheme: dark; font-size: 10px; }
+    .size-input { width: 44px; padding: 0 6px; text-align: center; font-size: 10px; }
+    .toolbar-divider { width: 1px; height: 18px; flex: none; margin: 0 3px; background: rgb(255 255 255 / 14%); }
+    .mode-label { display: inline-flex; height: 24px; flex: none; align-items: center; gap: 6px; padding: 0 8px; border-radius: 4px; color: #bcebf3; background: rgb(8 145 178 / 18%); font-size: 9px; font-weight: 700; }
+    .text-tools { display: contents; }
+    .gallery-tools { display: none; align-items: center; gap: 3px; }
+    .canvas-toolbar[data-mode="gallery"] .text-tools { display: none; }
+    .canvas-toolbar[data-mode="gallery"] .gallery-tools { display: contents; }
+    .gallery-range { width: 112px; accent-color: var(--cyan); }
+    .canvas-insert-bar { position: relative; z-index: 28; display: flex; width: min(100%, 794px); height: 34px; align-items: center; margin: 0 auto 8px; }
+    .canvas-insert-trigger { display: inline-flex; height: 30px; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid rgb(255 255 255 / 10%); border-radius: 5px; color: #fff; background: var(--chrome-2); box-shadow: 0 4px 14px rgb(25 27 31 / 16%); font-size: 10px; font-weight: 700; }
+    .canvas-insert-trigger:hover, .canvas-insert-trigger[aria-expanded="true"] { background: #343840; }
+    .canvas-insert-trigger svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .component-picker { position: fixed; z-index: 95; display: none; width: 170px; padding: 4px; border: 1px solid #3b3f47; border-radius: 6px; color: #fff; background: var(--chrome-2); box-shadow: 0 10px 28px rgb(0 0 0 / 25%); }
+    .component-picker[data-open="true"] { display: block; }
+    .component-picker button { display: flex; width: 100%; height: 34px; align-items: center; gap: 8px; padding: 0 9px; border: 0; border-radius: 4px; color: #f4f4f5; background: transparent; font-size: 10px; text-align: left; }
+    .component-picker button:hover, .component-picker button:focus-visible { background: rgb(255 255 255 / 10%); }
+    .component-picker svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .paper-stack { width: min(100%, 794px); margin: 0 auto; }
+    .paper { position: relative; width: 100%; min-height: 1123px; padding: 54px 66px 72px; background: var(--paper); box-shadow: var(--shadow); }
+    .document-title { width: 100%; margin: 0 0 30px; border: 0; color: var(--ink); background: transparent; font-size: 26px; font-weight: 700; line-height: 1.25; outline: none; }
+    .document-flow { min-height: 860px; font-size: 15px; line-height: 1.72; outline: none; }
+    .document-flow > h2 { margin: 24px 0 8px; font-size: 20px; line-height: 1.35; }
+    .document-flow > p { margin: 0 0 11px; }
+    .document-flow > ul { margin: 8px 0 16px; padding-left: 1.35em; }
+    .document-flow > .trailing-paragraph { min-height: 26px; margin-top: 10px; }
+    .document-flow:empty::before { color: #a0a4aa; content: attr(data-placeholder); }
+    .insert-line { position: relative; height: 22px; margin: 3px 0; }
+    .insert-line.document-end-insert { min-height: 44px; margin-top: 8px; }
+    .insert-here { position: absolute; top: 50%; left: -42px; display: grid; width: 22px; height: 22px; transform: translateY(-50%); place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--muted); background: #fff; opacity: 0; box-shadow: 0 2px 7px rgb(25 27 31 / 10%); }
+    .insert-here:hover, .insert-here[aria-expanded="true"] { border-color: var(--cyan); color: var(--cyan); }
+    .insert-line:hover .insert-here, .insert-here:focus-visible { opacity: 1; }
+    .image-group { position: relative; width: 100%; padding: 0; border: 0; background: transparent; }
+    .image-group.selected::before { position: absolute; z-index: 3; inset: -5px; border: 2px solid var(--cyan); border-radius: 5px; pointer-events: none; content: ""; }
+    .gallery-grid { display: grid; height: var(--gallery-height); grid-template-columns: 1.35fr .9fr 1.15fr; gap: 7px; }
+    .gallery-image { position: relative; min-width: 0; overflow: hidden; border-radius: 3px; background: #e7e8ea; }
+    .gallery-image img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .gallery-image:hover img { filter: brightness(.94); }
+    .gallery-drag { position: absolute; top: 50%; left: -31px; z-index: 5; display: grid; width: 24px; height: 36px; transform: translateY(-50%); place-items: center; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); background: #fff; opacity: 0; box-shadow: 0 3px 10px rgb(25 27 31 / 12%); cursor: grab; }
+    .gallery-drag:active { cursor: grabbing; }
+    .image-group:hover .gallery-drag, .image-group.selected .gallery-drag { opacity: 1; }
+    .gallery-overlay { position: absolute; top: 6px; right: 6px; z-index: 5; display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 5px; color: #fff; background: rgb(25 27 31 / 84%); opacity: 0; box-shadow: 0 4px 14px rgb(0 0 0 / 18%); }
+    .image-group:hover .gallery-overlay, .image-group.selected .gallery-overlay { opacity: 1; }
+    .gallery-overlay button { display: grid; width: 25px; height: 25px; place-items: center; border: 0; border-radius: 3px; color: #fff; background: transparent; }
+    .gallery-overlay button:hover { background: rgb(255 255 255 / 14%); }
+    .gallery-overlay button:last-child:hover { background: var(--danger); }
+    .gallery-overlay svg, .gallery-drag svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .gallery-resize { position: absolute; right: 0; bottom: -9px; left: 0; z-index: 4; height: 18px; cursor: ns-resize; }
+    .gallery-resize::after { position: absolute; top: 8px; left: 50%; width: 36px; height: 3px; transform: translateX(-50%); border-radius: 2px; background: var(--cyan); opacity: 0; content: ""; }
+    .image-group:hover .gallery-resize::after, .image-group.selected .gallery-resize::after { opacity: 1; }
+    .empty-gallery { display: none; height: 112px; place-items: center; border: 1px dashed #aeb3ba; border-radius: 4px; color: var(--muted); background: #fafafa; }
+    .empty-gallery button { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--ink); background: #fff; }
+    .empty-gallery svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .image-group.empty .gallery-grid, .image-group.empty .gallery-resize { display: none; }
+    .image-group.empty .empty-gallery { display: grid; }
+    .page-break { display: flex; height: 54px; align-items: center; justify-content: center; color: #777c83; font-size: 9px; }
+    .page-break::before, .page-break::after { width: 70px; height: 1px; margin: 0 10px; background: #bfc2c7; content: ""; }
+    .next-page { min-height: 160px; padding: 45px 66px; background: #fff; box-shadow: var(--shadow); }
+    .next-page p { margin: 0; color: #a0a4aa; font-size: 12px; }
+    .status-toast { position: fixed; bottom: 18px; left: 50%; z-index: 90; transform: translateX(-50%) translateY(12px); padding: 8px 11px; border-radius: 5px; color: #fff; background: #25282e; opacity: 0; box-shadow: 0 8px 24px rgb(0 0 0 / 20%); font-size: 9px; pointer-events: none; transition: opacity 160ms ease, transform 160ms ease; }
+    .status-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    @media (max-width: 1040px) {
+      .workspace { grid-template-columns: 168px minmax(480px, 1fr); }
+      .assistant { display: none; }
+      .stage { padding-inline: 18px; }
+      .paper { padding-inline: 54px; }
+    }
+    @media (max-width: 720px) {
+      html, body { width: 100%; max-width: 100%; overflow-x: clip; }
+      .workspace { display: block; }
+      .rail, .assistant, .top-divider, .project-title { display: none; }
+      .app, .topbar, .workspace, .stage, .canvas-insert-bar, .paper-stack { width: 100%; max-width: 100%; min-width: 0; }
+      .topbar { padding-inline: 10px; }
+      .export span { display: none; }
+      .stage { padding: 8px 0 30px; overflow-x: clip; }
+      .canvas-toolbar { max-width: calc(100vw - 12px); }
+      .canvas-insert-bar { height: 32px; padding-inline: 8px; }
+      .paper { min-height: 760px; padding: 34px 24px 50px; box-shadow: none; }
+      .document-title { font-size: 23px; }
+      .document-flow { font-size: 14px; }
+      .gallery-grid { grid-template-columns: 1fr 1fr; }
+      .gallery-image:nth-child(3) { display: none; }
+      .gallery-drag { top: 4px; left: 4px; width: 22px; height: 28px; transform: none; }
+      .insert-here { left: -21px; }
+      .next-page { padding-inline: 24px; box-shadow: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <span class="mark">P</span><span class="brand">PRESHOT</span><span class="top-divider"></span>
+      <span class="project-title">小清新人像拍摄 · 统一文档流</span><span class="top-spacer"></span>
+      <span class="save" id="save-state">已保存</span>
+      <button class="export" type="button" title="导出 PDF"><i data-lucide="file-down"></i><span>导出 PDF</span></button>
+    </header>
+    <div class="workspace">
+      <nav class="rail" aria-label="项目"><div class="panel-title">最近项目</div><div class="project"><span class="project-cover">肖像</span><div><strong>小清新人像拍摄</strong><span>刚刚编辑</span></div></div></nav>
+      <main class="stage">
+        <div class="canvas-insert-bar">
+          <button class="canvas-insert-trigger" id="top-insert" aria-expanded="false" aria-haspopup="menu" type="button"><i data-lucide="plus"></i><span>插入</span><i data-lucide="chevron-down"></i></button>
+        </div>
+        <div class="canvas-toolbar" id="toolbar" data-mode="text" data-open="false" data-placement="top" role="toolbar" aria-label="文字属性">
+          <div class="text-tools">
+            <select class="block-select" aria-label="段落类型" title="段落类型"><option>段落</option><option>一级标题</option><option>二级标题</option></select>
+            <input class="size-input" aria-label="字号" title="字号" type="number" value="16" min="8" max="72">
+            <span class="toolbar-divider"></span>
+            <button class="tool" data-command="bold" type="button" aria-label="加粗" title="加粗"><b>B</b></button>
+            <button class="tool" data-command="italic" type="button" aria-label="斜体" title="斜体"><i>I</i></button>
+            <button class="tool" data-command="underline" type="button" aria-label="下划线" title="下划线"><u>U</u></button>
+            <button class="tool" type="button" aria-label="文字颜色" title="文字颜色"><i data-lucide="paintbrush"></i></button>
+            <span class="toolbar-divider"></span>
+            <button class="tool" data-command="justifyLeft" type="button" aria-label="左对齐" title="左对齐"><i data-lucide="align-left"></i></button>
+            <button class="tool" data-command="insertUnorderedList" type="button" aria-label="无序列表" title="无序列表"><i data-lucide="list"></i></button>
+          </div>
+          <div class="gallery-tools">
+            <span class="mode-label"><i data-lucide="images"></i>图片组</span>
+            <button class="tool" id="add-image" type="button" aria-label="添加图片" title="添加图片"><i data-lucide="image-plus"></i></button>
+            <span class="toolbar-divider"></span>
+            <i data-lucide="move-vertical" style="width:14px;color:#c7cad0"></i>
+            <input class="gallery-range" id="gallery-size" aria-label="图片组高度" title="图片组高度" type="range" min="96" max="250" value="158">
+            <output id="gallery-size-output" style="width:40px;color:#d7dae0;font-size:9px">158px</output>
+            <button class="tool danger" id="delete-gallery" type="button" aria-label="删除图片组" title="删除图片组"><i data-lucide="trash-2"></i></button>
+          </div>
+        </div>
+        <div class="paper-stack">
+          <article class="paper" aria-label="A4 拍摄方案">
+            <input class="document-title" aria-label="方案标题" value="小清新人像拍摄">
+            <div class="document-flow" id="document-flow" contenteditable="true" data-placeholder="开始写拍摄计划……" aria-label="方案正文" role="textbox" aria-multiline="true" spellcheck="false">
+              <h2>拍摄概念</h2>
+              <p>以清晨自然光为主，保留窗边空气感与室内安静层次。人物状态松弛，不做过度摆拍。</p>
+              <p><b>时间：</b>08:10–10:30　<b>地点：</b>东侧落地窗与白墙区域</p>
+              <div class="insert-line" contenteditable="false"><button class="insert-here" aria-expanded="false" aria-haspopup="menu" type="button" aria-label="在此插入组件" title="在此插入组件"><i data-lucide="plus"></i></button></div>
+              <section class="image-group" id="gallery" contenteditable="false" tabindex="0" aria-label="图片组，3 张图片">
+                <button class="gallery-drag" type="button" aria-label="拖动图片组" title="拖动图片组"><i data-lucide="grip-vertical"></i></button>
+                <div class="gallery-grid">
+                  <figure class="gallery-image"><img src="../../resources/city-07.png" alt="街道纵深构图参考"></figure>
+                  <figure class="gallery-image"><img src="../../resources/city-08.png" alt="城市环境留白参考"></figure>
+                  <figure class="gallery-image"><img src="../../resources/city-09.png" alt="侧逆光构图参考"></figure>
+                </div>
+                <div class="empty-gallery"><button type="button" aria-label="浏览并添加图片" title="浏览并添加图片"><i data-lucide="image-plus"></i></button></div>
+                <div class="gallery-resize" aria-label="拖动调整图片组高度" role="separator"></div>
+              </section>
+              <div class="insert-line" contenteditable="false"><button class="insert-here" aria-expanded="false" aria-haspopup="menu" type="button" aria-label="在此插入组件" title="在此插入组件"><i data-lucide="plus"></i></button></div>
+              <h2>执行顺序</h2>
+              <ul><li>先完成窗边半身与近景，确认肤色和高光。</li><li>第二组加入玻璃反射，人物放在右侧三分线。</li><li>结束前补拍服装细节与空镜。</li></ul>
+              <p class="trailing-paragraph"><br></p>
+              <div class="insert-line document-end-insert" contenteditable="false"><button class="insert-here" aria-expanded="false" aria-haspopup="menu" type="button" aria-label="在页面末尾插入组件" title="在页面末尾插入组件"><i data-lucide="plus"></i></button></div>
+            </div>
+          </article>
+          <div class="page-break">第 2 页</div>
+          <article class="next-page"><p>正文与图片组按照 A4 可打印区域自动续页。</p></article>
+        </div>
+      </main>
+      <aside class="assistant" aria-label="助手"><header class="assistant-head"><strong>助手</strong><span>预览</span></header><p class="assistant-copy">画布保持为工作区主体。正文和图片组形成单一可打印文档流，助手不参与排版。</p></aside>
+    </div>
+  </div>
+  <div class="component-picker" id="component-picker" data-open="false" role="menu" aria-label="选择组件">
+    <button id="pick-image-group" role="menuitem" type="button"><i data-lucide="images"></i><span>图片组</span></button>
+  </div>
+  <div class="status-toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script>
+    const toolbar = document.getElementById("toolbar");
+    const gallery = document.getElementById("gallery");
+    const documentFlow = document.getElementById("document-flow");
+    const size = document.getElementById("gallery-size");
+    const sizeOutput = document.getElementById("gallery-size-output");
+    const saveState = document.getElementById("save-state");
+    const toast = document.getElementById("toast");
+    const componentPicker = document.getElementById("component-picker");
+    const topInsert = document.getElementById("top-insert");
+    let activeInsertTrigger = null;
+    let activeAnchor = null;
+    let activeGallery = null;
+    let toastTimer;
+    if (window.lucide) window.lucide.createIcons();
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 1600);
+    }
+    function markChanged(message) {
+      saveState.textContent = "有未保存更改";
+      showToast(message);
+    }
+    function selectionAnchor(section) {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0 && section.contains(selection.anchorNode)) {
+        const anchorElement = selection.anchorNode instanceof Element
+          ? selection.anchorNode
+          : selection.anchorNode?.parentElement;
+        const block = anchorElement?.closest("p, h1, h2, h3, h4, h5, h6, li, blockquote, pre");
+        if (block && section.contains(block)) return block.getBoundingClientRect();
+      }
+      return section.getBoundingClientRect();
+    }
+    function positionToolbar() {
+      if (!activeAnchor || toolbar.dataset.open !== "true") return;
+      const target = toolbar.dataset.mode === "text"
+        ? selectionAnchor(activeAnchor)
+        : activeAnchor.getBoundingClientRect();
+      const bounds = toolbar.getBoundingClientRect();
+      const viewportInset = 8;
+      const topBoundary = 60;
+      const gap = 10;
+      const targetAnchor = target.left + Math.min(24, target.width / 2);
+      let left = target.left;
+      left = Math.max(viewportInset, Math.min(left, window.innerWidth - bounds.width - viewportInset));
+      let top = target.top - bounds.height - gap;
+      let placement = "top";
+      if (top < topBoundary) {
+        top = target.bottom + gap;
+        placement = "bottom";
+      }
+      if (top + bounds.height > window.innerHeight - viewportInset) {
+        top = Math.max(topBoundary, target.top - bounds.height - gap);
+        placement = "top";
+      }
+      toolbar.style.left = `${left}px`;
+      toolbar.style.top = `${top}px`;
+      toolbar.style.setProperty("--anchor-x", `${Math.max(8, Math.min(bounds.width - 8, targetAnchor - left))}px`);
+      toolbar.dataset.placement = placement;
+    }
+    function openToolbar(mode, anchor) {
+      activeAnchor = anchor;
+      toolbar.dataset.mode = mode;
+      toolbar.dataset.open = "true";
+      toolbar.setAttribute("aria-label", mode === "text" ? "文字属性" : "图片组属性");
+      requestAnimationFrame(positionToolbar);
+    }
+    function hideToolbar() {
+      activeAnchor = null;
+      activeGallery = null;
+      toolbar.dataset.open = "false";
+      document.querySelectorAll(".image-group.selected").forEach((group) => group.classList.remove("selected"));
+    }
+    function closeComponentPicker() {
+      componentPicker.dataset.open = "false";
+      if (activeInsertTrigger) activeInsertTrigger.setAttribute("aria-expanded", "false");
+      activeInsertTrigger = null;
+    }
+    function openComponentPicker(trigger) {
+      if (activeInsertTrigger === trigger && componentPicker.dataset.open === "true") {
+        closeComponentPicker();
+        return;
+      }
+      closeComponentPicker();
+      activeInsertTrigger = trigger;
+      trigger.setAttribute("aria-expanded", "true");
+      componentPicker.dataset.open = "true";
+      const triggerRect = trigger.getBoundingClientRect();
+      const pickerRect = componentPicker.getBoundingClientRect();
+      let left = triggerRect.left;
+      let top = triggerRect.bottom + 6;
+      if (trigger.classList.contains("insert-here")) {
+        left = triggerRect.right + 7;
+        top = triggerRect.top + triggerRect.height / 2 - pickerRect.height / 2;
+      }
+      left = Math.max(6, Math.min(left, window.innerWidth - pickerRect.width - 6));
+      top = Math.max(58, Math.min(top, window.innerHeight - pickerRect.height - 6));
+      componentPicker.style.left = `${left}px`;
+      componentPicker.style.top = `${top}px`;
+      componentPicker.querySelector("button")?.focus();
+    }
+    function selectText() {
+      toolbar.dataset.mode = "text";
+      activeGallery = null;
+      document.querySelectorAll(".image-group.selected").forEach((group) => group.classList.remove("selected"));
+      openToolbar("text", documentFlow);
+    }
+    function selectGallery(target) {
+      activeGallery = target;
+      document.querySelectorAll(".image-group").forEach((group) => group.classList.toggle("selected", group === target));
+      const measuredHeight = Math.round(target.querySelector(".gallery-grid")?.getBoundingClientRect().height ?? 0);
+      const gridHeight = Math.max(96, measuredHeight || Number(size.value));
+      size.value = String(gridHeight);
+      sizeOutput.textContent = `${gridHeight}px`;
+      openToolbar("gallery", target);
+    }
+    function wireGallery(target) {
+      target.addEventListener("click", (event) => {
+        event.stopPropagation();
+        selectGallery(target);
+      });
+      target.addEventListener("focus", () => selectGallery(target));
+      const resizeHandle = target.querySelector(".gallery-resize");
+      resizeHandle?.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const startY = event.clientY;
+        const start = Math.round(target.querySelector(".gallery-grid")?.getBoundingClientRect().height ?? Number(size.value));
+        selectGallery(target);
+        const move = (moveEvent) => {
+          const next = Math.max(96, Math.min(250, start + moveEvent.clientY - startY));
+          size.value = String(Math.round(next));
+          size.dispatchEvent(new Event("input"));
+        };
+        const finish = () => {
+          document.removeEventListener("pointermove", move);
+          document.removeEventListener("pointerup", finish);
+          size.dispatchEvent(new Event("change"));
+        };
+        document.addEventListener("pointermove", move);
+        document.addEventListener("pointerup", finish);
+      });
+    }
+    documentFlow.addEventListener("focus", selectText);
+    documentFlow.addEventListener("mouseup", (event) => {
+      if (event.target instanceof Element && event.target.closest(".image-group, .insert-line")) return;
+      selectText();
+    });
+    documentFlow.addEventListener("keyup", selectText);
+    documentFlow.addEventListener("input", () => markChanged("正文已更新"));
+    wireGallery(gallery);
+    document.querySelectorAll("[data-command]").forEach((button) => button.addEventListener("click", () => {
+      if (activeAnchor !== documentFlow) return;
+      document.execCommand(button.dataset.command, false);
+      markChanged(button.getAttribute("title") + "已应用");
+    }));
+    size.addEventListener("input", () => {
+      if (!activeGallery) return;
+      activeGallery.style.setProperty("--gallery-height", `${size.value}px`);
+      sizeOutput.textContent = `${size.value}px`;
+      selectGallery(activeGallery);
+      requestAnimationFrame(positionToolbar);
+    });
+    size.addEventListener("change", () => markChanged("图片组尺寸已更新"));
+    topInsert.addEventListener("click", () => openComponentPicker(topInsert));
+    document.querySelectorAll(".insert-here").forEach((button) => button.addEventListener("click", () => openComponentPicker(button)));
+    function createEmptyGallery() {
+      const target = document.createElement("section");
+      target.className = "image-group empty";
+      target.contentEditable = "false";
+      target.tabIndex = 0;
+      target.ariaLabel = "图片组，0 张图片";
+      target.innerHTML = `<button class="gallery-drag" type="button" aria-label="拖动图片组" title="拖动图片组"><i data-lucide="grip-vertical"></i></button><div class="gallery-grid"></div><div class="empty-gallery"><button type="button" aria-label="浏览并添加图片" title="浏览并添加图片"><i data-lucide="image-plus"></i></button></div><div class="gallery-resize" aria-label="拖动调整图片组高度" role="separator"></div>`;
+      wireGallery(target);
+      window.lucide?.createIcons();
+      return target;
+    }
+    document.getElementById("pick-image-group").addEventListener("click", () => {
+      const inlineTrigger = activeInsertTrigger?.closest(".insert-line");
+      const newGallery = createEmptyGallery();
+      const endInsert = document.querySelector(".document-end-insert");
+      if (inlineTrigger?.classList.contains("document-end-insert")) inlineTrigger.before(newGallery);
+      else if (inlineTrigger) inlineTrigger.after(newGallery);
+      else endInsert?.before(newGallery);
+      closeComponentPicker();
+      newGallery.scrollIntoView({ behavior: "smooth", block: "center" });
+      selectGallery(newGallery);
+      markChanged("已插入图片组");
+    });
+    document.getElementById("add-image").addEventListener("click", () => markChanged("选择图片文件"));
+    document.getElementById("delete-gallery").addEventListener("click", () => {
+      if (!activeGallery) return;
+      activeGallery.classList.add("empty");
+      markChanged("图片组已清空；再次删除将合并相邻正文");
+      requestAnimationFrame(positionToolbar);
+    });
+    toolbar.addEventListener("pointerdown", (event) => event.stopPropagation());
+    componentPicker.addEventListener("pointerdown", (event) => event.stopPropagation());
+    document.addEventListener("pointerdown", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (toolbar.contains(target) || componentPicker.contains(target) || target.closest(".document-flow, .image-group, .insert-line, .canvas-insert-trigger")) return;
+      hideToolbar();
+      closeComponentPicker();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        hideToolbar();
+        closeComponentPicker();
+      }
+    });
+    document.addEventListener("scroll", positionToolbar, true);
+    window.addEventListener("resize", positionToolbar);
+  </script>
+</body>
+</html>

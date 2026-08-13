@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("downsamples PDF images to their draw size and encodes JPEG", async ({ page }) => {
+test("renders PDF image views at the draw-box ratio and encodes JPEG", async ({ page }) => {
   await page.goto("/");
 
   const result = await page.evaluate(async () => {
@@ -49,7 +49,7 @@ test("downsamples PDF images to their draw size and encodes JPEG", async ({ page
   expect(result).toMatchObject({
     mime: "image/jpeg",
     width: 200,
-    height: 133,
+    height: 150,
   });
   expect(result.optimizedBytes).toBeLessThan(result.sourceBytes * 0.2);
 });

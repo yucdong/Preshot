@@ -19,6 +19,7 @@ import type {
   LegacyV6ProjectPlan,
 } from "../legacyV6";
 import { textTreeHtml } from "../textTree";
+import { centeredCoverCrop } from "../imageView";
 
 export type CanvasLayout = LayoutResult;
 
@@ -66,6 +67,13 @@ function temporaryExportComponents(
         file: image.file,
         aspectRatio: image.frameWidth / image.frameHeight,
         displayHeight: image.frameHeight,
+        ...(image.sourceWidth === undefined || image.sourceHeight === undefined
+          ? {}
+          : { sourceWidth: image.sourceWidth, sourceHeight: image.sourceHeight }),
+        crop: image.crop ?? centeredCoverCrop(
+          image.aspectRatio,
+          image.frameWidth / image.frameHeight,
+        ),
       })),
     };
   });
@@ -77,6 +85,20 @@ function temporaryExportComponents(
  * v7 captions are preserved in storage but omitted from this adapter.
  */
 export function temporaryPagedExportPlan(plan: ProjectPlan): LegacyV6ProjectPlan {
+  if (plan.documentHtml !== undefined) {
+    return {
+      schemaVersion: 6,
+      title: plan.title,
+      components: [{
+        id: "__v12_document_flow__",
+        name: "",
+        type: "plan",
+        width: 1,
+        contentScale: 1,
+        html: plan.documentHtml,
+      }],
+    };
+  }
   return {
     schemaVersion: 6,
     title: plan.title,
@@ -105,7 +127,7 @@ export function buildCanvasLayout(
   components: LegacyV6PlanComponent[],
   geometry: PageGeometry = DEFAULT_PAGE_GEOMETRY,
   measurements?: LayoutMeasurements,
-  _documentTitle = "",
+  documentTitle?: string,
 ): CanvasLayout {
   const titleComponentId = documentTitleComponentId(components);
   const planHeights = new Map(measurements?.planHeights);
@@ -113,13 +135,16 @@ export function buildCanvasLayout(
     planHeights,
     referenceDescriptionHeights: measurements?.referenceDescriptionHeights ?? new Map(),
   };
-  planHeights.set(
-    titleComponentId,
-    DOCUMENT_TITLE_HEIGHT - componentFrameChromeHeight(PDF_PLAN_COMPONENT_FRAME_CHROME),
-  );
+  const includeDocumentTitle = documentTitle === undefined || documentTitle.trim().length > 0;
+  if (includeDocumentTitle) {
+    planHeights.set(
+      titleComponentId,
+      DOCUMENT_TITLE_HEIGHT - componentFrameChromeHeight(PDF_PLAN_COMPONENT_FRAME_CHROME),
+    );
+  }
 
   const layout = layoutPlan(
-    titleSpacer(components, titleComponentId),
+    includeDocumentTitle ? titleSpacer(components, titleComponentId) : components,
     geometry,
     exportMeasurements,
     {
@@ -129,10 +154,12 @@ export function buildCanvasLayout(
       exclusiveRows: true,
     },
   );
-  return {
-    ...layout,
-    placements: layout.placements.filter(
-      (placement) => placement.componentId !== titleComponentId,
-    ),
-  };
+  return includeDocumentTitle
+    ? {
+        ...layout,
+        placements: layout.placements.filter(
+          (placement) => placement.componentId !== titleComponentId,
+        ),
+      }
+    : layout;
 }

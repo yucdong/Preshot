@@ -8,7 +8,9 @@ interface CanvasPageProps {
 export function CanvasPage({ scale, top }: CanvasPageProps) {
   const width = A4.width * scale;
   const height = A4.height * scale;
-  const marginScaled = SPACING * scale;
+  const margin = SPACING * scale;
+  const cornerSize = Math.max(8, 14 * scale);
+  const cornerOffset = margin - cornerSize;
 
   return (
     <div
@@ -17,15 +19,20 @@ export function CanvasPage({ scale, top }: CanvasPageProps) {
       data-testid="canvas-page-background"
       style={{ top: `${top}px`, width: `${width}px`, height: `${height}px` }}
     >
-      <div
-        className="pointer-events-none absolute border border-paper-border/55"
-        style={{
-          left: `${marginScaled}px`,
-          top: `${marginScaled}px`,
-          right: `${marginScaled}px`,
-          bottom: `${marginScaled}px`,
-        }}
-      />
+      {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((corner) => (
+        <span
+          className="pointer-events-none absolute border-paper-border"
+          data-corner={corner}
+          data-testid="canvas-page-corner"
+          key={corner}
+          style={{
+            width: `${cornerSize}px`,
+            height: `${cornerSize}px`,
+            ...(corner.includes("top") ? { top: `${cornerOffset}px`, borderBottomWidth: "1px" } : { bottom: `${cornerOffset}px`, borderTopWidth: "1px" }),
+            ...(corner.includes("left") ? { left: `${cornerOffset}px`, borderRightWidth: "1px" } : { right: `${cornerOffset}px`, borderLeftWidth: "1px" }),
+          }}
+        />
+      ))}
     </div>
   );
 }

@@ -30,7 +30,7 @@ function reference(images: number, frameHeight: number): ReferenceComponent {
 }
 
 function plan(component: ReferenceComponent): ProjectPlan {
-  return { schemaVersion: 10, title: "Demo", components: [component] };
+  return { schemaVersion: 12, title: "Demo", components: [component] };
 }
 
 describe("normalizeReferenceContinuations", () => {

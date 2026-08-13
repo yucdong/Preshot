@@ -2,6 +2,7 @@ import { Minus, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
+import { cropForResizedFrame } from "../../../domain/plan/canvas/imageView";
 import {
   COMPONENT_INSET,
   packReferenceFrames,
@@ -46,6 +47,11 @@ interface ReferenceComponentViewProps {
     componentId: string,
     imageId: string,
     frame: { frameWidth: number; frameHeight: number },
+  ) => void;
+  onSetImageCrop?: (
+    componentId: string,
+    imageId: string,
+    crop: { x: number; y: number; width: number; height: number },
   ) => void;
   onMeasureDescription?: (id: string, heightPoints: number) => void;
   onScaleImages?: (componentId: string, scale: number) => void;
@@ -95,6 +101,7 @@ export function ReferenceComponentView({
   captureStatus,
   onAddImages,
   onSetImageFrame,
+  onSetImageCrop,
   onMeasureDescription,
   onScaleImages,
 }: ReferenceComponentViewProps) {
@@ -160,6 +167,7 @@ export function ReferenceComponentView({
                   ...image,
                   frameWidth: imageFramePreview.frameWidth,
                   frameHeight: imageFramePreview.frameHeight,
+                  crop: cropForResizedFrame(image, imageFramePreview),
                 }
               : image,
           ),
@@ -375,6 +383,7 @@ export function ReferenceComponentView({
             setImageFramePreview(null);
             onSetImageFrame?.(componentId, imageId, frame);
           }}
+          onSetCrop={onSetImageCrop}
           onResizePreview={(imageId, frame, guides) => {
             setImageFramePreview({
               imageId,

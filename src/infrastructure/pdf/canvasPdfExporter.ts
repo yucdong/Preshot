@@ -9,7 +9,6 @@ import {
 import {
   A4,
   componentFrameChromeHeight,
-  containSize,
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
   PLAN_COMPONENT_VISUAL_INSET,
@@ -157,12 +156,17 @@ function drawTextCommand(
   }
 }
 
-function drawPaginatedRichTextLayout(
+async function drawPaginatedRichTextLayout(
   pages: PDFPage[],
   layout: PaginatedPdfTextLayout<PDFFont>,
   x: number,
   pageHeight: number,
-): void {
+  resolveImage: (
+    src: string,
+    drawBox: PdfImageDrawBox,
+    crop?: { x: number; y: number; width: number; height: number },
+  ) => Promise<PDFImage>,
+): Promise<void> {
   for (const command of layout.commands) {
     const page = pages[command.pageIndex];
     if (!page) {
@@ -175,25 +179,17 @@ function drawPaginatedRichTextLayout(
       pageHeight - command.baselineFromPageTop,
     );
   }
-}
-
-function referenceImageDrawBox(slotRect: Rect, image: PDFImage): Rect {
-  if (
-    !Number.isFinite(image.width) ||
-    image.width <= 0 ||
-    !Number.isFinite(image.height) ||
-    image.height <= 0
-  ) {
-    return slotRect;
+  for (const command of layout.images) {
+    const page = pages[command.pageIndex];
+    if (!page) continue;
+    const image = await resolveImage(command.src, command, command.crop);
+    page.drawImage(image, {
+      x: x + command.x,
+      y: pageHeight - command.topFromPageTop - command.height,
+      width: command.width,
+      height: command.height,
+    });
   }
-
-  const fit = containSize(slotRect.width, slotRect.height, image.width, image.height);
-  return {
-    x: slotRect.x + fit.offsetX,
-    y: slotRect.y + fit.offsetY,
-    width: fit.width,
-    height: fit.height,
-  };
 }
 
 interface PdfTextLayouts {
@@ -214,6 +210,13 @@ function scalePdfTextLayout(
       size: command.size * scale,
       x: command.x * scale,
     })),
+    images: layout.images.map((image) => ({
+      ...image,
+      x: image.x * scale,
+      topFromTop: image.topFromTop * scale,
+      width: image.width * scale,
+      height: image.height * scale,
+    })),
   };
 }
 
@@ -231,6 +234,7 @@ function preparePdfTextLayouts(
   geometry: PageGeometry,
   regular: PDFFont,
   bold: PDFFont,
+  imageGroups: ReadonlyMap<string, Extract<ProjectPlan["components"][number], { type: "reference" }>>,
 ): PdfTextLayouts {
   const pageContent = contentSize(geometry);
   const planHeights = new Map<string, number>();
@@ -254,6 +258,7 @@ function preparePdfTextLayouts(
         parseHtmlToBlocks(component.html),
         textWidth,
         { regular, bold },
+        { imageGroups },
       );
       planLayouts.set(component.id, textLayout);
       planHeights.set(component.id, textLayout.height + frameInset * 2);
@@ -265,6 +270,7 @@ function preparePdfTextLayouts(
         parseHtmlToBlocks(component.description),
         textWidth,
         { regular, bold },
+        { imageGroups },
       );
       referenceDescriptionLayouts.set(component.id, descriptionLayout);
       referenceDescriptionHeights.set(component.id, descriptionLayout.height);
@@ -343,8 +349,8 @@ function largestImageDrawBoxes(
           contentScale,
         ),
       );
-      const previous = boxes.get(image.file);
-      boxes.set(image.file, {
+      const previous = boxes.get(image.id);
+      boxes.set(image.id, {
         width: Math.max(previous?.width ?? 0, drawBox.width),
         height: Math.max(previous?.height ?? 0, drawBox.height),
       });
@@ -523,6 +529,11 @@ export function createCanvasPdfExporter(
         DEFAULT_PAGE_GEOMETRY,
         regular,
         bold,
+        new Map(
+          plan.components
+            .filter((component) => component.type === "reference")
+            .map((component) => [component.id, component]),
+        ),
       );
       const {
         layout,
@@ -532,7 +543,7 @@ export function createCanvasPdfExporter(
         temporaryPlan.components,
         DEFAULT_PAGE_GEOMETRY,
         textLayouts,
-        plan.title,
+        plan.documentHtml === undefined ? plan.title : "",
       );
 
       const embedded = new Map<string, PDFImage>();
@@ -548,9 +559,33 @@ export function createCanvasPdfExporter(
       const embed = async (
         dataUrl: string,
         drawBox: PdfImageDrawBox,
+        imageRecord: LegacyV6ReferenceImage,
       ): Promise<PDFImage> => {
-        const { mime, bytes } = await optimizeImage(dataUrl, drawBox);
+        const { mime, bytes } = await optimizeImage(dataUrl, drawBox, {
+          crop: imageRecord.crop,
+        });
         return mime.includes("png") ? pdf.embedPng(bytes) : pdf.embedJpg(bytes);
+      };
+      const resolveTextImage = async (
+        src: string,
+        drawBox: PdfImageDrawBox,
+        crop?: { x: number; y: number; width: number; height: number },
+      ): Promise<PDFImage> => {
+        const dataUrl = images[src];
+        if (!dataUrl) {
+          throw new Error(`Missing rich-text image data for "${src}"`);
+        }
+        const key = `text:${src}:${drawBox.width}:${drawBox.height}:${JSON.stringify(crop ?? null)}`;
+        const existing = embedded.get(key);
+        if (existing) return existing;
+        const { mime, bytes } = crop
+          ? await optimizeImage(dataUrl, drawBox, { crop })
+          : await optimizeImage(dataUrl, drawBox);
+        const image = mime.includes("png")
+          ? await pdf.embedPng(bytes)
+          : await pdf.embedJpg(bytes);
+        embedded.set(key, image);
+        return image;
       };
 
       const pages: PDFPage[] = [];
@@ -558,7 +593,7 @@ export function createCanvasPdfExporter(
         pages.push(pdf.addPage([595.28, 841.89]));
       }
 
-      if (plan.title.trim()) {
+      if (plan.documentHtml === undefined && plan.title.trim()) {
         pages[0].drawText(plan.title, {
           x: SPACING,
           y: A4.height - SPACING - TITLE_SIZE,
@@ -604,6 +639,13 @@ export function createCanvasPdfExporter(
                   parseHtmlToBlocks(leafPlacement.leaf.html),
                   leafPlacement.rect.width / contentScale,
                   { regular, bold },
+                  {
+                    imageGroups: new Map(
+                      plan.components
+                        .filter((entry) => entry.type === "reference")
+                        .map((entry) => [entry.id, entry]),
+                    ),
+                  },
                 ),
                 contentScale,
               );
@@ -615,15 +657,29 @@ export function createCanvasPdfExporter(
                   leafPlacement.rect.y + leafPlacement.rect.height - command.baselineFromTop,
                 );
               }
+              for (const command of leafLayout.images) {
+                const image = await resolveTextImage(command.src, command, command.crop);
+                page.drawImage(image, {
+                  x: leafPlacement.rect.x + command.x,
+                  y:
+                    leafPlacement.rect.y +
+                    leafPlacement.rect.height -
+                    command.topFromTop -
+                    command.height,
+                  width: command.width,
+                  height: command.height,
+                });
+              }
             }
           } else {
             const textLayout = paginatedPlanLayouts.get(component.id);
             if (textLayout) {
-              drawPaginatedRichTextLayout(
+              await drawPaginatedRichTextLayout(
                 pages,
                 textLayout,
                 contentRect.x,
                 DEFAULT_PAGE_GEOMETRY.page.height,
+                resolveTextImage,
               );
             }
           }
@@ -635,11 +691,12 @@ export function createCanvasPdfExporter(
             const descriptionLayout =
               paginatedReferenceDescriptionLayouts.get(component.id);
             if (descriptionLayout) {
-              drawPaginatedRichTextLayout(
+              await drawPaginatedRichTextLayout(
                 pages,
                 descriptionLayout,
                 contentRect.x,
                 DEFAULT_PAGE_GEOMETRY.page.height,
+                resolveTextImage,
               );
             }
           }
@@ -656,23 +713,23 @@ export function createCanvasPdfExporter(
                 continue;
               }
 
-              const imageFile = imageRecord.file;
               const dataUrl = requireReferenceImageData(
                 images,
                 ref.id,
                 imageRecord,
               );
 
-              let image = embedded.get(imageFile);
+              let image = embedded.get(imageRecord.id);
               if (!image) {
                 image = await embed(
                   dataUrl,
-                  imageDrawBoxes.get(imageFile) ?? {
+                  imageDrawBoxes.get(imageRecord.id) ?? {
                     width: A4.width,
                     height: A4.height,
                   },
+                  imageRecord,
                 );
-                embedded.set(imageFile, image);
+                embedded.set(imageRecord.id, image);
               }
 
               const imageSlotInPage: Rect = slotToPageRect(
@@ -697,12 +754,11 @@ export function createCanvasPdfExporter(
                 borderWidth: 0.75,
               });
 
-              const imageRect = referenceImageDrawBox(imageSlotInPage, image);
               page.drawImage(image, {
-                x: imageRect.x,
-                y: imageRect.y,
-                width: imageRect.width,
-                height: imageRect.height,
+                x: imageSlotInPage.x,
+                y: imageSlotInPage.y,
+                width: imageSlotInPage.width,
+                height: imageSlotInPage.height,
               });
 
             }

@@ -19,7 +19,7 @@ function component(html: string): PlanTextComponent {
 }
 
 function plan(html: string): ProjectPlan {
-  return { schemaVersion: 10, title: "Demo", components: [component(html)] };
+  return { schemaVersion: 12, title: "Demo", components: [component(html)] };
 }
 
 describe("normalizePlanContinuations", () => {

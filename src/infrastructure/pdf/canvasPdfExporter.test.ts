@@ -27,7 +27,7 @@ const testExporter = () =>
   });
 
 const plan: ProjectPlan = {
-  schemaVersion: 10,
+  schemaVersion: 12,
   title: "Editorial",
   components: [
     {
@@ -54,6 +54,7 @@ const plan: ProjectPlan = {
         aspectRatio: 1,
         frameWidth: 100,
         frameHeight: 100,
+          crop: { x: 0.1, y: 0.2, width: 0.5, height: 0.5 },
       }],
     },
   ],
@@ -160,7 +161,7 @@ describe("createCanvasPdfExporter", () => {
 
   it("exports nested title-free text leaves", async () => {
     const splitPlan: ProjectPlan = {
-      schemaVersion: 10,
+      schemaVersion: 12,
       title: "递归文案",
       components: [{
         id: "split-plan",
@@ -196,6 +197,71 @@ describe("createCanvasPdfExporter", () => {
     expect(bytes.length).toBeLessThan(2_000_000);
   }, 20000);
 
+  it("embeds a project-relative image from rich-text content", async () => {
+    const imagePlan: ProjectPlan = {
+      schemaVersion: 12,
+      title: "Inline image",
+      components: [{
+        id: "p1",
+        name: "Plan",
+        type: "plan",
+        x: 0,
+        width: 500,
+        height: 300,
+        textRoot: {
+          kind: "leaf",
+          id: "p1:root",
+          html: '<p>Before</p><img src="references/portrait.png" alt="Portrait" width="120" height="80"><p>After</p>',
+        },
+      }],
+    };
+    const optimizeImage = vi.fn(async (dataUrl: string) => imageDataFromDataUrl(dataUrl));
+
+    const bytes = await createCanvasPdfExporter(loadFonts, { optimizeImage }).export(
+      imagePlan,
+      { "references/portrait.png": TINY_PNG },
+    );
+
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(0);
+    expect(optimizeImage).toHaveBeenCalledWith(
+      TINY_PNG,
+      expect.objectContaining({ width: 120, height: 80 }),
+    );
+  }, 20000);
+
+  it("exports a canonical v12 document image group in marker order with crop", async () => {
+    const reference = plan.components.find(
+      (component) => component.type === "reference",
+    );
+    if (!reference || reference.type !== "reference") {
+      throw new Error("Expected the reference fixture");
+    }
+    const documentPlan: ProjectPlan = {
+      schemaVersion: 12,
+      title: "Document flow",
+      documentHtml:
+        '<p>Before group</p><figure data-preshot-node="image-group" data-preshot-group-id="r1"></figure><p>After group</p>',
+      components: [{ ...reference, name: "不得导出此标题", description: "" }],
+    };
+    const optimizeImage = vi.fn(async (dataUrl: string) => imageDataFromDataUrl(dataUrl));
+
+    const bytes = await createCanvasPdfExporter(loadFonts, { optimizeImage }).export(
+      documentPlan,
+      { "photo.png": TINY_PNG },
+    );
+
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(0);
+    expect(optimizeImage).toHaveBeenCalledTimes(1);
+    expect(optimizeImage).toHaveBeenCalledWith(
+      TINY_PNG,
+      expect.objectContaining({
+        width: expect.closeTo(97.807338, 5),
+        height: expect.closeTo(97.807338, 5),
+      }),
+      { crop: { x: 0.1, y: 0.2, width: 0.5, height: 0.5 } },
+    );
+  }, 20000);
+
   it("optimizes each source image once for its largest PDF draw box", async () => {
     const optimizeImage = vi.fn(async (dataUrl: string) => {
       const match = /^data:([^;]+);base64,(.*)$/.exec(dataUrl);
@@ -214,6 +280,7 @@ describe("createCanvasPdfExporter", () => {
     expect(optimizeImage).toHaveBeenCalledWith(
       TINY_PNG,
       expect.objectContaining({ width: 100, height: 100 }),
+      { crop: { x: 0.1, y: 0.2, width: 0.5, height: 0.5 } },
     );
   }, 20000);
 });

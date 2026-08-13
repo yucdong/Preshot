@@ -1,6 +1,7 @@
 import { createCanvasPlanService } from "../../domain/plan/canvas/service";
 import type { CanvasPlanDependencies } from "../../features/plan/ProjectCanvasProvider";
 import { createBrowserCanvasPlanDependencies } from "../../infrastructure/plan/browserPlan";
+import { createMidsceneCanvasPlanDependencies } from "../../infrastructure/plan/midscenePlan";
 import { planImagePicker } from "../../infrastructure/plan/planDialog";
 import { tauriPlan } from "../../infrastructure/plan/tauriPlan";
 import { planLogger } from "../../shared/logging/logger";
@@ -37,6 +38,22 @@ export function createPlanDependencies(): CanvasPlanDependencies {
 }
 
 export function createCanvasPlanDependencies(): CanvasPlanDependencies {
+  if (import.meta.env.VITE_WORKSPACE_ADAPTER === "midscene") {
+    if (import.meta.env.PROD) {
+      throw new Error(
+        "The Midscene canvas plan adapter is only available in test mode and must never run in a production build.",
+      );
+    }
+    const midsceneDeps = createMidsceneCanvasPlanDependencies();
+    return {
+      ...midsceneDeps,
+      logger: planLogger,
+      screenCapture: createBrowserScreenCapture(),
+      exporter: canvasPdfExporter,
+      saver: browserPdfSaveTarget,
+      reveal: browserRevealTarget,
+    };
+  }
   if (import.meta.env.VITE_WORKSPACE_ADAPTER === "memory") {
     if (import.meta.env.PROD) {
       throw new Error(

@@ -1,4 +1,10 @@
 import type { Block, Run } from "./htmlToBlocks";
+import type { ReferenceComponent } from "../../domain/plan/canvas/models";
+import { contentSize, DEFAULT_PAGE_GEOMETRY } from "../../domain/plan/canvas/geometry";
+import {
+  DOCUMENT_IMAGE_GROUP_INSET,
+  layoutDocumentImageGroup,
+} from "../../domain/plan/canvas/documentImageGroupLayout";
 
 export const PDF_BODY_SIZE = 11;
 export const PDF_H1_SIZE = 16;
@@ -29,9 +35,23 @@ export interface PdfTextCommand<Font extends PdfTextMetricFont> {
   color?: string;
 }
 
+export interface PdfImageCommand {
+  src: string;
+  x: number;
+  topFromTop: number;
+  width: number;
+  height: number;
+  crop?: { x: number; y: number; width: number; height: number };
+}
+
+export interface PdfRichTextLayoutOptions {
+  imageGroups?: ReadonlyMap<string, ReferenceComponent>;
+}
+
 export interface PdfTextLayout<Font extends PdfTextMetricFont> {
   height: number;
   commands: PdfTextCommand<Font>[];
+  images: PdfImageCommand[];
 }
 
 export interface PaginatedPdfTextCommand<Font extends PdfTextMetricFont>
@@ -43,6 +63,10 @@ export interface PaginatedPdfTextCommand<Font extends PdfTextMetricFont>
 export interface PaginatedPdfTextLayout<Font extends PdfTextMetricFont> {
   height: number;
   commands: PaginatedPdfTextCommand<Font>[];
+  images: (PdfImageCommand & {
+    pageIndex: number;
+    topFromPageTop: number;
+  })[];
 }
 
 interface Token<Font extends PdfTextMetricFont> {
@@ -118,8 +142,10 @@ export function layoutPdfRichText<Font extends PdfTextMetricFont>(
   blocks: Block[],
   width: number,
   fonts: PdfTextFonts<Font>,
+  options: PdfRichTextLayoutOptions = {},
 ): PdfTextLayout<Font> {
   const commands: PdfTextCommand<Font>[] = [];
+  const images: PdfImageCommand[] = [];
   const safeWidth = Number.isFinite(width) && width > 0 ? width : 0;
   let cursorFromTop = 0;
 
@@ -191,6 +217,44 @@ export function layoutPdfRichText<Font extends PdfTextMetricFont>(
     } else if (block.type === "paragraph") {
       layoutRuns(block.runs, PDF_BODY_SIZE, false);
       cursorFromTop += PDF_PARAGRAPH_GAP;
+    } else if (block.type === "image") {
+      const naturalWidth = block.width ?? safeWidth;
+      const naturalHeight = block.height ?? naturalWidth * 0.75;
+      const width = Math.min(safeWidth, naturalWidth);
+      const height = naturalWidth > 0 ? width * naturalHeight / naturalWidth : 0;
+      images.push({
+        src: block.src,
+        x: 0,
+        topFromTop: cursorFromTop,
+        width,
+        height,
+      });
+      cursorFromTop += height + PDF_PARAGRAPH_GAP;
+    } else if (block.type === "imageGroup") {
+      const group = options.imageGroups?.get(block.groupId);
+      if (!group || group.images.length === 0) {
+        continue;
+      }
+      const documentWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
+      const pdfScale = safeWidth / documentWidth;
+      const groupWidth = Math.min(documentWidth, Math.max(1, group.width));
+      const groupHeight = Math.max(1, group.height);
+      const groupX = Math.max(0, Math.min(group.x, documentWidth - groupWidth));
+      const layout = layoutDocumentImageGroup(group.images, groupWidth, groupHeight);
+      const imagesById = new Map(group.images.map((image) => [image.id, image]));
+      for (const slot of layout.slots) {
+        const source = imagesById.get(slot.id);
+        if (!source) continue;
+        images.push({
+          src: source.file,
+          x: (groupX + DOCUMENT_IMAGE_GROUP_INSET + slot.x) * pdfScale,
+          topFromTop: cursorFromTop + (DOCUMENT_IMAGE_GROUP_INSET + slot.y) * pdfScale,
+          width: slot.width * pdfScale,
+          height: slot.height * pdfScale,
+          ...(source.crop ? { crop: source.crop } : {}),
+        });
+      }
+      cursorFromTop += groupHeight * pdfScale + PDF_PARAGRAPH_GAP;
     } else {
       block.items.forEach((item, index) => {
         commands.push({
@@ -207,7 +271,7 @@ export function layoutPdfRichText<Font extends PdfTextMetricFont>(
     }
   }
 
-  return { height: cursorFromTop, commands };
+  return { height: cursorFromTop, commands, images };
 }
 
 export function paginatePdfTextLayout<Font extends PdfTextMetricFont>(
@@ -233,6 +297,11 @@ export function paginatePdfTextLayout<Font extends PdfTextMetricFont>(
         pageIndex: 0,
         baselineFromPageTop: command.baselineFromTop,
       })),
+      images: layout.images.map((image) => ({
+        ...image,
+        pageIndex: 0,
+        topFromPageTop: image.topFromTop,
+      })),
     };
   }
 
@@ -243,60 +312,85 @@ export function paginatePdfTextLayout<Font extends PdfTextMetricFont>(
     commandsByBaseline.set(command.baselineFromTop, commands);
   }
 
+  const items = [
+    ...Array.from(commandsByBaseline, ([baselineFromTop, lineCommands]) => {
+      const lineSize = lineCommands.reduce(
+        (largest, command) => Math.max(largest, command.size),
+        0,
+      );
+      return {
+        kind: "text" as const,
+        topFromTop: baselineFromTop - lineSize,
+        height: lineSize * PDF_LINE_HEIGHT,
+        lineCommands,
+      };
+    }),
+    ...layout.images.map((image) => ({
+      kind: "image" as const,
+      topFromTop: image.topFromTop,
+      height: image.height,
+      image,
+    })),
+  ].sort((first, second) => first.topFromTop - second.topFromTop);
+
   const paginatedCommands: PaginatedPdfTextCommand<Font>[] = [];
+  const paginatedImages: PaginatedPdfTextLayout<Font>["images"] = [];
   let accumulatedSpacer = 0;
   const pageContentHeight = Math.max(0, pageHeight - pageMargin * 2);
 
-  for (const [baselineFromTop, lineCommands] of commandsByBaseline) {
-    const lineSize = lineCommands.reduce(
-      (largest, command) => Math.max(largest, command.size),
-      0,
-    );
-    const lineTop = baselineFromTop - lineSize;
-    const lineHeight = lineSize * PDF_LINE_HEIGHT;
-    let lineTopInDocument =
-      textStartFromDocumentTop + lineTop + accumulatedSpacer;
-    let pageIndex = Math.max(0, Math.floor(lineTopInDocument / pageHeight));
+  for (const item of items) {
+    let itemTopInDocument =
+      textStartFromDocumentTop + item.topFromTop + accumulatedSpacer;
+    let pageIndex = Math.max(0, Math.floor(itemTopInDocument / pageHeight));
     let contentStart = pageIndex * pageHeight + pageMargin;
     let contentEnd = (pageIndex + 1) * pageHeight - pageMargin;
 
-    if (lineTopInDocument < contentStart) {
-      accumulatedSpacer += contentStart - lineTopInDocument;
-      lineTopInDocument = contentStart;
+    if (itemTopInDocument < contentStart) {
+      accumulatedSpacer += contentStart - itemTopInDocument;
+      itemTopInDocument = contentStart;
     }
 
     if (
-      lineHeight <= pageContentHeight &&
-      lineTopInDocument + lineHeight > contentEnd + 0.01
+      item.height <= pageContentHeight &&
+      itemTopInDocument + item.height > contentEnd + 0.01
     ) {
       const nextContentStart = (pageIndex + 1) * pageHeight + pageMargin;
-      accumulatedSpacer += nextContentStart - lineTopInDocument;
-      lineTopInDocument = nextContentStart;
+      accumulatedSpacer += nextContentStart - itemTopInDocument;
+      itemTopInDocument = nextContentStart;
       pageIndex += 1;
       contentStart = pageIndex * pageHeight + pageMargin;
       contentEnd = (pageIndex + 1) * pageHeight - pageMargin;
     }
 
-    for (const command of lineCommands) {
-      const baselineInDocument =
-        textStartFromDocumentTop +
-        command.baselineFromTop +
-        accumulatedSpacer;
-      const commandPageIndex = Math.max(
-        0,
-        Math.floor(baselineInDocument / pageHeight),
-      );
-      paginatedCommands.push({
-        ...command,
-        pageIndex: commandPageIndex,
-        baselineFromPageTop:
-          baselineInDocument - commandPageIndex * pageHeight,
+    if (item.kind === "image") {
+      paginatedImages.push({
+        ...item.image,
+        pageIndex,
+        topFromPageTop: itemTopInDocument - pageIndex * pageHeight,
       });
+    } else {
+      for (const command of item.lineCommands) {
+        const baselineInDocument =
+          textStartFromDocumentTop +
+          command.baselineFromTop +
+          accumulatedSpacer;
+        const commandPageIndex = Math.max(
+          0,
+          Math.floor(baselineInDocument / pageHeight),
+        );
+        paginatedCommands.push({
+          ...command,
+          pageIndex: commandPageIndex,
+          baselineFromPageTop:
+            baselineInDocument - commandPageIndex * pageHeight,
+        });
+      }
     }
   }
 
   return {
     height: layout.height + accumulatedSpacer,
     commands: paginatedCommands,
+    images: paginatedImages,
   };
 }

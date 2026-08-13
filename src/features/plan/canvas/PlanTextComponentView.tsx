@@ -17,6 +17,14 @@ import {
 interface PlanTextComponentViewProps {
   component: PlanTextComponent;
   onChangeHtml: (componentId: string, leafId: string, html: string) => void;
+  imageSrc?: (file: string) => string | undefined;
+  onInsertImage?: () => Promise<{
+    file: string;
+    dataUrl: string;
+    alt?: string;
+    width?: number;
+    height?: number;
+  } | null>;
   onSplitLeaf?: (
     componentId: string,
     leafId: string,
@@ -54,6 +62,8 @@ interface TextLeafEditorProps {
   onRemoveLeaf?: PlanTextComponentViewProps["onRemoveLeaf"];
   canRemove: boolean;
   onBlockHtmlChange?: (sourceHtml: string, blocks: string[]) => void;
+  imageSrc?: PlanTextComponentViewProps["imageSrc"];
+  onInsertImage?: PlanTextComponentViewProps["onInsertImage"];
 }
 
 function TextLeafEditor({
@@ -64,6 +74,8 @@ function TextLeafEditor({
   onRemoveLeaf,
   canRemove,
   onBlockHtmlChange,
+  imageSrc,
+  onInsertImage,
 }: TextLeafEditorProps) {
   const { t } = useTranslation();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -110,6 +122,8 @@ function TextLeafEditor({
           html={leaf.html}
           onBlockHtmlChange={onBlockHtmlChange}
           onChange={(html) => onChangeHtml(componentId, leaf.id, html)}
+          onInsertImage={onInsertImage}
+          resolveImageSrc={imageSrc}
         />
       </section>
       <ConfirmDialog
@@ -153,6 +167,8 @@ function TextNodeView({
 export function PlanTextComponentView({
   component,
   onChangeHtml,
+  imageSrc,
+  onInsertImage,
   onSplitLeaf,
   onRemoveLeaf,
   onUndo,
@@ -266,6 +282,8 @@ export function PlanTextComponentView({
               setBlockContent({ sourceHtml, blocks });
             }}
             onChangeHtml={onChangeHtml}
+            imageSrc={imageSrc}
+            onInsertImage={onInsertImage}
             onSplitLeaf={onSplitLeaf}
             onRemoveLeaf={removeLeaf}
             canRemove={false}
@@ -275,6 +293,8 @@ export function PlanTextComponentView({
             componentId={component.id}
             node={component.textRoot}
             onChangeHtml={onChangeHtml}
+            imageSrc={imageSrc}
+            onInsertImage={onInsertImage}
             onSplitLeaf={onSplitLeaf}
             onRemoveLeaf={removeLeaf}
             canRemove

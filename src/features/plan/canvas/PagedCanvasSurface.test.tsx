@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { A4 } from "../../../domain/plan/canvas/geometry";
+import { A4, SPACING } from "../../../domain/plan/canvas/geometry";
 import { PagedCanvasSurface } from "./PagedCanvasSurface";
 import { PAGE_SCREEN_GAP, pageTopPx } from "./pagedCanvasMetrics";
 
@@ -30,6 +30,48 @@ describe("PagedCanvasSurface", () => {
     expect(screen.getAllByTestId("canvas-page-background")).toHaveLength(2);
     expect(screen.getByTestId("paged-canvas-surface")).toHaveStyle({
       height: `${A4.height * 2 + PAGE_SCREEN_GAP}px`,
+    });
+  });
+
+  it("points each Word-style page corner inward from outside the text boundary", () => {
+    render(
+      <PagedCanvasSurface pageCount={1} scale={1}>
+        <div />
+      </PagedCanvasSurface>,
+    );
+
+    const corners = Object.fromEntries(
+      screen.getAllByTestId("canvas-page-corner").map((corner) => [
+        corner.dataset.corner,
+        corner,
+      ]),
+    );
+    const cornerSize = 14;
+    const outerOffset = SPACING - cornerSize;
+
+    expect(corners["top-left"]).toHaveStyle({
+      top: `${outerOffset}px`,
+      left: `${outerOffset}px`,
+      borderRightWidth: "1px",
+      borderBottomWidth: "1px",
+    });
+    expect(corners["top-right"]).toHaveStyle({
+      top: `${outerOffset}px`,
+      right: `${outerOffset}px`,
+      borderBottomWidth: "1px",
+      borderLeftWidth: "1px",
+    });
+    expect(corners["bottom-left"]).toHaveStyle({
+      bottom: `${outerOffset}px`,
+      left: `${outerOffset}px`,
+      borderTopWidth: "1px",
+      borderRightWidth: "1px",
+    });
+    expect(corners["bottom-right"]).toHaveStyle({
+      right: `${outerOffset}px`,
+      bottom: `${outerOffset}px`,
+      borderTopWidth: "1px",
+      borderLeftWidth: "1px",
     });
   });
 

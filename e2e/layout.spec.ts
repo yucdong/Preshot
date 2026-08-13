@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+async function insertImageGroup(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: /^插入$/ }).dispatchEvent("click");
+  await page.getByRole("menuitem", { name: "图片组" }).dispatchEvent("click");
+}
+
 test("keeps the sidebar project actions fixed while the canvas is tall", async ({ page }) => {
   await page.goto("/");
   const newProject = page.getByRole("button", { name: "新建项目", exact: true });
@@ -8,8 +13,7 @@ test("keeps the sidebar project actions fixed while the canvas is tall", async (
   // Grow the canvas so its content exceeds the viewport height and the middle panel
   // must scroll internally (rather than the whole page).
   for (let i = 0; i < 6; i++) {
-    await page.getByRole("button", { name: "插入组件" }).click();
-    await page.getByRole("menuitem", { name: "图片组" }).click();
+    await insertImageGroup(page);
   }
 
   const before = await newProject.boundingBox();
@@ -31,8 +35,7 @@ test("scrolls the middle canvas panel to reach components below the fold", async
 
   // Add enough components that the canvas overflows the panel height.
   for (let i = 0; i < 8; i++) {
-    await page.getByRole("button", { name: "插入组件" }).click();
-    await page.getByRole("menuitem", { name: "图片组" }).click();
+    await insertImageGroup(page);
   }
 
   // The canvas panel itself must be the scroll container (not clipped by the shell).
@@ -53,7 +56,7 @@ test("scrolls the middle canvas panel to reach components below the fold", async
 test("resizes side panels and restores defaults by double click", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
-  await expect(page.getByTestId("plan-canvas")).toBeVisible();
+  await expect(page.getByTestId("plan-document-canvas")).toBeVisible();
 
   const projectSplitter = page.getByRole("separator", { name: "调整项目栏宽度" });
   const assistantSplitter = page.getByRole("separator", { name: "调整助手栏宽度" });

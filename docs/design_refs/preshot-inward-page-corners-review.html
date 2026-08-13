@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preshot 页面内向角标与文字边界评审</title>
+  <style>
+    @font-face { font-family: NotoSC; src: url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+    @font-face { font-family: NotoSC; src: url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+    :root {
+      --stage: #dfe2e6;
+      --paper: #fff;
+      --ink: #22262b;
+      --muted: #6f757d;
+      --corner: #9ca3ab;
+      --guide: #078ba8;
+      --berry: #bf385b;
+      --boundary-x: 58px;
+      --boundary-top: 54px;
+      --boundary-bottom: 58px;
+      --corner-length: 22px;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-width: 320px; min-height: 100%; margin: 0; }
+    body { color: var(--ink); background: var(--stage); font-family: NotoSC, "Microsoft YaHei UI", sans-serif; letter-spacing: 0; }
+    button { font: inherit; cursor: pointer; }
+    .app { min-height: 100vh; }
+    .topbar { position: sticky; top: 0; z-index: 20; display: flex; height: 48px; align-items: center; gap: 10px; padding: 0 16px; color: #fff; background: #191b1f; }
+    .mark { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 5px; background: var(--berry); font-size: 12px; font-weight: 700; }
+    .brand { font-size: 13px; font-weight: 700; }
+    .title { color: #c7cbd0; font-size: 10px; }
+    .spacer { flex: 1; }
+    .mode { display: flex; align-items: center; gap: 5px; color: #d2d5da; font-size: 9px; }
+    .mode button { height: 27px; padding: 0 9px; border: 1px solid rgb(255 255 255 / 14%); border-radius: 4px; color: #fff; background: rgb(255 255 255 / 7%); font-size: 9px; }
+    .mode button[aria-pressed="true"] { border-color: #4bc0d8; color: #c8f4fb; background: rgb(7 139 168 / 25%); }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; min-height: calc(100vh - 48px); }
+    .stage { min-width: 0; overflow: auto; padding: 24px 32px 60px; background-color: var(--stage); background-image: linear-gradient(rgb(36 39 44 / 3%) 1px, transparent 1px), linear-gradient(90deg, rgb(36 39 44 / 3%) 1px, transparent 1px); background-size: 20px 20px; }
+    .paper-stack { width: 680px; max-width: 100%; margin: 0 auto; }
+    .paper { position: relative; width: 100%; height: 962px; overflow: hidden; background: var(--paper); box-shadow: 0 16px 42px rgb(27 30 35 / 15%); }
+    .paper + .paper { margin-top: 30px; }
+    .corner { position: absolute; z-index: 4; width: var(--corner-length); height: var(--corner-length); color: var(--corner); pointer-events: none; }
+    .corner::before, .corner::after { position: absolute; background: currentColor; content: ""; }
+    .corner::before { width: var(--corner-length); height: 1px; }
+    .corner::after { width: 1px; height: var(--corner-length); }
+    /* Word-style marks sit outside the text area with each vertex pointing inward. */
+    .corner.tl { top: calc(var(--boundary-top) - var(--corner-length)); left: calc(var(--boundary-x) - var(--corner-length)); }
+    .corner.tl::before { right: 0; bottom: 0; }
+    .corner.tl::after { right: 0; bottom: 0; }
+    .corner.tr { top: calc(var(--boundary-top) - var(--corner-length)); right: calc(var(--boundary-x) - var(--corner-length)); }
+    .corner.tr::before { bottom: 0; left: 0; }
+    .corner.tr::after { bottom: 0; left: 0; }
+    .corner.bl { bottom: calc(var(--boundary-bottom) - var(--corner-length)); left: calc(var(--boundary-x) - var(--corner-length)); }
+    .corner.bl::before { top: 0; right: 0; }
+    .corner.bl::after { top: 0; right: 0; }
+    .corner.br { right: calc(var(--boundary-x) - var(--corner-length)); bottom: calc(var(--boundary-bottom) - var(--corner-length)); }
+    .corner.br::before { top: 0; left: 0; }
+    .corner.br::after { top: 0; left: 0; }
+    .text-boundary { position: absolute; z-index: 2; top: var(--boundary-top); right: var(--boundary-x); bottom: var(--boundary-bottom); left: var(--boundary-x); padding: 0; outline: none; font-size: 14px; line-height: 1.72; }
+    .text-boundary::before { position: absolute; inset: 0; border: 1px dashed transparent; content: ""; pointer-events: none; }
+    .paper.show-guide .text-boundary::before { border-color: rgb(7 139 168 / 48%); }
+    .paper.show-guide .corner { color: var(--guide); }
+    .text-content { position: absolute; inset: 0; overflow: hidden; }
+    .text-content > :first-child { margin-top: 0; }
+    .text-content h1 { margin: 0 0 22px; font-size: 25px; line-height: 1.25; }
+    .text-content h2 { margin: 20px 0 7px; font-size: 18px; line-height: 1.35; }
+    .text-content p { margin: 0 0 9px; }
+    .text-content ul { margin: 7px 0 14px; padding-left: 1.3em; }
+    .vertex-label { position: absolute; z-index: 6; display: none; padding: 2px 5px; border-radius: 3px; color: #fff; background: #078ba8; font-size: 7px; pointer-events: none; }
+    .paper.show-guide .vertex-label { display: block; }
+    .vertex-label.tl { top: calc(var(--boundary-top) - 20px); left: var(--boundary-x); }
+    .vertex-label.tr { top: calc(var(--boundary-top) - 20px); right: var(--boundary-x); }
+    .vertex-label.bl { bottom: calc(var(--boundary-bottom) - 20px); left: var(--boundary-x); }
+    .vertex-label.br { right: var(--boundary-x); bottom: calc(var(--boundary-bottom) - 20px); }
+    .page-number { position: absolute; right: 18px; bottom: 14px; color: #a0a5ab; font-size: 8px; }
+    .page-gap { display: grid; height: 30px; place-items: center; color: #858b92; font-size: 8px; user-select: none; }
+    .page-gap span { padding: 2px 7px; border-radius: 8px; background: rgb(255 255 255 / 58%); }
+    .review { position: sticky; top: 48px; height: calc(100vh - 48px); overflow: auto; padding: 22px 18px; border-left: 1px solid #c8ccd1; background: #f7f8f8; }
+    .review h1 { margin: 0 0 8px; font-size: 15px; }
+    .review > p { margin: 0 0 18px; color: var(--muted); font-size: 9px; line-height: 1.65; }
+    .note { margin-bottom: 12px; padding: 11px; border-left: 3px solid var(--guide); background: #fff; box-shadow: 0 1px 3px rgb(27 30 35 / 7%); }
+    .note strong { display: block; margin-bottom: 5px; font-size: 10px; }
+    .note span { display: block; color: #666c73; font-size: 9px; line-height: 1.65; }
+    .corner-map { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 15px; }
+    .corner-map div { display: grid; min-height: 54px; place-items: center; border: 1px solid #d7dade; border-radius: 4px; color: #555c64; background: #fff; font-size: 22px; }
+    .corner-map small { display: block; color: #7c8289; font-size: 7px; }
+    @media (max-width: 980px) {
+      .layout { display: block; }
+      .review { position: static; height: auto; border-top: 1px solid #c8ccd1; border-left: 0; }
+    }
+    @media (max-width: 720px) {
+      .stage { padding: 10px 0 32px; }
+      .paper { height: 780px; box-shadow: none; --boundary-x: 26px; --boundary-top: 38px; --boundary-bottom: 46px; --corner-length: 16px; }
+      .text-content { font-size: 13px; }
+      .text-content h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <span class="mark">P</span><span class="brand">PRESHOT</span><span class="title">内向角标与文字边界 · 设计评审</span>
+      <span class="spacer"></span>
+      <div class="mode"><span>辅助边界</span><button id="guide-toggle" aria-pressed="false" type="button">显示</button></div>
+    </header>
+    <div class="layout">
+      <main class="stage">
+        <div class="paper-stack">
+          <article class="paper" aria-label="第 1 页">
+            <span class="corner tl" data-corner="top-left"></span><span class="vertex-label tl">文字边界左上</span>
+            <span class="corner tr" data-corner="top-right"></span><span class="vertex-label tr">文字边界右上</span>
+            <span class="corner bl" data-corner="bottom-left"></span><span class="vertex-label bl">文字边界左下</span>
+            <span class="corner br" data-corner="bottom-right"></span><span class="vertex-label br">文字边界右下</span>
+            <div class="text-boundary" data-text-boundary>
+              <div class="text-content" contenteditable="true" role="textbox" aria-label="统一方案正文" spellcheck="false">
+                <h1>夏季小清新人像拍摄经验</h1>
+                <h2>镜头选择</h2>
+                <p>1. 85mm 镜头：特写、远景</p>
+                <p>2. 35mm 镜头：环境人像、半身</p>
+                <h2>服装</h2>
+                <p>夏季常服，草帽等轻量配饰，颜色以清透低饱和为主。</p>
+                <h2>拍摄顺序</h2>
+                <ul><li>先拍窗边近景，确认肤色和高光。</li><li>再拍环境半身，保留背景空间。</li></ul>
+                <h2>拍摄建议</h2>
+                <p>文字只能在四角顶点围成的矩形内排版；到达底边时，下一段整体进入下一页。</p>
+              </div>
+            </div>
+            <span class="page-number">1 / 2</span>
+          </article>
+          <div class="page-gap" aria-label="不可编辑页缝"><span>页缝不可输入</span></div>
+          <article class="paper" aria-label="第 2 页">
+            <span class="corner tl" data-corner="top-left"></span><span class="vertex-label tl">文字边界左上</span>
+            <span class="corner tr" data-corner="top-right"></span><span class="vertex-label tr">文字边界右上</span>
+            <span class="corner bl" data-corner="bottom-left"></span><span class="vertex-label bl">文字边界左下</span>
+            <span class="corner br" data-corner="bottom-right"></span><span class="vertex-label br">文字边界右下</span>
+            <div class="text-boundary" data-text-boundary>
+              <div class="text-content" contenteditable="true" role="textbox" aria-label="第二页正文" spellcheck="false">
+                <h2>第二页正文</h2>
+                <p>光标从第一页最后一个块继续到这里，但不能停在灰色页缝中。</p>
+              </div>
+            </div>
+            <span class="page-number">2 / 2</span>
+          </article>
+        </div>
+      </main>
+      <aside class="review">
+        <h1>本轮确认点</h1>
+        <p>采用 Word 式页角标记：线臂留在文字区外，四个 L 形尖端朝向文档内侧。点击顶部“显示”可查看文字边界与尖端完全重合。</p>
+        <div class="note"><strong>01 · 四尖朝内</strong><span>左上 ┘、右上 └、左下 ┐、右下 ┌。每个 L 形尖端指向正文，线臂从尖端向页边延伸。</span></div>
+        <div class="note"><strong>02 · 尖端定义边界</strong><span>四个尖端组成文字布局矩形。角标本体位于矩形外，正文不会被角标再次内缩。</span></div>
+        <div class="note"><strong>03 · 文字贴齐边界</strong><span>正文可用区域直接从四个尖端定义的边界开始，横向和纵向均不额外扣除角标长度。</span></div>
+        <div class="note"><strong>04 · Word 式分页</strong><span>到达底部角标边界后，下一块进入下一页；页缝不可编辑。</span></div>
+        <div class="corner-map">
+          <div>┘<small>左上尖端：朝右下</small></div><div>└<small>右上尖端：朝左下</small></div>
+          <div>┐<small>左下尖端：朝右上</small></div><div>┌<small>右下尖端：朝左上</small></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <script>
+    const toggle = document.getElementById("guide-toggle");
+    toggle.addEventListener("click", () => {
+      const active = toggle.getAttribute("aria-pressed") !== "true";
+      toggle.setAttribute("aria-pressed", String(active));
+      toggle.textContent = active ? "隐藏" : "显示";
+      document.querySelectorAll(".paper").forEach((paper) => paper.classList.toggle("show-guide", active));
+    });
+  </script>
+</body>
+</html>

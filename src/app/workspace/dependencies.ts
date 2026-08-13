@@ -9,6 +9,7 @@ import type {
 import {
   browserWorkspaceDependencies,
 } from "../../infrastructure/workspace/browserWorkspace";
+import { createMidsceneWorkspaceDependencies } from "../../infrastructure/workspace/midsceneWorkspace";
 import { tauriWorkspace } from "../../infrastructure/workspace/tauriWorkspace";
 import { workspaceDirectoryPicker } from "../../infrastructure/workspace/workspaceDialog";
 import { workspaceRegistry } from "../../infrastructure/workspace/workspaceStore";
@@ -44,6 +45,14 @@ function createProductionWorkspaceDependencies(): WorkspaceDependencies {
 }
 
 export function createWorkspaceDependencies(): WorkspaceDependencies {
+  if (import.meta.env.VITE_WORKSPACE_ADAPTER === "midscene") {
+    if (import.meta.env.PROD) {
+      throw new Error(
+        "The Midscene workspace adapter is only available in test mode and must never run in a production build.",
+      );
+    }
+    return createMidsceneWorkspaceDependencies();
+  }
   if (import.meta.env.VITE_WORKSPACE_ADAPTER === "memory") {
     if (import.meta.env.PROD) {
       throw new Error(

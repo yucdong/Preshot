@@ -31,23 +31,9 @@ describe("schema v9 migration", () => {
     }, context);
 
     expect(migrated).toMatchObject({
-      schemaVersion: 10,
-      components: [
-        {
-          id: "plan-a",
-          name: "重复名称",
-          textRoot: {
-            kind: "leaf",
-            id: "plan-a:root",
-            html: "<p>Legacy content</p>",
-          },
-        },
-        {
-          id: "plan-b",
-          name: "重复名称",
-          textRoot: { id: "plan-b:root", html: "<p>Second</p>" },
-        },
-      ],
+      schemaVersion: 12,
+      documentHtml: "<p>Legacy content</p><p>Second</p><p></p>",
+      components: [],
     });
   });
 
@@ -75,18 +61,10 @@ describe("schema v9 migration", () => {
       }],
     };
     expect(migratePlan(saved, context)).toEqual({
-      ...saved,
-      schemaVersion: 10,
-      components: [{
-        ...saved.components[0],
-        textRoot: {
-          ...saved.components[0].textRoot,
-          children: [
-            { kind: "leaf", id: "same", html: "<p>A</p>" },
-            { kind: "leaf", id: "leaf-b", html: "<p>B</p>" },
-          ],
-        },
-      }],
+      schemaVersion: 12,
+      title: "Editorial",
+      documentHtml: "<p>A</p><p>B</p><p></p>",
+      components: [],
     });
 
     const duplicate = structuredClone(saved);

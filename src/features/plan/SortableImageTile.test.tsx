@@ -84,7 +84,14 @@ describe("SortableImageTile", () => {
       />,
     );
 
-    expect(screen.getByRole("img", { name: "参考图" })).toHaveClass("object-cover");
+    const renderedImage = screen.getByRole("img", { name: "参考图" });
+    expect(renderedImage).not.toHaveClass("object-cover");
+    expect(renderedImage).toHaveStyle({
+      height: "100%",
+      top: "0%",
+    });
+    expect(Number.parseFloat(renderedImage.style.width)).toBeGreaterThan(100);
+    expect(Number.parseFloat(renderedImage.style.left)).toBeLessThan(0);
     for (const edge of ["left", "right", "top", "bottom"]) {
       expect(document.querySelector(`[data-image-resize-handle="${edge}"]`)).toBeInTheDocument();
     }
@@ -111,7 +118,7 @@ describe("SortableImageTile", () => {
       frameHeight: 90,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "恢复默认图片尺寸" }));
+    fireEvent.click(screen.getByRole("button", { name: "恢复原图视图" }));
     expect(onResizeFrame).toHaveBeenLastCalledWith("image", {
       frameWidth: 270,
       frameHeight: 135,
@@ -166,5 +173,71 @@ describe("SortableImageTile", () => {
       { frameWidth: 156, frameHeight: 100 },
       { vertical: 156, horizontal: null },
     );
+  });
+
+  it("pans and persists crop only in adjust-view mode, then resets to the full source", () => {
+    const onSetCrop = vi.fn();
+    render(
+      <SortableImageTile
+        componentId="reference"
+        image={{
+          id: "image",
+          file: "image.png",
+          aspectRatio: 2,
+          frameWidth: 100,
+          frameHeight: 100,
+          crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+        }}
+        index={0}
+        onOpen={vi.fn()}
+        onRemove={vi.fn()}
+        onSelect={vi.fn()}
+        onSetCrop={onSetCrop}
+        slot={{
+          kind: "image",
+          id: "image",
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+          imageHeight: 100,
+          captionHeight: 0,
+        }}
+        scale={1}
+        src="data:image/png;base64,AA=="
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "调整视图" }));
+    const imageButton = screen.getByRole("button", { name: "选择参考图 1" }) as HTMLButtonElement & {
+      setPointerCapture(pointerId: number): void;
+      hasPointerCapture(pointerId: number): boolean;
+      releasePointerCapture(pointerId: number): void;
+    };
+    imageButton.getBoundingClientRect = () => ({
+      x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 100, width: 100, height: 100,
+      toJSON: () => ({}),
+    });
+    imageButton.setPointerCapture = vi.fn();
+    imageButton.hasPointerCapture = vi.fn().mockReturnValue(true);
+    imageButton.releasePointerCapture = vi.fn();
+    fireEvent.pointerDown(imageButton, { clientX: 50, clientY: 50, pointerId: 1 });
+    fireEvent.pointerMove(imageButton, { clientX: 70, clientY: 50, pointerId: 1 });
+    fireEvent.pointerUp(imageButton, { pointerId: 1 });
+
+    expect(onSetCrop).toHaveBeenCalledWith("image", {
+      x: 0.15,
+      y: 0,
+      width: 0.5,
+      height: 1,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "恢复原图视图" }));
+    expect(onSetCrop).toHaveBeenLastCalledWith("image", {
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    });
   });
 });

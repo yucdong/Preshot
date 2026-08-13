@@ -20,7 +20,7 @@ commands serialize OS work only and do not contain UI or planning rules.
   error boundary.
 - `src/features`: canvas/editor UI, interactions, image import progress, and
   project-retirement orchestration.
-- `src/domain`: workspace and schema-v10 canvas models, pure layout/reducers,
+- `src/domain`: workspace and schema-v12 canvas models, pure layout/reducers,
   migration, and ports.
 - `src/infrastructure`: Tauri and browser implementations of those ports.
 - `src-tauri`: filesystem, PDF, screen-capture, menu, and settings commands.
@@ -32,71 +32,92 @@ a `.preshot` manifest containing project identity and the optional plan. The
 workspace service serializes mutations; unavailable manifests remain visible
 for recovery but cannot be opened as a project.
 
-Canvas plans are migrated at the manifest boundary to `schemaVersion: 10`.
-Earlier schemas are accepted only as migration input. A valid v10 plan has a
-flat, ordered `components` array. Plan components contain a recursive
-columns/rows text tree whose leaves store only immutable IDs and rich-text
-HTML; v9 leaf titles are discarded during migration.
+Canvas plans are migrated at the manifest boundary to `schemaVersion: 12`.
+Earlier schemas are accepted only as migration input. In strict v12,
+`documentHtml` is the sole source of text and image-group order, while
+`components` contains only reference/image-group metadata. Every image-group
+marker must match exactly one component record and vice versa. Reference image
+records preserve source dimensions, frame geometry, captions, and normalized
+crop independently of the HTML marker.
 
-## Schema v10 Canvas
+## Schema v12 Continuous Document
 
-Each component has a continuous `width` and `contentScale` in `[0.5, 2]`.
-The pure `layoutPlan` engine packs the ordered components left-to-right with
-the configured gap, then wraps and paginates them. Resizing or moving a
-component changes the flat order/geometry only; rows are always recomputed.
-The same engine drives the editable screen canvas and PDF placement so their
-page and reference-row fragmentation rules stay aligned.
+Each project owns one TipTap 3 editor behind the shared `RichTextEditor`
+contract. Text blocks and resizable atomic image-group nodes share one
+ProseMirror document, so text can continue before, between, and after image
+groups without separate frames. Top-level nodes provide pagination boundaries;
+editor serialization persists stable image-group markers rather than runtime
+NodeView DOM or data URLs.
 
-Plan text split parents are geometry-only and render no frame. The screen has
-exactly two visible levels: the outer component and its leaf editors. New
-splits use a 10pt gap. Columns share the tallest natural row height; rows use
-their natural content heights. Width changes remeasure TipTap content in
-both directions, so cards grow when wrapping increases and shrink when it
-decreases. Horizontal clipping uses non-scrolling overflow, and no text leaf
-owns an internal scrollbar. PDF export uses the same recursive rectangles and
-renders leaf HTML without title bands.
+The editor is visually paged like a word processor. Each A4 background exposes
+four printable-area corner marks; page-gap overlays sit above the continuous
+ProseMirror surface so a caret cannot be placed between pages. Pagination uses
+ProseMirror decorations to move keep-together blocks and view-fit oversized
+blocks without changing canonical HTML. `ProjectPlan.title` remains project
+metadata only: canonical v12 canvas and PDF do not render a separate title
+input or title band. A visible document title is ordinary H1/H2 content inside
+`documentHtml`.
 
-Each text leaf owns one TipTap 3 editor behind the shared `RichTextEditor`
-contract. Project files continue to store schema-v10 HTML. Top-level
-ProseMirror nodes are serialized independently for pagination measurement,
-while theme colors, circular custom colors, font sizes, links, and alignment
-emit HTML already understood by the PDF adapter.
+The A4 document is horizontally centered in its scroll viewport. Wheel zoom
+uses the page center horizontally and preserves the vertical interaction point.
+Contextual toolbars are portaled to `document.body` for reliable viewport
+positioning, then explicitly scaled by the current A4 scale. A text toolbar is
+visible only for a non-empty text selection; outside pointer input collapses
+the selection and closes contextual UI.
 
-Reference components contain:
+Image-group records contain:
 
 - a rich-text `description` and `showDescription`; hiding it removes it from
   the canvas and PDF while preserving its stored content;
 - a shared `imageHeight`;
 - image records with aspect ratio, an optional independent `caption`, and an
-  optional `displayHeight`.
+  optional `displayHeight`, source dimensions, and normalized crop.
 
 `displayHeight` is a per-image override bounded by the group image height.
-Dragging any image edge changes that image only; reset removes the override.
+Dragging any image edge changes that image only and recalculates its crop while
+preserving the current focal point. Adjustment mode pans the crop without
+activating image reorder. Reset restores the source ratio and full-image crop.
 Captions are independent per-image editors, not a group-level visibility
 toggle. Caption bands are calculated with the same slot model used by screen
 and PDF output.
 
-`contentScale` affects component geometry and visible content consistently:
-plan rich-text measurements, reference descriptions, image slots, captions,
-and component titles scale together. The synthetic document-title spacer used
-only by PDF export always remains scale `1`.
+Image-group pagination keeps each image intact and may break only between image
+rows. The screen and PDF both resolve marker order through `documentHtml` and
+render frame/crop geometry from the matching image-group record.
 
-Reference pagination keeps a complete first image row with its header. If a
-reference starts late on a page and only its header/visible description fits,
-the engine moves the component to the next page instead of emitting a
-header-only first fragment. Components at page top and rows that fit retain
-normal fragmentation.
+## UI/UE Contract
+
+`docs/design_docs/uiue.md` is the canonical summary of accepted UI/UE
+interaction requirements. Feature design documents may contain richer visual
+exploration, but their accepted behavior must be assigned a stable UIUE ID and
+summarized there. Any interaction change must update the UI/UE contract,
+implementation, mapped regression tests, and affected architecture/testing
+documentation in the same change.
 
 ## Canvas UI and PDF
 
-`PlanCanvas` renders A4 pages from pure placements. `ComponentFrame` supplies
-the drag chrome and four edge handles: left/right change width; top/bottom
-adjust content scale. `ReferenceComponentView` exposes import and screen
-capture both in its toolbar and on the hoverable final empty slot.
+`PlanCanvas` routes canonical v12 plans to `PlanDocumentCanvas`, which renders
+one Word-style paged A4 TipTap document. The legacy component canvas remains only as a
+compatibility branch for fixtures without `documentHtml` and is not a second
+canonical persistence model. Each page draws Word-style corner marks outside the
+printable text rectangle, with their four vertices pointing inward and coinciding
+with the rectangle corners.
+
+Document image-group NodeViews reuse persisted reference metadata rather than
+introducing a second editor store. Group corner resize writes existing
+`x/width/height` fields through `resizeComponent`; image edge/corner resize
+writes `frameWidth/frameHeight` through `setImageFrame`, which recomputes the
+single normalized crop. Reset restores the default frame and full-source crop.
+When a resized group cannot contain its frames, the shared document image-group
+layout computes one display fit scale consumed by both the NodeView and PDF
+renderer without mutating persisted image frames.
 
 `canvasPdfExporter` builds the same layout using pdf-lib and bundled Noto Sans
 SC. It prepares text at logical component width, scales PDF text commands and
-image/caption rectangles, and draws images contain-fit inside framed slots.
+image/caption rectangles, and rasterizes the persisted normalized crop into
+each framed slot. Canvas CSS and PDF bitmap rendering derive from the same pure
+`ImageViewRenderSpec`; export adapters do not independently contain, cover, or
+recenter images. A future PPT adapter must consume this contract as well.
 The PDF save adapter opens a native save dialog and calls the narrow Rust
 `save_pdf` command for atomic byte writes.
 

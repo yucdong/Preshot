@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { ReactNode } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../../domain/settings/ports";
@@ -91,11 +91,11 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
     onChangeHtml: vi.fn(),
     onCommitTitle: vi.fn<() => SetPlanTitleResult>(() => ({
       ok: true,
-      plan: { schemaVersion: 10, title: "Demo", components: [] },
+      plan: { schemaVersion: 12, title: "Demo", components: [] },
     })),
     onRenameComponent: vi.fn<() => RenameComponentResult>(() => ({
       ok: true,
-      plan: { schemaVersion: 10, title: "Demo", components: [] },
+      plan: { schemaVersion: 12, title: "Demo", components: [] },
     })),
     onSetDescription: vi.fn(),
     onAddImage: vi.fn(),
@@ -116,6 +116,128 @@ function renderCanvas(overrides: Partial<Parameters<typeof PlanCanvas>[0]> = {})
 describe("PlanCanvas v8", () => {
   beforeEach(() => {
     dndState.props = null;
+  });
+
+  it("renders one continuous v12 editor with atomic image groups and image-group-only insertion", async () => {
+    const onChangeDocumentHtml = vi.fn();
+    const onCreateImageGroup = vi.fn();
+    renderCanvas({
+      components: [reference],
+      documentHtml:
+        '<p>Before</p><figure data-preshot-node="image-group" data-preshot-group-id="ref1"></figure><p>After</p><p></p>',
+      imageSrc: () => "data:image/png;base64,AA==",
+      onChangeDocumentHtml,
+      onCreateImageGroup,
+    });
+
+    expect(await screen.findByRole("textbox", { name: "方案正文" })).toBeVisible();
+    expect(screen.getAllByRole("textbox", { name: "方案正文" })).toHaveLength(1);
+    expect(document.querySelectorAll('[data-image-group-id="ref1"]')).toHaveLength(1);
+    expect(document.querySelector("[data-component-frame=true]")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^插入$/ }));
+    const menu = screen.getByRole("menu");
+    expect(menu).toBeVisible();
+    expect(screen.getAllByRole("menuitem")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("menuitem", { name: "图片组" }));
+
+    await waitFor(() => expect(onCreateImageGroup).toHaveBeenCalledOnce());
+    await waitFor(() => {
+      const nextHtml = onChangeDocumentHtml.mock.calls.at(-1)?.[0] as string | undefined;
+      expect(nextHtml?.match(/data-preshot-node="image-group"/g)).toHaveLength(2);
+    });
+  });
+
+  it("supports eight-way image resize and four-corner image-group resize in document mode", async () => {
+    const onOpenDocumentImage = vi.fn();
+    const onRemoveImage = vi.fn();
+    const onResize = vi.fn();
+    const onScaleReferenceImages = vi.fn();
+    const onSetImageFrame = vi.fn();
+    renderCanvas({
+      components: [{ ...reference, x: 100 }],
+      documentHtml:
+        '<figure data-preshot-node="image-group" data-preshot-group-id="ref1"></figure><p></p>',
+      imageSrc: () => "data:image/png;base64,AA==",
+      onChangeDocumentHtml: vi.fn(),
+      onCreateImageGroup: vi.fn(),
+      onOpenDocumentImage,
+      onRemoveImage,
+      onResize,
+      onScaleReferenceImages,
+      onSetImageFrame,
+    });
+
+    const image = await screen.findByRole("button", { name: "选择参考图 1" });
+    fireEvent.click(image);
+    expect(screen.getByRole("button", { name: "选择参考图 1" })).toBe(image);
+    expect(document.querySelector(".preshot-document-image-index")).toHaveTextContent("01");
+    const imageFrame = image.closest(".preshot-document-image-frame") as HTMLElement;
+    expect(within(imageFrame).queryByRole("button", { name: "删除参考图 1" }))
+      .not.toBeInTheDocument();
+    const imageToolbar = screen.getByRole("toolbar", { name: "图片属性" });
+    fireEvent.click(within(imageToolbar).getByRole("button", { name: "删除图片" }));
+    expect(onRemoveImage).toHaveBeenCalledWith("ref1", "image1");
+    expect(document.querySelectorAll('[data-image-resize-handle="edge"]')).toHaveLength(4);
+    expect(document.querySelectorAll('[data-image-resize-handle="corner"]')).toHaveLength(4);
+    expect(document.querySelectorAll('[data-group-resize-handle="edge"]')).toHaveLength(4);
+    expect(document.querySelectorAll('[data-group-resize-handle="corner"]')).toHaveLength(4);
+    expect(screen.queryByRole("button", { name: "恢复参考图 1" })).not.toBeInTheDocument();
+
+    const imageCorner = document.querySelector(
+      '[data-image-resize-edge="bottom-right"]',
+    )!;
+    fireEvent.pointerDown(imageCorner, { clientX: 100, clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(document, { clientX: 140, clientY: 130, pointerId: 1 });
+    fireEvent.pointerUp(document, { clientX: 140, clientY: 130, pointerId: 1 });
+    expect(onSetImageFrame).toHaveBeenLastCalledWith("ref1", "image1", {
+      frameWidth: 140,
+      frameHeight: 130,
+    });
+
+    const leftEdge = document.querySelector('[data-image-resize-edge="left"]')!;
+    fireEvent.pointerDown(leftEdge, { clientX: 100, clientY: 100, pointerId: 3 });
+    fireEvent.pointerMove(document, { clientX: 80, clientY: 100, pointerId: 3 });
+    fireEvent.pointerUp(document, { clientX: 80, clientY: 100, pointerId: 3 });
+    expect(onSetImageFrame).toHaveBeenLastCalledWith("ref1", "image1", {
+      frameWidth: 120,
+      frameHeight: 100,
+    });
+
+    const rightEdge = document.querySelector('[data-image-resize-edge="right"]')!;
+    fireEvent.pointerDown(rightEdge, { clientX: 100, clientY: 100, pointerId: 4 });
+    fireEvent.pointerMove(document, { clientX: 124, clientY: 100, pointerId: 4 });
+    fireEvent.pointerUp(document, { clientX: 124, clientY: 100, pointerId: 4 });
+    expect(onSetImageFrame).toHaveBeenLastCalledWith("ref1", "image1", {
+      frameWidth: 124,
+      frameHeight: 100,
+    });
+
+    fireEvent.doubleClick(screen.getByRole("button", { name: "选择参考图 1" }));
+    expect(onOpenDocumentImage).toHaveBeenCalledWith(
+      "ref1",
+      "image1",
+      "references/image.png",
+    );
+
+    const groupCorner = document.querySelector(
+      '[data-group-resize-edge="bottom-right"]',
+    )!;
+    fireEvent.pointerDown(groupCorner, { clientX: 200, clientY: 220, pointerId: 2 });
+    fireEvent.pointerMove(document, { clientX: 240, clientY: 260, pointerId: 2 });
+    fireEvent.pointerUp(document, { clientX: 240, clientY: 260, pointerId: 2 });
+    expect(onResize).toHaveBeenLastCalledWith("ref1", {
+      x: 100,
+      width: 240,
+      height: 260,
+    });
+
+    expect(screen.getByRole("toolbar", { name: "图片组属性" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "缩小组内全部图片" }));
+    fireEvent.click(screen.getByRole("button", { name: "放大组内全部图片" }));
+    expect(onScaleReferenceImages).toHaveBeenNthCalledWith(1, "ref1", 0.9);
+    expect(onScaleReferenceImages).toHaveBeenNthCalledWith(2, "ref1", 1.1);
+    fireEvent.wheel(document, { deltaY: 40 });
+    expect(screen.queryByRole("toolbar", { name: "图片组属性" })).not.toBeInTheDocument();
   });
 
   it("renders exact A4 page backgrounds instead of a continuous surface", () => {
@@ -221,7 +343,7 @@ describe("PlanCanvas v8", () => {
     fireEvent.pointerDown(right, { clientX: 300, pointerId: 1 });
     fireEvent.pointerMove(right, { clientX: 0, pointerId: 1 });
     expect(document.querySelector('[data-component-id="plan1"]')).toHaveStyle({
-      width: "290px",
+      width: "306px",
     });
     expect(screen.getByRole("status")).toHaveTextContent("内容已达到最小尺寸");
     expect(right).toHaveAttribute("data-resize-limited", "true");

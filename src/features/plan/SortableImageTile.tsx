@@ -11,6 +11,12 @@ import {
 } from "../../domain/plan/canvas/geometry";
 import { defaultImageFrame } from "../../domain/plan/canvas/plan";
 import {
+  imageCropForView,
+  imageViewCss,
+  normalizeImageCrop,
+  type NormalizedImageCrop,
+} from "../../domain/plan/canvas/imageView";
+import {
   createAnimateLayoutChanges,
   createMotionStyleTransition,
   SORTABLE_LAYOUT_TRANSITION,
@@ -26,6 +32,7 @@ interface ReferenceImageLike {
   aspectRatio?: number;
   frameWidth?: number;
   frameHeight?: number;
+  crop?: NormalizedImageCrop;
 }
 
 interface ImageFrameDimensions {
@@ -53,6 +60,7 @@ interface SortableImageTileProps {
     guides: AlignmentGuides,
   ) => ImageFrameDimensions | undefined;
   onResizeCancel?: () => void;
+  onSetCrop?: (imageId: string, crop: NormalizedImageCrop) => void;
   snapCandidates?: readonly Rect[];
 }
 
@@ -91,6 +99,7 @@ export function SortableImageTile({
   onResizeFrame,
   onResizePreview,
   onResizeCancel,
+  onSetCrop,
   snapCandidates = [],
 }: SortableImageTileProps) {
   const { t } = useTranslation();
@@ -111,9 +120,60 @@ export function SortableImageTile({
     element: HTMLElement;
     pointerId: number;
   } | null>(null);
+  const [adjustingView, setAdjustingView] = useState(false);
+  const [cropPreview, setCropPreview] = useState<NormalizedImageCrop | null>(null);
+  const cropPreviewRef = useRef<NormalizedImageCrop | null>(null);
+  const panStartRef = useRef<{
+    x: number;
+    y: number;
+    crop: NormalizedImageCrop;
+  } | null>(null);
   const resizePreviewRef = useRef<ImageFrameDimensions | null>(null);
   const placeholderVisible = isPlaceholder || isDragging;
   const initialFrame = frameDimensions(image, slot);
+  const persistedCrop = imageCropForView({
+    aspectRatio: image.aspectRatio ?? 1,
+    frameWidth: initialFrame.frameWidth,
+    frameHeight: initialFrame.frameHeight,
+    crop: image.crop,
+  });
+  const displayedCrop = cropPreview ?? persistedCrop;
+  const cropStyle = imageViewCss(displayedCrop);
+  const adjustmentHandlers: React.ButtonHTMLAttributes<HTMLButtonElement> = adjustingView
+    ? {
+        onPointerDown: (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          panStartRef.current = {
+            x: event.clientX,
+            y: event.clientY,
+            crop: displayedCrop,
+          };
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+        },
+        onPointerMove: (event) => {
+          const start = panStartRef.current;
+          if (!start) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) return;
+          const nextCrop = normalizeImageCrop({
+            ...start.crop,
+            x: start.crop.x - (event.clientX - start.x) / rect.width * start.crop.width,
+            y: start.crop.y - (event.clientY - start.y) / rect.height * start.crop.height,
+          });
+          cropPreviewRef.current = nextCrop;
+          setCropPreview(nextCrop);
+        },
+        onPointerUp: (event) => {
+          if (!panStartRef.current) return;
+          panStartRef.current = null;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+          }
+          if (cropPreviewRef.current) onSetCrop?.(image.id, cropPreviewRef.current);
+        },
+      }
+    : {};
   const style = {
     position: "absolute" as const,
     left: `${slot.x * scale}px`,
@@ -245,7 +305,8 @@ export function SortableImageTile({
       data-testid={placeholderVisible ? `image-placeholder-${image.id}` : `image-tile-${image.id}`}
     >
       <button
-        {...(draggable ? { ...attributes, ...listeners } : {})}
+        {...(draggable && !adjustingView ? { ...attributes, ...listeners } : {})}
+        {...adjustmentHandlers}
         aria-label={t("reference.selectImage", { index: index + 1 })}
         aria-pressed={selected}
         className={`${tileButton} ${
@@ -255,7 +316,9 @@ export function SortableImageTile({
               ? "ring-2 ring-paper-primary ring-offset-2 ring-offset-white"
               : ""
         }`}
-        onClick={(event) => onSelect(image.id, event.ctrlKey)}
+        onClick={(event) => {
+          if (!adjustingView) onSelect(image.id, event.ctrlKey);
+        }}
         onDoubleClick={() => onOpen(image.file)}
         type="button"
       >
@@ -267,10 +330,10 @@ export function SortableImageTile({
           {src ? (
             <img
               alt={t("reference.imageAlt")}
-              className="absolute object-cover"
+              className="absolute max-w-none"
               draggable={false}
               src={src}
-              style={{ width: "100%", height: "100%", left: 0, top: 0 }}
+              style={cropStyle}
             />
           ) : (
             <span className="flex h-full w-full items-center justify-center text-xs text-paper-muted">
@@ -279,6 +342,25 @@ export function SortableImageTile({
           )}
         </div>
       </button>
+      {!placeholderVisible ? (
+        <button
+          aria-label={adjustingView ? "完成调整视图" : "调整视图"}
+          aria-pressed={adjustingView}
+          className={`absolute bottom-1 right-1 z-20 rounded px-2 text-xs text-white shadow-sm transition-colors ${adjustingView ? "bg-paper-primary" : "bg-black/60 hover:bg-paper-primary"}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (adjustingView && cropPreviewRef.current) onSetCrop?.(image.id, cropPreviewRef.current);
+            setCropPreview(null);
+            cropPreviewRef.current = null;
+            panStartRef.current = null;
+            setAdjustingView((value) => !value);
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          type="button"
+        >
+          {adjustingView ? "完成" : "调整"}
+        </button>
+      ) : null}
       {!placeholderVisible ? (
         <button
           aria-label={t("reference.removeImage", { index: index + 1 })}
@@ -297,6 +379,9 @@ export function SortableImageTile({
           onClick={(event) => {
             event.stopPropagation();
             onResizeFrame?.(image.id, defaultImageFrame(image.aspectRatio ?? 1));
+            onSetCrop?.(image.id, { x: 0, y: 0, width: 1, height: 1 });
+            setCropPreview(null);
+            cropPreviewRef.current = null;
           }}
           onPointerDown={(event) => event.stopPropagation()}
           type="button"

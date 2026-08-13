@@ -7,6 +7,7 @@ import type {
   AlignmentGuides,
   Rect,
 } from "../../domain/plan/canvas/geometry";
+import type { NormalizedImageCrop } from "../../domain/plan/canvas/imageView";
 import { SortableImageTile } from "./SortableImageTile";
 import { ImageActionButtons } from "./ImageActionButtons";
 
@@ -19,6 +20,7 @@ interface GroupLike {
     aspectRatio?: number;
     frameWidth?: number;
     frameHeight?: number;
+    crop?: NormalizedImageCrop;
   }>;
 }
 
@@ -52,6 +54,11 @@ interface GroupImageGridProps {
     guides: AlignmentGuides,
   ) => { frameWidth: number; frameHeight: number } | undefined;
   onResizeCancel?: () => void;
+  onSetCrop?: (
+    componentId: string,
+    imageId: string,
+    crop: NormalizedImageCrop,
+  ) => void;
   imageGuides?: AlignmentGuides;
 }
 
@@ -77,6 +84,7 @@ export function GroupImageGrid({
   onResizeFrame,
   onResizePreview,
   onResizeCancel,
+  onSetCrop,
   imageGuides,
 }: GroupImageGridProps) {
   const { t } = useTranslation();
@@ -176,6 +184,7 @@ export function GroupImageGrid({
                 : undefined
             }
             onResizePreview={onResizePreview}
+            onSetCrop={onSetCrop ? (imageId, crop) => onSetCrop(group.id, imageId, crop) : undefined}
             snapCandidates={normalizedSlots
               .filter(
                 (candidate) =>

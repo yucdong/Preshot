@@ -33,11 +33,13 @@ describe("schema v6 migration adapter", () => {
     );
 
     expect(migrated).toMatchObject({
-      schemaVersion: 10,
+      schemaVersion: 12,
+      documentHtml:
+        '<h2>Looks</h2><p>Warm tones</p><figure data-preshot-node="image-group" data-preshot-group-id="reference"></figure><p></p>',
       components: [{
         id: "reference",
         type: "reference",
-        description: "<p>Warm tones</p>",
+        description: "",
         images: [{
           id: "image",
           caption: "Palette",
@@ -71,7 +73,7 @@ describe("schema v6 migration adapter", () => {
       }],
     };
 
-    expect(migratePlan(valid, context)).toMatchObject({ schemaVersion: 10 });
+    expect(migratePlan(valid, context)).toMatchObject({ schemaVersion: 12 });
     expect(() =>
       migratePlan({ ...valid, components: [{ ...valid.components[0], contentScale: 3 }] }, context),
     ).toThrow(/contentScale/i);

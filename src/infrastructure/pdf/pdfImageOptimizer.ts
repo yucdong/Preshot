@@ -7,6 +7,10 @@ export interface PdfImageDrawBox {
   height: number;
 }
 
+export interface PdfImageView {
+  crop?: { x: number; y: number; width: number; height: number };
+}
+
 export interface OptimizedPdfImage {
   mime: string;
   bytes: Uint8Array;
@@ -15,6 +19,7 @@ export interface OptimizedPdfImage {
 export type PdfImageOptimizer = (
   dataUrl: string,
   drawBox: PdfImageDrawBox,
+  view?: PdfImageView,
 ) => Promise<OptimizedPdfImage>;
 
 export function imageDataFromDataUrl(dataUrl: string): OptimizedPdfImage {
@@ -77,20 +82,15 @@ function canvasBlob(
   });
 }
 
-export const optimizePdfImage: PdfImageOptimizer = async (dataUrl, drawBox) => {
+export const optimizePdfImage: PdfImageOptimizer = async (dataUrl, drawBox, view) => {
   const image = await loadImage(dataUrl);
   if (image.naturalWidth <= 0 || image.naturalHeight <= 0) {
     throw new Error("Reference image dimensions are invalid for PDF export");
   }
 
   const bounds = pdfImagePixelBounds(drawBox);
-  const scale = Math.min(
-    1,
-    bounds.width / image.naturalWidth,
-    bounds.height / image.naturalHeight,
-  );
-  const width = Math.max(1, Math.round(image.naturalWidth * scale));
-  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const width = bounds.width;
+  const height = bounds.height;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -103,7 +103,18 @@ export const optimizePdfImage: PdfImageOptimizer = async (dataUrl, drawBox) => {
   context.fillRect(0, 0, width, height);
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  context.drawImage(image, 0, 0, width, height);
+  const crop = view?.crop ?? { x: 0, y: 0, width: 1, height: 1 };
+  context.drawImage(
+    image,
+    crop.x * image.naturalWidth,
+    crop.y * image.naturalHeight,
+    crop.width * image.naturalWidth,
+    crop.height * image.naturalHeight,
+    0,
+    0,
+    width,
+    height,
+  );
 
   const blob = await canvasBlob(canvas, "image/jpeg", PDF_JPEG_QUALITY);
   return {

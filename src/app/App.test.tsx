@@ -38,6 +38,7 @@ function planDeps(): CanvasPlanDependencies {
         plan: { schemaVersion: 6, title: "Demo", components: [] },
       }),
       loadImage: vi.fn().mockResolvedValue(""),
+      importAsset: vi.fn(),
       savePlan: vi.fn(),
       removeComponent: vi.fn(),
       importImage: vi.fn(),

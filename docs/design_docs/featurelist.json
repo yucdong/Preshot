@@ -903,11 +903,123 @@
         "designSpec": "docs/design_docs/tiptap_migration_design.md",
         "interactivePoc": "docs/design_refs/preshot-tiptap-editor-demo.html",
         "splitInteractivePoc": "docs/design_refs/preshot-tiptap-split-editor-demo.html",
+        "unifiedCardClosePoc": "docs/design_refs/preshot-unified-card-close-demo.html",
         "pocValidation": "Actual TipTap 3.29.2 loaded; color wrote rgb(8, 145, 178), font size wrote 24px, HTML persisted across reload, the 220px block menu kept 36px single-line rows, More commands executed, and 920x720 had no page or toolbar overflow.",
         "splitPocValidation": "Actual independent TipTap instances rendered in recursive columns/rows nodes; mixed nesting grew from three to four leaves, formatting stayed isolated per leaf, removing a nested leaf collapsed its sibling into place, narrow toolbars exposed hover-only left/right scroll arrows, and per-leaf color controls preserve the original ProseMirror selection across portal interactions while supporting theme colors plus a circular HSV wheel, brightness, strict RGB input, and verified TipTap HTML output.",
-        "implementation": "TipTap 3.29.2 now powers every production RichTextEditor leaf with StarterKit, TextStyle, Color, FontSize, TextAlign, TableKit, TaskList and TaskItem. The persistent toolbar retains viewport-safe portals, selection restoration, 220px block menus, responsive More commands and adds hover-only horizontal scroll arrows for narrow leaves. H1-H6 restore explicit 32/24/20/18/16/14px visual hierarchy with 700 weight, and heading conversion removes a prior explicit font-size mark so it cannot hide the selected heading level. The size control reports the selected text's effective visual size from inline marks or its paragraph/heading level, offers every heading size, and formatting portals close on outside pointer input. TipTap em marks locally enable synthesized italic rendering because the bundled Noto Sans SC faces are upright-only and the application otherwise disables font synthesis. Custom colors use a circular HSV wheel, brightness, strict RGB input and HTML persistence. ProseMirror DOMSerializer emits top-level blocks for pagination measurement. BlockNote, Mantine editor styles and react-colorful were removed.",
-        "lastVerified": "84 Vitest files / 463 tests and 47 Playwright tests passed; TypeScript and production build passed; lint has 0 errors and the existing ThemeProvider Fast Refresh warning. Browser coverage verifies recursive splits, narrow-toolbar arrows, all direct formatting including computed italic rendering, paragraph and H1-H6 effective-size display, outside-pointer popup dismissal, nesting, theme/custom RGB colors, circular color picker visibility, color application collapsing the original selection for immediate visual feedback, I-beam cursors throughout editable text, persistence, autosave, PDF export and undo ownership.",
+        "unifiedCardClosePocValidation": "The text and reference cards share one 16pt graphite close button, 5pt top-right inset, 20pt content gutter, 4px radius and danger hover state. Browser measurements matched at full size and at 58% card width / 70% canvas zoom; both buttons stayed inside without content overlap. The 390px layout had no horizontal overflow. The approved design is implemented in the production shared ComponentFrame.",
+        "midsceneAutomationReport": "midscene_run/report/E2E-Preshot-Plan-Text-Final-2026-08-11T09-25-39-015Z.html",
+        "midsceneAutomationValidation": "Eight gpt-5.6-sol Midscene journeys passed using isolated fresh projects: lifecycle, block/inline formatting, colors and links, list/quote/code, recursive splits, reorder/resize chrome, save/reload/undo, and PDF/delete cleanup. Every formal run removed its project through the UI and reported zero Midscene-prefixed storage residue. M07 found that newly inserted runtime components leaked y into persisted v10 data; UI constructors now omit y and addComponent explicitly projects schema fields before persistence.",
+        "implementation": "TipTap 3.29.2 now powers every production RichTextEditor leaf with StarterKit, TextStyle, Color, FontSize, TextAlign, TableKit, TaskList and TaskItem. Plan and reference cards render the same shared scale-aware ComponentCloseButton: 16pt size, 5pt internal top-right anchor, graphite default, danger hover/focus, matching icon geometry and a 20pt content gutter. Plan minimum width includes the gutter; reference names shrink before it, and both controls stay contained throughout live resize previews. Clicking non-interactive card whitespace or transparent resize chrome now collapses a rich-text selection to its original block end; editable content and controls retain native behavior so formatting commands still preserve the selected range. The persistent toolbar retains viewport-safe portals, selection restoration, 220px block menus, responsive More commands and adds hover-only horizontal scroll arrows for narrow leaves. More formatting contains only six non-duplicate commands; left, center and right alignment remain exclusively in the persistent toolbar. Every persistent-toolbar and More-command button exposes a Chinese native hover title matching its accessible function name. H1-H6 restore explicit 32/24/20/18/16/14px visual hierarchy with 700 weight, and heading conversion removes a prior explicit font-size mark so it cannot hide the selected heading level. The size control reports the selected text's effective visual size from inline marks or its paragraph/heading level, offers every heading size, and formatting portals close on outside pointer input. Ordinary bullet and ordered lists explicitly restore disc and decimal markers removed by Tailwind preflight while task lists remain marker-free. TipTap em marks locally enable synthesized italic rendering because the bundled Noto Sans SC faces are upright-only and the application otherwise disables font synthesis. Custom colors use a circular HSV wheel whose right-origin hue and full-radius saturation gradient match its coordinate algorithm, plus brightness and strict RGB input. Portal pointer events are excluded from toolbar selection capture, preserving the original text range until a custom color is applied and the selection is collapsed. ProseMirror DOMSerializer emits top-level blocks for pagination measurement. BlockNote, Mantine editor styles and react-colorful were removed.",
+        "lastVerified": "Eight isolated Midscene plan-text journeys, 86 Vitest files / 468 tests, and 54 Playwright tests passed; TypeScript and production build passed; lint has 0 errors and the existing ThemeProvider Fast Refresh warning. AI and deterministic coverage verifies fresh-project lifecycle and cleanup, strict v10 save/reload after insertion and recursive split, identical plan/reference close chrome, selection behavior, toolbar/popup commands, headings, lists, nesting, quote/code, theme/wheel/RGB colors, link/unlink, persistence, undo/redo, PDF export and deletion.",
         "remaining": []
+      }
+    },
+    {
+      "name": "Inline Rich Text Images",
+      "description": "Allows photography-plan text leaves to insert project-managed images as block content while preserving compact HTML, reload behavior, responsive canvas layout, and PDF output.",
+      "status": "completed",
+      "feature_descriptions": [
+        "Every plan text leaf exposes an Insert Image button in the persistent TipTap toolbar with a Lucide image icon, Chinese accessible label, native hover title, and import-in-progress state",
+        "Inserted images render as proportional block content capped to the current text leaf width and expose a visible ProseMirror node-selection outline",
+        "Hovering or selecting an inserted image exposes a bottom-right drag handle; resizing preserves its aspect ratio, stays within the text leaf, and persists width and height for reload and PDF export",
+        "Project reload resolves persisted relative image paths to runtime data URLs without writing base64 image data into the plan manifest",
+        "PDF text parsing, natural-height measurement, pagination, and drawing treat each inserted image as a whole proportional content block in both ordinary and recursively split text leaves",
+        "A standalone interactive demo includes a complete portrait-shooting sample and supports inserting a local JPG, PNG, or WebP at the current editing position"
+      ],
+      "decisions": [
+        "Use the official @tiptap/extension-image package pinned to TipTap 3.29.2 and extend its attributes only for project asset identity and source dimensions",
+        "Copy text images into the existing references directory through a non-mutating CanvasPlanService.importAsset boundary; do not add them to a reference-image group",
+        "Persist only references-relative src values in TipTap HTML and resolve them to data URLs at the editor boundary",
+        "Keep inserted images as block nodes and resize them proportionally from one bottom-right handle; captions, alignment, and crop controls remain separate follow-ups",
+        "Reuse the PDF export image map and optimizer rather than introducing a second filesystem path into the exporter"
+      ],
+      "progress": {
+        "completedAt": "2026-08-11",
+        "interactivePoc": "docs/design_refs/preshot-inline-rich-text-image-demo.html",
+        "pocValidation": "Desktop and 375px browser checks rendered the sample image without page overflow; the compact toolbar scrolls horizontally at mobile width. Selecting city-02.png through the real file chooser increased the editable image count from one to two and preserved the file name as alt text. Dragging the sample image handle changed it from 644x966 to 524x786, preserved its ratio, produced no page overflow, and changed the document state to unsaved.",
+        "implementation": "Added a project-aware TipTap image extension and Insert Image toolbar command; introduced a non-mutating project asset import service; loaded plan-text image files alongside reference images; serialized editor data URLs back to relative references paths; added a pointer-driven proportional resize node view with a bottom-right handle and persisted dimensions; added responsive editor image styling; extended HTML-to-PDF blocks, rich-text height and page layout, bitmap embedding, split-leaf drawing, and cache reuse for rich-text images.",
+        "lastVerified": "87 Vitest files / 482 tests, 55 Playwright tests, and 48 Rust tests passed; TypeScript and production build passed; lint has 0 errors and the existing ThemeProvider Fast Refresh warning. Focused coverage verifies non-mutating asset import, data-URL-free HTML persistence, proportional drag resizing, width/height reload persistence, whole-block pagination, and PDF bitmap embedding. Browser validation resized a project image from 1x1 to 91x91 and reloaded the same dimensions from relative-path HTML.",
+        "remaining": []
+      }
+    },
+    {
+      "name": "Reference Image View WYSIWYG Export",
+      "description": "Persists each image's visible crop separately from its immutable source so canvas, PDF, and PPT render the same composition.",
+      "status": "in-progress",
+      "feature_descriptions": [
+        "Source images retain their original file and pixel dimensions while a view stores frame dimensions plus a normalized crop rectangle",
+        "Dragging view edges changes the frame ratio, dragging inside adjustment mode pans the crop, and zoom changes crop size without modifying the source",
+        "Canvas, PDF, and PPT consume one domain-level ImageViewRenderSpec; export adapters cannot independently contain, cover, or recenter images",
+        "Double-click continues to open the complete source image and Reset restores source ratio plus a full-image crop",
+        "Schema migration derives a centered cover crop so existing object-cover projects retain their current canvas appearance"
+      ],
+      "decisions": [
+        "Persist crop as normalized source coordinates x/y/width/height so it is independent of canvas zoom, DPR, PDF DPI, and PPT units",
+        "Replace the current PDF referenceImageDrawBox contain behavior with the shared view render pipeline",
+        "Render deterministic view bitmaps for PDF and PPT initially; direct PDF crop and OOXML srcRect optimizations require pixel-equivalence tests",
+        "Keep image reorder separate from crop adjustment by using an explicit adjust-view interaction mode"
+      ],
+      "progress": {
+        "designedAt": "2026-08-11",
+        "designSpec": "docs/design_docs/reference_image_view_ppt_design.md",
+        "interactivePoc": "docs/design_refs/preshot-image-view-ppt-wysiwyg-demo.html",
+        "pocValidation": "A local 2000x1200 source was rendered into arbitrary 4:5, panned, and 16:9 views. Browser checks confirmed canvas, PDF, and PPT image width/height/left/top crop styles were identical in every state with no horizontal overflow. The legacy contain toggle visibly made both exports diverge.",
+        "projectMigrationValidation": "Migrated the real 小清新人像拍摄 manifest from a transitional plan marked v10 but already containing v11 crop/source fields. The migration created a timestamped backup, strictly validated schema v11, preserved 6 components and 106 image references with zero missing files, was idempotent on a second dry-run, and passed a read-only desktop visual check in the latest Tauri app.",
+        "implementation": "Implemented schema-v11 optional source dimensions and normalized crop with strict validation plus centered-cover v10 migration. A shared ImageViewRenderSpec drives explicit canvas CSS and crop-aware PDF bitmap generation. Per-image edge resize preserves crop focus, adjustment mode pans without conflicting with reorder, autosave/reload preserves the view, reset restores source ratio/full crop, and the lightbox still shows the immutable source. PDF caching is keyed by image view identity rather than source file. No PPT adapter exists yet.",
+        "remaining": [
+          "Add an explicit crop zoom control and persistence coverage",
+          "Add PPTX adapter and rendered-output pixel comparison tests"
+        ],
+        "lastVerified": "Full validation passed: 87 Vitest files / 475 tests, 55 Playwright tests, 48 Rust tests, TypeScript, lint with 0 errors and the existing ThemeProvider warning, and the production build with the existing large-chunk warning. Image-view coverage includes strict v11 migration, frame-ratio resize, explicit crop rendering, adjustment-mode pan, autosave/reload persistence, immutable-source lightbox, full-source reset, crop-aware PDF bitmap generation, and draw-box-ratio JPEG optimization."
+      }
+    },
+    {
+      "name": "Continuous Document Canvas v12",
+      "description": "Replaces separate text and reference cards with one unrestricted TipTap document containing resizable atomic image-group nodes.",
+      "status": "completed",
+      "feature_descriptions": [
+        "All prose before, between, and after image groups belongs to one continuous TipTap editor and can extend to the end of the document",
+        "Image groups default to full width and remain atomic document nodes; group frame, image frame, crop, source, caption, and ordering metadata remain project-managed",
+        "Images expose four edge and four corner resize handles; image groups expose a bottom edge and four corner handles constrained to the printable text boundary",
+        "The contextual image-group toolbar provides minus, direct pixel input, and plus scaling, and dismisses on mouse-wheel scrolling",
+        "Text and image-group property bars appear contextually, stay 40px high in screen space, and align to the selected block's left edge",
+        "The top Insert control plus blank-line and page-end plus controls expose only Image Group insertion",
+        "Schema v1-v11 projects migrate to strict v12 while preserving visual text order and reference-image metadata",
+        "Canvas and PDF consume the same document marker order, including crop-aware image rendering"
+      ],
+      "decisions": [
+        "Make documentHtml the sole canonical source for text content and image-group order; retain components only for image-group metadata",
+        "Represent each image group with a stable data-preshot-node=image-group marker and require every group record and marker to match exactly once",
+        "Keep the old component canvas only as a compatibility rendering branch for in-memory fixtures without documentHtml; never persist dual v11/v12 canonical stores",
+        "Render contextual toolbars through a document.body portal so A4 scaling cannot change their screen-space size or positioning",
+        "Derive the temporary PDF layout from canonical v12 documentHtml rather than reintroducing editable text components",
+        "Migrate manifests through timestamped backups, temporary-file atomic replacement, and strict schema-v12 post-write verification",
+        "Render Word-style page corner marks outside the printable text rectangle, with inward-pointing vertices exactly defining its four corners",
+        "Persist group resize through existing x/width/height fields and image resize through frameWidth/frameHeight plus the single normalized crop; use a transient shared fit scale only when the resized group cannot contain its images"
+      ],
+      "progress": {
+        "designedAt": "2026-08-12",
+        "completedAt": "2026-08-12",
+        "designSpec": "docs/design_docs/canvas_design.md",
+        "interactivePoc": "docs/design_refs/preshot-canvas-document-flow-demo.html",
+        "pageCornerReview": "docs/design_refs/preshot-inward-page-corners-review.html",
+        "pictureCardReview": "docs/design_refs/preshot-picture-card-review.html",
+        "pictureCardPrototypeComparison": "Production matched the approved HTML on interaction and selection styling: four image edges/corners, four group edges/corners, invisible resize chrome, no on-card delete, image-toolbar-only deletion, no inline reset, lightbox-only reset with immediate close/focus return, darker selected-group background, unchanged group/image borders/shadows/geometry, no group pseudo-frame, and a selected-image number badge.",
+        "implementation": "Implemented strict v12 domain migration and marker integrity, one production document-mode TipTap editor, unframed continuous text with framed atomic image-group NodeViews, invisible image/group edge and corner resize zones with persisted frame/crop metadata and shared canvas/PDF fit-to-group layout, stable in-place image DOM updates that prevent resize flashing, no-extra-frame selection styling with darker group background and selected-image number control, image-toolbar-only deletion backed by transient NodeView selection state, source-lightbox-only reset that closes and restores focus, wheel-dismissed contextual group controls with minus/direct-pixel/plus scaling, ProseMirror decoration pagination that keeps every top-level text/component block within one A4 page and view-fits oversized blocks without mutating canonical HTML, atomic pagination-decoration replacement with cached natural block geometry to prevent typing-time layout flashes, click-driven blank-line image-group insertion through a body-level overlay, double-click whole-block selection with explicit any-click clearing, compact two-row selection toolbar, all enabled TipTap block styles, alignment and indentation, minimum-plus mixed font sizing, independent Standard Colors and full RGB More Colors, canonical browser seed, marker-native PDF parsing/layout/export, and safe manifest migration tooling.",
+        "projectMigrationValidation": "Wrote and strictly verified schema v12 for 小清新人像拍摄 (v11 to v12, 5 image groups, 106 images) and Sunset Shanghai (v8 to v12, 3 image groups, 17 images). Both writes created timestamped pre-schema-v12 backups.",
+        "lastVerified": {
+          "date": "2026-08-12",
+          "typecheck": "clean",
+          "lint": "0 errors; existing ThemeProvider Fast Refresh warning remains",
+          "unitTests": "88 files, 495 tests passed",
+          "e2eTests": "25 Playwright journeys passed, including all 17 v12 document-canvas journeys for image/group corner resize, image-view reload persistence, full-source reset, wheel-dismissed controls, pagination stability, and PDF export",
+          "rustTests": "48 passed",
+          "build": "passed with the existing Vite large-chunk warning"
+        },
+        "visualVerification": "The running production browser shell was inspected and captured after implementation. A selected image displayed four edge and four corner handles plus reset; pointer events changed both image dimensions and restored them, changed both group dimensions and restored them, and hid the contextual toolbar on wheel. Autosave returned to the saved state. Visual acceptance of the two separately migrated projects remains manual.",
+        "remaining": [
+          "Open both migrated projects in an interactive Windows desktop session and visually confirm image-group counts, crop/frame rendering, contextual controls, and PDF export"
+        ]
       }
     }
   ]

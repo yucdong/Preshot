@@ -27,22 +27,11 @@ const BROWSER_PLAN_STORAGE_KEY = "preshot.browser-canvas-plan";
 const CANVAS_WIDTH = contentSize(DEFAULT_PAGE_GEOMETRY).width;
 
 const SEEDED_V7_PLAN: CanvasPlan = {
-  schemaVersion: 10,
+  schemaVersion: 12,
   title: "日落大片",
+  documentHtml:
+    '<h2>日落大片</h2><p>海滨的黄金时刻。记得带 85mm 镜头。</p><h2>造型参考</h2><p>参考图说明</p><figure data-preshot-node="image-group" data-preshot-group-id="ref-1"></figure><p></p>',
   components: [
-    {
-      id: "plan-1",
-      name: "文案1",
-      type: "plan",
-      x: 0,
-      width: CANVAS_WIDTH,
-      height: 220,
-      textRoot: {
-        kind: "leaf",
-        id: "plan-1:root",
-        html: "<h2>日落大片</h2><p>海滨的黄金时刻。记得带 85mm 镜头。</p>",
-      },
-    },
     {
       id: "ref-1",
       name: "造型参考",
@@ -50,7 +39,7 @@ const SEEDED_V7_PLAN: CanvasPlan = {
       x: 0,
       width: CANVAS_WIDTH,
       height: 452,
-      description: "参考图说明",
+      description: "",
       images: [
         {
           id: "img-1",

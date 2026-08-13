@@ -2,6 +2,9 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import {
+  COMPONENT_CLOSE_GUTTER,
+  COMPONENT_CLOSE_INSET,
+  COMPONENT_CLOSE_SIZE,
   componentFrameChromeHeight,
   contentSize,
   DEFAULT_PAGE_GEOMETRY,
@@ -75,11 +78,11 @@ function ComponentFrameNameInput({
   };
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative min-w-0 flex-1">
       <input
         aria-describedby={nameError ? `${id}-name-error` : undefined}
         aria-label={t("canvas.componentName")}
-        className="min-w-0 border-0 bg-transparent text-paper-ink outline-none focus:ring-2 focus:ring-paper-primary"
+        className="min-w-0 max-w-full border-0 bg-transparent text-paper-ink outline-none focus:ring-2 focus:ring-paper-primary"
         onBlur={commitName}
         onChange={(event) => setNameDraft(event.target.value)}
         onKeyDown={(event) => {
@@ -113,6 +116,63 @@ function ComponentFrameNameInput({
       ) : null}
     </div>
   );
+}
+
+function ComponentCloseButton({
+  ariaLabel,
+  onClick,
+  scale,
+}: {
+  ariaLabel: string;
+  onClick(): void;
+  scale: number;
+}) {
+  return (
+    <button
+      aria-label={ariaLabel}
+      className="absolute z-[70] grid place-items-center rounded bg-[#25272b] p-0 text-white shadow-sm transition-[background-color,transform,box-shadow] duration-200 hover:bg-paper-danger hover:shadow-md active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-danger focus-visible:ring-offset-1"
+      data-card-interactive="true"
+      onClick={onClick}
+      onPointerDown={(event) => event.stopPropagation()}
+      style={{
+        height: `${COMPONENT_CLOSE_SIZE * scale}px`,
+        right: `${COMPONENT_CLOSE_INSET * scale}px`,
+        top: `${COMPONENT_CLOSE_INSET * scale}px`,
+        width: `${COMPONENT_CLOSE_SIZE * scale}px`,
+      }}
+      title={ariaLabel}
+      type="button"
+    >
+      <X
+        aria-hidden="true"
+        strokeWidth={2}
+        style={{ height: `${9 * scale}px`, width: `${9 * scale}px` }}
+      />
+    </button>
+  );
+}
+
+function collapseTextSelectionWithin(container: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+  const selectedNode = selection.focusNode ?? selection.anchorNode;
+  const selectedElement = selectedNode instanceof Element
+    ? selectedNode
+    : selectedNode?.parentElement;
+  const editor = selectedElement?.closest<HTMLElement>('[contenteditable="true"]');
+  if (!editor || !container.contains(editor)) return;
+  const selectedBlock = selectedElement?.closest<HTMLElement>(
+    "p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,td,th",
+  );
+  const collapseTarget = selectedBlock && editor.contains(selectedBlock)
+    ? selectedBlock
+    : editor;
+  editor.focus({ preventScroll: true });
+  const range = document.createRange();
+  range.selectNodeContents(collapseTarget);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 export function ComponentFrame({
@@ -292,6 +352,13 @@ export function ComponentFrame({
       data-component-id={id}
       data-fragment-id={frameId ?? id}
       data-sortable-component-id={sortableId ?? id}
+      onPointerDownCapture={(event) => {
+        if (event.button !== 0) return;
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (target.closest('button,input,textarea,select,a,[contenteditable="true"],[role="application"]')) return;
+        collapseTextSelectionWithin(event.currentTarget);
+      }}
       style={{
         left: `${currentRect.x * scale}px`,
         top: `${currentRect.y * scale}px`,
@@ -301,35 +368,19 @@ export function ComponentFrame({
         padding: `${frameInset * scale}px`,
       }}
     >
-      {isPlan ? (
-          <button
-            aria-label={t("canvas.removeComponent")}
-            className="absolute z-[70] grid place-items-center rounded bg-[#25272b] p-0 text-white transition-[background-color,transform] duration-200 hover:bg-paper-danger active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-danger focus-visible:ring-offset-1"
-            onClick={() => setConfirmingDelete(true)}
-            onPointerDown={(event) => event.stopPropagation()}
-            data-card-interactive="true"
-            style={{
-              height: "18px",
-              position: "absolute",
-              right: "-9px",
-              top: "-9px",
-              width: "18px",
-            }}
-            type="button"
-          >
-            <X
-              aria-hidden="true"
-              strokeWidth={2}
-              style={{ height: "10px", width: "10px" }}
-            />
-          </button>
-      ) : (
+      <ComponentCloseButton
+        ariaLabel={t("canvas.removeComponent")}
+        onClick={() => setConfirmingDelete(true)}
+        scale={scale}
+      />
+      {!isPlan ? (
         <div
-          className="flex items-center justify-between"
+          className="flex items-center"
           data-component-frame-header
           style={{
             height: `${frameChrome.topBarHeight * scale}px`,
             marginBottom: `${frameChrome.contentGap * scale}px`,
+            paddingRight: `${COMPONENT_CLOSE_GUTTER * scale}px`,
           }}
         >
           {showName ? (
@@ -340,30 +391,17 @@ export function ComponentFrame({
               onRename={onRename}
               scale={scale}
             />
-          ) : <span />}
-          <button
-            aria-label={t("canvas.removeComponent")}
-            className="grid place-items-center rounded bg-[#25272b] p-0 text-white transition-[background-color,transform] duration-200 hover:bg-paper-danger active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-danger focus-visible:ring-offset-1"
-            onClick={() => setConfirmingDelete(true)}
-            onPointerDown={(event) => event.stopPropagation()}
-            data-card-interactive="true"
-            style={{ height: `${16 * scale}px`, width: `${16 * scale}px` }}
-            type="button"
-          >
-            <X
-              aria-hidden="true"
-              strokeWidth={2}
-              style={{ height: `${9 * scale}px`, width: `${9 * scale}px` }}
-            />
-          </button>
+          ) : null}
         </div>
-      )}
+      ) : null}
 
       <div
         className={`relative min-h-0 ${allowContentOverflow ? "overflow-visible" : "overflow-hidden"}`}
         data-component-frame-body
         style={{
+          boxSizing: "border-box",
           height: horizontalPlanPreview ? "auto" : `${bodyHeight}px`,
+          paddingRight: isPlan ? `${COMPONENT_CLOSE_GUTTER * scale}px` : undefined,
         }}
       >
         {children}
