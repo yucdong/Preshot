@@ -72,6 +72,9 @@ export interface ReferenceImage {
   /** Independent frame dimensions in canvas points; they do not derive from aspectRatio. */
   frameWidth: number;
   frameHeight: number;
+  /** Signed frame offsets preserve the opposite edge when resizing from the left or top. */
+  frameOffsetX?: number;
+  frameOffsetY?: number;
   crop?: {
     x: number;
     y: number;
@@ -114,6 +117,8 @@ export interface PlanTextComponent extends BaseComponent {
 
 export interface ReferenceComponent extends BaseComponent {
   type: "reference";
+  /** Signed visual offset used by top-edge resizing while preserving the lower edge. */
+  frameOffsetY?: number;
   /** Group introduction. It is always available to the UI and may be empty. */
   description: string;
   images: ReferenceImage[];

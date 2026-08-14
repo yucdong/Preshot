@@ -104,8 +104,17 @@ describe("migratePlan legacy schemas", () => {
         x: 0,
         width: canvasWidth,
         height: 300,
+        frameOffsetY: -8,
         description: "",
-        images: [],
+        images: [{
+          id: "image",
+          file: "references/image.png",
+          aspectRatio: 1,
+          frameWidth: 100,
+          frameHeight: 80,
+          frameOffsetX: 12,
+          frameOffsetY: 20,
+        }],
       }],
     };
 
@@ -118,6 +127,13 @@ describe("migratePlan legacy schemas", () => {
       ...saved,
       documentHtml: "<p>正文</p>",
     }, context)).toThrow(/exactly once/i);
+    expect(() => migratePlan({
+      ...saved,
+      components: [{
+        ...saved.components[0],
+        frameOffsetY: Number.NaN,
+      }],
+    }, context)).toThrow(/reference fields/i);
     expect(() => migratePlan({
       ...saved,
       components: [{

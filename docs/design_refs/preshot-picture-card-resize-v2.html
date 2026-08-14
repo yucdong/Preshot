@@ -1,0 +1,2000 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preshot 图片卡片八向缩放评审</title>
+  <style>
+    :root {
+      --app-bg: #dfe1e5;
+      --panel: #f7f6f4;
+      --panel-strong: #fff;
+      --ink: #18181b;
+      --muted: #6b6f76;
+      --border: #d7d6d3;
+      --chrome: #202329;
+      --accent: #0891b2;
+      --accent-soft: #e1f4f7;
+      --danger: #b42342;
+      --danger-soft: #fdecef;
+      --guide: #e78324;
+      --paper-width: 674px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      min-width: 320px;
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--app-bg);
+      font-family: "Microsoft YaHei UI", "Segoe UI Variable", "Segoe UI", sans-serif;
+    }
+
+    button {
+      font: inherit;
+      touch-action: manipulation;
+    }
+
+    button:not(:disabled) { cursor: pointer; }
+
+    button:focus-visible,
+    [role="separator"]:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .topbar {
+      position: relative;
+      z-index: 50;
+      display: flex;
+      height: 46px;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      color: #fff;
+      background: var(--chrome);
+      box-shadow: 0 1px 0 rgb(255 255 255 / 7%);
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 26px;
+      height: 26px;
+      place-items: center;
+      border-radius: 5px;
+      background: #c2385c;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .brand { font-size: 12px; font-weight: 700; }
+    .file-name { color: #b9bec6; font-size: 10px; }
+    .save-state { margin-left: auto; color: #c5c9cf; font-size: 9px; }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 170px minmax(560px, 1fr) 270px;
+      height: calc(100vh - 46px);
+    }
+
+    .project-rail {
+      padding: 16px 12px;
+      border-right: 1px solid #d0d3d7;
+      background: #f4f5f5;
+    }
+
+    .rail-label {
+      margin: 0 0 10px 7px;
+      color: #838891;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .project {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #d6d9dd;
+      border-radius: 5px;
+      background: #fff;
+      box-shadow: 0 1px 3px rgb(28 30 34 / 5%);
+    }
+
+    .project-thumb {
+      width: 30px;
+      height: 38px;
+      border-radius: 2px;
+      background:
+        linear-gradient(145deg, transparent 48%, rgb(255 255 255 / 25%) 49%),
+        linear-gradient(160deg, #68747d, #1f2e36 70%);
+    }
+
+    .project strong {
+      display: block;
+      overflow: hidden;
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .project span { color: var(--muted); font-size: 8px; }
+
+    .workspace {
+      position: relative;
+      min-width: 0;
+      overflow: auto;
+      padding: 64px 42px 90px;
+      background-color: var(--app-bg);
+      background-image:
+        linear-gradient(rgb(75 79 88 / 3.5%) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(75 79 88 / 3.5%) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .paper {
+      position: relative;
+      width: min(var(--paper-width), 100%);
+      min-height: 948px;
+      margin: 0 auto;
+      padding: 62px 56px 84px;
+      background: #fff;
+      box-shadow: 0 18px 46px rgb(27 30 35 / 16%);
+    }
+
+    .page-corner {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      color: #a9aeb5;
+      pointer-events: none;
+    }
+
+    .page-corner::before,
+    .page-corner::after {
+      position: absolute;
+      background: currentColor;
+      content: "";
+    }
+
+    .page-corner::before { width: 18px; height: 1px; }
+    .page-corner::after { width: 1px; height: 18px; }
+    .page-corner.tl { top: 44px; left: 38px; }
+    .page-corner.tl::before, .page-corner.tl::after { right: 0; bottom: 0; }
+    .page-corner.tr { top: 44px; right: 38px; }
+    .page-corner.tr::before, .page-corner.tr::after { bottom: 0; left: 0; }
+    .page-corner.bl { bottom: 64px; left: 38px; }
+    .page-corner.bl::before, .page-corner.bl::after { top: 0; right: 0; }
+    .page-corner.br { right: 38px; bottom: 64px; }
+    .page-corner.br::before, .page-corner.br::after { top: 0; left: 0; }
+
+    .document-title {
+      margin: 0 0 8px;
+      font-family: Georgia, "Microsoft YaHei UI", serif;
+      font-size: 25px;
+      line-height: 1.25;
+    }
+
+    .document-copy {
+      margin: 0 0 24px;
+      color: #5e646d;
+      font-size: 11px;
+      line-height: 1.75;
+    }
+
+    .section-title { margin: 24px 0 9px; font-size: 15px; }
+
+    .document-flow {
+      display: grid;
+      gap: 0;
+    }
+
+    .flow-block {
+      position: relative;
+      min-width: 0;
+    }
+
+    .group-flow-block.is-flow-dragging {
+      position: fixed;
+      z-index: 1500;
+      margin: 0;
+      padding: 0 8px;
+      border: 1px solid rgb(8 145 178 / 45%);
+      border-radius: 6px;
+      background: #fff;
+      box-shadow: 0 20px 52px rgb(17 18 22 / 28%);
+      pointer-events: none;
+    }
+
+    .flow-placeholder {
+      position: relative;
+      width: 100%;
+      min-height: 44px;
+      border: 1px dashed var(--accent);
+      border-radius: 5px;
+      background: rgb(8 145 178 / 7%);
+    }
+
+    .flow-placeholder::before {
+      position: absolute;
+      top: -1px;
+      right: 0;
+      left: 0;
+      height: 2px;
+      border-radius: 999px;
+      background: var(--accent);
+      content: "";
+    }
+
+    .text-flow-block,
+    .note-flow-block {
+      margin: 4px 0 18px;
+      padding: 12px 14px;
+      border-left: 2px solid #c8ccd1;
+      background: #fafafa;
+    }
+
+    .note-flow-block {
+      border: 1px solid #d9dcdf;
+      border-left: 3px solid #c2385c;
+      border-radius: 4px;
+      background: #fffafb;
+    }
+
+    .flow-kind {
+      display: block;
+      margin-bottom: 4px;
+      color: #858b93;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .flow-block p {
+      margin: 0;
+      color: #5e646d;
+      font-size: 10px;
+      line-height: 1.7;
+    }
+
+    .group-stage {
+      position: relative;
+      width: 100%;
+      height: 230px;
+      margin: 8px 0 22px;
+    }
+
+    .group-caption {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 14px;
+      color: #777d85;
+      font-size: 9px;
+      font-weight: 700;
+    }
+
+    .group-caption::before {
+      width: 14px;
+      height: 1px;
+      background: #b9bec4;
+      content: "";
+    }
+
+    .group-wrap {
+      position: absolute;
+      top: 24px;
+      left: 0;
+      width: 100%;
+      height: 176px;
+      min-width: 260px;
+      min-height: 132px;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: default;
+      contain: layout style;
+    }
+
+    .group-resize-preview {
+      position: absolute;
+      z-index: 60;
+      border: 2px solid var(--accent);
+      border-radius: 5px;
+      background: rgb(8 145 178 / 7%);
+      box-shadow:
+        0 0 0 1px rgb(255 255 255 / 85%),
+        0 8px 24px rgb(8 145 178 / 14%);
+      pointer-events: none;
+      will-change: left, top, width, height;
+    }
+
+    .group-resize-preview::after {
+      position: absolute;
+      right: 6px;
+      bottom: 5px;
+      padding: 2px 5px;
+      border-radius: 3px;
+      color: #fff;
+      background: rgb(5 107 128 / 86%);
+      content: attr(data-size);
+      font-size: 8px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .group-stage.has-resize-preview {
+      background:
+        linear-gradient(to bottom, rgb(8 145 178 / 5%) 0 24px, transparent 24px);
+    }
+
+    .group-wrap.is-resizing {
+      will-change: auto;
+    }
+
+    .group-wrap.is-moving,
+    .group-wrap.is-resizing,
+    .image-tile.is-resizing {
+      cursor: grabbing;
+    }
+
+    .group-wrap.is-drop-target .image-group {
+      border-color: var(--accent);
+      background: #edf8fa;
+      box-shadow: inset 0 0 0 1px rgb(8 145 178 / 18%);
+    }
+
+    .context-toolbar {
+      position: absolute;
+      right: 0;
+      bottom: calc(100% + 6px);
+      z-index: 60;
+      display: none;
+      height: 30px;
+      align-items: center;
+      gap: 1px;
+      padding: 3px;
+      border: 1px solid #ced2d7;
+      border-radius: 5px;
+      color: #35393f;
+      background: #fff;
+      box-shadow: 0 7px 20px rgb(17 18 22 / 18%);
+    }
+
+    .group-wrap.is-selected:not(.image-selected) .group-toolbar,
+    .group-wrap.image-selected .image-toolbar {
+      display: flex;
+    }
+
+    .toolbar-kind {
+      display: flex;
+      height: 22px;
+      align-items: center;
+      padding: 0 7px;
+      border-radius: 3px;
+      color: #056b80;
+      background: var(--accent-soft);
+      font-size: 9px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .tool-button {
+      display: grid;
+      width: 24px;
+      height: 22px;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      border-radius: 3px;
+      color: #4f555d;
+      background: transparent;
+    }
+
+    .tool-button:hover { color: var(--accent); background: var(--accent-soft); }
+    .tool-button.danger:hover { color: var(--danger); background: var(--danger-soft); }
+    .tool-button svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+    .divider { width: 1px; height: 16px; margin: 0 2px; background: #dfe2e5; }
+
+    .image-group {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      padding: 10px;
+      border: 1px solid #cfd3d8;
+      border-radius: 4px;
+      background: #fafafa;
+      outline: none;
+      cursor: grab;
+    }
+
+    .group-wrap.is-moving .image-group { cursor: grabbing; }
+    .group-wrap.is-selected .image-group { background: #e7e9eb; }
+
+    .drag-grip {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 24;
+      display: none;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid rgb(255 255 255 / 35%);
+      border-radius: 4px;
+      color: #fff;
+      background: rgb(32 35 41 / 76%);
+      cursor: grab;
+    }
+
+    .group-wrap.is-selected .drag-grip { display: grid; }
+    .drag-grip:active { cursor: grabbing; }
+    .drag-grip svg { width: 13px; height: 13px; fill: currentColor; }
+
+    .group-grid {
+      display: flex;
+      height: 100%;
+      align-content: flex-start;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 8px;
+      overflow: hidden;
+      cursor: inherit;
+    }
+
+    .image-tile {
+      position: relative;
+      flex: none;
+      width: var(--tile-width);
+      height: var(--tile-height);
+      margin-top: var(--tile-offset-y, 0px);
+      margin-left: var(--tile-offset-x, 0px);
+      min-width: 52px;
+      min-height: 52px;
+      cursor: default;
+      contain: layout paint style;
+    }
+
+    .image-button {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      padding: 0;
+      border: 1px solid #d2d5da;
+      border-radius: 3px;
+      background: #e9eaeb;
+      cursor: default;
+    }
+
+    .image-button:not(:disabled) { cursor: pointer; }
+    .image-button:active { cursor: grabbing; }
+    .image-button:hover { border-color: #a9afb6; }
+
+    .image-button img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .image-index {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 18;
+      display: none;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      border-radius: 3px;
+      color: #fff;
+      background: rgb(25 27 31 / 72%);
+      font-size: 8px;
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+    }
+
+    .image-tile.is-selected .image-index { display: grid; }
+
+    .image-tile:hover,
+    .image-tile:focus-within,
+    .image-tile.is-selected {
+      z-index: 40;
+    }
+
+    .image-hover-delete {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      z-index: 40;
+      display: grid;
+      width: 18px;
+      height: 18px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid rgb(255 255 255 / 26%);
+      border-radius: 4px;
+      color: #fff;
+      background: rgb(32 35 41 / 82%);
+      box-shadow: 0 4px 12px rgb(0 0 0 / 18%);
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transition: background-color 150ms ease;
+    }
+
+    .image-tile:hover .image-hover-delete,
+    .image-tile:focus-within .image-hover-delete {
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+    }
+
+    .image-hover-delete:hover { background: var(--danger); }
+    .image-hover-delete svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.9; }
+
+    .image-tile.is-dragging {
+      position: fixed;
+      z-index: 1000;
+      margin: 0;
+      opacity: .94;
+      pointer-events: none;
+      cursor: grabbing;
+      contain: paint style;
+      box-shadow: 0 16px 34px rgb(18 21 26 / 28%);
+    }
+
+    .image-tile.is-dragging .image-index { display: grid; }
+
+    .drop-placeholder {
+      flex: none;
+      border: 1px dashed var(--accent);
+      border-radius: 3px;
+      background:
+        linear-gradient(135deg, rgb(8 145 178 / 8%) 25%, transparent 25%) 0 0 / 10px 10px,
+        linear-gradient(315deg, rgb(8 145 178 / 8%) 25%, transparent 25%) 0 0 / 10px 10px,
+        #f4fbfc;
+    }
+
+    .group-grid:empty::after {
+      display: grid;
+      width: 100%;
+      height: 100%;
+      place-items: center;
+      border: 1px dashed #aeb5bc;
+      border-radius: 3px;
+      color: #7b828a;
+      content: "拖动图片到这里";
+      font-size: 9px;
+    }
+
+    .resize-edge,
+    .resize-corner,
+    .group-resize-edge,
+    .group-resize-corner {
+      position: absolute;
+      z-index: 30;
+      display: none;
+      border: 0;
+      background: transparent;
+      touch-action: none;
+    }
+
+    .resize-edge,
+    .resize-corner {
+      z-index: 50;
+    }
+
+    .image-tile:hover .resize-edge,
+    .image-tile:hover .resize-corner,
+    .image-tile:focus-within .resize-edge,
+    .image-tile:focus-within .resize-corner,
+    .image-tile.is-selected .resize-edge,
+    .image-tile.is-selected .resize-corner,
+    .group-wrap.is-selected .group-resize-edge,
+    .group-wrap.is-selected .group-resize-corner {
+      display: block;
+    }
+
+    .resize-edge.left,
+    .resize-edge.right {
+      top: 24px;
+      bottom: 24px;
+      width: 20px;
+      cursor: ew-resize;
+    }
+
+    .resize-edge.top,
+    .resize-edge.bottom {
+      right: 24px;
+      left: 24px;
+      height: 20px;
+      cursor: ns-resize;
+    }
+
+    .group-resize-edge.left,
+    .group-resize-edge.right {
+      top: 18px;
+      bottom: 18px;
+      width: 18px;
+      cursor: ew-resize;
+    }
+
+    .group-resize-edge.top,
+    .group-resize-edge.bottom {
+      right: 18px;
+      left: 18px;
+      height: 18px;
+      cursor: ns-resize;
+    }
+
+    .resize-edge.left,
+    .group-resize-edge.left { left: 0; }
+    .resize-edge.right,
+    .group-resize-edge.right { right: 0; }
+    .resize-edge.top,
+    .group-resize-edge.top { top: 0; }
+    .resize-edge.bottom,
+    .group-resize-edge.bottom { bottom: 0; }
+
+    .resize-corner { width: 24px; height: 24px; }
+    .group-resize-corner { width: 22px; height: 22px; }
+
+    .resize-corner.top-left,
+    .group-resize-corner.top-left { top: 0; left: 0; cursor: nwse-resize; }
+    .resize-corner.top-right,
+    .group-resize-corner.top-right { top: 0; right: 0; cursor: nesw-resize; }
+    .resize-corner.bottom-left,
+    .group-resize-corner.bottom-left { bottom: 0; left: 0; cursor: nesw-resize; }
+    .resize-corner.bottom-right,
+    .group-resize-corner.bottom-right { right: 0; bottom: 0; cursor: nwse-resize; }
+
+    .resize-edge:hover,
+    .resize-corner:hover,
+    .group-resize-edge:hover,
+    .group-resize-corner:hover {
+      background: rgb(8 145 178 / 10%);
+    }
+
+    .alignment-guide {
+      position: absolute;
+      z-index: 26;
+      display: none;
+      pointer-events: none;
+      background: var(--guide);
+      box-shadow: 0 0 0 1px rgb(255 255 255 / 75%);
+    }
+
+    .alignment-guide.vertical { top: 5px; bottom: 5px; width: 1px; }
+    .alignment-guide.horizontal { right: 5px; left: 5px; height: 1px; }
+    .alignment-guide.is-visible { display: block; }
+
+    .status-chip {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      z-index: 24;
+      display: none;
+      padding: 3px 7px;
+      border-radius: 3px;
+      color: #fff;
+      background: rgb(32 35 41 / 78%);
+      font-size: 8px;
+      pointer-events: none;
+    }
+
+    .group-wrap.is-resizing .status-chip,
+    .group-wrap.is-moving .status-chip,
+    .image-tile.is-resizing ~ .status-chip { display: block; }
+
+    .review-panel {
+      overflow: auto;
+      padding: 18px 16px;
+      border-left: 1px solid #d0d3d7;
+      background: var(--panel);
+    }
+
+    .review-panel h2 { margin: 0 0 4px; font-size: 14px; }
+    .review-panel > p { margin: 0 0 18px; color: var(--muted); font-size: 9px; line-height: 1.6; }
+
+    .requirement {
+      margin-bottom: 9px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--panel-strong);
+    }
+
+    .requirement strong { display: block; margin-bottom: 4px; font-size: 10px; }
+    .requirement p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.55; }
+
+    .live-state {
+      margin-top: 14px;
+      padding: 10px;
+      border-radius: 5px;
+      color: #d8f6fa;
+      background: var(--chrome);
+      font-size: 9px;
+      line-height: 1.6;
+    }
+
+    .live-state strong { display: block; margin-bottom: 3px; color: #fff; }
+
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      display: none;
+      place-items: center;
+      padding: 32px;
+      background: rgb(13 15 19 / 78%);
+      backdrop-filter: blur(4px);
+    }
+
+    .lightbox.is-open { display: grid; }
+
+    .lightbox-panel {
+      position: relative;
+      display: grid;
+      width: min(980px, calc(100vw - 64px));
+      height: min(720px, calc(100vh - 64px));
+      grid-template-rows: minmax(0, 1fr) auto;
+      overflow: hidden;
+      border: 1px solid rgb(255 255 255 / 16%);
+      border-radius: 7px;
+      background: #17191d;
+      box-shadow: 0 28px 80px rgb(0 0 0 / 48%);
+    }
+
+    .lightbox-image-wrap {
+      display: grid;
+      min-height: 0;
+      place-items: center;
+      padding: 28px;
+      background:
+        linear-gradient(45deg, #1b1e23 25%, transparent 25%) 0 0 / 18px 18px,
+        linear-gradient(-45deg, #1b1e23 25%, transparent 25%) 0 0 / 18px 18px,
+        linear-gradient(45deg, transparent 75%, #1b1e23 75%) 0 0 / 18px 18px,
+        linear-gradient(-45deg, transparent 75%, #1b1e23 75%) 0 0 / 18px 18px,
+        #202329;
+    }
+
+    .lightbox-image {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .lightbox-footer {
+      display: flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 8px 12px;
+      color: #d7dae0;
+      background: #17191d;
+      font-size: 10px;
+    }
+
+    .lightbox-footer span:last-child { color: #8f959e; }
+
+    .lightbox-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 2;
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid rgb(255 255 255 / 16%);
+      border-radius: 5px;
+      color: #fff;
+      background: rgb(23 25 29 / 82%);
+      box-shadow: 0 5px 14px rgb(0 0 0 / 22%);
+    }
+
+    .lightbox-close:hover { background: #c2385c; }
+    .lightbox-close svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+    .confirm-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 2200;
+      display: none;
+      place-items: center;
+      padding: 24px;
+      background: rgb(13 15 19 / 52%);
+      backdrop-filter: blur(2px);
+    }
+
+    .confirm-dialog.is-open { display: grid; }
+
+    .confirm-panel {
+      width: min(336px, calc(100vw - 48px));
+      padding: 18px;
+      border: 1px solid #d3d6da;
+      border-radius: 7px;
+      background: #fff;
+      box-shadow: 0 24px 64px rgb(17 18 22 / 30%);
+    }
+
+    .confirm-panel h2 { margin: 0 0 7px; font-size: 15px; }
+    .confirm-panel p { margin: 0; color: #686e76; font-size: 10px; line-height: 1.6; }
+
+    .confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 7px;
+      margin-top: 18px;
+    }
+
+    .confirm-button {
+      min-width: 68px;
+      height: 30px;
+      padding: 0 12px;
+      border: 1px solid #d2d5d9;
+      border-radius: 4px;
+      color: #3d4249;
+      background: #fff;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .confirm-button:hover { background: #f1f2f3; }
+    .confirm-button.danger { border-color: var(--danger); color: #fff; background: var(--danger); }
+    .confirm-button.danger:hover { background: #941c36; }
+
+    @media (max-width: 1040px) {
+      .app-shell { grid-template-columns: 150px minmax(520px, 1fr); }
+      .review-panel { display: none; }
+    }
+
+    @media (max-width: 760px) {
+      body { overflow: auto; }
+      .app-shell { display: block; height: auto; }
+      .project-rail { display: none; }
+      .workspace { min-height: calc(100vh - 46px); padding: 58px 12px 60px; }
+      .paper { min-height: 820px; padding: 56px 34px 70px; }
+      .context-toolbar { right: 0; max-width: calc(100vw - 44px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark">P</div>
+    <div class="brand">Preshot</div>
+    <div class="file-name">城市夜景拍摄方案</div>
+    <div class="save-state">所有更改已保存</div>
+  </header>
+
+  <main class="app-shell">
+    <aside class="project-rail">
+      <p class="rail-label">Projects</p>
+      <div class="project">
+        <div class="project-thumb" aria-hidden="true"></div>
+        <div><strong>城市夜景</strong><span>刚刚编辑</span></div>
+      </div>
+    </aside>
+
+    <section class="workspace" aria-label="方案画布">
+      <article class="paper">
+        <i class="page-corner tl"></i><i class="page-corner tr"></i>
+        <i class="page-corner bl"></i><i class="page-corner br"></i>
+
+        <h1 class="document-title">城市夜景拍摄方案</h1>
+        <p class="document-copy">在蓝调时刻完成主场景，优先保留城市轮廓与车流轨迹。下方图片组用于确认构图、色调和现场机位。</p>
+        <h2 class="section-title">参考样图</h2>
+
+        <div class="document-flow" id="document-flow">
+        <div class="flow-block group-flow-block" data-flow-label="图片组 A">
+        <div class="group-caption">图片组 A · 主构图</div>
+        <div class="group-stage">
+          <div class="group-wrap is-selected" data-group-id="group-a" data-group-name="图片组 A">
+            <div class="context-toolbar group-toolbar" role="toolbar" aria-label="图片卡片样式">
+              <span class="toolbar-kind">图片卡片</span>
+              <button class="tool-button" type="button" aria-label="添加图片" title="添加图片">
+                <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 13l2.8-3 3 3.5 2.2-2.2 4 4.2M12 3v4M10 5h4"/></svg>
+              </button>
+              <button class="tool-button" type="button" aria-label="屏幕截图" title="屏幕截图">
+                <svg viewBox="0 0 24 24"><path d="M5 7h3l1.2-2h5.6L16 7h3v11H5z"/><circle cx="12" cy="12.5" r="3.2"/></svg>
+              </button>
+              <span class="divider" aria-hidden="true"></span>
+              <button class="tool-button danger delete-group" type="button" aria-label="删除图片卡片" title="删除图片卡片">
+                <svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M8 10v8M12 10v8M16 10v8M7 7l1 14h8l1-14"/></svg>
+              </button>
+            </div>
+
+            <div class="context-toolbar image-toolbar" role="toolbar" aria-label="图片样式">
+              <span class="toolbar-kind image-kind">图片 01</span>
+              <button class="tool-button" type="button" aria-label="调整图片视图" title="调整图片视图">
+                <svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+              <span class="divider" aria-hidden="true"></span>
+              <button class="tool-button danger delete-image" type="button" aria-label="删除图片" title="删除图片">
+                <svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M8 10v8M12 10v8M16 10v8M7 7l1 14h8l1-14"/></svg>
+              </button>
+            </div>
+
+            <div class="image-group" tabindex="0" aria-label="图片卡片，八个方向均可调整大小，按住灰色空白区域可上下移动">
+              <button class="drag-grip" type="button" aria-label="拖动图片卡片" title="拖动图片卡片">
+                <svg viewBox="0 0 24 24"><circle cx="8" cy="7" r="1.5"/><circle cx="16" cy="7" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="17" r="1.5"/><circle cx="16" cy="17" r="1.5"/></svg>
+              </button>
+
+              <div class="group-grid">
+                <div class="image-tile" style="--tile-width: 166px; --tile-height: 118px" data-label="图片 01">
+                  <button class="image-button" type="button" aria-label="选择图片 01">
+                    <img alt="雨夜街道与霓虹灯" draggable="false" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 420'%3E%3Cdefs%3E%3ClinearGradient id='a' x2='0' y2='1'%3E%3Cstop stop-color='%23142335'/%3E%3Cstop offset='.58' stop-color='%23213b4d'/%3E%3Cstop offset='1' stop-color='%230e141c'/%3E%3C/linearGradient%3E%3ClinearGradient id='b'%3E%3Cstop stop-color='%23d54470'/%3E%3Cstop offset='1' stop-color='%2309a9c4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' d='M0 0h600v420H0z'/%3E%3Cpath fill='%23101822' d='M0 245l98-46 98 29 112-72 125 55 167-63v272H0z'/%3E%3Cpath fill='url(%23b)' opacity='.75' d='M0 336l190-60 126 26 284-87v37l-279 84-129-24L0 373z'/%3E%3Cg fill='%23ffd36a'%3E%3Ccircle cx='105' cy='176' r='9'/%3E%3Ccircle cx='460' cy='145' r='7'/%3E%3Ccircle cx='527' cy='195' r='5'/%3E%3C/g%3E%3Cpath stroke='%23dceef6' stroke-width='5' opacity='.55' d='M280 420l42-160M368 420l-22-159'/%3E%3C/svg%3E">
+                  </button>
+                  <span class="image-index">01</span>
+                  <span class="resize-edge left" data-edge="left" role="separator" tabindex="0" aria-label="从左边调整图片 01"></span>
+                  <span class="resize-edge right" data-edge="right" role="separator" tabindex="0" aria-label="从右边调整图片 01"></span>
+                  <span class="resize-edge top" data-edge="top" role="separator" tabindex="0" aria-label="从上边调整图片 01"></span>
+                  <span class="resize-edge bottom" data-edge="bottom" role="separator" tabindex="0" aria-label="从下边调整图片 01"></span>
+                  <span class="resize-corner top-left" data-edge="top-left" role="separator" tabindex="0" aria-label="从左上角调整图片 01"></span>
+                  <span class="resize-corner top-right" data-edge="top-right" role="separator" tabindex="0" aria-label="从右上角调整图片 01"></span>
+                  <span class="resize-corner bottom-left" data-edge="bottom-left" role="separator" tabindex="0" aria-label="从左下角调整图片 01"></span>
+                  <span class="resize-corner bottom-right" data-edge="bottom-right" role="separator" tabindex="0" aria-label="从右下角调整图片 01"></span>
+                </div>
+
+                <div class="image-tile" style="--tile-width: 140px; --tile-height: 118px" data-label="图片 02">
+                  <button class="image-button" type="button" aria-label="选择图片 02">
+                    <img alt="城市天际线" draggable="false" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 420'%3E%3Cdefs%3E%3ClinearGradient id='a' y2='1'%3E%3Cstop stop-color='%23517286'/%3E%3Cstop offset='.55' stop-color='%23b55d72'/%3E%3Cstop offset='1' stop-color='%23e0a66f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' d='M0 0h520v420H0z'/%3E%3Ccircle cx='405' cy='108' r='42' fill='%23f5d99c' opacity='.75'/%3E%3Cpath fill='%23242a35' d='M0 254h45v-62h46v49h35v-99h42v105h37V92h50v144h42v-84h43v95h34v-121h56v109h41v-57h49v242H0z'/%3E%3Cg fill='%23f8d06e'%3E%3Cpath d='M217 112h9v12h-9zM240 112h9v12h-9zM217 140h9v12h-9zM240 140h9v12h-9zM386 147h9v12h-9zM408 147h9v12h-9zM386 176h9v12h-9z'/%3E%3C/g%3E%3C/svg%3E">
+                  </button>
+                  <span class="image-index">02</span>
+                  <span class="resize-edge left" data-edge="left" role="separator" tabindex="0" aria-label="从左边调整图片 02"></span>
+                  <span class="resize-edge right" data-edge="right" role="separator" tabindex="0" aria-label="从右边调整图片 02"></span>
+                  <span class="resize-edge top" data-edge="top" role="separator" tabindex="0" aria-label="从上边调整图片 02"></span>
+                  <span class="resize-edge bottom" data-edge="bottom" role="separator" tabindex="0" aria-label="从下边调整图片 02"></span>
+                  <span class="resize-corner top-left" data-edge="top-left" role="separator" tabindex="0" aria-label="从左上角调整图片 02"></span>
+                  <span class="resize-corner top-right" data-edge="top-right" role="separator" tabindex="0" aria-label="从右上角调整图片 02"></span>
+                  <span class="resize-corner bottom-left" data-edge="bottom-left" role="separator" tabindex="0" aria-label="从左下角调整图片 02"></span>
+                  <span class="resize-corner bottom-right" data-edge="bottom-right" role="separator" tabindex="0" aria-label="从右下角调整图片 02"></span>
+                </div>
+
+                <div class="image-tile" style="--tile-width: 118px; --tile-height: 94px" data-label="图片 03">
+                  <button class="image-button" type="button" aria-label="选择图片 03">
+                    <img alt="高架道路车流" draggable="false" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 380'%3E%3Cdefs%3E%3ClinearGradient id='a' y2='1'%3E%3Cstop stop-color='%23152f49'/%3E%3Cstop offset='1' stop-color='%23080e17'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' d='M0 0h500v380H0z'/%3E%3Cpath fill='%231b222b' d='M0 95l72 40 80-70 87 82 76-64 83 45 102-78v330H0z'/%3E%3Cpath fill='%23343d46' d='M-20 310c140-64 302-83 540-76v46c-213-4-383 15-523 78z'/%3E%3Cpath fill='none' stroke='%23f6c04e' stroke-width='8' stroke-linecap='round' d='M-10 330c151-58 323-72 540-60'/%3E%3Cpath fill='none' stroke='%23d74369' stroke-width='5' stroke-linecap='round' d='M20 354c160-55 325-64 500-48'/%3E%3C/svg%3E">
+                  </button>
+                  <span class="image-index">03</span>
+                  <span class="resize-edge left" data-edge="left" role="separator" tabindex="0" aria-label="从左边调整图片 03"></span>
+                  <span class="resize-edge right" data-edge="right" role="separator" tabindex="0" aria-label="从右边调整图片 03"></span>
+                  <span class="resize-edge top" data-edge="top" role="separator" tabindex="0" aria-label="从上边调整图片 03"></span>
+                  <span class="resize-edge bottom" data-edge="bottom" role="separator" tabindex="0" aria-label="从下边调整图片 03"></span>
+                  <span class="resize-corner top-left" data-edge="top-left" role="separator" tabindex="0" aria-label="从左上角调整图片 03"></span>
+                  <span class="resize-corner top-right" data-edge="top-right" role="separator" tabindex="0" aria-label="从右上角调整图片 03"></span>
+                  <span class="resize-corner bottom-left" data-edge="bottom-left" role="separator" tabindex="0" aria-label="从左下角调整图片 03"></span>
+                  <span class="resize-corner bottom-right" data-edge="bottom-right" role="separator" tabindex="0" aria-label="从右下角调整图片 03"></span>
+                </div>
+              </div>
+
+              <div class="alignment-guide vertical"></div>
+              <div class="alignment-guide horizontal"></div>
+              <div class="status-chip">正在调整</div>
+            </div>
+
+            <span class="group-resize-edge left" data-group-edge="left" role="separator" tabindex="0" aria-label="从左边调整图片卡片"></span>
+            <span class="group-resize-edge right" data-group-edge="right" role="separator" tabindex="0" aria-label="从右边调整图片卡片"></span>
+            <span class="group-resize-edge top" data-group-edge="top" role="separator" tabindex="0" aria-label="从上边调整图片卡片"></span>
+            <span class="group-resize-edge bottom" data-group-edge="bottom" role="separator" tabindex="0" aria-label="从下边调整图片卡片"></span>
+            <span class="group-resize-corner top-left" data-group-edge="top-left" role="separator" tabindex="0" aria-label="从左上角调整图片卡片"></span>
+            <span class="group-resize-corner top-right" data-group-edge="top-right" role="separator" tabindex="0" aria-label="从右上角调整图片卡片"></span>
+            <span class="group-resize-corner bottom-left" data-group-edge="bottom-left" role="separator" tabindex="0" aria-label="从左下角调整图片卡片"></span>
+            <span class="group-resize-corner bottom-right" data-group-edge="bottom-right" role="separator" tabindex="0" aria-label="从右下角调整图片卡片"></span>
+          </div>
+        </div>
+        </div>
+
+        <div class="flow-block text-flow-block" data-flow-label="构图说明">
+          <span class="flow-kind">文字</span>
+          <p>主构图优先保留道路引导线与城市轮廓，蓝调时刻先完成静态机位，再补充车流长曝光。</p>
+        </div>
+
+        <div class="flow-block group-flow-block" data-flow-label="图片组 B">
+        <div class="group-caption">图片组 B · 备用机位</div>
+        <div class="group-stage" id="secondary-group-stage"></div>
+        </div>
+
+        <div class="flow-block note-flow-block" data-flow-label="拍摄提示组件">
+          <span class="flow-kind">拍摄提示组件</span>
+          <p>图片组可拖到本段文字的上方或下方；组内图片尺寸、裁切视图和排序会随整组保持。</p>
+        </div>
+        </div>
+      </article>
+    </section>
+
+    <aside class="review-panel">
+      <h2>本轮交互调整</h2>
+      <p>直接在中间画布点击并拖动验证。透明热区只有悬停时显示轻微反馈。</p>
+      <div class="requirement"><strong>八向调整尺寸</strong><p>图片卡片和单张图片均支持四条边改单轴、四个角同时调整宽高。</p></div>
+      <div class="requirement"><strong>非文字光标</strong><p>图片使用手型，图片组灰色区域使用抓取光标，缩放热区使用对应 resize 光标。</p></div>
+      <div class="requirement"><strong>图片使用手型</strong><p>鼠标进入图片内容区域时显示手型光标；按住并移动后切换为拖动状态。</p></div>
+      <div class="requirement"><strong>平衡的图片缩放热区</strong><p>四边使用 20px 内侧命中带，四角为 24×24px；保留易用性，同时减少误触缩放。</p></div>
+      <div class="requirement"><strong>悬停即可缩放</strong><p>无需先点击选中；鼠标进入图片后四边和四角立即生效，开始拖动时再自动选中。</p></div>
+      <div class="requirement"><strong>对边固定</strong><p>拖动上边向下缩小时，顶部向下移动且底边固定；左边和四角同样固定其对边或对角，不强制顶端对齐。</p></div>
+      <div class="requirement"><strong>右上紧凑样式栏</strong><p>高度 30px，固定贴右上方；不包含尺寸数值、加减或恢复尺寸按钮。</p></div>
+      <div class="requirement"><strong>组内与跨组拖放</strong><p>按住图片拖动即可重排；移动到另一个图片组时显示实时插入占位，松手完成移动。</p></div>
+      <div class="requirement"><strong>文档流上下排序</strong><p>按住图片组灰色空白区域拖动，可让整组与文字块或其他组件交换上下位置。</p></div>
+      <div class="requirement"><strong>四边均可调整</strong><p>顶部预留 24px 可用空间；向上拖动上边时，顶部上移、底边保持，组框随之增高。</p></div>
+      <div class="requirement"><strong>无闪烁缩放</strong><p>拖动时只更新轻量预览框，图片内容保持稳定；松手后一次提交最终尺寸并只重排一次。</p></div>
+      <div class="live-state" aria-live="polite"><strong>当前状态</strong><span id="live-state">已选中图片卡片，可拖动任意边或角。</span></div>
+    </aside>
+  </main>
+
+  <div class="lightbox" id="image-lightbox" role="dialog" aria-modal="true" aria-labelledby="lightbox-title">
+    <div class="lightbox-panel">
+      <button class="lightbox-close" id="lightbox-close" type="button" aria-label="关闭大图">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="lightbox-image-wrap">
+        <img class="lightbox-image" id="lightbox-image" alt="">
+      </div>
+      <div class="lightbox-footer">
+        <strong id="lightbox-title">图片预览</strong>
+        <span>单击背景或按 Esc 关闭</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-dialog" id="delete-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+    <div class="confirm-panel">
+      <h2 id="delete-confirm-title">删除图片？</h2>
+      <p id="delete-confirm-copy">删除后，图片将从当前图片组中移除。</p>
+      <div class="confirm-actions">
+        <button class="confirm-button" id="delete-cancel" type="button">取消</button>
+        <button class="confirm-button danger" id="delete-confirm" type="button">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/plain" id="legacy-single-group-script">
+    const groupStage = document.getElementById("group-stage");
+    const groupWrap = document.getElementById("group-wrap");
+    const imageGroup = document.getElementById("image-group");
+    const dragGrip = document.getElementById("drag-grip");
+    const verticalGuide = document.getElementById("vertical-guide");
+    const horizontalGuide = document.getElementById("horizontal-guide");
+    const statusChip = document.getElementById("status-chip");
+    const liveState = document.getElementById("live-state");
+    const imageKind = document.getElementById("image-kind");
+    let selectedTile = null;
+    let pendingFrame = 0;
+
+    function scheduleStyleWrite(callback) {
+      cancelAnimationFrame(pendingFrame);
+      pendingFrame = requestAnimationFrame(callback);
+    }
+
+    function setLiveState(message) {
+      liveState.textContent = message;
+    }
+
+    function selectGroup() {
+      selectedTile?.classList.remove("is-selected");
+      selectedTile = null;
+      groupWrap.classList.add("is-selected");
+      groupWrap.classList.remove("image-selected");
+      setLiveState("已选中图片卡片，可拖动任意边或角。");
+    }
+
+    function selectTile(tile) {
+      selectedTile?.classList.remove("is-selected");
+      selectedTile = tile;
+      tile.classList.add("is-selected");
+      groupWrap.classList.add("is-selected", "image-selected");
+      imageKind.textContent = tile.dataset.label;
+      setLiveState(`已选中${tile.dataset.label}，可拖动四边或四角调整。`);
+    }
+
+    imageGroup.addEventListener("pointerdown", (event) => {
+      if (event.target.closest(".image-tile, .drag-grip, [role='separator'], button")) return;
+      event.preventDefault();
+      selectGroup();
+    });
+
+    document.querySelectorAll(".image-button").forEach((button) => {
+      button.addEventListener("pointerdown", (event) => event.preventDefault());
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        selectTile(button.closest(".image-tile"));
+      });
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+      if (groupWrap.contains(event.target)) return;
+      groupWrap.classList.remove("is-selected", "image-selected");
+      selectedTile?.classList.remove("is-selected");
+      selectedTile = null;
+      setLiveState("未选中对象。");
+    });
+
+    function affects(edge, direction) {
+      return edge === direction || edge.includes(direction);
+    }
+
+    function startImageResize(handle, event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const tile = handle.closest(".image-tile");
+      selectTile(tile);
+      tile.classList.add("is-resizing");
+      statusChip.textContent = `正在调整${tile.dataset.label}`;
+
+      const edge = handle.dataset.edge;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startWidth = tile.offsetWidth;
+      const startHeight = tile.offsetHeight;
+      const tileStyle = getComputedStyle(tile);
+      const startOffsetX = Number.parseFloat(tileStyle.marginLeft) || 0;
+      const startOffsetY = Number.parseFloat(tileStyle.marginTop) || 0;
+      const candidates = [...document.querySelectorAll(".image-tile")]
+        .filter((candidate) => candidate !== tile)
+        .map((candidate) => ({ width: candidate.offsetWidth, height: candidate.offsetHeight }));
+      let nextWidth = startWidth;
+      let nextHeight = startHeight;
+      let nextOffsetX = startOffsetX;
+      let nextOffsetY = startOffsetY;
+      handle.setPointerCapture(event.pointerId);
+
+      const move = (moveEvent) => {
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        nextWidth = Math.max(52, startWidth + (affects(edge, "right") ? dx : affects(edge, "left") ? -dx : 0));
+        nextHeight = Math.max(52, startHeight + (affects(edge, "bottom") ? dy : affects(edge, "top") ? -dy : 0));
+
+        let snapWidth = false;
+        let snapHeight = false;
+        for (const candidate of candidates) {
+          if (Math.abs(nextWidth - candidate.width) <= 6) {
+            nextWidth = candidate.width;
+            snapWidth = true;
+          }
+          if (Math.abs(nextHeight - candidate.height) <= 6) {
+            nextHeight = candidate.height;
+            snapHeight = true;
+          }
+        }
+        nextOffsetX = affects(edge, "left")
+          ? startOffsetX + startWidth - nextWidth
+          : startOffsetX;
+        nextOffsetY = affects(edge, "top")
+          ? startOffsetY + startHeight - nextHeight
+          : startOffsetY;
+
+        scheduleStyleWrite(() => {
+          tile.style.setProperty("--tile-width", `${nextWidth}px`);
+          tile.style.setProperty("--tile-height", `${nextHeight}px`);
+          tile.style.setProperty("--tile-offset-x", `${nextOffsetX}px`);
+          tile.style.setProperty("--tile-offset-y", `${nextOffsetY}px`);
+          verticalGuide.classList.toggle("is-visible", snapWidth);
+          horizontalGuide.classList.toggle("is-visible", snapHeight);
+          if (snapWidth) verticalGuide.style.left = `${tile.offsetLeft + nextWidth + 10}px`;
+          if (snapHeight) horizontalGuide.style.top = `${tile.offsetTop + nextHeight + 10}px`;
+          setLiveState(
+            `${tile.dataset.label}：${Math.round(nextWidth)} × ${Math.round(nextHeight)} px` +
+            (nextOffsetY > startOffsetY
+              ? `，顶部下移 ${Math.round(nextOffsetY - startOffsetY)}px`
+              : "")
+          );
+        });
+      };
+
+      const finish = () => {
+        cancelAnimationFrame(pendingFrame);
+        tile.classList.remove("is-resizing");
+        verticalGuide.classList.remove("is-visible");
+        horizontalGuide.classList.remove("is-visible");
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", finish);
+        handle.removeEventListener("pointercancel", finish);
+        setLiveState(`${tile.dataset.label}尺寸已调整为 ${Math.round(nextWidth)} × ${Math.round(nextHeight)} px。`);
+      };
+
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", finish);
+      handle.addEventListener("pointercancel", finish);
+    }
+
+    document.querySelectorAll(".resize-edge, .resize-corner").forEach((handle) => {
+      handle.addEventListener("pointerdown", (event) => startImageResize(handle, event));
+    });
+
+    function startGroupResize(handle, event) {
+      event.preventDefault();
+      event.stopPropagation();
+      selectGroup();
+      groupWrap.classList.add("is-resizing");
+      statusChip.textContent = "正在调整图片卡片";
+
+      const edge = handle.dataset.groupEdge;
+      const stageRect = groupStage.getBoundingClientRect();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const initial = {
+        left: groupWrap.offsetLeft,
+        top: groupWrap.offsetTop,
+        width: groupWrap.offsetWidth,
+        height: groupWrap.offsetHeight
+      };
+      let next = { ...initial };
+      handle.setPointerCapture(event.pointerId);
+
+      const move = (moveEvent) => {
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        let left = initial.left;
+        let top = initial.top;
+        let width = initial.width;
+        let height = initial.height;
+
+        if (affects(edge, "left")) {
+          width = initial.width - dx;
+          left = initial.left + dx;
+        } else if (affects(edge, "right")) {
+          width = initial.width + dx;
+        }
+        if (affects(edge, "top")) {
+          height = initial.height - dy;
+          top = initial.top + dy;
+        } else if (affects(edge, "bottom")) {
+          height = initial.height + dy;
+        }
+
+        width = Math.max(260, Math.min(width, stageRect.width));
+        height = Math.max(132, Math.min(height, 300));
+        left = Math.max(0, Math.min(left, stageRect.width - width));
+        top = Math.max(0, Math.min(top, 300 - height));
+        next = { left, top, width, height };
+
+        scheduleStyleWrite(() => {
+          Object.assign(groupWrap.style, {
+            left: `${next.left}px`,
+            top: `${next.top}px`,
+            width: `${next.width}px`,
+            height: `${next.height}px`
+          });
+          setLiveState(`图片卡片：${Math.round(next.width)} × ${Math.round(next.height)} px`);
+        });
+      };
+
+      const finish = () => {
+        cancelAnimationFrame(pendingFrame);
+        groupWrap.classList.remove("is-resizing");
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", finish);
+        handle.removeEventListener("pointercancel", finish);
+        setLiveState(`图片卡片尺寸已调整为 ${Math.round(next.width)} × ${Math.round(next.height)} px。`);
+      };
+
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", finish);
+      handle.addEventListener("pointercancel", finish);
+    }
+
+    document.querySelectorAll(".group-resize-edge, .group-resize-corner").forEach((handle) => {
+      handle.addEventListener("pointerdown", (event) => startGroupResize(handle, event));
+    });
+
+    dragGrip.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      selectGroup();
+      groupWrap.classList.add("is-moving");
+      statusChip.textContent = "正在移动图片卡片";
+
+      const stageRect = groupStage.getBoundingClientRect();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startLeft = groupWrap.offsetLeft;
+      const startTop = groupWrap.offsetTop;
+      let nextLeft = startLeft;
+      let nextTop = startTop;
+      dragGrip.setPointerCapture(event.pointerId);
+
+      const move = (moveEvent) => {
+        nextLeft = Math.max(0, Math.min(startLeft + moveEvent.clientX - startX, stageRect.width - groupWrap.offsetWidth));
+        nextTop = Math.max(0, Math.min(startTop + moveEvent.clientY - startY, 300 - groupWrap.offsetHeight));
+        scheduleStyleWrite(() => {
+          groupWrap.style.left = `${nextLeft}px`;
+          groupWrap.style.top = `${nextTop}px`;
+          setLiveState(`图片卡片位置：${Math.round(nextLeft)}, ${Math.round(nextTop)} px`);
+        });
+      };
+
+      const finish = () => {
+        cancelAnimationFrame(pendingFrame);
+        groupWrap.classList.remove("is-moving");
+        dragGrip.removeEventListener("pointermove", move);
+        dragGrip.removeEventListener("pointerup", finish);
+        dragGrip.removeEventListener("pointercancel", finish);
+        setLiveState("图片卡片移动完成，图片节点保持不变。");
+      };
+
+      dragGrip.addEventListener("pointermove", move);
+      dragGrip.addEventListener("pointerup", finish);
+      dragGrip.addEventListener("pointercancel", finish);
+    });
+
+    document.getElementById("delete-image").addEventListener("click", () => {
+      if (!selectedTile) return;
+      const label = selectedTile.dataset.label;
+      selectedTile.remove();
+      selectGroup();
+      setLiveState(`${label}已从原型中删除。`);
+    });
+
+    document.getElementById("delete-group").addEventListener("click", () => {
+      setLiveState("演示模式：未实际删除图片卡片。");
+    });
+  </script>
+  <script>
+    const secondaryStage = document.getElementById("secondary-group-stage");
+    const primaryGroup = document.querySelector(".group-wrap");
+    const secondaryGroup = primaryGroup.cloneNode(true);
+    secondaryGroup.classList.remove("is-selected", "image-selected");
+    secondaryGroup.dataset.groupId = "group-b";
+    secondaryGroup.dataset.groupName = "图片组 B";
+    secondaryStage.append(secondaryGroup);
+
+    const primaryGrid = primaryGroup.querySelector(".group-grid");
+    const secondaryGrid = secondaryGroup.querySelector(".group-grid");
+    secondaryGrid.replaceChildren(primaryGrid.lastElementChild);
+
+    const liveState = document.getElementById("live-state");
+    const lightbox = document.getElementById("image-lightbox");
+    const lightboxImage = document.getElementById("lightbox-image");
+    const lightboxTitle = document.getElementById("lightbox-title");
+    const lightboxClose = document.getElementById("lightbox-close");
+    const deleteDialog = document.getElementById("delete-confirm-dialog");
+    const deleteDialogCopy = document.getElementById("delete-confirm-copy");
+    const deleteCancel = document.getElementById("delete-cancel");
+    const deleteConfirm = document.getElementById("delete-confirm");
+    let selectedGroup = primaryGroup;
+    let selectedTile = null;
+    let pendingDeleteTile = null;
+    let pendingDeleteTrigger = null;
+    let pendingFrame = 0;
+
+    document.querySelectorAll(".image-tile").forEach((tile) => {
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "image-hover-delete";
+      deleteButton.type = "button";
+      deleteButton.ariaLabel = "删除这张图片";
+      deleteButton.title = "删除图片";
+      deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3M8 10v8M12 10v8M16 10v8M7 7l1 14h8l1-14"/></svg>';
+      tile.append(deleteButton);
+    });
+
+    function scheduleStyleWrite(callback) {
+      cancelAnimationFrame(pendingFrame);
+      pendingFrame = requestAnimationFrame(callback);
+    }
+
+    function setLiveState(message) {
+      liveState.textContent = message;
+    }
+
+    function openLightbox(tile) {
+      const image = tile.querySelector("img");
+      lightboxImage.src = image.src;
+      lightboxImage.alt = image.alt;
+      lightboxTitle.textContent = image.alt;
+      lightbox.classList.add("is-open");
+      document.body.style.overflow = "hidden";
+      lightboxClose.focus();
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove("is-open");
+      lightboxImage.removeAttribute("src");
+      document.body.style.overflow = "";
+      selectedTile?.querySelector(".image-button")?.focus();
+    }
+
+    function openDeleteConfirmation(tile, trigger) {
+      pendingDeleteTile = tile;
+      pendingDeleteTrigger = trigger;
+      deleteDialogCopy.textContent = `确认从${groupName(tile.closest(".group-wrap"))}中删除“${tile.dataset.label}”吗？`;
+      deleteDialog.classList.add("is-open");
+      deleteCancel.focus();
+    }
+
+    function closeDeleteConfirmation() {
+      deleteDialog.classList.remove("is-open");
+      pendingDeleteTrigger?.focus();
+      pendingDeleteTile = null;
+      pendingDeleteTrigger = null;
+    }
+
+    function confirmImageDeletion() {
+      if (!pendingDeleteTile) return;
+      const tile = pendingDeleteTile;
+      const label = tile.dataset.label;
+      const group = tile.closest(".group-wrap");
+      deleteDialog.classList.remove("is-open");
+      pendingDeleteTile = null;
+      pendingDeleteTrigger = null;
+      tile.remove();
+      renumberImages();
+      selectGroup(group);
+      setLiveState(`${label}已从${groupName(group)}中删除。`);
+    }
+
+    function groupName(group) {
+      return group.dataset.groupName ?? "图片组";
+    }
+
+    function renumberImages() {
+      document.querySelectorAll(".group-wrap").forEach((group) => {
+        group.querySelectorAll(".image-tile").forEach((tile, index) => {
+          const number = String(index + 1).padStart(2, "0");
+          tile.dataset.label = `${groupName(group)} · 图片 ${number}`;
+          tile.querySelector(".image-index").textContent = number;
+          tile.querySelector(".image-button").ariaLabel = `选择${groupName(group)}中的图片 ${number}`;
+        });
+      });
+    }
+
+    function clearSelection() {
+      document.querySelectorAll(".group-wrap").forEach((group) => {
+        group.classList.remove("is-selected", "image-selected");
+      });
+      selectedTile?.classList.remove("is-selected");
+      selectedTile = null;
+      selectedGroup = null;
+    }
+
+    function selectGroup(group) {
+      clearSelection();
+      selectedGroup = group;
+      group.classList.add("is-selected");
+      setLiveState(`已选中${groupName(group)}，可拖动任意边或角。`);
+    }
+
+    function selectTile(tile) {
+      clearSelection();
+      selectedTile = tile;
+      selectedGroup = tile.closest(".group-wrap");
+      tile.classList.add("is-selected");
+      selectedGroup.classList.add("is-selected", "image-selected");
+      selectedGroup.querySelector(".image-kind").textContent = tile.dataset.label;
+      setLiveState(`已选中${tile.dataset.label}；按住图片可排序或拖到其他图片组。`);
+    }
+
+    function affects(edge, direction) {
+      return edge === direction || edge.includes(direction);
+    }
+
+    function groupParts(group) {
+      return {
+        verticalGuide: group.querySelector(".alignment-guide.vertical"),
+        horizontalGuide: group.querySelector(".alignment-guide.horizontal"),
+        statusChip: group.querySelector(".status-chip")
+      };
+    }
+
+    function targetGridAt(x, y) {
+      const target = document.elementFromPoint(x, y);
+      return target?.closest(".group-grid") ??
+        target?.closest(".image-group")?.querySelector(".group-grid") ??
+        null;
+    }
+
+    function updateDropPlaceholder(grid, placeholder, x, y, draggingTile) {
+      const candidates = [...grid.querySelectorAll(".image-tile")]
+        .filter((tile) => tile !== draggingTile);
+      const before = candidates.find((candidate) => {
+        const rect = candidate.getBoundingClientRect();
+        const sameRow = y >= rect.top && y <= rect.bottom;
+        return y < rect.top + rect.height / 2 ||
+          (sameRow && x < rect.left + rect.width / 2);
+      });
+      grid.insertBefore(placeholder, before ?? null);
+    }
+
+    function bindImageDrag(button) {
+      button.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const tile = button.closest(".image-tile");
+        const sourceGrid = tile.closest(".group-grid");
+        const sourceGroup = tile.closest(".group-wrap");
+        const startRect = tile.getBoundingClientRect();
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const originMarker = document.createComment("image-origin");
+        let placeholder = null;
+        let activeDropGrid = null;
+        let dragging = false;
+        sourceGrid.insertBefore(originMarker, tile);
+        button.setPointerCapture(event.pointerId);
+
+        const startDragging = () => {
+          dragging = true;
+          placeholder = document.createElement("div");
+          placeholder.className = "drop-placeholder";
+          placeholder.style.width = `${startRect.width}px`;
+          placeholder.style.height = `${startRect.height}px`;
+          sourceGrid.insertBefore(placeholder, tile);
+          tile.classList.add("is-dragging");
+          Object.assign(tile.style, {
+            left: `${startRect.left}px`,
+            top: `${startRect.top}px`,
+            width: `${startRect.width}px`,
+            height: `${startRect.height}px`
+          });
+          document.body.style.cursor = "grabbing";
+          setLiveState(`正在拖动${tile.dataset.label}；移动到任意图片组选择插入位置。`);
+        };
+
+        const move = (moveEvent) => {
+          const dx = moveEvent.clientX - startX;
+          const dy = moveEvent.clientY - startY;
+          if (!dragging && Math.hypot(dx, dy) < 6) return;
+          if (!dragging) startDragging();
+
+          scheduleStyleWrite(() => {
+            tile.style.left = `${startRect.left + dx}px`;
+            tile.style.top = `${startRect.top + dy}px`;
+            document.querySelectorAll(".group-wrap").forEach((group) => {
+              group.classList.remove("is-drop-target");
+            });
+            activeDropGrid = targetGridAt(moveEvent.clientX, moveEvent.clientY);
+            if (!activeDropGrid) return;
+            const targetGroup = activeDropGrid.closest(".group-wrap");
+            targetGroup.classList.add("is-drop-target");
+            updateDropPlaceholder(
+              activeDropGrid,
+              placeholder,
+              moveEvent.clientX,
+              moveEvent.clientY,
+              tile
+            );
+          });
+        };
+
+        const finish = () => {
+          cancelAnimationFrame(pendingFrame);
+          document.body.style.cursor = "";
+          document.querySelectorAll(".group-wrap").forEach((group) => {
+            group.classList.remove("is-drop-target");
+          });
+
+          if (dragging && activeDropGrid) {
+            activeDropGrid.insertBefore(tile, placeholder);
+            const targetGroup = activeDropGrid.closest(".group-wrap");
+            const movedAcrossGroups = targetGroup !== sourceGroup;
+            setLiveState(
+              movedAcrossGroups
+                ? `${tile.dataset.label}已移动到${groupName(targetGroup)}。`
+                : `${tile.dataset.label}已在${groupName(targetGroup)}内重新排序。`
+            );
+          } else if (dragging) {
+            sourceGrid.insertBefore(tile, originMarker.nextSibling);
+            setLiveState("未落在图片组中，本次拖动已取消。");
+          } else {
+            selectTile(tile);
+            openLightbox(tile);
+          }
+
+          placeholder?.remove();
+          originMarker.remove();
+          tile.classList.remove("is-dragging");
+          tile.style.removeProperty("left");
+          tile.style.removeProperty("top");
+          tile.style.removeProperty("width");
+          tile.style.removeProperty("height");
+          renumberImages();
+          if (dragging) selectTile(tile);
+          button.removeEventListener("pointermove", move);
+          button.removeEventListener("pointerup", finish);
+          button.removeEventListener("pointercancel", cancel);
+        };
+
+        const cancel = () => {
+          activeDropGrid = null;
+          finish();
+        };
+
+        button.addEventListener("pointermove", move);
+        button.addEventListener("pointerup", finish);
+        button.addEventListener("pointercancel", cancel);
+      });
+    }
+
+    function startImageResize(handle, event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const tile = handle.closest(".image-tile");
+      const grid = tile.closest(".group-grid");
+      const group = tile.closest(".group-wrap");
+      const { verticalGuide, horizontalGuide, statusChip } = groupParts(group);
+      selectTile(tile);
+      tile.classList.add("is-resizing");
+      statusChip.textContent = `正在调整${tile.dataset.label}`;
+
+      const edge = handle.dataset.edge;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startWidth = tile.offsetWidth;
+      const startHeight = tile.offsetHeight;
+      const tileStyle = getComputedStyle(tile);
+      const startOffsetX = Number.parseFloat(tileStyle.marginLeft) || 0;
+      const startOffsetY = Number.parseFloat(tileStyle.marginTop) || 0;
+      const candidates = [...grid.querySelectorAll(".image-tile")]
+        .filter((candidate) => candidate !== tile)
+        .map((candidate) => ({
+          width: candidate.offsetWidth,
+          height: candidate.offsetHeight
+        }));
+      let nextWidth = startWidth;
+      let nextHeight = startHeight;
+      let nextOffsetX = startOffsetX;
+      let nextOffsetY = startOffsetY;
+      handle.setPointerCapture(event.pointerId);
+
+      const move = (moveEvent) => {
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        nextWidth = Math.max(
+          52,
+          startWidth + (affects(edge, "right") ? dx : affects(edge, "left") ? -dx : 0)
+        );
+        nextHeight = Math.max(
+          52,
+          startHeight + (affects(edge, "bottom") ? dy : affects(edge, "top") ? -dy : 0)
+        );
+
+        let snapWidth = false;
+        let snapHeight = false;
+        for (const candidate of candidates) {
+          if (Math.abs(nextWidth - candidate.width) <= 6) {
+            nextWidth = candidate.width;
+            snapWidth = true;
+          }
+          if (Math.abs(nextHeight - candidate.height) <= 6) {
+            nextHeight = candidate.height;
+            snapHeight = true;
+          }
+        }
+        nextOffsetX = affects(edge, "left")
+          ? startOffsetX + startWidth - nextWidth
+          : startOffsetX;
+        nextOffsetY = affects(edge, "top")
+          ? startOffsetY + startHeight - nextHeight
+          : startOffsetY;
+
+        scheduleStyleWrite(() => {
+          tile.style.setProperty("--tile-width", `${nextWidth}px`);
+          tile.style.setProperty("--tile-height", `${nextHeight}px`);
+          tile.style.setProperty("--tile-offset-x", `${nextOffsetX}px`);
+          tile.style.setProperty("--tile-offset-y", `${nextOffsetY}px`);
+          verticalGuide.classList.toggle("is-visible", snapWidth);
+          horizontalGuide.classList.toggle("is-visible", snapHeight);
+          if (snapWidth) verticalGuide.style.left = `${tile.offsetLeft + nextWidth + 10}px`;
+          if (snapHeight) horizontalGuide.style.top = `${tile.offsetTop + nextHeight + 10}px`;
+          setLiveState(
+            `${tile.dataset.label}：${Math.round(nextWidth)} × ${Math.round(nextHeight)} px` +
+            (nextOffsetY > startOffsetY
+              ? `，顶部下移 ${Math.round(nextOffsetY - startOffsetY)}px`
+              : "")
+          );
+        });
+      };
+
+      const finish = () => {
+        cancelAnimationFrame(pendingFrame);
+        tile.classList.remove("is-resizing");
+        verticalGuide.classList.remove("is-visible");
+        horizontalGuide.classList.remove("is-visible");
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", finish);
+        handle.removeEventListener("pointercancel", finish);
+        setLiveState(`${tile.dataset.label}尺寸已调整为 ${Math.round(nextWidth)} × ${Math.round(nextHeight)} px。`);
+      };
+
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", finish);
+      handle.addEventListener("pointercancel", finish);
+    }
+
+    function startGroupResize(handle, event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const group = handle.closest(".group-wrap");
+      const stage = group.closest(".group-stage");
+      const { statusChip } = groupParts(group);
+      selectGroup(group);
+      group.classList.add("is-resizing");
+      statusChip.textContent = `正在调整${groupName(group)}`;
+
+      const edge = handle.dataset.groupEdge;
+      const stageRect = stage.getBoundingClientRect();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const initial = {
+        left: group.offsetLeft,
+        top: group.offsetTop,
+        width: group.offsetWidth,
+        height: group.offsetHeight
+      };
+      let next = { ...initial };
+      const preview = document.createElement("div");
+      preview.className = "group-resize-preview";
+      preview.dataset.size = `${Math.round(initial.width)} × ${Math.round(initial.height)}`;
+      Object.assign(preview.style, {
+        left: `${initial.left}px`,
+        top: `${initial.top}px`,
+        width: `${initial.width}px`,
+        height: `${initial.height}px`
+      });
+      stage.classList.add("has-resize-preview");
+      stage.append(preview);
+      handle.setPointerCapture(event.pointerId);
+
+      const move = (moveEvent) => {
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        let left = initial.left;
+        let top = initial.top;
+        let width = initial.width;
+        let height = initial.height;
+
+        if (affects(edge, "left")) {
+          width = initial.width - dx;
+          left = initial.left + dx;
+        } else if (affects(edge, "right")) {
+          width = initial.width + dx;
+        }
+        if (affects(edge, "top")) {
+          height = initial.height - dy;
+          top = initial.top + dy;
+        } else if (affects(edge, "bottom")) {
+          height = initial.height + dy;
+        }
+
+        width = Math.max(260, Math.min(width, stageRect.width));
+        height = Math.max(132, Math.min(height, stageRect.height));
+        left = Math.max(0, Math.min(left, stageRect.width - width));
+        top = Math.max(0, Math.min(top, stageRect.height - height));
+        next = { left, top, width, height };
+
+        scheduleStyleWrite(() => {
+          Object.assign(preview.style, {
+            left: `${next.left}px`,
+            top: `${next.top}px`,
+            width: `${next.width}px`,
+            height: `${next.height}px`
+          });
+          preview.dataset.size = `${Math.round(next.width)} × ${Math.round(next.height)}`;
+          const upwardSpace = Math.max(0, initial.top - next.top);
+          setLiveState(
+            `${groupName(group)}预览：${Math.round(next.width)} × ${Math.round(next.height)} px` +
+            (upwardSpace > 0 ? `，已向上使用 ${Math.round(upwardSpace)}px 空间` : "")
+          );
+        });
+      };
+
+      const finish = (commit) => {
+        cancelAnimationFrame(pendingFrame);
+        if (commit) {
+          Object.assign(group.style, {
+            left: `${next.left}px`,
+            top: `${next.top}px`,
+            width: `${next.width}px`,
+            height: `${next.height}px`
+          });
+        }
+        group.classList.remove("is-resizing");
+        stage.classList.remove("has-resize-preview");
+        preview.remove();
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", commitResize);
+        handle.removeEventListener("pointercancel", cancelResize);
+        setLiveState(
+          commit
+            ? `${groupName(group)}尺寸已一次提交，图片内容未在拖动中重建。`
+            : `${groupName(group)}尺寸调整已取消。`
+        );
+      };
+
+      const commitResize = () => finish(true);
+      const cancelResize = () => finish(false);
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", commitResize);
+      handle.addEventListener("pointercancel", cancelResize);
+    }
+
+    function bindGroupMove(surface) {
+      surface.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
+        if (event.target.closest(".image-tile, button, [role='separator']")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const group = surface.closest(".group-wrap");
+        const flowBlock = group.closest(".group-flow-block");
+        const flow = flowBlock.closest(".document-flow");
+        const { statusChip } = groupParts(group);
+        selectGroup(group);
+
+        const startRect = flowBlock.getBoundingClientRect();
+        const startX = event.clientX;
+        const startY = event.clientY;
+        let originMarker = null;
+        let placeholder = null;
+        let dragging = false;
+        surface.setPointerCapture(event.pointerId);
+
+        const activate = () => {
+          dragging = true;
+          group.classList.add("is-moving");
+          statusChip.textContent = `正在移动${groupName(group)}`;
+          originMarker = document.createComment("group-flow-origin");
+          placeholder = document.createElement("div");
+          placeholder.className = "flow-placeholder";
+          placeholder.style.height = `${startRect.height}px`;
+          flow.insertBefore(originMarker, flowBlock);
+          flow.insertBefore(placeholder, flowBlock);
+          flowBlock.classList.add("is-flow-dragging");
+          Object.assign(flowBlock.style, {
+            left: `${startRect.left}px`,
+            top: `${startRect.top}px`,
+            width: `${startRect.width}px`,
+            height: `${startRect.height}px`
+          });
+          document.body.style.cursor = "grabbing";
+        };
+
+        const move = (moveEvent) => {
+          const dx = moveEvent.clientX - startX;
+          const dy = moveEvent.clientY - startY;
+          if (!dragging && Math.hypot(dx, dy) < 6) return;
+          if (!dragging) activate();
+          const nextTop = startRect.top + moveEvent.clientY - startY;
+          scheduleStyleWrite(() => {
+            flowBlock.style.top = `${nextTop}px`;
+          });
+          const candidates = [...flow.querySelectorAll(":scope > .flow-block")]
+            .filter((candidate) => candidate !== flowBlock);
+          const before = candidates.find((candidate) => {
+            const rect = candidate.getBoundingClientRect();
+            return moveEvent.clientY < rect.top + rect.height / 2;
+          });
+          flow.insertBefore(placeholder, before ?? null);
+          const position = [...flow.children]
+            .filter((child) => child.classList.contains("flow-block") || child === placeholder)
+            .indexOf(placeholder) + 1;
+          setLiveState(`正在将${groupName(group)}移动到文档第 ${position} 个位置。`);
+        };
+
+        const finish = (commit) => {
+          cancelAnimationFrame(pendingFrame);
+          surface.removeEventListener("pointermove", move);
+          surface.removeEventListener("pointerup", commitMove);
+          surface.removeEventListener("pointercancel", cancelMove);
+          if (!dragging) {
+            setLiveState(`已选中${groupName(group)}；按住灰色空白区域可上下移动。`);
+            return;
+          }
+          document.body.style.cursor = "";
+          if (commit) {
+            flow.insertBefore(flowBlock, placeholder);
+          } else {
+            flow.insertBefore(flowBlock, originMarker.nextSibling);
+          }
+          placeholder.remove();
+          originMarker.remove();
+          flowBlock.classList.remove("is-flow-dragging");
+          flowBlock.style.removeProperty("left");
+          flowBlock.style.removeProperty("top");
+          flowBlock.style.removeProperty("width");
+          flowBlock.style.removeProperty("height");
+          group.classList.remove("is-moving");
+          selectGroup(group);
+          setLiveState(
+            commit
+              ? `${groupName(group)}已与文档中的文字或组件完成位置交换。`
+              : `${groupName(group)}移动已取消。`
+          );
+        };
+
+        const commitMove = () => finish(true);
+        const cancelMove = () => finish(false);
+        surface.addEventListener("pointermove", move);
+        surface.addEventListener("pointerup", commitMove);
+        surface.addEventListener("pointercancel", cancelMove);
+      });
+    }
+
+    document.querySelectorAll(".image-group").forEach(bindGroupMove);
+    document.querySelectorAll(".drag-grip").forEach((grip) => grip.remove());
+    document.querySelectorAll(".image-button").forEach(bindImageDrag);
+    document.querySelectorAll(".image-hover-delete").forEach((button) => {
+      button.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openDeleteConfirmation(button.closest(".image-tile"), button);
+      });
+    });
+    document.querySelectorAll(".resize-edge, .resize-corner").forEach((handle) => {
+      handle.addEventListener("pointerdown", (event) => startImageResize(handle, event));
+    });
+    document.querySelectorAll(".group-resize-edge, .group-resize-corner").forEach((handle) => {
+      handle.addEventListener("pointerdown", (event) => startGroupResize(handle, event));
+    });
+    document.querySelectorAll(".delete-image").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (!selectedTile) return;
+        openDeleteConfirmation(selectedTile, button);
+      });
+    });
+
+    document.querySelectorAll(".delete-group").forEach((button) => {
+      button.addEventListener("click", () => {
+        setLiveState("演示模式：未实际删除图片卡片。");
+      });
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+      if (event.target.closest(".group-wrap")) return;
+      if (event.target.closest(".lightbox")) return;
+      if (event.target.closest(".confirm-dialog")) return;
+      clearSelection();
+      setLiveState("未选中对象。");
+    });
+
+    lightboxClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", (event) => {
+      if (event.target === lightbox) closeLightbox();
+    });
+    deleteCancel.addEventListener("click", closeDeleteConfirmation);
+    deleteConfirm.addEventListener("click", confirmImageDeletion);
+    deleteDialog.addEventListener("click", (event) => {
+      if (event.target === deleteDialog) closeDeleteConfirmation();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && lightbox.classList.contains("is-open")) {
+        closeLightbox();
+      } else if (event.key === "Escape" && deleteDialog.classList.contains("is-open")) {
+        closeDeleteConfirmation();
+      }
+    });
+
+    renumberImages();
+  </script>
+</body>
+</html>

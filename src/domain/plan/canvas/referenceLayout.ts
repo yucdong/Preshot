@@ -279,10 +279,19 @@ export function packReferenceFrames(input: {
       id: image.id,
       width: positiveFinite(image.frameWidth),
       height: positiveFinite(image.frameHeight),
+      offsetX: Number.isFinite(image.frameOffsetX) ? image.frameOffsetX ?? 0 : 0,
+      offsetY: Number.isFinite(image.frameOffsetY) ? image.frameOffsetY ?? 0 : 0,
     })),
     ...(input.includeAddTile === false
       ? []
-      : [{ kind: "add" as const, id: "__add__", width: 72, height: 72 }]),
+      : [{
+          kind: "add" as const,
+          id: "__add__",
+          width: 72,
+          height: 72,
+          offsetX: 0,
+          offsetY: 0,
+        }]),
   ];
 
   for (const item of items) {
@@ -291,7 +300,13 @@ export function packReferenceFrames(input: {
       : 1;
     const width = item.width * scale;
     const height = item.height * scale;
-    if (x > 0 && x + IMAGE_GAP + width > availableWidth + EPS) {
+    const offsetX = item.offsetX * scale;
+    const offsetY = item.offsetY * scale;
+    const minimumX = Math.min(0, offsetX);
+    const minimumY = Math.min(0, offsetY);
+    const footprintWidth = Math.max(0, offsetX + width) - minimumX;
+    const footprintHeight = Math.max(0, offsetY + height) - minimumY;
+    if (x > 0 && x + IMAGE_GAP + footprintWidth > availableWidth + EPS) {
       x = 0;
       y += rowHeight + IMAGE_GAP;
       rowHeight = 0;
@@ -299,15 +314,15 @@ export function packReferenceFrames(input: {
     slots.push({
       kind: item.kind,
       id: item.id,
-      x,
-      y,
+      x: x + offsetX - minimumX,
+      y: y + offsetY - minimumY,
       width,
       height,
       imageHeight: height,
       captionHeight: 0,
     });
-    x += width + IMAGE_GAP;
-    rowHeight = Math.max(rowHeight, height);
+    x += footprintWidth + IMAGE_GAP;
+    rowHeight = Math.max(rowHeight, footprintHeight);
   }
 
   return slots;

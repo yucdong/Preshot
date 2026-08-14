@@ -9,7 +9,6 @@ import {
   type Rect,
   type ResizeEdge,
 } from "../../domain/plan/canvas/geometry";
-import { defaultImageFrame } from "../../domain/plan/canvas/plan";
 import {
   imageCropForView,
   imageViewCss,
@@ -370,23 +369,6 @@ export function SortableImageTile({
           type="button"
         >
           ×
-        </button>
-      ) : null}
-      {!placeholderVisible ? (
-        <button
-          aria-label={t("reference.resetImageSize")}
-          className="absolute bottom-1 left-1 rounded bg-black/60 px-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-          onClick={(event) => {
-            event.stopPropagation();
-            onResizeFrame?.(image.id, defaultImageFrame(image.aspectRatio ?? 1));
-            onSetCrop?.(image.id, { x: 0, y: 0, width: 1, height: 1 });
-            setCropPreview(null);
-            cropPreviewRef.current = null;
-          }}
-          onPointerDown={(event) => event.stopPropagation()}
-          type="button"
-        >
-          ↺
         </button>
       ) : null}
       {!placeholderVisible ? (

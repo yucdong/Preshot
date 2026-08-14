@@ -33,21 +33,16 @@ describe("ReferenceImageLightbox", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("restores the image and immediately exits the source view", async () => {
-    const user = userEvent.setup();
-    const events: string[] = [];
+  it("does not expose an image-size reset action", () => {
     render(
       <ReferenceImageLightbox
         src="data:image/png;base64,AA"
         alt="参考图"
-        onClose={() => events.push("close")}
-        onReset={() => events.push("reset")}
+        onClose={vi.fn()}
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "恢复尺寸" }));
-
-    expect(events).toEqual(["reset", "close"]);
+    expect(screen.queryByRole("button", { name: /恢复/ })).not.toBeInTheDocument();
   });
 
   it("returns focus to the control that opened the source view", () => {

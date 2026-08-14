@@ -36,7 +36,6 @@ import {
   List,
   ListOrdered,
   ListTodo,
-  Minus,
   Palette,
   Plus,
   Quote,
@@ -62,6 +61,8 @@ import {
   type RgbColor,
 } from "./colorValue";
 import type { ReferenceComponent } from "../../domain/plan/canvas/models";
+import type { MoveImageParams } from "../../domain/plan/canvas/plan";
+import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 import {
   createBlankLineImageGroupInsertExtension,
   createDocumentImageGroupExtension,
@@ -94,17 +95,27 @@ interface RichTextEditorProps {
     onAddImages(id: string): void;
     onOpenImage(componentId: string, imageId: string, file: string): void;
     onRemoveImage(componentId: string, imageId: string): void;
+    onMoveImage(params: MoveImageParams): void;
     onRemoveImageGroup(id: string): void;
     onResizeImageGroup(
       id: string,
-      rect: { x?: number; width?: number; height?: number },
+      rect: {
+        x?: number;
+        width?: number;
+        height?: number;
+        frameOffsetY?: number;
+      },
     ): void;
     onSetImageFrame(
       componentId: string,
       imageId: string,
-      frame: { frameWidth: number; frameHeight: number },
+      frame: {
+        frameWidth: number;
+        frameHeight: number;
+        frameOffsetX?: number;
+        frameOffsetY?: number;
+      },
     ): void;
-    onScaleImages(id: string, scale: number): void;
     scale: number;
     onActivateBlankLine?(anchor: BlankLineInsertAnchor | null): void;
     registerInsertImageGroup?(insert: (() => void) | null): void;
@@ -1272,7 +1283,7 @@ function PreshotFormattingToolbar({
     const gap = 10 * scale;
     const anchorRect = textSelectionRect ?? targetRect;
     let left = selectedImageGroupId
-      ? targetRect.left
+      ? targetRect.right - toolbarRect.width
       : anchorRect.right + gap;
     if (!selectedImageGroupId && left + toolbarRect.width > window.innerWidth - inset) {
       left = anchorRect.right - toolbarRect.width;
@@ -1349,14 +1360,14 @@ function PreshotFormattingToolbar({
         role="toolbar"
         style={contextualStyle}
       >
-        <div className="flex h-10 items-center gap-1 rounded-md border border-white/10 bg-[#202329] px-1.5 text-white shadow-[0_8px_24px_rgb(17_18_22_/_24%)]">
-          <span className="flex h-7 items-center gap-1 rounded bg-app-functional/20 px-2 text-[10px] font-bold text-cyan-100">
+        <div className="flex h-[30px] items-center gap-1 rounded-md border border-white/10 bg-[#202329] px-1 text-white shadow-[0_8px_24px_rgb(17_18_22_/_24%)]">
+          <span className="flex h-6 items-center gap-1 rounded bg-app-functional/20 px-2 text-[10px] font-bold text-cyan-100">
             <Images aria-hidden size={14} />图片
           </span>
           <button
             aria-label="删除图片"
-            className="grid h-7 w-7 place-items-center rounded text-red-200 hover:bg-app-danger hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger"
-            onClick={() => imageGroupController.onRemoveImage(selectedImageGroup.id, selectedImage.id)}
+            className="grid h-6 w-6 place-items-center rounded text-red-200 hover:bg-app-danger hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger"
+            onClick={() => imageGroupController.onRequestRemoveImage(selectedImageGroup.id, selectedImage.id)}
             title="删除图片"
             type="button"
           >
@@ -1368,10 +1379,6 @@ function PreshotFormattingToolbar({
     );
   }
   if (contextual && selectedImageGroup && imageGroupController) {
-    const averageHeight = selectedImageGroup.images.length > 0
-      ? selectedImageGroup.images.reduce((total, image) => total + image.frameHeight, 0) /
-        selectedImageGroup.images.length
-      : 135;
     return createPortal(
       <div
         aria-label="图片组属性"
@@ -1381,13 +1388,13 @@ function PreshotFormattingToolbar({
         role="toolbar"
         style={contextualStyle}
       >
-        <div className="flex h-10 items-center gap-1 rounded-md border border-white/10 bg-[#202329] px-1.5 text-white shadow-[0_8px_24px_rgb(17_18_22_/_24%)]">
-          <span className="flex h-7 items-center gap-1 rounded bg-app-functional/20 px-2 text-[10px] font-bold text-cyan-100">
+        <div className="flex h-[30px] items-center gap-1 rounded-md border border-white/10 bg-[#202329] px-1 text-white shadow-[0_8px_24px_rgb(17_18_22_/_24%)]">
+          <span className="flex h-6 items-center gap-1 rounded bg-app-functional/20 px-2 text-[10px] font-bold text-cyan-100">
             <Images aria-hidden size={14} />图片组
           </span>
           <button
             aria-label="添加图片"
-            className="grid h-7 w-7 place-items-center rounded hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
+            className="grid h-6 w-6 place-items-center rounded hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
             onClick={() => imageGroupController.onAddImages(selectedImageGroup.id)}
             title="添加图片"
             type="button"
@@ -1395,65 +1402,8 @@ function PreshotFormattingToolbar({
             <Plus aria-hidden size={15} />
           </button>
           <button
-            aria-label="缩小组内全部图片"
-            className="grid h-7 w-7 place-items-center rounded hover:bg-white/10 disabled:opacity-35"
-            disabled={selectedImageGroup.images.length === 0 || averageHeight <= 32}
-            onClick={() =>
-              imageGroupController.onScaleImages(
-                selectedImageGroup.id,
-                Math.max(32, averageHeight - 10) / averageHeight,
-              )
-            }
-            title="缩小组内全部图片"
-            type="button"
-          >
-            <Minus aria-hidden size={14} />
-          </button>
-          <input
-            aria-label="图片组高度"
-            className="h-7 w-12 rounded border border-white/15 bg-white/8 px-1 text-right text-[9px] tabular-nums text-white outline-none focus:border-app-functional"
-            defaultValue={Math.round(averageHeight)}
-            disabled={selectedImageGroup.images.length === 0}
-            key={`${selectedImageGroup.id}:${Math.round(averageHeight)}`}
-            max={400}
-            min={32}
-            onBlur={(event) => {
-              const height = Number(event.target.value);
-              if (!Number.isFinite(height) || height < 32 || height > 400) {
-                event.target.value = String(Math.round(averageHeight));
-                return;
-              }
-              imageGroupController.onScaleImages(selectedImageGroup.id, height / averageHeight);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") event.currentTarget.blur();
-              if (event.key === "Escape") {
-                event.currentTarget.value = String(Math.round(averageHeight));
-                event.currentTarget.blur();
-              }
-            }}
-            title="图片组高度"
-            type="number"
-          />
-          <span className="text-[9px] text-white/55">px</span>
-          <button
-            aria-label="放大组内全部图片"
-            className="grid h-7 w-7 place-items-center rounded hover:bg-white/10 disabled:opacity-35"
-            disabled={selectedImageGroup.images.length === 0 || averageHeight >= 400}
-            onClick={() =>
-              imageGroupController.onScaleImages(
-                selectedImageGroup.id,
-                Math.min(400, averageHeight + 10) / averageHeight,
-              )
-            }
-            title="放大组内全部图片"
-            type="button"
-          >
-            <Plus aria-hidden size={14} />
-          </button>
-          <button
             aria-label="删除图片组"
-            className="grid h-7 w-7 place-items-center rounded text-red-200 hover:bg-app-danger hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger"
+            className="grid h-6 w-6 place-items-center rounded text-red-200 hover:bg-app-danger hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger"
             onClick={() => imageGroupController.onRemoveGroup(selectedImageGroup.id)}
             title="删除图片组"
             type="button"
@@ -1629,6 +1579,10 @@ export function RichTextEditor({
   const documentModeRef = useRef(documentMode);
   const imageGroupViewsRef = useRef(new Map<string, Set<() => void>>());
   const selectedDocumentImageRef = useRef<{ groupId: string; imageId: string } | null>(null);
+  const [pendingImageDelete, setPendingImageDelete] = useState<{
+    componentId: string;
+    imageId: string;
+  } | null>(null);
   const documentModeEnabled = documentMode !== undefined;
   const registerInsertImageGroup = documentMode?.registerInsertImageGroup;
   const registerInsertImageGroupAt = documentMode?.registerInsertImageGroupAt;
@@ -1660,12 +1614,14 @@ export function RichTextEditor({
           }
           documentModeRef.current?.onRemoveImage(componentId, imageId);
         },
+      onRequestRemoveImage: (componentId, imageId) =>
+        setPendingImageDelete({ componentId, imageId }),
+      onMoveImage: (params) => documentModeRef.current?.onMoveImage(params),
       onRemoveGroup: (id) => documentModeRef.current?.onRemoveImageGroup(id),
       onResizeGroup: (id, rect) =>
         documentModeRef.current?.onResizeImageGroup(id, rect),
       onSetImageFrame: (componentId, imageId, frame) =>
         documentModeRef.current?.onSetImageFrame(componentId, imageId, frame),
-      onScaleImages: (id, scale) => documentModeRef.current?.onScaleImages(id, scale),
       onSelectImage: (groupId, imageId) => {
         selectedDocumentImageRef.current = imageId ? { groupId, imageId } : null;
       },
@@ -1815,6 +1771,22 @@ export function RichTextEditor({
           />
         ) : null}
         <EditorContent className="preshot-editor-content" editor={editor} />
+        <ConfirmDialog
+          cancelLabel="取消"
+          confirmLabel="删除"
+          onCancel={() => setPendingImageDelete(null)}
+          onConfirm={() => {
+            if (pendingImageDelete) {
+              imageGroupController.onRemoveImage(
+                pendingImageDelete.componentId,
+                pendingImageDelete.imageId,
+              );
+            }
+            setPendingImageDelete(null);
+          }}
+          open={pendingImageDelete !== null}
+          title="删除图片？"
+        />
       </div>
     </div>
   );

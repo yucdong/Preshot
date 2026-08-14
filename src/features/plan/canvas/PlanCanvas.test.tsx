@@ -169,13 +169,22 @@ describe("PlanCanvas v8", () => {
 
     const image = await screen.findByRole("button", { name: "选择参考图 1" });
     fireEvent.click(image);
+    expect(onOpenDocumentImage).toHaveBeenCalledWith(
+      "ref1",
+      "image1",
+      "references/image.png",
+    );
     expect(screen.getByRole("button", { name: "选择参考图 1" })).toBe(image);
     expect(document.querySelector(".preshot-document-image-index")).toHaveTextContent("01");
     const imageFrame = image.closest(".preshot-document-image-frame") as HTMLElement;
-    expect(within(imageFrame).queryByRole("button", { name: "删除参考图 1" }))
-      .not.toBeInTheDocument();
+    fireEvent.click(within(imageFrame).getByRole("button", { name: "删除参考图 1" }));
+    expect(screen.getByRole("dialog", { name: "删除图片？" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(onRemoveImage).not.toHaveBeenCalled();
     const imageToolbar = screen.getByRole("toolbar", { name: "图片属性" });
     fireEvent.click(within(imageToolbar).getByRole("button", { name: "删除图片" }));
+    expect(screen.getByRole("dialog", { name: "删除图片？" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "删除" }));
     expect(onRemoveImage).toHaveBeenCalledWith("ref1", "image1");
     expect(document.querySelectorAll('[data-image-resize-handle="edge"]')).toHaveLength(4);
     expect(document.querySelectorAll('[data-image-resize-handle="corner"]')).toHaveLength(4);
@@ -192,6 +201,8 @@ describe("PlanCanvas v8", () => {
     expect(onSetImageFrame).toHaveBeenLastCalledWith("ref1", "image1", {
       frameWidth: 140,
       frameHeight: 130,
+      frameOffsetX: 0,
+      frameOffsetY: 0,
     });
 
     const leftEdge = document.querySelector('[data-image-resize-edge="left"]')!;
@@ -201,6 +212,8 @@ describe("PlanCanvas v8", () => {
     expect(onSetImageFrame).toHaveBeenLastCalledWith("ref1", "image1", {
       frameWidth: 120,
       frameHeight: 100,
+      frameOffsetX: -20,
+      frameOffsetY: 0,
     });
 
     const rightEdge = document.querySelector('[data-image-resize-edge="right"]')!;
@@ -210,14 +223,20 @@ describe("PlanCanvas v8", () => {
     expect(onSetImageFrame).toHaveBeenLastCalledWith("ref1", "image1", {
       frameWidth: 124,
       frameHeight: 100,
+      frameOffsetX: 0,
+      frameOffsetY: 0,
     });
 
-    fireEvent.doubleClick(screen.getByRole("button", { name: "选择参考图 1" }));
-    expect(onOpenDocumentImage).toHaveBeenCalledWith(
-      "ref1",
-      "image1",
-      "references/image.png",
-    );
+    const topEdge = document.querySelector('[data-image-resize-edge="top"]')!;
+    fireEvent.pointerDown(topEdge, { clientX: 100, clientY: 100, pointerId: 5 });
+    fireEvent.pointerMove(document, { clientX: 100, clientY: 124, pointerId: 5 });
+    fireEvent.pointerUp(document, { clientX: 100, clientY: 124, pointerId: 5 });
+    expect(onSetImageFrame).toHaveBeenLastCalledWith("ref1", "image1", {
+      frameWidth: 100,
+      frameHeight: 76,
+      frameOffsetX: 0,
+      frameOffsetY: 24,
+    });
 
     const groupCorner = document.querySelector(
       '[data-group-resize-edge="bottom-right"]',
@@ -229,13 +248,29 @@ describe("PlanCanvas v8", () => {
       x: 100,
       width: 240,
       height: 260,
+      frameOffsetY: 0,
+    });
+
+    const groupTop = document.querySelector('[data-group-resize-edge="top"]')!;
+    fireEvent.pointerDown(groupTop, { clientX: 200, clientY: 220, pointerId: 6 });
+    fireEvent.pointerMove(document, { clientX: 200, clientY: 208, pointerId: 6 });
+    expect(document.querySelector("[data-group-resize-preview]")).toBeInTheDocument();
+    expect(document.querySelector('[data-image-group-id="ref1"]')).toHaveStyle({
+      height: "220px",
+    });
+    fireEvent.pointerUp(document, { clientX: 200, clientY: 208, pointerId: 6 });
+    expect(onResize).toHaveBeenLastCalledWith("ref1", {
+      x: 100,
+      width: 200,
+      height: 232,
+      frameOffsetY: -12,
     });
 
     expect(screen.getByRole("toolbar", { name: "图片组属性" })).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "缩小组内全部图片" }));
-    fireEvent.click(screen.getByRole("button", { name: "放大组内全部图片" }));
-    expect(onScaleReferenceImages).toHaveBeenNthCalledWith(1, "ref1", 0.9);
-    expect(onScaleReferenceImages).toHaveBeenNthCalledWith(2, "ref1", 1.1);
+    expect(screen.queryByRole("button", { name: "缩小组内全部图片" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "放大组内全部图片" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton", { name: "图片组高度" })).not.toBeInTheDocument();
+    expect(onScaleReferenceImages).not.toHaveBeenCalled();
     fireEvent.wheel(document, { deltaY: 40 });
     expect(screen.queryByRole("toolbar", { name: "图片组属性" })).not.toBeInTheDocument();
   });

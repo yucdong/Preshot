@@ -239,6 +239,7 @@ export function layoutPdfRichText<Font extends PdfTextMetricFont>(
       const pdfScale = safeWidth / documentWidth;
       const groupWidth = Math.min(documentWidth, Math.max(1, group.width));
       const groupHeight = Math.max(1, group.height);
+      const groupOffsetY = group.frameOffsetY ?? 0;
       const groupX = Math.max(0, Math.min(group.x, documentWidth - groupWidth));
       const layout = layoutDocumentImageGroup(group.images, groupWidth, groupHeight);
       const imagesById = new Map(group.images.map((image) => [image.id, image]));
@@ -248,13 +249,17 @@ export function layoutPdfRichText<Font extends PdfTextMetricFont>(
         images.push({
           src: source.file,
           x: (groupX + DOCUMENT_IMAGE_GROUP_INSET + slot.x) * pdfScale,
-          topFromTop: cursorFromTop + (DOCUMENT_IMAGE_GROUP_INSET + slot.y) * pdfScale,
+          topFromTop:
+            cursorFromTop +
+            (groupOffsetY + DOCUMENT_IMAGE_GROUP_INSET + slot.y) * pdfScale,
           width: slot.width * pdfScale,
           height: slot.height * pdfScale,
           ...(source.crop ? { crop: source.crop } : {}),
         });
       }
-      cursorFromTop += groupHeight * pdfScale + PDF_PARAGRAPH_GAP;
+      cursorFromTop +=
+        (groupHeight + groupOffsetY) * pdfScale +
+        PDF_PARAGRAPH_GAP;
     } else {
       block.items.forEach((item, index) => {
         commands.push({

@@ -50,7 +50,7 @@ describe("SortableImageTile", () => {
     expect(screen.getByRole("button", { name: "选择参考图 1" })).toBeInTheDocument();
   });
 
-  it("resizes arbitrary frame ratios from each edge, cover-fits the image, and resets defaults", () => {
+  it("resizes arbitrary frame ratios from each edge without exposing reset", () => {
     const onResizeFrame = vi.fn();
     const onResizePreview = vi.fn();
     render(
@@ -118,11 +118,7 @@ describe("SortableImageTile", () => {
       frameHeight: 90,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "恢复原图视图" }));
-    expect(onResizeFrame).toHaveBeenLastCalledWith("image", {
-      frameWidth: 270,
-      frameHeight: 135,
-    });
+    expect(screen.queryByRole("button", { name: "恢复原图视图" })).not.toBeInTheDocument();
   });
 
   it("snaps an image frame resize to a neighboring frame guide", () => {
@@ -175,7 +171,7 @@ describe("SortableImageTile", () => {
     );
   });
 
-  it("pans and persists crop only in adjust-view mode, then resets to the full source", () => {
+  it("pans and persists crop only in adjust-view mode without exposing reset", () => {
     const onSetCrop = vi.fn();
     render(
       <SortableImageTile
@@ -232,12 +228,6 @@ describe("SortableImageTile", () => {
       height: 1,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "恢复原图视图" }));
-    expect(onSetCrop).toHaveBeenLastCalledWith("image", {
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
-    });
+    expect(screen.queryByRole("button", { name: "恢复原图视图" })).not.toBeInTheDocument();
   });
 });

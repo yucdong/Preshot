@@ -634,6 +634,7 @@ function v7Image(
   componentIndex: number,
   imageIndex: number,
   allowView = false,
+  allowOffsets = false,
 ) {
   if (!isRecord(raw)) {
     throw new Error(`Stored plan component ${componentIndex} image ${imageIndex} must be an object`);
@@ -641,7 +642,18 @@ function v7Image(
   requireOnlyKeys(
     raw,
     allowView
-      ? ["id", "file", "caption", "aspectRatio", "sourceWidth", "sourceHeight", "frameWidth", "frameHeight", "crop"]
+      ? [
+          "id",
+          "file",
+          "caption",
+          "aspectRatio",
+          "sourceWidth",
+          "sourceHeight",
+          "frameWidth",
+          "frameHeight",
+          "crop",
+          ...(allowOffsets ? ["frameOffsetX", "frameOffsetY"] : []),
+        ]
       : ["id", "file", "caption", "aspectRatio", "frameWidth", "frameHeight"],
     `component ${componentIndex} image ${imageIndex}`,
     7,
@@ -660,6 +672,12 @@ function v7Image(
     typeof raw.frameHeight !== "number" ||
     !Number.isFinite(raw.frameHeight) ||
     raw.frameHeight <= 0 ||
+    (allowOffsets && raw.frameOffsetX !== undefined && (
+      typeof raw.frameOffsetX !== "number" || !Number.isFinite(raw.frameOffsetX)
+    )) ||
+    (allowOffsets && raw.frameOffsetY !== undefined && (
+      typeof raw.frameOffsetY !== "number" || !Number.isFinite(raw.frameOffsetY)
+    )) ||
     (raw.caption !== undefined && typeof raw.caption !== "string") ||
     (allowView && (raw.sourceWidth === undefined) !== (raw.sourceHeight === undefined)) ||
     (raw.sourceWidth !== undefined && (
@@ -706,6 +724,12 @@ function v7Image(
       : {}),
     frameWidth: raw.frameWidth,
     frameHeight: raw.frameHeight,
+    ...(allowOffsets && typeof raw.frameOffsetX === "number"
+      ? { frameOffsetX: raw.frameOffsetX }
+      : {}),
+    ...(allowOffsets && typeof raw.frameOffsetY === "number"
+      ? { frameOffsetY: raw.frameOffsetY }
+      : {}),
     ...(crop ? { crop } : {}),
   };
 }
@@ -1158,7 +1182,7 @@ function v10Component(raw: unknown, componentIndex: number) {
   throw new Error(`Stored plan component ${componentIndex} is malformed or unsupported v10`);
 }
 
-function v11Component(raw: unknown, componentIndex: number) {
+function v11Component(raw: unknown, componentIndex: number, allowOffsets = false) {
   if (!isRecord(raw)) {
     throw new Error(`Stored plan component ${componentIndex} has invalid v11 fields`);
   }
@@ -1179,11 +1203,27 @@ function v11Component(raw: unknown, componentIndex: number) {
   }
   requireOnlyKeys(
     raw,
-    ["id", "name", "type", "x", "width", "height", "description", "images"],
+    [
+      "id",
+      "name",
+      "type",
+      "x",
+      "width",
+      "height",
+      "description",
+      "images",
+      ...(allowOffsets ? ["frameOffsetY"] : []),
+    ],
     `component ${componentIndex}`,
     11,
   );
-  if (typeof raw.description !== "string" || !Array.isArray(raw.images)) {
+  if (
+    typeof raw.description !== "string" ||
+    !Array.isArray(raw.images) ||
+    (allowOffsets && raw.frameOffsetY !== undefined && (
+      typeof raw.frameOffsetY !== "number" || !Number.isFinite(raw.frameOffsetY)
+    ))
+  ) {
     throw new Error(`Stored plan component ${componentIndex} has invalid v11 reference fields`);
   }
   return {
@@ -1193,9 +1233,12 @@ function v11Component(raw: unknown, componentIndex: number) {
     x: raw.x,
     width: raw.width,
     height: raw.height,
+    ...(allowOffsets && typeof raw.frameOffsetY === "number"
+      ? { frameOffsetY: raw.frameOffsetY }
+      : {}),
     description: raw.description,
     images: raw.images.map((image, imageIndex) =>
-      v7Image(image, componentIndex, imageIndex, true)
+      v7Image(image, componentIndex, imageIndex, true, allowOffsets)
     ),
   };
 }
@@ -1486,7 +1529,9 @@ export function migratePlan(raw: unknown, context: PlanMigrationContext): Projec
     ) {
       throw new Error("Stored plan schema version 12 title, documentHtml and components must be valid");
     }
-    const components = raw.components.map((component, index) => v11Component(component, index));
+    const components = raw.components.map((component, index) =>
+      v11Component(component, index, true)
+    );
     validateLogicalIds(components);
     validateV12Document(raw.documentHtml, components);
     return {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom";
 import { ChevronDown, Plus } from "lucide-react";
 import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
+import type { MoveImageParams } from "../../../domain/plan/canvas/plan";
 import {
   A4,
   contentSize,
@@ -22,17 +23,27 @@ interface PlanDocumentCanvasProps {
   onCreateImageGroup(id: string): void;
   onOpenImage(componentId: string, imageId: string, file: string): void;
   onRemoveImage(componentId: string, imageId: string): void;
+  onMoveImage(params: MoveImageParams): void;
   onRemoveImageGroup(id: string): void;
   onResizeImageGroup(
     id: string,
-    rect: { x?: number; width?: number; height?: number },
+    rect: {
+      x?: number;
+      width?: number;
+      height?: number;
+      frameOffsetY?: number;
+    },
   ): void;
   onSetImageFrame(
     componentId: string,
     imageId: string,
-    frame: { frameWidth: number; frameHeight: number },
+    frame: {
+      frameWidth: number;
+      frameHeight: number;
+      frameOffsetX?: number;
+      frameOffsetY?: number;
+    },
   ): void;
-  onScaleImages(id: string, scale: number): void;
   scale: number;
 }
 
@@ -45,10 +56,10 @@ export function PlanDocumentCanvas({
   onCreateImageGroup,
   onOpenImage,
   onRemoveImage,
+  onMoveImage,
   onRemoveImageGroup,
   onResizeImageGroup,
   onSetImageFrame,
-  onScaleImages,
   scale,
 }: PlanDocumentCanvasProps) {
   const [insertOpen, setInsertOpen] = useState(false);
@@ -217,10 +228,10 @@ export function PlanDocumentCanvas({
                 onCreateImageGroup,
                 onOpenImage,
                 onRemoveImage,
+                onMoveImage,
                 onRemoveImageGroup,
                 onResizeImageGroup,
                 onSetImageFrame,
-                onScaleImages,
                 scale: safeScale,
                   onActivateBlankLine: activateBlankLine,
                 registerInsertImageGroup,

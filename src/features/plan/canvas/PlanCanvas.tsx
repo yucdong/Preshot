@@ -95,7 +95,13 @@ export interface PlanCanvasProps {
   onMoveImages?: (params: MoveImagesParams) => void;
   onResize?: (
     id: string,
-    rect: { x?: number; y?: number; width?: number; height?: number },
+    rect: {
+      x?: number;
+      y?: number;
+      width?: number;
+      height?: number;
+      frameOffsetY?: number;
+    },
   ) => void;
   onAddImages?: (id: string) => void;
   onMeasurePlan?: (id: string, measurement: PlanMeasurement) => void;
@@ -103,7 +109,12 @@ export interface PlanCanvasProps {
   onSetImageFrame?: (
     componentId: string,
     imageId: string,
-    frame: { frameWidth: number; frameHeight: number },
+    frame: {
+      frameWidth: number;
+      frameHeight: number;
+      frameOffsetX?: number;
+      frameOffsetY?: number;
+    },
   ) => void;
   onSetImageCrop?: (
     componentId: string,
@@ -190,11 +201,11 @@ export function PlanCanvas(props: PlanCanvasProps) {
             props.onOpenImage(file);
           }
         }}
+        onMoveImage={props.onMoveImage ?? (() => undefined)}
         onRemoveImage={props.onRemoveImage}
         onRemoveImageGroup={props.onRemoveComponent}
         onResizeImageGroup={props.onResize ?? (() => undefined)}
         onSetImageFrame={props.onSetImageFrame ?? (() => undefined)}
-        onScaleImages={props.onScaleReferenceImages ?? (() => undefined)}
         scale={props.scale}
       />
     );

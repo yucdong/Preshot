@@ -6,6 +6,7 @@ import { contentSize, DEFAULT_PAGE_GEOMETRY } from "../../domain/plan/canvas/geo
 import { layoutDocumentImageGroup } from "../../domain/plan/canvas/documentImageGroupLayout";
 import { imageCropForView, imageViewCss } from "../../domain/plan/canvas/imageView";
 import { IMAGE_GROUP_NODE_NAME } from "../../domain/plan/canvas/document";
+import type { MoveImageParams } from "../../domain/plan/canvas/plan";
 
 export interface DocumentImageGroupController {
   getGroup(id: string): ReferenceComponent | undefined;
@@ -15,17 +16,28 @@ export interface DocumentImageGroupController {
   onAddImages(id: string): void;
   onOpenImage(componentId: string, imageId: string, file: string): void;
   onRemoveImage(componentId: string, imageId: string): void;
+  onRequestRemoveImage(componentId: string, imageId: string): void;
+  onMoveImage(params: MoveImageParams): void;
   onRemoveGroup(id: string): void;
   onResizeGroup(
     id: string,
-    rect: { x?: number; width?: number; height?: number },
+    rect: {
+      x?: number;
+      width?: number;
+      height?: number;
+      frameOffsetY?: number;
+    },
   ): void;
   onSetImageFrame(
     componentId: string,
     imageId: string,
-    frame: { frameWidth: number; frameHeight: number },
+    frame: {
+      frameWidth: number;
+      frameHeight: number;
+      frameOffsetX?: number;
+      frameOffsetY?: number;
+    },
   ): void;
-  onScaleImages(id: string, scale: number): void;
   onSelectImage(groupId: string, imageId: string): void;
   getScale(): number;
   registerView(id: string, render: () => void): () => void;
@@ -219,14 +231,6 @@ export function createDocumentImageGroupExtension(
         dom.dataset.imageGroupId = groupId;
         dom.dataset.preshotSurface = "true";
 
-        const dragHandle = document.createElement("button");
-        dragHandle.type = "button";
-        dragHandle.ariaLabel = "拖动图片组";
-        dragHandle.title = "拖动图片组";
-        dragHandle.dataset.dragHandle = "";
-        dragHandle.className = "preshot-document-image-group-drag";
-        dragHandle.textContent = "⋮⋮";
-
         const grid = document.createElement("div");
         grid.className = "preshot-document-image-group-grid";
 
@@ -245,7 +249,7 @@ export function createDocumentImageGroupExtension(
         const horizontalGuide = document.createElement("div");
         horizontalGuide.className = "preshot-document-image-guide is-horizontal";
 
-        dom.append(dragHandle, grid, empty, verticalGuide, horizontalGuide);
+        dom.append(grid, empty, verticalGuide, horizontalGuide);
 
         for (const direction of GROUP_EDGE_DIRECTIONS) {
           const handle = document.createElement("div");
@@ -285,6 +289,59 @@ export function createDocumentImageGroupExtension(
           horizontalGuide.removeAttribute("data-visible");
         };
 
+        const clearImageDropTargets = () => {
+          editor.view.dom
+            .querySelectorAll<HTMLElement>(".preshot-document-image-group.is-image-drop-target")
+            .forEach((group) => group.classList.remove("is-image-drop-target"));
+        };
+
+        const topLevelDropPosition = (clientY: number): {
+          position: number;
+          rect: DOMRect;
+        } => {
+          const sourcePosition = getPos();
+          let result = {
+            position: editor.state.doc.content.size,
+            rect: editor.view.dom.getBoundingClientRect(),
+          };
+          let found = false;
+          editor.state.doc.forEach((_child, offset) => {
+            if (found || offset === sourcePosition) return;
+            const nodeDom = editor.view.nodeDOM(offset);
+            const element = nodeDom instanceof HTMLElement
+              ? nodeDom
+              : nodeDom?.parentElement;
+            if (!element) return;
+            const rect = element.getBoundingClientRect();
+            result = { position: offset + _child.nodeSize, rect };
+            if (clientY < rect.top + rect.height / 2) {
+              result = { position: offset, rect };
+              found = true;
+            }
+          });
+          return result;
+        };
+
+        const selectGroupById = (targetGroupId: string) => {
+          let targetPosition: number | null = null;
+          editor.state.doc.forEach((child, offset) => {
+            if (
+              targetPosition === null &&
+              child.type.name === IMAGE_GROUP_NODE_NAME &&
+              decodedGroupId(child.attrs.groupId) === targetGroupId
+            ) {
+              targetPosition = offset;
+            }
+          });
+          if (targetPosition !== null) {
+            editor.view.dispatch(
+              editor.state.tr.setSelection(
+                NodeSelection.create(editor.state.doc, targetPosition),
+              ),
+            );
+          }
+        };
+
         const updateFrameView = (
           frame: HTMLElement,
           image: ReferenceComponent["images"][number],
@@ -294,9 +351,13 @@ export function createDocumentImageGroupExtension(
           frame.dataset.frameScale = String(frameScale);
           frame.dataset.frameWidth = String(image.frameWidth);
           frame.dataset.frameHeight = String(image.frameHeight);
+          frame.dataset.frameOffsetX = String(image.frameOffsetX ?? 0);
+          frame.dataset.frameOffsetY = String(image.frameOffsetY ?? 0);
           frame.classList.toggle("is-selected", selectedImageId === image.id);
           frame.style.width = `${Math.max(1, image.frameWidth * frameScale)}px`;
           frame.style.height = `${Math.max(1, image.frameHeight * frameScale)}px`;
+          frame.style.marginLeft = `${(image.frameOffsetX ?? 0) * frameScale}px`;
+          frame.style.marginTop = `${(image.frameOffsetY ?? 0) * frameScale}px`;
           const imageButton = frame.querySelector<HTMLButtonElement>(
             ".preshot-document-image-button",
           );
@@ -322,9 +383,14 @@ export function createDocumentImageGroupExtension(
             ".preshot-document-image-index",
           );
           if (indexBadge) indexBadge.textContent = String(index + 1).padStart(2, "0");
+          const deleteButton = frame.querySelector<HTMLButtonElement>(
+            ".preshot-document-image-delete",
+          );
+          if (deleteButton) deleteButton.ariaLabel = `删除参考图 ${index + 1}`;
         };
 
         const render = () => {
+          selectedImageId = controller.getSelectedImageId(groupId);
           const group = controller.getGroup(groupId);
           dom.dataset.imageGroupId = groupId;
           const images = group?.images ?? [];
@@ -337,9 +403,12 @@ export function createDocumentImageGroupExtension(
             Math.min(DOCUMENT_CONTENT_WIDTH - groupWidth, group?.x ?? 0),
           );
           const groupHeight = Math.max(MIN_COMPONENT_HEIGHT, group?.height ?? 220);
+          const groupFrameOffsetY = group?.frameOffsetY ?? 0;
           dom.style.width = `${groupWidth}px`;
           dom.style.height = `${groupHeight}px`;
           dom.style.marginLeft = `${groupX}px`;
+          dom.style.translate = `0 ${groupFrameOffsetY}px`;
+          dom.style.marginBottom = `calc(0.65rem + ${groupFrameOffsetY}px)`;
           empty.hidden = images.length > 0;
           grid.hidden = images.length === 0;
           const averageHeight = images.length > 0
@@ -373,20 +442,173 @@ export function createDocumentImageGroupExtension(
             const imageButton = document.createElement("button");
             imageButton.type = "button";
             imageButton.className = "preshot-document-image-button";
-            imageButton.addEventListener("click", (event) => {
+            imageButton.addEventListener("pointerdown", (event) => {
+              if (event.button !== 0) return;
+              event.preventDefault();
               event.stopPropagation();
               selectedImageId = image.id;
               controller.onSelectImage(groupId, image.id);
               select();
               editor.view.dispatch(editor.state.tr.setMeta("preshotImageSelection", image.id));
               render();
+
+              activeResizeCleanup?.();
+              const startX = event.clientX;
+              const startY = event.clientY;
+              const sourceGroupId = groupId;
+              const sourceGrid = frame.parentElement as HTMLElement;
+              const frameRect = frame.getBoundingClientRect();
+              const originalWidth = frame.style.width;
+              const originalHeight = frame.style.height;
+              const originMarker = document.createComment("preshot-image-origin");
+              let placeholder: HTMLElement | null = null;
+              let targetGrid: HTMLElement | null = null;
+              let dragging = false;
+
+              const activate = () => {
+                dragging = true;
+                placeholder = document.createElement("div");
+                placeholder.className = "preshot-document-image-drop-placeholder";
+                placeholder.style.width = `${frameRect.width / safeScale()}px`;
+                placeholder.style.height = `${frameRect.height / safeScale()}px`;
+                sourceGrid.insertBefore(originMarker, frame);
+                sourceGrid.insertBefore(placeholder, frame);
+                document.body.append(frame);
+                frame.classList.add("is-dragging");
+                Object.assign(frame.style, {
+                  height: `${frameRect.height}px`,
+                  left: `${frameRect.left}px`,
+                  position: "fixed",
+                  top: `${frameRect.top}px`,
+                  width: `${frameRect.width}px`,
+                });
+              };
+
+              const targetAt = (clientX: number, clientY: number) => {
+                const target = document.elementFromPoint(clientX, clientY);
+                return target?.closest<HTMLElement>(".preshot-document-image-group-grid") ??
+                  target?.closest<HTMLElement>(".preshot-document-image-group")
+                    ?.querySelector<HTMLElement>(".preshot-document-image-group-grid") ??
+                  null;
+              };
+
+              const movePlaceholder = (
+                destination: HTMLElement,
+                clientX: number,
+                clientY: number,
+              ) => {
+                const candidates = Array.from(
+                  destination.querySelectorAll<HTMLElement>(".preshot-document-image-frame"),
+                ).filter((candidate) => candidate !== frame);
+                const before = candidates.find((candidate) => {
+                  const rect = candidate.getBoundingClientRect();
+                  const sameRow = clientY >= rect.top && clientY <= rect.bottom;
+                  return clientY < rect.top + rect.height / 2 ||
+                    (sameRow && clientX < rect.left + rect.width / 2);
+                });
+                destination.insertBefore(placeholder!, before ?? null);
+              };
+
+              const move = (moveEvent: PointerEvent) => {
+                const dx = moveEvent.clientX - startX;
+                const dy = moveEvent.clientY - startY;
+                if (!dragging && Math.hypot(dx, dy) < 6) return;
+                if (!dragging) activate();
+                frame.style.left = `${frameRect.left + dx}px`;
+                frame.style.top = `${frameRect.top + dy}px`;
+                clearImageDropTargets();
+                targetGrid = targetAt(moveEvent.clientX, moveEvent.clientY);
+                if (!targetGrid) return;
+                targetGrid.closest(".preshot-document-image-group")
+                  ?.classList.add("is-image-drop-target");
+                movePlaceholder(targetGrid, moveEvent.clientX, moveEvent.clientY);
+              };
+
+              const cleanup = () => {
+                document.removeEventListener("pointermove", move);
+                document.removeEventListener("pointerup", finish);
+                document.removeEventListener("pointercancel", cancel);
+                clearImageDropTargets();
+                frame.classList.remove("is-dragging");
+                frame.style.removeProperty("left");
+                frame.style.removeProperty("position");
+                frame.style.removeProperty("top");
+                frame.style.width = originalWidth;
+                frame.style.height = originalHeight;
+                originMarker.remove();
+                placeholder?.remove();
+                activeResizeCleanup = null;
+              };
+
+              const finish = () => {
+                if (!dragging) {
+                  cleanup();
+                  const currentImage = controller.getGroup(groupId)?.images.find(
+                    (candidate) => candidate.id === image.id,
+                  );
+                  controller.onOpenImage(
+                    groupId,
+                    image.id,
+                    currentImage?.file ?? image.file,
+                  );
+                  return;
+                }
+                if (!targetGrid || !placeholder) {
+                  sourceGrid.insertBefore(frame, originMarker.nextSibling);
+                  cleanup();
+                  render();
+                  return;
+                }
+                targetGrid.insertBefore(frame, placeholder);
+                const targetGroup = targetGrid.closest<HTMLElement>(
+                  ".preshot-document-image-group",
+                );
+                const targetGroupId = targetGroup?.dataset.imageGroupId ?? sourceGroupId;
+                const toIndex = Array.from(
+                  targetGrid.querySelectorAll<HTMLElement>(
+                    ".preshot-document-image-frame",
+                  ),
+                ).indexOf(frame);
+                cleanup();
+                controller.onSelectImage(targetGroupId, image.id);
+                controller.onMoveImage({
+                  fromComponentId: sourceGroupId,
+                  imageId: image.id,
+                  toComponentId: targetGroupId,
+                  toIndex: Math.max(0, toIndex),
+                });
+                selectGroupById(targetGroupId);
+              };
+
+              const cancel = () => {
+                if (dragging) sourceGrid.insertBefore(frame, originMarker.nextSibling);
+                cleanup();
+                render();
+              };
+
+              activeResizeCleanup = cancel;
+              document.addEventListener("pointermove", move);
+              document.addEventListener("pointerup", finish);
+              document.addEventListener("pointercancel", cancel);
             });
-            imageButton.addEventListener("dblclick", (event) => {
+            imageButton.addEventListener("click", (event) => {
+              if (event.detail !== 0) return;
               event.stopPropagation();
+              selectedImageId = image.id;
+              controller.onSelectImage(groupId, image.id);
+              select();
+              editor.view.dispatch(
+                editor.state.tr.setMeta("preshotImageSelection", image.id),
+              );
+              render();
               const currentImage = controller.getGroup(groupId)?.images.find(
                 (candidate) => candidate.id === image.id,
               );
-              controller.onOpenImage(groupId, image.id, currentImage?.file ?? image.file);
+              controller.onOpenImage(
+                groupId,
+                image.id,
+                currentImage?.file ?? image.file,
+              );
             });
 
             const indexBadge = document.createElement("span");
@@ -394,7 +616,26 @@ export function createDocumentImageGroupExtension(
             indexBadge.className = "preshot-document-image-index";
             indexBadge.textContent = String(index + 1).padStart(2, "0");
 
-            frame.append(imageButton, indexBadge);
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.className = "preshot-document-image-delete";
+            deleteButton.ariaLabel = `删除参考图 ${index + 1}`;
+            deleteButton.title = "删除图片";
+            deleteButton.innerHTML =
+              '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M8 10v8M12 10v8M16 10v8M7 7l1 14h8l1-14"/></svg>';
+            deleteButton.addEventListener("pointerdown", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            });
+            deleteButton.addEventListener("click", (event) => {
+              event.stopPropagation();
+              selectedImageId = image.id;
+              controller.onSelectImage(groupId, image.id);
+              select();
+              controller.onRequestRemoveImage(groupId, image.id);
+            });
+
+            frame.append(imageButton, indexBadge, deleteButton);
             for (const direction of IMAGE_RESIZE_DIRECTIONS) {
               const handle = document.createElement("div");
               const corner = direction.includes("-");
@@ -417,9 +658,16 @@ export function createDocumentImageGroupExtension(
                 const currentImage = currentImages.find((candidate) => candidate.id === image.id) ?? image;
                 const startWidth = currentImage.frameWidth;
                 const startHeight = currentImage.frameHeight;
+                const startOffsetX = currentImage.frameOffsetX ?? 0;
+                const startOffsetY = currentImage.frameOffsetY ?? 0;
                 const currentFrameScale = Number(frame.dataset.frameScale) || frameScale;
                 const candidates = currentImages.filter((candidate) => candidate.id !== image.id);
-                let nextFrame = { frameWidth: startWidth, frameHeight: startHeight };
+                let nextFrame = {
+                  frameWidth: startWidth,
+                  frameHeight: startHeight,
+                  frameOffsetX: startOffsetX,
+                  frameOffsetY: startOffsetY,
+                };
                 const move = (moveEvent: PointerEvent) => {
                   const displayScale = safeScale() * currentFrameScale;
                   const dx = (moveEvent.clientX - startX) / displayScale;
@@ -440,11 +688,24 @@ export function createDocumentImageGroupExtension(
                     : null;
                   if (snappedWidth !== null) frameWidth = snappedWidth;
                   if (snappedHeight !== null) frameHeight = snappedHeight;
-                  nextFrame = { frameWidth, frameHeight };
+                  const frameOffsetX = directionAffects(direction, "left")
+                    ? startOffsetX + startWidth - frameWidth
+                    : startOffsetX;
+                  const frameOffsetY = directionAffects(direction, "top")
+                    ? startOffsetY + startHeight - frameHeight
+                    : startOffsetY;
+                  nextFrame = {
+                    frameWidth,
+                    frameHeight,
+                    frameOffsetX,
+                    frameOffsetY,
+                  };
                   const renderedWidth = frameWidth * currentFrameScale;
                   const renderedHeight = frameHeight * currentFrameScale;
                   frame.style.width = `${renderedWidth}px`;
                   frame.style.height = `${renderedHeight}px`;
+                  frame.style.marginLeft = `${frameOffsetX * currentFrameScale}px`;
+                  frame.style.marginTop = `${frameOffsetY * currentFrameScale}px`;
                   if (snappedWidth !== null) {
                     verticalGuide.style.left = `${frame.offsetLeft + renderedWidth}px`;
                     verticalGuide.dataset.visible = "true";
@@ -486,32 +747,162 @@ export function createDocumentImageGroupExtension(
           });
         };
         dom.addEventListener("pointerdown", (event) => {
-          if ((event.target as Element).closest("button, [role=separator]")) return;
+          const target = event.target;
+          if (!(target instanceof Element) || event.button !== 0) return;
+          if (
+            target.closest(
+              "button, [role=separator], .preshot-document-image-frame",
+            )
+          ) {
+            return;
+          }
+          event.preventDefault();
           event.stopPropagation();
           selectedImageId = "";
           controller.onSelectImage(groupId, "");
           select();
           editor.view.dispatch(editor.state.tr.setMeta("preshotImageSelection", ""));
           render();
+
+          activeResizeCleanup?.();
+          const startX = event.clientX;
+          const startY = event.clientY;
+          const groupFrameOffsetY =
+            controller.getGroup(groupId)?.frameOffsetY ?? 0;
+          const dropIndicator = document.createElement("div");
+          dropIndicator.className = "preshot-document-group-drop-indicator";
+          let dragging = false;
+          let dropPosition = getPos() ?? 0;
+
+          const move = (moveEvent: PointerEvent) => {
+            const dx = moveEvent.clientX - startX;
+            const dy = moveEvent.clientY - startY;
+            if (!dragging && Math.hypot(dx, dy) < 6) return;
+            if (!dragging) {
+              dragging = true;
+              dom.classList.add("is-dragging");
+              document.body.append(dropIndicator);
+            }
+            dom.style.translate =
+              `0 ${groupFrameOffsetY + dy / safeScale()}px`;
+            const targetDrop = topLevelDropPosition(moveEvent.clientY);
+            dropPosition = targetDrop.position;
+            const editorRect = editor.view.dom.getBoundingClientRect();
+            const top = dropPosition >= editor.state.doc.content.size
+              ? targetDrop.rect.bottom
+              : targetDrop.rect.top;
+            Object.assign(dropIndicator.style, {
+              left: `${editorRect.left}px`,
+              top: `${top}px`,
+              width: `${editorRect.width}px`,
+            });
+          };
+
+          const cleanup = () => {
+            document.removeEventListener("pointermove", move);
+            document.removeEventListener("pointerup", finish);
+            document.removeEventListener("pointercancel", cancel);
+            dom.classList.remove("is-dragging");
+            dom.style.translate = `0 ${groupFrameOffsetY}px`;
+            dropIndicator.remove();
+            activeResizeCleanup = null;
+          };
+
+          const finish = () => {
+            const sourcePosition = getPos();
+            if (!dragging || sourcePosition === undefined) {
+              cleanup();
+              return;
+            }
+            const currentNode = editor.state.doc.nodeAt(sourcePosition);
+            if (!currentNode || currentNode.type.name !== IMAGE_GROUP_NODE_NAME) {
+              cleanup();
+              return;
+            }
+            let insertionPosition = dropPosition;
+            if (insertionPosition > sourcePosition) {
+              insertionPosition -= currentNode.nodeSize;
+            }
+            insertionPosition = Math.max(
+              0,
+              Math.min(insertionPosition, editor.state.doc.content.size - currentNode.nodeSize),
+            );
+            cleanup();
+            if (insertionPosition === sourcePosition) return;
+            const transaction = editor.state.tr
+              .delete(sourcePosition, sourcePosition + currentNode.nodeSize)
+              .insert(insertionPosition, currentNode);
+            transaction.setSelection(
+              NodeSelection.create(transaction.doc, insertionPosition),
+            );
+            editor.view.dispatch(transaction);
+          };
+
+          const cancel = () => cleanup();
+          activeResizeCleanup = cancel;
+          document.addEventListener("pointermove", move);
+          document.addEventListener("pointerup", finish);
+          document.addEventListener("pointercancel", cancel);
         });
 
         const startGroupResize = (direction: ResizeDirection) => (event: PointerEvent) => {
           event.preventDefault();
           event.stopPropagation();
+          selectedImageId = "";
+          controller.onSelectImage(groupId, "");
           select();
+          editor.view.dispatch(editor.state.tr.setMeta("preshotImageSelection", ""));
           const group = controller.getGroup(groupId);
           if (!group) return;
           activeResizeCleanup?.();
           const startX = event.clientX;
           const startY = event.clientY;
-          const initial = { x: group.x, width: group.width, height: group.height };
+          const initialRect = dom.getBoundingClientRect();
+          const previousRect = dom.previousElementSibling?.getBoundingClientRect();
+          const availableUp = (
+            initialRect.height === 0 &&
+            initialRect.width === 0
+          )
+            ? Number.POSITIVE_INFINITY
+            : Math.max(
+                0,
+                (initialRect.top - (previousRect?.bottom ?? editor.view.dom.getBoundingClientRect().top)) /
+                  safeScale(),
+              );
+          const initial = {
+            x: group.x,
+            width: group.width,
+            height: group.height,
+            frameOffsetY: group.frameOffsetY ?? 0,
+          };
           let next = initial;
+          const preview = document.createElement("div");
+          preview.dataset.groupResizePreview = "";
+          preview.className = "preshot-document-image-group-resize-preview";
+          document.body.append(preview);
+          const updatePreview = () => {
+            const scale = safeScale();
+            const left = initialRect.left + (next.x - initial.x) * scale;
+            const top =
+              initialRect.top +
+              (next.frameOffsetY - initial.frameOffsetY) * scale;
+            Object.assign(preview.style, {
+              height: `${next.height * scale}px`,
+              left: `${left}px`,
+              top: `${top}px`,
+              width: `${next.width * scale}px`,
+            });
+            preview.dataset.size =
+              `${Math.round(next.width)} × ${Math.round(next.height)}`;
+          };
+          updatePreview();
           const move = (moveEvent: PointerEvent) => {
             const dx = (moveEvent.clientX - startX) / safeScale();
             const dy = (moveEvent.clientY - startY) / safeScale();
             let x = initial.x;
             let width = initial.width;
             let height = initial.height;
+            let frameOffsetY = initial.frameOffsetY;
             if (directionAffects(direction, "left")) {
               width = initial.width - dx;
               width = Math.max(MIN_COMPONENT_WIDTH, Math.min(width, DOCUMENT_CONTENT_WIDTH));
@@ -520,25 +911,30 @@ export function createDocumentImageGroupExtension(
               width = initial.width + dx;
               width = Math.max(MIN_COMPONENT_WIDTH, Math.min(width, DOCUMENT_CONTENT_WIDTH));
             }
-            height = initial.height + (
-              directionAffects(direction, "bottom")
-                ? dy
-                : directionAffects(direction, "top")
-                  ? -dy
-                  : 0
-            );
+            if (directionAffects(direction, "top")) {
+              const minimumOffset = initial.frameOffsetY - availableUp;
+              const maximumOffset =
+                initial.frameOffsetY + initial.height - MIN_COMPONENT_HEIGHT;
+              frameOffsetY = Math.max(
+                minimumOffset,
+                Math.min(maximumOffset, initial.frameOffsetY + dy),
+              );
+              height =
+                initial.height - (frameOffsetY - initial.frameOffsetY);
+            } else if (directionAffects(direction, "bottom")) {
+              height = initial.height + dy;
+            }
             x = Math.max(0, Math.min(x, DOCUMENT_CONTENT_WIDTH - width));
             height = Math.max(MIN_COMPONENT_HEIGHT, height);
-            next = { x, width, height };
-            dom.style.marginLeft = `${x}px`;
-            dom.style.width = `${width}px`;
-            dom.style.height = `${height}px`;
+            next = { x, width, height, frameOffsetY };
+            updatePreview();
           };
           const finish = () => {
             document.removeEventListener("pointermove", move);
             document.removeEventListener("pointerup", finish);
             document.removeEventListener("pointercancel", cancel);
             activeResizeCleanup = null;
+            preview.remove();
             controller.onResizeGroup(groupId, next);
           };
           const cancel = () => {
@@ -546,7 +942,7 @@ export function createDocumentImageGroupExtension(
             document.removeEventListener("pointerup", finish);
             document.removeEventListener("pointercancel", cancel);
             activeResizeCleanup = null;
-            render();
+            preview.remove();
           };
           activeResizeCleanup = cancel;
           document.addEventListener("pointermove", move);

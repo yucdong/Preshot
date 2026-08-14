@@ -38,6 +38,7 @@ export function ConfirmDialog({ open, title, confirmLabel, cancelLabel, onConfir
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6 backdrop-blur-[2px]"
+      data-preshot-surface="true"
       onClick={handleBackdropClick}
     >
       <div

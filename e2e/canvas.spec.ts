@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 async function openCanvas(page: Page) {
   await page.goto("/");
@@ -33,6 +33,12 @@ async function selectText(page: Page) {
 async function selectGroup(page: Page, id = "ref-1") {
   const group = page.locator(`[data-image-group-id="${id}"]`);
   await group.dispatchEvent("pointerdown", {
+    button: 0,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType: "mouse",
+  });
+  await page.dispatchEvent("body", "pointerup", {
     button: 0,
     isPrimary: true,
     pointerId: 1,
@@ -123,10 +129,17 @@ test("shows page-scaled contextual property bars only for active selections", as
   await expect(groupToolbar).toBeVisible();
   const groupToolbarBox = await groupToolbar.boundingBox();
   const groupBox = await group.boundingBox();
-  expect(groupToolbarBox?.height).toBeCloseTo(40 * canvasScale, 0);
-  expect(Math.abs((groupToolbarBox?.x ?? 0) - (groupBox?.x ?? 0))).toBeLessThanOrEqual(1);
+  expect(groupToolbarBox?.height).toBeCloseTo(30 * canvasScale, 0);
+  expect(
+    Math.abs(
+      ((groupToolbarBox?.x ?? 0) + (groupToolbarBox?.width ?? 0)) -
+      ((groupBox?.x ?? 0) + (groupBox?.width ?? 0)),
+    ),
+  ).toBeLessThanOrEqual(1);
   await expect(groupToolbar.getByRole("button", { name: "添加图片" })).toBeVisible();
   await expect(groupToolbar.getByRole("button", { name: "删除图片组" })).toBeVisible();
+  await expect(groupToolbar.getByRole("spinbutton", { name: "图片组高度" })).toHaveCount(0);
+  await expect(groupToolbar.getByRole("button", { name: /放大|缩小/ })).toHaveCount(0);
 });
 
 test("double-click selects a text block and any other click clears the selection", async ({ page }) => {
@@ -491,7 +504,7 @@ test("shows a blank-line insert control and inserts an image group at that line"
   await expect(editor.locator("p:last-child")).toHaveCount(1);
 });
 
-test("imports into an empty group, changes group height, and removes it atomically", async ({ page }) => {
+test("imports into an empty group and confirms hover deletion", async ({ page }) => {
   await openCanvas(page);
   const before = await page.locator("[data-image-group-id]").count();
   await insertFromTop(page);
@@ -508,23 +521,213 @@ test("imports into an empty group, changes group height, and removes it atomical
   });
 
   const firstImage = emptyGroup.getByRole("button", { name: /选择参考图/ }).first();
-  const beforeHeight = (await firstImage.boundingBox())?.height ?? 0;
-  const heightInput = toolbar.getByRole("spinbutton", { name: "图片组高度" });
-  await heightInput.fill(String(Math.round(beforeHeight + 24)));
-  await heightInput.press("Enter");
-  await expect.poll(async () => (await firstImage.boundingBox())?.height ?? 0).toBeGreaterThan(beforeHeight);
-
-  await firstImage.dispatchEvent("click");
-  const imageToolbar = page.getByRole("toolbar", { name: "图片属性" });
-  await expect(imageToolbar).toBeVisible();
-  await imageToolbar.getByRole("button", { name: "删除图片" }).click();
+  await expect(toolbar.getByRole("spinbutton", { name: "图片组高度" })).toHaveCount(0);
+  await firstImage.hover();
+  const hoverDelete = emptyGroup.getByRole("button", { name: "删除参考图 1" });
+  await expect(hoverDelete).toBeVisible();
+  await hoverDelete.click();
+  await expect(page.getByRole("dialog", { name: "删除图片？" })).toBeVisible();
+  await page.getByRole("button", { name: "删除", exact: true }).click();
   await expect(emptyGroup.getByRole("button", { name: /选择参考图/ })).toHaveCount(1);
 
-  await toolbar.getByRole("button", { name: "删除图片组" }).click();
+  await selectGroup(page, id);
+  await page.getByRole("toolbar", { name: "图片组属性" })
+    .getByRole("button", { name: "删除图片组" })
+    .click();
   await expect(page.locator(`[data-image-group-id="${id}"]`)).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "方案正文" }).locator(
     `figure[data-preshot-group-id="${id}"]`,
   )).toHaveCount(0);
+});
+
+test("uses pointer image cursors and balanced hover resize zones while anchoring opposite edges", async ({ page }) => {
+  await openCanvas(page);
+  const group = page.locator('[data-image-group-id="ref-1"]');
+  const imageFrame = group.locator(".preshot-document-image-frame").first();
+  const image = imageFrame.locator(".preshot-document-image-button");
+  await image.hover();
+
+  await expect(image).toHaveCSS("cursor", "pointer");
+  await expect(image.locator("img")).toHaveCSS("cursor", "pointer");
+  await expect(image.locator("img")).toHaveCSS("pointer-events", "none");
+  const topEdge = imageFrame.locator('[data-image-resize-edge="top"]');
+  const rightEdge = imageFrame.locator('[data-image-resize-edge="right"]');
+  const topRightCorner = imageFrame.locator('[data-image-resize-edge="top-right"]');
+  await expect(topEdge).toHaveCSS("display", "block");
+  await expect(rightEdge).toHaveCSS("width", "20px");
+  await expect(topRightCorner).toHaveCSS("width", "24px");
+
+  const before = await imageFrame.boundingBox();
+  const groupBefore = await group.boundingBox();
+  if (!before || !groupBefore) throw new Error("Expected image frame geometry");
+  await image.evaluate((element) => {
+    element.dataset.anchorIdentity = "stable";
+  });
+  await topEdge.evaluate((handle) => {
+    const rect = handle.getBoundingClientRect();
+    const clientX = rect.left + rect.width / 2;
+    const clientY = rect.top + 6;
+    handle.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true,
+      clientX,
+      clientY,
+      pointerId: 81,
+    }));
+    document.dispatchEvent(new PointerEvent("pointermove", {
+      bubbles: true,
+      clientX,
+      clientY: clientY + 18,
+      pointerId: 81,
+    }));
+    document.dispatchEvent(new PointerEvent("pointerup", {
+      bubbles: true,
+      clientX,
+      clientY: clientY + 18,
+      pointerId: 81,
+    }));
+  });
+  await expect.poll(async () => (await imageFrame.boundingBox())?.height ?? 0)
+    .toBeLessThan(before.height - 10);
+  const after = await imageFrame.boundingBox();
+  const groupAfter = await group.boundingBox();
+  if (!after || !groupAfter) throw new Error("Expected resized image frame geometry");
+  const beforeLocalY = before.y - groupBefore.y;
+  const afterLocalY = after.y - groupAfter.y;
+  expect(afterLocalY).toBeGreaterThan(beforeLocalY + 10);
+  expect(afterLocalY + after.height).toBeCloseTo(beforeLocalY + before.height, 0);
+  await expect(imageFrame.locator(".preshot-document-image-button"))
+    .toHaveAttribute("data-anchor-identity", "stable");
+});
+
+test("previews four-edge group resize without reflow and commits the top edge upward", async ({ page }) => {
+  await openCanvas(page);
+  const group = await selectGroup(page);
+  await expect(group.locator('[data-group-resize-handle="edge"]')).toHaveCount(4);
+  const before = await group.boundingBox();
+  if (!before) throw new Error("Expected image-group geometry");
+  await group.locator("img").evaluateAll((images) => {
+    images.forEach((image, index) => {
+      image.dataset.resizePreviewIdentity = `image-${index}`;
+    });
+  });
+  const topEdge = group.locator('[data-group-resize-edge="top"]');
+  await topEdge.evaluate((handle) => {
+    const rect = handle.getBoundingClientRect();
+    const clientX = rect.left + rect.width / 2;
+    const clientY = rect.top + 4;
+    handle.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true,
+      clientX,
+      clientY,
+      pointerId: 82,
+    }));
+    document.dispatchEvent(new PointerEvent("pointermove", {
+      bubbles: true,
+      clientX,
+      clientY: clientY - 8,
+      pointerId: 82,
+    }));
+  });
+  await expect(page.locator("[data-group-resize-preview]")).toBeVisible();
+  const during = await group.boundingBox();
+  expect(during?.y).toBeCloseTo(before.y, 1);
+  expect(during?.height).toBeCloseTo(before.height, 1);
+  await expect(group.locator('img[data-resize-preview-identity="image-0"]')).toHaveCount(1);
+  await page.evaluate(() => {
+    document.dispatchEvent(new PointerEvent("pointerup", {
+      bubbles: true,
+      pointerId: 82,
+    }));
+  });
+  await expect(page.locator("[data-group-resize-preview]")).toHaveCount(0);
+  const after = await group.boundingBox();
+  if (!after) throw new Error("Expected resized image-group geometry");
+  expect(after.y).toBeLessThan(before.y);
+  expect(after.height).toBeGreaterThan(before.height);
+  expect(after.y + after.height).toBeCloseTo(before.y + before.height, 0);
+});
+
+test("reorders images across groups and moves a group from its gray surface", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1600 });
+  await openCanvas(page);
+  const sourceGroup = page.locator('[data-image-group-id="ref-1"]');
+  const initialSourceCount = await sourceGroup.locator(".preshot-document-image-frame").count();
+  expect(initialSourceCount).toBeGreaterThanOrEqual(2);
+
+  await insertFromTop(page);
+  const targetGroup = page.locator("[data-image-group-id]").last();
+  const targetGroupId = await targetGroup.getAttribute("data-image-group-id");
+  if (!targetGroupId) throw new Error("Expected target image-group id");
+  await selectGroup(page, targetGroupId);
+  await page.getByRole("toolbar", { name: "图片组属性" })
+    .getByRole("button", { name: "添加图片" })
+    .click();
+  await expect(targetGroup.locator(".preshot-document-image-frame")).toHaveCount(2, {
+    timeout: 10_000,
+  });
+  await expect(page.getByTestId("save-status")).toHaveText("已保存所有更改", {
+    timeout: 10_000,
+  });
+
+  const frameIds = (group: Locator) =>
+    group.locator(".preshot-document-image-frame").evaluateAll((frames) =>
+      frames.map((frame) => (frame as HTMLElement).dataset.imageId ?? ""));
+  const initialSourceIds = await frameIds(sourceGroup);
+  const draggedId = initialSourceIds[0];
+  const draggedButton = sourceGroup.locator(`[data-image-id="${draggedId}"] .preshot-document-image-button`);
+  await draggedButton.evaluate((element) => {
+    element.dataset.dragIdentity = "stable";
+  });
+  const firstBox = await sourceGroup.locator(`[data-image-id="${draggedId}"]`).boundingBox();
+  const secondBox = await sourceGroup.locator(".preshot-document-image-frame").nth(1).boundingBox();
+  if (!firstBox || !secondBox) throw new Error("Expected source image geometry");
+  await page.mouse.move(firstBox.x + firstBox.width / 2, firstBox.y + firstBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(secondBox.x + secondBox.width - 3, secondBox.y + secondBox.height / 2, {
+    steps: 8,
+  });
+  await page.mouse.up();
+  await expect.poll(() => frameIds(sourceGroup)).toEqual([
+    initialSourceIds[1],
+    initialSourceIds[0],
+    ...initialSourceIds.slice(2),
+  ]);
+
+  const movedFrame = sourceGroup.locator(`[data-image-id="${draggedId}"]`);
+  const movedBox = await movedFrame.boundingBox();
+  const targetGridBox = await targetGroup.locator(".preshot-document-image-group-grid").boundingBox();
+  if (!movedBox || !targetGridBox) throw new Error("Expected cross-group drag geometry");
+  await page.mouse.move(movedBox.x + movedBox.width / 2, movedBox.y + movedBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(targetGridBox.x + targetGridBox.width - 24, targetGridBox.y + 60, {
+    steps: 10,
+  });
+  await page.mouse.up();
+  await expect(targetGroup.locator(`[data-image-id="${draggedId}"]`)).toHaveCount(1);
+  await expect(sourceGroup.locator(".preshot-document-image-frame"))
+    .toHaveCount(initialSourceCount - 1);
+  await expect(targetGroup.locator(`[data-image-id="${draggedId}"] .preshot-document-image-button`))
+    .toHaveAttribute("data-drag-identity", "stable");
+
+  const initialGroupOrder = await page.locator("[data-image-group-id]").evaluateAll((groups) =>
+    groups.map((group) => (group as HTMLElement).dataset.imageGroupId ?? ""));
+  const sourceBox = await sourceGroup.boundingBox();
+  const targetBox = await targetGroup.boundingBox();
+  if (!sourceBox || !targetBox) throw new Error("Expected image-group geometry");
+  const grayX = sourceBox.x + sourceBox.width - 40;
+  const grayY = sourceBox.y + sourceBox.height - 32;
+  await page.mouse.move(grayX, grayY);
+  await page.mouse.down();
+  await page.mouse.move(grayX, targetBox.y + targetBox.height + 18, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(async () =>
+    page.locator("[data-image-group-id]").evaluateAll((groups) =>
+      groups.map((group) => (group as HTMLElement).dataset.imageGroupId ?? "")),
+  ).toEqual([
+    ...initialGroupOrder.filter((id) => id !== "ref-1"),
+    "ref-1",
+  ]);
+  await expect(page.locator(".preshot-document-group-drop-indicator")).toHaveCount(0);
 });
 
 test("resizes image and group corners, persists the image view, and dismisses the toolbar on wheel", async ({ page }) => {
@@ -552,6 +755,9 @@ test("resizes image and group corners, persists the image view, and dismisses th
     };
   });
   await image.dispatchEvent("click");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("button", { name: /恢复/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "关闭图片" }).click();
   const imageFrame = image.locator("..");
   const selectionStyle = await group.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -586,7 +792,8 @@ test("resizes image and group corners, persists the image view, and dismisses th
   await expect(group.locator('[data-group-resize-handle="edge"]')).toHaveCount(4);
   await expect(group.locator('[data-group-resize-handle="corner"]')).toHaveCount(4);
   await expect(imageFrame.getByRole("button", { name: "恢复参考图 1" })).toHaveCount(0);
-  await expect(imageFrame.getByRole("button", { name: /删除参考图/ })).toHaveCount(0);
+  await imageFrame.hover();
+  await expect(imageFrame.getByRole("button", { name: /删除参考图/ })).toBeVisible();
   await expect(page.getByRole("toolbar", { name: "图片属性" })).toBeVisible();
   await expect(page.getByRole("button", { name: "删除图片" })).toBeVisible();
   const invisibleResizeChrome = await page.evaluate(() => {
@@ -646,11 +853,11 @@ test("resizes image and group corners, persists the image view, and dismisses th
   expect(reloadedImageBox?.width).toBeCloseTo(resizedImage?.width ?? 0, 0);
   expect(reloadedImageBox?.height).toBeCloseTo(resizedImage?.height ?? 0, 0);
 
-  await reloadedImage.dispatchEvent("dblclick");
-  await expect(page.getByRole("button", { name: "恢复尺寸" })).toBeVisible();
-  await page.getByRole("button", { name: "恢复尺寸" }).click();
+  await reloadedImage.dispatchEvent("click");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("button", { name: /恢复/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "关闭图片" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect.poll(async () => (await reloadedImage.boundingBox())?.width ?? 0).toBeCloseTo(imageBefore.width, 0);
 
   for (const [edge, delta, pointerId] of [
     ["left", -8, 73],
@@ -688,9 +895,6 @@ test("resizes image and group corners, persists the image view, and dismisses th
       .toBeGreaterThan(beforeEdgeResize.width);
     await expect.poll(async () => (await reloadedImage.boundingBox())?.height ?? 0)
       .toBeCloseTo(beforeEdgeResize.height, 1);
-    await reloadedImage.dispatchEvent("dblclick");
-    await page.getByRole("button", { name: "恢复尺寸" }).click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
   }
 
   const groupBefore = await reloadedGroup.boundingBox();

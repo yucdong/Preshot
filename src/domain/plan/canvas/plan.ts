@@ -177,6 +177,7 @@ export function resizeComponent(
     y?: number;
     width?: number;
     height?: number;
+    frameOffsetY?: number;
   },
 ): ProjectPlan {
   const canvasWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
@@ -198,7 +199,12 @@ export function resizeComponent(
     if (
       resized.x === component.x &&
       resized.width === component.width &&
-      resized.height === component.height
+      resized.height === component.height &&
+      (
+        component.type !== "reference" ||
+        (component.frameOffsetY ?? 0) ===
+          (params.frameOffsetY ?? component.frameOffsetY ?? 0)
+      )
     ) {
       return component;
     }
@@ -207,6 +213,9 @@ export function resizeComponent(
       x: resized.x,
       width: resized.width,
       height: resized.height,
+      ...(component.type === "reference"
+        ? { frameOffsetY: params.frameOffsetY ?? component.frameOffsetY ?? 0 }
+        : {}),
     };
   });
 }
@@ -475,6 +484,8 @@ export function setImageFrame(
     imageId: string;
     frameWidth: number;
     frameHeight: number;
+    frameOffsetX?: number;
+    frameOffsetY?: number;
   },
 ): ProjectPlan {
   return mapReference(plan, params.componentId, (component) => {
@@ -486,13 +497,17 @@ export function setImageFrame(
       !Number.isFinite(params.frameWidth) ||
       params.frameWidth <= 0 ||
       !Number.isFinite(params.frameHeight) ||
-      params.frameHeight <= 0
+      params.frameHeight <= 0 ||
+      (params.frameOffsetX !== undefined && !Number.isFinite(params.frameOffsetX)) ||
+      (params.frameOffsetY !== undefined && !Number.isFinite(params.frameOffsetY))
     ) {
       return component;
     }
     if (
       target.frameWidth === params.frameWidth &&
-      target.frameHeight === params.frameHeight
+      target.frameHeight === params.frameHeight &&
+      (target.frameOffsetX ?? 0) === (params.frameOffsetX ?? target.frameOffsetX ?? 0) &&
+      (target.frameOffsetY ?? 0) === (params.frameOffsetY ?? target.frameOffsetY ?? 0)
     ) {
       return component;
     }
@@ -504,6 +519,8 @@ export function setImageFrame(
               ...image,
               frameWidth: params.frameWidth,
               frameHeight: params.frameHeight,
+              frameOffsetX: params.frameOffsetX ?? image.frameOffsetX ?? 0,
+              frameOffsetY: params.frameOffsetY ?? image.frameOffsetY ?? 0,
               crop: cropForResizedFrame(image, params),
             }
           : image,
@@ -560,28 +577,5 @@ export function scaleReferenceImages(
         frameHeight: Math.round(image.frameHeight * params.scale * 1000) / 1000,
       })),
     };
-  });
-}
-
-export function resetImageFrame(
-  plan: ProjectPlan,
-  params: { componentId: string; imageId: string },
-): ProjectPlan {
-  const component = plan.components.find(
-    (entry): entry is ReferenceComponent =>
-      entry.type === "reference" && entry.id === params.componentId,
-  );
-  const image = component?.images.find((entry) => entry.id === params.imageId);
-  if (!image) {
-    return plan;
-  }
-
-  const frameReset = setImageFrame(plan, {
-    ...params,
-    ...defaultImageFrame(image.aspectRatio),
-  });
-  return setImageCrop(frameReset, {
-    ...params,
-    crop: { x: 0, y: 0, width: 1, height: 1 },
   });
 }

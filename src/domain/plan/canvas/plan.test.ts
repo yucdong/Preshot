@@ -3,12 +3,10 @@ import { contentSize, DEFAULT_PAGE_GEOMETRY } from "./geometry";
 import {
   addComponent,
   addReferenceImage,
-  defaultImageFrame,
   moveComponent,
   moveImage,
   moveImages,
   reorderComponent,
-  resetImageFrame,
   removeComponent,
   resizeComponent,
   scaleReferenceImages,
@@ -239,34 +237,6 @@ describe("v7 canvas reducers", () => {
     });
   });
 
-  it("resets an arbitrarily resized image frame to its aspect-based default", () => {
-    const plan = withComponents([reference("r1", ["i1"])]);
-    const resized = setImageFrame(plan, {
-      componentId: "r1",
-      imageId: "i1",
-      frameWidth: 73,
-      frameHeight: 241,
-    });
-
-    const withRatio = setImageAspectRatio(resized, {
-      componentId: "r1",
-      imageId: "i1",
-      aspectRatio: 2,
-    });
-    const reset = resetImageFrame(withRatio, {
-      componentId: "r1",
-      imageId: "i1",
-    });
-
-    expect(defaultImageFrame(2)).toEqual({ frameWidth: 270, frameHeight: 135 });
-    expect((reset.components[0] as ReferenceComponent).images[0]).toMatchObject({
-      frameWidth: 270,
-      frameHeight: 135,
-      aspectRatio: 2,
-      crop: { x: 0, y: 0, width: 1, height: 1 },
-    });
-  });
-
   it("scales every image frame in a reference group by the same factor", () => {
     const original = withComponents([{
       ...reference("r1", ["i1", "i2"]),
@@ -298,6 +268,25 @@ describe("v7 canvas reducers", () => {
     expect(images.map((image) => image.frameWidth / image.frameHeight)).toEqual([2, 0.5]);
     expect(scaleReferenceImages(scaled, { componentId: "r1", scale: 1 })).toBe(scaled);
     expect(scaleReferenceImages(scaled, { componentId: "r1", scale: 0 })).toBe(scaled);
+  });
+
+  it("persists anchored image frame offsets with a resize", () => {
+    const plan = withComponents([reference("r1", ["i1"])]);
+    const resized = setImageFrame(plan, {
+      componentId: "r1",
+      imageId: "i1",
+      frameWidth: 80,
+      frameHeight: 70,
+      frameOffsetX: 20,
+      frameOffsetY: 30,
+    });
+
+    expect((resized.components[0] as ReferenceComponent).images[0]).toMatchObject({
+      frameWidth: 80,
+      frameHeight: 70,
+      frameOffsetX: 20,
+      frameOffsetY: 30,
+    });
   });
 
   it("updates an untouched default frame when an imported image's ratio is measured", () => {

@@ -980,9 +980,11 @@
       "feature_descriptions": [
         "All prose before, between, and after image groups belongs to one continuous TipTap editor and can extend to the end of the document",
         "Image groups default to full width and remain atomic document nodes; group frame, image frame, crop, source, caption, and ordering metadata remain project-managed",
-        "Images expose four edge and four corner resize handles; image groups expose a bottom edge and four corner handles constrained to the printable text boundary",
-        "The contextual image-group toolbar provides minus, direct pixel input, and plus scaling, and dismisses on mouse-wheel scrolling",
-        "Text and image-group property bars appear contextually, stay 40px high in screen space, and align to the selected block's left edge",
+        "Images and image groups expose four edge and four corner resize handles constrained to the printable text boundary",
+        "The contextual image-group toolbar is a compact 30px surface aligned to the selected group's upper-right corner and contains no size controls",
+        "Images reorder within and across image groups with a stable DOM and live insertion placeholder",
+        "Clicking an image opens the full-size viewer; hover deletion requires confirmation and no reset-size action exists",
+        "Dragging a selected image group's gray background reorders the whole atomic node among text blocks and other image groups",
         "The top Insert control plus blank-line and page-end plus controls expose only Image Group insertion",
         "Schema v1-v11 projects migrate to strict v12 while preserving visual text order and reference-image metadata",
         "Canvas and PDF consume the same document marker order, including crop-aware image rendering"
@@ -995,7 +997,12 @@
         "Derive the temporary PDF layout from canonical v12 documentHtml rather than reintroducing editable text components",
         "Migrate manifests through timestamped backups, temporary-file atomic replacement, and strict schema-v12 post-write verification",
         "Render Word-style page corner marks outside the printable text rectangle, with inward-pointing vertices exactly defining its four corners",
-        "Persist group resize through existing x/width/height fields and image resize through frameWidth/frameHeight plus the single normalized crop; use a transient shared fit scale only when the resized group cannot contain its images"
+        "Persist group resize through existing x/width/height fields and image resize through frameWidth/frameHeight plus the single normalized crop; use a transient shared fit scale only when the resized group cannot contain its images",
+        "Use pointer activation thresholds, same-node drag previews, and explicit placeholders for image and image-group movement so click, resize, and drag gestures remain distinct",
+        "Remove whole-group image scaling controls and image reset commands from the document-mode UI; manual frame handles are the only size-changing interaction",
+        "Expose image resize directly on hover with balanced 20px edge and 24px corner zones fully inside the image frame, while keeping image controls above group resize chrome",
+        "Persist signed image frame offsets and a signed group vertical offset so top/left resizing preserves the opposite edge across reload and PDF export",
+        "Use a body-level group resize preview and commit geometry only on pointerup to avoid ResizeObserver, image reflow, and pagination flicker"
       ],
       "progress": {
         "designedAt": "2026-08-12",
@@ -1004,19 +1011,23 @@
         "interactivePoc": "docs/design_refs/preshot-canvas-document-flow-demo.html",
         "pageCornerReview": "docs/design_refs/preshot-inward-page-corners-review.html",
         "pictureCardReview": "docs/design_refs/preshot-picture-card-review.html",
-        "pictureCardPrototypeComparison": "Production matched the approved HTML on interaction and selection styling: four image edges/corners, four group edges/corners, invisible resize chrome, no on-card delete, image-toolbar-only deletion, no inline reset, lightbox-only reset with immediate close/focus return, darker selected-group background, unchanged group/image borders/shadows/geometry, no group pseudo-frame, and a selected-image number badge.",
-        "implementation": "Implemented strict v12 domain migration and marker integrity, one production document-mode TipTap editor, unframed continuous text with framed atomic image-group NodeViews, invisible image/group edge and corner resize zones with persisted frame/crop metadata and shared canvas/PDF fit-to-group layout, stable in-place image DOM updates that prevent resize flashing, no-extra-frame selection styling with darker group background and selected-image number control, image-toolbar-only deletion backed by transient NodeView selection state, source-lightbox-only reset that closes and restores focus, wheel-dismissed contextual group controls with minus/direct-pixel/plus scaling, ProseMirror decoration pagination that keeps every top-level text/component block within one A4 page and view-fits oversized blocks without mutating canonical HTML, atomic pagination-decoration replacement with cached natural block geometry to prevent typing-time layout flashes, click-driven blank-line image-group insertion through a body-level overlay, double-click whole-block selection with explicit any-click clearing, compact two-row selection toolbar, all enabled TipTap block styles, alignment and indentation, minimum-plus mixed font sizing, independent Standard Colors and full RGB More Colors, canonical browser seed, marker-native PDF parsing/layout/export, and safe manifest migration tooling.",
+        "approvedPictureCardRevision": "docs/design_refs/preshot-picture-card-resize-v2.html",
+        "approvedAt": "2026-08-13",
+        "interactionRevisionCompletedAt": "2026-08-13",
+        "resizeRefinementCompletedAt": "2026-08-14",
+        "pictureCardPrototypeComparison": "Production now matches the approved resize-v2 HTML: image and group four-edge/four-corner transparent resize zones, non-text grab/default cursors, 30px upper-right toolbars without size controls, no reset action, single-click full-size viewing, hover delete with confirmation, stable same-node image resize/drag, within-group and cross-group image movement, and gray-surface whole-group document reordering among prose and other groups.",
+        "implementation": "Kept the strict v12 TipTap document architecture and upgraded its image-group NodeView interactions. Image and group resize continue to persist frame/crop and x/width/height metadata while reusing existing frame/button/img nodes. The contextual image and group toolbars are compact 30px upper-right portals; the group bar contains only type, add, and delete actions. Removed image reset UI and its domain command. Single-click image activation opens the full-size viewer while retaining NodeSelection; drag activation uses a movement threshold so image clicks do not become drags. Images move within and across groups through the existing moveImage reducer, with the original frame DOM temporarily lifted to a body-level drag preview and explicit target placeholders so source decoding and identity remain stable. Hover delete and toolbar delete share a globally portaled confirmation dialog. Pressing and dragging a group's gray background applies a non-layout-shifting preview plus a document drop indicator, then commits one ProseMirror transaction that moves the atomic marker among text blocks and other groups. Existing pagination, PDF marker order, autosave, undo/redo, migration, and crop-aware rendering remain unchanged.",
         "projectMigrationValidation": "Wrote and strictly verified schema v12 for 小清新人像拍摄 (v11 to v12, 5 image groups, 106 images) and Sunset Shanghai (v8 to v12, 3 image groups, 17 images). Both writes created timestamped pre-schema-v12 backups.",
         "lastVerified": {
-          "date": "2026-08-12",
+          "date": "2026-08-13",
           "typecheck": "clean",
           "lint": "0 errors; existing ThemeProvider Fast Refresh warning remains",
-          "unitTests": "88 files, 495 tests passed",
-          "e2eTests": "25 Playwright journeys passed, including all 17 v12 document-canvas journeys for image/group corner resize, image-view reload persistence, full-source reset, wheel-dismissed controls, pagination stability, and PDF export",
+          "unitTests": "88 files, 496 tests passed",
+          "e2eTests": "28 Playwright journeys passed. Canvas coverage includes 20 journeys for pointer cursors on image/button/img, hover-active balanced resize zones, anchored image top-edge resize, stable body-level group resize preview, upward group-top resize with fixed lower edge, eight-way resize, compact toolbar placement, click-to-view, confirmed hover deletion, stable within/cross-group image drag, gray-surface group/document reordering, persistence, pagination, and PDF export",
           "rustTests": "48 passed",
           "build": "passed with the existing Vite large-chunk warning"
         },
-        "visualVerification": "The running production browser shell was inspected and captured after implementation. A selected image displayed four edge and four corner handles plus reset; pointer events changed both image dimensions and restored them, changed both group dimensions and restored them, and hid the contextual toolbar on wheel. Autosave returned to the saved state. Visual acceptance of the two separately migrated projects remains manual.",
+        "visualVerification": "Playwright exercised the running browser shell with real pointer input: unselected images exposed large inner resize zones on hover with a pointer cursor; top-edge image shrinking moved the top down while preserving the bottom and DOM identity; group top-edge dragging left the live group and images unchanged while a body-level preview moved upward, then committed once with the lower edge fixed. Existing image drag, group drag, deletion confirmation, lightbox, persistence, pagination, and PDF flows also passed.",
         "remaining": [
           "Open both migrated projects in an interactive Windows desktop session and visually confirm image-group counts, crop/frame rendering, contextual controls, and PDF export"
         ]

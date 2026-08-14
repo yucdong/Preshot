@@ -47,4 +47,19 @@ describe("layoutDocumentImageGroup", () => {
     expect(layout.slots.every((slot) => slot.x + slot.width <= availableWidth + 0.001)).toBe(true);
     expect(layout.slots.every((slot) => slot.y + slot.height <= availableHeight + 0.001)).toBe(true);
   });
+
+  it("keeps the opposite edges anchored through persisted image frame offsets", () => {
+    const anchored = {
+      ...image("a", 100, 70),
+      frameOffsetX: 20,
+      frameOffsetY: 30,
+    };
+    const layout = layoutDocumentImageGroup([anchored, image("b", 80, 80)], 260, 180);
+
+    expect(layout.scale).toBe(1);
+    expect(layout.slots).toMatchObject([
+      { id: "a", x: 20, y: 30, width: 100, height: 70 },
+      { id: "b", x: 127, y: 0, width: 80, height: 80 },
+    ]);
+  });
 });

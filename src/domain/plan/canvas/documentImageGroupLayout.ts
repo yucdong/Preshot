@@ -28,15 +28,30 @@ function slotsAtScale(
   for (const image of images) {
     const width = Math.max(1, image.frameWidth * scale);
     const height = Math.max(1, image.frameHeight * scale);
-    if (x > 0 && x + DOCUMENT_IMAGE_GROUP_GAP + width > availableWidth) {
+    const offsetX = (image.frameOffsetX ?? 0) * scale;
+    const offsetY = (image.frameOffsetY ?? 0) * scale;
+    const minimumX = Math.min(0, offsetX);
+    const minimumY = Math.min(0, offsetY);
+    const footprintWidth = Math.max(0, offsetX + width) - minimumX;
+    const footprintHeight = Math.max(0, offsetY + height) - minimumY;
+    if (
+      x > 0 &&
+      x + DOCUMENT_IMAGE_GROUP_GAP + footprintWidth > availableWidth
+    ) {
       x = 0;
       y += rowHeight + DOCUMENT_IMAGE_GROUP_GAP;
       rowHeight = 0;
     }
     if (x > 0) x += DOCUMENT_IMAGE_GROUP_GAP;
-    slots.push({ id: image.id, x, y, width, height });
-    x += width;
-    rowHeight = Math.max(rowHeight, height);
+    slots.push({
+      id: image.id,
+      x: x + offsetX - minimumX,
+      y: y + offsetY - minimumY,
+      width,
+      height,
+    });
+    x += footprintWidth;
+    rowHeight = Math.max(rowHeight, footprintHeight);
   }
   return slots;
 }

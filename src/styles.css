@@ -466,8 +466,11 @@ button:disabled {
   border-radius: 4px;
   background: var(--app-panel);
   outline: none;
+  cursor: grab;
+  user-select: none;
 }
 
+.preshot-document-image-group.is-dragging { cursor: grabbing; }
 .preshot-document-image-group.is-selected {
   background: color-mix(in srgb, var(--app-panel) 88%, var(--app-ink) 12%);
 }
@@ -480,6 +483,13 @@ button:disabled {
   flex-wrap: wrap;
   gap: 7px;
   overflow: hidden;
+  cursor: inherit;
+}
+
+.preshot-document-image-group.is-image-drop-target {
+  border-color: var(--app-functional);
+  background: var(--app-functional-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-functional) 24%, transparent);
 }
 
 .preshot-document-image-frame {
@@ -489,6 +499,12 @@ button:disabled {
   border-radius: 3px;
   background: #e7e8ea;
   padding: 0;
+}
+
+.preshot-document-image-frame:hover,
+.preshot-document-image-frame:focus-within,
+.preshot-document-image-frame.is-selected {
+  z-index: 20;
 }
 
 .preshot-document-image-button {
@@ -501,12 +517,39 @@ button:disabled {
   border: 1px solid var(--app-border);
   border-radius: 3px;
   background: #e7e8ea;
+  cursor: pointer;
+  user-select: none;
 }
+
+.preshot-document-image-button:active { cursor: grabbing; }
 
 .preshot-document-image-frame img {
   position: absolute;
   max-width: none;
   margin: 0;
+  cursor: pointer;
+  pointer-events: none;
+}
+
+.preshot-document-editor .tiptap-editor .preshot-document-image-frame,
+.preshot-document-editor .tiptap-editor .preshot-document-image-button,
+.preshot-document-editor .tiptap-editor .preshot-document-image-frame img {
+  cursor: pointer;
+}
+
+.preshot-document-image-frame.is-dragging {
+  z-index: 1000;
+  margin: 0;
+  opacity: 0.94;
+  pointer-events: none;
+  box-shadow: 0 16px 34px rgb(18 21 26 / 28%);
+}
+
+.preshot-document-image-drop-placeholder {
+  flex: none;
+  border: 1px dashed var(--app-functional);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--app-functional-soft) 82%, white 18%);
 }
 
 .preshot-document-image-index {
@@ -530,13 +573,60 @@ button:disabled {
   display: grid;
 }
 
+.preshot-document-image-delete {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 60;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 26%);
+  border-radius: 4px;
+  background: rgb(32 35 41 / 82%);
+  color: white;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: background-color 150ms ease;
+}
+
+.preshot-document-image-delete svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
+}
+
+.preshot-document-image-frame:hover .preshot-document-image-delete,
+.preshot-document-image-frame:focus-within .preshot-document-image-delete {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.preshot-document-image-delete:hover {
+  background: var(--app-danger);
+}
+
 .preshot-document-image-resize-edge,
 .preshot-document-image-resize-corner {
   position: absolute;
-  z-index: 10;
+  z-index: 50;
   display: none;
 }
 
+.preshot-document-image-group
+  .preshot-document-image-frame:hover
+  :is(.preshot-document-image-resize-edge, .preshot-document-image-resize-corner),
+.preshot-document-image-group
+  .preshot-document-image-frame:focus-within
+  :is(.preshot-document-image-resize-edge, .preshot-document-image-resize-corner),
 .preshot-document-image-group.is-selected
   .preshot-document-image-frame.is-selected
   :is(.preshot-document-image-resize-edge, .preshot-document-image-resize-corner) {
@@ -545,9 +635,9 @@ button:disabled {
 
 .preshot-document-image-resize-edge.is-left,
 .preshot-document-image-resize-edge.is-right {
-  top: 12px;
-  bottom: 12px;
-  width: 24px;
+  top: 24px;
+  bottom: 24px;
+  width: 20px;
   cursor: ew-resize;
   touch-action: none;
 }
@@ -557,9 +647,9 @@ button:disabled {
 
 .preshot-document-image-resize-edge.is-top,
 .preshot-document-image-resize-edge.is-bottom {
-  right: 14px;
-  left: 14px;
-  height: 18px;
+  right: 24px;
+  left: 24px;
+  height: 20px;
   cursor: ns-resize;
   touch-action: none;
 }
@@ -569,9 +659,17 @@ button:disabled {
 
 .preshot-document-image-resize-corner,
 .preshot-document-image-group-corner {
+  touch-action: none;
+}
+
+.preshot-document-image-resize-corner {
+  width: 24px;
+  height: 24px;
+}
+
+.preshot-document-image-group-corner {
   width: 22px;
   height: 22px;
-  touch-action: none;
 }
 
 :is(.preshot-document-image-resize-corner, .preshot-document-image-group-corner).is-top-left {
@@ -611,30 +709,6 @@ button:disabled {
 .preshot-document-image-guide.is-vertical { top: 4px; bottom: 4px; width: 1px; }
 .preshot-document-image-guide.is-horizontal { right: 4px; left: 4px; height: 1px; }
 
-.preshot-document-image-group-drag {
-  position: absolute;
-  top: 50%;
-  left: -31px;
-  z-index: 5;
-  display: grid;
-  width: 24px;
-  height: 36px;
-  transform: translateY(-50%);
-  place-items: center;
-  border: 1px solid var(--app-border);
-  border-radius: 5px;
-  background: white;
-  color: var(--app-muted);
-  opacity: 0;
-  cursor: grab;
-  box-shadow: 0 3px 10px rgb(25 27 31 / 12%);
-}
-
-.preshot-document-image-group:hover .preshot-document-image-group-drag,
-.preshot-document-image-group.is-selected .preshot-document-image-group-drag {
-  opacity: 1;
-}
-
 .preshot-document-image-group-empty {
   display: grid;
   width: 100%;
@@ -672,6 +746,42 @@ button:disabled {
 
 .preshot-document-image-group.is-selected .preshot-document-image-group-corner {
   display: block;
+}
+
+.preshot-document-image-group-resize-preview {
+  position: fixed;
+  z-index: 1000;
+  border: 2px solid var(--app-functional);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--app-functional) 7%, transparent);
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 85%),
+    0 8px 24px color-mix(in srgb, var(--app-functional) 14%, transparent);
+  pointer-events: none;
+  will-change: left, top, width, height;
+}
+
+.preshot-document-image-group-resize-preview::after {
+  position: absolute;
+  right: 6px;
+  bottom: 5px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--app-functional) 86%, black 14%);
+  color: white;
+  content: attr(data-size);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.preshot-document-group-drop-indicator {
+  position: fixed;
+  z-index: 1000;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--app-functional);
+  box-shadow: 0 0 0 1px white;
+  pointer-events: none;
 }
 
 .preshot-document-blank-insert-control {
@@ -720,16 +830,6 @@ button:disabled {
 .preshot-document-blank-insert-menu button:hover,
 .preshot-document-blank-insert-menu button:focus-visible {
   background: rgb(255 255 255 / 10%);
-}
-
-@media (hover: none) {
-  .preshot-document-image-group-drag {
-    top: 4px;
-    left: 4px;
-    height: 28px;
-    transform: none;
-    opacity: 1;
-  }
 }
 
 @media (hover: none) {
@@ -864,4 +964,3 @@ html.dark .tiptap-editor {
   color: #23302d;
   border-color: #c4d2ce;
 }
-

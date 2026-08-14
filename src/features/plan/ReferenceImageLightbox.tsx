@@ -1,15 +1,14 @@
 import { useEffect, useRef } from "react";
-import { RotateCcw, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 interface ReferenceImageLightboxProps {
   src: string;
   alt: string;
   onClose(): void;
-  onReset?(): void;
 }
 
-export function ReferenceImageLightbox({ src, alt, onClose, onReset }: ReferenceImageLightboxProps) {
+export function ReferenceImageLightbox({ src, alt, onClose }: ReferenceImageLightboxProps) {
   const { t } = useTranslation();
   const closeRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -35,6 +34,7 @@ export function ReferenceImageLightbox({ src, alt, onClose, onReset }: Reference
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      data-preshot-surface="true"
       onClick={onClose}
     >
       <div
@@ -54,20 +54,6 @@ export function ReferenceImageLightbox({ src, alt, onClose, onReset }: Reference
         >
           <X aria-hidden="true" className="h-4 w-4" data-icon="close" />
         </button>
-        {onReset ? (
-          <button
-            aria-label="恢复尺寸"
-            className="mt-2 inline-flex h-9 items-center gap-2 self-end rounded border border-white/25 bg-white/10 px-3 text-xs text-white transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            onClick={() => {
-              onReset();
-              onClose();
-            }}
-            type="button"
-          >
-            <RotateCcw aria-hidden="true" className="h-4 w-4" />
-            恢复尺寸
-          </button>
-        ) : null}
       </div>
     </div>
   );

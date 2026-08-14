@@ -29,7 +29,6 @@ import {
   reorderComponent,
   removeComponent as removePlanComponent,
   removeReferenceImage,
-  resetImageFrame,
   resizeComponent,
   scaleReferenceImages,
   setReferenceDescription,
@@ -1163,7 +1162,16 @@ export function ProjectCanvasProvider({
   );
 
   const handleResize = useCallback(
-    (id: string, params: { x?: number; y?: number; width?: number; height?: number }) => {
+    (
+      id: string,
+      params: {
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+        frameOffsetY?: number;
+      },
+    ) => {
       if (!readyTokenFor(projectPath)) return;
       const next = resizeComponent(planRef.current, { id, ...params });
       mutate(next, `resize:${id}`);
@@ -1264,7 +1272,12 @@ export function ProjectCanvasProvider({
     (
       componentId: string,
       imageId: string,
-      frame: { frameWidth: number; frameHeight: number },
+      frame: {
+        frameWidth: number;
+        frameHeight: number;
+        frameOffsetX?: number;
+        frameOffsetY?: number;
+      },
     ) => {
       if (!readyTokenFor(projectPath)) return;
       const next = setImageFrame(planRef.current, {
@@ -1286,15 +1299,6 @@ export function ProjectCanvasProvider({
       if (!readyTokenFor(projectPath)) return;
       const next = setImageCrop(planRef.current, { componentId, imageId, crop });
       mutate(next, `image-crop:${componentId}:${imageId}`);
-    },
-    [mutate, projectPath, readyTokenFor],
-  );
-
-  const handleResetImage = useCallback(
-    (componentId: string, imageId: string) => {
-      if (!readyTokenFor(projectPath)) return;
-      const next = resetImageFrame(planRef.current, { componentId, imageId });
-      mutate(next, `image-reset:${componentId}:${imageId}`);
     },
     [mutate, projectPath, readyTokenFor],
   );
@@ -1913,11 +1917,6 @@ export function ProjectCanvasProvider({
         <ReferenceImageLightbox
           alt={t("reference.imageAlt")}
           onClose={() => setLightbox(null)}
-          onReset={
-            lightbox.componentId && lightbox.imageId
-              ? () => handleResetImage(lightbox.componentId!, lightbox.imageId!)
-              : undefined
-          }
           src={imageSrc[lightbox.file]}
         />
       ) : null}
