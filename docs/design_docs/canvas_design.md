@@ -80,6 +80,10 @@
 - 单图左边/上边 resize 保存有符号 frame offset，使对边固定；offset 参与画布、自动换行、持久化和 PDF 的统一布局。
 - 图片组上边 resize 保存有符号组 offset，并只允许使用前一文档块留下的可用空间；上边移动时下边保持固定。
 - 图片组 resize 的 pointermove 只更新 body-level 预览框，松手后才提交元数据并触发一次 NodeView/layout/pagination 更新。
+- 单图 resize Smart Guides 遵循“尺寸与位置分层”：洋红虚线及端点表示边缘/中心位置，尺寸括号与 `同宽/同高` 标签表示尺寸匹配。
+- 横向和纵向各最多选择一个最近且优先级最高的位置候选；尺寸匹配可与位置引导共存，但不得用位置标签解释单纯的尺寸一致。
+- Smart Guides 使用 6px 进入、10px 释放的屏幕像素阈值；候选几何在 resize 开始时冻结，预览写入通过 requestAnimationFrame 批处理。
+- 尺寸标签根据自身尺寸定位：同宽标签以括号中点 `translateX(-50%)` 居中并放在括号下方，同高标签在括号右侧 `translateY(-50%)` 垂直居中。
 - 空图片组显示一个添加图片入口；删除空图片组移除该原子节点。
 
 ## Schema v12

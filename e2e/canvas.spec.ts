@@ -599,6 +599,109 @@ test("uses pointer image cursors and balanced hover resize zones while anchoring
     .toHaveAttribute("data-anchor-identity", "stable");
 });
 
+test("shows dashed Smart Guides for true edge alignment and equal dimensions", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1200 });
+  await openCanvas(page);
+  const group = page.locator('[data-image-group-id="ref-1"]');
+  const first = group.locator(".preshot-document-image-frame").nth(0);
+  const second = group.locator(".preshot-document-image-frame").nth(1);
+  const firstBox = await first.boundingBox();
+  const secondBox = await second.boundingBox();
+  if (!firstBox || !secondBox) throw new Error("Expected image guide geometry");
+
+  await first.hover();
+  await first.locator('[data-image-resize-edge="right"]').evaluate(
+    (handle, input) => {
+      const rect = handle.getBoundingClientRect();
+      const clientX = rect.left + rect.width / 2;
+      const clientY = rect.top + rect.height / 2;
+      handle.dispatchEvent(new PointerEvent("pointerdown", {
+        bubbles: true,
+        clientX,
+        clientY,
+        pointerId: 91,
+      }));
+      document.dispatchEvent(new PointerEvent("pointermove", {
+        bubbles: true,
+        clientX: clientX + input.delta,
+        clientY,
+        pointerId: 91,
+      }));
+    },
+    { delta: secondBox.width - firstBox.width },
+  );
+  const widthBracket = group.locator(
+    ".preshot-document-image-dimension-bracket.is-width",
+  );
+  await expect(widthBracket).toHaveAttribute("data-visible", "true");
+  await expect(group.locator(".preshot-document-image-dimension-label"))
+    .toContainText("同宽");
+  await expect(widthBracket).toHaveCSS("border-top-style", "dashed");
+  const widthBracketBox = await widthBracket.boundingBox();
+  const widthLabelBox = await group.locator(
+    ".preshot-document-image-dimension-label",
+  ).boundingBox();
+  if (!widthBracketBox || !widthLabelBox) {
+    throw new Error("Expected equal-width guide placement");
+  }
+  expect(
+    widthLabelBox.x + widthLabelBox.width / 2,
+  ).toBeCloseTo(
+    widthBracketBox.x + widthBracketBox.width / 2,
+    0,
+  );
+  expect(widthLabelBox.y).toBeGreaterThanOrEqual(
+    widthBracketBox.y + widthBracketBox.height,
+  );
+  await expect(group.locator(".preshot-document-image-guide.is-vertical"))
+    .not.toHaveAttribute("data-visible");
+  await page.evaluate(() => {
+    document.dispatchEvent(new PointerEvent("pointercancel", {
+      bubbles: true,
+      pointerId: 91,
+    }));
+  });
+
+  await second.hover();
+  await second.locator('[data-image-resize-edge="left"]').evaluate(
+    (handle, input) => {
+      const rect = handle.getBoundingClientRect();
+      const clientX = rect.left + rect.width / 2;
+      const clientY = rect.top + rect.height / 2;
+      handle.dispatchEvent(new PointerEvent("pointerdown", {
+        bubbles: true,
+        clientX,
+        clientY,
+        pointerId: 92,
+      }));
+      document.dispatchEvent(new PointerEvent("pointermove", {
+        bubbles: true,
+        clientX: clientX + input.delta,
+        clientY,
+        pointerId: 92,
+      }));
+    },
+    { delta: firstBox.x + firstBox.width - secondBox.x },
+  );
+  const verticalGuide = group.locator(".preshot-document-image-guide.is-vertical");
+  await expect(verticalGuide).toHaveAttribute("data-visible", "true");
+  await expect(group.locator(".preshot-document-image-guide-label.is-vertical"))
+    .toHaveText("右边对齐");
+  await expect(verticalGuide).toHaveCSS("border-left-style", "dashed");
+  await page.evaluate(() => {
+    document.dispatchEvent(new PointerEvent("pointerup", {
+      bubbles: true,
+      pointerId: 92,
+    }));
+  });
+  await expect(group.locator(
+    '[data-visible="true"].preshot-document-image-guide, ' +
+    '[data-visible="true"].preshot-document-image-guide-label, ' +
+    '[data-visible="true"].preshot-document-image-dimension-bracket, ' +
+    '[data-visible="true"].preshot-document-image-dimension-label',
+  )).toHaveCount(0);
+});
+
 test("previews four-edge group resize without reflow and commits the top edge upward", async ({ page }) => {
   await openCanvas(page);
   const group = await selectGroup(page);

@@ -275,6 +275,90 @@ describe("PlanCanvas v8", () => {
     expect(screen.queryByRole("toolbar", { name: "图片组属性" })).not.toBeInTheDocument();
   });
 
+  it("shows semantic dashed Smart Guides for edge and dimension snaps", async () => {
+    const onSetImageFrame = vi.fn();
+    renderCanvas({
+      components: [{
+        ...reference,
+        images: [
+          reference.images[0],
+          {
+            id: "image2",
+            file: "references/image-2.png",
+            aspectRatio: 1,
+            frameWidth: 80,
+            frameHeight: 90,
+          },
+        ],
+      }],
+      documentHtml:
+        '<figure data-preshot-node="image-group" data-preshot-group-id="ref1"></figure><p></p>',
+      imageSrc: () => "data:image/png;base64,AA==",
+      onChangeDocumentHtml: vi.fn(),
+      onCreateImageGroup: vi.fn(),
+      onSetImageFrame,
+    });
+
+    const group = document.querySelector('[data-image-group-id="ref1"]') as HTMLElement;
+    const active = document.querySelector('[data-image-id="image1"]') as HTMLElement;
+    const candidate = document.querySelector('[data-image-id="image2"]') as HTMLElement;
+    group.getBoundingClientRect = () => ({
+      x: 0, y: 0, left: 0, top: 0, right: 240, bottom: 180,
+      width: 240, height: 180, toJSON: () => ({}),
+    });
+    active.getBoundingClientRect = () => ({
+      x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 100,
+      width: 100, height: 100, toJSON: () => ({}),
+    });
+    candidate.getBoundingClientRect = () => ({
+      x: 108, y: 0, left: 108, top: 0, right: 188, bottom: 90,
+      width: 80, height: 90, toJSON: () => ({}),
+    });
+
+    const right = active.querySelector(
+      '[data-image-resize-edge="right"]',
+    ) as HTMLElement;
+    fireEvent.pointerDown(right, { clientX: 100, clientY: 50, pointerId: 21 });
+    fireEvent.pointerMove(document, { clientX: 108, clientY: 50, pointerId: 21 });
+    await waitFor(() => {
+      expect(group.querySelector(".preshot-document-image-guide.is-vertical"))
+        .toHaveAttribute("data-visible", "true");
+    });
+    expect(group.querySelector(".preshot-document-image-guide-label.is-vertical"))
+      .toHaveTextContent("左边对齐");
+    fireEvent.pointerCancel(document, { pointerId: 21 });
+    await waitFor(() => {
+      expect(group.querySelector(".preshot-document-image-guide.is-vertical"))
+        .not.toHaveAttribute("data-visible");
+    });
+
+    fireEvent.pointerDown(right, { clientX: 100, clientY: 50, pointerId: 22 });
+    fireEvent.pointerMove(document, { clientX: 84, clientY: 50, pointerId: 22 });
+    await waitFor(() => {
+      expect(group.querySelector(".preshot-document-image-dimension-bracket.is-width"))
+        .toHaveAttribute("data-visible", "true");
+    });
+    expect(group.querySelector(".preshot-document-image-dimension-label"))
+      .toHaveTextContent("同宽 80");
+    expect(group.querySelector(".preshot-document-image-guide.is-vertical"))
+      .not.toHaveAttribute("data-visible");
+
+    fireEvent.pointerMove(document, { clientX: 89, clientY: 50, pointerId: 22 });
+    await waitFor(() => expect(active).toHaveStyle({ width: "80px" }));
+    fireEvent.pointerMove(document, { clientX: 91, clientY: 50, pointerId: 22 });
+    await waitFor(() => {
+      expect(group.querySelector(".preshot-document-image-dimension-bracket.is-width"))
+        .not.toHaveAttribute("data-visible");
+    });
+    fireEvent.pointerUp(document, { clientX: 91, clientY: 50, pointerId: 22 });
+    expect(onSetImageFrame).toHaveBeenLastCalledWith("ref1", "image1", {
+      frameWidth: 91,
+      frameHeight: 100,
+      frameOffsetX: 0,
+      frameOffsetY: 0,
+    });
+  });
+
   it("renders exact A4 page backgrounds instead of a continuous surface", () => {
     renderCanvas();
 

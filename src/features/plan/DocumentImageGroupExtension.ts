@@ -57,7 +57,8 @@ export interface BlankLineInsertAnchor {
 
 const blankLineInsertPluginKey = new PluginKey<BlankLineInsertState>("imageGroupInsertControls");
 const MIN_DOCUMENT_IMAGE_FRAME = 32;
-const IMAGE_SNAP_THRESHOLD = 6;
+const IMAGE_SNAP_ENTER_PX = 6;
+const IMAGE_SNAP_RELEASE_PX = 10;
 const DOCUMENT_CONTENT_WIDTH = contentSize(DEFAULT_PAGE_GEOMETRY).width;
 
 type ResizeDirection =
@@ -108,8 +109,34 @@ function directionAffects(direction: ResizeDirection, edge: "left" | "right" | "
   return direction === edge || direction.includes(edge);
 }
 
-function nearestDimension(value: number, candidates: readonly number[]): number | null {
-  return candidates.find((candidate) => Math.abs(candidate - value) <= IMAGE_SNAP_THRESHOLD) ?? null;
+interface SnapCandidate<T> {
+  key: string;
+  value: number;
+  priority: number;
+  data: T;
+}
+
+function nearestSnap<T>(
+  value: number,
+  candidates: readonly SnapCandidate<T>[],
+  activeKey: string | null,
+): (SnapCandidate<T> & { distance: number }) | null {
+  return candidates
+    .map((candidate) => ({
+      ...candidate,
+      distance: Math.abs(candidate.value - value),
+    }))
+    .filter((candidate) =>
+      candidate.distance <= (
+        candidate.key === activeKey
+          ? IMAGE_SNAP_RELEASE_PX
+          : IMAGE_SNAP_ENTER_PX
+      ),
+    )
+    .sort((left, right) =>
+      left.priority - right.priority ||
+      left.distance - right.distance,
+    )[0] ?? null;
 }
 
 function decodedGroupId(value: unknown): string {
@@ -248,8 +275,32 @@ export function createDocumentImageGroupExtension(
         verticalGuide.className = "preshot-document-image-guide is-vertical";
         const horizontalGuide = document.createElement("div");
         horizontalGuide.className = "preshot-document-image-guide is-horizontal";
+        const verticalGuideLabel = document.createElement("div");
+        verticalGuideLabel.className =
+          "preshot-document-image-guide-label is-vertical";
+        const horizontalGuideLabel = document.createElement("div");
+        horizontalGuideLabel.className =
+          "preshot-document-image-guide-label is-horizontal";
+        const widthBracket = document.createElement("div");
+        widthBracket.className =
+          "preshot-document-image-dimension-bracket is-width";
+        const heightBracket = document.createElement("div");
+        heightBracket.className =
+          "preshot-document-image-dimension-bracket is-height";
+        const dimensionLabel = document.createElement("div");
+        dimensionLabel.className = "preshot-document-image-dimension-label";
 
-        dom.append(grid, empty, verticalGuide, horizontalGuide);
+        dom.append(
+          grid,
+          empty,
+          verticalGuide,
+          horizontalGuide,
+          verticalGuideLabel,
+          horizontalGuideLabel,
+          widthBracket,
+          heightBracket,
+          dimensionLabel,
+        );
 
         for (const direction of GROUP_EDGE_DIRECTIONS) {
           const handle = document.createElement("div");
@@ -285,8 +336,15 @@ export function createDocumentImageGroupExtension(
         };
 
         const clearGuides = () => {
-          verticalGuide.removeAttribute("data-visible");
-          horizontalGuide.removeAttribute("data-visible");
+          [
+            verticalGuide,
+            horizontalGuide,
+            verticalGuideLabel,
+            horizontalGuideLabel,
+            widthBracket,
+            heightBracket,
+            dimensionLabel,
+          ].forEach((element) => element.removeAttribute("data-visible"));
         };
 
         const clearImageDropTargets = () => {
@@ -661,7 +719,33 @@ export function createDocumentImageGroupExtension(
                 const startOffsetX = currentImage.frameOffsetX ?? 0;
                 const startOffsetY = currentImage.frameOffsetY ?? 0;
                 const currentFrameScale = Number(frame.dataset.frameScale) || frameScale;
-                const candidates = currentImages.filter((candidate) => candidate.id !== image.id);
+                const groupRect = dom.getBoundingClientRect();
+                const startFrameRect = frame.getBoundingClientRect();
+                const frozenCandidates = currentImages
+                  .filter((candidate) => candidate.id !== image.id)
+                  .flatMap((candidate) => {
+                    const candidateFrame = grid.querySelector<HTMLElement>(
+                      `[data-image-id="${CSS.escape(candidate.id)}"]`,
+                    );
+                    if (!candidateFrame) return [];
+                    const rect = candidateFrame.getBoundingClientRect();
+                    return [{
+                      id: candidate.id,
+                      frameWidth: candidate.frameWidth,
+                      frameHeight: candidate.frameHeight,
+                      left: rect.left,
+                      right: rect.right,
+                      top: rect.top,
+                      bottom: rect.bottom,
+                      centerX: rect.left + rect.width / 2,
+                      centerY: rect.top + rect.height / 2,
+                    }];
+                  });
+                let widthSnapKey: string | null = null;
+                let heightSnapKey: string | null = null;
+                let verticalSnapKey: string | null = null;
+                let horizontalSnapKey: string | null = null;
+                let previewFrame = 0;
                 let nextFrame = {
                   frameWidth: startWidth,
                   frameHeight: startHeight,
@@ -680,14 +764,162 @@ export function createDocumentImageGroupExtension(
                     MIN_DOCUMENT_IMAGE_FRAME,
                     startHeight + (directionAffects(direction, "bottom") ? dy : directionAffects(direction, "top") ? -dy : 0),
                   );
-                  const snappedWidth = directionAffects(direction, "left") || directionAffects(direction, "right")
-                    ? nearestDimension(frameWidth, candidates.map((candidate) => candidate.frameWidth))
+                  const widthSnap = directionAffects(direction, "left") ||
+                      directionAffects(direction, "right")
+                    ? nearestSnap(
+                        frameWidth * displayScale,
+                        frozenCandidates.map((candidate) => ({
+                          key: `width:${candidate.id}`,
+                          value: candidate.frameWidth * displayScale,
+                          priority: 0,
+                          data: candidate,
+                        })),
+                        widthSnapKey,
+                      )
                     : null;
-                  const snappedHeight = directionAffects(direction, "top") || directionAffects(direction, "bottom")
-                    ? nearestDimension(frameHeight, candidates.map((candidate) => candidate.frameHeight))
+                  const heightSnap = directionAffects(direction, "top") ||
+                      directionAffects(direction, "bottom")
+                    ? nearestSnap(
+                        frameHeight * displayScale,
+                        frozenCandidates.map((candidate) => ({
+                          key: `height:${candidate.id}`,
+                          value: candidate.frameHeight * displayScale,
+                          priority: 0,
+                          data: candidate,
+                        })),
+                        heightSnapKey,
+                      )
                     : null;
-                  if (snappedWidth !== null) frameWidth = snappedWidth;
-                  if (snappedHeight !== null) frameHeight = snappedHeight;
+                  widthSnapKey = widthSnap?.key ?? null;
+                  heightSnapKey = heightSnap?.key ?? null;
+                  if (widthSnap) frameWidth = widthSnap.data.frameWidth;
+                  if (heightSnap) frameHeight = heightSnap.data.frameHeight;
+
+                  const screenRect = () => {
+                    const width = frameWidth * displayScale;
+                    const height = frameHeight * displayScale;
+                    const left = directionAffects(direction, "left")
+                      ? startFrameRect.right - width
+                      : startFrameRect.left;
+                    const top = directionAffects(direction, "top")
+                      ? startFrameRect.bottom - height
+                      : startFrameRect.top;
+                    return {
+                      left,
+                      right: left + width,
+                      top,
+                      bottom: top + height,
+                      width,
+                      height,
+                    };
+                  };
+
+                  let activeRect = screenRect();
+                  let verticalSnap: ReturnType<typeof nearestSnap<{
+                    id: string;
+                    label: string;
+                    rect: (typeof frozenCandidates)[number];
+                  }>> = null;
+                  let horizontalSnap: ReturnType<typeof nearestSnap<{
+                    id: string;
+                    label: string;
+                    rect: (typeof frozenCandidates)[number];
+                  }>> = null;
+                  if (!widthSnap && (
+                    directionAffects(direction, "left") ||
+                    directionAffects(direction, "right")
+                  )) {
+                    const movingX = directionAffects(direction, "left")
+                      ? activeRect.left
+                      : activeRect.right;
+                    verticalSnap = nearestSnap(
+                      movingX,
+                      frozenCandidates.flatMap((candidate) => [
+                        {
+                          key: `x:${candidate.id}:left`,
+                          value: candidate.left,
+                          priority: 1,
+                          data: { id: candidate.id, label: "左边对齐", rect: candidate },
+                        },
+                        {
+                          key: `x:${candidate.id}:right`,
+                          value: candidate.right,
+                          priority: 1,
+                          data: { id: candidate.id, label: "右边对齐", rect: candidate },
+                        },
+                        {
+                          key: `x:${candidate.id}:center`,
+                          value: candidate.centerX,
+                          priority: 2,
+                          data: { id: candidate.id, label: "水平中心", rect: candidate },
+                        },
+                      ]),
+                      verticalSnapKey,
+                    );
+                    verticalSnapKey = verticalSnap?.key ?? null;
+                    if (verticalSnap) {
+                      const correction = verticalSnap.value - movingX;
+                      frameWidth = Math.max(
+                        MIN_DOCUMENT_IMAGE_FRAME,
+                        frameWidth + (
+                          directionAffects(direction, "left")
+                            ? -correction / displayScale
+                            : correction / displayScale
+                        ),
+                      );
+                      activeRect = screenRect();
+                    }
+                  } else {
+                    verticalSnapKey = null;
+                  }
+                  if (!heightSnap && (
+                    directionAffects(direction, "top") ||
+                    directionAffects(direction, "bottom")
+                  )) {
+                    const movingY = directionAffects(direction, "top")
+                      ? activeRect.top
+                      : activeRect.bottom;
+                    horizontalSnap = nearestSnap(
+                      movingY,
+                      frozenCandidates.flatMap((candidate) => [
+                        {
+                          key: `y:${candidate.id}:top`,
+                          value: candidate.top,
+                          priority: 1,
+                          data: { id: candidate.id, label: "上边对齐", rect: candidate },
+                        },
+                        {
+                          key: `y:${candidate.id}:bottom`,
+                          value: candidate.bottom,
+                          priority: 1,
+                          data: { id: candidate.id, label: "下边对齐", rect: candidate },
+                        },
+                        {
+                          key: `y:${candidate.id}:center`,
+                          value: candidate.centerY,
+                          priority: 2,
+                          data: { id: candidate.id, label: "垂直中心", rect: candidate },
+                        },
+                      ]),
+                      horizontalSnapKey,
+                    );
+                    horizontalSnapKey = horizontalSnap?.key ?? null;
+                    if (horizontalSnap) {
+                      const correction = horizontalSnap.value - movingY;
+                      frameHeight = Math.max(
+                        MIN_DOCUMENT_IMAGE_FRAME,
+                        frameHeight + (
+                          directionAffects(direction, "top")
+                            ? -correction / displayScale
+                            : correction / displayScale
+                        ),
+                      );
+                      activeRect = screenRect();
+                    }
+                  } else {
+                    horizontalSnapKey = null;
+                  }
+
                   const frameOffsetX = directionAffects(direction, "left")
                     ? startOffsetX + startWidth - frameWidth
                     : startOffsetX;
@@ -700,26 +932,87 @@ export function createDocumentImageGroupExtension(
                     frameOffsetX,
                     frameOffsetY,
                   };
-                  const renderedWidth = frameWidth * currentFrameScale;
-                  const renderedHeight = frameHeight * currentFrameScale;
-                  frame.style.width = `${renderedWidth}px`;
-                  frame.style.height = `${renderedHeight}px`;
-                  frame.style.marginLeft = `${frameOffsetX * currentFrameScale}px`;
-                  frame.style.marginTop = `${frameOffsetY * currentFrameScale}px`;
-                  if (snappedWidth !== null) {
-                    verticalGuide.style.left = `${frame.offsetLeft + renderedWidth}px`;
-                    verticalGuide.dataset.visible = "true";
-                  } else {
-                    verticalGuide.removeAttribute("data-visible");
-                  }
-                  if (snappedHeight !== null) {
-                    horizontalGuide.style.top = `${frame.offsetTop + renderedHeight}px`;
-                    horizontalGuide.dataset.visible = "true";
-                  } else {
-                    horizontalGuide.removeAttribute("data-visible");
-                  }
+                  cancelAnimationFrame(previewFrame);
+                  previewFrame = requestAnimationFrame(() => {
+                    const renderedWidth = frameWidth * currentFrameScale;
+                    const renderedHeight = frameHeight * currentFrameScale;
+                    frame.style.width = `${renderedWidth}px`;
+                    frame.style.height = `${renderedHeight}px`;
+                    frame.style.marginLeft = `${frameOffsetX * currentFrameScale}px`;
+                    frame.style.marginTop = `${frameOffsetY * currentFrameScale}px`;
+                    clearGuides();
+
+                    const groupScale = safeScale();
+                    const toGroupX = (screenX: number) =>
+                      (screenX - groupRect.left) / groupScale;
+                    const toGroupY = (screenY: number) =>
+                      (screenY - groupRect.top) / groupScale;
+                    if (verticalSnap) {
+                      const candidate = verticalSnap.data.rect;
+                      const top = Math.min(activeRect.top, candidate.top) - 6;
+                      const bottom = Math.max(activeRect.bottom, candidate.bottom) + 6;
+                      verticalGuide.style.left = `${toGroupX(verticalSnap.value)}px`;
+                      verticalGuide.style.top = `${toGroupY(top)}px`;
+                      verticalGuide.style.height = `${(bottom - top) / groupScale}px`;
+                      verticalGuide.dataset.visible = "true";
+                      verticalGuideLabel.textContent = verticalSnap.data.label;
+                      verticalGuideLabel.style.left =
+                        `${toGroupX(verticalSnap.value) + 6}px`;
+                      verticalGuideLabel.style.top =
+                        `${toGroupY(top) + 7}px`;
+                      verticalGuideLabel.dataset.visible = "true";
+                    }
+                    if (horizontalSnap) {
+                      const candidate = horizontalSnap.data.rect;
+                      const left = Math.min(activeRect.left, candidate.left) - 6;
+                      const right = Math.max(activeRect.right, candidate.right) + 6;
+                      horizontalGuide.style.left = `${toGroupX(left)}px`;
+                      horizontalGuide.style.top = `${toGroupY(horizontalSnap.value)}px`;
+                      horizontalGuide.style.width = `${(right - left) / groupScale}px`;
+                      horizontalGuide.dataset.visible = "true";
+                      horizontalGuideLabel.textContent = horizontalSnap.data.label;
+                      horizontalGuideLabel.style.left = `${toGroupX(left) + 7}px`;
+                      horizontalGuideLabel.style.top =
+                        `${toGroupY(horizontalSnap.value) + 6}px`;
+                      horizontalGuideLabel.dataset.visible = "true";
+                    }
+
+                    const dimensionParts: string[] = [];
+                    if (widthSnap) {
+                      widthBracket.style.left = `${toGroupX(activeRect.left)}px`;
+                      widthBracket.style.top = `${toGroupY(activeRect.bottom) + 7}px`;
+                      widthBracket.style.width = `${activeRect.width / groupScale}px`;
+                      widthBracket.dataset.visible = "true";
+                      dimensionParts.push(`同宽 ${Math.round(frameWidth)}`);
+                    }
+                    if (heightSnap) {
+                      heightBracket.style.left = `${toGroupX(activeRect.right) + 7}px`;
+                      heightBracket.style.top = `${toGroupY(activeRect.top)}px`;
+                      heightBracket.style.height = `${activeRect.height / groupScale}px`;
+                      heightBracket.dataset.visible = "true";
+                      dimensionParts.push(`同高 ${Math.round(frameHeight)}`);
+                    }
+                    if (dimensionParts.length > 0) {
+                      dimensionLabel.textContent = dimensionParts.join(" · ");
+                      if (heightSnap && !widthSnap) {
+                        dimensionLabel.style.left =
+                          `${toGroupX(activeRect.right) + 18}px`;
+                        dimensionLabel.style.top =
+                          `${toGroupY(activeRect.top + activeRect.height / 2)}px`;
+                        dimensionLabel.style.transform = "translateY(-50%)";
+                      } else {
+                        dimensionLabel.style.left =
+                          `${toGroupX(activeRect.left + activeRect.width / 2)}px`;
+                        dimensionLabel.style.top =
+                          `${toGroupY(activeRect.bottom) + 18}px`;
+                        dimensionLabel.style.transform = "translateX(-50%)";
+                      }
+                      dimensionLabel.dataset.visible = "true";
+                    }
+                  });
                 };
                 const finish = () => {
+                  cancelAnimationFrame(previewFrame);
                   document.removeEventListener("pointermove", move);
                   document.removeEventListener("pointerup", finish);
                   document.removeEventListener("pointercancel", cancel);
@@ -728,6 +1021,7 @@ export function createDocumentImageGroupExtension(
                   controller.onSetImageFrame(groupId, image.id, nextFrame);
                 };
                 const cancel = () => {
+                  cancelAnimationFrame(previewFrame);
                   document.removeEventListener("pointermove", move);
                   document.removeEventListener("pointerup", finish);
                   document.removeEventListener("pointercancel", cancel);

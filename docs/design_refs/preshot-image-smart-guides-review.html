@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preshot 图片缩放 Smart Guides 评审</title>
+  <style>
+    :root {
+      --app-bg: #dfe1e5;
+      --panel: #f7f6f4;
+      --paper: #fff;
+      --ink: #18181b;
+      --muted: #686d75;
+      --line: #d7d9dd;
+      --chrome: #202329;
+      --accent: #c2385c;
+      --accent-dark: #8f2947;
+      --accent-soft: #f8e7ec;
+      --functional: #0891b2;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-width: 320px; min-height: 100%; margin: 0; }
+    body {
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--app-bg);
+      font-family: "Microsoft YaHei UI", "Segoe UI Variable", "Segoe UI", sans-serif;
+    }
+    button { font: inherit; }
+    button:focus-visible, [role="separator"]:focus-visible {
+      outline: 2px solid var(--functional);
+      outline-offset: 2px;
+    }
+
+    .topbar {
+      display: flex;
+      height: 46px;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      color: white;
+      background: var(--chrome);
+    }
+    .brand-mark {
+      display: grid;
+      width: 26px;
+      height: 26px;
+      place-items: center;
+      border-radius: 5px;
+      background: var(--accent);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .brand { font-size: 12px; font-weight: 700; }
+    .file-name { color: #b9bec6; font-size: 10px; }
+    .save-state { margin-left: auto; color: #c5c9cf; font-size: 9px; }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: minmax(700px, 1fr) 320px;
+      height: calc(100vh - 46px);
+    }
+    .workspace {
+      overflow: auto;
+      padding: 62px 40px 90px;
+      background-color: var(--app-bg);
+      background-image:
+        linear-gradient(rgb(75 79 88 / 3.5%) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(75 79 88 / 3.5%) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .paper {
+      position: relative;
+      width: min(720px, 100%);
+      min-height: 900px;
+      margin: 0 auto;
+      padding: 58px 58px 76px;
+      background: var(--paper);
+      box-shadow: 0 18px 46px rgb(27 30 35 / 16%);
+    }
+    .paper h1 { margin: 0 0 8px; font-family: Georgia, serif; font-size: 25px; }
+    .paper > p { margin: 0 0 24px; color: #5e646d; font-size: 11px; line-height: 1.7; }
+    .paper h2 { margin: 0 0 10px; font-size: 14px; }
+
+    .image-group {
+      position: relative;
+      min-height: 290px;
+      padding: 14px;
+      border: 1px solid #cfd3d8;
+      border-radius: 4px;
+      background: #f3f4f5;
+      user-select: none;
+    }
+    .group-label {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      color: #858a92;
+      font-size: 8px;
+      font-weight: 700;
+    }
+    .group-grid {
+      display: flex;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 16px 18px;
+      padding-top: 22px;
+    }
+    .image-tile {
+      position: relative;
+      flex: none;
+      width: var(--w);
+      height: var(--h);
+      margin-top: var(--oy, 0px);
+      margin-left: var(--ox, 0px);
+      border-radius: 4px;
+    }
+    .image-tile:hover,
+    .image-tile.is-active { z-index: 30; }
+    .image-button {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      padding: 0;
+      border: 1px solid #cfd3d8;
+      border-radius: 4px;
+      background: #e6e8ea;
+      cursor: pointer;
+    }
+    .image-button img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+      cursor: pointer;
+      user-select: none;
+    }
+    .image-number {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 8;
+      display: none;
+      min-width: 20px;
+      height: 20px;
+      place-items: center;
+      padding: 0 4px;
+      border-radius: 3px;
+      color: white;
+      background: rgb(24 26 31 / 70%);
+      font-size: 8px;
+      pointer-events: none;
+    }
+    .image-tile.is-active .image-number { display: grid; }
+
+    .resize-edge,
+    .resize-corner {
+      position: absolute;
+      z-index: 20;
+      display: none;
+      background: transparent;
+      touch-action: none;
+    }
+    .image-tile:hover .resize-edge,
+    .image-tile:hover .resize-corner,
+    .image-tile.is-active .resize-edge,
+    .image-tile.is-active .resize-corner { display: block; }
+    .resize-edge.left, .resize-edge.right {
+      top: 24px;
+      bottom: 24px;
+      width: 20px;
+      cursor: ew-resize;
+    }
+    .resize-edge.top, .resize-edge.bottom {
+      right: 24px;
+      left: 24px;
+      height: 20px;
+      cursor: ns-resize;
+    }
+    .resize-edge.left { left: 0; }
+    .resize-edge.right { right: 0; }
+    .resize-edge.top { top: 0; }
+    .resize-edge.bottom { bottom: 0; }
+    .resize-corner { width: 24px; height: 24px; }
+    .resize-corner.top-left { top: 0; left: 0; cursor: nwse-resize; }
+    .resize-corner.top-right { top: 0; right: 0; cursor: nesw-resize; }
+    .resize-corner.bottom-left { bottom: 0; left: 0; cursor: nesw-resize; }
+    .resize-corner.bottom-right { right: 0; bottom: 0; cursor: nwse-resize; }
+
+    .smart-guide {
+      position: absolute;
+      z-index: 80;
+      display: none;
+      pointer-events: none;
+    }
+    .smart-guide.is-visible { display: block; }
+    .smart-guide.vertical {
+      width: 0;
+      border-left: 1px dashed var(--accent);
+    }
+    .smart-guide.horizontal {
+      height: 0;
+      border-top: 1px dashed var(--accent);
+    }
+    .smart-guide::before,
+    .smart-guide::after {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border: 1px solid var(--accent);
+      border-radius: 50%;
+      background: white;
+      content: "";
+    }
+    .smart-guide.vertical::before { top: -3px; left: -3px; }
+    .smart-guide.vertical::after { bottom: -3px; left: -3px; }
+    .smart-guide.horizontal::before { top: -3px; left: -3px; }
+    .smart-guide.horizontal::after { top: -3px; right: -3px; }
+
+    .guide-label {
+      position: absolute;
+      z-index: 90;
+      display: none;
+      padding: 3px 6px;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: white;
+      background: var(--accent-dark);
+      box-shadow: 0 2px 7px rgb(80 16 39 / 18%);
+      font-size: 8px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .guide-label.is-visible { display: block; }
+    .guide-label.dimension {
+      color: var(--accent-dark);
+      background: white;
+    }
+
+    .dimension-bracket {
+      position: absolute;
+      z-index: 75;
+      display: none;
+      pointer-events: none;
+    }
+    .dimension-bracket.is-visible { display: block; }
+    .dimension-bracket.width {
+      height: 8px;
+      border-top: 1px dashed var(--accent);
+      border-right: 1px solid var(--accent);
+      border-left: 1px solid var(--accent);
+    }
+    .dimension-bracket.height {
+      width: 8px;
+      border-top: 1px solid var(--accent);
+      border-bottom: 1px solid var(--accent);
+      border-left: 1px dashed var(--accent);
+    }
+
+    .status {
+      position: absolute;
+      right: 12px;
+      bottom: 10px;
+      min-width: 190px;
+      padding: 7px 9px;
+      border-radius: 4px;
+      color: #d8f6fa;
+      background: var(--chrome);
+      font-size: 9px;
+      line-height: 1.5;
+      pointer-events: none;
+    }
+    .status strong { color: white; }
+
+    .research-panel {
+      overflow: auto;
+      padding: 18px 16px 28px;
+      border-left: 1px solid #d0d3d7;
+      background: var(--panel);
+    }
+    .research-panel h2 { margin: 0 0 5px; font-size: 15px; }
+    .research-panel > p { margin: 0 0 16px; color: var(--muted); font-size: 9px; line-height: 1.6; }
+    .rule {
+      margin-bottom: 9px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: white;
+    }
+    .rule strong { display: block; margin-bottom: 4px; font-size: 10px; }
+    .rule p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.55; }
+    .legend {
+      display: grid;
+      grid-template-columns: 16px 1fr;
+      gap: 7px;
+      align-items: center;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 9px;
+    }
+    .legend-line { width: 16px; border-top: 1px dashed var(--accent); }
+    .sources { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .sources strong { display: block; margin-bottom: 5px; font-size: 10px; }
+    .sources a { display: block; margin-bottom: 5px; color: #056b80; font-size: 8px; line-height: 1.4; }
+
+    @media (max-width: 1040px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .research-panel { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark">P</div>
+    <div class="brand">Preshot</div>
+    <div class="file-name">Smart Guides 设计评审</div>
+    <div class="save-state">拖动第一张图片四边或四角体验</div>
+  </header>
+
+  <main class="app-shell">
+    <section class="workspace">
+      <article class="paper">
+        <h1>城市夜景拍摄方案</h1>
+        <p>调整第一张图片尺寸，观察边缘对齐、中心对齐、同宽与同高的标准反馈。</p>
+        <h2>参考样图</h2>
+        <div class="image-group" id="image-group">
+          <span class="group-label">Smart Guides · 6px 吸附 / 10px 释放</span>
+          <div class="group-grid">
+            <div class="image-tile" data-label="图片 01" style="--w: 170px; --h: 116px">
+              <button class="image-button" type="button" aria-label="调整图片 01">
+                <img alt="夜间公路" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 420'%3E%3Cpath fill='%23142335' d='M0 0h600v420H0z'/%3E%3Cpath fill='%230d1622' d='M0 260l120-62 114 42 128-82 114 57 124-52v257H0z'/%3E%3Cpath fill='%23c2385c' opacity='.75' d='M0 345l190-62 132 30 278-88v34l-276 88-130-27L0 380z'/%3E%3Cpath stroke='%237dc9dd' stroke-width='22' opacity='.75' d='M0 383l240-70 146 20 214-67'/%3E%3Cg fill='%23ffd36a'%3E%3Ccircle cx='120' cy='174' r='8'/%3E%3Ccircle cx='490' cy='144' r='7'/%3E%3C/g%3E%3C/svg%3E">
+              </button>
+              <span class="image-number">01</span>
+              <span class="resize-edge left" data-edge="left" role="separator" tabindex="0"></span>
+              <span class="resize-edge right" data-edge="right" role="separator" tabindex="0"></span>
+              <span class="resize-edge top" data-edge="top" role="separator" tabindex="0"></span>
+              <span class="resize-edge bottom" data-edge="bottom" role="separator" tabindex="0"></span>
+              <span class="resize-corner top-left" data-edge="top-left" role="separator" tabindex="0"></span>
+              <span class="resize-corner top-right" data-edge="top-right" role="separator" tabindex="0"></span>
+              <span class="resize-corner bottom-left" data-edge="bottom-left" role="separator" tabindex="0"></span>
+              <span class="resize-corner bottom-right" data-edge="bottom-right" role="separator" tabindex="0"></span>
+            </div>
+
+            <div class="image-tile" data-label="图片 02" style="--w: 142px; --h: 116px">
+              <button class="image-button" type="button" aria-label="图片 02">
+                <img alt="城市天际线" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 420'%3E%3Cpath fill='%238e586e' d='M0 0h520v420H0z'/%3E%3Ccircle cx='405' cy='100' r='43' fill='%23f3d79b'/%3E%3Cpath fill='%23232a35' d='M0 254h50v-64h45v47h33V139h43v109h36V93h52v142h39v-85h46v96h34V127h57v109h38v-56h47v240H0z'/%3E%3Cg fill='%23ffd36a'%3E%3Cpath d='M220 115h9v13h-9zM244 115h9v13h-9zM220 143h9v13h-9zM391 149h9v13h-9z'/%3E%3C/g%3E%3C/svg%3E">
+              </button>
+              <span class="image-number">02</span>
+            </div>
+
+            <div class="image-tile" data-label="图片 03" style="--w: 120px; --h: 88px">
+              <button class="image-button" type="button" aria-label="图片 03">
+                <img alt="车流轨迹" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 380'%3E%3Cpath fill='%23152f49' d='M0 0h500v380H0z'/%3E%3Cpath fill='%231b222b' d='M0 100l75 38 78-70 87 80 79-62 80 44 101-80v330H0z'/%3E%3Cpath fill='%23343d46' d='M-20 310c140-64 302-83 540-76v46c-213-4-383 15-523 78z'/%3E%3Cpath fill='none' stroke='%23f6c04e' stroke-width='8' d='M-10 330c151-58 323-72 540-60'/%3E%3Cpath fill='none' stroke='%23d74369' stroke-width='5' d='M20 354c160-55 325-64 500-48'/%3E%3C/svg%3E">
+              </button>
+              <span class="image-number">03</span>
+            </div>
+          </div>
+
+          <div class="smart-guide vertical" id="guide-v"></div>
+          <div class="smart-guide horizontal" id="guide-h"></div>
+          <div class="dimension-bracket width" id="bracket-w"></div>
+          <div class="dimension-bracket height" id="bracket-h"></div>
+          <div class="guide-label" id="label-v"></div>
+          <div class="guide-label" id="label-h"></div>
+          <div class="guide-label dimension" id="label-size"></div>
+          <div class="status" id="status"><strong>待操作</strong><br>拖动第一张图片的边或角。</div>
+        </div>
+      </article>
+    </section>
+
+    <aside class="research-panel">
+      <h2>标准方案</h2>
+      <p>参考 Figma、Illustrator、PowerPoint 与 Konva 的 Smart Guides 模式。</p>
+      <div class="rule"><strong>1. 位置与尺寸分层</strong><p>长虚线只表达边缘/中心位置对齐；短括号和标签表达同宽/同高，避免一条线承担多个含义。</p></div>
+      <div class="rule"><strong>2. 每轴最多一个主引导</strong><p>横向和纵向各选距离最近、语义优先级最高的候选，防止多线闪烁和视觉噪声。</p></div>
+      <div class="rule"><strong>3. 标签直接说明结果</strong><p>使用“右边对齐”“同宽 142”“同高 116”，不要求用户猜测虚线含义。</p></div>
+      <div class="rule"><strong>4. 双阈值防抖</strong><p>进入吸附阈值 6px，已吸附后的释放阈值 10px；避免鼠标在边界附近来回跳动。</p></div>
+      <div class="rule"><strong>5. 生命周期短暂</strong><p>引导只在拖动期间显示，松手立即隐藏；颜色统一为品牌洋红，尺寸标签使用白底洋红边框。</p></div>
+      <div class="rule"><strong>6. 优先级</strong><p>同宽/同高 > 外边缘对齐 > 中心对齐。尺寸匹配更符合 resize 意图，但同一轴不重复展示。</p></div>
+      <div class="legend"><span class="legend-line"></span><span>洋红虚线：位置对齐</span></div>
+      <div class="legend"><span class="guide-label dimension is-visible" style="position:static;justify-self:start">同宽 142</span><span>白底标签：尺寸一致</span></div>
+      <div class="sources">
+        <strong>调研来源</strong>
+        <a href="https://help.figma.com/hc/en-us/articles/360039956914-Adjust-alignment-rotation-position-and-dimensions">Figma · Alignment and dimensions</a>
+        <a href="https://helpx.adobe.com/illustrator/desktop/measure-and-align/grids-and-guides/smart-guides-options.html">Adobe Illustrator · Smart Guides</a>
+        <a href="https://support.microsoft.com/en-us/powerpoint/training/guides-for-arranging-things-on-a-slide">Microsoft PowerPoint · Smart Guides</a>
+        <a href="https://konvajs.org/docs/select_and_transform/Resize_Snaps.html">Konva · Resize snapping</a>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const SNAP_IN = 6;
+    const SNAP_OUT = 10;
+    const group = document.getElementById("image-group");
+    const guideV = document.getElementById("guide-v");
+    const guideH = document.getElementById("guide-h");
+    const bracketW = document.getElementById("bracket-w");
+    const bracketH = document.getElementById("bracket-h");
+    const labelV = document.getElementById("label-v");
+    const labelH = document.getElementById("label-h");
+    const labelSize = document.getElementById("label-size");
+    const status = document.getElementById("status");
+    let snappedWidth = null;
+    let snappedHeight = null;
+    let frameRequest = 0;
+
+    function affects(edge, direction) {
+      return edge === direction || edge.includes(direction);
+    }
+
+    function hideGuides() {
+      [guideV, guideH, bracketW, bracketH, labelV, labelH, labelSize]
+        .forEach((element) => element.classList.remove("is-visible"));
+    }
+
+    function nearest(value, candidates, previous) {
+      const threshold = previous === null ? SNAP_IN : SNAP_OUT;
+      const matches = candidates
+        .map((candidate) => ({ ...candidate, distance: Math.abs(candidate.value - value) }))
+        .filter((candidate) => candidate.distance <= threshold)
+        .sort((a, b) => a.priority - b.priority || a.distance - b.distance);
+      return matches[0] ?? null;
+    }
+
+    function showVertical(x, top, bottom, text) {
+      guideV.style.left = `${x}px`;
+      guideV.style.top = `${top}px`;
+      guideV.style.height = `${bottom - top}px`;
+      guideV.classList.add("is-visible");
+      labelV.textContent = text;
+      labelV.style.left = `${x + 6}px`;
+      labelV.style.top = `${Math.max(4, top + 7)}px`;
+      labelV.classList.add("is-visible");
+    }
+
+    function showHorizontal(y, left, right, text) {
+      guideH.style.top = `${y}px`;
+      guideH.style.left = `${left}px`;
+      guideH.style.width = `${right - left}px`;
+      guideH.classList.add("is-visible");
+      labelH.textContent = text;
+      labelH.style.left = `${Math.max(4, left + 7)}px`;
+      labelH.style.top = `${y + 6}px`;
+      labelH.classList.add("is-visible");
+    }
+
+    function showWidthBracket(rect, width) {
+      bracketW.style.left = `${rect.left}px`;
+      bracketW.style.top = `${rect.bottom + 7}px`;
+      bracketW.style.width = `${width}px`;
+      bracketW.classList.add("is-visible");
+    }
+
+    function showHeightBracket(rect, height) {
+      bracketH.style.left = `${rect.right + 7}px`;
+      bracketH.style.top = `${rect.top}px`;
+      bracketH.style.height = `${height}px`;
+      bracketH.classList.add("is-visible");
+    }
+
+    document.querySelectorAll(".resize-edge, .resize-corner").forEach((handle) => {
+      handle.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const tile = handle.closest(".image-tile");
+        tile.classList.add("is-active");
+        const edge = handle.dataset.edge;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const startWidth = tile.offsetWidth;
+        const startHeight = tile.offsetHeight;
+        const startOffsetX = parseFloat(getComputedStyle(tile).marginLeft) || 0;
+        const startOffsetY = parseFloat(getComputedStyle(tile).marginTop) || 0;
+        const groupRect = group.getBoundingClientRect();
+        const others = [...group.querySelectorAll(".image-tile")]
+          .filter((candidate) => candidate !== tile)
+          .map((candidate) => {
+            const rect = candidate.getBoundingClientRect();
+            const left = rect.left - groupRect.left;
+            const top = rect.top - groupRect.top;
+            return {
+              element: candidate,
+              left,
+              top,
+              right: left + rect.width,
+              bottom: top + rect.height,
+              centerX: left + rect.width / 2,
+              centerY: top + rect.height / 2,
+              width: rect.width,
+              height: rect.height,
+            };
+          });
+        let next = { width: startWidth, height: startHeight, ox: startOffsetX, oy: startOffsetY };
+        handle.setPointerCapture(event.pointerId);
+
+        const move = (moveEvent) => {
+          const dx = moveEvent.clientX - startX;
+          const dy = moveEvent.clientY - startY;
+          let width = Math.max(52, startWidth + (affects(edge, "right") ? dx : affects(edge, "left") ? -dx : 0));
+          let height = Math.max(52, startHeight + (affects(edge, "bottom") ? dy : affects(edge, "top") ? -dy : 0));
+
+          const widthMatch = affects(edge, "left") || affects(edge, "right")
+            ? nearest(width, others.map((candidate) => ({
+                value: candidate.width,
+                candidate,
+                type: "equal-width",
+                priority: 0,
+              })), snappedWidth)
+            : null;
+          const heightMatch = affects(edge, "top") || affects(edge, "bottom")
+            ? nearest(height, others.map((candidate) => ({
+                value: candidate.height,
+                candidate,
+                type: "equal-height",
+                priority: 0,
+              })), snappedHeight)
+            : null;
+
+          snappedWidth = widthMatch?.value ?? null;
+          snappedHeight = heightMatch?.value ?? null;
+          if (widthMatch) width = widthMatch.value;
+          if (heightMatch) height = heightMatch.value;
+
+          const ox = affects(edge, "left") ? startOffsetX + startWidth - width : startOffsetX;
+          const oy = affects(edge, "top") ? startOffsetY + startHeight - height : startOffsetY;
+          next = { width, height, ox, oy };
+
+          cancelAnimationFrame(frameRequest);
+          frameRequest = requestAnimationFrame(() => {
+            tile.style.setProperty("--w", `${width}px`);
+            tile.style.setProperty("--h", `${height}px`);
+            tile.style.setProperty("--ox", `${ox}px`);
+            tile.style.setProperty("--oy", `${oy}px`);
+            hideGuides();
+
+            const liveRect = tile.getBoundingClientRect();
+            const tileRect = {
+              left: liveRect.left - groupRect.left,
+              top: liveRect.top - groupRect.top,
+              right: liveRect.left - groupRect.left + width,
+              bottom: liveRect.top - groupRect.top + height,
+              centerX: liveRect.left - groupRect.left + width / 2,
+              centerY: liveRect.top - groupRect.top + height / 2,
+            };
+
+            if (widthMatch) {
+              showWidthBracket(tileRect, width);
+            }
+            if (affects(edge, "left") || affects(edge, "right")) {
+              const movingX = affects(edge, "left") ? tileRect.left : tileRect.right;
+              const positionCandidates = others.flatMap((candidate) => [
+                { value: candidate.left, candidate, label: "左边对齐", priority: 1 },
+                { value: candidate.right, candidate, label: "右边对齐", priority: 1 },
+                { value: candidate.centerX, candidate, label: "水平中心", priority: 2 },
+              ]);
+              const positionMatch = nearest(movingX, positionCandidates, null);
+              if (positionMatch) {
+                const correction = positionMatch.value - movingX;
+                if (affects(edge, "left")) {
+                  tile.style.setProperty("--ox", `${ox + correction}px`);
+                  tile.style.setProperty("--w", `${width - correction}px`);
+                } else {
+                  tile.style.setProperty("--w", `${width + correction}px`);
+                }
+                const candidate = positionMatch.candidate;
+                showVertical(
+                  positionMatch.value,
+                  Math.min(tileRect.top, candidate.top) - 6,
+                  Math.max(tileRect.bottom, candidate.bottom) + 6,
+                  positionMatch.label,
+                );
+              }
+            }
+
+            if (heightMatch) {
+              showHeightBracket(tileRect, height);
+            }
+            if (affects(edge, "top") || affects(edge, "bottom")) {
+              const movingY = affects(edge, "top") ? tileRect.top : tileRect.bottom;
+              const positionCandidates = others.flatMap((candidate) => [
+                { value: candidate.top, candidate, label: "上边对齐", priority: 1 },
+                { value: candidate.bottom, candidate, label: "下边对齐", priority: 1 },
+                { value: candidate.centerY, candidate, label: "垂直中心", priority: 2 },
+              ]);
+              const positionMatch = nearest(movingY, positionCandidates, null);
+              if (positionMatch) {
+                const candidate = positionMatch.candidate;
+                showHorizontal(
+                  positionMatch.value,
+                  Math.min(tileRect.left, candidate.left) - 6,
+                  Math.max(tileRect.right, candidate.right) + 6,
+                  positionMatch.label,
+                );
+              }
+            }
+
+            const activeDimensions = [
+              widthMatch ? `同宽 ${Math.round(width)}` : "",
+              heightMatch ? `同高 ${Math.round(height)}` : "",
+            ].filter(Boolean).join(" · ");
+            if (activeDimensions) {
+              labelSize.textContent = activeDimensions;
+              if (heightMatch && !widthMatch) {
+                labelSize.style.left = `${tileRect.right + 18}px`;
+                labelSize.style.top = `${tileRect.top + height / 2}px`;
+                labelSize.style.transform = "translateY(-50%)";
+              } else {
+                labelSize.style.left = `${tileRect.left + width / 2}px`;
+                labelSize.style.top = `${tileRect.bottom + 18}px`;
+                labelSize.style.transform = "translateX(-50%)";
+              }
+              labelSize.classList.add("is-visible");
+            }
+            status.innerHTML = `<strong>${tile.dataset.label}</strong><br>${Math.round(width)} × ${Math.round(height)}${activeDimensions ? ` · ${activeDimensions}` : " · 自由缩放"}`;
+          });
+        };
+
+        const finish = () => {
+          cancelAnimationFrame(frameRequest);
+          hideGuides();
+          snappedWidth = null;
+          snappedHeight = null;
+          handle.removeEventListener("pointermove", move);
+          handle.removeEventListener("pointerup", finish);
+          handle.removeEventListener("pointercancel", finish);
+          status.innerHTML = `<strong>已提交</strong><br>${Math.round(next.width)} × ${Math.round(next.height)}，引导已隐藏。`;
+        };
+
+        handle.addEventListener("pointermove", move);
+        handle.addEventListener("pointerup", finish);
+        handle.addEventListener("pointercancel", finish);
+      });
+    });
+  </script>
+</body>
+</html>

@@ -698,16 +698,89 @@ button:disabled {
 
 .preshot-document-image-guide {
   position: absolute;
-  z-index: 12;
+  z-index: 70;
   display: none;
-  background: #ee8b2d;
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 75%);
   pointer-events: none;
 }
 
 .preshot-document-image-guide[data-visible="true"] { display: block; }
-.preshot-document-image-guide.is-vertical { top: 4px; bottom: 4px; width: 1px; }
-.preshot-document-image-guide.is-horizontal { right: 4px; left: 4px; height: 1px; }
+.preshot-document-image-guide.is-vertical {
+  width: 0;
+  border-left: 1px dashed var(--app-accent);
+}
+.preshot-document-image-guide.is-horizontal {
+  height: 0;
+  border-top: 1px dashed var(--app-accent);
+}
+
+.preshot-document-image-guide::before,
+.preshot-document-image-guide::after {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--app-accent);
+  border-radius: 50%;
+  background: white;
+  content: "";
+}
+
+.preshot-document-image-guide.is-vertical::before { top: -3px; left: -3px; }
+.preshot-document-image-guide.is-vertical::after { bottom: -3px; left: -3px; }
+.preshot-document-image-guide.is-horizontal::before { top: -3px; left: -3px; }
+.preshot-document-image-guide.is-horizontal::after { top: -3px; right: -3px; }
+
+.preshot-document-image-guide-label,
+.preshot-document-image-dimension-label {
+  position: absolute;
+  z-index: 80;
+  display: none;
+  padding: 3px 6px;
+  border: 1px solid var(--app-accent);
+  border-radius: 4px;
+  color: white;
+  background: color-mix(in srgb, var(--app-accent) 74%, black 26%);
+  box-shadow: 0 2px 7px rgb(80 16 39 / 18%);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.preshot-document-image-guide-label[data-visible="true"],
+.preshot-document-image-dimension-label[data-visible="true"] {
+  display: block;
+}
+
+.preshot-document-image-dimension-label {
+  color: color-mix(in srgb, var(--app-accent) 75%, black 25%);
+  background: white;
+}
+
+.preshot-document-image-dimension-bracket {
+  position: absolute;
+  z-index: 75;
+  display: none;
+  pointer-events: none;
+}
+
+.preshot-document-image-dimension-bracket[data-visible="true"] {
+  display: block;
+}
+
+.preshot-document-image-dimension-bracket.is-width {
+  height: 8px;
+  border-top: 1px dashed var(--app-accent);
+  border-right: 1px solid var(--app-accent);
+  border-left: 1px solid var(--app-accent);
+}
+
+.preshot-document-image-dimension-bracket.is-height {
+  width: 8px;
+  border-top: 1px solid var(--app-accent);
+  border-bottom: 1px solid var(--app-accent);
+  border-left: 1px dashed var(--app-accent);
+}
 
 .preshot-document-image-group-empty {
   display: grid;
