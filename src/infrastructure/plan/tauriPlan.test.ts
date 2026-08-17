@@ -21,6 +21,32 @@ describe("createTauriPlan", () => {
     );
   });
 
+  it("imports native media bytes and validates the response", async () => {
+    const invokeCommand = vi.fn().mockResolvedValue({
+      file: "media/0001.mp3",
+      dataUrl: "data:audio/mpeg;base64,AA",
+      name: "track.mp3",
+      mimeType: "audio/mpeg",
+    });
+    const plan = createTauriPlan({ invokeCommand });
+
+    await expect(plan.importMedia("C:\\p", {
+      name: "track.mp3",
+      mimeType: "audio/mpeg",
+      bytes: [1, 2, 3],
+    })).resolves.toMatchObject({
+      file: "media/0001.mp3",
+      name: "track.mp3",
+      mimeType: "audio/mpeg",
+    });
+    expect(invokeCommand).toHaveBeenCalledWith("import_plan_media", {
+      projectPath: "C:\\p",
+      name: "track.mp3",
+      mimeType: "audio/mpeg",
+      bytes: [1, 2, 3],
+    });
+  });
+
   it("reads a raw canvas plan", async () => {
     const invokeCommand = vi.fn().mockResolvedValue({
       schemaVersion: 2,

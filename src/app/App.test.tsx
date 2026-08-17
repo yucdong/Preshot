@@ -32,11 +32,11 @@ function planDeps(): PlanDependencies {
       loadPlan: vi.fn().mockResolvedValue({
         status: "missing",
         plan: {
-          schemaVersion: 13,
+          schemaVersion: 14,
           title: "Demo",
           document: {
             format: "preshot-blocks",
-            version: 1,
+            version: 2,
             blocks: [{
               id: "block",
               type: "paragraph",
@@ -49,11 +49,14 @@ function planDeps(): PlanDependencies {
         },
       }),
       loadImage: vi.fn().mockResolvedValue(""),
+      importMedia: vi.fn(),
+      loadMedia: vi.fn(),
       savePlan: vi.fn(),
       importImages: vi.fn(),
       removeImage: vi.fn(),
       removeGroup: vi.fn(),
       purgeDetachedGroups: vi.fn(),
+      purgeDetachedMedia: vi.fn(),
     },
     picker: {
       pickImageFile: vi.fn().mockResolvedValue(null),
@@ -104,7 +107,7 @@ describe("App", () => {
 
     render(<App dependencies={dependencies} planDependencies={planDeps()} />);
 
-    expect(await screen.findByText("BlockNote Canvas v13")).toBeVisible();
+    expect(await screen.findByText("BlockNote Canvas v14")).toBeVisible();
     expect(dependencies.native.maximizeWindow).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("group", { name: "方案正文" })).toHaveAttribute(
       "data-editor-engine",

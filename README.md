@@ -105,3 +105,12 @@ pnpm tauri:build
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)：架构边界和扩展方式
 - [docs/TESTING.md](docs/TESTING.md)：测试策略和命令
 - [设计规格](docs/superpowers/specs/2026-07-27-desktop-foundation-design.md)
+
+## 许可证
+
+Preshot 自有源码使用 [MIT License](LICENSE)。项目使用
+`@blocknote/xl-multi-column` 的 GPL-3.0 许可选项，因此包含该依赖的 Preshot
+应用发行物按 GPL-3.0 提供，并附带对应源代码和完整许可证文本。
+
+详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和
+[LICENSES/GPL-3.0.txt](LICENSES/GPL-3.0.txt)。

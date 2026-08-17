@@ -6,7 +6,7 @@ import {
   type PDFImage,
   type PDFPage,
 } from "pdf-lib";
-import type { ProjectPlanV13 } from "../../domain/plan/canvas/blockDocument";
+import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
 import {
   A4,
   contentSize,
@@ -88,7 +88,7 @@ export function createBlockNotePdfExporter(
   const optimizeImage = options.optimizeImage ?? optimizePdfImage;
   return {
     async export(
-      plan: ProjectPlanV13,
+      plan: ProjectPlanV14,
       images: Record<string, string>,
     ): Promise<Uint8Array> {
       const pdf = await PDFDocument.create();

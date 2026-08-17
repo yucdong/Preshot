@@ -11,9 +11,7 @@ use arboard::Clipboard;
 use tauri::State;
 use uuid::Uuid;
 use windows_sys::Win32::System::DataExchange::GetClipboardSequenceNumber;
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    keybd_event, KEYEVENTF_KEYUP, VK_ESCAPE,
-};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{keybd_event, KEYEVENTF_KEYUP, VK_ESCAPE};
 
 use crate::error::CommandError;
 
@@ -206,8 +204,7 @@ mod tests {
     fn rejects_invalid_rgba_length() {
         let directory = tempfile::tempdir().unwrap();
         let error =
-            write_capture_png(&directory.path().join("bad.png"), 2, 2, &[0; 4])
-                .unwrap_err();
+            write_capture_png(&directory.path().join("bad.png"), 2, 2, &[0; 4]).unwrap_err();
         assert_eq!(error.code, "screen_capture_invalid_image");
     }
 }

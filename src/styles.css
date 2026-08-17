@@ -692,6 +692,16 @@ button:disabled {
   outline: none !important;
 }
 
+.preshot-blocknote-image-group {
+  cursor: grab;
+}
+
+.bn-block-column .preshot-blocknote-image-group-toolbar {
+  top: 4px !important;
+  right: 4px !important;
+  z-index: 80 !important;
+}
+
 .preshot-document-image-group {
   position: relative;
   margin: 0.65rem 0;

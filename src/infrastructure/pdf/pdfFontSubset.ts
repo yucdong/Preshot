@@ -9,6 +9,11 @@ function blockText(block: Block): string {
   if (block.type === "image" || block.type === "imageGroup") {
     return "";
   }
+  if (block.type === "columns") {
+    return block.columns
+      .flatMap((column) => column.blocks.map(blockText))
+      .join("");
+  }
   if (block.type === "list") {
     return block.items.flatMap((item) => item.map((run) => run.text)).join("");
   }

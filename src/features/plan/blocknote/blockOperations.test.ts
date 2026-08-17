@@ -165,4 +165,34 @@ describe("BlockNote block operations", () => {
     ).toBe(false);
     expect(editor.getParentBlock("image-group")).toBeUndefined();
   });
+
+  it("creates a same-row column list from a left edge drop", () => {
+    const editor = editorWithNestedContent();
+    const paragraph = editor.getBlock("paragraph")!;
+    const imageGroup = editor.getBlock("image-group")!;
+
+    expect(
+      moveBlockRelative(editor, imageGroup, paragraph, "left"),
+    ).toBe(true);
+
+    const columnList = editor.document.find(
+      (block) => block.type === "columnList",
+    );
+    expect(columnList).toMatchObject({
+      type: "columnList",
+      children: [
+        {
+          type: "column",
+          props: { width: 1.25 },
+          children: [{ type: "imageGroup" }],
+        },
+        {
+          type: "column",
+          props: { width: 0.75 },
+          children: [{ type: "paragraph" }],
+        },
+      ],
+    });
+    expect(editor.getParentBlock("image-group")?.type).toBe("column");
+  });
 });

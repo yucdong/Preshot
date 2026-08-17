@@ -4,6 +4,7 @@ import {
   layoutPdfRichText,
   paginatePdfTextLayout,
   PDF_BODY_SIZE,
+  PDF_COLUMN_GAP,
   PDF_LINE_HEIGHT,
   PDF_PARAGRAPH_GAP,
 } from "./pdfTextLayout";
@@ -71,6 +72,121 @@ describe("layoutPdfRichText", () => {
       },
     ]);
     expect(layout.height).toBe(200 + PDF_PARAGRAPH_GAP);
+  });
+
+  it("lays out weighted columns side-by-side", () => {
+    const regular = metricFont();
+    const bold = metricFont();
+    const layout = layoutPdfRichText(
+      [{
+        type: "columns",
+        columns: [
+          {
+            weight: 1,
+            blocks: [{ type: "paragraph", runs: [{ text: "left" }] }],
+          },
+          {
+            weight: 1,
+            blocks: [{ type: "paragraph", runs: [{ text: "right" }] }],
+          },
+        ],
+      }],
+      300,
+      { regular, bold },
+    );
+
+    const left = layout.commands.find((command) => command.text === "left");
+    const right = layout.commands.find((command) => command.text === "right");
+    expect(left?.x).toBe(0);
+    expect(right?.x).toBe((300 - PDF_COLUMN_GAP) / 2 + PDF_COLUMN_GAP);
+    expect(right?.baselineFromTop).toBe(left?.baselineFromTop);
+  });
+
+  it("moves a complete column row to the next page", () => {
+    const regular = metricFont();
+    const bold = metricFont();
+    const rawLayout = layoutPdfRichText(
+      [
+        {
+          type: "image",
+          src: "references/spacer.png",
+          alt: "",
+          width: 50,
+          height: 50,
+        },
+        {
+          type: "columns",
+          columns: [
+            {
+              weight: 1,
+              blocks: [{ type: "paragraph", runs: [{ text: "left" }] }],
+            },
+            {
+              weight: 1,
+              blocks: [{ type: "paragraph", runs: [{ text: "right" }] }],
+            },
+          ],
+        },
+      ],
+      300,
+      { regular, bold },
+    );
+    const paginated = paginatePdfTextLayout(rawLayout, {
+      textStartFromDocumentTop: 20,
+      pageHeight: 100,
+      pageMargin: 10,
+    });
+    const columnCommands = paginated.commands.filter((command) =>
+      command.text === "left" || command.text === "right");
+
+    expect(columnCommands).toHaveLength(2);
+    expect(new Set(columnCommands.map((command) => command.pageIndex)))
+      .toEqual(new Set([1]));
+  });
+
+  it("offsets image groups into their assigned column", () => {
+    const regular = metricFont();
+    const bold = metricFont();
+    const groups = new Map([[
+      "looks",
+      {
+        id: "looks",
+        name: "Looks",
+        type: "reference" as const,
+        x: 0,
+        width: 300,
+        height: 160,
+        description: "",
+        images: [{
+          id: "image",
+          file: "references/look.png",
+          aspectRatio: 1,
+          frameWidth: 100,
+          frameHeight: 100,
+        }],
+      },
+    ]]);
+    const layout = layoutPdfRichText(
+      [{
+        type: "columns",
+        columns: [
+          {
+            weight: 1,
+            blocks: [{ type: "paragraph", runs: [{ text: "copy" }] }],
+          },
+          {
+            weight: 1,
+            blocks: [{ type: "imageGroup", groupId: "looks" }],
+          },
+        ],
+      }],
+      300,
+      { regular, bold },
+      { imageGroups: groups },
+    );
+
+    expect(layout.images[0].x).toBeGreaterThan(150);
+    expect(layout.images[0].keepTogetherGroup).toMatch(/^columns-/);
   });
 
   it("moves an image block to the next page when it does not fit", () => {

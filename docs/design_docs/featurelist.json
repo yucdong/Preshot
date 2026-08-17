@@ -1038,27 +1038,29 @@
       }
     },
     {
-      "name": "BlockNote Canvas v13 Migration",
-      "description": "Introduces a native BlockNote JSON canvas and React image-group custom block for new projects while blocking legacy schemas.",
-      "status": "in_progress",
+      "name": "BlockNote Canvas v14 Multi-Column",
+      "description": "Provides a native BlockNote JSON canvas, React image-group custom block, and GPL-licensed multi-column rows while migrating schema v13 and blocking older schemas.",
+      "status": "completed",
       "feature_descriptions": [
-        "New projects persist strict schema-v13 BlockNote-style JSON instead of documentHtml",
+        "New projects persist strict schema-v14/document-v2 BlockNote-style JSON instead of documentHtml; schema v13 migrates automatically",
         "Native BlockNote Mantine formatting, slash menu, side menu, block drag, tables, lists, code, and undo/redo drive the document canvas",
-        "Image groups are top-level content-none custom blocks containing only groupId; detailed image metadata remains separate",
+        "Image groups are content-none custom blocks containing only groupId; they may be top-level or direct column children while detailed metadata remains separate",
         "Image-group internal import, view, deletion, drag, eight-way resize, crop layout, and PDF behavior are retained",
         "Imported images are copied into the project references directory with new names while their original source files remain untouched",
         "Same-project duplication creates new group/image IDs while reusing image files",
         "Schema v1-v12 projects are rejected without opening, exporting, autosaving, or modifying files",
         "The editing canvas is one continuous white BlockNote document; A4 pagination is deferred to PDF export",
-        "PDF export traverses JSON directly without HTML round-tripping"
+        "PDF export traverses JSON directly without HTML round-tripping",
+        "Text and image-group blocks can share a row using resizable columnList/column blocks",
+        "Native BlockNote image, video, and audio blocks support project-managed uploads, reload, block operations, columns, and export fallbacks"
       ],
       "decisions": [
         "Use published BlockNote packages and Mantine UI; local C:\\projects\\BlockNote is source reference only",
         "Use BlockNote native text features and accept H4-H6/font-size downgrade",
-        "Image-group blocks are top-level and use the standard BlockNote side-menu drag handle",
+        "Image-group blocks remain top-level except when used as direct column children",
         "Internal image interactions use bn-drag-exclude",
         "Keep runtime tombstones for native delete/undo and purge files at project retirement",
-        "BlockNote v13 is the sole editable canvas; the legacy TipTap provider, extensions, tests, and direct dependencies were removed"
+        "BlockNote v14 is the sole editable canvas; the legacy TipTap provider, extensions, tests, and direct dependencies were removed"
       ],
       "progress": {
         "designedAt": "2026-08-14",
@@ -1066,17 +1068,28 @@
         "designSpec": "docs/design_docs/blocknote_v13_migration_design.md",
         "viewportDesignSpec": "docs/design_refs/preshot-canvas-focus-zoom-demo.html",
         "blockOperationsDesignSpec": "docs/design_docs/block_operations_design.md",
+        "multiColumnResearchSpec": "docs/design_docs/blocknote_multi_column_research.md",
         "designed": [
           "Proposed a fixed 1080px logical document width with 20px viewport gutters and only 24px after the document end",
           "Revised the viewport proposal after review: project and assistant panels stay visible by default, while focus mode remains optional",
           "Proposed opening at fit-width zoom and accelerating pointer-anchored Ctrl+wheel zoom to 15% per step",
           "Designed a complete BlockNote Side Menu control system for insert, move, subtree duplication, transform, delete/undo, nest, unnest, keyboard shortcuts, and drag/drop feedback",
-          "Kept imageGroup top-level by disabling nesting with an explicit reason while retaining move, duplicate, and delete controls"
+          "Initially kept imageGroup top-level, then revised the rule to allow direct column children while retaining other nesting restrictions",
+          "Researched official BlockNote multi-column support: text and custom imageGroup blocks can share a row through columnList/column from @blocknote/xl-multi-column",
+          "Identified required schema 14 persistence, image-group column allowance, pointer left/right drops, column-aware operations, PDF layout, and GPL-3.0 or proprietary license decision"
         ],
         "implemented": [
-          "Added strict portable v13 block JSON validation and new-project seeds",
+          "Added strict portable v14 block JSON validation and new-project seeds",
           "Added typed legacy incompatibility load state",
           "Installed BlockNote/Mantine and added restricted schema plus imageGroup React block",
+          "Installed @blocknote/xl-multi-column 0.53.0 under GPL-3.0 with full license and third-party notice",
+          "Upgraded persistence to schema 14/document version 2 with automatic schema 13 migration",
+          "Added two-column and three-column slash items, resizable columns, and left/right pointer edge drops",
+          "Allowed image groups at the top level or directly inside columns and made metadata reference traversal recursive",
+          "Added column-aware PDF layout with persisted weight ratios and keep-together row pagination",
+          "Enabled native BlockNote image, video, and audio block specs and uploadFile integration",
+          "Added project media storage under media/ with validated MIME types, size limits, data-URL runtime resolution, relative-path JSON persistence, undo-safe retirement cleanup, browser fixtures, and narrow Rust commands",
+          "Added native image PDF rendering plus explicit video/audio caption or link fallbacks and Tauri media-src CSP",
           "Added JSON autosave, Chinese Mantine UI, slash insertion and custom side-menu duplication",
           "Replaced runtime page surfaces with one continuous white canvas that grows with BlockNote content",
           "Expanded the continuous document to a fixed 1080px logical width with 36px page padding, about 1008px of editable content, 20px workspace gutters, and a viewport-filling minimum height",
@@ -1084,7 +1097,8 @@
           "Changed initial zoom to automatic fit-width and accelerated pointer-anchored Ctrl+wheel zoom to 15% per step across a 55%-180% range",
           "Added a complete custom BlockNote drag-handle menu with block metadata, quick move/outdent/indent controls, relative insertion, subtree duplication, type conversion, delete/undo, disabled reasons, and nested structure guides",
           "Added same-level subtree movement so menu arrows never change nesting implicitly",
-          "Replaced unreliable BlockNote HTML5 block dragging under CSS zoom with a custom Pointer Events drag handle, 6px activation threshold, before/after/inside targets, fixed drop overlays, full-subtree transactions, and image-group top-level enforcement",
+          "Replaced unreliable BlockNote HTML5 block dragging under CSS zoom with a custom Pointer Events drag handle, 6px activation threshold, before/after/inside targets, fixed drop overlays, full-subtree transactions, and image-group hierarchy enforcement",
+          "Allowed image-group blocks to start the same Pointer block drag from their gray empty surface while excluding images, buttons, and resize handles",
           "Added Ctrl+D duplication and Alt+Arrow block movement shortcuts; Tab and Shift+Tab retain native BlockNote nesting behavior",
           "Constrained image-group cards to the actual BlockNote content width with exact left/right alignment",
           "Added pointer-anchored Ctrl+wheel continuous-canvas zoom from 50% to 150%",
@@ -1097,20 +1111,20 @@
           "Fixed Enter/new-line creation by removing pre-change block diff inspection before BlockNote assigns the new block ID; top-level image-group normalization now runs after changes",
           "Measured imported source dimensions and laid out batch images at equal height with width derived from each original aspect ratio"
         ],
-        "dependencyNote": "Organization npm mirror exposes BlockNote 0.53.0; npmjs TLS failed, so exact 0.54.x upgrade remains the only package-version follow-up.",
+        "dependencyNote": "Organization npm mirror provides BlockNote core/react/mantine and @blocknote/xl-multi-column at 0.53.0. The XL package is used under GPL-3.0; exact 0.54.x upgrade remains a follow-up.",
         "lastVerified": {
           "date": "2026-08-17",
           "lint": "0 errors; existing ThemeProvider Fast Refresh warning remains",
           "typecheck": "passed",
-          "unitTests": "88 files, 448 tests passed",
-          "e2eTests": "11 unified BlockNote/workspace/layout/theme/PDF Playwright journeys passed",
-          "focusedBlockNoteE2E": "4 BlockNote v13 journeys passed, including nested block Side Menu operations and real pointer-handle dragging at fit-width zoom",
+          "unitTests": "88 files, 458 tests passed",
+          "e2eTests": "15 unified BlockNote/workspace/layout/theme/PDF Playwright journeys passed",
+          "focusedBlockNoteE2E": "8 BlockNote v14 journeys passed, including v13 migration, nested block controls, pointer dragging, columns, image groups, and native image/video/audio upload, relative-path persistence, reload, and PDF export",
           "initializer": "4 PowerShell initializer checks passed",
-          "rustTests": "48 passed",
+          "rustTests": "50 passed",
           "build": "pnpm build passed with no direct TipTap dependencies and the existing large-chunk warning",
-          "tauriBuild": "Previously passed and produced Preshot_0.1.0_x64_en-US.msi; not rerun for this frontend-only viewport change"
+          "tauriBuild": "passed with multi-column and native media commands/CSP; produced Preshot_0.1.0_x64_en-US.msi"
         },
-        "visualVerification": "At a 1440px viewport both side panels are visible by default and the fixed 1080px document fits the remaining center workspace at 85%, leaving about 23px of gray gutter on each side. BlockNote exposes about 1008px of logical editable content; image groups use the unscaled content clientWidth and measured a 0.02px right-edge error. The implemented block operations menu renders at about 211px visual width at 85% zoom, shows block type/depth/child count, disables image-group nesting, and supports insert, same-level subtree move, nest/unnest, convert, duplicate, delete, undo, and Ctrl+D. Pointer dragging the second text block above the first displayed a stable cyan before-line, committed the order 第二段/第一段/第三段, and removed the overlay on pointerup. Native project opening is covered by a typed Tauri current-window maximize adapter.",
+        "visualVerification": "At a 1440px viewport both side panels are visible by default and the fixed 1080px document fits the remaining center workspace at 85%. Multi-column text/image-group rows align within 0.02px, gray-surface image-group dragging creates one group per column, and the XL divider persists width weights. Native BlockNote image, video, and audio blocks rendered their preview/player controls and captions from project-managed media; reload restored them from relative media paths. PDF renders native images and explicit video/audio fallback rows.",
         "remaining": [
           "Upgrade BlockNote packages to 0.54.x when available",
           "Complete Midscene visual validation for standard BlockNote block dragging"

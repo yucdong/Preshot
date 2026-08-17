@@ -3,6 +3,7 @@ import {
   defaultBlockSpecs,
 } from "@blocknote/core";
 import { createReactBlockSpec } from "@blocknote/react";
+import { withMultiColumn } from "@blocknote/xl-multi-column";
 import { ImageGroupBlockView } from "./ImageGroupBlockView";
 
 export const imageGroupBlockSpec = createReactBlockSpec(
@@ -14,7 +15,9 @@ export const imageGroupBlockSpec = createReactBlockSpec(
     content: "none",
   },
   {
-    render: ({ block }) => <ImageGroupBlockView groupId={block.props.groupId} />,
+    render: ({ block }) => (
+      <ImageGroupBlockView blockId={block.id} groupId={block.props.groupId} />
+    ),
     toExternalHTML: ({ block }) => (
       <figure
         data-preshot-group-id={block.props.groupId}
@@ -39,7 +42,7 @@ export const imageGroupBlockSpec = createReactBlockSpec(
   },
 );
 
-export const preshotBlockNoteSchema = BlockNoteSchema.create({
+const preshotBaseBlockNoteSchema = BlockNoteSchema.create({
   blockSpecs: {
     paragraph: defaultBlockSpecs.paragraph,
     heading: defaultBlockSpecs.heading,
@@ -51,8 +54,15 @@ export const preshotBlockNoteSchema = BlockNoteSchema.create({
     codeBlock: defaultBlockSpecs.codeBlock,
     table: defaultBlockSpecs.table,
     divider: defaultBlockSpecs.divider,
+    image: defaultBlockSpecs.image,
+    video: defaultBlockSpecs.video,
+    audio: defaultBlockSpecs.audio,
     imageGroup: imageGroupBlockSpec(),
   },
 });
+
+export const preshotBlockNoteSchema = withMultiColumn(
+  preshotBaseBlockNoteSchema,
+);
 
 export type PreshotBlockNoteSchema = typeof preshotBlockNoteSchema;

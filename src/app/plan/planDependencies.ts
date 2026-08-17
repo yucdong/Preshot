@@ -10,6 +10,7 @@ import { createBrowserScreenCapture } from "../../infrastructure/plan/browserScr
 import { createBlockNotePlanService } from "../../domain/plan/blocknote/service";
 import {
   browserBlockNoteImageStore,
+  browserBlockNoteMediaStore,
   browserBlockNoteImagePicker,
   browserBlockNotePlanRepository,
 } from "../../infrastructure/plan/browserBlockNotePlan";
@@ -22,6 +23,7 @@ function createProductionPlanDependencies(): PlanDependencies {
     service: createBlockNotePlanService({
       repository: tauriPlan,
       imageStore: tauriPlan,
+      mediaStore: tauriPlan,
       createId: () => crypto.randomUUID(),
       logger: planLogger,
     }),
@@ -44,6 +46,7 @@ export function createPlanDependencies(): PlanDependencies {
       service: createBlockNotePlanService({
         repository: browserBlockNotePlanRepository,
         imageStore: browserBlockNoteImageStore,
+        mediaStore: browserBlockNoteMediaStore,
         createId: () => crypto.randomUUID(),
         logger: planLogger,
       }),
@@ -64,6 +67,7 @@ export function createPlanDependencies(): PlanDependencies {
       service: createBlockNotePlanService({
         repository: browserBlockNotePlanRepository,
         imageStore: browserBlockNoteImageStore,
+        mediaStore: browserBlockNoteMediaStore,
         createId: () => crypto.randomUUID(),
         logger: planLogger,
       }),

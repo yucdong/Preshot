@@ -2,7 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
-import { createEmptyProjectPlanV13 } from "../../../domain/plan/canvas/blockDocument";
+import { createEmptyProjectPlanV14 } from "../../../domain/plan/canvas/blockDocument";
 import type { SettingsRepository } from "../../../domain/settings/ports";
 import type { BlockNotePlanService } from "../../../domain/plan/blocknote/service";
 import { BlockNoteProjectCanvasProvider } from "./BlockNoteProjectCanvasProvider";
@@ -37,24 +37,27 @@ function serviceWith(
     loadPlan: vi.fn(),
     savePlan: vi.fn(),
     loadImage: vi.fn(),
+    importMedia: vi.fn(),
+    loadMedia: vi.fn(),
     importImages: vi.fn(),
     removeImage: vi.fn(),
     removeGroup: vi.fn(),
     purgeDetachedGroups: vi.fn(),
+    purgeDetachedMedia: vi.fn(),
     ...overrides,
   };
 }
 
 describe("BlockNoteProjectCanvasProvider", () => {
-  it("renders a new schema-v13 BlockNote canvas", async () => {
-    const plan = createEmptyProjectPlanV13("Editorial", {
+  it("renders a new schema-v14 BlockNote canvas", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
       makeId: () => "block-1",
     });
     renderProvider(serviceWith({
       loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
     }));
 
-    expect(await screen.findByText("BlockNote Canvas v13")).toBeVisible();
+    expect(await screen.findByText("BlockNote Canvas v14")).toBeVisible();
     expect(screen.getByRole("group", { name: "方案正文" })).toHaveAttribute(
       "data-editor-engine",
       "blocknote",

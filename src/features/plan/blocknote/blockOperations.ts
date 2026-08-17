@@ -31,7 +31,12 @@ export type ConvertibleBlockType =
   | "numberedListItem"
   | "checkListItem"
   | "quote";
-export type BlockDropPlacement = "before" | "after" | "inside";
+export type BlockDropPlacement =
+  | "before"
+  | "after"
+  | "inside"
+  | "left"
+  | "right";
 
 export function blockContext(
   blocks: readonly PreshotEditorBlock[],
@@ -186,6 +191,43 @@ function topLevelAncestor(
   }
 }
 
+function columnAncestors(
+  editor: PreshotBlockNoteEditor,
+  block: PreshotEditorBlock,
+): {
+  column: PreshotEditorBlock;
+  columnList: PreshotEditorBlock;
+  directChild: PreshotEditorBlock;
+} | undefined {
+  let current = block;
+  for (;;) {
+    const parent = editor.getParentBlock(current) as
+      | PreshotEditorBlock
+      | undefined;
+    if (!parent) return undefined;
+    if (parent.type === "column") {
+      const columnList = editor.getParentBlock(parent) as
+        | PreshotEditorBlock
+        | undefined;
+      if (columnList?.type !== "columnList") return undefined;
+      return { column: parent, columnList, directChild: current };
+    }
+    current = parent;
+  }
+}
+
+function removeFromTree(
+  block: PreshotEditorBlock,
+  blockId: string,
+): PreshotEditorBlock {
+  return {
+    ...block,
+    children: block.children
+      .filter((child) => child.id !== blockId)
+      .map((child) => removeFromTree(child, blockId)),
+  };
+}
+
 export function moveBlockRelative(
   editor: PreshotBlockNoteEditor,
   source: PreshotEditorBlock,
@@ -195,7 +237,8 @@ export function moveBlockRelative(
   let target = requestedTarget;
   if (source.type === "imageGroup") {
     if (placement === "inside") return false;
-    target = topLevelAncestor(editor, requestedTarget);
+    target = columnAncestors(editor, requestedTarget)?.directChild ??
+      topLevelAncestor(editor, requestedTarget);
   }
   if (
     source.id === target.id ||
@@ -206,6 +249,68 @@ export function moveBlockRelative(
     )
   ) {
     return false;
+  }
+  if (placement === "left" || placement === "right") {
+    const targetColumns = columnAncestors(editor, target);
+    if (!targetColumns) {
+      const orderedBlocks =
+        placement === "left" ? [source, target] : [target, source];
+      const hasImageGroup = orderedBlocks.some(
+        (block) => block.type === "imageGroup",
+      );
+      editor.transact(() => {
+        editor.removeBlocks([source]);
+        editor.replaceBlocks(
+          [target],
+          [{
+            type: "columnList",
+            children: orderedBlocks.map((entry) => ({
+              type: "column",
+              props: {
+                width: hasImageGroup
+                  ? entry.type === "imageGroup" ? 1.25 : 0.75
+                  : 1,
+              },
+              children: [entry],
+            })),
+          }],
+        );
+      });
+      return true;
+    }
+
+    const sourceInsideTargetList = containsBlock(
+      targetColumns.columnList,
+      source.id,
+    );
+    const remainingColumns = targetColumns.columnList.children
+      .map((column) => removeFromTree(column, source.id))
+      .filter((column) => column.children.length > 0);
+    const targetColumnIndex = remainingColumns.findIndex(
+      (column) => column.id === targetColumns.column.id,
+    );
+    if (targetColumnIndex < 0) return false;
+    const insertionIndex = placement === "left"
+      ? targetColumnIndex
+      : targetColumnIndex + 1;
+    const newColumn = {
+        type: "column",
+        props: { width: 1 },
+        content: undefined,
+        children: [source],
+      } as PreshotEditorBlock;
+    const columnsWithSource = [
+      ...remainingColumns.slice(0, insertionIndex),
+      newColumn,
+      ...remainingColumns.slice(insertionIndex),
+    ];
+    editor.transact(() => {
+      if (!sourceInsideTargetList) editor.removeBlocks([source]);
+      editor.updateBlock(targetColumns.columnList, {
+        children: columnsWithSource,
+      });
+    });
+    return true;
   }
   editor.transact(() => {
     editor.removeBlocks([source]);

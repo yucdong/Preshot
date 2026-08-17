@@ -9,6 +9,26 @@ export interface ReferenceImageStore {
   removeImage(projectPath: string, file: string): Promise<void>;
 }
 
+export interface ImportedPlanMedia {
+  file: string;
+  dataUrl: string;
+  name: string;
+  mimeType: string;
+}
+
+export interface PlanMediaStore {
+  importMedia(
+    projectPath: string,
+    input: {
+      name: string;
+      mimeType: string;
+      bytes: number[];
+    },
+  ): Promise<ImportedPlanMedia>;
+  loadMedia(projectPath: string, file: string): Promise<string>;
+  removeMedia(projectPath: string, file: string): Promise<void>;
+}
+
 export interface PlanImagePicker {
   pickImageFile(title: string): Promise<string | null>;
   pickImageFiles(title?: string): Promise<string[]>;

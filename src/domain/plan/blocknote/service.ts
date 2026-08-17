@@ -1,28 +1,35 @@
 import {
   BLOCKNOTE_PLAN_SCHEMA_VERSION,
-  createEmptyProjectPlanV13,
-  type ProjectPlanV13,
-  validateProjectPlanV13,
+  createEmptyProjectPlanV14,
+  mediaFilesInBlockDocument,
+  migrateProjectPlanV13ToV14,
+  type ProjectPlanV14,
+  validateProjectPlanV14,
 } from "../canvas/blockDocument";
 import {
   DEFAULT_IMAGE_HEIGHT,
   type ReferenceComponent,
   type ReferenceImage,
 } from "../canvas/models";
-import type { ReferenceImageStore } from "../ports";
+import type {
+  PlanMediaStore,
+  ReferenceImageStore,
+} from "../ports";
 import type { WorkspaceLogger } from "../../workspace/ports";
 import type { BlockNotePlanRepository } from "./ports";
 
 interface Dependencies {
   repository: BlockNotePlanRepository;
   imageStore: ReferenceImageStore;
+  mediaStore: PlanMediaStore;
   createId(): string;
   logger: WorkspaceLogger;
 }
 
 export type BlockNotePlanLoadResult =
-  | { status: "missing"; plan: ProjectPlanV13 }
-  | { status: "loaded"; plan: ProjectPlanV13 }
+  | { status: "missing"; plan: ProjectPlanV14 }
+  | { status: "loaded"; plan: ProjectPlanV14 }
+  | { status: "migrated"; plan: ProjectPlanV14 }
   | {
       status: "incompatible";
       foundSchemaVersion: number | null;
@@ -31,32 +38,46 @@ export type BlockNotePlanLoadResult =
 
 export interface BlockNotePlanService {
   loadPlan(projectPath: string, projectName: string): Promise<BlockNotePlanLoadResult>;
-  savePlan(projectPath: string, plan: ProjectPlanV13): Promise<void>;
+  savePlan(projectPath: string, plan: ProjectPlanV14): Promise<void>;
   loadImage(projectPath: string, file: string): Promise<string>;
+  importMedia(
+    projectPath: string,
+    input: {
+      name: string;
+      mimeType: string;
+      bytes: number[];
+    },
+  ): ReturnType<PlanMediaStore["importMedia"]>;
+  loadMedia(projectPath: string, file: string): Promise<string>;
   importImages(
     projectPath: string,
-    plan: ProjectPlanV13,
+    plan: ProjectPlanV14,
     groupId: string,
     sourcePaths: string[],
   ): Promise<{
-    plan: ProjectPlanV13;
+    plan: ProjectPlanV14;
     images: Array<{ image: ReferenceImage; dataUrl: string }>;
   }>;
   removeImage(
     projectPath: string,
-    plan: ProjectPlanV13,
+    plan: ProjectPlanV14,
     groupId: string,
     imageId: string,
-  ): Promise<ProjectPlanV13>;
+  ): Promise<ProjectPlanV14>;
   removeGroup(
     projectPath: string,
-    plan: ProjectPlanV13,
+    plan: ProjectPlanV14,
     groupId: string,
-  ): Promise<ProjectPlanV13>;
+  ): Promise<ProjectPlanV14>;
   purgeDetachedGroups(
     projectPath: string,
-    activePlan: ProjectPlanV13,
+    activePlan: ProjectPlanV14,
     detachedGroups: ReferenceComponent[],
+  ): Promise<void>;
+  purgeDetachedMedia(
+    projectPath: string,
+    activePlan: ProjectPlanV14,
+    detachedFiles: string[],
   ): Promise<void>;
 }
 
@@ -76,6 +97,7 @@ function schemaVersionOf(raw: unknown): number | null {
 export function createBlockNotePlanService({
   repository,
   imageStore,
+  mediaStore,
   createId,
   logger,
 }: Dependencies): BlockNotePlanService {
@@ -90,17 +112,17 @@ export function createBlockNotePlanService({
     return run;
   }
 
-  function referencesFile(plan: ProjectPlanV13, file: string): boolean {
+  function referencesFile(plan: ProjectPlanV14, file: string): boolean {
     return plan.imageGroups.some((group) =>
       group.images.some((image) => image.file === file),
     );
   }
 
   function replaceGroup(
-    plan: ProjectPlanV13,
+    plan: ProjectPlanV14,
     groupId: string,
     update: (group: ReferenceComponent) => ReferenceComponent,
-  ): ProjectPlanV13 {
+  ): ProjectPlanV14 {
     let changed = false;
     const imageGroups = plan.imageGroups.map((group) => {
       if (group.id !== groupId) return group;
@@ -117,10 +139,15 @@ export function createBlockNotePlanService({
       if (raw === null) {
         return {
           status: "missing",
-          plan: createEmptyProjectPlanV13(projectName, { makeId: createId }),
+          plan: createEmptyProjectPlanV14(projectName, { makeId: createId }),
         };
       }
       const foundSchemaVersion = schemaVersionOf(raw);
+      if (foundSchemaVersion === 13) {
+        const plan = migrateProjectPlanV13ToV14(raw);
+        await repository.saveRawPlan(projectPath, plan);
+        return { status: "migrated", plan };
+      }
       if (foundSchemaVersion !== BLOCKNOTE_PLAN_SCHEMA_VERSION) {
         return {
           status: "incompatible",
@@ -128,13 +155,19 @@ export function createBlockNotePlanService({
           requiredSchemaVersion: BLOCKNOTE_PLAN_SCHEMA_VERSION,
         };
       }
-      return { status: "loaded", plan: validateProjectPlanV13(raw) };
+      return { status: "loaded", plan: validateProjectPlanV14(raw) };
     },
     async savePlan(projectPath, plan) {
-      await repository.saveRawPlan(projectPath, validateProjectPlanV13(plan));
+      await repository.saveRawPlan(projectPath, validateProjectPlanV14(plan));
     },
     async loadImage(projectPath, file) {
       return imageStore.loadImage(projectPath, file);
+    },
+    importMedia(projectPath, input) {
+      return enqueue(() => mediaStore.importMedia(projectPath, input));
+    },
+    async loadMedia(projectPath, file) {
+      return mediaStore.loadMedia(projectPath, file);
     },
     importImages(projectPath, plan, groupId, sourcePaths) {
       return enqueue(async () => {
@@ -208,6 +241,18 @@ export function createBlockNotePlanService({
         for (const file of files) {
           if (!referencesFile(activePlan, file)) {
             await imageStore.removeImage(projectPath, file);
+          }
+        }
+      });
+    },
+    purgeDetachedMedia(projectPath, activePlan, detachedFiles) {
+      return enqueue(async () => {
+        const activeFiles = new Set(
+          mediaFilesInBlockDocument(activePlan.document),
+        );
+        for (const file of new Set(detachedFiles)) {
+          if (!activeFiles.has(file)) {
+            await mediaStore.removeMedia(projectPath, file);
           }
         }
       });

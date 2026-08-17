@@ -1,7 +1,7 @@
 import type { ReferenceComponent } from "./models";
 
-export const BLOCK_DOCUMENT_SCHEMA_VERSION = 1 as const;
-export const BLOCKNOTE_PLAN_SCHEMA_VERSION = 13 as const;
+export const BLOCK_DOCUMENT_SCHEMA_VERSION = 2 as const;
+export const BLOCKNOTE_PLAN_SCHEMA_VERSION = 14 as const;
 
 export type BlockPrimitive = boolean | number | string;
 export type BlockProps = Record<string, BlockPrimitive>;
@@ -43,6 +43,11 @@ export const PRESHOT_BLOCK_TYPES = [
   "table",
   "divider",
   "imageGroup",
+  "image",
+  "video",
+  "audio",
+  "column",
+  "columnList",
 ] as const;
 
 export type PreshotBlockType = (typeof PRESHOT_BLOCK_TYPES)[number];
@@ -61,12 +66,15 @@ export interface PreshotBlockDocument {
   blocks: PreshotBlock[];
 }
 
-export interface ProjectPlanV13 {
+export interface ProjectPlanV14 {
   schemaVersion: typeof BLOCKNOTE_PLAN_SCHEMA_VERSION;
   title: string;
   document: PreshotBlockDocument;
   imageGroups: ReferenceComponent[];
 }
+
+/** @deprecated Use ProjectPlanV14. */
+export type ProjectPlanV13 = ProjectPlanV14;
 
 export interface BlockDocumentContext {
   makeId(): string;
@@ -189,7 +197,7 @@ function assertBlock(
   context: string,
   blockIds: Set<string>,
   imageGroupIds: string[],
-  topLevel: boolean,
+  parentType: PreshotBlockType | null,
 ): asserts value is PreshotBlock {
   if (
     !isRecord(value) ||
@@ -207,9 +215,45 @@ function assertBlock(
   blockIds.add(value.id);
   assertPrimitiveRecord(value.props, context);
 
-  if (value.type === "imageGroup") {
-    if (!topLevel) {
-      throw new Error(`Image group block "${value.id}" must be top-level`);
+  const blockType = value.type as PreshotBlockType;
+  if (parentType === "columnList" && blockType !== "column") {
+    throw new Error(`${context} column list children must be columns`);
+  }
+  if (
+    parentType === "column" &&
+    (blockType === "column" || blockType === "columnList")
+  ) {
+    throw new Error(`${context} column children must be regular blocks`);
+  }
+
+  if (blockType === "columnList") {
+    if (parentType !== null) {
+      throw new Error(`${context} column list must be top-level`);
+    }
+    if (
+      value.content !== undefined ||
+      value.children.length < 2 ||
+      value.children.some((child) =>
+        !isRecord(child) || child.type !== "column")
+    ) {
+      throw new Error(`${context} column list is malformed`);
+    }
+  } else if (blockType === "column") {
+    if (
+      parentType !== "columnList" ||
+      value.content !== undefined ||
+      typeof value.props.width !== "number" ||
+      !Number.isFinite(value.props.width) ||
+      value.props.width <= 0 ||
+      value.children.length === 0
+    ) {
+      throw new Error(`${context} column is malformed`);
+    }
+  } else if (blockType === "imageGroup") {
+    if (parentType !== null && parentType !== "column") {
+      throw new Error(
+        `Image group block "${value.id}" must be top-level or inside a column`,
+      );
     }
     if (
       typeof value.props.groupId !== "string" ||
@@ -220,9 +264,38 @@ function assertBlock(
       throw new Error(`Image group block "${value.id}" is malformed`);
     }
     imageGroupIds.push(value.props.groupId);
-  } else if (value.type === "table") {
+  } else if (
+    blockType === "image" ||
+    blockType === "video" ||
+    blockType === "audio"
+  ) {
+    const url = value.props.url;
+    if (
+      value.content !== undefined ||
+      typeof value.props.name !== "string" ||
+      typeof url !== "string" ||
+      typeof value.props.caption !== "string" ||
+      typeof value.props.showPreview !== "boolean" ||
+      (
+        url !== "" &&
+        !/^https?:\/\//i.test(url) &&
+        !/^media\/[^/\\]+$/i.test(url)
+      ) ||
+      (
+        (blockType === "image" || blockType === "video") &&
+        value.props.previewWidth !== undefined &&
+        (
+          typeof value.props.previewWidth !== "number" ||
+          !Number.isFinite(value.props.previewWidth) ||
+          value.props.previewWidth <= 0
+        )
+      )
+    ) {
+      throw new Error(`${context} native media block is malformed`);
+    }
+  } else if (blockType === "table") {
     assertTableContent(value.content, `${context} table`);
-  } else if (value.type === "divider") {
+  } else if (blockType === "divider") {
     if (value.content !== undefined) {
       throw new Error(`${context} divider content must be undefined`);
     }
@@ -241,7 +314,7 @@ function assertBlock(
       `${context} child ${index}`,
       blockIds,
       imageGroupIds,
-      false,
+      blockType,
     ),
   );
 }
@@ -263,7 +336,7 @@ export function validateBlockDocument(value: unknown): PreshotBlockDocument {
       `Stored document block ${index}`,
       blockIds,
       imageGroupIds,
-      true,
+      null,
     ),
   );
   return value as unknown as PreshotBlockDocument;
@@ -272,12 +345,44 @@ export function validateBlockDocument(value: unknown): PreshotBlockDocument {
 export function imageGroupIdsInBlockDocument(
   document: PreshotBlockDocument,
 ): string[] {
-  return document.blocks
-    .filter((block) => block.type === "imageGroup")
-    .map((block) => String(block.props.groupId));
+  const ids: string[] = [];
+  const visit = (blocks: readonly PreshotBlock[]) => {
+    for (const block of blocks) {
+      if (block.type === "imageGroup") {
+        ids.push(String(block.props.groupId));
+      }
+      visit(block.children);
+    }
+  };
+  visit(document.blocks);
+  return ids;
 }
 
-export function validateProjectPlanV13(value: unknown): ProjectPlanV13 {
+export function mediaFilesInBlockDocument(
+  document: PreshotBlockDocument,
+): string[] {
+  const files: string[] = [];
+  const visit = (blocks: readonly PreshotBlock[]) => {
+    for (const block of blocks) {
+      if (
+        (
+          block.type === "image" ||
+          block.type === "video" ||
+          block.type === "audio"
+        ) &&
+        typeof block.props.url === "string" &&
+        /^media\/[^/\\]+$/i.test(block.props.url)
+      ) {
+        files.push(block.props.url);
+      }
+      visit(block.children);
+    }
+  };
+  visit(document.blocks);
+  return files;
+}
+
+export function validateProjectPlanV14(value: unknown): ProjectPlanV14 {
   if (
     !isRecord(value) ||
     value.schemaVersion !== BLOCKNOTE_PLAN_SCHEMA_VERSION ||
@@ -286,7 +391,7 @@ export function validateProjectPlanV13(value: unknown): ProjectPlanV13 {
     value.title !== value.title.trim() ||
     !Array.isArray(value.imageGroups)
   ) {
-    throw new Error("Stored plan schema version 13 is malformed");
+    throw new Error("Stored plan schema version 14 is malformed");
   }
   const document = validateBlockDocument(value.document);
   const groups = value.imageGroups as ReferenceComponent[];
@@ -347,14 +452,39 @@ export function createEmptyBlockDocument(
   };
 }
 
-export function createEmptyProjectPlanV13(
+export function createEmptyProjectPlanV14(
   title: string,
   context: BlockDocumentContext,
-): ProjectPlanV13 {
+): ProjectPlanV14 {
   return {
     schemaVersion: BLOCKNOTE_PLAN_SCHEMA_VERSION,
     title: title.trim(),
     document: createEmptyBlockDocument(context),
     imageGroups: [],
   };
+}
+
+export const createEmptyProjectPlanV13 = createEmptyProjectPlanV14;
+export const validateProjectPlanV13 = validateProjectPlanV14;
+
+export function migrateProjectPlanV13ToV14(
+  value: unknown,
+): ProjectPlanV14 {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 13 ||
+    !isRecord(value.document) ||
+    value.document.format !== "preshot-blocks" ||
+    value.document.version !== 1
+  ) {
+    throw new Error("Stored plan schema version 13 is malformed");
+  }
+  return validateProjectPlanV14({
+    ...value,
+    schemaVersion: BLOCKNOTE_PLAN_SCHEMA_VERSION,
+    document: {
+      ...value.document,
+      version: BLOCK_DOCUMENT_SCHEMA_VERSION,
+    },
+  });
 }

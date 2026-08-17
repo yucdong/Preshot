@@ -20,7 +20,11 @@ export type Block =
       width?: number;
       height?: number;
     }
-  | { type: "imageGroup"; groupId: string };
+  | { type: "imageGroup"; groupId: string }
+  | {
+      type: "columns";
+      columns: Array<{ weight: number; blocks: Block[] }>;
+    };
 
 interface Marks {
   bold?: boolean;

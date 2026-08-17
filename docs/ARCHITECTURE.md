@@ -32,11 +32,12 @@ a `.preshot` manifest containing project identity and the optional plan. The
 workspace service serializes mutations; unavailable manifests remain visible
 for recovery but cannot be opened as a project.
 
-Production now creates schema-v13 BlockNote canvas plans. The canonical v13
-document is strict JSON (`document.format = "preshot-blocks"`) and image-group
-metadata is stored separately in `imageGroups`. Older schema v1-v12 plans are
-returned as an explicit incompatible load result and are never opened,
-autosaved, exported, or modified.
+Production now creates schema-v14 BlockNote canvas plans. The canonical v14
+document is strict JSON (`document.format = "preshot-blocks"`, document version
+2), supports `columnList` / `column` rows, and stores image-group metadata
+separately in `imageGroups`. Schema v13 plans are migrated atomically to v14;
+older schema v1-v12 plans are returned as an explicit incompatible load result
+and are never opened, autosaved, exported, or modified.
 
 Legacy canvas plans were migrated at the manifest boundary to `schemaVersion: 12`.
 Earlier schemas are accepted only as migration input. In strict v12,
@@ -91,18 +92,31 @@ Image-group pagination keeps each image intact and may break only between image
 rows. The screen and PDF both resolve marker order through `documentHtml` and
 render frame/crop geometry from the matching image-group record.
 
-## Schema v13 BlockNote Document
+## Schema v14 BlockNote Document
 
 New projects use one BlockNote editor with native paragraph, H1-H3, list,
 checklist, toggle, quote, code, table, divider, formatting toolbar, slash menu,
 side menu, undo/redo, and block drag behavior. Font-size and H4-H6 parity are
-not part of v13.
+not part of v14.
 
 The custom `imageGroup` block has no editable content and stores only a
 primitive `groupId`. Its React renderer resolves frame/crop/image metadata from
-the plan's `imageGroups` collection. Image groups are top-level only. Internal
-image pointer regions use `bn-drag-exclude` so image DnD/resize does not start
-BlockNote block drag.
+the plan's `imageGroups` collection. Image groups may be top-level or direct
+children of `column` blocks. Internal image pointer regions use
+`bn-drag-exclude` so image DnD/resize does not start BlockNote block drag.
+
+The GPL-3.0 `@blocknote/xl-multi-column` extension adds `columnList` and
+`column` structures, adjustable flex-weight widths, and two-/three-column slash
+commands. Preshot's pointer drag detects left/right block edges to create or
+extend column rows under CSS zoom.
+
+Native BlockNote `image`, `video`, and `audio` blocks use the editor's
+`uploadFile` boundary. Tauri stores accepted files under the project's
+`media/` directory and returns runtime data URLs; canonical JSON persists only
+relative `media/...` paths. Removed media remains available for undo and is
+physically deleted during project retirement. Native images render in PDF;
+video and audio render explicit caption/name fallback rows because PDF cannot
+embed interactive players.
 
 BlockNote document changes remain editor-owned. Image-group deletion retains
 runtime tombstones so native undo can restore metadata; unreferenced project

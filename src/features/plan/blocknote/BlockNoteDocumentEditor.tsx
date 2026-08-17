@@ -6,6 +6,7 @@ import {
   insertOrUpdateBlockForSlashMenu,
 } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/mantine";
+import { insertColumnList } from "@blocknote/xl-multi-column";
 import "@blocknote/mantine/style.css";
 import {
   getDefaultReactSlashMenuItems,
@@ -13,7 +14,7 @@ import {
   SuggestionMenuController,
   useCreateBlockNote,
 } from "@blocknote/react";
-import { Images } from "lucide-react";
+import { Columns2, Columns3, Images } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -45,6 +46,9 @@ interface BlockNoteDocumentEditorProps {
   imageGroupController: ImageGroupBlockController;
   onChange(document: PreshotBlockDocument): void;
   onEditorReady?(editor: typeof preshotBlockNoteSchema.BlockNoteEditor): void;
+  persistMediaUrl(url: string): string;
+  resolveMediaUrl(url: string): string;
+  uploadFile(file: File): Promise<string>;
 }
 
 type EditorPartialBlock = PartialBlock<
@@ -53,32 +57,96 @@ type EditorPartialBlock = PartialBlock<
   typeof preshotBlockNoteSchema.styleSchema
 >;
 
-function cloneBlocks(document: PreshotBlockDocument): EditorPartialBlock[] {
-  const normalized: unknown = structuredClone(document.blocks).map((block) => {
-    const content = block.content;
+function invalidNestedImageGroup(
+  blocks: readonly PreshotEditorBlock[],
+  topLevelAncestor?: PreshotEditorBlock,
+  parent?: PreshotEditorBlock,
+): { block: PreshotEditorBlock; topLevel: PreshotEditorBlock } | undefined {
+  for (const block of blocks) {
+    const topLevel = topLevelAncestor ?? block;
     if (
+      block.type === "imageGroup" &&
+      parent !== undefined &&
+      parent.type !== "column"
+    ) {
+      return { block, topLevel };
+    }
+    const nested = invalidNestedImageGroup(
+      block.children,
+      topLevel,
+      block,
+    );
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
+function cloneBlocks(
+  document: PreshotBlockDocument,
+  resolveMediaUrl: (url: string) => string,
+): EditorPartialBlock[] {
+  const normalize = (block: PreshotBlockDocument["blocks"][number]): unknown => {
+    const content = block.content;
+    const normalizedContent =
       block.type !== "table" ||
       content === undefined ||
       Array.isArray(content) ||
       content.type !== "tableContent"
-    ) {
-      return block;
-    }
+        ? content
+        : {
+            ...content,
+            columnWidths: content.columnWidths.map((width: number | null) =>
+              width === null ? undefined : width),
+          };
     return {
       ...block,
-      content: {
-        ...content,
-        columnWidths: content.columnWidths.map((width: number | null) =>
-          width === null ? undefined : width,
-        ),
-      },
+      props:
+        (
+          block.type === "image" ||
+          block.type === "video" ||
+          block.type === "audio"
+        ) && typeof block.props.url === "string"
+          ? {
+              ...block.props,
+              url: resolveMediaUrl(block.props.url),
+            }
+          : block.props,
+      content: normalizedContent,
+      children: block.children.map(normalize),
     };
-  });
+  };
+  const normalized: unknown = structuredClone(document.blocks).map(normalize);
   return normalized as EditorPartialBlock[];
 }
 
-function serializeEditorDocument(blocks: unknown): PreshotBlockDocument {
-  const jsonSafeBlocks: unknown = JSON.parse(JSON.stringify(blocks));
+function serializeEditorDocument(
+  blocks: unknown,
+  persistMediaUrl: (url: string) => string,
+): PreshotBlockDocument {
+  const jsonSafeBlocks = JSON.parse(JSON.stringify(blocks)) as Array<{
+    type: string;
+    props: Record<string, unknown>;
+    children: unknown[];
+  }>;
+  const normalize = (block: {
+    type: string;
+    props: Record<string, unknown>;
+    children: unknown[];
+  }) => {
+    if (
+      (
+        block.type === "image" ||
+        block.type === "video" ||
+        block.type === "audio"
+      ) &&
+      typeof block.props.url === "string"
+    ) {
+      block.props.url = persistMediaUrl(block.props.url);
+    }
+    block.children.forEach((child) =>
+      normalize(child as typeof block));
+  };
+  jsonSafeBlocks.forEach(normalize);
   return validateBlockDocument({
     format: "preshot-blocks",
     version: BLOCK_DOCUMENT_SCHEMA_VERSION,
@@ -92,6 +160,9 @@ export function BlockNoteDocumentEditor({
   imageGroupController,
   onChange,
   onEditorReady,
+  persistMediaUrl,
+  resolveMediaUrl,
+  uploadFile,
 }: BlockNoteDocumentEditorProps) {
   const { resolved } = useTheme();
   const onChangeRef = useRef(onChange);
@@ -102,7 +173,8 @@ export function BlockNoteDocumentEditor({
   const editor = useCreateBlockNote({
     schema: preshotBlockNoteSchema,
     dictionary: zh,
-    initialContent: cloneBlocks(document),
+    initialContent: cloneBlocks(document, resolveMediaUrl),
+    uploadFile,
   });
 
   useEffect(() => {
@@ -132,18 +204,14 @@ export function BlockNoteDocumentEditor({
 
   const handleChange = useCallback(() => {
     if (!reconcilingRef.current) {
-      const nestedImageGroup = editor.document
-        .flatMap((parent) =>
-          parent.children.map((child) => ({ child, parent })),
-        )
-        .find(({ child }) => child.type === "imageGroup");
+      const nestedImageGroup = invalidNestedImageGroup(editor.document);
       if (nestedImageGroup) {
         reconcilingRef.current = true;
         editor.transact(() => {
-          editor.removeBlocks([nestedImageGroup.child]);
+          editor.removeBlocks([nestedImageGroup.block]);
           editor.insertBlocks(
-            [nestedImageGroup.child],
-            nestedImageGroup.parent,
+            [nestedImageGroup.block],
+            nestedImageGroup.topLevel,
             "after",
           );
         });
@@ -151,30 +219,44 @@ export function BlockNoteDocumentEditor({
         return;
       }
       const seen = new Set<string>();
-      for (const block of editor.document) {
-        if (block.type !== "imageGroup") continue;
+      let duplicate:
+        | { block: PreshotEditorBlock; groupId: string }
+        | undefined;
+      editor.forEachBlock((entry) => {
+        const block = entry as PreshotEditorBlock;
+        if (block.type !== "imageGroup") return true;
         const groupId = block.props.groupId;
         if (!seen.has(groupId)) {
           seen.add(groupId);
-          continue;
+          return true;
         }
-        const clonedGroupId = imageGroupController.cloneGroup(groupId);
-        if (!clonedGroupId) continue;
-        reconcilingRef.current = true;
-        editor.updateBlock(block, {
-          type: "imageGroup",
-          props: { groupId: clonedGroupId },
-        });
-        reconcilingRef.current = false;
-        return;
+        duplicate = { block, groupId };
+        return false;
+      });
+      if (duplicate) {
+        const clonedGroupId = imageGroupController.cloneGroup(
+          duplicate.groupId,
+        );
+        if (clonedGroupId) {
+          reconcilingRef.current = true;
+          editor.updateBlock(duplicate.block, {
+            type: "imageGroup",
+            props: { groupId: clonedGroupId },
+          });
+          reconcilingRef.current = false;
+          return;
+        }
       }
     }
-    const next = serializeEditorDocument(editor.document);
+    const next = serializeEditorDocument(
+      editor.document,
+      persistMediaUrl,
+    );
     const serialized = JSON.stringify(next);
     if (serialized === lastEmitRef.current) return;
     lastEmitRef.current = serialized;
     onChangeRef.current(next);
-  }, [editor, imageGroupController]);
+  }, [editor, imageGroupController, persistMediaUrl]);
 
   const notifyBlockOperation = useCallback((message: string) => {
     if (operationToastTimerRef.current !== null) {
@@ -244,6 +326,22 @@ export function BlockNoteDocumentEditor({
               const defaults = getDefaultReactSlashMenuItems(editor);
               const items = [
                 ...defaults,
+                {
+                  title: "两列",
+                  subtext: "插入可调整宽度的双列布局",
+                  aliases: ["两栏", "双列", "columns", "2 columns"],
+                  group: "基础块",
+                  icon: <Columns2 size={18} />,
+                  onItemClick: () => insertColumnList(editor, 2),
+                },
+                {
+                  title: "三列",
+                  subtext: "插入可调整宽度的三列布局",
+                  aliases: ["三栏", "columns", "3 columns"],
+                  group: "基础块",
+                  icon: <Columns3 size={18} />,
+                  onItemClick: () => insertColumnList(editor, 3),
+                },
                 {
                   title: "图片组",
                   subtext: "插入可拖拽、可缩放的参考图片组",

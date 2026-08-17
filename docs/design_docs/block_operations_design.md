@@ -22,7 +22,8 @@
 
 ## 当前项目约束
 
-- `imageGroup` 仍必须是顶层 block；“增加缩进”禁用并显示原因。
+- `imageGroup` 不支持普通缩进嵌套；可作为顶层 block 或 column 的直接子项。
+  “增加缩进”仍禁用，并通过左右边缘拖放进入列布局。
 - 复制普通 block 时复制完整子树并重新生成所有 block ID。
 - 复制 `imageGroup` 时继续调用 `ImageGroupBlockController.cloneGroup`，生成新的
   group/image IDs，但复用底层图片文件。
@@ -76,7 +77,7 @@
 - 普通 block 插入、复制、转换、删除。
 - 父 block 连同完整子树上下移动。
 - 嵌套/取消嵌套及首尾边界禁用。
-- 图片组禁止嵌套，但允许顶层移动、复制和删除/撤销。
+- 图片组禁止普通嵌套，但允许顶层/列内移动、复制和删除/撤销。
 - 菜单键盘导航、Escape 焦点返回和快捷键。
 - JSON 持久化后 children 层级、唯一 block ID 与 image-group 引用完整。
 

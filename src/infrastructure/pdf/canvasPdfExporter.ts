@@ -217,6 +217,11 @@ function scalePdfTextLayout(
       width: image.width * scale,
       height: image.height * scale,
     })),
+    keepTogetherGroups: layout.keepTogetherGroups.map((group) => ({
+      ...group,
+      topFromTop: group.topFromTop * scale,
+      height: group.height * scale,
+    })),
   };
 }
 

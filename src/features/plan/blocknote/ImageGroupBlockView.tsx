@@ -10,8 +10,14 @@ import { layoutDocumentImageGroup } from "../../../domain/plan/canvas/documentIm
 import { imageCropForView, imageViewCss } from "../../../domain/plan/canvas/imageView";
 import type { ReferenceImage } from "../../../domain/plan/canvas/models";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
+import { useBlockNoteEditor } from "@blocknote/react";
 import { useImageGroupBlockController } from "./ImageGroupBlockContext";
 import { isLegacyDefaultImageGroup } from "./canvasViewport";
+import { startBlockPointerDrag } from "./blockPointerDrag";
+import type {
+  PreshotBlockNoteEditor,
+  PreshotEditorBlock,
+} from "./blockOperations";
 
 type ResizeDirection =
   | "left"
@@ -135,8 +141,15 @@ function imageWithPreview(
   return preview?.imageId === image.id ? { ...image, ...preview } : image;
 }
 
-export function ImageGroupBlockView({ groupId }: { groupId: string }) {
+export function ImageGroupBlockView({
+  blockId,
+  groupId,
+}: {
+  blockId: string;
+  groupId: string;
+}) {
   const controller = useImageGroupBlockController();
+  const editor = useBlockNoteEditor();
   const group = useSyncExternalStore(
     controller.subscribe,
     () => controller.getGroup(groupId),
@@ -530,6 +543,30 @@ export function ImageGroupBlockView({ groupId }: { groupId: string }) {
     document.addEventListener("pointercancel", cancel);
   };
 
+  const startGroupBlockDrag = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(
+        "button, [data-image-id], [data-image-resize-edge], [data-group-resize-edge]",
+      )
+    ) {
+      return;
+    }
+    const block = editor.getBlock(blockId) as
+      | PreshotEditorBlock
+      | undefined;
+    if (!block || block.type !== "imageGroup") return;
+    startBlockPointerDrag({
+      editor: editor as unknown as PreshotBlockNoteEditor,
+      source: block,
+      clientX: event.clientX,
+      clientY: event.clientY,
+    });
+  };
+
   return (
     <div
       className="preshot-blocknote-image-group-shell relative w-full min-w-0"
@@ -538,6 +575,7 @@ export function ImageGroupBlockView({ groupId }: { groupId: string }) {
       <div
         className="preshot-blocknote-image-group bn-drag-exclude relative rounded border border-app-border bg-app-panel p-2"
         data-image-group-id={groupId}
+        onPointerDown={startGroupBlockDrag}
         ref={rootRef}
         style={{
           height: `${displayedGroup.height}px`,
@@ -547,7 +585,7 @@ export function ImageGroupBlockView({ groupId }: { groupId: string }) {
           maxWidth: "100%",
         }}
       >
-        <div className="absolute right-0 top-[-34px] z-20 flex h-[30px] items-center gap-1 rounded border border-white/10 bg-[#202329] px-1 text-white shadow-lg">
+        <div className="preshot-blocknote-image-group-toolbar absolute right-0 top-[-34px] z-20 flex h-[30px] items-center gap-1 rounded border border-white/10 bg-[#202329] px-1 text-white shadow-lg">
           <span className="flex h-6 items-center gap-1 rounded bg-app-functional/20 px-2 text-[10px] font-bold text-cyan-100">
             <Images aria-hidden size={14} />图片组
           </span>

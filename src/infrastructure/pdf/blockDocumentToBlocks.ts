@@ -42,7 +42,55 @@ function plainText(content: BlockInlineContent[]): string {
 }
 
 function convertBlock(block: PreshotBlock): Block[] {
+  if (block.type === "columnList") {
+    return [{
+      type: "columns",
+      columns: block.children.map((column) => ({
+        weight:
+          typeof column.props.width === "number" && column.props.width > 0
+            ? column.props.width
+            : 1,
+        blocks: column.children.flatMap(convertBlock),
+      })),
+    }];
+  }
   const children = block.children.flatMap(convertBlock);
+  if (block.type === "column") {
+    return children;
+  }
+  if (block.type === "image") {
+    const url = String(block.props.url ?? "");
+    if (!url) return children;
+    if (/^media\/[^/\\]+$/i.test(url)) {
+      return [{
+        type: "image",
+        src: url,
+        alt: String(block.props.caption || block.props.name || ""),
+        ...(typeof block.props.previewWidth === "number"
+          ? { width: block.props.previewWidth }
+          : {}),
+      }, ...children];
+    }
+    return [{
+      type: "paragraph",
+      runs: [{
+        text: String(block.props.caption || block.props.name || "图片"),
+        ...(url ? { link: url } : {}),
+      }],
+    }, ...children];
+  }
+  if (block.type === "video" || block.type === "audio") {
+    const url = String(block.props.url ?? "");
+    const label = block.type === "video" ? "视频" : "音频";
+    const name = String(block.props.caption || block.props.name || label);
+    return [{
+      type: "paragraph",
+      runs: [{
+        text: `[${label}] ${name}`,
+        ...(/^https?:\/\//i.test(url) ? { link: url } : {}),
+      }],
+    }, ...children];
+  }
   if (block.type === "imageGroup") {
     return [
       { type: "imageGroup", groupId: String(block.props.groupId) },

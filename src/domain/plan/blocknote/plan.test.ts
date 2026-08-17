@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectPlanV13 } from "../canvas/blockDocument";
+import type { ProjectPlanV14 } from "../canvas/blockDocument";
 import { setBlockNoteImageNaturalDimensions } from "./plan";
 
 describe("BlockNote image natural dimensions", () => {
   it("keeps the common frame height and derives width from source ratio", () => {
-    const plan: ProjectPlanV13 = {
-      schemaVersion: 13,
+    const plan: ProjectPlanV14 = {
+      schemaVersion: 14,
       title: "Demo",
       document: {
         format: "preshot-blocks",
-        version: 1,
+        version: 2,
         blocks: [{
           id: "group-block",
           type: "imageGroup",

@@ -14,7 +14,7 @@ const settings: SettingsRepository = {
 
 const document: PreshotBlockDocument = {
   format: "preshot-blocks",
-  version: 1,
+  version: 2,
   blocks: [
     {
       id: "paragraph",
@@ -70,6 +70,9 @@ describe("BlockNoteDocumentEditor", () => {
           onEditorReady={(instance) => {
             editor = instance;
           }}
+          persistMediaUrl={(url) => url}
+          resolveMediaUrl={(url) => url}
+          uploadFile={vi.fn()}
         />
       </ThemeProvider>,
     );

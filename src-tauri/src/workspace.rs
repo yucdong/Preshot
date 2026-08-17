@@ -370,8 +370,8 @@ pub(crate) fn read_manifest(project_path: &Path) -> Result<ProjectManifest, Comm
                             format!("Unable to read the project manifest: {error}"),
                         )
                     })?;
-                    let manifest: ProjectManifest =
-                        serde_json::from_slice(&manifest_bytes).map_err(|error| {
+                    let manifest: ProjectManifest = serde_json::from_slice(&manifest_bytes)
+                        .map_err(|error| {
                             CommandError::new(
                                 "manifest_decode_failed",
                                 format!("Unable to decode the project manifest: {error}"),
@@ -974,7 +974,9 @@ mod tests {
         assert_eq!(created.path, canonical_string(&deduped));
         assert_eq!(created.manifest.name, "Editorial");
         assert_eq!(
-            Path::new(&created.path).file_name().and_then(|value| value.to_str()),
+            Path::new(&created.path)
+                .file_name()
+                .and_then(|value| value.to_str()),
             Some("Editorial (2)")
         );
         assert!(deduped.join(".preshotproj").is_file());
@@ -1381,7 +1383,10 @@ mod tests {
 
         assert_eq!(plan["referenceGroups"][0]["id"], "g1");
         assert_eq!(plan["referenceGroups"][0]["title"], "Lookbook");
-        assert_eq!(plan["referenceGroups"][0]["images"][0]["file"], "references/0001.jpg");
+        assert_eq!(
+            plan["referenceGroups"][0]["images"][0]["file"],
+            "references/0001.jpg"
+        );
     }
 
     #[test]

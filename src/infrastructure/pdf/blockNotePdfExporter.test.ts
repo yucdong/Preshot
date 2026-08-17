@@ -14,11 +14,11 @@ describe("createBlockNotePdfExporter", () => {
       ),
     }));
     const bytes = await exporter.export({
-      schemaVersion: 13,
+      schemaVersion: 14,
       title: "Editorial",
       document: {
         format: "preshot-blocks",
-        version: 1,
+        version: 2,
         blocks: [{
           id: "paragraph",
           type: "paragraph",

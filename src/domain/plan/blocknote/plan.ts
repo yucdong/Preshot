@@ -1,13 +1,13 @@
-import type { ProjectPlanV13 } from "../canvas/blockDocument";
+import type { ProjectPlanV14 } from "../canvas/blockDocument";
 
 export function setBlockNoteImageNaturalDimensions(
-  plan: ProjectPlanV13,
+  plan: ProjectPlanV14,
   input: {
     file: string;
     sourceWidth: number;
     sourceHeight: number;
   },
-): ProjectPlanV13 {
+): ProjectPlanV14 {
   if (
     !Number.isFinite(input.sourceWidth) ||
     input.sourceWidth <= 0 ||

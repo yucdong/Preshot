@@ -122,7 +122,9 @@ mod tests {
     #[test]
     fn settings_path_ends_with_preshot_settings_json() {
         let path = settings_path().unwrap();
-        assert!(path.ends_with(".preshot\\settings.json") || path.ends_with(".preshot/settings.json"));
+        assert!(
+            path.ends_with(".preshot\\settings.json") || path.ends_with(".preshot/settings.json")
+        );
     }
 
     #[test]
@@ -139,7 +141,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let settings_dir = dir.path().join(".preshot");
         let path = settings_dir.join("settings.json");
-        
+
         fs::create_dir_all(&settings_dir).unwrap();
         fs::write(&path, "not valid json {{{").unwrap();
 
@@ -181,7 +183,7 @@ mod tests {
 
         // Write initial value
         write_settings_to(&path, serde_json::json!({"version": 1})).unwrap();
-        
+
         // Overwrite with new value
         write_settings_to(&path, serde_json::json!({"version": 2})).unwrap();
 
@@ -189,7 +191,7 @@ mod tests {
         assert!(path.exists());
         let result = read_settings_from(&path).unwrap();
         assert_eq!(result, serde_json::json!({"version": 2}));
-        
+
         // No temp file should remain
         let temp = path.with_extension("json.tmp");
         assert!(!temp.exists());

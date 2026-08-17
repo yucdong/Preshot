@@ -12,7 +12,11 @@ import type {
 } from "../../../domain/plan/blocknote/service";
 import type {
   PreshotBlockDocument,
-  ProjectPlanV13,
+  ProjectPlanV14,
+} from "../../../domain/plan/canvas/blockDocument";
+import {
+  imageGroupIdsInBlockDocument,
+  mediaFilesInBlockDocument,
 } from "../../../domain/plan/canvas/blockDocument";
 import { DEFAULT_REFERENCE_HEIGHT } from "../../../domain/plan/canvas/models";
 import {
@@ -53,7 +57,7 @@ type LoadState =
   | { status: "loading" }
   | { status: "failed"; message: string }
   | Extract<BlockNotePlanLoadResult, { status: "incompatible" }>
-  | { status: "ready"; plan: ProjectPlanV13 };
+  | { status: "ready"; plan: ProjectPlanV14 };
 
 async function imageDimensions(dataUrl: string): Promise<{
   sourceWidth: number;
@@ -77,9 +81,9 @@ async function imageDimensions(dataUrl: string): Promise<{
 }
 
 async function applyMeasuredImages(
-  plan: ProjectPlanV13,
+  plan: ProjectPlanV14,
   entries: ReadonlyArray<readonly [string, string]>,
-): Promise<ProjectPlanV13> {
+): Promise<ProjectPlanV14> {
   let next = plan;
   for (const [file, dataUrl] of entries) {
     const dimensions = await imageDimensions(dataUrl);
@@ -100,6 +104,7 @@ export function BlockNoteProjectCanvasProvider({
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
+  const [mediaSrc, setMediaSrc] = useState<Record<string, string>>({});
   const [lightboxFile, setLightboxFile] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -108,9 +113,11 @@ export function BlockNoteProjectCanvasProvider({
   const autoFitRef = useRef(true);
   const initializedProjectRef = useRef("");
   const captureTokenRef = useRef<string | null>(null);
-  const planRef = useRef<ProjectPlanV13 | null>(null);
+  const planRef = useRef<ProjectPlanV14 | null>(null);
+  const mediaSrcRef = useRef<Record<string, string>>({});
   const metadataListenersRef = useRef(new Set<() => void>());
-  const detachedGroupsRef = useRef(new Map<string, ProjectPlanV13["imageGroups"][number]>());
+  const detachedGroupsRef = useRef(new Map<string, ProjectPlanV14["imageGroups"][number]>());
+  const detachedMediaFilesRef = useRef(new Set<string>());
   const savedRef = useRef("");
 
   const save = useCallback(async () => {
@@ -156,7 +163,7 @@ export function BlockNoteProjectCanvasProvider({
     });
   }, [zoom]);
 
-  const applyPlan = useCallback((plan: ProjectPlanV13) => {
+  const applyPlan = useCallback((plan: ProjectPlanV14) => {
     planRef.current = plan;
     metadataListenersRef.current.forEach((listener) => listener());
     setSaveState("unsaved");
@@ -174,34 +181,48 @@ export function BlockNoteProjectCanvasProvider({
         }
         const plan = result.plan;
         planRef.current = plan;
-        savedRef.current = result.status === "loaded" ? JSON.stringify(plan) : "";
-        setSaveState(result.status === "loaded" ? "saved" : "unsaved");
-        setLoadState({ status: "ready", plan });
+        savedRef.current = result.status === "missing" ? "" : JSON.stringify(plan);
+        setSaveState(result.status === "missing" ? "unsaved" : "saved");
         const files = new Set(
           plan.imageGroups.flatMap((group) =>
             group.images.map((image) => image.file),
           ),
         );
-        void Promise.all(
+        const imageEntriesPromise = Promise.all(
           [...files].map(async (file) => [
             file,
             await service.loadImage(projectPath, file),
           ] as const),
-        ).then((entries) => {
+        );
+        const mediaFiles = new Set(
+          mediaFilesInBlockDocument(plan.document),
+        );
+        const mediaEntriesPromise = Promise.all(
+          [...mediaFiles].map(async (file) => [
+            file,
+            await service.loadMedia(projectPath, file),
+          ] as const),
+        );
+        void Promise.all([
+          imageEntriesPromise,
+          mediaEntriesPromise,
+        ]).then(async ([imageEntries, mediaEntries]) => {
           if (cancelled) return;
-          setImageSrc(Object.fromEntries(entries));
-          const measurementBase = planRef.current ?? plan;
-          void applyMeasuredImages(measurementBase, entries).then(
-            (measured) => {
-              if (
-                !cancelled &&
-                planRef.current === measurementBase &&
-                measured !== measurementBase
-              ) {
-                applyPlan(measured);
-              }
-            },
-          );
+          setImageSrc(Object.fromEntries(imageEntries));
+          const nextMedia = Object.fromEntries(mediaEntries);
+          mediaSrcRef.current = nextMedia;
+          setMediaSrc(nextMedia);
+          const measured = await applyMeasuredImages(plan, imageEntries);
+          if (cancelled) return;
+          planRef.current = measured;
+          if (measured !== plan) setSaveState("unsaved");
+          setLoadState({ status: "ready", plan: measured });
+        }).catch((error: unknown) => {
+          if (cancelled) return;
+          setLoadState({
+            status: "failed",
+            message: error instanceof Error ? error.message : String(error),
+          });
         });
       },
       (error: unknown) => {
@@ -225,6 +246,14 @@ export function BlockNoteProjectCanvasProvider({
         projectPath,
         activePlan,
         detachedGroups,
+      );
+    }
+    const detachedMedia = [...detachedMediaFilesRef.current];
+    if (activePlan && detachedMedia.length > 0) {
+      void service.purgeDetachedMedia(
+        projectPath,
+        activePlan,
+        detachedMedia,
       );
     }
     const captureToken = captureTokenRef.current;
@@ -312,11 +341,17 @@ export function BlockNoteProjectCanvasProvider({
   const updateDocument = (document: PreshotBlockDocument) => {
     const current = planRef.current;
     if (!current) return;
-    const referencedIds = new Set(
-      document.blocks
-        .filter((block) => block.type === "imageGroup")
-        .map((block) => String(block.props.groupId)),
+    const currentMediaFiles = new Set(
+      mediaFilesInBlockDocument(current.document),
     );
+    const nextMediaFiles = new Set(mediaFilesInBlockDocument(document));
+    for (const file of currentMediaFiles) {
+      if (!nextMediaFiles.has(file)) detachedMediaFilesRef.current.add(file);
+    }
+    for (const file of nextMediaFiles) {
+      detachedMediaFilesRef.current.delete(file);
+    }
+    const referencedIds = new Set(imageGroupIdsInBlockDocument(document));
     for (const group of current.imageGroups) {
       if (!referencedIds.has(group.id)) {
         detachedGroupsRef.current.set(group.id, group);
@@ -535,10 +570,34 @@ export function BlockNoteProjectCanvasProvider({
     },
   };
 
+  const uploadMedia = async (file: File): Promise<string> => {
+    const imported = await service.importMedia(projectPath, {
+      name: file.name,
+      mimeType: file.type,
+      bytes: Array.from(new Uint8Array(await file.arrayBuffer())),
+    });
+    mediaSrcRef.current = {
+      ...mediaSrcRef.current,
+      [imported.file]: imported.dataUrl,
+    };
+    setMediaSrc(mediaSrcRef.current);
+    return imported.dataUrl;
+  };
+
+  const resolveMediaUrl = (url: string): string =>
+    mediaSrcRef.current[url] ?? url;
+
+  const persistMediaUrl = (url: string): string => {
+    for (const [file, dataUrl] of Object.entries(mediaSrcRef.current)) {
+      if (dataUrl === url) return file;
+    }
+    return url;
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex h-11 items-center justify-between bg-[#202329] px-4 text-white">
-        <span className="text-xs font-semibold">BlockNote Canvas v13</span>
+        <span className="text-xs font-semibold">BlockNote Canvas v14</span>
         <div className="flex items-center gap-3">
           <div className="flex h-8 items-center rounded-md border border-white/10 bg-white/[0.06] p-0.5">
             <button
@@ -595,7 +654,7 @@ export function BlockNoteProjectCanvasProvider({
               const plan = planRef.current;
               if (!plan) return;
               setExporting(true);
-              void exporter.export(plan, imageSrc)
+              void exporter.export(plan, { ...imageSrc, ...mediaSrc })
                 .then((bytes) => saver.save(bytes, "output.pdf"))
                 .finally(() => setExporting(false));
             }}
@@ -640,6 +699,9 @@ export function BlockNoteProjectCanvasProvider({
             imageGroupController={imageGroupController}
             key={`${projectPath}:${loadState.plan.schemaVersion}`}
             onChange={updateDocument}
+            persistMediaUrl={persistMediaUrl}
+            resolveMediaUrl={resolveMediaUrl}
+            uploadFile={uploadMedia}
           />
         </div>
       </div>
