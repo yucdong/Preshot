@@ -1,22 +1,25 @@
 import { expect, test } from "@playwright/test";
 
 async function insertImageGroup(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: /^插入$/ }).dispatchEvent("click");
-  await page.getByRole("menuitem", { name: "图片组" }).dispatchEvent("click");
+  const editor = page.locator(".bn-editor");
+  await editor.locator("p").last().click();
+  await page.keyboard.type("/");
+  await page.locator(".bn-mt-suggestion-menu-item-title", {
+    hasText: "图片组",
+  }).click();
 }
 
-test("keeps the sidebar project actions fixed while the canvas is tall", async ({ page }) => {
+test("keeps the default project panel actions fixed while the canvas is tall", async ({ page }) => {
   await page.goto("/");
   const newProject = page.getByRole("button", { name: "新建项目", exact: true });
   await expect(newProject).toBeVisible();
+  const before = await newProject.boundingBox();
 
   // Grow the canvas so its content exceeds the viewport height and the middle panel
   // must scroll internally (rather than the whole page).
   for (let i = 0; i < 6; i++) {
     await insertImageGroup(page);
   }
-
-  const before = await newProject.boundingBox();
 
   // The window itself must not scroll — only the middle canvas panel scrolls — so the
   // New/Open project actions stay pinned in the sidebar.
@@ -46,11 +49,11 @@ test("scrolls the middle canvas panel to reach components below the fold", async
   }));
   expect(metrics.scrollH).toBeGreaterThan(metrics.clientH);
 
-  // Scrolling the panel must reveal the last canvas page (below the fold initially).
+  // Scrolling the panel must reveal the last BlockNote image-group block.
   await scroller.evaluate((el) => el.scrollTo(0, el.scrollHeight));
   await page.waitForTimeout(150);
-  const lastPage = page.getByTestId("canvas-page-background").last();
-  await expect(lastPage).toBeInViewport();
+  const lastGroup = page.locator(".preshot-blocknote-image-group").last();
+  await expect(lastGroup).toBeInViewport();
 });
 
 test("resizes side panels and restores defaults by double click", async ({ page }) => {

@@ -6,7 +6,7 @@ import type {
 } from "../../domain/workspace/models";
 import { sortProjectsByRecentEdit, upsertProject } from "../../domain/workspace/registry";
 import type { WorkspaceMenuAction } from "../../domain/workspace/ports";
-import type { CanvasPlanDependencies } from "../../features/plan/ProjectCanvasProvider";
+import type { PlanDependencies } from "../../features/plan/blocknote/dependencies";
 import { WorkspaceLauncher } from "../../features/workspace/WorkspaceLauncher";
 import { AppShell } from "../layout/AppShell";
 import { Workspace } from "../layout/Workspace";
@@ -19,7 +19,7 @@ type AppView =
 
 interface WorkspaceProviderProps {
   dependencies: WorkspaceDependencies;
-  planDependencies?: CanvasPlanDependencies;
+  planDependencies?: PlanDependencies;
 }
 
 const defaultPlanDependencies = createPlanDependencies();
@@ -100,6 +100,11 @@ export function WorkspaceProvider({
 
   const showProject = useCallback(
     (project: WorkspaceProjectView) => {
+      void dependencies.native.maximizeWindow().catch((error) => {
+        dependencies.logger.warn("Unable to maximize the project window", {
+          error,
+        });
+      });
       setMountedState(() => {
         activeProjectRef.current = project;
         setProjects((currentProjects) => upsertProject(currentProjects, project));
@@ -107,7 +112,7 @@ export function WorkspaceProvider({
         setView({ kind: "project", project });
       });
     },
-    [setMountedState],
+    [dependencies, setMountedState],
   );
 
   const requestCreate = useCallback(async () => {
@@ -325,8 +330,7 @@ export function WorkspaceProvider({
         );
 
         if (mostRecentlyEdited) {
-          activeProjectRef.current = mostRecentlyEdited;
-          setView({ kind: "project", project: mostRecentlyEdited });
+          showProject(mostRecentlyEdited);
         }
       } catch (error) {
         reportStartupError("Unable to load workspace projects", error);
@@ -382,7 +386,7 @@ export function WorkspaceProvider({
       unlistenRef.current?.();
       unlistenRef.current = null;
     };
-  }, [dependencies, openExistingProject, requestCreate]);
+  }, [dependencies, openExistingProject, requestCreate, showProject]);
 
   const orderedProjects = useMemo(
     () => sortProjectsByRecentEdit(projects),

@@ -38,6 +38,8 @@ globalThis.matchMedia ??= ((query: string) => ({
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function scrollIntoView(): void {};
 }
+Document.prototype.elementFromPoint ??= () => null;
+Document.prototype.elementsFromPoint ??= () => [];
 if (typeof Range !== "undefined") {
   Range.prototype.getClientRects ??= () =>
     ({ item: () => null, length: 0, [Symbol.iterator]: function* () {} }) as unknown as DOMRectList;

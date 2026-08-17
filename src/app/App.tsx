@@ -6,7 +6,7 @@ import {
   type WorkspaceDependencies,
 } from "./workspace/dependencies";
 import { createPlanDependencies } from "./plan/planDependencies";
-import type { CanvasPlanDependencies } from "../features/plan/ProjectCanvasProvider";
+import type { PlanDependencies } from "../features/plan/blocknote/dependencies";
 
 const defaultWorkspaceDependencies = createWorkspaceDependencies();
 const defaultPlanDependencies = createPlanDependencies();
@@ -14,7 +14,7 @@ const settingsRepository = createSettingsRepository();
 
 interface AppProps {
   dependencies?: WorkspaceDependencies;
-  planDependencies?: CanvasPlanDependencies;
+  planDependencies?: PlanDependencies;
 }
 
 export function App({

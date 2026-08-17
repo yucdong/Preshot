@@ -32,5 +32,6 @@ describe("createWorkspaceDependencies", () => {
     expect(dependencies).not.toBe(browserWorkspaceDependencies);
     expect(dependencies.service).toBeDefined();
     expect(dependencies.native.onMenuAction).toBeTypeOf("function");
+    expect(dependencies.native.maximizeWindow).toBeTypeOf("function");
   });
 });

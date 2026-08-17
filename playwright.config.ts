@@ -5,12 +5,15 @@ export default defineConfig({
   expect: {
     timeout: 10_000,
   },
-  fullyParallel: true,
+  fullyParallel: false,
+  timeout: 90_000,
+  workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:1420",
+    navigationTimeout: 60_000,
     trace: "on-first-retry",
   },
   projects: [

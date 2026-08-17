@@ -32,7 +32,13 @@ a `.preshot` manifest containing project identity and the optional plan. The
 workspace service serializes mutations; unavailable manifests remain visible
 for recovery but cannot be opened as a project.
 
-Canvas plans are migrated at the manifest boundary to `schemaVersion: 12`.
+Production now creates schema-v13 BlockNote canvas plans. The canonical v13
+document is strict JSON (`document.format = "preshot-blocks"`) and image-group
+metadata is stored separately in `imageGroups`. Older schema v1-v12 plans are
+returned as an explicit incompatible load result and are never opened,
+autosaved, exported, or modified.
+
+Legacy canvas plans were migrated at the manifest boundary to `schemaVersion: 12`.
 Earlier schemas are accepted only as migration input. In strict v12,
 `documentHtml` is the sole source of text and image-group order, while
 `components` contains only reference/image-group metadata. Every image-group
@@ -40,9 +46,9 @@ marker must match exactly one component record and vice versa. Reference image
 records preserve source dimensions, frame geometry, captions, and normalized
 crop independently of the HTML marker.
 
-## Schema v12 Continuous Document
+## Legacy Schema v12 Continuous Document
 
-Each project owns one TipTap 3 editor behind the shared `RichTextEditor`
+Schema-v12 historically used one TipTap 3 editor behind the shared `RichTextEditor`
 contract. Text blocks and resizable atomic image-group nodes share one
 ProseMirror document, so text can continue before, between, and after image
 groups without separate frames. Top-level nodes provide pagination boundaries;
@@ -85,6 +91,43 @@ Image-group pagination keeps each image intact and may break only between image
 rows. The screen and PDF both resolve marker order through `documentHtml` and
 render frame/crop geometry from the matching image-group record.
 
+## Schema v13 BlockNote Document
+
+New projects use one BlockNote editor with native paragraph, H1-H3, list,
+checklist, toggle, quote, code, table, divider, formatting toolbar, slash menu,
+side menu, undo/redo, and block drag behavior. Font-size and H4-H6 parity are
+not part of v13.
+
+The custom `imageGroup` block has no editable content and stores only a
+primitive `groupId`. Its React renderer resolves frame/crop/image metadata from
+the plan's `imageGroups` collection. Image groups are top-level only. Internal
+image pointer regions use `bn-drag-exclude` so image DnD/resize does not start
+BlockNote block drag.
+
+BlockNote document changes remain editor-owned. Image-group deletion retains
+runtime tombstones so native undo can restore metadata; unreferenced project
+files are reaped at project retirement. Same-project duplication creates new
+group and image IDs while safely reusing the underlying files.
+
+The BlockNote editing canvas is one continuous white document that grows
+vertically with its blocks. It does not render A4 page backgrounds, page gaps,
+corner marks, runtime page spacers, or view-fit transforms. v13 PDF export
+performs A4 pagination independently, traverses JSON directly, and resolves
+image groups through `groupId`; it does not serialize to HTML and parse it
+again.
+
+Image-group custom blocks constrain their rendered x/width to the actual
+BlockNote block-content box rather than the nominal document geometry, so the
+card aligns to both text edges and cannot overflow the paper. Ctrl+wheel zooms
+the continuous canvas from 50% to 150% around the pointer; ordinary wheel input
+remains scrolling.
+
+Imported image data URLs are decoded once to record source dimensions.
+All images imported in one group start from the same frame height, while each
+frame width is derived from the source aspect ratio. Canvas and PDF consume
+these persisted frame dimensions and full-source crop, so images are never
+stretched.
+
 ## UI/UE Contract
 
 `docs/design_docs/uiue.md` is the canonical summary of accepted UI/UE
@@ -94,9 +137,9 @@ summarized there. Any interaction change must update the UI/UE contract,
 implementation, mapped regression tests, and affected architecture/testing
 documentation in the same change.
 
-## Canvas UI and PDF
+## Legacy Canvas UI and PDF
 
-`PlanCanvas` routes canonical v12 plans to `PlanDocumentCanvas`, which renders
+The removed `PlanCanvas` path routed canonical v12 plans to `PlanDocumentCanvas`, which rendered
 one Word-style paged A4 TipTap document. The legacy component canvas remains only as a
 compatibility branch for fixtures without `documentHtml` and is not a second
 canonical persistence model. Each page draws Word-style corner marks outside the

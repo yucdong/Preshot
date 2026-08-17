@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ImportedImage, ReferenceImageStore } from "../../domain/plan/ports";
 import type { CanvasPlanRepository } from "../../domain/plan/canvas/ports";
 import type { ProjectPlan as CanvasPlan } from "../../domain/plan/canvas/models";
+import type { ProjectPlanV13 } from "../../domain/plan/canvas/blockDocument";
+import type { BlockNotePlanRepository } from "../../domain/plan/blocknote/ports";
 
 type InvokeCommand = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 
@@ -35,7 +37,8 @@ function validateImported(value: unknown): ImportedImage {
 }
 
 export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): ReferenceImageStore &
-  CanvasPlanRepository {
+  CanvasPlanRepository &
+  BlockNotePlanRepository {
   return {
     async importImage(projectPath, sourcePath) {
       try {
@@ -67,7 +70,7 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         throw new Error(`Unable to read the project plan: ${detail(error)}`, { cause: error });
       }
     },
-    async saveRawPlan(projectPath, plan: CanvasPlan) {
+    async saveRawPlan(projectPath, plan: CanvasPlan | ProjectPlanV13) {
       try {
         await invokeCommand("save_project_plan", { projectPath, plan });
       } catch (error) {

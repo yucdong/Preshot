@@ -15,11 +15,14 @@ import { workspaceDirectoryPicker } from "../../infrastructure/workspace/workspa
 import { workspaceRegistry } from "../../infrastructure/workspace/workspaceStore";
 import { workspaceLogger } from "../../shared/logging/logger";
 import { projectDirectoryRevealer } from "../../infrastructure/workspace/projectDirectoryRevealer";
+import { maximizeCurrentWindow } from "../../infrastructure/desktop/tauriDesktop";
 
 export interface WorkspaceDependencies {
   service: WorkspaceService;
   directoryPicker: WorkspaceDirectoryPicker;
-  native: Pick<NativeWorkspace, "onMenuAction">;
+  native: Pick<NativeWorkspace, "onMenuAction"> & {
+    maximizeWindow(): Promise<void>;
+  };
   projectDirectoryRevealer: ProjectDirectoryRevealer;
   logger: WorkspaceLogger;
 }
@@ -38,7 +41,12 @@ function createProductionWorkspaceDependencies(): WorkspaceDependencies {
       logger,
     }),
     directoryPicker: workspaceDirectoryPicker,
-    native,
+    native: {
+      onMenuAction(handler) {
+        return native.onMenuAction(handler);
+      },
+      maximizeWindow: maximizeCurrentWindow,
+    },
     projectDirectoryRevealer,
     logger,
   };

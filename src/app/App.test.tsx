@@ -5,13 +5,9 @@ import type {
   WorkspaceLogger,
   WorkspaceService,
 } from "../domain/workspace/ports";
-import type { CanvasPlanDependencies } from "../features/plan/ProjectCanvasProvider";
+import type { PlanDependencies } from "../features/plan/blocknote/dependencies";
 import { App } from "./App";
 import type { WorkspaceDependencies } from "./workspace/dependencies";
-
-vi.mock("../features/plan/canvas/PlanCanvas", () => ({
-  PlanCanvas: () => <div data-testid="plan-canvas">Canvas Mock</div>,
-}));
 
 function makeProject(
   overrides: Partial<WorkspaceProjectView> = {},
@@ -30,20 +26,34 @@ function makeProject(
   };
 }
 
-function planDeps(): CanvasPlanDependencies {
+function planDeps(): PlanDependencies {
   return {
     service: {
       loadPlan: vi.fn().mockResolvedValue({
-        status: "loaded",
-        plan: { schemaVersion: 6, title: "Demo", components: [] },
+        status: "missing",
+        plan: {
+          schemaVersion: 13,
+          title: "Demo",
+          document: {
+            format: "preshot-blocks",
+            version: 1,
+            blocks: [{
+              id: "block",
+              type: "paragraph",
+              props: {},
+              content: [],
+              children: [],
+            }],
+          },
+          imageGroups: [],
+        },
       }),
       loadImage: vi.fn().mockResolvedValue(""),
-      importAsset: vi.fn(),
       savePlan: vi.fn(),
-      removeComponent: vi.fn(),
-      importImage: vi.fn(),
       importImages: vi.fn(),
       removeImage: vi.fn(),
+      removeGroup: vi.fn(),
+      purgeDetachedGroups: vi.fn(),
     },
     picker: {
       pickImageFile: vi.fn().mockResolvedValue(null),
@@ -52,7 +62,6 @@ function planDeps(): CanvasPlanDependencies {
     logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     exporter: { export: vi.fn() },
     saver: { save: vi.fn() },
-    reveal: { reveal: vi.fn() },
   };
 }
 
@@ -64,6 +73,7 @@ function createDependencies(project: WorkspaceProjectView): WorkspaceDependencie
     relocateProject: vi.fn(),
     removeRecord: vi.fn(),
   };
+  const maximizeWindow = vi.fn().mockResolvedValue(undefined);
   const logger: WorkspaceLogger = {
     debug: vi.fn(),
     info: vi.fn(),
@@ -78,6 +88,7 @@ function createDependencies(project: WorkspaceProjectView): WorkspaceDependencie
     },
     native: {
       onMenuAction: vi.fn().mockResolvedValue(vi.fn()),
+      maximizeWindow,
     },
     projectDirectoryRevealer: {
       revealProjectDirectory: vi.fn(),
@@ -89,10 +100,16 @@ function createDependencies(project: WorkspaceProjectView): WorkspaceDependencie
 describe("App", () => {
   it("auto-opens the most recently edited project and renders the project switcher", async () => {
     const project = makeProject();
+    const dependencies = createDependencies(project);
 
-    render(<App dependencies={createDependencies(project)} planDependencies={planDeps()} />);
+    render(<App dependencies={dependencies} planDependencies={planDeps()} />);
 
-    expect(await screen.findByTestId("plan-canvas")).toBeVisible();
+    expect(await screen.findByText("BlockNote Canvas v13")).toBeVisible();
+    expect(dependencies.native.maximizeWindow).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("group", { name: "方案正文" })).toHaveAttribute(
+      "data-editor-engine",
+      "blocknote",
+    );
 
     const nav = screen.getByRole("navigation", { name: "项目" });
     expect(

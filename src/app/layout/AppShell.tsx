@@ -1,5 +1,13 @@
-import { useState, type PropsWithChildren } from "react";
-import { FolderOpen, Trash2 } from "lucide-react";
+import { useEffect, useState, type PropsWithChildren } from "react";
+import {
+  Focus,
+  FolderOpen,
+  Minimize2,
+  PanelLeftOpen,
+  PanelRightOpen,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   ASSISTANT_WIDTH,
@@ -52,6 +60,58 @@ export function AppShell({
   const { t } = useTranslation();
   const settings = useTheme();
   const [projectToRemove, setProjectToRemove] = useState<WorkspaceProjectView | null>(null);
+  const [workspaceView, setWorkspaceView] = useState<{
+    projectId: string;
+    focusMode: boolean;
+    overlayPanel: "projects" | "assistant" | null;
+  }>({
+    projectId: currentProjectId,
+    focusMode: false,
+    overlayPanel: null,
+  });
+  const activeWorkspaceView = workspaceView.projectId === currentProjectId
+    ? workspaceView
+    : {
+        projectId: currentProjectId,
+        focusMode: false,
+        overlayPanel: null,
+      };
+  const { focusMode, overlayPanel } = activeWorkspaceView;
+  const setFocusMode = (
+    value: boolean | ((current: boolean) => boolean),
+  ) => {
+    setWorkspaceView((previous) => {
+      const current = previous.projectId === currentProjectId
+        ? previous
+        : activeWorkspaceView;
+      return {
+        ...current,
+        focusMode: typeof value === "function"
+          ? value(current.focusMode)
+          : value,
+      };
+    });
+  };
+  const setOverlayPanel = (
+    value:
+      | "projects"
+      | "assistant"
+      | null
+      | ((current: "projects" | "assistant" | null) =>
+          "projects" | "assistant" | null),
+  ) => {
+    setWorkspaceView((previous) => {
+      const current = previous.projectId === currentProjectId
+        ? previous
+        : activeWorkspaceView;
+      return {
+        ...current,
+        overlayPanel: typeof value === "function"
+          ? value(current.overlayPanel)
+          : value,
+      };
+    });
+  };
   const [panelWidthPreview, setPanelWidthPreview] = useState<{
     projectRailWidth: number;
     assistantWidth: number;
@@ -60,6 +120,19 @@ export function AppShell({
       projectRailWidth: settings.projectRailWidth,
       assistantWidth: settings.assistantWidth,
   };
+
+  useEffect(() => {
+    if (!focusMode || overlayPanel === null) return;
+    const closeOverlay = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setWorkspaceView((current) =>
+        current.projectId === currentProjectId
+          ? { ...current, overlayPanel: null }
+          : current);
+    };
+    window.addEventListener("keydown", closeOverlay);
+    return () => window.removeEventListener("keydown", closeOverlay);
+  }, [currentProjectId, focusMode, overlayPanel]);
 
   const commitWidths = (next = panelWidths) => {
     settings.setPanelWidths(next);
@@ -144,24 +217,77 @@ export function AppShell({
         <span className="text-xs text-white/45">
           {t("shell.tagline")}
         </span>
-        <div className="ml-auto mr-28">
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            aria-label={focusMode ? "退出专注模式" : "进入专注模式"}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
+            onClick={() => {
+              setFocusMode((current) => !current);
+              setOverlayPanel(null);
+            }}
+            type="button"
+          >
+            {focusMode ? <Minimize2 aria-hidden className="h-4 w-4" /> : <Focus aria-hidden className="h-4 w-4" />}
+            <span>{focusMode ? "退出专注" : "专注模式"}</span>
+          </button>
           <SettingsButton />
         </div>
       </header>
       <div
-        className="grid min-h-0 flex-1"
+        className={focusMode ? "relative min-h-0 flex-1" : "grid min-h-0 flex-1"}
         data-testid="resizable-workspace"
-        style={{
+        data-focus-mode={focusMode ? "true" : "false"}
+        style={focusMode ? undefined : {
           gridTemplateColumns: `${panelWidths.projectRailWidth}px ${SPLITTER_WIDTH}px minmax(0, 1fr) ${SPLITTER_WIDTH}px ${panelWidths.assistantWidth}px`,
         }}
       >
-        <nav
-          aria-label={t("shell.projects")}
-          className="flex min-h-0 min-w-0 flex-col bg-app-panel"
-        >
-          <p className="shrink-0 px-4 pb-2 pt-4 text-[11px] font-bold text-app-ink">
-            {t("shell.recentProjects")}
-          </p>
+        {focusMode ? (
+          <>
+            <button
+              aria-label="打开项目面板"
+              aria-pressed={overlayPanel === "projects"}
+              className="absolute left-0 top-14 z-40 grid h-10 w-8 place-items-center rounded-r-lg border border-l-0 border-app-border bg-app-panel-strong text-app-muted shadow-md transition-colors hover:text-app-functional focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
+              onClick={() => setOverlayPanel((current) =>
+                current === "projects" ? null : "projects")}
+              type="button"
+            >
+              <PanelLeftOpen aria-hidden className="h-4 w-4" />
+            </button>
+            <button
+              aria-label="打开助手面板"
+              aria-pressed={overlayPanel === "assistant"}
+              className="absolute right-0 top-14 z-40 grid h-10 w-8 place-items-center rounded-l-lg border border-r-0 border-app-border bg-app-panel-strong text-app-muted shadow-md transition-colors hover:text-app-functional focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
+              onClick={() => setOverlayPanel((current) =>
+                current === "assistant" ? null : "assistant")}
+              type="button"
+            >
+              <PanelRightOpen aria-hidden className="h-4 w-4" />
+            </button>
+          </>
+        ) : null}
+        {!focusMode || overlayPanel === "projects" ? (
+          <nav
+            aria-label={t("shell.projects")}
+            className={focusMode
+              ? "absolute inset-y-3 left-3 z-50 flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-app-border bg-app-panel shadow-[0_16px_42px_rgb(24_24_27_/_20%)]"
+              : "flex min-h-0 min-w-0 flex-col bg-app-panel"}
+            style={focusMode ? { width: panelWidths.projectRailWidth } : undefined}
+          >
+            <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-4">
+              <p className="text-[11px] font-bold text-app-ink">
+                {t("shell.recentProjects")}
+              </p>
+              {focusMode ? (
+                <button
+                  aria-label="关闭项目面板"
+                  className="grid h-7 w-7 place-items-center rounded-md text-app-muted hover:bg-app-panel-strong hover:text-app-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
+                  onClick={() => setOverlayPanel(null)}
+                  type="button"
+                >
+                  <X aria-hidden className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
           <ul className="min-h-0 max-h-[38rem] space-y-1 overflow-y-auto px-3 pb-3">
             {projects.map((project) => {
               const isCurrent = project.projectId === currentProjectId;
@@ -222,15 +348,21 @@ export function AppShell({
               {t("shell.openProject")}
             </button>
           </div>
-        </nav>
-        <div
-          {...splitterProps("project")}
-          className="group relative z-30 cursor-col-resize bg-[#d5d6da] transition-colors duration-200 hover:bg-app-accent focus-visible:bg-app-accent focus-visible:outline-none"
-          title={t("shell.resizePanelHint")}
+          </nav>
+        ) : null}
+        {!focusMode ? (
+          <div
+            {...splitterProps("project")}
+            className="group relative z-30 cursor-col-resize bg-[#d5d6da] transition-colors duration-200 hover:bg-app-accent focus-visible:bg-app-accent focus-visible:outline-none"
+            title={t("shell.resizePanelHint")}
+          >
+            <span className="absolute left-1/2 top-1/2 h-10 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-app-muted/50 group-hover:bg-white" />
+          </div>
+        ) : null}
+        <div className={focusMode
+          ? "flex h-full min-h-0 min-w-0 flex-col"
+          : "flex min-h-0 min-w-0 flex-col"}
         >
-          <span className="absolute left-1/2 top-1/2 h-10 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-app-muted/50 group-hover:bg-white" />
-        </div>
-        <div className="flex min-h-0 min-w-0 flex-col">
           {error ? (
             <div
               className="border-b border-rose-200 bg-rose-50 px-6 py-3 text-sm text-rose-700 dark:border-rose-400/40 dark:bg-rose-500/10 dark:text-rose-100"
@@ -241,14 +373,35 @@ export function AppShell({
           ) : null}
           {children}
         </div>
-        <div
-          {...splitterProps("assistant")}
-          className="group relative z-30 cursor-col-resize bg-[#d5d6da] transition-colors duration-200 hover:bg-app-accent focus-visible:bg-app-accent focus-visible:outline-none"
-          title={t("shell.resizePanelHint")}
-        >
-          <span className="absolute left-1/2 top-1/2 h-10 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-app-muted/50 group-hover:bg-white" />
-        </div>
-        <AgentPanel />
+        {!focusMode ? (
+          <div
+            {...splitterProps("assistant")}
+            className="group relative z-30 cursor-col-resize bg-[#d5d6da] transition-colors duration-200 hover:bg-app-accent focus-visible:bg-app-accent focus-visible:outline-none"
+            title={t("shell.resizePanelHint")}
+          >
+            <span className="absolute left-1/2 top-1/2 h-10 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-app-muted/50 group-hover:bg-white" />
+          </div>
+        ) : null}
+        {!focusMode || overlayPanel === "assistant" ? (
+          <div
+            className={focusMode
+              ? "absolute inset-y-3 right-3 z-50 flex min-h-0 overflow-hidden rounded-xl border border-app-border bg-app-panel shadow-[0_16px_42px_rgb(24_24_27_/_20%)] [&>aside]:h-full [&>aside]:w-full"
+              : "flex min-h-0 min-w-0 [&>aside]:h-full [&>aside]:w-full"}
+            style={focusMode ? { width: panelWidths.assistantWidth } : undefined}
+          >
+            {focusMode ? (
+              <button
+                aria-label="关闭助手面板"
+                className="absolute right-3 top-3 z-10 grid h-7 w-7 place-items-center rounded-md text-app-muted hover:bg-app-panel-strong hover:text-app-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
+                onClick={() => setOverlayPanel(null)}
+                type="button"
+              >
+                <X aria-hidden className="h-4 w-4" />
+              </button>
+            ) : null}
+            <AgentPanel />
+          </div>
+        ) : null}
       </div>
       <ConfirmDialog
         cancelLabel="取消"

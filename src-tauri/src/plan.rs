@@ -91,17 +91,13 @@ fn resolve_reference_path(project_path: &Path, file: &str) -> Result<PathBuf, Co
     Ok(canonical)
 }
 
-fn move_file(source: &Path, destination: &Path) -> Result<(), CommandError> {
-    if fs::rename(source, destination).is_ok() {
-        return Ok(());
-    }
+fn copy_file(source: &Path, destination: &Path) -> Result<(), CommandError> {
     fs::copy(source, destination).map_err(|error| {
         CommandError::new(
-            "reference_move_failed",
-            format!("Unable to move the image: {error}"),
+            "reference_copy_failed",
+            format!("Unable to copy the image into the project: {error}"),
         )
     })?;
-    let _ = fs::remove_file(source);
     Ok(())
 }
 
@@ -152,7 +148,7 @@ pub fn import_reference_image_into(
 
     let file_name = format!("{:04}.{extension}", next_reference_number(&references_dir));
     let destination = references_dir.join(&file_name);
-    move_file(&source, &destination)?;
+    copy_file(&source, &destination)?;
 
     let bytes = fs::read(&destination).map_err(|error| {
         CommandError::new(
@@ -282,7 +278,7 @@ mod tests {
     }
 
     #[test]
-    fn import_moves_renumbers_and_returns_a_data_url() {
+    fn import_copies_renumbers_and_returns_a_data_url() {
         let parent = project();
         let project_path = parent.path().join("Shoot");
         let src_dir = tempfile::tempdir().unwrap();
@@ -292,8 +288,15 @@ mod tests {
 
         assert_eq!(imported.file, "references/0001.png");
         assert!(imported.data_url.starts_with("data:image/png;base64,"));
-        assert!(!source.exists(), "source should be moved");
-        assert!(project_path.join("references").join("0001.png").exists());
+        assert!(
+            source.exists(),
+            "source should remain in its original location"
+        );
+        assert_eq!(fs::read(&source).unwrap(), b"png-bytes");
+        assert_eq!(
+            fs::read(project_path.join("references").join("0001.png")).unwrap(),
+            b"png-bytes"
+        );
     }
 
     #[test]

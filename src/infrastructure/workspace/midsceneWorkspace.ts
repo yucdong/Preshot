@@ -107,6 +107,9 @@ export function createMidsceneWorkspaceDependencies(
       onMenuAction(handler: (action: WorkspaceMenuAction) => void) {
         return native.onMenuAction(handler);
       },
+      async maximizeWindow() {
+        return undefined;
+      },
     },
     projectDirectoryRevealer: {
       async revealProjectDirectory() {

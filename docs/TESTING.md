@@ -10,6 +10,7 @@ pnpm typecheck
 pnpm test
 pnpm test:init
 pnpm test:e2e
+pnpm test:e2e:blocknote
 pnpm midscene:proxy
 pnpm midscene:model:verify
 pnpm midscene:smoke
@@ -52,6 +53,20 @@ removes the project through the UI, and purges only Midscene-prefixed browser
 storage. The final merged report is generated with `pnpm midscene:report:merge`.
 
 ## Verified Matrix
+
+BlockNote v13 migration verification on 2026-08-15:
+
+| Command | Result |
+| --- | --- |
+| `pnpm lint` | passed with 0 errors (one existing fast-refresh warning) |
+| `pnpm typecheck` | passed |
+| `pnpm test` | 85 files, 435 tests passed after continuous-canvas migration |
+| `pnpm test:init` | 4 initializer checks passed |
+| `pnpm test:e2e` | 9 unified BlockNote/workspace/layout/theme/PDF journeys passed |
+| `pnpm test:e2e:blocknote` | 2 v13 journeys passed |
+| Rust tests | 48 passed |
+| `pnpm build` | passed with the existing large-chunk warning |
+| `pnpm tauri:build` | passed; MSI produced |
 
 Verified on 2026-08-12:
 
@@ -156,6 +171,17 @@ changes while group/image borders, shadows, and geometry remain unchanged; the
 group has no selection pseudo-frame, and the selected image shows its number.
 Browser-level canvas coverage retains import, wrapping, persistence, atomic
 group deletion, pagination, and PDF export journeys.
+
+The independent BlockNote v13 Playwright configuration runs on port 1430 with
+the same production BlockNote canvas. It covers new-project JSON editing, slash-menu
+image-group insertion, image import, eight-way image/group handles, image
+resize/reorder, standard side-menu duplication/deletion, autosave, JSON PDF
+export, and schema-v12 incompatibility.
+
+The v13 layout regression asserts that the editor has exactly one continuous
+document surface and no `canvas-page-background` elements. Adding blocks grows
+the document and the middle workspace scrolls; PDF pagination is tested only in
+the exporter.
 
 ## Expectations
 

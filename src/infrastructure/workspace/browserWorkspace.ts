@@ -190,6 +190,9 @@ export function createBrowserWorkspaceDependencies(
         void handler;
         return native.onMenuAction(() => undefined);
       },
+      async maximizeWindow(): Promise<void> {
+        return undefined;
+      },
     },
     projectDirectoryRevealer: {
       async revealProjectDirectory(): Promise<void> {

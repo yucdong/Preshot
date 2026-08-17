@@ -1,57 +1,57 @@
-import { createCanvasPlanService } from "../../domain/plan/canvas/service";
-import type { CanvasPlanDependencies } from "../../features/plan/ProjectCanvasProvider";
-import { createBrowserCanvasPlanDependencies } from "../../infrastructure/plan/browserPlan";
-import { createMidsceneCanvasPlanDependencies } from "../../infrastructure/plan/midscenePlan";
+import type { PlanDependencies } from "../../features/plan/blocknote/dependencies";
 import { planImagePicker } from "../../infrastructure/plan/planDialog";
 import { tauriPlan } from "../../infrastructure/plan/tauriPlan";
 import { planLogger } from "../../shared/logging/logger";
-import { createCanvasPdfExporter } from "../../infrastructure/pdf/canvasPdfExporter";
 import { loadNotoSansSc } from "../../infrastructure/pdf/fontAssets";
 import { tauriPdfSaveTarget } from "../../infrastructure/pdf/tauriPdfSave";
 import { browserPdfSaveTarget } from "../../infrastructure/pdf/browserPdfSave";
-import { tauriRevealTarget } from "../../infrastructure/pdf/revealPath";
-import { browserRevealTarget } from "../../infrastructure/pdf/browserRevealPath";
 import { tauriScreenCapture } from "../../infrastructure/plan/screenCapture";
 import { createBrowserScreenCapture } from "../../infrastructure/plan/browserScreenCapture";
+import { createBlockNotePlanService } from "../../domain/plan/blocknote/service";
+import {
+  browserBlockNoteImageStore,
+  browserBlockNoteImagePicker,
+  browserBlockNotePlanRepository,
+} from "../../infrastructure/plan/browserBlockNotePlan";
+import { createBlockNotePdfExporter } from "../../infrastructure/pdf/blockNotePdfExporter";
 
-const canvasPdfExporter = createCanvasPdfExporter(loadNotoSansSc);
+const blockNotePdfExporter = createBlockNotePdfExporter(loadNotoSansSc);
 
-function createProductionCanvasPlanDependencies(): CanvasPlanDependencies {
+function createProductionPlanDependencies(): PlanDependencies {
   return {
-    service: createCanvasPlanService({
+    service: createBlockNotePlanService({
       repository: tauriPlan,
       imageStore: tauriPlan,
       createId: () => crypto.randomUUID(),
       logger: planLogger,
     }),
+    exporter: blockNotePdfExporter,
     picker: planImagePicker,
     screenCapture: tauriScreenCapture,
     logger: planLogger,
-    exporter: canvasPdfExporter,
     saver: tauriPdfSaveTarget,
-    reveal: tauriRevealTarget,
   };
 }
 
-export function createPlanDependencies(): CanvasPlanDependencies {
-  return createCanvasPlanDependencies();
-}
-
-export function createCanvasPlanDependencies(): CanvasPlanDependencies {
+export function createPlanDependencies(): PlanDependencies {
   if (import.meta.env.VITE_WORKSPACE_ADAPTER === "midscene") {
     if (import.meta.env.PROD) {
       throw new Error(
         "The Midscene canvas plan adapter is only available in test mode and must never run in a production build.",
       );
     }
-    const midsceneDeps = createMidsceneCanvasPlanDependencies();
     return {
-      ...midsceneDeps,
+      service: createBlockNotePlanService({
+        repository: browserBlockNotePlanRepository,
+        imageStore: browserBlockNoteImageStore,
+        createId: () => crypto.randomUUID(),
+        logger: planLogger,
+      }),
+      exporter: blockNotePdfExporter,
+      picker: browserBlockNoteImagePicker,
       logger: planLogger,
       screenCapture: createBrowserScreenCapture(),
-      exporter: canvasPdfExporter,
       saver: browserPdfSaveTarget,
-      reveal: browserRevealTarget,
     };
   }
   if (import.meta.env.VITE_WORKSPACE_ADAPTER === "memory") {
@@ -60,15 +60,19 @@ export function createCanvasPlanDependencies(): CanvasPlanDependencies {
         "The in-memory canvas plan adapter is only available in end-to-end mode and must never run in a production build.",
       );
     }
-    const browserDeps = createBrowserCanvasPlanDependencies();
     return {
-      ...browserDeps,
+      service: createBlockNotePlanService({
+        repository: browserBlockNotePlanRepository,
+        imageStore: browserBlockNoteImageStore,
+        createId: () => crypto.randomUUID(),
+        logger: planLogger,
+      }),
+      exporter: blockNotePdfExporter,
+      picker: browserBlockNoteImagePicker,
       logger: planLogger,
       screenCapture: createBrowserScreenCapture(),
-      exporter: canvasPdfExporter,
       saver: browserPdfSaveTarget,
-      reveal: browserRevealTarget,
     };
   }
-  return createProductionCanvasPlanDependencies();
+  return createProductionPlanDependencies();
 }

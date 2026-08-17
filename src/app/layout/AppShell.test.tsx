@@ -44,7 +44,8 @@ function renderShell(ui: ReactElement) {
 }
 
 describe("AppShell", () => {
-  it("renders the project switcher, highlights the current project, and renders children", () => {
+  it("shows both side panels by default and keeps focus mode optional", async () => {
+    const user = userEvent.setup();
     const projects = [
       makeProject({ projectId: "sunset", name: "Sunset Shanghai" }),
       makeProject({ projectId: "editorial", name: "Editorial" }),
@@ -57,11 +58,19 @@ describe("AppShell", () => {
     );
 
     const nav = screen.getByRole("navigation", { name: "项目" });
+    expect(screen.getByRole("complementary", { name: "助手" })).toBeVisible();
+    expect(screen.getAllByRole("separator")).toHaveLength(2);
+    expect(screen.getByText("Plan content")).toBeVisible();
+
     expect(within(nav).getByRole("button", { name: "打开项目 Sunset Shanghai" })).toBeVisible();
 
     const current = within(nav).getByRole("button", { name: "打开项目 Editorial" });
     expect(current).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("Plan content")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "进入专注模式" }));
+    expect(screen.queryByRole("navigation", { name: "项目" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "助手" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开项目面板" })).toBeVisible();
   });
 
   it("renders the global settings button in the header", () => {
@@ -76,7 +85,7 @@ describe("AppShell", () => {
     expect(within(header as HTMLElement).getByRole("button", { name: "设置" })).toBeVisible();
   });
 
-  it("renders accessible resizable panel separators", () => {
+  it("renders accessible resizable panel separators by default", () => {
     renderShell(
       <AppShell currentProjectId="editorial" projects={[makeProject()]} {...handlers()}>
         <p>Plan content</p>
