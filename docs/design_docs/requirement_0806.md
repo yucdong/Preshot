@@ -1,12 +1,12 @@
-1. setting按钮放在Preshot 摄影计划那一层，最外层右上角
-2. 不要显示撤销重做按钮
-3. 组件 摄影计划和参考图组改为 “文案” 和 “图片组”
-4. 插入文案和图片组组件，灰色部分默认有个名字，可以编辑，默认名用文案1 文案2 图片组1 图片组2 等，避免同一个项目中重名
-5. 图片组的当前编辑名字的部分取消
-6. 默认显示图片的拍摄说明,可以hide，但是导出pdf的时候要显示说明文字
-7. 图片高度改名为图片尺寸，可以放大缩小，但是缩小的最小尺寸变为现在的高度的一半
-8. 图片可以拖四周进行裁剪，裁剪后保持高度和图组一致，记录裁剪信息到json，鼠标hook到图片之后可以显示按钮恢复原尺寸，点击图片显示完整图片是完整的尺寸，点击图片之后右上角显示×而不是关闭
-9. 组件宽度变化之后并不会自动合并入上一行，必须手动移动，手动可以拖动一个可以挪动位置的并且宽度能够放入别的行的组件到那一行，否则要先拖动修改组件的尺寸然后再挪动
-10. 导出pdf放在画布右上角的位置，用一个相对醒目的颜色，但是要适配深浅色模式并且是同一个色系
-11. 深色模式卡片的外边框有点不太可见，让它醒目一点，浅色模式也是一样，每个卡片要有一个外边框，可以是虚线，然后内部的图片、文案可以用一些凸起 阴影等样式，组件之间要留一些边距，组件和画布的外边框要留一些边距，并且要保持相对一致的距离
-12. 整个画布要有一个标题部分，默认放在左上角，不要太大，和project名字默认一致，但是可以修改，可以和project名字不同
+1. Place the Settings button on the Preshot Photography Plan header, in the top-right corner of the outermost layer.
+2. Do not show undo/redo buttons.
+3. Rename the Photography Plan and Reference Image Group components to "Text" and "Image Group".
+4. When inserting Text and Image Group components, the gray area should have a default editable name. Use defaults such as Text 1, Text 2, Image Group 1, Image Group 2, and so on, to avoid duplicate names within the same project.
+5. Remove the currently editable-name section from the image group.
+6. Show each image's shooting notes by default. They can be hidden, but the note text must still appear when exporting PDF.
+7. Rename image height to image size. It can be increased or decreased, but the minimum reduced size becomes half of the current height.
+8. Images can be cropped by dragging any side. After cropping, their height should remain consistent with the image group. Record the crop information in JSON. When the pointer hovers over the image, show a button to restore the original size. Clicking an image should display the full image at full size, and after clicking, the top-right control should show × instead of a Close label.
+9. After a component width changes, it does not automatically merge into the previous row; the user must move it manually. A component can be dragged into another row only if its width can fit there. Otherwise, the user must resize it first and then move it.
+10. Place Export PDF at the top-right of the canvas. Use a relatively prominent color, but keep it in the same palette and compatible with both light and dark themes.
+11. The outer border of cards is not visible enough in dark mode, and the same issue exists in light mode. Make it more prominent. Every card should have an outer border, possibly dashed. Internal images and text can use slight elevation or shadow styles. Keep spacing between components and between components and the canvas border, and keep those distances relatively consistent.
+12. The whole canvas should have a title area. Put it at the top-left by default, keep it modest in size, default it to the project name, but allow it to be edited independently from the project name.

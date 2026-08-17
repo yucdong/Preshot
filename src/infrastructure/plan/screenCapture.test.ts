@@ -2,11 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { createTauriScreenCapture } from "./screenCapture";
 
 describe("createTauriScreenCapture", () => {
-  it("starts, polls, and cancels a native capture session", async () => {
+  it("starts, polls, cancels, and discards a native capture session", async () => {
     const invokeCommand = vi
       .fn()
       .mockResolvedValueOnce("capture-token")
       .mockResolvedValueOnce({ status: "captured", path: String.raw`C:\Temp\capture.png` })
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null);
     const capture = createTauriScreenCapture({ invokeCommand });
 
@@ -16,11 +17,15 @@ describe("createTauriScreenCapture", () => {
       path: String.raw`C:\Temp\capture.png`,
     });
     await expect(capture.cancel("capture-token")).resolves.toBeUndefined();
+    await expect(
+      capture.discard(String.raw`C:\Temp\capture.png`),
+    ).resolves.toBeUndefined();
 
     expect(invokeCommand.mock.calls).toEqual([
       ["start_screen_capture"],
       ["poll_screen_capture", { token: "capture-token" }],
       ["cancel_screen_capture", { token: "capture-token" }],
+      ["discard_screen_capture", { path: String.raw`C:\Temp\capture.png` }],
     ]);
   });
 

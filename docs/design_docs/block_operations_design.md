@@ -1,94 +1,87 @@
-# Block 操作控制设计
+# Block operation controls design
 
-状态：已实施  
-交互稿：`docs/design_refs/preshot-block-operations-controls-demo.html`
+Status: Implemented
+Interaction draft: `docs/design_refs/preshot-block-operations-controls-demo.html`
 
-## 官方 API 对应
+## Official API mapping
 
-设计基于 BlockNote 官方
+The design is based on BlockNote's official documentation:
 [Manipulating Content](https://www.blocknotejs.org/docs/reference/editor/manipulating-content)
-和
-[Block Side Menu](https://www.blocknotejs.org/docs/react/components/side-menu)：
+and
+[Block Side Menu](https://www.blocknotejs.org/docs/react/components/side-menu):
 
-| 能力 | BlockNote API | Preshot 控制 |
+| Capability | BlockNote API | Preshot control |
 | --- | --- | --- |
-| 读取结构 | `editor.document`、`getBlock`、`getPrevBlock`、`getNextBlock`、`getParentBlock`、`forEachBlock` | 菜单标题显示类型、层级和父级 |
-| 插入 | `insertBlocks` | 左侧 `+`、菜单“在上方/下方插入” |
-| 修改/转换 | `updateBlock` | “转换为”子菜单 |
-| 删除 | `removeBlocks` | 危险色“删除”，完成后提供撤销提示 |
-| 替换 | `replaceBlocks` | 后续模板/组合 block 操作 |
-| 移动 | `insertBlocks`、`removeBlocks`、`transact` | 菜单快捷箭头执行同级子树重排，`Alt+↑/↓` 同步调用；手柄使用 Pointer Events 在缩放画布中执行 before/after/inside 放置 |
-| 嵌套 | `canNestBlock`、`nestBlock`、`canUnnestBlock`、`unnestBlock` | 菜单缩进/减少缩进、`Tab/Shift+Tab` |
+| Read structure | `editor.document`, `getBlock`, `getPrevBlock`, `getNextBlock`, `getParentBlock`, `forEachBlock` | Menu title shows type, level, and parent |
+| Insert | `insertBlocks` | Left `+`, menu entries "Insert above/below" |
+| Update / convert | `updateBlock` | "Convert to" submenu |
+| Delete | `removeBlocks` | Danger-colored "Delete" with undo toast after completion |
+| Replace | `replaceBlocks` | Future template / composite block operations |
+| Move | `insertBlocks`, `removeBlocks`, `transact` | Menu shortcut arrows reorder sibling subtrees; `Alt+↑/↓` calls the same path; the handle uses Pointer Events to place before/after/inside on the zoomed canvas |
+| Nest | `canNestBlock`, `nestBlock`, `canUnnestBlock`, `unnestBlock` | Menu indent / outdent, `Tab/Shift+Tab` |
 
-## 当前项目约束
+## Current project constraints
 
-- `imageGroup` 不支持普通缩进嵌套；可作为顶层 block 或 column 的直接子项。
-  “增加缩进”仍禁用，并通过左右边缘拖放进入列布局。
-- 复制普通 block 时复制完整子树并重新生成所有 block ID。
-- 复制 `imageGroup` 时继续调用 `ImageGroupBlockController.cloneGroup`，生成新的
-  group/image IDs，但复用底层图片文件。
-- 删除图片组继续依赖现有 tombstone 机制，允许 BlockNote undo 恢复；文件只在
-  项目退休清理阶段删除。
-- 移动父 block 时必须连同完整 children 子树移动，不能拆散层级。
-- 菜单上移/下移不会自动改变嵌套层级；BlockNote 原生
-  `moveBlocksUp/moveBlocksDown` 可能进入/退出 children，因此菜单使用事务内
-  remove + relative insert 实现同级重排。
-- BlockNote 0.53 原生 HTML5 drag 在 Preshot 的 CSS `zoom` 画布下无法可靠提交
-  ProseMirror drop；生产手柄改用 6px 阈值的 Pointer Events，并用独立 fixed
-  overlay 显示 before/after 插入线或 inside 容器高亮。
-- 删除父 block 时默认删除完整子树，并在菜单中显示子 block 数量。
+- `imageGroup` does not support ordinary indentation-based nesting. It may exist as a top-level block or as a direct child inside a column.
+  "Increase indent" therefore remains disabled, and left/right edge dropping is used to enter column layout.
+- Copying a regular block duplicates the full subtree and regenerates all block IDs.
+- Copying `imageGroup` continues to call `ImageGroupBlockController.cloneGroup`, generating new group/image IDs while reusing the underlying image files.
+- Image-group deletion continues to rely on the existing tombstone mechanism so BlockNote undo can restore it; files are deleted only during project retirement cleanup.
+- Moving a parent block must move its entire child subtree together and may not break the hierarchy apart.
+- Menu move-up / move-down must not implicitly change nesting level. Native BlockNote `moveBlocksUp/moveBlocksDown` can enter/leave children, so the menu uses transactional remove + relative insert to reorder siblings only.
+- Native HTML5 drag in BlockNote 0.53 cannot reliably commit a ProseMirror drop on Preshot's CSS `zoom` canvas. The production handle therefore uses Pointer Events with a 6px threshold and a separate fixed overlay to show before/after insertion lines or inside-container highlighting.
+- Deleting a parent block deletes the full subtree by default and shows the child-block count in the menu.
 
-## 控制器样式
+## Control styling
 
-### 左侧控制条
+### Left control strip
 
-- hover/focus 当前 block 时显示，两个按钮均为 18×18 逻辑像素。
-- 控制条总宽 36px，正好使用页面左侧 36px padding；左边缘不得越过白色
-  画布，右边缘不得进入正文区域。
-- 控制条属于画布 zoom 树，按钮尺寸与页面同比例缩放，不使用固定屏幕像素补偿。
-- `+`：直接在当前 block 下方插入段落；点击箭头打开完整插入菜单。
-- 六点拖拽手柄：拖动 block；单击打开操作菜单。
-- 控制条不覆盖正文，使用 BlockNote `SideMenuController` 定位。
+- Shown when the current block is hovered or focused; both buttons are 18×18 logical pixels.
+- Total strip width is 36px, exactly matching the page's 36px left padding; the left edge must not cross the white canvas and the right edge must not enter the text area.
+- The strip belongs to the canvas zoom tree, so button size scales proportionally with the page rather than using fixed screen-pixel compensation.
+- `+`: directly inserts a paragraph below the current block; clicking the arrow opens the full insertion menu.
+- Six-dot drag handle: drag the block; click to open the operation menu.
+- The strip must not cover the body text and uses BlockNote `SideMenuController` positioning.
 
-### 操作菜单
+### Operation menu
 
-- 宽 248px，深色浮层，与图片组工具条保持一致。
-- 顶部显示 block 类型、层级和子 block 数。
-- 第一行四个 36×32px 快捷按钮：上移、下移、减少缩进、增加缩进。
-- 主菜单：在上方插入、在下方插入、复制、转换为、删除。
-- 删除项放在底部分隔区，使用危险色；操作后 toast 提供“撤销”。
-- 不可执行操作保留位置但禁用，并用 tooltip 说明边界或 schema 原因。
+- Width 248px, dark floating layer consistent with the image-group toolbar.
+- The top shows block type, level, and child-block count.
+- First row: four 36×32px shortcut buttons for move up, move down, outdent, and indent.
+- Main menu: insert above, insert below, duplicate, convert to, delete.
+- The delete entry sits in a separated bottom section, uses danger color, and offers an "Undo" toast after execution.
+- Non-executable actions keep their position but are disabled, with tooltips explaining boundary or schema reasons.
 
-### 嵌套反馈
+### Nesting feedback
 
-- 每一级缩进 28px。
-- hover 当前层级时显示低对比度竖向结构线。
-- 拖动时区分三种目标：上方、下方、作为子 block。
-- “作为子 block”使用青色容器高亮；普通排序使用青色 2px 插入线。
+- Each indentation level is 28px.
+- Hovering the current level shows a low-contrast vertical structure line.
+- Dragging distinguishes three targets: above, below, and as child block.
+- "As child block" uses cyan container highlighting; normal reordering uses a cyan 2px insertion line.
 
-## 键盘与可访问性
+## Keyboard and accessibility
 
-- `Alt+↑/↓`：移动当前 block。
-- `Tab/Shift+Tab`：增加/减少缩进。
-- `Ctrl+D`：复制当前 block。
-- `Delete` 只在 block 控制菜单获得焦点时删除，避免破坏文本编辑。
-- `Escape` 关闭子菜单和操作菜单，并把焦点返回拖拽手柄。
-- 所有图标按钮都有中文 `aria-label`、可见 focus ring 和禁用原因。
+- `Alt+↑/↓`: move the current block.
+- `Tab/Shift+Tab`: indent / outdent.
+- `Ctrl+D`: duplicate the current block.
+- `Delete` deletes only when the block control menu has focus, to avoid damaging text editing.
+- `Escape` closes submenus and the operation menu, then returns focus to the drag handle.
+- All icon buttons have Chinese `aria-label`s, visible focus rings, and disabled reasons.
 
-## 验证范围
+## Validation scope
 
-- 普通 block 插入、复制、转换、删除。
-- 父 block 连同完整子树上下移动。
-- 嵌套/取消嵌套及首尾边界禁用。
-- 图片组禁止普通嵌套，但允许顶层/列内移动、复制和删除/撤销。
-- 菜单键盘导航、Escape 焦点返回和快捷键。
-- JSON 持久化后 children 层级、唯一 block ID 与 image-group 引用完整。
+- Regular block insertion, duplication, conversion, and deletion.
+- Moving a parent block together with its full subtree.
+- Nest / unnest plus disabled first/last boundaries.
+- Image groups cannot be nested normally, but can still move, duplicate, delete, and undo at the top level or inside columns.
+- Menu keyboard navigation, Escape focus return, and shortcuts.
+- After JSON persistence, child hierarchy, unique block IDs, and image-group references remain intact.
 
-## 已实施文件
+## Implemented files
 
 - `src/features/plan/blocknote/blockOperations.ts`
 - `src/features/plan/blocknote/BlockOperationsMenu.tsx`
 - `src/features/plan/blocknote/PreshotBlockSideMenu.tsx`
 - `src/features/plan/blocknote/BlockNoteDocumentEditor.tsx`
 - `src/features/plan/blocknote/blockOperations.test.ts`
-- `e2e/blocknote-v13.spec.ts`
+- `e2e/blocknote-v14.spec.ts`

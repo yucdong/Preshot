@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Preshot 图片卡片八向缩放评审</title>
+  <title>Preshot Eight-direction Image Card Resize Review</title>
   <style>
     :root {
       --app-bg: #dfe1e5;
@@ -577,7 +577,7 @@
       border: 1px dashed #aeb5bc;
       border-radius: 3px;
       color: #7b828a;
-      content: "拖动图片到这里";
+      content: "Drag images here";
       font-size: 9px;
     }
 
@@ -892,8 +892,8 @@
   <header class="topbar">
     <div class="brand-mark">P</div>
     <div class="brand">Preshot</div>
-    <div class="file-name">城市夜景拍摄方案</div>
-    <div class="save-state">所有更改已保存</div>
+    <div class="file-name">City Night Shoot Plan</div>
+    <div class="save-state">All changes saved</div>
   </header>
 
   <main class="app-shell">
@@ -901,176 +901,176 @@
       <p class="rail-label">Projects</p>
       <div class="project">
         <div class="project-thumb" aria-hidden="true"></div>
-        <div><strong>城市夜景</strong><span>刚刚编辑</span></div>
+        <div><strong>City Night</strong><span>Edited just now</span></div>
       </div>
     </aside>
 
-    <section class="workspace" aria-label="方案画布">
+    <section class="workspace" aria-label="Plan canvas">
       <article class="paper">
         <i class="page-corner tl"></i><i class="page-corner tr"></i>
         <i class="page-corner bl"></i><i class="page-corner br"></i>
 
-        <h1 class="document-title">城市夜景拍摄方案</h1>
-        <p class="document-copy">在蓝调时刻完成主场景，优先保留城市轮廓与车流轨迹。下方图片组用于确认构图、色调和现场机位。</p>
-        <h2 class="section-title">参考样图</h2>
+        <h1 class="document-title">City Night Shoot Plan</h1>
+        <p class="document-copy">Finish the main scene during blue hour, prioritizing the city skyline and traffic trails. The image groups below are used to confirm composition, color, and on-site camera positions.</p>
+        <h2 class="section-title">Reference Samples</h2>
 
         <div class="document-flow" id="document-flow">
-        <div class="flow-block group-flow-block" data-flow-label="图片组 A">
-        <div class="group-caption">图片组 A · 主构图</div>
+        <div class="flow-block group-flow-block" data-flow-label="Image Group A">
+        <div class="group-caption">Image Group A · Main Composition</div>
         <div class="group-stage">
-          <div class="group-wrap is-selected" data-group-id="group-a" data-group-name="图片组 A">
-            <div class="context-toolbar group-toolbar" role="toolbar" aria-label="图片卡片样式">
-              <span class="toolbar-kind">图片卡片</span>
-              <button class="tool-button" type="button" aria-label="添加图片" title="添加图片">
+          <div class="group-wrap is-selected" data-group-id="group-a" data-group-name="Image Group A">
+            <div class="context-toolbar group-toolbar" role="toolbar" aria-label="Image card styling">
+              <span class="toolbar-kind">Image Card</span>
+              <button class="tool-button" type="button" aria-label="Add image" title="Add image">
                 <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 13l2.8-3 3 3.5 2.2-2.2 4 4.2M12 3v4M10 5h4"/></svg>
               </button>
-              <button class="tool-button" type="button" aria-label="屏幕截图" title="屏幕截图">
+              <button class="tool-button" type="button" aria-label="Screenshot" title="Screenshot">
                 <svg viewBox="0 0 24 24"><path d="M5 7h3l1.2-2h5.6L16 7h3v11H5z"/><circle cx="12" cy="12.5" r="3.2"/></svg>
               </button>
               <span class="divider" aria-hidden="true"></span>
-              <button class="tool-button danger delete-group" type="button" aria-label="删除图片卡片" title="删除图片卡片">
+              <button class="tool-button danger delete-group" type="button" aria-label="Delete image card" title="Delete image card">
                 <svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M8 10v8M12 10v8M16 10v8M7 7l1 14h8l1-14"/></svg>
               </button>
             </div>
 
-            <div class="context-toolbar image-toolbar" role="toolbar" aria-label="图片样式">
-              <span class="toolbar-kind image-kind">图片 01</span>
-              <button class="tool-button" type="button" aria-label="调整图片视图" title="调整图片视图">
+            <div class="context-toolbar image-toolbar" role="toolbar" aria-label="Image styling">
+              <span class="toolbar-kind image-kind">Image 01</span>
+              <button class="tool-button" type="button" aria-label="Adjust image view" title="Adjust image view">
                 <svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
               <span class="divider" aria-hidden="true"></span>
-              <button class="tool-button danger delete-image" type="button" aria-label="删除图片" title="删除图片">
+              <button class="tool-button danger delete-image" type="button" aria-label="Delete image" title="Delete image">
                 <svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M8 10v8M12 10v8M16 10v8M7 7l1 14h8l1-14"/></svg>
               </button>
             </div>
 
-            <div class="image-group" tabindex="0" aria-label="图片卡片，八个方向均可调整大小，按住灰色空白区域可上下移动">
-              <button class="drag-grip" type="button" aria-label="拖动图片卡片" title="拖动图片卡片">
+            <div class="image-group" tabindex="0" aria-label="Image card: resizable from all eight directions; drag the gray empty area to move it up and down">
+              <button class="drag-grip" type="button" aria-label="Drag image card" title="Drag image card">
                 <svg viewBox="0 0 24 24"><circle cx="8" cy="7" r="1.5"/><circle cx="16" cy="7" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="17" r="1.5"/><circle cx="16" cy="17" r="1.5"/></svg>
               </button>
 
               <div class="group-grid">
-                <div class="image-tile" style="--tile-width: 166px; --tile-height: 118px" data-label="图片 01">
-                  <button class="image-button" type="button" aria-label="选择图片 01">
-                    <img alt="雨夜街道与霓虹灯" draggable="false" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 420'%3E%3Cdefs%3E%3ClinearGradient id='a' x2='0' y2='1'%3E%3Cstop stop-color='%23142335'/%3E%3Cstop offset='.58' stop-color='%23213b4d'/%3E%3Cstop offset='1' stop-color='%230e141c'/%3E%3C/linearGradient%3E%3ClinearGradient id='b'%3E%3Cstop stop-color='%23d54470'/%3E%3Cstop offset='1' stop-color='%2309a9c4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' d='M0 0h600v420H0z'/%3E%3Cpath fill='%23101822' d='M0 245l98-46 98 29 112-72 125 55 167-63v272H0z'/%3E%3Cpath fill='url(%23b)' opacity='.75' d='M0 336l190-60 126 26 284-87v37l-279 84-129-24L0 373z'/%3E%3Cg fill='%23ffd36a'%3E%3Ccircle cx='105' cy='176' r='9'/%3E%3Ccircle cx='460' cy='145' r='7'/%3E%3Ccircle cx='527' cy='195' r='5'/%3E%3C/g%3E%3Cpath stroke='%23dceef6' stroke-width='5' opacity='.55' d='M280 420l42-160M368 420l-22-159'/%3E%3C/svg%3E">
+                <div class="image-tile" style="--tile-width: 166px; --tile-height: 118px" data-label="Image 01">
+                  <button class="image-button" type="button" aria-label="Select Image 01">
+                    <img alt="Rainy-night street and neon lights" draggable="false" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 420'%3E%3Cdefs%3E%3ClinearGradient id='a' x2='0' y2='1'%3E%3Cstop stop-color='%23142335'/%3E%3Cstop offset='.58' stop-color='%23213b4d'/%3E%3Cstop offset='1' stop-color='%230e141c'/%3E%3C/linearGradient%3E%3ClinearGradient id='b'%3E%3Cstop stop-color='%23d54470'/%3E%3Cstop offset='1' stop-color='%2309a9c4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' d='M0 0h600v420H0z'/%3E%3Cpath fill='%23101822' d='M0 245l98-46 98 29 112-72 125 55 167-63v272H0z'/%3E%3Cpath fill='url(%23b)' opacity='.75' d='M0 336l190-60 126 26 284-87v37l-279 84-129-24L0 373z'/%3E%3Cg fill='%23ffd36a'%3E%3Ccircle cx='105' cy='176' r='9'/%3E%3Ccircle cx='460' cy='145' r='7'/%3E%3Ccircle cx='527' cy='195' r='5'/%3E%3C/g%3E%3Cpath stroke='%23dceef6' stroke-width='5' opacity='.55' d='M280 420l42-160M368 420l-22-159'/%3E%3C/svg%3E">
                   </button>
                   <span class="image-index">01</span>
-                  <span class="resize-edge left" data-edge="left" role="separator" tabindex="0" aria-label="从左边调整图片 01"></span>
-                  <span class="resize-edge right" data-edge="right" role="separator" tabindex="0" aria-label="从右边调整图片 01"></span>
-                  <span class="resize-edge top" data-edge="top" role="separator" tabindex="0" aria-label="从上边调整图片 01"></span>
-                  <span class="resize-edge bottom" data-edge="bottom" role="separator" tabindex="0" aria-label="从下边调整图片 01"></span>
-                  <span class="resize-corner top-left" data-edge="top-left" role="separator" tabindex="0" aria-label="从左上角调整图片 01"></span>
-                  <span class="resize-corner top-right" data-edge="top-right" role="separator" tabindex="0" aria-label="从右上角调整图片 01"></span>
-                  <span class="resize-corner bottom-left" data-edge="bottom-left" role="separator" tabindex="0" aria-label="从左下角调整图片 01"></span>
-                  <span class="resize-corner bottom-right" data-edge="bottom-right" role="separator" tabindex="0" aria-label="从右下角调整图片 01"></span>
+                  <span class="resize-edge left" data-edge="left" role="separator" tabindex="0" aria-label="Resize Image 01 from the left edge"></span>
+                  <span class="resize-edge right" data-edge="right" role="separator" tabindex="0" aria-label="Resize Image 01 from the right edge"></span>
+                  <span class="resize-edge top" data-edge="top" role="separator" tabindex="0" aria-label="Resize Image 01 from the top edge"></span>
+                  <span class="resize-edge bottom" data-edge="bottom" role="separator" tabindex="0" aria-label="Resize Image 01 from the bottom edge"></span>
+                  <span class="resize-corner top-left" data-edge="top-left" role="separator" tabindex="0" aria-label="Resize Image 01 from the top-left corner"></span>
+                  <span class="resize-corner top-right" data-edge="top-right" role="separator" tabindex="0" aria-label="Resize Image 01 from the top-right corner"></span>
+                  <span class="resize-corner bottom-left" data-edge="bottom-left" role="separator" tabindex="0" aria-label="Resize Image 01 from the bottom-left corner"></span>
+                  <span class="resize-corner bottom-right" data-edge="bottom-right" role="separator" tabindex="0" aria-label="Resize Image 01 from the bottom-right corner"></span>
                 </div>
 
-                <div class="image-tile" style="--tile-width: 140px; --tile-height: 118px" data-label="图片 02">
-                  <button class="image-button" type="button" aria-label="选择图片 02">
-                    <img alt="城市天际线" draggable="false" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 420'%3E%3Cdefs%3E%3ClinearGradient id='a' y2='1'%3E%3Cstop stop-color='%23517286'/%3E%3Cstop offset='.55' stop-color='%23b55d72'/%3E%3Cstop offset='1' stop-color='%23e0a66f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' d='M0 0h520v420H0z'/%3E%3Ccircle cx='405' cy='108' r='42' fill='%23f5d99c' opacity='.75'/%3E%3Cpath fill='%23242a35' d='M0 254h45v-62h46v49h35v-99h42v105h37V92h50v144h42v-84h43v95h34v-121h56v109h41v-57h49v242H0z'/%3E%3Cg fill='%23f8d06e'%3E%3Cpath d='M217 112h9v12h-9zM240 112h9v12h-9zM217 140h9v12h-9zM240 140h9v12h-9zM386 147h9v12h-9zM408 147h9v12h-9zM386 176h9v12h-9z'/%3E%3C/g%3E%3C/svg%3E">
+                <div class="image-tile" style="--tile-width: 140px; --tile-height: 118px" data-label="Image 02">
+                  <button class="image-button" type="button" aria-label="Select Image 02">
+                    <img alt="City skyline" draggable="false" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 420'%3E%3Cdefs%3E%3ClinearGradient id='a' y2='1'%3E%3Cstop stop-color='%23517286'/%3E%3Cstop offset='.55' stop-color='%23b55d72'/%3E%3Cstop offset='1' stop-color='%23e0a66f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' d='M0 0h520v420H0z'/%3E%3Ccircle cx='405' cy='108' r='42' fill='%23f5d99c' opacity='.75'/%3E%3Cpath fill='%23242a35' d='M0 254h45v-62h46v49h35v-99h42v105h37V92h50v144h42v-84h43v95h34v-121h56v109h41v-57h49v242H0z'/%3E%3Cg fill='%23f8d06e'%3E%3Cpath d='M217 112h9v12h-9zM240 112h9v12h-9zM217 140h9v12h-9zM240 140h9v12h-9zM386 147h9v12h-9zM408 147h9v12h-9zM386 176h9v12h-9z'/%3E%3C/g%3E%3C/svg%3E">
                   </button>
                   <span class="image-index">02</span>
-                  <span class="resize-edge left" data-edge="left" role="separator" tabindex="0" aria-label="从左边调整图片 02"></span>
-                  <span class="resize-edge right" data-edge="right" role="separator" tabindex="0" aria-label="从右边调整图片 02"></span>
-                  <span class="resize-edge top" data-edge="top" role="separator" tabindex="0" aria-label="从上边调整图片 02"></span>
-                  <span class="resize-edge bottom" data-edge="bottom" role="separator" tabindex="0" aria-label="从下边调整图片 02"></span>
-                  <span class="resize-corner top-left" data-edge="top-left" role="separator" tabindex="0" aria-label="从左上角调整图片 02"></span>
-                  <span class="resize-corner top-right" data-edge="top-right" role="separator" tabindex="0" aria-label="从右上角调整图片 02"></span>
-                  <span class="resize-corner bottom-left" data-edge="bottom-left" role="separator" tabindex="0" aria-label="从左下角调整图片 02"></span>
-                  <span class="resize-corner bottom-right" data-edge="bottom-right" role="separator" tabindex="0" aria-label="从右下角调整图片 02"></span>
+                  <span class="resize-edge left" data-edge="left" role="separator" tabindex="0" aria-label="Resize Image 02 from the left edge"></span>
+                  <span class="resize-edge right" data-edge="right" role="separator" tabindex="0" aria-label="Resize Image 02 from the right edge"></span>
+                  <span class="resize-edge top" data-edge="top" role="separator" tabindex="0" aria-label="Resize Image 02 from the top edge"></span>
+                  <span class="resize-edge bottom" data-edge="bottom" role="separator" tabindex="0" aria-label="Resize Image 02 from the bottom edge"></span>
+                  <span class="resize-corner top-left" data-edge="top-left" role="separator" tabindex="0" aria-label="Resize Image 02 from the top-left corner"></span>
+                  <span class="resize-corner top-right" data-edge="top-right" role="separator" tabindex="0" aria-label="Resize Image 02 from the top-right corner"></span>
+                  <span class="resize-corner bottom-left" data-edge="bottom-left" role="separator" tabindex="0" aria-label="Resize Image 02 from the bottom-left corner"></span>
+                  <span class="resize-corner bottom-right" data-edge="bottom-right" role="separator" tabindex="0" aria-label="Resize Image 02 from the bottom-right corner"></span>
                 </div>
 
-                <div class="image-tile" style="--tile-width: 118px; --tile-height: 94px" data-label="图片 03">
-                  <button class="image-button" type="button" aria-label="选择图片 03">
-                    <img alt="高架道路车流" draggable="false" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 380'%3E%3Cdefs%3E%3ClinearGradient id='a' y2='1'%3E%3Cstop stop-color='%23152f49'/%3E%3Cstop offset='1' stop-color='%23080e17'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' d='M0 0h500v380H0z'/%3E%3Cpath fill='%231b222b' d='M0 95l72 40 80-70 87 82 76-64 83 45 102-78v330H0z'/%3E%3Cpath fill='%23343d46' d='M-20 310c140-64 302-83 540-76v46c-213-4-383 15-523 78z'/%3E%3Cpath fill='none' stroke='%23f6c04e' stroke-width='8' stroke-linecap='round' d='M-10 330c151-58 323-72 540-60'/%3E%3Cpath fill='none' stroke='%23d74369' stroke-width='5' stroke-linecap='round' d='M20 354c160-55 325-64 500-48'/%3E%3C/svg%3E">
+                <div class="image-tile" style="--tile-width: 118px; --tile-height: 94px" data-label="Image 03">
+                  <button class="image-button" type="button" aria-label="Select Image 03">
+                    <img alt="Elevated-road traffic" draggable="false" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 380'%3E%3Cdefs%3E%3ClinearGradient id='a' y2='1'%3E%3Cstop stop-color='%23152f49'/%3E%3Cstop offset='1' stop-color='%23080e17'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' d='M0 0h500v380H0z'/%3E%3Cpath fill='%231b222b' d='M0 95l72 40 80-70 87 82 76-64 83 45 102-78v330H0z'/%3E%3Cpath fill='%23343d46' d='M-20 310c140-64 302-83 540-76v46c-213-4-383 15-523 78z'/%3E%3Cpath fill='none' stroke='%23f6c04e' stroke-width='8' stroke-linecap='round' d='M-10 330c151-58 323-72 540-60'/%3E%3Cpath fill='none' stroke='%23d74369' stroke-width='5' stroke-linecap='round' d='M20 354c160-55 325-64 500-48'/%3E%3C/svg%3E">
                   </button>
                   <span class="image-index">03</span>
-                  <span class="resize-edge left" data-edge="left" role="separator" tabindex="0" aria-label="从左边调整图片 03"></span>
-                  <span class="resize-edge right" data-edge="right" role="separator" tabindex="0" aria-label="从右边调整图片 03"></span>
-                  <span class="resize-edge top" data-edge="top" role="separator" tabindex="0" aria-label="从上边调整图片 03"></span>
-                  <span class="resize-edge bottom" data-edge="bottom" role="separator" tabindex="0" aria-label="从下边调整图片 03"></span>
-                  <span class="resize-corner top-left" data-edge="top-left" role="separator" tabindex="0" aria-label="从左上角调整图片 03"></span>
-                  <span class="resize-corner top-right" data-edge="top-right" role="separator" tabindex="0" aria-label="从右上角调整图片 03"></span>
-                  <span class="resize-corner bottom-left" data-edge="bottom-left" role="separator" tabindex="0" aria-label="从左下角调整图片 03"></span>
-                  <span class="resize-corner bottom-right" data-edge="bottom-right" role="separator" tabindex="0" aria-label="从右下角调整图片 03"></span>
+                  <span class="resize-edge left" data-edge="left" role="separator" tabindex="0" aria-label="Resize Image 03 from the left edge"></span>
+                  <span class="resize-edge right" data-edge="right" role="separator" tabindex="0" aria-label="Resize Image 03 from the right edge"></span>
+                  <span class="resize-edge top" data-edge="top" role="separator" tabindex="0" aria-label="Resize Image 03 from the top edge"></span>
+                  <span class="resize-edge bottom" data-edge="bottom" role="separator" tabindex="0" aria-label="Resize Image 03 from the bottom edge"></span>
+                  <span class="resize-corner top-left" data-edge="top-left" role="separator" tabindex="0" aria-label="Resize Image 03 from the top-left corner"></span>
+                  <span class="resize-corner top-right" data-edge="top-right" role="separator" tabindex="0" aria-label="Resize Image 03 from the top-right corner"></span>
+                  <span class="resize-corner bottom-left" data-edge="bottom-left" role="separator" tabindex="0" aria-label="Resize Image 03 from the bottom-left corner"></span>
+                  <span class="resize-corner bottom-right" data-edge="bottom-right" role="separator" tabindex="0" aria-label="Resize Image 03 from the bottom-right corner"></span>
                 </div>
               </div>
 
               <div class="alignment-guide vertical"></div>
               <div class="alignment-guide horizontal"></div>
-              <div class="status-chip">正在调整</div>
+              <div class="status-chip">Resizing</div>
             </div>
 
-            <span class="group-resize-edge left" data-group-edge="left" role="separator" tabindex="0" aria-label="从左边调整图片卡片"></span>
-            <span class="group-resize-edge right" data-group-edge="right" role="separator" tabindex="0" aria-label="从右边调整图片卡片"></span>
-            <span class="group-resize-edge top" data-group-edge="top" role="separator" tabindex="0" aria-label="从上边调整图片卡片"></span>
-            <span class="group-resize-edge bottom" data-group-edge="bottom" role="separator" tabindex="0" aria-label="从下边调整图片卡片"></span>
-            <span class="group-resize-corner top-left" data-group-edge="top-left" role="separator" tabindex="0" aria-label="从左上角调整图片卡片"></span>
-            <span class="group-resize-corner top-right" data-group-edge="top-right" role="separator" tabindex="0" aria-label="从右上角调整图片卡片"></span>
-            <span class="group-resize-corner bottom-left" data-group-edge="bottom-left" role="separator" tabindex="0" aria-label="从左下角调整图片卡片"></span>
-            <span class="group-resize-corner bottom-right" data-group-edge="bottom-right" role="separator" tabindex="0" aria-label="从右下角调整图片卡片"></span>
+            <span class="group-resize-edge left" data-group-edge="left" role="separator" tabindex="0" aria-label="Resize image card from the left edge"></span>
+            <span class="group-resize-edge right" data-group-edge="right" role="separator" tabindex="0" aria-label="Resize image card from the right edge"></span>
+            <span class="group-resize-edge top" data-group-edge="top" role="separator" tabindex="0" aria-label="Resize image card from the top edge"></span>
+            <span class="group-resize-edge bottom" data-group-edge="bottom" role="separator" tabindex="0" aria-label="Resize image card from the bottom edge"></span>
+            <span class="group-resize-corner top-left" data-group-edge="top-left" role="separator" tabindex="0" aria-label="Resize image card from the top-left corner"></span>
+            <span class="group-resize-corner top-right" data-group-edge="top-right" role="separator" tabindex="0" aria-label="Resize image card from the top-right corner"></span>
+            <span class="group-resize-corner bottom-left" data-group-edge="bottom-left" role="separator" tabindex="0" aria-label="Resize image card from the bottom-left corner"></span>
+            <span class="group-resize-corner bottom-right" data-group-edge="bottom-right" role="separator" tabindex="0" aria-label="Resize image card from the bottom-right corner"></span>
           </div>
         </div>
         </div>
 
-        <div class="flow-block text-flow-block" data-flow-label="构图说明">
-          <span class="flow-kind">文字</span>
-          <p>主构图优先保留道路引导线与城市轮廓，蓝调时刻先完成静态机位，再补充车流长曝光。</p>
+        <div class="flow-block text-flow-block" data-flow-label="Composition Notes">
+          <span class="flow-kind">Text</span>
+          <p>In the main composition, prioritize the road leading lines and city silhouette; finish the static camera position during blue hour first, then add long-exposure traffic shots.</p>
         </div>
 
-        <div class="flow-block group-flow-block" data-flow-label="图片组 B">
-        <div class="group-caption">图片组 B · 备用机位</div>
+        <div class="flow-block group-flow-block" data-flow-label="Image Group B">
+        <div class="group-caption">Image Group B · Backup Camera Position</div>
         <div class="group-stage" id="secondary-group-stage"></div>
         </div>
 
-        <div class="flow-block note-flow-block" data-flow-label="拍摄提示组件">
-          <span class="flow-kind">拍摄提示组件</span>
-          <p>图片组可拖到本段文字的上方或下方；组内图片尺寸、裁切视图和排序会随整组保持。</p>
+        <div class="flow-block note-flow-block" data-flow-label="Shoot Tip Component">
+          <span class="flow-kind">Shoot Tip Component</span>
+          <p>The image group can be dragged above or below this text block; image sizes, crop views, and ordering stay with the group.</p>
         </div>
         </div>
       </article>
     </section>
 
     <aside class="review-panel">
-      <h2>本轮交互调整</h2>
-      <p>直接在中间画布点击并拖动验证。透明热区只有悬停时显示轻微反馈。</p>
-      <div class="requirement"><strong>八向调整尺寸</strong><p>图片卡片和单张图片均支持四条边改单轴、四个角同时调整宽高。</p></div>
-      <div class="requirement"><strong>非文字光标</strong><p>图片使用手型，图片组灰色区域使用抓取光标，缩放热区使用对应 resize 光标。</p></div>
-      <div class="requirement"><strong>图片使用手型</strong><p>鼠标进入图片内容区域时显示手型光标；按住并移动后切换为拖动状态。</p></div>
-      <div class="requirement"><strong>平衡的图片缩放热区</strong><p>四边使用 20px 内侧命中带，四角为 24×24px；保留易用性，同时减少误触缩放。</p></div>
-      <div class="requirement"><strong>悬停即可缩放</strong><p>无需先点击选中；鼠标进入图片后四边和四角立即生效，开始拖动时再自动选中。</p></div>
-      <div class="requirement"><strong>对边固定</strong><p>拖动上边向下缩小时，顶部向下移动且底边固定；左边和四角同样固定其对边或对角，不强制顶端对齐。</p></div>
-      <div class="requirement"><strong>右上紧凑样式栏</strong><p>高度 30px，固定贴右上方；不包含尺寸数值、加减或恢复尺寸按钮。</p></div>
-      <div class="requirement"><strong>组内与跨组拖放</strong><p>按住图片拖动即可重排；移动到另一个图片组时显示实时插入占位，松手完成移动。</p></div>
-      <div class="requirement"><strong>文档流上下排序</strong><p>按住图片组灰色空白区域拖动，可让整组与文字块或其他组件交换上下位置。</p></div>
-      <div class="requirement"><strong>四边均可调整</strong><p>顶部预留 24px 可用空间；向上拖动上边时，顶部上移、底边保持，组框随之增高。</p></div>
-      <div class="requirement"><strong>无闪烁缩放</strong><p>拖动时只更新轻量预览框，图片内容保持稳定；松手后一次提交最终尺寸并只重排一次。</p></div>
-      <div class="live-state" aria-live="polite"><strong>当前状态</strong><span id="live-state">已选中图片卡片，可拖动任意边或角。</span></div>
+      <h2>Interaction Changes in This Round</h2>
+      <p>Click and drag directly in the middle canvas to validate the behavior. Transparent hit areas show only light feedback on hover.</p>
+      <div class="requirement"><strong>Eight-direction resizing</strong><p>Both the image card and individual images support single-axis resizing from all four edges and simultaneous width/height resizing from all four corners.</p></div>
+      <div class="requirement"><strong>Non-text cursors</strong><p>Images use a pointer cursor, the gray image-group area uses a grab cursor, and resize hit areas use the matching resize cursor.</p></div>
+      <div class="requirement"><strong>Images use a pointer cursor</strong><p>Show a pointer cursor when the mouse enters image content; switch to a dragging state after press-and-move.</p></div>
+      <div class="requirement"><strong>Balanced image resize hit areas</strong><p>Use 20px inner hit bands on all four edges and 24×24px corners to preserve usability while reducing accidental resize actions.</p></div>
+      <div class="requirement"><strong>Resize on hover</strong><p>No pre-click selection is required; edges and corners become active as soon as the pointer enters the image, and selection happens automatically when dragging starts.</p></div>
+      <div class="requirement"><strong>Opposite edge stays fixed</strong><p>When dragging the top edge downward to shrink, the top moves down while the bottom stays fixed; the left edge and corners likewise keep the opposite edge or corner fixed without forcing top alignment.</p></div>
+      <div class="requirement"><strong>Compact top-right toolbar</strong><p>Keep it 30px tall and pinned to the top-right; do not include size values, +/- controls, or a restore-size button.</p></div>
+      <div class="requirement"><strong>Intra-group and cross-group drag-and-drop</strong><p>Press and drag an image to reorder it; when moving into another image group, show a live insertion placeholder and complete the move on release.</p></div>
+      <div class="requirement"><strong>Reorder in document flow</strong><p>Drag the gray empty area of an image group to move the whole group above or below text blocks or other components.</p></div>
+      <div class="requirement"><strong>All four edges are resizable</strong><p>Reserve 24px of usable space at the top; when dragging the top edge upward, the top moves up, the bottom stays fixed, and the group frame grows taller.</p></div>
+      <div class="requirement"><strong>Flicker-free resizing</strong><p>While dragging, update only the lightweight preview frame so the image content stays stable; commit the final size once on release and reflow only once.</p></div>
+      <div class="live-state" aria-live="polite"><strong>Current State</strong><span id="live-state">Image card selected; drag any edge or corner.</span></div>
     </aside>
   </main>
 
   <div class="lightbox" id="image-lightbox" role="dialog" aria-modal="true" aria-labelledby="lightbox-title">
     <div class="lightbox-panel">
-      <button class="lightbox-close" id="lightbox-close" type="button" aria-label="关闭大图">
+      <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close large preview">
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
       <div class="lightbox-image-wrap">
         <img class="lightbox-image" id="lightbox-image" alt="">
       </div>
       <div class="lightbox-footer">
-        <strong id="lightbox-title">图片预览</strong>
-        <span>单击背景或按 Esc 关闭</span>
+        <strong id="lightbox-title">Image Preview</strong>
+        <span>Click the backdrop or press Esc to close</span>
       </div>
     </div>
   </div>
 
   <div class="confirm-dialog" id="delete-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
     <div class="confirm-panel">
-      <h2 id="delete-confirm-title">删除图片？</h2>
-      <p id="delete-confirm-copy">删除后，图片将从当前图片组中移除。</p>
+      <h2 id="delete-confirm-title">Delete image?</h2>
+      <p id="delete-confirm-copy">After deletion, the image will be removed from the current image group.</p>
       <div class="confirm-actions">
-        <button class="confirm-button" id="delete-cancel" type="button">取消</button>
-        <button class="confirm-button danger" id="delete-confirm" type="button">删除</button>
+        <button class="confirm-button" id="delete-cancel" type="button">Cancel</button>
+        <button class="confirm-button danger" id="delete-confirm" type="button">Delete</button>
       </div>
     </div>
   </div>
@@ -1102,7 +1102,7 @@
       selectedTile = null;
       groupWrap.classList.add("is-selected");
       groupWrap.classList.remove("image-selected");
-      setLiveState("已选中图片卡片，可拖动任意边或角。");
+      setLiveState("Image card selected; drag any edge or corner.");
     }
 
     function selectTile(tile) {
@@ -1111,7 +1111,7 @@
       tile.classList.add("is-selected");
       groupWrap.classList.add("is-selected", "image-selected");
       imageKind.textContent = tile.dataset.label;
-      setLiveState(`已选中${tile.dataset.label}，可拖动四边或四角调整。`);
+      setLiveState(`Selected ${tile.dataset.label}; drag any edge or corner to resize.`);
     }
 
     imageGroup.addEventListener("pointerdown", (event) => {
@@ -1133,7 +1133,7 @@
       groupWrap.classList.remove("is-selected", "image-selected");
       selectedTile?.classList.remove("is-selected");
       selectedTile = null;
-      setLiveState("未选中对象。");
+      setLiveState("No object selected.");
     });
 
     function affects(edge, direction) {
@@ -1146,7 +1146,7 @@
       const tile = handle.closest(".image-tile");
       selectTile(tile);
       tile.classList.add("is-resizing");
-      statusChip.textContent = `正在调整${tile.dataset.label}`;
+      statusChip.textContent = `Resizing${tile.dataset.label}`;
 
       const edge = handle.dataset.edge;
       const startX = event.clientX;
@@ -1202,7 +1202,7 @@
           setLiveState(
             `${tile.dataset.label}：${Math.round(nextWidth)} × ${Math.round(nextHeight)} px` +
             (nextOffsetY > startOffsetY
-              ? `，顶部下移 ${Math.round(nextOffsetY - startOffsetY)}px`
+              ? `, top moved down ${Math.round(nextOffsetY - startOffsetY)}px`
               : "")
           );
         });
@@ -1216,7 +1216,7 @@
         handle.removeEventListener("pointermove", move);
         handle.removeEventListener("pointerup", finish);
         handle.removeEventListener("pointercancel", finish);
-        setLiveState(`${tile.dataset.label}尺寸已调整为 ${Math.round(nextWidth)} × ${Math.round(nextHeight)} px。`);
+        setLiveState(`${tile.dataset.label} resized to ${Math.round(nextWidth)} × ${Math.round(nextHeight)} px.`);
       };
 
       handle.addEventListener("pointermove", move);
@@ -1233,7 +1233,7 @@
       event.stopPropagation();
       selectGroup();
       groupWrap.classList.add("is-resizing");
-      statusChip.textContent = "正在调整图片卡片";
+      statusChip.textContent = "ResizingImage Card";
 
       const edge = handle.dataset.groupEdge;
       const stageRect = groupStage.getBoundingClientRect();
@@ -1282,7 +1282,7 @@
             width: `${next.width}px`,
             height: `${next.height}px`
           });
-          setLiveState(`图片卡片：${Math.round(next.width)} × ${Math.round(next.height)} px`);
+          setLiveState(`Image Card：${Math.round(next.width)} × ${Math.round(next.height)} px`);
         });
       };
 
@@ -1292,7 +1292,7 @@
         handle.removeEventListener("pointermove", move);
         handle.removeEventListener("pointerup", finish);
         handle.removeEventListener("pointercancel", finish);
-        setLiveState(`图片卡片尺寸已调整为 ${Math.round(next.width)} × ${Math.round(next.height)} px。`);
+        setLiveState(`Image card resized to ${Math.round(next.width)} × ${Math.round(next.height)} px.`);
       };
 
       handle.addEventListener("pointermove", move);
@@ -1309,7 +1309,7 @@
       event.stopPropagation();
       selectGroup();
       groupWrap.classList.add("is-moving");
-      statusChip.textContent = "正在移动图片卡片";
+      statusChip.textContent = "Moving image card";
 
       const stageRect = groupStage.getBoundingClientRect();
       const startX = event.clientX;
@@ -1326,7 +1326,7 @@
         scheduleStyleWrite(() => {
           groupWrap.style.left = `${nextLeft}px`;
           groupWrap.style.top = `${nextTop}px`;
-          setLiveState(`图片卡片位置：${Math.round(nextLeft)}, ${Math.round(nextTop)} px`);
+          setLiveState(`Image card position: ${Math.round(nextLeft)}, ${Math.round(nextTop)} px`);
         });
       };
 
@@ -1336,7 +1336,7 @@
         dragGrip.removeEventListener("pointermove", move);
         dragGrip.removeEventListener("pointerup", finish);
         dragGrip.removeEventListener("pointercancel", finish);
-        setLiveState("图片卡片移动完成，图片节点保持不变。");
+        setLiveState("Image card move complete; image nodes unchanged.");
       };
 
       dragGrip.addEventListener("pointermove", move);
@@ -1349,11 +1349,11 @@
       const label = selectedTile.dataset.label;
       selectedTile.remove();
       selectGroup();
-      setLiveState(`${label}已从原型中删除。`);
+      setLiveState(`${label} deleted from the prototype.`);
     });
 
     document.getElementById("delete-group").addEventListener("click", () => {
-      setLiveState("演示模式：未实际删除图片卡片。");
+      setLiveState("Demo mode: the image card was not actually deleted.");
     });
   </script>
   <script>
@@ -1362,7 +1362,7 @@
     const secondaryGroup = primaryGroup.cloneNode(true);
     secondaryGroup.classList.remove("is-selected", "image-selected");
     secondaryGroup.dataset.groupId = "group-b";
-    secondaryGroup.dataset.groupName = "图片组 B";
+    secondaryGroup.dataset.groupName = "Image Group B";
     secondaryStage.append(secondaryGroup);
 
     const primaryGrid = primaryGroup.querySelector(".group-grid");
@@ -1388,8 +1388,8 @@
       const deleteButton = document.createElement("button");
       deleteButton.className = "image-hover-delete";
       deleteButton.type = "button";
-      deleteButton.ariaLabel = "删除这张图片";
-      deleteButton.title = "删除图片";
+      deleteButton.ariaLabel = "Delete this image";
+      deleteButton.title = "Delete image";
       deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3M8 10v8M12 10v8M16 10v8M7 7l1 14h8l1-14"/></svg>';
       tile.append(deleteButton);
     });
@@ -1423,7 +1423,7 @@
     function openDeleteConfirmation(tile, trigger) {
       pendingDeleteTile = tile;
       pendingDeleteTrigger = trigger;
-      deleteDialogCopy.textContent = `确认从${groupName(tile.closest(".group-wrap"))}中删除“${tile.dataset.label}”吗？`;
+      deleteDialogCopy.textContent = `Delete “${tile.dataset.label}” from ${groupName(tile.closest(".group-wrap"))}?`;
       deleteDialog.classList.add("is-open");
       deleteCancel.focus();
     }
@@ -1446,20 +1446,20 @@
       tile.remove();
       renumberImages();
       selectGroup(group);
-      setLiveState(`${label}已从${groupName(group)}中删除。`);
+      setLiveState(`${label} deleted from ${groupName(group)}.`);
     }
 
     function groupName(group) {
-      return group.dataset.groupName ?? "图片组";
+      return group.dataset.groupName ?? "Image Group";
     }
 
     function renumberImages() {
       document.querySelectorAll(".group-wrap").forEach((group) => {
         group.querySelectorAll(".image-tile").forEach((tile, index) => {
           const number = String(index + 1).padStart(2, "0");
-          tile.dataset.label = `${groupName(group)} · 图片 ${number}`;
+          tile.dataset.label = `${groupName(group)} · Image ${number}`;
           tile.querySelector(".image-index").textContent = number;
-          tile.querySelector(".image-button").ariaLabel = `选择${groupName(group)}中的图片 ${number}`;
+          tile.querySelector(".image-button").ariaLabel = `Select image ${number} in ${groupName(group)}`;
         });
       });
     }
@@ -1477,7 +1477,7 @@
       clearSelection();
       selectedGroup = group;
       group.classList.add("is-selected");
-      setLiveState(`已选中${groupName(group)}，可拖动任意边或角。`);
+      setLiveState(`Selected ${groupName(group)}; drag any edge or corner.`);
     }
 
     function selectTile(tile) {
@@ -1487,7 +1487,7 @@
       tile.classList.add("is-selected");
       selectedGroup.classList.add("is-selected", "image-selected");
       selectedGroup.querySelector(".image-kind").textContent = tile.dataset.label;
-      setLiveState(`已选中${tile.dataset.label}；按住图片可排序或拖到其他图片组。`);
+      setLiveState(`Selected ${tile.dataset.label}; press and drag to reorder or move it to another image group.`);
     }
 
     function affects(edge, direction) {
@@ -1555,7 +1555,7 @@
             height: `${startRect.height}px`
           });
           document.body.style.cursor = "grabbing";
-          setLiveState(`正在拖动${tile.dataset.label}；移动到任意图片组选择插入位置。`);
+          setLiveState(`Dragging ${tile.dataset.label}; move over any image group to choose an insertion point.`);
         };
 
         const move = (moveEvent) => {
@@ -1597,12 +1597,12 @@
             const movedAcrossGroups = targetGroup !== sourceGroup;
             setLiveState(
               movedAcrossGroups
-                ? `${tile.dataset.label}已移动到${groupName(targetGroup)}。`
-                : `${tile.dataset.label}已在${groupName(targetGroup)}内重新排序。`
+                ? `${tile.dataset.label} moved to ${groupName(targetGroup)}.`
+                : `${tile.dataset.label} reordered within ${groupName(targetGroup)}.`
             );
           } else if (dragging) {
             sourceGrid.insertBefore(tile, originMarker.nextSibling);
-            setLiveState("未落在图片组中，本次拖动已取消。");
+            setLiveState("Not dropped into an image group; drag canceled.");
           } else {
             selectTile(tile);
             openLightbox(tile);
@@ -1642,7 +1642,7 @@
       const { verticalGuide, horizontalGuide, statusChip } = groupParts(group);
       selectTile(tile);
       tile.classList.add("is-resizing");
-      statusChip.textContent = `正在调整${tile.dataset.label}`;
+      statusChip.textContent = `Resizing${tile.dataset.label}`;
 
       const edge = handle.dataset.edge;
       const startX = event.clientX;
@@ -1707,7 +1707,7 @@
           setLiveState(
             `${tile.dataset.label}：${Math.round(nextWidth)} × ${Math.round(nextHeight)} px` +
             (nextOffsetY > startOffsetY
-              ? `，顶部下移 ${Math.round(nextOffsetY - startOffsetY)}px`
+              ? `, top moved down ${Math.round(nextOffsetY - startOffsetY)}px`
               : "")
           );
         });
@@ -1721,7 +1721,7 @@
         handle.removeEventListener("pointermove", move);
         handle.removeEventListener("pointerup", finish);
         handle.removeEventListener("pointercancel", finish);
-        setLiveState(`${tile.dataset.label}尺寸已调整为 ${Math.round(nextWidth)} × ${Math.round(nextHeight)} px。`);
+        setLiveState(`${tile.dataset.label} resized to ${Math.round(nextWidth)} × ${Math.round(nextHeight)} px.`);
       };
 
       handle.addEventListener("pointermove", move);
@@ -1737,7 +1737,7 @@
       const { statusChip } = groupParts(group);
       selectGroup(group);
       group.classList.add("is-resizing");
-      statusChip.textContent = `正在调整${groupName(group)}`;
+      statusChip.textContent = `Resizing${groupName(group)}`;
 
       const edge = handle.dataset.groupEdge;
       const stageRect = stage.getBoundingClientRect();
@@ -1800,8 +1800,8 @@
           preview.dataset.size = `${Math.round(next.width)} × ${Math.round(next.height)}`;
           const upwardSpace = Math.max(0, initial.top - next.top);
           setLiveState(
-            `${groupName(group)}预览：${Math.round(next.width)} × ${Math.round(next.height)} px` +
-            (upwardSpace > 0 ? `，已向上使用 ${Math.round(upwardSpace)}px 空间` : "")
+            `${groupName(group)} preview: ${Math.round(next.width)} × ${Math.round(next.height)} px` +
+            (upwardSpace > 0 ? `, used ${Math.round(upwardSpace)}px of space above` : "")
           );
         });
       };
@@ -1824,8 +1824,8 @@
         handle.removeEventListener("pointercancel", cancelResize);
         setLiveState(
           commit
-            ? `${groupName(group)}尺寸已一次提交，图片内容未在拖动中重建。`
-            : `${groupName(group)}尺寸调整已取消。`
+            ? `${groupName(group)} size committed in one step; image content was not rebuilt while dragging.`
+            : `${groupName(group)} resize canceled.`
         );
       };
 
@@ -1859,7 +1859,7 @@
         const activate = () => {
           dragging = true;
           group.classList.add("is-moving");
-          statusChip.textContent = `正在移动${groupName(group)}`;
+          statusChip.textContent = `Moving ${groupName(group)}`;
           originMarker = document.createComment("group-flow-origin");
           placeholder = document.createElement("div");
           placeholder.className = "flow-placeholder";
@@ -1895,7 +1895,7 @@
           const position = [...flow.children]
             .filter((child) => child.classList.contains("flow-block") || child === placeholder)
             .indexOf(placeholder) + 1;
-          setLiveState(`正在将${groupName(group)}移动到文档第 ${position} 个位置。`);
+          setLiveState(`Moving ${groupName(group)} to position ${position} in the document.`);
         };
 
         const finish = (commit) => {
@@ -1904,7 +1904,7 @@
           surface.removeEventListener("pointerup", commitMove);
           surface.removeEventListener("pointercancel", cancelMove);
           if (!dragging) {
-            setLiveState(`已选中${groupName(group)}；按住灰色空白区域可上下移动。`);
+            setLiveState(`Selected ${groupName(group)}; drag the gray empty area to move it up or down.`);
             return;
           }
           document.body.style.cursor = "";
@@ -1924,8 +1924,8 @@
           selectGroup(group);
           setLiveState(
             commit
-              ? `${groupName(group)}已与文档中的文字或组件完成位置交换。`
-              : `${groupName(group)}移动已取消。`
+              ? `${groupName(group)} swapped positions with text or another component in the document.`
+              : `${groupName(group)} move canceled.`
           );
         };
 
@@ -1965,7 +1965,7 @@
 
     document.querySelectorAll(".delete-group").forEach((button) => {
       button.addEventListener("click", () => {
-        setLiveState("演示模式：未实际删除图片卡片。");
+        setLiveState("Demo mode: the image card was not actually deleted.");
       });
     });
 
@@ -1974,7 +1974,7 @@
       if (event.target.closest(".lightbox")) return;
       if (event.target.closest(".confirm-dialog")) return;
       clearSelection();
-      setLiveState("未选中对象。");
+      setLiveState("No object selected.");
     });
 
     lightboxClose.addEventListener("click", closeLightbox);

@@ -1,42 +1,42 @@
-# Midscene 文案组件 UI Automation 最终报告
+# Midscene Text Component UI Automation Final Report
 
-**日期：** 2026-08-11  
-**模型：** `gpt-5.6-sol`（family `gpt-5`）  
-**上游代理：** `http://localhost:4141/v1`  
-**协议桥：** `http://127.0.0.1:4142/v1`  
-**视口：** 1440 × 900  
-**最终结果：** 8 / 8 场景通过
+**Date:** 2026-08-11
+**Model:** `gpt-5.6-sol` (family `gpt-5`)
+**Upstream proxy:** `http://localhost:4141/v1`
+**Protocol bridge:** `http://127.0.0.1:4142/v1`
+**Viewport:** 1440 × 900
+**Final result:** 8 / 8 scenarios passed
 
-## 报告入口
+## Report Entry
 
-最终合并报告：
+Final merged report:
 
 `midscene_run/report/E2E-Preshot-Plan-Text-Final-2026-08-11T09-25-39-015Z.html`
 
-该 HTML 包含全部 8 个正式通过场景的截图、AI 规划、定位、动作与确认轨迹。原始证据位于：
+This HTML includes screenshots, AI planning, targeting, actions, and verification traces for all 8 officially passing scenarios. The raw evidence is located at:
 
 `test-results/midscene/`
 
-两个目录均为本机测试产物，已被 Git 忽略。
+Both directories are local test artifacts and are ignored by Git.
 
-## 场景结果
+## Scenario Results
 
-| Case | 场景 | 结果 | 正式通过耗时 |
+| Case | Scenario | Result | Passing run time |
 |---|---|---:|---:|
-| M01 | 新项目、插入文案、编辑保存与清理 | 通过 | 2m 03s |
-| M02 | 块类型、字号、行内格式与对齐 | 通过 | 7m 40s |
-| M03 | 主题色、自定义色盘、RGB 与链接 | 通过 | 11m 56s |
-| M04 | 列表、嵌套、引用与代码块 | 通过 | 7m 59s |
-| M05 | 递归拆分、独立编辑、删除与撤销 | 通过 | 5m 59s |
-| M06 | 排序、Resize、窄工具栏与关闭按钮 | 通过 | 9m 06s |
-| M07 | 自动保存、刷新、撤销与重做 | 通过 | 7m 03s |
-| M08 | PDF 导出、组件删除与项目清理 | 通过 | 5m 52s |
+| M01 | New project, insert text, edit/save, and cleanup | Passed | 2m 03s |
+| M02 | Block types, font sizes, inline formatting, and alignment | Passed | 7m 40s |
+| M03 | Theme colors, custom picker, RGB, and links | Passed | 11m 56s |
+| M04 | Lists, nesting, quotes, and code blocks | Passed | 7m 59s |
+| M05 | Recursive splits, independent editing, delete, and undo | Passed | 5m 59s |
+| M06 | Reordering, resize, narrow toolbar, and close button | Passed | 9m 06s |
+| M07 | Autosave, reload, undo, and redo | Passed | 7m 03s |
+| M08 | PDF export, component deletion, and project cleanup | Passed | 5m 52s |
 
-正式通过场景合计约 57m 38s。每个 case 都通过 UI 创建唯一 `UIAUTO-*` 项目，并在结束时通过 UI 从最近项目移除。
+Passing scenarios took about 57m 38s in total. Each case created a unique `UIAUTO-*` project through the UI and removed it from Recent Projects at the end.
 
-## 清理审计
+## Cleanup Audit
 
-M01–M08 的正式 `result.json` 均满足：
+The official `result.json` files for M01–M08 all satisfy:
 
 ```json
 {
@@ -46,95 +46,95 @@ M01–M08 的正式 `result.json` 均满足：
 }
 ```
 
-没有遗留 Midscene workspace、project 或 plan storage key。失败诊断运行使用独立 Chromium context，后续正式复跑也均完成 UI 清理。
+No Midscene workspace, project, or plan storage keys were left behind. The failed diagnostic run used an isolated Chromium context, and the later official reruns also completed UI cleanup.
 
-## 发现并修复的问题
+## Issues Found and Fixed
 
-### P1 — 新插入组件保存后刷新无法打开项目（高，已修复）
+### P1 — Newly inserted components prevented project reopen after save and reload (high, fixed)
 
-**Midscene 发现路径：** M07 先创建全新项目，插入文案、应用格式并左右拆分；自动保存成功。刷新后应用报错：
+**Midscene discovery path:** M07 first created a new project, inserted text, applied formatting, and split it left/right; autosave succeeded. After reload, the app failed with:
 
 ```text
 Stored plan component 0 has unsupported v10 fields
 ```
 
-**根因：** `ProjectCanvasProvider` 创建新组件时附带 runtime 字段 `y: 0`；`addComponent()` 使用对象展开将该字段保留到持久化状态。schema v10 严格重载只允许 `id/name/type/x/width/height/contentScale/textRoot`，因此拒绝 `y`。
+**Root cause:** `ProjectCanvasProvider` created new components with a runtime field `y: 0`; `addComponent()` preserved that field in persisted state through object spread. Strict schema-v10 reload only allows `id/name/type/x/width/height/contentScale/textRoot`, so it rejected `y`.
 
-**修复：**
+**Fix:**
 
-- UI 新组件构造不再写入 `y`；
-- `addComponent()` 作为领域边界显式投影 schema-v10 字段，防止任何 runtime/未知字段进入持久化对象；
-- 新增“带非法 runtime `y` 的组件插入后被清理并可严格 reload”回归。
+- the UI no longer writes `y` when constructing new components;
+- `addComponent()` now explicitly projects schema-v10 fields at the domain boundary to keep runtime/unknown fields out of persisted objects;
+- added a regression covering “a component inserted with illegal runtime `y` is sanitized and can be strictly reloaded.”
 
-**验证：**
+**Validation:**
 
-- 相关 Vitest 20 / 20 通过；
-- M07 真实 UI 保存→刷新→严格重载→撤销/重做通过；
-- 全仓 Vitest 468 / 468、Playwright 54 / 54 通过。
+- related Vitest: 20 / 20 passed;
+- M07 real UI save → reload → strict reload → undo/redo passed;
+- full-repo Vitest 468 / 468 and Playwright 54 / 54 passed.
 
-### P2 — 全仓并发 transform 下 dependency test 15 秒误超时（中，已修复）
+### P2 — Dependency test false-timed out at 15s during full-repo parallel transforms (medium, fixed)
 
-`src/app/plan/planDependencies.test.ts` 在完整 suite 的 transform 负载下两次触及 15 秒阈值，但隔离运行约 4 秒通过。Midscene 依赖增加后模块图更重。
+`src/app/plan/planDependencies.test.ts` hit the 15-second threshold twice under full-suite transform load, but passed in about 4 seconds when isolated. The module graph became heavier after adding Midscene dependencies.
 
-处理：该文件的重型依赖装配测试统一使用 30 秒阈值。最终全仓 86 files / 468 tests 通过。
+Fix: the heavy dependency-assembly tests in this file now use a uniform 30-second limit. Final result: the full repo passed 86 files / 468 tests.
 
-## 诊断澄清
+## Diagnostic Clarification
 
-### 色盘“未变红”不是产品缺陷
+### The color picker “not turning red” was not a product defect
 
-初始 AI 场景要求点击色盘数学最右边界后必须得到精确 `255/0/0`。真实视觉点击落在圆边界内，得到 `255/15/15`，属于合理的近纯红，原测试期望过严。
+The initial AI scenario required a click on the mathematical far-right edge of the color wheel to produce exact `255/0/0`. In reality, the visual click landed just inside the circular boundary and produced `255/15/15`, which is a reasonable near-pure red; the original expectation was too strict.
 
-修正后的流程：
+Corrected flow:
 
-1. 色盘视觉点击验证近纯红；
-2. RGB 输入精确设为 `255/0/0`；
-3. 点击应用；
-4. 记录实际 DOM。
+1. Visually click the color wheel and verify a near-pure red;
+2. set RGB precisely to `255/0/0`;
+3. click Apply;
+4. record the actual DOM.
 
-确定性证据：
+Deterministic evidence:
 
 ```json
 {
   "computedColor": "rgb(255, 0, 0)",
-  "editorHtml": "<p><span style=\"color: rgb(255, 0, 0);\">颜色与链接测试</span></p>"
+  "editorHtml": "<p><span style=\"color: rgb(255, 0, 0);\">Color and Link Test</span></p>"
 }
 ```
 
-因此色盘和颜色应用功能通过。
+Therefore, the color wheel and color-application feature passed.
 
-## 剩余风险
+## Remaining Risks
 
-### R1 — 上游代理间歇性连接失败
+### R1 — Intermittent connection failures to the upstream proxy
 
-长时间场景中多次出现：
+During long scenarios, this appeared multiple times:
 
 ```text
 AI call failed (attempt 1/4), retrying... Error: Connection error.
 ```
 
-重试后所有正式场景均通过，桥和上游健康检查始终返回正常。当前已在 bridge 增加 3 次上游 fetch 重试，并在 Midscene 层配置 3 次模型重试。
+After retries, all official scenarios passed, and the bridge and upstream health checks always returned healthy. The bridge now has 3 upstream fetch retries, and Midscene has 3 model retries configured.
 
-影响：测试耗时明显增加，完整正式场景合计约 58 分钟；不适合每个 PR 必跑。
+Impact: test time increased noticeably, with the full official run taking about 58 minutes; it is not suitable to run on every PR.
 
-建议：本地按需或 nightly 运行；后续检查 4141 代理日志和并发/连接复用限制。
+Recommendation: run it locally on demand or nightly; later inspect the 4141 proxy logs and concurrency/connection reuse limits.
 
 ### R2 — Midscene Playwright network-idle warning
 
-每场均出现 Midscene 提示：Playwright 缺少其期望的 post-action network idle 等价行为。当前 prompt 显式等待保存/导出状态，未造成场景失败。
+Every scenario showed a Midscene notice: Playwright lacks the expected post-action network-idle equivalent. The current prompt explicitly waits for save/export states, so this did not cause scenario failures.
 
-### R3 — 既有非阻塞警告
+### R3 — Existing non-blocking warnings
 
-- ESLint：`ThemeProvider.tsx` Fast Refresh warning，0 errors；
-- Vite：主 JS chunk 约 2.4 MB，存在 >500 kB warning。
+- ESLint: `ThemeProvider.tsx` Fast Refresh warning, 0 errors;
+- Vite: main JS chunk about 2.4 MB, with a >500 kB warning.
 
-## 最终回归矩阵
+## Final Regression Matrix
 
-| 检查 | 结果 |
+| Check | Result |
 |---|---:|
-| Midscene AI UI 场景 | 8 / 8 通过 |
-| Midscene UI cleanup | 8 / 8 通过，零残留 |
-| Vitest | 86 files / 468 tests 通过 |
-| Playwright | 54 / 54 通过 |
-| TypeScript | 通过 |
+| Midscene AI UI scenarios | 8 / 8 passed |
+| Midscene UI cleanup | 8 / 8 passed, zero residue |
+| Vitest | 86 files / 468 tests passed |
+| Playwright | 54 / 54 passed |
+| TypeScript | Passed |
 | ESLint | 0 errors / 1 existing warning |
-| Production build | 通过，存在既有 large-chunk warning |
+| Production build | Passed, with existing large-chunk warning |

@@ -2,96 +2,130 @@
 
 ## Purpose
 
-Preshot is a Windows-first desktop application for photography planning. The
-current repository is an engineering foundation; image ingestion, canvas
-editing, persistence, and PDF export are deferred.
+Preshot is a Windows-first desktop application for photography planning. The current repository ships the real workspace flow, BlockNote plan editor, project persistence, native media handling, and PDF export used by the desktop app.
 
-## Repository Map
+## Runtime snapshot
 
-- `src/app`: React composition root, error boundary, and desktop layout.
-- `src/features`: feature UI and orchestration, added as capabilities ship.
-- `src/domain`: platform-independent models, ports, and use cases.
-- `src/infrastructure`: implementations of domain ports and all Tauri calls.
-- `src/shared`: reusable UI, utilities, and test setup without business rules.
-- `src-tauri`: narrow Rust commands and Tauri configuration.
-- `e2e`: Playwright browser-shell smoke tests.
-- `docs`: architecture, testing, design specifications, and plans.
-- `init.ps1`: Windows prerequisite checks and dependency setup.
+- Active editor path: `src/features/plan/blocknote/BlockNoteProjectCanvasProvider.tsx`
+- Active plan schema: v14 with BlockNote document v2 (`format: "preshot-blocks"`)
+- Active UI language: Simplified Chinese (`src/shared/i18n/locales/zh.ts`)
+- Project manifest: `.preshotproj` with manifest `schemaVersion: 1`
+- Legacy `.preshot` and schema v13 plans are compatibility input only
 
-## Dependency Rules
+## Repository map
+
+- `src/app`: dependency composition, theme, workspace provider, and application shell
+- `src/features`: workspace launcher, BlockNote editor UI, settings panel, and assistant preview UI
+- `src/domain`: pure workspace/settings/plan models, services, ports, schema validation, and shared geometry
+- `src/infrastructure`: Tauri/browser adapters, dialogs, PDF exporter, and persistence wiring
+- `src-tauri`: native project, media, PDF, reveal, settings, and screen-capture commands
+- `e2e`: Playwright browser-shell smoke suites
+- `tests`: PowerShell initializer regression harness
+- `scripts`: the Windows Tauri wrapper, Midscene helpers, and maintenance scripts
+- `docs`: architecture, testing, reliability, and design documentation
+
+## Dependency rules
 
 1. `app` and `features` may depend on `domain` and `shared`.
 2. `infrastructure` may implement interfaces declared by `domain`.
-3. `domain` must not import React, Tauri, browser APIs, or infrastructure.
-4. Direct `@tauri-apps/api` imports are allowed only in `src/infrastructure`.
-5. Rust commands must be serializable, narrowly scoped, and free of UI or
-   business rules.
-6. `shared` must not become a catch-all for feature-specific behavior.
+3. `domain` must not import React, browser APIs, Tauri, or infrastructure.
+4. Direct `@tauri-apps/api` imports belong only in `src/infrastructure`.
+5. Rust commands must stay serializable, narrowly scoped, and free of UI or business rules.
+6. `shared` must remain generic; do not move feature-specific behavior there.
 
-The intended flow is:
+The intended runtime flow is:
 
 ```text
-React UI -> domain use case -> domain port -> infrastructure adapter
+React UI -> domain service/use case -> domain port -> infrastructure adapter -> Tauri/Rust
 ```
 
-## Canonical Commands
+## Data and persistence rules
+
+- The active editable plan is `schemaVersion: 14` with `document.version: 2`.
+- `imageGroup` blocks store only `groupId`; the actual group metadata lives in `plan.imageGroups`.
+- Every image-group ID must appear exactly once in the BlockNote document and exactly once in `plan.imageGroups`.
+- Native BlockNote media persists as relative `media/<file>` paths; runtime data URLs must not be written back to the manifest.
+- Reference image imports copy project-local JPG/PNG files into `references/####.<ext>` and leave the original user-selected files untouched.
+- PDF export paginates during export; the editor itself is a continuous document, not an A4 page canvas.
+- New editor work should go through the BlockNote v14 path unless the task explicitly targets compatibility code.
+
+## Commands
+
+Run `.\init.ps1` on a new Windows checkout.
+
+### App and packaging
 
 ```powershell
 pnpm dev
+pnpm preview
+pnpm tauri
 pnpm tauri:dev
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm test:init
-pnpm test:e2e
-cargo test --manifest-path src-tauri\Cargo.toml
 pnpm build
 pnpm tauri:build
 ```
 
-Run `.\init.ps1` on a new Windows checkout.
+### Validation
 
-## Development Workflow
+```powershell
+pnpm docs:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:watch
+pnpm test:init
+pnpm test:e2e
+pnpm test:e2e:blocknote
+cargo test --manifest-path src-tauri\Cargo.toml
+```
 
-- Use pnpm; do not add npm or Yarn lock files.
-- Write a failing test before production behavior, then implement the smallest
-  passing change.
+### Midscene and automation
+
+```powershell
+pnpm dev:midscene
+pnpm midscene:proxy
+pnpm midscene:model:verify
+pnpm midscene:smoke
+pnpm test:midscene:web
+pnpm midscene:report:merge
+pnpm migrate:project
+```
+
+`pnpm tauri*` commands run through `scripts\tauri.ps1`, which helps when Cargo is installed in the default rustup location but the terminal `PATH` is stale.
+
+## Development workflow
+
+- Use pnpm only; do not add npm or Yarn lock files.
+- Add a failing regression test before fixing a defect.
 - Co-locate Vitest files as `*.test.ts` or `*.test.tsx`.
-- Put browser startup flows in `e2e`.
-- Add Rust unit tests beside native logic in `src-tauri/src`.
-- Run the smallest relevant test first, then the complete validation matrix.
+- Keep documentation in English, but keep runtime UI copy in Simplified Chinese unless the task is explicitly about localization.
+- Prefer the smallest focused validation command first, then widen to the affected matrix.
 - Keep files focused on one responsibility and preserve the layer boundaries.
-- Do not add a monorepo until a real mobile client requires a shared package.
+- Do not broaden Rust commands or Tauri adapters into UI/business-rule layers.
 
-## Error Handling
+## Error handling
 
-- Preserve operation context when adapting infrastructure failures.
-- Surface actionable failures; never silently return success-shaped fallback
-  data.
-- Let the application error boundary handle only unexpected rendering errors.
+- Preserve operation context when adapting native failures.
+- Surface actionable failures; do not return success-shaped fallback data from plan/workspace/media operations.
+- The one intentional soft-recovery path is settings loading: absent or corrupt settings are normalized back to defaults.
+- Let the React error boundary handle only unexpected rendering failures.
 - PowerShell scripts must use non-zero exit codes and actionable messages.
-- Avoid broad catch blocks unless they add context and rethrow or terminate.
 
-## UI and Platform Notes
+## UI and platform notes
 
-- Tailwind is the styling system.
-- Konva/react-konva is reserved for the canvas feature.
-- pdf-lib is reserved for the PDF export adapter.
-- Feature UI must not pretend deferred workflows are functional.
-- Tauri capabilities should remain least-privilege.
-- Keep domain contracts portable so they can later move to a shared mobile
-  package.
+- BlockNote 0.53 plus Mantine is the active rich-text/block editor stack.
+- The multi-column feature uses `@blocknote/xl-multi-column` under its GPL-3.0 option; distributed builds that include it are GPL-3.0.
+- The app shell supports focus mode, persisted theme choice, and persisted project/assistant panel widths.
+- The assistant panel is currently a preview surface; do not document it as a working chat backend.
+- Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v14.
 
-## Testing Expectations
+## Testing expectations
 
 - Domain tests cover pure behavior without browser or native mocks.
 - Component tests assert accessible, user-visible behavior.
-- Mock only platform boundaries such as Tauri `invoke`.
-- Playwright remains a small smoke layer rather than duplicating component
-  coverage.
-- Avoid snapshots for dynamic canvas output.
-- Add a regression test before fixing a defect.
+- Mock only platform boundaries such as Tauri `invoke`, file pickers, or browser storage.
+- Playwright stays a smoke/integration layer and should not duplicate unit coverage.
+- Avoid snapshots for dynamic editor, image-layout, or PDF output.
+- Use the real Chinese UI strings in assertions unless the change explicitly updates localization.
 
-See `docs/ARCHITECTURE.md` and `docs/TESTING.md` and `docs/RELIABILITY.md` for detailed guidance.
-See `docs/design_docs` for design documents, specifically, see `docs/design_docs/featurelist.json` for
-the status of the feature development, feature status should include description、status、key decisions, updated by coding agents during development.
+See [docs/README.md](docs/README.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING.md), and [docs/RELIABILITY.md](docs/RELIABILITY.md).
+For active design references, use [docs/design_docs/blocknote_v14_design.md](docs/design_docs/blocknote_v14_design.md), [docs/design_docs/UI_UX_CONTRACT.md](docs/design_docs/UI_UX_CONTRACT.md), and [docs/design_docs/featurelist.json](docs/design_docs/featurelist.json).

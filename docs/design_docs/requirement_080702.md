@@ -1,28 +1,11 @@
-# 组件卡片设计
+# Component card design
 
-
-## 可以自由上下和左右拖动，改变图片的宽高比，并让后面图片方便补位，不限制宽高比
-## 卡片的外围框必须包含内部的图片框文本框等元素，并且有合适的边距，必要像现在这样显示一个头部灰色栏，而是整体作为一个卡片，长按选中的时候，颜色会变身，图片部分、按钮、文本都是在这个卡片上面一层的元素，他们都需要放置在图片框的内部
-## 参考图卡片上面的文本框的隐藏按钮去掉，渲染的时候如果没有文本就不渲染就行
-## 图片尺寸和加减按钮也靠左排放，方便统一调整一组图的大小尺寸
-## 去掉参考图卡片的图片说明功能，我们只需要在参考图卡片的文本部分加上一个前置描述叫做 “图组介绍” 然后允许用户自由填写即可
-## 参考图如果在本页没有足够空间显示，则直接全部跳到下一页，本页留空白
-## 改变图片尺寸的时候，如果和相邻元素的边线到了相同的位置则提醒，方便用户对齐，改变卡片尺寸的时候也是一样
-## 挪动卡片组件的时候，不是等比例缩放，可以单独拖动卡片的宽度和高度，但是不影响组件内部元素，比如文字、图片，可以根据卡片的变动重新编排
-## 改变卡片尺寸的时候，内部的文本框、图片、按钮也要随着卡片改变位置
-## 
-
-# 导出
-
-## 画布按整体设计
-
-不要按pdf切分，直接从上到下显示完整连续的画布，这样我们组件切换位置就可以方便的显示
-
-## pdf导出
-
-pdf导出时，按照A4纸从上到下找到最后能显示完整的图片或者文本，然后显示，然后对后续的没法完整显示的部分，从下一页开始重新开始显示，并继续标明前面所属的组件和页面
-
-## 支持导出成为一个长图，jpg格式或者其他格式，和pdf按钮并列
-
-# 样式设计
-对整体UI做一个风格化的设计，颜色配套要统一，不要过于跳跃，字体选择微软雅黑等常用字体，做统一的行距字号加粗等设计，给我review redesign the UI with ui-ux-pro-max skill with Lifestyle design
+## Cards can be freely dragged vertically and horizontally, image aspect ratios can be changed, and later images should be able to backfill gaps conveniently; aspect ratios are unrestricted.
+## The outer card border must contain the internal image area, text area, and other elements, with appropriate padding. It should not show a separate gray header bar like the current version. Instead, the whole unit should behave as a single card. When long-pressed and selected, its color changes. Image areas, buttons, and text all sit one layer above the card itself, and all of them must remain inside the image frame.
+## Remove the Hide button from the text box above the reference image card. When rendering, if there is no text, simply do not render it.
+## Place image size and +/- buttons on the left as well, to make it easier to adjust the size of a whole image set consistently.
+## Remove the per-image caption feature from the reference image card. We only need a leading description label called "Group introduction" in the text section of the reference image card, and then users can fill it in freely.
+## If a reference image card does not have enough room to display on the current page, move the entire card directly to the next page and leave blank space on the current page.
+## When changing image size, if an edge aligns with a neighboring element, show a hint to help alignment. The same applies when changing card size.
+## When moving a card component, do not scale proportionally. Card width and height can be dragged independently, but internal elements such as text and images should not be resized directly; they can be reflowed in response to card changes.
+## When the card size changes, the internal text boxes, images, and buttons should also move accordingly inside the card.

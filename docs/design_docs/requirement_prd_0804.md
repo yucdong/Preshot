@@ -1,43 +1,40 @@
-# 项目管理
+# Project management
 
-创建项目的时候，用中文告诉用户选择一个项目放置的目录，项目本身将以一个文件夹创建
-如果这个parent目录下面有相同名字的项目，则自动给这项目名字添加(2) (3) 这样的后缀来区分
+When creating a project, tell the user in Chinese to choose a directory where the project should be placed; the project itself will be created as a folder.
+If another project with the same name already exists under that parent directory, automatically append suffixes such as (2) and (3) to distinguish the new project.
 
-项目的默认文件夹是 系统用户自己个人目录下的 .preshot文件夹，默认创建项目时打开这个文件夹下的 projects目录，我们将Preshot软件所有系统相关的
-配置文件都放置.preshot文件夹下面，然后将我们所有的项目文件命名为.preshotproj
+The default project folder is `.preshot` under the current system user's home directory. When creating a project, open the `projects` directory under that folder by default. All Preshot system-related configuration files are stored under `.preshot`, and all project files are named `.preshotproj`.
 
-## 安装管理
-构建windows环境的安装包，构建一个.msi安装包，安装后，自动配置所需要的文件和exe等，并创建 .preshot文件夹，并添加exe到可执行路径等等安装包需要做的操作
+## Installation management
+Build a Windows installer and produce an `.msi` package. After installation, it should automatically configure the required files and executables, create the `.preshot` folder, add the executable to the executable path, and perform other actions expected from an installer.
 
-# 画布管理
+# Canvas management
 
-将中央可以编辑的区域称为画布
+Call the editable center area the canvas.
 
-## 组件数据化
+## Data-driven components
 
-所有画布上的内容，都统一用一个json来管理，json描述了画布上的组件内容、摆放位置、引用的图片和文字等等，定义一个json schema，并按照version管理，
-这样我们加载一个project就可以直接加载这个json和其下面的资源，这个json可以写在.preshotproj文件下面
+All content on the canvas should be managed through one unified JSON document. This JSON describes component content, placement, referenced images and text, and so on. Define a JSON schema and manage it by version so that loading a project directly loads this JSON plus its underlying assets. This JSON can be stored inside the `.preshotproj` file.
 
-## 组件功能
+## Component features
 
-1. 将参考图功能的 + 插入支持多选，可以一批插入多张图，然后自动排版布局
-2. 创建新项目的时候，默认包括一个摄影计划组件和一个参考图组组件，并且组件上面都需要有组件类型的名字（可以用比较小的字号，不突出显示）
+1. For the reference image + insertion workflow, support multi-select so multiple images can be inserted in one batch and then laid out automatically.
+2. When creating a new project, include one Photography Plan component and one Reference Image Group component by default, and both components should display their component-type names in a relatively small, low-emphasis font.
 
-## 组件移动
+## Component movement
 
-1. 画布的组件可以通过长按其边框空白区域选中并拖拽移动位置，不仅仅是左上角的小图标，并且鼠标hook上去之后，要提示拖拽移动位置和别的组件交换位置，方法类似参考图组的图片移动方式
-2. 参考图组的图片要大一些，其中高度变成现在的二倍(固定)，宽度依据图片本身来确定，图片是横图、竖图等等，按照这个固定的高度进行缩放并放到一行里面，如果计算出这行放不下，自动排版到下一行
-3. 插入组件的时候，默认插入到最上端，然后我们可以按需拖动
-4. 组件之间不要有太大的间隔，保持和画布左侧相等的间隔即可，组件内容添加并且拓宽的时候，组件将自动更新排版
-5. 点击 右上角的 x 删除组件之前，要弹出提示框让用户确认
-6. 组件默认占满画布的横向全屏，但是需要支持拉动左右和上下边框来改变其大小和坐标，结果也反应到json里面，可以改变组件布局，不同的组件也可以拖动来放在统一行，但是他们之间的间距是固定的，并且这个间距要和组件和页面边缘的间距相同，来保持美观
-7. 导出pdf之后，要自动弹出 file explorer这个导出后的pdf的所在文件夹，方便我们查看
+1. Canvas components can be selected and moved by long-pressing a blank area of their border, not just the small icon in the top-left corner. On hover, indicate that the component can be dragged to move and swap positions with other components, similar to how images are moved inside a reference image group.
+2. Images in reference image groups should be larger, with height doubled from the current fixed value. Width is determined by each image itself; landscape and portrait images should all be scaled into a row using that fixed height. If the computed row does not fit, automatically wrap to the next row.
+3. Newly inserted components should be placed at the very top by default, and can then be dragged as needed.
+4. Do not leave overly large gaps between components. Keep the spacing consistent with the left canvas margin. As component content is added and widened, component layout should update automatically.
+5. Before deleting a component by clicking the top-right x, show a confirmation dialog.
+6. Components should occupy the full canvas width by default, but users must be able to drag the left/right and top/bottom borders to change size and coordinates, and the result must also be reflected in JSON. Components can also be dragged into the same row, but spacing between them must stay fixed, and that spacing must match the gap between components and the page edge to keep the layout visually balanced.
+7. After exporting a PDF, automatically open File Explorer to the folder containing the exported PDF so it is easy to inspect.
 
-## undo和redo管理
+## Undo and redo management
 
-我们需要实现一个撤回和重做的逻辑，需要在系统中记录一定程度的历史信息，便于做撤回和重做的管理，调研撤回和重做的方案和逻辑，给我一个方案
+We need an undo/redo mechanism. The system should record an appropriate amount of history information to support undo and redo management. Research the available approaches and logic and provide a proposal.
 
-# 样式管理
+# Style management
 
-界面的样式保持一致，可以支持dark mode和light mode两种配色方案，添加一个菜单栏 settings，在settings中可以选择，浅色可以用灰色底和深色文字，深色可以用黑色底和浅色文字（白色等），
-注意需要让界面中所有的文字显示部分保持和背景有足够的对比度
+Keep the UI styling consistent. Support both dark mode and light mode. Add a Settings entry to the menu bar, and allow selection there. Light mode can use a gray background with dark text; dark mode can use a black background with light text (such as white). Ensure that all text throughout the interface always maintains sufficient contrast against its background.

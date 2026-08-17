@@ -1,6 +1,6 @@
 [package]
 name = "preshot"
-version = "0.1.0"
+version = "0.0.1"
 description = "Desktop photography planning workspace"
 authors = ["Dong Yuchen"]
 edition = "2021"

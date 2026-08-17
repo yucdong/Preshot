@@ -42,4 +42,5 @@ export interface ScreenCapture {
   start(): Promise<string>;
   poll(token: string): Promise<ScreenCapturePollResult>;
   cancel(token: string): Promise<void>;
+  discard(path: string): Promise<void>;
 }

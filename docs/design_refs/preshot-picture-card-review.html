@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Preshot 图片卡片交互设计评审</title>
+  <title>Preshot Image Card Interaction Design Review</title>
   <style>
     :root {
       --ink: #24272c;
@@ -379,48 +379,48 @@
   <header class="topbar">
     <span class="brand-mark">P</span>
     <span class="brand">PRESHOT</span>
-    <span class="file-name">夏季山景拍摄方案 · 图片卡片评审</span>
-    <span class="save-state">设计原型 · 不写入项目</span>
+    <span class="file-name">Summer Mountain Shoot Plan · Image Card Review</span>
+    <span class="save-state">Design prototype · does not write to the project</span>
   </header>
 
   <div class="app-shell">
-    <nav class="project-rail" aria-label="项目">
-      <p class="rail-label">最近项目</p>
+    <nav class="project-rail" aria-label="Projects">
+      <p class="rail-label">Recent Projects</p>
       <div class="project">
         <img class="project-thumb" src="../../resources/mountain-06.png" alt="">
-        <div><strong>夏季山景拍摄</strong><span>图片组交互</span></div>
+        <div><strong>Summer Mountain Shoot</strong><span>Image-group interaction</span></div>
       </div>
     </nav>
 
     <main class="workspace" id="workspace">
-      <article class="paper" aria-label="A4 文档页面">
+      <article class="paper" aria-label="A4 document page">
         <i class="page-corner tl"></i><i class="page-corner tr"></i>
         <i class="page-corner bl"></i><i class="page-corner br"></i>
 
-        <h1 class="document-title">夏季山景拍摄方案</h1>
-        <p class="document-copy">选择图片组后，属性栏只出现在组的上方。图片按真实视图比例排列，空间不足时自动换行。</p>
-        <h2 class="section-title">构图参考</h2>
+        <h1 class="document-title">Summer Mountain Shoot Plan</h1>
+        <p class="document-copy">After selecting the image group, the toolbar appears only above the group. Images are laid out by their real view ratios and wrap automatically when space runs out.</p>
+        <h2 class="section-title">Composition Reference</h2>
 
         <section class="group-wrap is-selected" id="group-wrap">
-          <div class="group-toolbar" id="group-toolbar" role="toolbar" aria-label="图片组工具栏">
-            <button class="tool-button text" type="button" title="添加图片"><span>＋</span><span>添加图片</span></button>
+          <div class="group-toolbar" id="group-toolbar" role="toolbar" aria-label="Image group toolbar">
+            <button class="tool-button text" type="button" title="Add image"><span>＋</span><span>Add image</span></button>
             <span class="divider"></span>
-            <button class="tool-button" id="group-smaller" type="button" title="缩小组内全部图片" aria-label="缩小组内全部图片">−</button>
+            <button class="tool-button" id="group-smaller" type="button" title="Shrink all images in the group" aria-label="Shrink all images in the group">−</button>
             <output class="scale-value" id="scale-value">100%</output>
-            <button class="tool-button" id="group-larger" type="button" title="放大组内全部图片" aria-label="放大组内全部图片">＋</button>
+            <button class="tool-button" id="group-larger" type="button" title="Enlarge all images in the group" aria-label="Enlarge all images in the group">＋</button>
             <span class="divider"></span>
-            <button class="tool-button danger" type="button" title="删除图片组" aria-label="删除图片组">×</button>
+            <button class="tool-button danger" type="button" title="Delete image group" aria-label="Delete image group">×</button>
           </div>
-          <div class="group-toolbar image-toolbar" id="image-toolbar" role="toolbar" aria-label="图片属性" hidden>
-            <span class="toolbar-kind">图片</span>
-            <button class="tool-button danger" id="delete-selected-image" type="button" title="删除图片" aria-label="删除图片">×</button>
+          <div class="group-toolbar image-toolbar" id="image-toolbar" role="toolbar" aria-label="Image properties" hidden>
+            <span class="toolbar-kind">Image</span>
+            <button class="tool-button danger" id="delete-selected-image" type="button" title="Delete image" aria-label="Delete image">×</button>
           </div>
 
-          <div class="image-group" id="image-group" tabindex="0" aria-label="图片组，点击选择">
+          <div class="image-group" id="image-group" tabindex="0" aria-label="Image group, click to select">
             <div class="group-grid" id="group-grid">
-              <div class="image-tile" data-base-width="216" data-base-height="148" data-label="山景 · 竖幅" style="--tile-width: 216px; --tile-height: 148px;">
-                <button class="image-frame" type="button" aria-label="选择山景竖幅图片，双击查看原图">
-                  <img src="../../resources/mountain-06.png" alt="山景竖幅参考图" draggable="false">
+              <div class="image-tile" data-base-width="216" data-base-height="148" data-label="Mountain · portrait" style="--tile-width: 216px; --tile-height: 148px;">
+                <button class="image-frame" type="button" aria-label="Select the mountain portrait image; double-click to view the source image">
+                  <img src="../../resources/mountain-06.png" alt="Mountain portrait reference image" draggable="false">
                 </button>
                 <span class="image-index">01</span>
                 <span class="resize-edge left" data-edge="left"></span><span class="resize-edge right" data-edge="right"></span>
@@ -428,9 +428,9 @@
                 <span class="resize-corner top-left" data-edge="top-left"></span><span class="resize-corner top-right" data-edge="top-right"></span>
                 <span class="resize-corner bottom-left" data-edge="bottom-left"></span><span class="resize-corner bottom-right" data-edge="bottom-right"></span>
               </div>
-              <div class="image-tile" data-base-width="286" data-base-height="148" data-label="城市 · 方幅" style="--tile-width: 286px; --tile-height: 148px;">
-                <button class="image-frame" type="button" aria-label="选择城市方幅图片，双击查看原图">
-                  <img src="../../resources/city-10.png" alt="城市方幅参考图" draggable="false">
+              <div class="image-tile" data-base-width="286" data-base-height="148" data-label="City · square" style="--tile-width: 286px; --tile-height: 148px;">
+                <button class="image-frame" type="button" aria-label="Select the city square image; double-click to view the source image">
+                  <img src="../../resources/city-10.png" alt="City square reference image" draggable="false">
                 </button>
                 <span class="image-index">02</span>
                 <span class="resize-edge left" data-edge="left"></span><span class="resize-edge right" data-edge="right"></span>
@@ -438,9 +438,9 @@
                 <span class="resize-corner top-left" data-edge="top-left"></span><span class="resize-corner top-right" data-edge="top-right"></span>
                 <span class="resize-corner bottom-left" data-edge="bottom-left"></span><span class="resize-corner bottom-right" data-edge="bottom-right"></span>
               </div>
-              <div class="image-tile" data-base-width="248" data-base-height="142" data-label="山景 · 横幅" style="--tile-width: 248px; --tile-height: 142px;">
-                <button class="image-frame" type="button" aria-label="选择山景横幅图片，双击查看原图">
-                  <img src="../../resources/mountain-03.png" alt="山景横幅参考图" draggable="false">
+              <div class="image-tile" data-base-width="248" data-base-height="142" data-label="Mountain · landscape" style="--tile-width: 248px; --tile-height: 142px;">
+                <button class="image-frame" type="button" aria-label="Select the mountain landscape image; double-click to view the source image">
+                  <img src="../../resources/mountain-03.png" alt="Mountain landscape reference image" draggable="false">
                 </button>
                 <span class="image-index">03</span>
                 <span class="resize-edge left" data-edge="left"></span><span class="resize-edge right" data-edge="right"></span>
@@ -448,9 +448,9 @@
                 <span class="resize-corner top-left" data-edge="top-left"></span><span class="resize-corner top-right" data-edge="top-right"></span>
                 <span class="resize-corner bottom-left" data-edge="bottom-left"></span><span class="resize-corner bottom-right" data-edge="bottom-right"></span>
               </div>
-              <div class="image-tile" data-base-width="254" data-base-height="142" data-label="水面 · 横幅" style="--tile-width: 254px; --tile-height: 142px;">
-                <button class="image-frame" type="button" aria-label="选择水面横幅图片，双击查看原图">
-                  <img src="../../resources/water-08.png" alt="水面横幅参考图" draggable="false">
+              <div class="image-tile" data-base-width="254" data-base-height="142" data-label="Water · landscape" style="--tile-width: 254px; --tile-height: 142px;">
+                <button class="image-frame" type="button" aria-label="Select the water landscape image; double-click to view the source image">
+                  <img src="../../resources/water-08.png" alt="Water landscape reference image" draggable="false">
                 </button>
                 <span class="image-index">04</span>
                 <span class="resize-edge left" data-edge="left"></span><span class="resize-edge right" data-edge="right"></span>
@@ -461,59 +461,59 @@
             </div>
             <i class="alignment-guide vertical" id="guide-v"></i>
             <i class="alignment-guide horizontal" id="guide-h"></i>
-            <span class="snap-toast" id="snap-toast">已吸附</span>
-            <span class="group-size-hint" id="group-size-hint">容器自适应</span>
-            <span class="group-resize-edge left" data-group-edge="left" aria-label="拖动图片组左边缘" role="separator" tabindex="0"></span>
-            <span class="group-resize-edge right" data-group-edge="right" aria-label="拖动图片组右边缘" role="separator" tabindex="0"></span>
-            <span class="group-resize-edge top" data-group-edge="top" aria-label="拖动图片组上边缘" role="separator" tabindex="0"></span>
-            <span class="group-resize-edge bottom" data-group-edge="bottom" aria-label="拖动图片组下边缘" role="separator" tabindex="0"></span>
-            <span class="group-resize-corner top-left" data-group-edge="top-left" aria-label="从左上角调整图片组宽高" role="separator" tabindex="0"></span>
-            <span class="group-resize-corner top-right" data-group-edge="top-right" aria-label="从右上角调整图片组宽高" role="separator" tabindex="0"></span>
-            <span class="group-resize-corner bottom-left" data-group-edge="bottom-left" aria-label="从左下角调整图片组宽高" role="separator" tabindex="0"></span>
-            <span class="group-resize-corner bottom-right" data-group-edge="bottom-right" aria-label="从右下角调整图片组宽高" role="separator" tabindex="0"></span>
+            <span class="snap-toast" id="snap-toast">Snapped</span>
+            <span class="group-size-hint" id="group-size-hint">Container auto-fit</span>
+            <span class="group-resize-edge left" data-group-edge="left" aria-label="Drag the left edge of the image group" role="separator" tabindex="0"></span>
+            <span class="group-resize-edge right" data-group-edge="right" aria-label="Drag the right edge of the image group" role="separator" tabindex="0"></span>
+            <span class="group-resize-edge top" data-group-edge="top" aria-label="Drag the top edge of the image group" role="separator" tabindex="0"></span>
+            <span class="group-resize-edge bottom" data-group-edge="bottom" aria-label="Drag the bottom edge of the image group" role="separator" tabindex="0"></span>
+            <span class="group-resize-corner top-left" data-group-edge="top-left" aria-label="Resize the image group from the top-left corner" role="separator" tabindex="0"></span>
+            <span class="group-resize-corner top-right" data-group-edge="top-right" aria-label="Resize the image group from the top-right corner" role="separator" tabindex="0"></span>
+            <span class="group-resize-corner bottom-left" data-group-edge="bottom-left" aria-label="Resize the image group from the bottom-left corner" role="separator" tabindex="0"></span>
+            <span class="group-resize-corner bottom-right" data-group-edge="bottom-right" aria-label="Resize the image group from the bottom-right corner" role="separator" tabindex="0"></span>
           </div>
         </section>
 
-        <h2 class="section-title">现场建议</h2>
-        <p class="document-end">优先完成远景和环境构图，再根据光线变化补充细节。图片组作为一个文档块分页，不跨越页缝。</p>
+        <h2 class="section-title">On-site Suggestions</h2>
+        <p class="document-end">Prioritize wide shots and environmental compositions, then add detail shots as the light changes. The image group paginates as one document block and does not cross the page gap.</p>
       </article>
     </main>
 
     <aside class="review-panel">
-      <h1>图片卡片 · 交互评审</h1>
-      <p class="review-lead">这是行为原型，不修改生产数据。直接操作中间图片组确认交互语义。</p>
+      <h1>Image Card · Interaction Review</h1>
+      <p class="review-lead">This is a behavior prototype and does not modify production data. Interact directly with the image group in the middle to confirm the interaction semantics.</p>
 
       <section class="status-card active">
-        <strong>当前状态 · <span class="live-status" id="live-status">图片组已选中</span></strong>
-        <p>点击组内空白选择图片组；滚动中间画布后，组工具栏立即收起。</p>
+        <strong>Current State · <span class="live-status" id="live-status">Image group selected</span></strong>
+        <p>Click empty space inside the group to select it; after scrolling the middle canvas, the group toolbar closes immediately.</p>
       </section>
       <section class="status-card">
-        <strong>01 · 图片组边与四角</strong>
-        <p>四条边均可直接拖动改单轴，四角同时调整宽高；所有 resize 热区透明，不显示方块或条形。宽度不越过正文边界。</p>
+        <strong>01 · Image-group edges and corners</strong>
+        <p>All four edges can be dragged directly for single-axis changes, and corners resize width and height together; all resize hit areas stay transparent, with no visible blocks or bars. The width never crosses the body-text boundary.</p>
       </section>
       <section class="status-card">
-        <strong>02 · 单图编辑</strong>
-        <p>单击图片后整圈边缘可拖动：边缘改单轴，四角同时改变宽高；不显示蓝色方块和条形。删除按钮只出现在上方“图片”属性栏。</p>
-        <div class="legend"><i class="legend-dot"></i><span>推荐选中态：图片组背景变深；单图只显示序号，删除位于图片属性栏</span></div>
-        <div class="legend"><i class="legend-dot orange"></i><span>橙色：边缘已对齐并吸附</span></div>
+        <strong>02 · Single-image editing</strong>
+        <p>After clicking an image, the full border becomes draggable: edges change a single axis and corners change both width and height; no blue squares or bars are shown. The delete button appears only in the upper “Image” toolbar.</p>
+        <div class="legend"><i class="legend-dot"></i><span>Recommended selected state: darken the image-group background; for a single image show only the index, and keep delete in the image toolbar</span></div>
+        <div class="legend"><i class="legend-dot orange"></i><span>Orange: edge aligned and snapped</span></div>
       </section>
       <section class="status-card">
-        <strong>03 · 原图与 view</strong>
-        <p>双击图片打开完整原图后，弹层中才显示“恢复尺寸”按钮；图片卡片上不显示恢复按钮。</p>
+        <strong>03 · Source image and view</strong>
+        <p>Only after double-clicking an image to open the full source image should the popover show a “Restore Size” button; the image card itself should not show it.</p>
       </section>
       <section class="status-card">
-        <strong>04 · 组级缩放</strong>
-        <p>工具栏 <span class="kbd">−</span> / <span class="kbd">＋</span> 等比调整全部图片；一行放不下时自然换到下一行，不压缩单张比例。</p>
+        <strong>04 · Group-level scaling</strong>
+        <p>Toolbar <span class="kbd">−</span> / <span class="kbd">＋</span> scales all images proportionally; when one row no longer fits, images wrap naturally to the next line without changing each tile's ratio.</p>
       </section>
     </aside>
   </div>
 
-  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="查看完整原图">
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="View full source image">
     <figure class="lightbox-figure">
-      <button class="lightbox-close" id="lightbox-close" type="button" aria-label="关闭原图">×</button>
-      <img id="lightbox-image" src="" alt="完整原图">
+      <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close source image">×</button>
+      <img id="lightbox-image" src="" alt="Full source image">
       <figcaption class="lightbox-caption" id="lightbox-caption"></figcaption>
-      <div class="lightbox-actions"><button class="lightbox-reset" id="lightbox-reset" type="button"><span>↺</span><span>恢复尺寸</span></button></div>
+      <div class="lightbox-actions"><button class="lightbox-reset" id="lightbox-reset" type="button"><span>↺</span><span>Restore Size</span></button></div>
     </figure>
   </div>
 
@@ -549,7 +549,7 @@
 
     function selectGroup() {
       groupWrap.classList.add("is-selected");
-      setLiveStatus("图片组已选中");
+      setLiveStatus("Image group selected");
     }
 
     function showGroupToolbarMode() {
@@ -566,7 +566,7 @@
 
     function hideGroupToolbar() {
       groupWrap.classList.remove("is-selected");
-      setLiveStatus("滚动后工具栏已收起");
+      setLiveStatus("Toolbar closed after scrolling");
     }
 
     function applyTileSizes() {
@@ -619,7 +619,7 @@
       fitScale = 1;
       imageGroup.style.height = "auto";
       imageGroup.style.minHeight = `${Math.ceil(naturalLayoutHeight(1) + 28)}px`;
-      groupSizeHint.textContent = "容器自适应";
+      groupSizeHint.textContent = "Container auto-fit";
       applyTileSizes();
     }
 
@@ -636,13 +636,13 @@
       manualScale = Math.max(0.6, manualScale - 0.1);
       useAutomaticGroupHeight();
       selectGroup();
-      setLiveStatus(`全部图片缩小至 ${Math.round(manualScale * 100)}%`);
+      setLiveStatus(`All images shrunk to ${Math.round(manualScale * 100)}%`);
     });
     document.getElementById("group-larger").addEventListener("click", () => {
       manualScale = Math.min(1.5, manualScale + 0.1);
       useAutomaticGroupHeight();
       selectGroup();
-      setLiveStatus(`全部图片放大至 ${Math.round(manualScale * 100)}%，空间不足自动换行`);
+      setLiveStatus(`All images enlarged to ${Math.round(manualScale * 100)}%; wraps automatically when space runs out`);
     });
 
     for (const tile of tiles) {
@@ -656,13 +656,13 @@
         showImageToolbarMode();
         selectedTile = tile;
         selectGroup();
-        setLiveStatus(`${tile.dataset.label} 已选中，可拖动四边或四角`);
+        setLiveStatus(`${tile.dataset.label} selected; drag any edge or corner`);
       });
       frame.addEventListener("dblclick", (event) => {
         event.stopPropagation();
         const source = tile.querySelector("img");
         document.getElementById("lightbox-image").src = source.src;
-        document.getElementById("lightbox-caption").textContent = `${tile.dataset.label} · 完整原图（view 未修改）`;
+        document.getElementById("lightbox-caption").textContent = `${tile.dataset.label} · Full source image (view unchanged)`;
         document.getElementById("lightbox").classList.add("is-open");
         document.getElementById("lightbox-close").focus();
       });
@@ -676,7 +676,7 @@
       selectedTile = null;
       showGroupToolbarMode();
       useAutomaticGroupHeight();
-      setLiveStatus(`${label} 已删除`);
+      setLiveStatus(`${label} deleted`);
     });
 
     function clearSnap() {
@@ -716,7 +716,7 @@
               width = target;
               guideV.style.left = `${tile.offsetLeft + width * manualScale * fitScale}px`;
               guideV.classList.add("is-visible");
-              snapToast.textContent = "宽度已对齐 · 停止";
+              snapToast.textContent = "Width aligned · stop";
             }
           }
           if (affectsTop || affectsBottom) {
@@ -725,7 +725,7 @@
               height = target;
               guideH.style.top = `${tile.offsetTop + height * manualScale * fitScale}px`;
               guideH.classList.add("is-visible");
-              snapToast.textContent = "高度已对齐 · 停止";
+              snapToast.textContent = "Height aligned · stop";
             }
           }
           state.set(tile, { width, height });
@@ -733,7 +733,7 @@
           snapToast.style.left = `${Math.min(imageGroup.clientWidth - 110, tile.offsetLeft + 14)}px`;
           snapToast.style.top = `${Math.max(6, tile.offsetTop - 18)}px`;
           if (guideV.classList.contains("is-visible") || guideH.classList.contains("is-visible")) snapToast.classList.add("is-visible");
-          setLiveStatus(`正在调整 ${tile.dataset.label} · ${Math.round(width)} × ${Math.round(height)} px`);
+          setLiveStatus(`Resizing ${tile.dataset.label} · ${Math.round(width)} × ${Math.round(height)} px`);
         };
 
         const finish = () => {
@@ -742,7 +742,7 @@
           handle.removeEventListener("pointercancel", finish);
           window.setTimeout(clearSnap, 500);
           useAutomaticGroupHeight();
-          setLiveStatus(`${tile.dataset.label} 视图框尺寸已更新`);
+          setLiveStatus(`${tile.dataset.label} view frame size updated`);
         };
         handle.addEventListener("pointermove", move);
         handle.addEventListener("pointerup", finish);
@@ -791,14 +791,14 @@
           fitImagesToHeight(targetHeight);
           applyTileSizes();
           groupSizeHint.textContent = fitScale < 0.999
-            ? `${Math.round(targetWidth)} × ${Math.round(targetHeight)} px · 图片适配 ${Math.round(fitScale * 100)}%`
-            : `${Math.round(targetWidth)} × ${Math.round(targetHeight)} px · 图片保持原尺寸`;
+            ? `${Math.round(targetWidth)} × ${Math.round(targetHeight)} px · image fit ${Math.round(fitScale * 100)}%`
+            : `${Math.round(targetWidth)} × ${Math.round(targetHeight)} px · image keeps original size`;
           setLiveStatus(
             affectsLeft || affectsRight
-              ? `图片组角拖动 · ${Math.round(targetWidth)} × ${Math.round(targetHeight)} px`
+              ? `Image-group corner drag · ${Math.round(targetWidth)} × ${Math.round(targetHeight)} px`
               : fitScale < 0.999
-                ? "容器放不下，图片已等比缩小"
-                : "容器扩大，图片尺寸保持不变",
+                ? "Container too small; images scaled down proportionally"
+                : "Container expanded; image sizes unchanged",
           );
         };
         const finish = () => {
@@ -826,7 +826,7 @@
       fitScale = 1;
       applyTileSizes();
       useAutomaticGroupHeight();
-      setLiveStatus(`${selectedTile.dataset.label} 已恢复默认尺寸与完整原图`);
+      setLiveStatus(`${selectedTile.dataset.label} restored to default size and full source image`);
       closeLightbox();
     });
     document.getElementById("lightbox").addEventListener("click", (event) => {

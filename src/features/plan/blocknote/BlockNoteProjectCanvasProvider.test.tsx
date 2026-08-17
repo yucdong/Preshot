@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import { createEmptyProjectPlanV14 } from "../../../domain/plan/canvas/blockDocument";
@@ -22,7 +22,7 @@ function renderProvider(service: BlockNotePlanService) {
           pickImageFiles: vi.fn().mockResolvedValue(null),
         }}
         projectName="Editorial"
-        projectPath="C:\\Editorial"
+        projectPath={"C:\\Editorial"}
         saver={{ save: vi.fn() }}
         service={service}
       />
@@ -81,5 +81,70 @@ describe("BlockNoteProjectCanvasProvider", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("方案版本不兼容");
     expect(screen.getByRole("alert")).toHaveTextContent("schema 12");
     expect(screen.queryByRole("group", { name: "方案正文" })).not.toBeInTheDocument();
+  });
+
+  it("flushes an unsaved plan when the project canvas unmounts", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "block-1",
+    });
+    const savePlan = vi.fn().mockResolvedValue(undefined);
+    const view = renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
+      savePlan,
+    }));
+    await screen.findByText("BlockNote Canvas v14");
+
+    view.unmount();
+
+    await waitFor(() => {
+      expect(savePlan).toHaveBeenCalledWith("C:\\Editorial", plan);
+    });
+  });
+
+  it("surfaces save failures and leaves the plan unsaved", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "block-1",
+    });
+    const savePlan = vi.fn()
+      .mockRejectedValueOnce(new Error("Disk is full"))
+      .mockResolvedValue(undefined);
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
+      savePlan,
+    }));
+    await screen.findByText("BlockNote Canvas v14");
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "无法保存方案：Disk is full",
+    );
+    expect(screen.getByTestId("save-status")).toHaveTextContent("未保存");
+  });
+
+  it("serializes overlapping save requests", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "block-1",
+    });
+    let resolveFirst: (() => void) | undefined;
+    const firstSave = new Promise<void>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const savePlan = vi.fn()
+      .mockReturnValueOnce(firstSave)
+      .mockResolvedValue(undefined);
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
+      savePlan,
+    }));
+    await screen.findByText("BlockNote Canvas v14");
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
+
+    resolveFirst?.();
+
+    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(2));
   });
 });

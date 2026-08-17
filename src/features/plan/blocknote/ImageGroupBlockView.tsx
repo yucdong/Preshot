@@ -18,128 +18,19 @@ import type {
   PreshotBlockNoteEditor,
   PreshotEditorBlock,
 } from "./blockOperations";
-
-type ResizeDirection =
-  | "left"
-  | "right"
-  | "top"
-  | "bottom"
-  | "top-left"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-right";
-
-const DIRECTIONS: readonly ResizeDirection[] = [
-  "left",
-  "right",
-  "top",
-  "bottom",
-  "top-left",
-  "top-right",
-  "bottom-left",
-  "bottom-right",
-];
-
-interface FramePreview {
-  imageId: string;
-  frameWidth: number;
-  frameHeight: number;
-  frameOffsetX: number;
-  frameOffsetY: number;
-}
-
-interface GroupPreview {
-  x: number;
-  width: number;
-  height: number;
-  frameOffsetY: number;
-}
-
-interface GuideState {
-  vertical?: { x: number; label: string };
-  horizontal?: { y: number; label: string };
-  dimension?: string;
-}
-
-interface SnapCandidate<T> {
-  key: string;
-  value: number;
-  priority: number;
-  data: T;
-}
-
-function nearestSnap<T>(
-  value: number,
-  candidates: readonly SnapCandidate<T>[],
-  activeKey: string | null,
-): (SnapCandidate<T> & { distance: number }) | null {
-  return candidates
-    .map((candidate) => ({
-      ...candidate,
-      distance: Math.abs(candidate.value - value),
-    }))
-    .filter((candidate) =>
-      candidate.distance <= (candidate.key === activeKey ? 10 : 6),
-    )
-    .sort((left, right) =>
-      left.priority - right.priority || left.distance - right.distance,
-    )[0] ?? null;
-}
-
-function affects(direction: ResizeDirection, edge: "left" | "right" | "top" | "bottom") {
-  return direction === edge || direction.includes(edge);
-}
-
-function cursor(direction: ResizeDirection): string {
-  return direction === "left" || direction === "right"
-    ? "ew-resize"
-    : direction === "top" || direction === "bottom"
-      ? "ns-resize"
-      : direction === "top-left" || direction === "bottom-right"
-        ? "nwse-resize"
-        : "nesw-resize";
-}
-
-function handleStyle(direction: ResizeDirection): React.CSSProperties {
-  const corner = direction.includes("-");
-  if (corner) {
-    return {
-      [direction.includes("top") ? "top" : "bottom"]: 0,
-      [direction.includes("left") ? "left" : "right"]: 0,
-      cursor: cursor(direction),
-      height: 24,
-      position: "absolute",
-      width: 24,
-      zIndex: 50,
-    };
-  }
-  return direction === "left" || direction === "right"
-    ? {
-        [direction]: 0,
-        bottom: 24,
-        cursor: cursor(direction),
-        position: "absolute",
-        top: 24,
-        width: 20,
-        zIndex: 50,
-      }
-    : {
-        [direction]: 0,
-        cursor: cursor(direction),
-        height: 20,
-        left: 24,
-        position: "absolute",
-        right: 24,
-        zIndex: 50,
-      };
-}
-
-function imageWithPreview(
-  image: ReferenceImage,
-  preview: FramePreview | null,
-): ReferenceImage {
-  return preview?.imageId === image.id ? { ...image, ...preview } : image;
-}
+import {
+  frameResizePreview,
+  groupResizePreview,
+  imageWithPreview,
+  RESIZE_DIRECTIONS,
+  resizeHandleStyle,
+  type FramePreview,
+  type GroupPreview,
+  type GuideState,
+  type ImageResizeCandidate,
+  type ImageResizeSnapState,
+  type ResizeDirection,
+} from "./imageGroupInteraction";
 
 export function ImageGroupBlockView({
   blockId,
@@ -241,18 +132,20 @@ export function ImageGroupBlockView({
           id: candidate.id,
           frameWidth: candidate.frameWidth,
           frameHeight: candidate.frameHeight,
-          left: rect.left,
-          right: rect.right,
-          top: rect.top,
-          bottom: rect.bottom,
-          centerX: rect.left + rect.width / 2,
-          centerY: rect.top + rect.height / 2,
-        }];
+          rect: {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+          },
+        }] satisfies ImageResizeCandidate[];
       });
-    let widthKey: string | null = null;
-    let heightKey: string | null = null;
-    let verticalKey: string | null = null;
-    let horizontalKey: string | null = null;
+    let snapState: ImageResizeSnapState = {
+      widthKey: null,
+      heightKey: null,
+      verticalKey: null,
+      horizontalKey: null,
+    };
     let next: FramePreview = {
       imageId: image.id,
       frameWidth: startWidth,
@@ -264,148 +157,26 @@ export function ImageGroupBlockView({
     const move = (moveEvent: PointerEvent) => {
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
-      let frameWidth = Math.max(
-        32,
-        startWidth + (affects(direction, "right") ? dx : affects(direction, "left") ? -dx : 0),
-      );
-      let frameHeight = Math.max(
-        32,
-        startHeight + (affects(direction, "bottom") ? dy : affects(direction, "top") ? -dy : 0),
-      );
-      const widthMatch = affects(direction, "left") || affects(direction, "right")
-        ? nearestSnap(
-            frameWidth,
-            candidates.map((candidate) => ({
-              key: `width:${candidate.id}`,
-              value: candidate.frameWidth,
-              priority: 0,
-              data: candidate,
-            })),
-            widthKey,
-          )
-        : null;
-      const heightMatch = affects(direction, "top") || affects(direction, "bottom")
-        ? nearestSnap(
-            frameHeight,
-            candidates.map((candidate) => ({
-              key: `height:${candidate.id}`,
-              value: candidate.frameHeight,
-              priority: 0,
-              data: candidate,
-            })),
-            heightKey,
-          )
-        : null;
-      widthKey = widthMatch?.key ?? null;
-      heightKey = heightMatch?.key ?? null;
-      if (widthMatch) frameWidth = widthMatch.data.frameWidth;
-      if (heightMatch) frameHeight = heightMatch.data.frameHeight;
-
-      const screenRect = () => {
-        const left = affects(direction, "left") && startRect
-          ? startRect.right - frameWidth
-          : startRect?.left ?? 0;
-        const top = affects(direction, "top") && startRect
-          ? startRect.bottom - frameHeight
-          : startRect?.top ?? 0;
-        return {
-          left,
-          right: left + frameWidth,
-          top,
-          bottom: top + frameHeight,
-        };
-      };
-      let activeRect = screenRect();
-      let verticalMatch: ReturnType<typeof nearestSnap<{
-        label: string;
-      }>> = null;
-      let horizontalMatch: ReturnType<typeof nearestSnap<{
-        label: string;
-      }>> = null;
-      if (!widthMatch && (affects(direction, "left") || affects(direction, "right"))) {
-        const movingX = affects(direction, "left") ? activeRect.left : activeRect.right;
-        verticalMatch = nearestSnap(
-          movingX,
-          candidates.flatMap((candidate) => [
-            { key: `x:${candidate.id}:left`, value: candidate.left, priority: 1, data: { label: "左边对齐" } },
-            { key: `x:${candidate.id}:right`, value: candidate.right, priority: 1, data: { label: "右边对齐" } },
-            { key: `x:${candidate.id}:center`, value: candidate.centerX, priority: 2, data: { label: "水平中心" } },
-          ]),
-          verticalKey,
-        );
-        verticalKey = verticalMatch?.key ?? null;
-        if (verticalMatch) {
-          const correction = verticalMatch.value - movingX;
-          frameWidth = Math.max(
-            32,
-            frameWidth + (affects(direction, "left") ? -correction : correction),
-          );
-          activeRect = screenRect();
-        }
-      } else {
-        verticalKey = null;
-      }
-      if (!heightMatch && (affects(direction, "top") || affects(direction, "bottom"))) {
-        const movingY = affects(direction, "top") ? activeRect.top : activeRect.bottom;
-        horizontalMatch = nearestSnap(
-          movingY,
-          candidates.flatMap((candidate) => [
-            { key: `y:${candidate.id}:top`, value: candidate.top, priority: 1, data: { label: "上边对齐" } },
-            { key: `y:${candidate.id}:bottom`, value: candidate.bottom, priority: 1, data: { label: "下边对齐" } },
-            { key: `y:${candidate.id}:center`, value: candidate.centerY, priority: 2, data: { label: "垂直中心" } },
-          ]),
-          horizontalKey,
-        );
-        horizontalKey = horizontalMatch?.key ?? null;
-        if (horizontalMatch) {
-          const correction = horizontalMatch.value - movingY;
-          frameHeight = Math.max(
-            32,
-            frameHeight + (affects(direction, "top") ? -correction : correction),
-          );
-          activeRect = screenRect();
-        }
-      } else {
-        horizontalKey = null;
-      }
-      next = {
-        imageId: image.id,
-        frameWidth,
-        frameHeight,
-        frameOffsetX: affects(direction, "left")
-          ? startOffsetX + startWidth - frameWidth
-          : startOffsetX,
-        frameOffsetY: affects(direction, "top")
-          ? startOffsetY + startHeight - frameHeight
-          : startOffsetY,
-      };
-      setFramePreview(next);
-      setGuide({
-        ...(verticalMatch && groupRect
-          ? {
-              vertical: {
-                x: verticalMatch.value - groupRect.left,
-                label: verticalMatch.data.label,
-              },
-            }
-          : {}),
-        ...(horizontalMatch && groupRect
-          ? {
-              horizontal: {
-                y: horizontalMatch.value - groupRect.top,
-                label: horizontalMatch.data.label,
-              },
-            }
-          : {}),
-        ...(widthMatch || heightMatch
-          ? {
-              dimension: [
-                widthMatch ? `同宽 ${Math.round(frameWidth)}` : "",
-                heightMatch ? `同高 ${Math.round(frameHeight)}` : "",
-              ].filter(Boolean).join(" · "),
-            }
-          : {}),
+      const result = frameResizePreview({
+        start: {
+          imageId: image.id,
+          frameWidth: startWidth,
+          frameHeight: startHeight,
+          frameOffsetX: startOffsetX,
+          frameOffsetY: startOffsetY,
+        },
+        startRect: startRect ?? null,
+        direction,
+        deltaX: dx,
+        deltaY: dy,
+        candidates,
+        snapState,
+        groupRect: groupRect ?? null,
       });
+      next = result.preview;
+      snapState = result.snapState;
+      setFramePreview(next);
+      setGuide(result.guide);
     };
     const finish = () => {
       document.removeEventListener("pointermove", move);
@@ -504,25 +275,13 @@ export function ImageGroupBlockView({
     const move = (moveEvent: PointerEvent) => {
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
-      let x = constrainedX;
-      let width = constrainedWidth;
-      let height = initial.height;
-      let frameOffsetY = initial.frameOffsetY;
-      if (affects(direction, "left")) {
-        width = Math.max(120, constrainedWidth - dx);
-        x = constrainedX + constrainedWidth - width;
-      } else if (affects(direction, "right")) {
-        width = Math.max(120, constrainedWidth + dx);
-      }
-      width = Math.min(width, availableWidth);
-      x = Math.max(0, Math.min(x, Math.max(0, availableWidth - width)));
-      if (affects(direction, "top")) {
-        frameOffsetY = initial.frameOffsetY + dy;
-        height = Math.max(80, initial.height - dy);
-      } else if (affects(direction, "bottom")) {
-        height = Math.max(80, initial.height + dy);
-      }
-      next = { x, width, height, frameOffsetY };
+      next = groupResizePreview(
+        initial,
+        direction,
+        dx,
+        dy,
+        availableWidth,
+      );
       setGroupPreview(next);
     };
     const finish = () => {
@@ -649,14 +408,14 @@ export function ImageGroupBlockView({
                 >
                   <Trash2 aria-hidden size={10} />
                 </button>
-                {DIRECTIONS.map((direction) => (
+                {RESIZE_DIRECTIONS.map((direction) => (
                   <span
                     aria-label={`从${direction}调整参考图 ${index + 1}`}
                     data-image-resize-edge={direction}
                     key={direction}
                     onPointerDown={(event) => startImageResize(image, direction, event)}
                     role="separator"
-                    style={handleStyle(direction)}
+                    style={resizeHandleStyle(direction)}
                     tabIndex={0}
                   />
                 ))}
@@ -667,14 +426,14 @@ export function ImageGroupBlockView({
           {guide.horizontal ? <div className="pointer-events-none absolute inset-x-1 z-[70] border-t border-dashed border-app-accent" style={{ top: guide.horizontal.y }}><span className="absolute left-1 top-1 whitespace-nowrap rounded bg-app-accent px-1.5 py-1 text-[8px] font-bold text-white">{guide.horizontal.label}</span></div> : null}
           {guide.dimension ? <span className="pointer-events-none absolute bottom-2 left-1/2 z-[80] -translate-x-1/2 rounded border border-app-accent bg-white px-2 py-1 text-[8px] font-bold text-app-accent">{guide.dimension}</span> : null}
         </div>
-        {DIRECTIONS.map((direction) => (
+        {RESIZE_DIRECTIONS.map((direction) => (
           <span
             aria-label={`调整图片组${direction}`}
             data-group-resize-edge={direction}
             key={direction}
             onPointerDown={(event) => startGroupResize(direction, event)}
             role="separator"
-            style={handleStyle(direction)}
+            style={resizeHandleStyle(direction)}
             tabIndex={0}
           />
         ))}

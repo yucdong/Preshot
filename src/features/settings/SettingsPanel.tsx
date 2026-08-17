@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useTheme } from "../../app/theme/ThemeProvider";
+import { useTheme } from "../../app/theme/ThemeContext";
 import type { Theme } from "../../domain/settings/models";
 
 interface SettingsPanelProps {

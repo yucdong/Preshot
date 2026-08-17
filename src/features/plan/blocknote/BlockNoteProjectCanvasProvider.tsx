@@ -1,4 +1,3 @@
-import { Minus, Plus } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -27,9 +26,10 @@ import { cropForResizedFrame } from "../../../domain/plan/canvas/imageView";
 import type { PlanImagePicker, ScreenCapture } from "../../../domain/plan/ports";
 import type { PdfSaveTarget } from "../../../domain/plan/canvas/ports";
 import type { BlockNotePdfExporter } from "../../../infrastructure/pdf/blockNotePdfExporter";
-import { setBlockNoteImageNaturalDimensions } from "../../../domain/plan/blocknote/plan";
-import { SaveStatus, type SaveState } from "../SaveStatus";
+import type { SaveState } from "../SaveStatus";
 import { ReferenceImageLightbox } from "../ReferenceImageLightbox";
+import { getProjectRetirementCoordinator } from "../projectRetirementCoordinator";
+import { BlockNoteCanvasToolbar } from "./BlockNoteCanvasToolbar";
 import { BlockNoteDocumentEditor } from "./BlockNoteDocumentEditor";
 import {
   BLOCKNOTE_DOCUMENT_CONTENT_WIDTH,
@@ -42,6 +42,7 @@ import {
   fitBlockNoteDocumentZoom,
 } from "./canvasViewport";
 import type { ImageGroupBlockController } from "./ImageGroupBlockContext";
+import { applyMeasuredImages } from "./imageHydration";
 
 interface BlockNoteProjectCanvasProviderProps {
   projectName: string;
@@ -59,39 +60,6 @@ type LoadState =
   | Extract<BlockNotePlanLoadResult, { status: "incompatible" }>
   | { status: "ready"; plan: ProjectPlanV14 };
 
-async function imageDimensions(dataUrl: string): Promise<{
-  sourceWidth: number;
-  sourceHeight: number;
-}> {
-  const image = new Image();
-  const loaded = new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error("Unable to measure imported image"));
-  });
-  image.src = dataUrl;
-  try {
-    await image.decode();
-  } catch {
-    await loaded;
-  }
-  return {
-    sourceWidth: image.naturalWidth,
-    sourceHeight: image.naturalHeight,
-  };
-}
-
-async function applyMeasuredImages(
-  plan: ProjectPlanV14,
-  entries: ReadonlyArray<readonly [string, string]>,
-): Promise<ProjectPlanV14> {
-  let next = plan;
-  for (const [file, dataUrl] of entries) {
-    const dimensions = await imageDimensions(dataUrl);
-    next = setBlockNoteImageNaturalDimensions(next, { file, ...dimensions });
-  }
-  return next;
-}
-
 export function BlockNoteProjectCanvasProvider({
   projectName,
   projectPath,
@@ -103,6 +71,8 @@ export function BlockNoteProjectCanvasProvider({
 }: BlockNoteProjectCanvasProviderProps) {
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [canvasError, setCanvasError] = useState<string | null>(null);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
   const [mediaSrc, setMediaSrc] = useState<Record<string, string>>({});
   const [lightboxFile, setLightboxFile] = useState<string | null>(null);
@@ -119,6 +89,7 @@ export function BlockNoteProjectCanvasProvider({
   const detachedGroupsRef = useRef(new Map<string, ProjectPlanV14["imageGroups"][number]>());
   const detachedMediaFilesRef = useRef(new Set<string>());
   const savedRef = useRef("");
+  const retirementCoordinator = getProjectRetirementCoordinator(service);
 
   const save = useCallback(async () => {
     const plan = planRef.current;
@@ -129,10 +100,27 @@ export function BlockNoteProjectCanvasProvider({
       return;
     }
     setSaveState("saving");
-    await service.savePlan(projectPath, plan);
+    setSaveError(null);
+    try {
+      await retirementCoordinator.queue(
+        projectPath,
+        () => service.savePlan(projectPath, plan),
+      );
+    } catch (error) {
+      setSaveState("unsaved");
+      setSaveError(error instanceof Error ? error.message : String(error));
+      throw error;
+    }
     savedRef.current = serialized;
-    setSaveState("saved");
-  }, [projectPath, service]);
+    if (
+      planRef.current === plan &&
+      JSON.stringify(planRef.current) === serialized
+    ) {
+      setSaveState("saved");
+    } else {
+      setSaveState("unsaved");
+    }
+  }, [projectPath, retirementCoordinator, service]);
 
   const changeZoom = useCallback((
     requested: number,
@@ -172,7 +160,9 @@ export function BlockNoteProjectCanvasProvider({
 
   useEffect(() => {
     let cancelled = false;
-    void service.loadPlan(projectPath, projectName).then(
+    void retirementCoordinator.waitFor(projectPath)
+      .then(() => service.loadPlan(projectPath, projectName))
+      .then(
       (result) => {
         if (cancelled) return;
         if (result.status === "incompatible") {
@@ -236,36 +226,55 @@ export function BlockNoteProjectCanvasProvider({
     return () => {
       cancelled = true;
     };
-  }, [applyPlan, projectName, projectPath, service]);
+  }, [
+    applyPlan,
+    projectName,
+    projectPath,
+    retirementCoordinator,
+    service,
+  ]);
 
   useEffect(() => () => {
     const activePlan = planRef.current;
     const detachedGroups = [...detachedGroupsRef.current.values()];
-    if (activePlan && detachedGroups.length > 0) {
-      void service.purgeDetachedGroups(
-        projectPath,
-        activePlan,
-        detachedGroups,
-      );
-    }
     const detachedMedia = [...detachedMediaFilesRef.current];
-    if (activePlan && detachedMedia.length > 0) {
-      void service.purgeDetachedMedia(
-        projectPath,
-        activePlan,
-        detachedMedia,
-      );
+    if (activePlan) {
+      const serialized = JSON.stringify(activePlan);
+      void retirementCoordinator
+        .queue(projectPath, async () => {
+          if (serialized !== savedRef.current) {
+            await service.savePlan(projectPath, activePlan);
+            savedRef.current = serialized;
+          }
+          if (detachedGroups.length > 0) {
+            await service.purgeDetachedGroups(
+              projectPath,
+              activePlan,
+              detachedGroups,
+            );
+          }
+          if (detachedMedia.length > 0) {
+            await service.purgeDetachedMedia(
+              projectPath,
+              activePlan,
+              detachedMedia,
+            );
+          }
+        })
+        .catch((error: unknown) => {
+          console.error("Unable to retire the BlockNote project:", error);
+        });
     }
     const captureToken = captureTokenRef.current;
     if (captureToken && screenCapture) {
       void screenCapture.cancel(captureToken);
     }
-  }, [projectPath, screenCapture, service]);
+  }, [projectPath, retirementCoordinator, screenCapture, service]);
 
   useEffect(() => {
     if (loadState.status !== "ready" || saveState !== "unsaved") return;
     const timer = window.setTimeout(() => {
-      void save();
+      void save().catch(() => undefined);
     }, 5_000);
     return () => window.clearTimeout(timer);
   }, [loadState.status, save, saveState]);
@@ -277,7 +286,7 @@ export function BlockNoteProjectCanvasProvider({
         event.key.toLowerCase() === "s"
       ) {
         event.preventDefault();
-        void save();
+        void save().catch(() => undefined);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -451,16 +460,20 @@ export function BlockNoteProjectCanvasProvider({
     captureImage: screenCapture
       ? (groupId) => {
           if (captureTokenRef.current || !planRef.current) return;
+          setCanvasError(null);
           void (async () => {
-            const token = await screenCapture.start();
-            captureTokenRef.current = token;
+            let token: string | null = null;
+            let capturedPath: string | null = null;
             try {
+              token = await screenCapture.start();
+              captureTokenRef.current = token;
               for (;;) {
                 const result = await screenCapture.poll(token);
                 if (result.status === "pending") {
                   await new Promise((resolve) => window.setTimeout(resolve, 250));
                   continue;
                 }
+                capturedPath = result.path;
                 if (!planRef.current) return;
                 const imported = await service.importImages(
                   projectPath,
@@ -484,8 +497,21 @@ export function BlockNoteProjectCanvasProvider({
                 applyPlan(await applyMeasuredImages(imported.plan, entries));
                 return;
               }
+            } catch (error) {
+              setCanvasError(
+                error instanceof Error ? error.message : String(error),
+              );
             } finally {
               captureTokenRef.current = null;
+              if (capturedPath) {
+                try {
+                  await screenCapture.discard(capturedPath);
+                } catch (error) {
+                  setCanvasError(
+                    error instanceof Error ? error.message : String(error),
+                  );
+                }
+              }
             }
           })();
         }
@@ -596,74 +622,52 @@ export function BlockNoteProjectCanvasProvider({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex h-11 items-center justify-between bg-[#202329] px-4 text-white">
-        <span className="text-xs font-semibold">BlockNote Canvas v14</span>
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 items-center rounded-md border border-white/10 bg-white/[0.06] p-0.5">
-            <button
-              aria-label="缩小画布"
-              className="grid h-7 w-7 place-items-center rounded text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
-              onClick={() => {
-                autoFitRef.current = false;
-                changeZoom(zoom - BLOCKNOTE_ZOOM_STEP);
-              }}
-              type="button"
-            >
-              <Minus aria-hidden className="h-3.5 w-3.5" />
-            </button>
-            <button
-              aria-label="恢复 100% 缩放"
-              className="h-7 min-w-12 rounded px-1 text-[10px] tabular-nums text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
-              onClick={() => {
-                autoFitRef.current = false;
-                changeZoom(1);
-              }}
-              type="button"
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-            <button
-              aria-label="放大画布"
-              className="grid h-7 w-7 place-items-center rounded text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
-              onClick={() => {
-                autoFitRef.current = false;
-                changeZoom(zoom + BLOCKNOTE_ZOOM_STEP);
-              }}
-              type="button"
-            >
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-            </button>
-            <button
-              aria-label="适合宽度"
-              className="ml-0.5 h-7 rounded px-2 text-[10px] font-semibold text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
-              onClick={() => {
-                const next = fitBlockNoteDocumentZoom(viewportSize.width);
-                autoFitRef.current = true;
-                changeZoom(next);
-              }}
-              type="button"
-            >
-              适宽
-            </button>
-          </div>
-          <SaveStatus state={saveState} />
-          <button
-            className="rounded bg-app-accent px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-            disabled={exporting}
-            onClick={() => {
-              const plan = planRef.current;
-              if (!plan) return;
-              setExporting(true);
-              void exporter.export(plan, { ...imageSrc, ...mediaSrc })
-                .then((bytes) => saver.save(bytes, "output.pdf"))
-                .finally(() => setExporting(false));
-            }}
-            type="button"
-          >
-            {exporting ? "导出中…" : "导出 PDF"}
-          </button>
+      <BlockNoteCanvasToolbar
+        exporting={exporting}
+        onExport={() => {
+          const plan = planRef.current;
+          if (!plan) return;
+          setExporting(true);
+          void exporter.export(plan, { ...imageSrc, ...mediaSrc })
+            .then((bytes) => saver.save(bytes, "output.pdf"))
+            .finally(() => setExporting(false));
+        }}
+        onFitWidth={() => {
+          const next = fitBlockNoteDocumentZoom(viewportSize.width);
+          autoFitRef.current = true;
+          changeZoom(next);
+        }}
+        onResetZoom={() => {
+          autoFitRef.current = false;
+          changeZoom(1);
+        }}
+        onZoomIn={() => {
+          autoFitRef.current = false;
+          changeZoom(zoom + BLOCKNOTE_ZOOM_STEP);
+        }}
+        onZoomOut={() => {
+          autoFitRef.current = false;
+          changeZoom(zoom - BLOCKNOTE_ZOOM_STEP);
+        }}
+        saveState={saveState}
+        zoom={zoom}
+      />
+      {saveError ? (
+        <div
+          className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700"
+          role="alert"
+        >
+          无法保存方案：{saveError}
         </div>
-      </div>
+      ) : null}
+      {canvasError ? (
+        <div
+          className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700"
+          role="alert"
+        >
+          操作失败：{canvasError}
+        </div>
+      ) : null}
       <div
         className="editor-workspace-grid min-h-0 flex-1 overflow-auto p-5"
         data-testid="canvas-scroller"

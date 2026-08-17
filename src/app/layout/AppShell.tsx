@@ -16,7 +16,7 @@ import {
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { AgentPanel } from "../../features/agent/AgentPanel";
 import { SettingsButton } from "../../features/settings/SettingsButton";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "../theme/ThemeContext";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 
 interface AppShellProps extends PropsWithChildren {

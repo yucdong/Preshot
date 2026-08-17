@@ -1,116 +1,152 @@
 # Preshot
 
-Preshot 是一个面向摄影前期策划的桌面应用。它将用于整理参考样图、规划文案、
-组织自由画布，并把完整策划导出为 PDF。
+Preshot is a Windows-first desktop application for photography planning. The current application is not just a shell: it opens local projects, edits plans in a BlockNote 0.53 document, manages image groups and native media, and exports PDF files.
 
-当前版本是 **Windows 优先的工程底座**：已经包含 React/Tauri 应用壳、领域边界、
-测试体系、Windows 初始化脚本和架构文档，但尚未实现图片导入、画布编辑、项目保存
-或 PDF 导出。
+> The application UI is currently localized in Simplified Chinese. This documentation is written in English on purpose; do not treat Chinese UI copy as missing translation work unless the task is explicitly about localization.
 
-## 技术栈
+## Current product surface
 
-- React 19、TypeScript、Vite
-- Tauri v2、Rust
-- Tailwind CSS
-- Konva.js、react-konva（后续画布能力）
-- pdf-lib（后续 PDF 导出）
-- Vitest、React Testing Library、Playwright
-- pnpm
+- Recent-project launcher and in-app project rail
+- BlockNote v14 editor (`schemaVersion: 14`, `document.format: "preshot-blocks"`, `document.version: 2`)
+- Slash menu, block drag, undo/redo, headings, lists, checklists, toggles, quotes, code blocks, tables, and dividers
+- Multi-column blocks via `@blocknote/xl-multi-column@0.53.0`
+- Custom image-group blocks with resize, reorder, lightbox, native import, and Windows screen capture
+- Native BlockNote image, video, and audio blocks backed by project-local `media/`
+- Auto-save, explicit save shortcut, theme settings, resizable shell panels, and focus mode
+- A4 PDF export through `pdf-lib` plus a native save dialog
 
-## Windows 前置条件
+## Repository layout
 
-1. Windows 10 1803 或更高版本
-2. Node.js（20.x 需 20.19.0+，或使用 22.12.0+；优先选择 LTS）
+- `src/app` application composition, shell, theme, and workspace provider
+- `src/features` React feature surfaces, especially the BlockNote plan editor and workspace UI
+- `src/domain` pure models, use cases, ports, schema validation, and shared layout logic
+- `src/infrastructure` Tauri/browser adapters and PDF export wiring
+- `src-tauri` Rust commands and Tauri configuration
+- `docs` architecture, testing, reliability, and design documentation
+- `e2e` Playwright smoke coverage
+- `init.ps1` Windows prerequisite check and dependency installation
+
+## Project and storage model
+
+- Each project directory contains `.preshotproj` (legacy `.preshot` is still read and migrated).
+- The project manifest has `schemaVersion: 1` and stores the plan JSON in `manifest.plan`.
+- The active plan format is schema v14 / document v2.
+- Reference image files live under `references/`.
+- Native BlockNote media files live under `media/`.
+- Theme and shell settings are stored in `%USERPROFILE%\.preshot\settings.json`.
+- New-project picking defaults to `%USERPROFILE%\.preshot\projects`.
+
+## Tech stack
+
+- React 19, TypeScript, Vite
+- Tauri 2, Rust
+- BlockNote 0.53, Mantine 8
+- Tailwind CSS 4
+- `pdf-lib` + `@pdf-lib/fontkit`
+- Vitest, React Testing Library, Playwright
+- pnpm 10.15.0
+
+## Windows prerequisites
+
+1. Windows 10 version 1803 or later
+2. Node.js 20.19.0+ on the 20.x line, or Node.js 22.12.0+
 3. pnpm 10.15.0
-4. Rust stable MSVC 工具链
-5. Visual Studio 2022 Build Tools，并勾选 **Desktop development with C++**
+4. Rust stable with the MSVC target
+5. Visual Studio 2022 Build Tools with **Desktop development with C++**
 6. Microsoft Edge WebView2 Runtime
 
-安装 pnpm：
+Install pnpm:
 
 ```powershell
 corepack enable
 corepack prepare pnpm@10.15.0 --activate
 ```
 
-若 Corepack 因网络环境不可用，可运行：
+If Corepack is unavailable in your environment:
 
 ```powershell
 corepack disable
 npm install --global pnpm@10.15.0
 ```
 
-安装 Rust：
+Install Rust:
 
 ```powershell
 winget install --id Rustlang.Rustup --exact
 ```
 
-## 初始化
+## Setup
 
-在仓库根目录运行：
+Run the repository initializer from the repository root:
 
 ```powershell
 .\init.ps1
 ```
 
-脚本会检查 Node.js、pnpm、Rust、Cargo、Visual C++ Build Tools 和 WebView2，
-随后安装项目依赖。端到端测试使用 Windows 自带的 Microsoft Edge。
+The script validates Node.js, pnpm, Rust, Cargo, Visual C++ Build Tools, and WebView2, then runs `pnpm install --frozen-lockfile`.
 
-## 启动
+`pnpm tauri`, `pnpm tauri:dev`, and `pnpm tauri:build` run through `scripts\tauri.ps1`, which auto-discovers Cargo in `%USERPROFILE%\.cargo\bin` when the current VS Code `PATH` has not refreshed yet. If Rust is installed elsewhere, add that Cargo directory to `PATH` and restart your terminal or editor.
 
-启动桌面应用：
+If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo commands from **Developer PowerShell for VS 2022**.
 
-```powershell
-pnpm tauri:dev
-```
+## Commands
 
-该命令会在当前 VS Code 进程尚未刷新 `PATH` 时，自动查找 Rustup 默认目录
-`%USERPROFILE%\.cargo\bin`。如果 Rust 安装在自定义目录，请将对应的 Cargo
-目录加入用户 `PATH` 后重启 VS Code。
+### Development and packaging
 
-只启动浏览器中的前端开发服务器：
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Start the browser-only Vite development server. |
+| `pnpm preview` | Preview the built web bundle. |
+| `pnpm tauri` | Run the local Tauri CLI through the Windows wrapper. |
+| `pnpm tauri:dev` | Start the desktop application in Tauri development mode. |
+| `pnpm build` | Run the TypeScript build and Vite production build. |
+| `pnpm tauri:build` | Build Windows desktop bundles. |
 
-```powershell
-pnpm dev
-```
+### Validation
 
-如果系统 PATH 中存在其他同名 `link.exe`，请从 Visual Studio 的
-**Developer PowerShell for VS 2022** 中运行 Tauri 或 Cargo 命令。
+| Command | Purpose |
+| --- | --- |
+| `pnpm lint` | Run ESLint. |
+| `pnpm typecheck` | Run the TypeScript project build in type-check mode. |
+| `pnpm test` | Run the Vitest suite. |
+| `pnpm test:watch` | Run Vitest in watch mode. |
+| `pnpm test:init` | Run the PowerShell initializer regression harness. |
+| `pnpm test:e2e` | Run the main Playwright browser-shell smoke suite. |
+| `pnpm test:e2e:blocknote` | Run the focused BlockNote v14 Playwright suite. |
+| `cargo test --manifest-path src-tauri\Cargo.toml` | Run the Rust unit tests. |
 
-## 验证
+### Midscene and AI-assisted workflows
 
-```powershell
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm test:init
-pnpm test:e2e
-cargo test --manifest-path src-tauri\Cargo.toml
-pnpm build
-```
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev:midscene` | Start the dedicated Vite server for Midscene-driven browser tests. |
+| `pnpm midscene:proxy` | Start the local Midscene Responses-API bridge. |
+| `pnpm midscene:model:verify` | Verify the configured Midscene model connection. |
+| `pnpm midscene:smoke` | Run the read-only Midscene smoke against a running app. |
+| `pnpm test:midscene:web` | Run the serialized Midscene web suite. |
+| `pnpm midscene:report:merge` | Merge Midscene HTML/text reports. |
 
-## 构建 Windows 安装包
+### Maintenance
 
-```powershell
-pnpm tauri:build
-```
+| Command | Purpose |
+| --- | --- |
+| `pnpm migrate:project` | Run the project-manifest migration utility. |
 
-产物位于 `src-tauri\target\release\bundle`。首次构建会下载并编译 Rust
-依赖，耗时通常长于后续构建。
+## Documentation
 
-## 项目文档
+- [Contributor guide](AGENTS.md)
+- [Documentation index](docs/README.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Testing](docs/TESTING.md)
+- [Reliability](docs/RELIABILITY.md)
+- [BlockNote v14 design](docs/design_docs/blocknote_v14_design.md)
+- [UI/UX contract](docs/design_docs/UI_UX_CONTRACT.md)
+- [Feature status tracker](docs/design_docs/featurelist.json)
 
-- [AGENTS.md](AGENTS.md)：仓库结构和贡献约束
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)：架构边界和扩展方式
-- [docs/TESTING.md](docs/TESTING.md)：测试策略和命令
-- [设计规格](docs/superpowers/specs/2026-07-27-desktop-foundation-design.md)
+## License
 
-## 许可证
+Preshot's own source code is under the [MIT License](LICENSE).
 
-Preshot 自有源码使用 [MIT License](LICENSE)。项目使用
-`@blocknote/xl-multi-column` 的 GPL-3.0 许可选项，因此包含该依赖的 Preshot
-应用发行物按 GPL-3.0 提供，并附带对应源代码和完整许可证文本。
+Distributed application builds that include `@blocknote/xl-multi-column` use that dependency through its GPL-3.0 option, so shipped Preshot application distributions must be provided under GPL-3.0 with the corresponding source and license notices.
 
-详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和
-[LICENSES/GPL-3.0.txt](LICENSES/GPL-3.0.txt)。
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [LICENSES/GPL-3.0.txt](LICENSES/GPL-3.0.txt).

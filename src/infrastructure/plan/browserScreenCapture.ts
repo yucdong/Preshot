@@ -22,5 +22,6 @@ export function createBrowserScreenCapture(): ScreenCapture {
     async cancel(token) {
       active.delete(token);
     },
+    async discard() {},
   };
 }

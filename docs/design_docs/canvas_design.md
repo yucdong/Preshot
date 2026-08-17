@@ -1,106 +1,102 @@
-# Canvas 统一文档流设计
+# Canvas unified document-flow design
 
-**状态：** 2026-08-13 图片交互修订已实施并通过验证
-**目标版本：** Canvas schema v12  
-**交互参考：** `docs/design_refs/preshot-paged-document-review.html`
+**Status:** Image interaction revisions implemented and validated on 2026-08-13
+**Target version:** Canvas schema v12
+**Interaction reference:** `docs/design_refs/preshot-paged-document-review.html`
 
-## 目标
+## Goal
 
-中间画布改为一份连续的 A4 富文本文档，不再存在“文案组件”或多个
-相互独立的文本框。用户可以在同一个 TipTap 编辑器内持续输入，图片组作为
-不可编辑的原子节点穿插在正文中。
+Turn the central canvas into one continuous A4 rich-text document. There are no longer separate "text components" or multiple independent text boxes. Users continue typing inside a single TipTap editor, while image groups are inserted into the body as non-editable atomic nodes.
 
-图片组默认占满正文可打印宽度，只包含图片，不显示组件名称、标题、介绍或描述；
-用户可在正文边界内拖动图片组四角调整组框宽高。
-当前可插入的组件类型只有图片组。
+Image groups occupy the printable body width by default and contain only images. They do not show component name, title, intro, or description. Users can drag the four corners within body bounds to adjust image-group frame width and height.
+The only currently insertable component type is the image group.
 
-## 已确认交互
+## Confirmed interaction
 
-### 连续正文
+### Continuous body text
 
-- 每个项目只有一个正文 TipTap 编辑器。
-- 不显示独立的画布标题输入框或标题带；`ProjectPlan.title` 只保留为项目 metadata。需要显示的文档标题作为同一 TipTap 正文中的 H1/H2 编辑，v12 PDF 也不额外绘制 metadata title。
-- 文案本身不显示卡片、输入框或组件边框；白色 A4 Canvas 是文字区域唯一边界，不绘制第二层可打印区辅助边框。
-- 图片组前后的段落、标题、列表属于同一个 ProseMirror 文档。
-- 光标和键盘导航可越过图片组继续编辑，不创建新的文本框；文字区始终使用 I-beam cursor。
-- 双击任意正文段落、标题、列表项、引用或代码块时，选择该完整文本块；不要求浏览器三击。之后点击同一 TipTap 文档的其他文字、空白行、图片组或画布外部时，都显式折叠旧选区并收起 Style 栏；点击编辑器外部时同时清除浏览器 Range 并取消焦点。
-- 文档末尾始终保留一个可输入空段落；点击该空段落后显示图片组插入位置。
+- Each project has only one body TipTap editor.
+- No standalone canvas-title input or title band is shown. `ProjectPlan.title` remains only project metadata. When a visible document title is needed, edit it as H1/H2 inside the same TipTap body; v12 PDF also does not render metadata title separately.
+- Text itself shows no cards, no input boxes, and no component borders; the white A4 canvas is the only text-area boundary, and no second printable-area helper border is drawn.
+- Paragraphs, headings, and lists before/after image groups all belong to the same ProseMirror document.
+- Cursor and keyboard navigation can move across image groups and continue editing without creating new text boxes; the text area always uses an I-beam cursor.
+- Double-clicking any body paragraph, heading, list item, blockquote, or code block selects that full text block; browser triple-click is not required. Clicking other text, blank lines, image groups, or outside the canvas in the same TipTap document then explicitly collapses the old selection and hides the Style bar; clicking outside the editor also clears the browser Range and blurs focus.
+- The end of the document always keeps one editable empty paragraph; clicking that blank paragraph reveals the image-group insertion position.
 
-### 上下文属性栏
+### Context property bar
 
-- 属性栏不常驻，不占 PDF 布局空间。
-- 只有存在非空文字选区时才显示文字属性栏；仅放置光标时不显示。
-- 文字属性栏优先显示在选区右上方，右侧空间不足时反向贴齐，并始终限制在视口内。
-- 文字属性栏固定分为两行，不提供内部横向或纵向滚动，也不响应滚轮滚动：
-	- 第一行：完整块类型、字号数值/减小/增大、当前颜色分体按钮；
-	- 第二行：加粗、倾斜、下划线、删除线、左/中/右对齐、减少/增加缩进。
-- 工具栏宽度由两行实际内容决定，不使用固定宽度填充空白。去掉可由 aria-label 表达的可见分组标题；外边距 4px、控件间距 1px、按钮 26×26px，使两行宽度尽量接近。
-- 左/中/右对齐使用 Lucide `AlignLeft` / `AlignCenter` / `AlignRight` 的标准多横线图标；减少/增加缩进使用 `IndentDecrease` / `IndentIncrease`。不得用相同的 `≡` 字符或方向不明确的文字符号冒充图标。
-- “完整块类型”以当前生产 TipTap 已启用且可作用于选区的扩展为边界：正文、一级至六级标题、引用、无序列表、有序列表、任务列表和代码块，共 12 种。表格、分隔线和图片组属于结构插入，不是选中文字的层级样式，继续由插入流程负责。
-- 左/中/右对齐写入段落或标题的 `textAlign`。增加/减少缩进在列表项上使用 `sinkListItem` / `liftListItem`；在引用上使用嵌套/取消嵌套语义。命令不可破坏或折叠原选区。
-- 字号状态必须遍历选区内全部 text node，并读取显式 `fontSize` mark；没有显式 mark 时使用所属段落/标题的有效字号。单一字号显示普通数值；多个字号显示“最小值+”，例如 12px 与 20px 的混合选区显示 `12+`。
-- 混合字号选区点击 `+` 或 `−` 时，以最小字号为基数计算新值，然后用一个 `setFontSize` 命令覆盖整个选区，使所有 text node 统一为该新字号；不能分别在各自旧字号上增减。
-- 当前颜色分体按钮左侧显示 A 和当前色下划线，点击后立即将当前颜色复用于原选区；右侧箭头打开标准颜色面板。
-- 标准颜色面板分组展示中性色、主题色和标准色，不在工具栏直接平铺色块；选择标准色后立即应用、更新当前颜色并关闭面板。
-- 标准颜色面板底部提供 `More Colors…` 入口；点击后先关闭 Standard Colors，再打开与其 DOM、尺寸、定位和生命周期均独立的完整颜色选择器：
-	- 二维色盘横轴一次展示完整 0–360° Hue 彩虹（红、黄、绿、青、蓝、品红），纵轴控制 Saturation；色盘不得因当前颜色而退化为单一蓝色或任一单色；
-	- 右侧独立 Brightness 轴与 Hue×Saturation 平面共同覆盖完整 HSV 空间，因此可表达任意 RGB 组合；
-	- R/G/B 使用 0–255 整数输入，并与色盘、Brightness、颜色预览和只读 HEX 双向同步；
-	- `Apply` 将草稿色应用到原选区并更新当前颜色，`Cancel` 放弃草稿且不改变文本。
-- 打开层级、字号或颜色控件时保存 ProseMirror 选区；所有命令执行前恢复选区，执行后仍保留选中范围，以便连续应用多个格式。
-- 点击图片组时显示图片组属性栏，尺寸随 A4 页面同比例缩放，右边缘与图片组右边缘对齐。
-- 图片组属性栏高度为 30px，只包含图片组类型、添加图片和删除图片组；所有尺寸调整均由图片组八向热区完成。
-- 点击 Style 栏/其弹层以外的任何位置时折叠文字选区并收起属性栏；同一编辑器内点击保留新光标位置，编辑器外点击同时取消焦点。
-- 窄视口中属性栏保持两行并夹紧到视口，隐藏辅助标签但保留所有命令；属性栏和页面本身都不能产生滚动溢出。
+- The property bar is not persistent and does not occupy PDF layout space.
+- The text property bar appears only when the current selection is non-empty; placing only a caret does not show it.
+- The text property bar prefers the upper-right of the selection, flips when there is insufficient right-side space, and always remains clamped inside the viewport.
+- The text property bar is fixed to two rows and does not allow internal horizontal/vertical scrolling or respond to wheel scrolling:
+	- First row: full block type, font-size value/decrease/increase, current-color split button;
+	- Second row: bold, italic, underline, strikethrough, left/center/right align, decrease/increase indent.
+- Toolbar width is determined by the real content of the two rows rather than a fixed width. Remove visible grouping labels that can be represented by `aria-label`; use 4px outer padding, 1px control gaps, and 26×26px buttons so both rows stay close in width.
+- Left/center/right alignment uses the standard multi-line Lucide `AlignLeft` / `AlignCenter` / `AlignRight` icons; decrease/increase indent uses `IndentDecrease` / `IndentIncrease`. Do not fake them with the same `≡` character or ambiguous text symbols.
+- "Full block type" covers the TipTap extensions currently enabled in production and applicable to the selection: body text, H1-H6, blockquote, unordered list, ordered list, task list, and code block, for a total of 12 types. Tables, separators, and image groups are structural insertions rather than text-style levels and remain handled by insertion workflows.
+- Left/center/right alignment writes `textAlign` on paragraph or heading. Increase/decrease indent on list items uses `sinkListItem` / `liftListItem`; on blockquotes it means nest / unnest. Commands must not damage or collapse the original selection.
+- Font-size state must scan every text node in the selection and read explicit `fontSize` marks; when a mark is absent, use the effective font size of the owning paragraph/heading. A single size displays the raw value; multiple sizes display `minimum+`, for example a mixed 12px and 20px selection shows `12+`.
+- Clicking `+` or `−` on a mixed-size selection computes the new value from the minimum size, then uses one `setFontSize` command to override the whole selection to that new size; sizes must not increment/decrement relative to their previous individual values.
+- The left half of the current-color split button shows A with the current color underline and immediately reapplies the current color to the original selection; the right arrow opens the Standard Colors panel.
+- The Standard Colors panel groups neutral, theme, and standard colors rather than flattening swatches directly in the toolbar; selecting a standard color applies it immediately, updates current color, and closes the panel.
+- A `More Colors…` entry sits at the bottom of the Standard Colors panel. Clicking it first closes Standard Colors, then opens a fully independent color picker with separate DOM, size, positioning, and lifecycle:
+	- The 2D color field must show the full 0–360° Hue rainbow across the x-axis (red, yellow, green, cyan, blue, magenta) in one view, while the y-axis controls Saturation; it must not collapse into the current hue or any single-color gradient;
+	- A separate Brightness axis on the right, combined with the Hue×Saturation plane, must cover the full HSV space and therefore any RGB combination;
+	- R/G/B use integer 0–255 inputs and stay bidirectionally synchronized with the color field, Brightness, preview, and read-only HEX;
+	- `Apply` commits the draft color to the original selection and updates current color; `Cancel` discards the draft and leaves the text unchanged.
+- Opening block-type, font-size, or color controls saves the ProseMirror selection. Before every command, restore that selection, and keep the text selected after execution so multiple formats can be applied continuously.
+- Clicking an image group shows the image-group property bar, scaled proportionally with the A4 page, with its right edge aligned to the image-group right edge.
+- The image-group property bar is 30px high and contains only image-group type, add image, and delete image group; all size adjustments are handled by the image group's eight-way resize hit zones.
+- Clicking anywhere outside the Style bar or its popups collapses the text selection and hides the property bar; clicks inside the same editor preserve the new caret position, while clicks outside the editor also blur focus.
+- In narrow viewports, the property bar remains two rows and clamped inside the viewport, hides helper labels but preserves all commands, and neither the property bar nor the page may produce overflow scrolling.
 
-### 插入图片组
+### Insert image groups
 
-- 文字属性栏中不显示“插入图片组”。
-- 画布最上方显示“插入”按钮；组件菜单目前只有“图片组”。
-- 点击插入触发器和菜单之外时收起组件菜单。
-- 点击正文任意空白段落时，在该行对应的 A4 Canvas 左侧显示一个圆形 `+`；仅悬停不显示。点击另一空白行时按钮跟随新行，点击非空文本或画布外部时隐藏。
-- 空白行 `+` 是挂载到页面顶层的 viewport overlay，不写入 `documentHtml`，不成为 ProseMirror widget DOM 的持久化内容。滚动、缩放或窗口变化时根据空白段落矩形重新定位。
-- 点击 `+` 打开组件菜单，当前菜单严格只有“图片组”。选择后在该空白段落之前插入 image-group atom，并保留原空白段落在图片组之后，使用户可继续输入正文。
-- 顶部插入在没有有效光标时追加到文档末尾；行内 `+` 在该行位置插入。
-- 页面末尾空段落始终保留；点击它可继续插入多个图片组。
+- The text property bar does not include "Insert image group".
+- An "Insert" button is shown at the top of the canvas; the component menu currently contains only "Image group".
+- Clicking outside the insert trigger and menu closes the component menu.
+- Clicking any blank paragraph in the body shows a circular `+` at the left side of the corresponding A4 canvas line; hover alone does not show it. Clicking another blank line moves the button there; clicking non-empty text or outside the canvas hides it.
+- The blank-line `+` is a viewport overlay mounted at the page top level, not written into `documentHtml`, and never becomes persisted ProseMirror widget DOM. Reposition it from the blank paragraph rect on scroll, zoom, or window resize.
+- Clicking `+` opens the component menu, which currently contains exactly "Image group". After selection, insert the image-group atom before that blank paragraph and keep the original blank paragraph after the image group so the user can continue typing.
+- Top insertion appends to the end of the document when there is no valid caret; in-line `+` insertion happens at that line position.
+- The empty paragraph at the end of the page always remains, allowing continuous insertion of multiple image groups.
 
-### 图片组
+### Image groups
 
-- 图片组默认占满正文宽度。四边透明热区调整单轴，四角透明热区同时调整组框宽高；组框不得越过正文边界，不显示蓝色方块或条形。
-- 图片组使用轻量 1px 边框表达原子组件；文字不使用同类边框。
-- 扩大组框且图片可放下时不改变图片尺寸；缩小到放不下时才将全部图片统一等比缩小。
-- 单张图片提供四边和四角透明热区：边缘调整单轴，角落同时调整宽高；接近同组图片宽高时吸附并显示对齐线。
-- 单击图片时选中并打开完整大图；大图弹层只提供关闭，不提供恢复尺寸。
-- 图片悬停时在右上区域显示删除按钮，按钮与右上角 resize 热区错开；点击后通过全局确认弹窗删除。
-- 图片可在组内排序，也可拖到其他图片组。拖动使用移动阈值和实时占位，非法落点取消，不重建图片 DOM。
-- 图片组选中态通过主题感知的中性深色背景表达，不新增外框、outline 或 box-shadow；单图选中态不改变原边框/阴影/尺寸，只显示左上序号，删除位于图片属性栏。
-- 图片组是可选择、可拖动排序的原子节点。轻点灰色空白区域只选中；按住该区域移动超过阈值后，整组可与正文块、其他组件或图片组交换上下文档顺序。
-- 图片组和图片区域使用默认/抓取光标，不显示文字 I-beam；只有正文保持文字光标。
-- 图片内容使用手型光标。单图无需先选中即可在 hover/focus-within 时使用 20px 四边和 24×24px 四角热区；开始 resize 后自动选中。图片元素本身不接管 pointer event，避免继承 TipTap 的文字光标。
-- 单图左边/上边 resize 保存有符号 frame offset，使对边固定；offset 参与画布、自动换行、持久化和 PDF 的统一布局。
-- 图片组上边 resize 保存有符号组 offset，并只允许使用前一文档块留下的可用空间；上边移动时下边保持固定。
-- 图片组 resize 的 pointermove 只更新 body-level 预览框，松手后才提交元数据并触发一次 NodeView/layout/pagination 更新。
-- 单图 resize Smart Guides 遵循“尺寸与位置分层”：洋红虚线及端点表示边缘/中心位置，尺寸括号与 `同宽/同高` 标签表示尺寸匹配。
-- 横向和纵向各最多选择一个最近且优先级最高的位置候选；尺寸匹配可与位置引导共存，但不得用位置标签解释单纯的尺寸一致。
-- Smart Guides 使用 6px 进入、10px 释放的屏幕像素阈值；候选几何在 resize 开始时冻结，预览写入通过 requestAnimationFrame 批处理。
-- 尺寸标签根据自身尺寸定位：同宽标签以括号中点 `translateX(-50%)` 居中并放在括号下方，同高标签在括号右侧 `translateY(-50%)` 垂直居中。
-- 空图片组显示一个添加图片入口；删除空图片组移除该原子节点。
+- Image groups fill body width by default. Transparent hit zones on four edges resize one axis, and transparent hit zones on four corners resize width and height together; the frame must never cross the body boundary, and no blue squares or bars are shown.
+- Image groups use a light 1px border to express the atomic component; text does not use the same border treatment.
+- Enlarging a group frame does not change image size as long as the images still fit; only when the group becomes too small are all images uniformly scaled down.
+- Individual images expose transparent hit zones on four edges and four corners: edges resize one axis, corners resize both dimensions, and approaching matching width/height of nearby images in the same group causes snapping plus alignment guides.
+- Single-clicking an image both selects it and opens the full-size image; the large-image dialog only provides close and does not provide reset size.
+- When hovering an image, show a delete button near the upper-right area, offset away from the upper-right resize zone; clicking it deletes through the global confirmation dialog.
+- Images can be reordered within a group or moved to another group. Dragging uses a movement threshold and live placeholder, cancels on invalid drop targets, and does not rebuild image DOM.
+- Selected image groups are expressed through a theme-aware neutral darker background rather than extra border, outline, or box shadow; selected single images do not change original border/shadow/size and show only a top-left index badge, with delete living in the image property bar.
+- Image groups are selectable atomic nodes that can be dragged to reorder. A light tap on the blank gray area only selects; holding and moving beyond the threshold lets the whole group swap document order with text blocks, other components, or other image groups.
+- Image groups and image areas use default/grab cursors rather than text I-beam; only the body text keeps the text cursor.
+- Image content uses a grab cursor. Without preselection, hover/focus-within immediately enables 20px edge hit zones and 24×24px corner hit zones; starting a resize auto-selects the image. The image element itself does not capture pointer events, preventing inheritance of TipTap's text cursor.
+- Single-image left/top resize persists signed frame offsets so the opposite edge stays fixed; offset participates uniformly in canvas layout, auto-wrap, persistence, and PDF.
+- Image-group top-edge resize persists signed group offset and can consume only space left by the previous document block; moving the top edge keeps the bottom edge fixed.
+- During image-group resize, pointermove updates only a body-level preview frame; metadata commits only on release, causing one NodeView/layout/pagination update.
+- Single-image resize Smart Guides follow "size and position are separate": magenta dashed lines with endpoints indicate true edge/center position; dimension brackets plus `Equal width` / `Equal height` labels indicate size matches.
+- At most one closest, highest-priority positional candidate can be chosen on each axis. Size matching may coexist with position guides, but positional labels must not explain a pure size match.
+- Smart Guides use a 6px entry and 10px release threshold in screen pixels; candidate geometry is frozen at resize start, and preview writes are batched through `requestAnimationFrame`.
+- Dimension labels position themselves from their own size: the equal-width label centers below the bracket with `translateX(-50%)`, and the equal-height label vertically centers to the right of the bracket with `translateY(-50%)`.
+- Empty image groups show an add-image entry; deleting an empty image group removes that atomic node.
 
 ## Schema v12
 
-v12 不再持久化文字组件。`documentHtml` 是唯一文字与图片组顺序来源，
-`components` 仅保存图片组元数据，以便复用现有图片导入、裁切和文件清理逻辑。
+v12 no longer persists text components. `documentHtml` is the only source of text plus image-group order, while `components` stores only image-group metadata so existing image import, crop, and file-cleanup logic can be reused.
 
 ```ts
 interface ProjectPlan {
 	schemaVersion: 12;
 	title: string;
 	documentHtml: string;
-	components: ReferenceComponent[]; // v12 中只允许 reference
+	components: ReferenceComponent[]; // v12 only allows reference
 }
 ```
 
-图片组在 HTML 中使用一个稳定的 TipTap block atom marker：
+Image groups use a stable TipTap block-atom marker in HTML:
 
 ```html
 <figure
@@ -109,103 +105,100 @@ interface ProjectPlan {
 ></figure>
 ```
 
-约束：
+Constraints:
 
-- 每个 marker 必须引用 `components` 中一个图片组。
-- 每个图片组必须在 `documentHtml` 中恰好出现一次。
-- 图片文件、source dimensions、frame、crop 和 caption 只存于图片组记录，
-	不复制到 HTML 属性。
-- v12 严格读取拒绝 plan component、未知根字段、悬空 marker 和重复 marker。
+- Every marker must reference one image group in `components`.
+- Every image group must appear exactly once in `documentHtml`.
+- Image files, source dimensions, frame, crop, and caption live only in the image-group record and are not copied into HTML attributes.
+- Strict v12 loading rejects plan components, unknown root fields, dangling markers, and duplicate markers.
 
-## v1-v11 迁移
+## v1-v11 migration
 
-旧版本先通过现有迁移链归一化为严格 v11，再执行 v11→v12：
+Older versions are first normalized to strict v11 by the existing migration chain, then v11→v12 runs:
 
-1. 按旧 `components` 的用户可见顺序生成一个 HTML 文档。
-2. 普通文案叶直接追加原 HTML。
-3. 递归拆分文案按画布视觉顺序（先上后下、同一行先左后右）展平；只去掉
-	 布局边界，不丢失任何富文本内容。
-4. 图片组名称若有内容，转成图片组前的普通二级标题。
-5. 图片组介绍若有内容，转成标题后的普通正文 HTML。
-6. 追加图片组 atom marker。
-7. 图片 id、file、caption、aspect ratio、source dimensions、frame 和 crop 原样保留。
-8. 图片组记录规范化为全宽，旧 x/width/height 只作为迁移输入，不再决定新画布布局。
-9. 没有文字时创建 `<p></p>`；文档末尾始终保证可编辑段落。
+1. Generate one HTML document in the user-visible order of the old `components`.
+2. Append original HTML directly for plain text leaves.
+3. Recursively split text is flattened by canvas visual order (top before bottom; within a row, left before right), removing only layout boundaries and preserving all rich-text content.
+4. If an image-group name has content, convert it into a normal H2 before the image group.
+5. If an image-group intro has content, convert it into normal body HTML after the heading.
+6. Append the image-group atom marker.
+7. Preserve image ID, file, caption, aspect ratio, source dimensions, frame, and crop as-is.
+8. Normalize image-group records to full width; old x/width/height act only as migration input and no longer determine new canvas layout.
+9. If there is no text at all, create `<p></p>`; always ensure the document ends with an editable paragraph.
 
-应用加载任何旧项目时自动得到 v12 内存模型，并由自动保存写回。批量迁移脚本继续
-采用 dry-run、时间戳备份、临时文件、原子替换和写后严格复验。
+When the app loads any old project, it automatically obtains an in-memory v12 model and autosave writes it back. The batch migration script still uses dry run, timestamped backup, temporary file, atomic replace, and strict post-write verification.
 
-## 编辑器实现
+## Editor implementation
 
-新增 `imageGroup` TipTap node：
+Add a new `imageGroup` TipTap node:
 
 - `group: "block"`
 - `atom: true`
 - `selectable: true`
 - `draggable: true`
-- attribute 仅包含 `groupId`
-- React NodeView 从 v12 图片组 map 读取图片和回调
+- attributes contain only `groupId`
+- React NodeView reads images and callbacks from the v12 image-group map
 
-编辑器序列化只输出 marker，不输出运行时 data URL 或 NodeView DOM。
-顶部插入和行内插入最终都调用同一个 `insertImageGroup(groupId)` command。
+Editor serialization outputs only the marker, never runtime data URLs or NodeView DOM.
+Top insertion and line insertion both ultimately call the same `insertImageGroup(groupId)` command.
 
-## 生产验证
+## Production validation
 
-2026-08-12 使用 `docs/design_refs/preshot-paged-document-review.html` 完成方案验证，并在生产 TipTap 文档画布中实现：
+On 2026-08-12, the approach was validated using `docs/design_refs/preshot-paged-document-review.html` and then implemented in the production TipTap document canvas:
 
-- 生产 document-mode 工具栏为两行 compact surface，按 A4 scale 显示；Playwright 验证其包含 12 种块类型、字号 stepper、Standard/More Colors、字形、对齐和缩进。
-- 390px 视口中两行保持无内部滚动，页面无水平溢出。
-- 生产块类型菜单将普通段落真实转换为 TipTap `codeBlock`；12 种菜单项和对齐/缩进按钮均由 Playwright 覆盖。
-- 字号 `+` 将选区从 16px 调整到 17px，字号 `−` 恢复到 16px，选区 HTML 保存对应内联字号。
-- 混合字号测试使用 12px 与 20px 两段：初始显示 `12+` 且 aria-label 为“混合字号，最小值 12 像素”；点击 `+` 后整个选区只剩 13px，点击 `−` 后整个选区只剩 11px，输出不再带 `+`，选区文字保持不变。
-- 普通正文上的加粗生成 `<b>` 且计算字重为 700；倾斜、下划线、删除线分别生成可见的 `<i>`、`<u>`、`<strike>` 效果。
-- 12 种块类型逐项验证：`p`、`h1`–`h6`、`blockquote`、顶层 `ul`、顶层 `ol`、`ul[data-type="taskList"] > li[data-type="taskItem"]` 和 `pre` 均生成匹配结构；列表没有无效的 `<p><ul>` 包装。
-- 左/中/右按钮分别写入 `text-align: left/center/right`。列表第二项增加缩进后生成一层嵌套列表，减少缩进后恢复顶层，两个操作后选区文本保持不变。
-- 390px 下两行 `scrollWidth === clientWidth`；全部可见控件位于工具栏边界内，3 个对齐和 2 个缩进 Lucide SVG 均成功渲染，页面无水平溢出。
-- 生产空白行插入使用页面顶层 React overlay：点击空段落后出现 22 logical px 圆形 `+`，菜单只有“图片组”，插入顺序为“image-group atom → 原空白段落”。
-- 标准浆果红写入 `#C2385C` 并更新当前色。完整色盘的 CSS 同时显示红→黄→绿→青→蓝→品红色域，不受当前颜色限制。
-- 将 Brightness 设为 100 后，在 Hue 横轴的红、绿、蓝位置采样分别得到 `#FF1203`、`#03FF03`、`#0303FF`，证明色盘不是单一蓝色色相。
-- 任意 RGB `123/45/210` 精确生成 `#7B2DD2`，Apply 后写入选区 HTML、更新当前色且保留原选区。
-- 生产 More Colors 输入 R/G/B `123/45/210` 后将文本实际写为 `rgb(123, 45, 210)`，Standard Colors surface 已关闭，选区保持。
-- More Colors 是挂载到 `body` 的独立完整色盘，不包含在 Standard Colors DOM 中；打开时 Standard Colors 状态变为关闭，完整色盘独立居中。
-- 桌面完整色盘为 408px 宽；390px 下为 378×276px。两种视口均完整可见、无水平溢出或内部滚动。
-- 连续执行上述命令后选中文字保持不变；点击工具栏外部后 Style 栏关闭且非空选区清除。
+- The production document-mode toolbar is a two-row compact surface shown at A4 scale; Playwright verifies all 12 block types, the font-size stepper, Standard/More Colors, typography, alignment, and indent.
+- In a 390px viewport, the two rows keep zero internal scrolling and the page has no horizontal overflow.
+- The production block-type menu converts ordinary paragraphs into TipTap `codeBlock`; all 12 menu items and alignment/indent buttons are covered by Playwright.
+- Font size `+` changes the selection from 16px to 17px, and font size `−` returns it to 16px; selection HTML persists the corresponding inline font size.
+- Mixed-size tests use two segments, 12px and 20px: the initial display shows `12+` and `aria-label` says "Mixed font size, minimum value 12 pixels"; clicking `+` turns the whole selection into 13px, clicking `−` then turns the whole selection into 11px, output no longer includes `+`, and selected text stays unchanged.
+- Bold on ordinary body text generates `<b>` and computed font weight 700; italic, underline, and strikethrough produce visible `<i>`, `<u>`, and `<strike>` effects.
+- All 12 block types are validated one by one: `p`, `h1`–`h6`, `blockquote`, top-level `ul`, top-level `ol`, `ul[data-type="taskList"] > li[data-type="taskItem"]`, and `pre` all generate matching structures; lists do not produce invalid `<p><ul>` wrappers.
+- Left/center/right buttons write `text-align: left/center/right` respectively. Indenting the second list item creates one nested list level; outdenting restores the top level, and the selected text remains unchanged after both actions.
+- At 390px, both rows satisfy `scrollWidth === clientWidth`; every visible control stays inside toolbar bounds; all 3 alignment and 2 indent Lucide SVGs render correctly; the page has no horizontal overflow.
+- Production blank-line insertion uses a page-top React overlay: clicking an empty paragraph shows a 22 logical-px circular `+`, the menu contains only "Image group", and insertion order is "image-group atom → original blank paragraph".
+- Standard Berry Red writes `#C2385C` and updates current color. The CSS of the full color field simultaneously displays the red→yellow→green→cyan→blue→magenta gamut and is not constrained by the current color.
+- After setting Brightness to 100, sampling red/green/blue positions along the Hue axis yields `#FF1203`, `#03FF03`, and `#0303FF`, proving the field is not a monochrome blue hue.
+- Any RGB `123/45/210` produces exactly `#7B2DD2`; after Apply, it writes into selection HTML, updates current color, and preserves the original selection.
+- Entering R/G/B `123/45/210` in production More Colors writes actual text color `rgb(123, 45, 210)`, Standard Colors is closed, and the selection is preserved.
+- More Colors is a standalone full color panel mounted to `body`, not contained inside Standard Colors DOM; opening it closes Standard Colors and centers the full panel independently.
+- The desktop full color panel is 408px wide; at 390px it is 378×276px. Both viewports show the entire panel with no horizontal overflow or internal scrolling.
+- After the commands above run in sequence, the selected text stays unchanged; clicking outside the toolbar closes the Style bar and clears the non-empty selection.
 
-交互原型使用浏览器格式命令只用于验证可行性。生产实现通过 TipTap/ProseMirror command 持久化 schema-safe HTML，不使用 deprecated `document.execCommand`。
+The interaction prototype used browser formatting commands only to validate feasibility. The production implementation persists schema-safe HTML through TipTap/ProseMirror commands and does not use deprecated `document.execCommand`.
 
-## A4 与 PDF
+## A4 and PDF
 
-- 每张 A4 仅显示 Word 式四个可打印区角标，不显示完整内边框。角标线臂位于正文区外，尖端朝内并与可打印边界四角重合：左上 `┘`、右上 `└`、左下 `┐`、右下 `┌`。页缝 overlay 位于连续 editor 上方，点击页缝不能创建光标或输入文字，按 Enter/键盘导航则自然进入下一页正文。
-- 屏幕将同一 TipTap 顶层 block 序列分页到 A4 可打印区域。
-- 所有 TipTap 顶层文字块（段落、标题、列表、引用、代码块、表格）与图片组都是 keep-together 块，不允许跨页或落入页面间隙；当前页剩余区域不足时整体移动到下一页。
-- 单个文字块或组件自身高于整页可打印高度时，使用 ProseMirror node decoration 做视图层 fit，并补偿文档流高度，使其完整落在一页；不得改写 canonical `documentHtml`、字号 mark、图片 frame 或 crop 数据。
-- 分页空白使用 ProseMirror widget decoration，不直接修改 TipTap 子节点 style，避免编辑器重绘后丢失分页状态。
-- 图片组换页后，前一页剩余区域仍属于连续正文，用户可继续输入文字并自然填满该区域。
-- 图片组最大高度限制为单页可打印高度；达到上限后停止继续放大，保证任何图片组都能完整落在一页内。
-- PDF 从 `documentHtml` 顺序读取文字和 image-group marker，再通过 group id 读取图片数据。
-- v12 PDF 不预留或绘制独立 metadata title；屏幕与 PDF 的可见标题均来自 `documentHtml`。
-- 迁移期间允许构造只读的旧布局序列复用 PDF 几何，但该序列不能持久化或回写。
-- 屏幕和 PDF 必须使用同一图片 frame/crop 规格。
+- Each A4 page shows only four Word-style printable-area corner markers rather than a full inner border. The marker arms sit outside the text area, their tips point inward, and they coincide with the four printable corners: upper-left `┘`, upper-right `└`, lower-left `┐`, lower-right `┌`. A page-seam overlay sits above the continuous editor; clicking the seam cannot create a caret or text input, while pressing Enter / keyboard navigation naturally enters the next page body.
+- The screen paginates the same TipTap top-level block sequence into printable A4 areas.
+- All TipTap top-level text blocks (paragraphs, headings, lists, blockquotes, code blocks, tables) and image groups are keep-together blocks: they cannot cross a page or fall into a page seam, and move to the next page as a whole when remaining space is insufficient.
+- When a single text block or component is taller than an entire printable page, use a ProseMirror node decoration for view-layer fit and compensate document-flow height so the block still fits on one page; do not rewrite canonical `documentHtml`, font-size marks, image frame, or crop data.
+- Pagination gaps use ProseMirror widget decorations rather than directly modifying TipTap child styles, so pagination state is not lost on editor rerender.
+- After an image group moves to the next page, the remaining space on the previous page still belongs to the continuous body text and users can continue typing there naturally.
+- Image-group maximum height is capped at one printable page; once the cap is reached, enlargement stops so every image group can still land fully on one page.
+- PDF reads text and image-group markers in `documentHtml` order and then uses group IDs to fetch image data.
+- v12 PDF does not reserve or draw a standalone metadata title; any visible title on screen/PDF comes from `documentHtml`.
+- During migration, a read-only old-layout sequence may be constructed to reuse PDF geometry, but that sequence must never be persisted or written back.
+- Screen and PDF must use the same image frame/crop spec.
 
-## 实施阶段
+## Implementation phases
 
-1. Schema v12、严格验证、v11→v12 迁移与 manifest 脚本。
-2. 单一 TipTap 文档和 imageGroup atom NodeView。
-3. 上下文属性栏、顶部插入和空白行/页末插入入口。
-4. 图片组简化、导入、排序、整体高度、裁切和删除。
-5. A4 屏幕分页与 PDF 文档顺序适配。
-6. 实际项目备份迁移、视觉复验和完整测试矩阵。
+1. Schema v12, strict validation, v11→v12 migration, and manifest script.
+2. Single TipTap document plus imageGroup atom NodeView.
+3. Context property bar, top insertion, and blank-line / end-of-page insertion entry points.
+4. Image-group simplification, import, ordering, total height, cropping, and deletion.
+5. A4 screen pagination and PDF document-order adaptation.
+6. Real-project backup migration, visual reverification, and full test matrix.
 
-## 验收
+## Acceptance
 
-- 页面中只有一个正文 `contenteditable`。
-- 图片组前后文字共享同一个 ProseMirror 文档。
-- 顶部和页末都能连续插入多个图片组。
-- 选中文字后显示两行 Style 栏；12 种块类型、字号 ±、左中右对齐、加粗、倾斜、下划线、删除线、增加/减少缩进和分层颜色控件全部作用于同一选区。
-- 颜色以当前颜色为入口：可打开 Standard Colors，或由其中的 `More Colors…` 跳转到独立完整色盘。More Colors 不与 Standard Colors 绑定，使用完整 Hue×Saturation 色域、独立 Brightness、RGB 和 HEX，并通过 Apply/Cancel 明确提交或取消。
-- Style 栏没有横向或纵向滚动；点击外部后栏和文字选区同时清除。
-- 文案无组件边框，图片组有独立边框；图片组放不下当前页时整体换页。
-- 图片组不显示名称、标题、介绍或描述。
-- v1-v11 项目升级后文字、图片、caption、crop 和 frame 零丢失。
-- 保存、刷新、撤销/重做、PDF 和项目切换通过。
-- 桌面和 390px 视口无页面级横向溢出。
+- The page contains only one body `contenteditable`.
+- Text before and after image groups shares the same ProseMirror document.
+- Multiple image groups can be inserted continuously from both the top and the page end.
+- Selecting text shows the two-row Style bar; all 12 block types, font-size ±, left/center/right alignment, bold, italic, underline, strikethrough, increase/decrease indent, and layered color controls apply to the same selection.
+- Color uses current color as the entry point: Standard Colors can open, and its `More Colors…` entry jumps to an independent full color panel. More Colors is not coupled to Standard Colors, uses full Hue×Saturation gamut plus independent Brightness, RGB, and HEX, and commits or cancels explicitly through Apply/Cancel.
+- The Style bar has no horizontal or vertical scrolling; clicking outside clears both the bar and the text selection.
+- Text has no component border; image groups do. When an image group does not fit on the current page, it moves as a whole to the next page.
+- Image groups do not show name, title, intro, or description.
+- After upgrading v1-v11 projects, text, images, captions, crop, and frame are preserved with zero loss.
+- Save, reload, undo/redo, PDF, and project switching all pass.
+- Neither desktop nor a 390px viewport shows page-level horizontal overflow.

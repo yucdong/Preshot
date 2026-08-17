@@ -1,40 +1,40 @@
-# picture card设计
+# Picture card design
 
-**状态：** 2026-08-13 新交互已实施并通过验证
-**交互评审：** `docs/design_refs/preshot-picture-card-resize-v2.html`
+**Status:** New interaction implemented and validated on 2026-08-13
+**Interaction review:** `docs/design_refs/preshot-picture-card-resize-v2.html`
 
-1. 图片组和单张图片都通过四条边和四个角的透明热区调整大小；边缘改单轴，角落同时改变宽高。
-2. 图片组与图片区域不使用文字输入光标。图片使用可拖动光标，图片组灰色空白区域使用可拖动光标，缩放热区使用对应 resize 光标。
-3. 图片组属性栏放在图片组右上方，高度压缩为 30px，只保留类型、添加图片和删除图片组；不再提供 `− / px / +` 或其他尺寸按钮。
-4. 不提供任何恢复图片尺寸或恢复原图视图功能；大图弹层只负责查看和关闭。
-5. 图片缩放和拖动必须复用既有 frame/button/img DOM，不得在预览或提交时销毁重建图片节点。
-6. 按住图片可在同一图片组内排序，也可拖到其他图片组；拖动时显示实时插入占位，非法落点取消。
-7. 单击图片同时选中并打开大图；拖动超过阈值后只执行拖动，不误触大图。
-8. 鼠标悬停图片时，在右上区域显示删除按钮；删除按钮与右上角缩放热区错开，点击后必须通过全局确认弹窗才能删除。
-9. 按住图片组灰色空白区域可把整个图片组作为 TipTap 原子块上下移动，与正文块、其他组件或图片组交换文档顺序；轻点灰色区域只选中。
+1. Both image groups and individual images resize through transparent hit zones on all four edges and four corners; edges adjust a single axis, corners adjust width and height together.
+2. Image groups and image areas do not use a text-input cursor. Images use a draggable cursor, blank gray image-group areas use a draggable cursor, and resize hit zones use the corresponding resize cursor.
+3. The image-group property bar sits in the upper-right of the image group, compressed to 30px height, and keeps only type, add image, and delete image group. `− / px / +` or any other size buttons are removed.
+4. Do not provide any reset-image-size or reset-original-view capability. The large-image lightbox only supports viewing and closing.
+5. Image resize and drag must reuse the existing frame/button/img DOM and must not destroy/recreate image nodes during preview or commit.
+6. Holding an image can reorder it within the same image group or move it to another group. Show a live insertion placeholder while dragging; cancel invalid drop targets.
+7. Single-click both selects the image and opens the large image. Once drag distance exceeds the threshold, only drag executes and the large image must not open accidentally.
+8. When hovering an image, show a delete button near the upper-right area. The delete button must stay clear of the upper-right resize zone and must route through the global confirmation dialog before deletion.
+9. Holding the blank gray area of an image group moves the whole group up or down as a TipTap atomic block, swapping document order with text blocks, other components, or other image groups. A light tap on the gray area only selects it.
 
-## 已确认补充
+## Confirmed additions
 
-- 单张图片具有四边和四角透明 resize 热区；边缘改单轴，角落同时改变宽高，不显示蓝色方块或条形。
-- 图片组具有四边和四角透明 resize 热区；边缘改单轴，角落同时改变宽高，组框始终夹在 A4 正文边界内。
-- 图片组扩大且已有图片可放下时不改变图片尺寸；组框缩到放不下时才统一等比缩小图片。
-- 图片接近同组其他图片宽高时吸附，并显示橙色对齐参考线。
-- 单击图片后立即打开完整大图；关闭按钮、点击背景和 `Escape` 均可退出，焦点返回原图片。
-- 图片删除入口显示在图片悬停态和图片属性栏中，二者共用同一个删除确认流程。
-- 图片组属性栏只保留添加和删除操作；图片组和图片尺寸完全由八向拖动热区调整。
-- 单图选择和 resize commit 必须原位更新既有 frame/button/img DOM，不得销毁重建整组图片，避免缩放过程闪烁和图片重新解码。
-- 四边 resize 热区在画布缩放后仍保持可用的屏幕命中宽度，并完全位于图片框内侧，不能被图片组 overflow 裁切。
-- 图片组选中时只加深组背景，不改变边框、阴影或尺寸，也不绘制外层伪元素框。单图选中时保持原边框和阴影，只显示左上两位序号。
-- 图片拖放和图片组文档流拖放均使用移动阈值、原节点悬浮和等尺寸占位，提交后仍使用同一个图片 DOM。
-- 图片内容区域使用手型光标；图片无需预先选中，悬停后四边和四角 resize 热区立即可用，开始缩放时自动选中。
-- 单图四边热区为 20px 内侧命中带，四角为 24×24px；图片层级高于图片组 resize 层，在可操作性和减少误触之间保持平衡。
-- 编辑器全局文字光标不得作用于图片 frame/button/img；图片元素不接管 pointer event，命中统一落到带手型光标的图片按钮。
-- 从上边或左边缩放单图时持久化 frame offset，使被拖动边跟随鼠标、对边保持不动；例如上边向下拖会让图片顶部下移而底边不变。
-- 图片组四边和四角均可调整。上边拖动会在前一文档块与图片组之间的可用空间内向上扩展，并通过持久化组 offset 保持下边不动。
-- 图片组缩放期间不更新组 DOM 或重排图片，只显示轻量尺寸预览框；松手后一次提交最终几何，避免 ResizeObserver、图片布局和分页反复触发造成闪烁。
-- 单图 resize 使用标准 Smart Guides：品牌洋红虚线表达真实边缘/中心位置对齐，虚线尺寸括号和白底标签表达同宽/同高，不再使用黄色实线。
-- 每个轴最多显示一条位置引导；尺寸匹配与位置对齐独立计算，同宽不得错误显示为边缘对齐。
-- 吸附进入阈值为 6 个屏幕像素，已吸附后的释放阈值为 10 个屏幕像素，减少边界附近抖动。
-- 候选图片的边缘、中心和尺寸在 pointerdown 时冻结，避免当前图片 resize 引发 Flex 重排后目标位置跟随移动。
-- resize 优先级为同宽/同高，其次外边缘对齐，再次中心对齐；所有引导和标签在 pointerup/pointercancel 后立即清除。
-- `同宽` 标签使用自身宽度居中于宽度括号，并位于括号下方；`同高` 标签位于高度括号右侧并垂直居中，不使用固定像素猜测标签宽度。
+- A single image has transparent resize hit zones on four edges and four corners; edges resize one axis and corners resize both dimensions, with no blue squares or bars.
+- An image group also has transparent resize hit zones on four edges and four corners; edges resize one axis and corners resize both dimensions, and the group frame always stays inside the A4 text boundary.
+- Enlarging an image group does not change image size as long as the existing images still fit; only when the group shrinks too far are all images uniformly scaled down.
+- When an image size approaches the width/height of nearby images in the same group, it snaps and shows orange alignment guides.
+- Clicking an image immediately opens the full original image. The close button, clicking the backdrop, and `Escape` all exit the viewer, and focus returns to the original image.
+- The image delete entry appears both in hover state and in the image property bar, and both use the same delete-confirmation flow.
+- The image-group property bar keeps only add and delete actions; image-group and image sizes are adjusted entirely through the eight-direction drag hit zones.
+- Single-image selection and resize commit must update the existing frame/button/img DOM in place and must not destroy/recreate the entire image set, preventing flicker and image re-decoding during resize.
+- Edge resize hit zones remain usable after canvas zoom, stay fully inside the image frame, and cannot be clipped by image-group overflow.
+- Selecting an image group only deepens the group background; it does not change border, shadow, or size, and does not draw an outer pseudo-element frame. Selecting a single image keeps its original border and shadow and shows only the two-digit index badge at the top-left.
+- Image drag-and-drop and image-group document-flow drag-and-drop both use movement thresholds, lifted original nodes, and same-size placeholders, while the same image DOM remains in use after commit.
+- The image content area uses a grab cursor. Images do not need to be preselected; on hover, the four-edge and four-corner resize hit zones are immediately available, and starting a resize auto-selects the image.
+- Single-image edge hit zones are 20px inner bands and corner hit zones are 24×24px. The image layer sits above the image-group resize layer to balance usability and accidental-hit prevention.
+- The global text cursor of the editor must never apply to image frame/button/img elements. Images do not take pointer events directly; all hits route to the image button with the grab cursor.
+- Resizing a single image from the left or top persists signed frame offsets so the dragged edge follows the pointer while the opposite edge stays fixed. For example, dragging the top edge downward moves the image top down while the bottom edge stays put.
+- All four edges and four corners of an image group can resize. Dragging the top edge expands upward only into the available space between the previous document block and the image group, and persistent group offset keeps the bottom edge fixed.
+- During image-group resize, the group DOM and image layout are not updated. Only a lightweight size preview frame is shown, and final geometry is committed once on pointer release to avoid flicker from repeated ResizeObserver, image layout, and pagination updates.
+- Single-image resize uses standard Smart Guides: brand-magenta dashed guides express true edge/center positional alignment, while dimension brackets plus `Equal width` / `Equal height` labels express size matches, replacing the old solid yellow lines.
+- At most one positional guide per axis may be shown. Size matching and positional alignment are computed independently, and equal-width matches must not be mislabeled as edge alignment.
+- Snap-entry threshold is 6 screen pixels, and snap-release threshold after entry is 10 screen pixels, reducing jitter near boundaries.
+- Candidate image edges, centers, and dimensions are frozen at pointerdown so flex reflow during resize does not move the target geometry.
+- Resize priority is equal width / equal height first, then outer-edge alignment, then center alignment. All guides and labels clear immediately on `pointerup` / `pointercancel`.
+- The `Equal width` label centers itself beneath the width bracket using its own width; the `Equal height` label sits to the right of the height bracket and is vertically centered, without fixed-pixel guesses about label width.

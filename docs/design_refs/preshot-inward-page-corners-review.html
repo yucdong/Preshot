@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Preshot 页面内向角标与文字边界评审</title>
+  <title>Preshot Inward Page Corners and Text Boundary Review</title>
   <style>
     @font-face { font-family: NotoSC; src: url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
     @font-face { font-family: NotoSC; src: url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
@@ -98,44 +98,44 @@
 <body>
   <div class="app">
     <header class="topbar">
-      <span class="mark">P</span><span class="brand">PRESHOT</span><span class="title">内向角标与文字边界 · 设计评审</span>
+      <span class="mark">P</span><span class="brand">PRESHOT</span><span class="title">Inward Corner Marks and Text Boundary · Design Review</span>
       <span class="spacer"></span>
-      <div class="mode"><span>辅助边界</span><button id="guide-toggle" aria-pressed="false" type="button">显示</button></div>
+      <div class="mode"><span>Guide Boundary</span><button id="guide-toggle" aria-pressed="false" type="button">Show</button></div>
     </header>
     <div class="layout">
       <main class="stage">
         <div class="paper-stack">
-          <article class="paper" aria-label="第 1 页">
-            <span class="corner tl" data-corner="top-left"></span><span class="vertex-label tl">文字边界左上</span>
-            <span class="corner tr" data-corner="top-right"></span><span class="vertex-label tr">文字边界右上</span>
-            <span class="corner bl" data-corner="bottom-left"></span><span class="vertex-label bl">文字边界左下</span>
-            <span class="corner br" data-corner="bottom-right"></span><span class="vertex-label br">文字边界右下</span>
+          <article class="paper" aria-label="Page 1">
+            <span class="corner tl" data-corner="top-left"></span><span class="vertex-label tl">Text boundary top-left</span>
+            <span class="corner tr" data-corner="top-right"></span><span class="vertex-label tr">Text boundary top-right</span>
+            <span class="corner bl" data-corner="bottom-left"></span><span class="vertex-label bl">Text boundary bottom-left</span>
+            <span class="corner br" data-corner="bottom-right"></span><span class="vertex-label br">Text boundary bottom-right</span>
             <div class="text-boundary" data-text-boundary>
-              <div class="text-content" contenteditable="true" role="textbox" aria-label="统一方案正文" spellcheck="false">
-                <h1>夏季小清新人像拍摄经验</h1>
-                <h2>镜头选择</h2>
-                <p>1. 85mm 镜头：特写、远景</p>
-                <p>2. 35mm 镜头：环境人像、半身</p>
-                <h2>服装</h2>
-                <p>夏季常服，草帽等轻量配饰，颜色以清透低饱和为主。</p>
-                <h2>拍摄顺序</h2>
-                <ul><li>先拍窗边近景，确认肤色和高光。</li><li>再拍环境半身，保留背景空间。</li></ul>
-                <h2>拍摄建议</h2>
-                <p>文字只能在四角顶点围成的矩形内排版；到达底边时，下一段整体进入下一页。</p>
+              <div class="text-content" contenteditable="true" role="textbox" aria-label="Unified plan body" spellcheck="false">
+                <h1>Summer Fresh Portrait Shoot Notes</h1>
+                <h2>Lens Selection</h2>
+                <p>1. 85mm lens: close-ups, wide shots</p>
+                <p>2. 35mm lens: environmental portraits, half-body shots</p>
+                <h2>Wardrobe</h2>
+                <p>Summer everyday wear, lightweight accessories such as straw hats, and clear low-saturation colors.</p>
+                <h2>Shoot Sequence</h2>
+                <ul><li>Start with close shots by the window to confirm skin tone and highlights.</li><li>Then shoot half-body environmental portraits while preserving background space.</li></ul>
+                <h2>Shoot Advice</h2>
+                <p>Text can only flow inside the rectangle defined by the four corner tips; once it reaches the bottom edge, the next paragraph moves to the next page as a whole.</p>
               </div>
             </div>
             <span class="page-number">1 / 2</span>
           </article>
-          <div class="page-gap" aria-label="不可编辑页缝"><span>页缝不可输入</span></div>
-          <article class="paper" aria-label="第 2 页">
-            <span class="corner tl" data-corner="top-left"></span><span class="vertex-label tl">文字边界左上</span>
-            <span class="corner tr" data-corner="top-right"></span><span class="vertex-label tr">文字边界右上</span>
-            <span class="corner bl" data-corner="bottom-left"></span><span class="vertex-label bl">文字边界左下</span>
-            <span class="corner br" data-corner="bottom-right"></span><span class="vertex-label br">文字边界右下</span>
+          <div class="page-gap" aria-label="Non-editable page gap"><span>No typing in the page gap</span></div>
+          <article class="paper" aria-label="Page 2">
+            <span class="corner tl" data-corner="top-left"></span><span class="vertex-label tl">Text boundary top-left</span>
+            <span class="corner tr" data-corner="top-right"></span><span class="vertex-label tr">Text boundary top-right</span>
+            <span class="corner bl" data-corner="bottom-left"></span><span class="vertex-label bl">Text boundary bottom-left</span>
+            <span class="corner br" data-corner="bottom-right"></span><span class="vertex-label br">Text boundary bottom-right</span>
             <div class="text-boundary" data-text-boundary>
-              <div class="text-content" contenteditable="true" role="textbox" aria-label="第二页正文" spellcheck="false">
-                <h2>第二页正文</h2>
-                <p>光标从第一页最后一个块继续到这里，但不能停在灰色页缝中。</p>
+              <div class="text-content" contenteditable="true" role="textbox" aria-label="Page 2 body" spellcheck="false">
+                <h2>Page 2 Body</h2>
+                <p>The caret continues here from the last block on page 1, but it cannot stop inside the gray page gap.</p>
               </div>
             </div>
             <span class="page-number">2 / 2</span>
@@ -143,15 +143,15 @@
         </div>
       </main>
       <aside class="review">
-        <h1>本轮确认点</h1>
-        <p>采用 Word 式页角标记：线臂留在文字区外，四个 L 形尖端朝向文档内侧。点击顶部“显示”可查看文字边界与尖端完全重合。</p>
-        <div class="note"><strong>01 · 四尖朝内</strong><span>左上 ┘、右上 └、左下 ┐、右下 ┌。每个 L 形尖端指向正文，线臂从尖端向页边延伸。</span></div>
-        <div class="note"><strong>02 · 尖端定义边界</strong><span>四个尖端组成文字布局矩形。角标本体位于矩形外，正文不会被角标再次内缩。</span></div>
-        <div class="note"><strong>03 · 文字贴齐边界</strong><span>正文可用区域直接从四个尖端定义的边界开始，横向和纵向均不额外扣除角标长度。</span></div>
-        <div class="note"><strong>04 · Word 式分页</strong><span>到达底部角标边界后，下一块进入下一页；页缝不可编辑。</span></div>
+        <h1>This Round's Confirmation Points</h1>
+        <p>Use Word-style page-corner marks: the arms stay outside the text area, and the four L-shaped tips face inward. Click “Show” at the top to see the text boundary align exactly with the tips.</p>
+        <div class="note"><strong>01 · All four tips face inward</strong><span>Top-left ┘, top-right └, bottom-left ┐, bottom-right ┌. Each L-shaped tip points toward the body text, and the arm extends from the tip toward the page edge.</span></div>
+        <div class="note"><strong>02 · Tips define the boundary</strong><span>The four tips define the text-layout rectangle. The corner marks themselves stay outside it, so the body text is not inset a second time.</span></div>
+        <div class="note"><strong>03 · Text aligns directly to the boundary</strong><span>The usable text area starts directly at the boundary defined by the four tips, with no extra horizontal or vertical deduction for the mark length.</span></div>
+        <div class="note"><strong>04 · Word-style pagination</strong><span>Once content reaches the lower-corner boundary, the next block moves to the next page; the page gap is not editable.</span></div>
         <div class="corner-map">
-          <div>┘<small>左上尖端：朝右下</small></div><div>└<small>右上尖端：朝左下</small></div>
-          <div>┐<small>左下尖端：朝右上</small></div><div>┌<small>右下尖端：朝左上</small></div>
+          <div>┘<small>Top-left tip: points down-right</small></div><div>└<small>Top-right tip: points down-left</small></div>
+          <div>┐<small>Bottom-left tip: points up-right</small></div><div>┌<small>Bottom-right tip: points up-left</small></div>
         </div>
       </aside>
     </div>
@@ -161,7 +161,7 @@
     toggle.addEventListener("click", () => {
       const active = toggle.getAttribute("aria-pressed") !== "true";
       toggle.setAttribute("aria-pressed", String(active));
-      toggle.textContent = active ? "隐藏" : "显示";
+      toggle.textContent = active ? "Hide" : "Show";
       document.querySelectorAll(".paper").forEach((paper) => paper.classList.toggle("show-guide", active));
     });
   </script>

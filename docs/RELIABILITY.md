@@ -1,75 +1,157 @@
 # Reliability
 
-## Error Context and Logging
+## Core guarantees
 
-Adapters preserve the operation and original failure when crossing a platform
-boundary. The UI reports actionable errors instead of returning empty
-success-shaped data. `src/shared/logging/logger.ts` emits bounded structured
-JSON and removes sensitive keys such as tokens, data URLs, passwords, and
-authorization values.
+Preshot keeps project data local, wraps native failures with context, and avoids success-shaped fallbacks for workspace, plan, media, and PDF operations.
 
-The canvas provider logs failed background work with context: image batch index,
-capture cleanup, project path retirement, and PDF reveal failures. Expected
-operation errors are shown in the plan workspace; the application error
-boundary is reserved for unexpected rendering failures.
+The main exceptions are intentional and narrow:
 
-## Windows Screen Capture Sessions
+- settings reads recover from absent or corrupt `settings.json` by returning `{}` and letting the TypeScript layer normalize defaults;
+- browser-only adapters exist for tests and Midscene, but production persistence uses Tauri commands.
 
-`ScreenCapture` uses an explicit token lifecycle:
+## Save lifecycle
 
-1. `start_screen_capture` records the current Windows clipboard sequence
-   number under a UUID token, then opens `ms-screenclip:`.
-2. `poll_screen_capture` returns `pending` while the sequence is unchanged.
-   A changed sequence is not accepted until the clipboard supplies an image.
-3. The native command writes the clipboard RGBA image to a token-specific
-   temporary PNG and returns `captured { path }`; it removes that token only
-   after the PNG is written successfully.
-4. `cancel_screen_capture` removes an active token and sends Escape to dismiss
-   the Windows overlay.
+`BlockNoteProjectCanvasProvider` is the active save coordinator for the mounted editor.
 
-The Tauri adapter validates all token and poll shapes and adds start, poll, or
-cancel context to errors. The provider additionally tracks a project token and
-generation. A completion from a cancelled capture, switched project, or stale
-generation cannot import an image or change visible capture state.
+- Loading a project reads the manifest plan, then loads referenced `references/` images and `media/` files.
+- Editing marks the plan as unsaved in memory.
+- A 5-second auto-save timer persists only when the serialized JSON changed.
+- Ctrl/Cmd+S triggers an immediate save.
+- No-op saves are skipped by comparing the current serialized plan with the last persisted snapshot.
 
-After a captured path is returned, it enters the ordinary import pipeline; a
-successful import moves it into `references/`. PNG-write, clipboard, or import
-failures are surfaced with their operation context. A cancellation before a
-capture creates no temporary PNG. If native capture succeeds but the subsequent
-import fails, the temporary source is left for OS cleanup/manual recovery rather
-than being silently treated as a successful import.
+This means save status stays honest: the UI can show unsaved or saving state without pretending data is already durable.
 
-## Image Import Batches
+## Serialized plan mutations
 
-Batch selection is intentionally per-file rather than all-or-nothing. The
-provider updates progress after every file, logs each failure with its index,
-continues later files, and rebases all successful imports onto the latest plan.
-It shows a localized success/failure summary when any file fails. This avoids
-discarding valid imports because one source is unreadable or unsupported.
+`BlockNotePlanService` serializes mutating image/media work through an internal promise queue.
 
-Aspect-ratio measurement is asynchronous and is rebased by file onto every
-matching reference before persistence. Image removal deletes a file only when
-no reference still uses it; deletion failures are logged as warnings after the
-manifest update so the user does not receive a false success for the file
-cleanup.
+That queue protects operations such as:
 
-## Project Retirement and Persistence
+- importing reference images,
+- removing reference images,
+- removing image groups,
+- importing native media,
+- purging detached image groups, and
+- purging detached media files.
 
-Each canvas provider owns a project-scoped persistence snapshot. Metadata
-changes save only when serialized state differs; native image operations and
-rebased completion deltas are serialized through the canvas service queue.
+Mutations are therefore applied in-order instead of racing each other across the same project manifest and file tree.
 
-On project switch or unmount, `ProjectRetirementCoordinator` queues a barrier
-for the retiring project. The provider waits for in-flight imports, image
-measurement, and destructive mutations, then saves the latest rebased
-snapshot. A later mount waits for the relevant retirement barrier before
-loading, preventing an older disk snapshot from overwriting a completed
-operation or leaking a completion into another project.
+## Manifest, settings, and PDF write safety
 
-## Atomic Native Writes
+### Project manifest
 
-The Rust manifest and PDF writers use temporary sibling files followed by
-rename, so a failed write does not replace the previous project manifest or
-PDF. Rust commands return serializable `CommandError` values with stable codes
-and actionable messages; TypeScript adapters retain that context for the
-feature layer.
+The Rust workspace layer writes `.preshotproj` atomically:
+
+1. encode JSON,
+2. write `.preshotproj.tmp`,
+3. rename it into place.
+
+Saving a plan updates `manifest.plan` and refreshes `updatedAt` before that atomic commit.
+
+### Settings
+
+`%USERPROFILE%\.preshot\settings.json` is written through `settings.json.tmp` plus rename. Reading a missing or corrupt file returns an empty object so the app can recover to normalized defaults.
+
+### PDF
+
+The native `save_pdf` command decodes the base64 payload, writes a sibling `*.pdf.tmp`, then renames it to the requested destination. A failed write does not replace the previously saved PDF.
+
+## Schema compatibility and validation
+
+Only schema v14 / document v2 is editable.
+
+- Schema v13 / document v1 is migrated during load and then treated as v14.
+- Older schemas are surfaced as incompatible and are not autosaved, exported, or modified by the editor flow.
+- Malformed stored documents are rejected before persistence.
+
+Validation enforces:
+
+- unique block IDs,
+- valid column nesting,
+- supported native media path shapes,
+- valid `imageGroup` placement, and
+- exact one-to-one mapping between `imageGroup` blocks and `plan.imageGroups`.
+
+## Reference-image and native-media handling
+
+### Reference images
+
+Reference image import copies the selected source file into the project-local `references/` directory.
+
+Current behavior:
+
+- supported types: JPG and PNG,
+- size limit: 16 MiB,
+- sequential project-local naming: `references/0001.<ext>`, `references/0002.<ext>`, ...,
+- original user-selected source file is left untouched.
+
+When the last logical reference to a stored file is removed, the project-local copy is deleted.
+
+### Native media
+
+Native BlockNote media is stored under `media/`.
+
+Current accepted types and limits in Rust are:
+
+- images: `jpg`, `jpeg`, `png`, `gif`, `webp` up to 16 MiB,
+- audio: `mp3`, `wav`, `ogg`, `m4a` up to 64 MiB,
+- video: `mp4`, `webm`, `mov` up to 128 MiB.
+
+Runtime editing may use data URLs returned by the native layer, but persisted plan JSON must keep only relative `media/<file>` paths.
+
+### Detached cleanup
+
+The active provider tracks detached image groups and detached media references while the editor is open. On unmount, it asks the plan service to delete project-local files that are no longer referenced by the active document.
+
+## Path safety
+
+Native path resolution rejects absolute paths and path traversal for stored project assets.
+
+- Reference-image paths must stay inside `references/`.
+- Native-media paths must stay inside `media/`.
+- Canonicalized resolved paths must still point inside the project directory.
+
+This prevents persisted file references from escaping the project boundary.
+
+## Windows screen capture
+
+Screen capture uses a tokenized start/poll/cancel lifecycle:
+
+1. `start_screen_capture` records the current clipboard sequence number and launches `ms-screenclip:`.
+2. `poll_screen_capture` returns `pending` until the clipboard sequence changes and an image is readable.
+3. Once available, Rust writes the clipboard RGBA image to a token-specific PNG in the OS temp directory and returns its path.
+4. The React provider imports that PNG through the normal reference-image pipeline.
+5. The provider calls `discard_screen_capture` to remove the temporary PNG after the import attempt.
+
+If capture is cancelled before completion, `cancel_screen_capture` removes the token and sends Escape to dismiss the Windows capture overlay.
+
+The TypeScript adapter validates the returned shapes and adds operation-specific error context for start, poll, and cancel failures.
+
+## Error context and logging
+
+Infrastructure adapters wrap native failures with clear operation context such as:
+
+- unable to create/open a project,
+- unable to read/save a plan,
+- unable to import/load/remove media,
+- unable to start/poll/cancel screen capture, or
+- unable to save the PDF.
+
+`src/shared/logging/logger.ts` emits structured JSON and intentionally removes sensitive keys such as:
+
+- `coverDataUrl`,
+- `rollbackToken`,
+- `stack`,
+- keys ending in `token`, and
+- keys containing `password`, `secret`, or `authorization`.
+
+Strings, arrays, and nested objects are also truncated to keep logs bounded.
+
+## What reliability docs must track
+
+If you change persistence, media ownership, screen capture, validation, or native error shaping, update this file together with:
+
+- [Architecture](ARCHITECTURE.md)
+- [Testing](TESTING.md)
+- [BlockNote v14 design](design_docs/blocknote_v14_design.md), when accepted interaction behavior changes
+- [UI/UX contract](design_docs/UI_UX_CONTRACT.md), when visible behavior changes

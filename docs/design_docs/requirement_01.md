@@ -1,34 +1,34 @@
-# 卡片箭头排序
+# Card arrow ordering
 
-## 需求
+## Requirements
 
-- 禁止通过鼠标拖动卡片改变组件顺序。
-- 每张卡片左侧画布边缘提供“上移”和“下移”两个图标+文字按钮。
-- 点击一次只在文档数组中移动一个位置；A4 文档流随后自动重新排版和换页。
-- 第一张卡片禁用上移，最后一张卡片禁用下移。
-- 箭头是编辑控件，不进入 PDF 导出。
-- 图片组内部的图片拖拽排序保持不变。
+- Do not allow users to change component order by dragging cards with the mouse.
+- Provide two icon+label buttons on the left canvas edge of each card: "Move up" and "Move down".
+- Each click moves the component by exactly one position in the document array; the A4 document flow then automatically reflows and repaginates.
+- Disable Move up on the first card and Move down on the last card.
+- The arrow controls are editing chrome and must not appear in PDF export.
+- Drag sorting of images inside an image group remains unchanged.
 
-## 交互与可访问性
+## Interaction and accessibility
 
-- 使用 Lucide `ChevronUp` / `ChevronDown` 线性图标，不使用文字箭头或 emoji。
-- 控件默认隐藏；鼠标悬停卡片或键盘焦点进入控件时显示，并展示“上移”“下移”文字。
-- 按钮组必须完全位于组件左边框外侧，不覆盖边框或 resize handle；与边框保持 `2pt` 间距。
-- 单个按钮约 `20pt × 17pt`，使用紧凑图标和文字，不增加 A4 页边距或改变组件内容宽度。
-- 按钮提供中文可访问名称“上移一个位置”“下移一个位置”。
-- 键盘用户可通过 Tab 聚焦并按 Enter/Space 操作。
-- 禁用按钮使用原生 `disabled`，并保持可辨识的弱化状态。
-- 不再渲染组件拖动 handle、抓取光标、拖动 placeholder 或组件 drag overlay。
+- Use Lucide `ChevronUp` / `ChevronDown` line icons, not text arrows or emoji.
+- Hide the controls by default; show them when the user hovers a card or when keyboard focus enters the controls, together with visible "Move up" and "Move down" labels.
+- The button group must stay completely outside the left card border, must not cover the border or resize handle, and must keep a `2pt` gap from the border.
+- Each individual button is approximately `20pt × 17pt`, using compact icon+text styling without increasing A4 page margins or changing component content width.
+- Buttons provide Chinese accessible names meaning "Move up one position" and "Move down one position".
+- Keyboard users can focus the buttons with Tab and activate them with Enter/Space.
+- Disabled buttons use native `disabled` state and remain visually distinguishable.
+- Do not render a component drag handle, grab cursor, drag placeholder, or component drag overlay anymore.
 
-## 数据与历史
+## Data and history
 
-- 复用 `reorderComponent(plan, { id, toIndex })`，数组顺序是唯一纵向顺序来源。
-- 每次点击形成一条结构历史记录，Ctrl+Z/Ctrl+Y 可撤销和重做。
-- 自动保存持久化新顺序；刷新后顺序保持。
+- Reuse `reorderComponent(plan, { id, toIndex })`; array order is the only source of vertical ordering.
+- Each click produces one structural history record so Ctrl+Z/Ctrl+Y can undo and redo it.
+- Autosave persists the new order, and the order stays the same after reload.
 
-## 验收标准
+## Acceptance criteria
 
-- 任意卡片均不能通过 pointer drag 改变顺序。
-- 中间卡片可分别上移/下移一位；首尾边界不会越界。
-- 移动后卡片自动按 A4 规则回流或换页。
-- 图片拖拽、卡片 resize、文本编辑、图片组整体缩放不回归。
+- No card can change order through pointer drag.
+- A middle card can move up or down by one position; first/last boundaries never go out of range.
+- After movement, cards automatically reflow or repaginate under A4 rules.
+- Image drag, card resize, text editing, and whole-image-group scaling do not regress.

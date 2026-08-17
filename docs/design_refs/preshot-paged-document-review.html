@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Preshot 分页连续文档评审</title>
+  <title>Preshot Paginated Continuous Document Review</title>
   <style>
     @font-face { font-family: NotoSC; src: url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
     @font-face { font-family: NotoSC; src: url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
@@ -54,7 +54,7 @@
     .text-flow pre { margin: 8px 0; padding: 9px 11px; border-radius: 4px; background: #f1f2f3; font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; }
     .text-flow blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid #c9cdd2; color: #5f656d; }
     .editable-space { min-height: 245px; padding-top: 6px; color: var(--ink); }
-    .editable-space:empty::before { color: #a3a7ad; content: "这里仍可继续输入文字；图片组已整体移到下一页"; }
+    .editable-space:empty::before { color: #a3a7ad; content: "You can keep typing here; the image group has moved to the next page as a whole"; }
     .page-rule { position: absolute; right: 58px; bottom: 58px; left: 58px; border-top: 1px dashed #e1e3e6; pointer-events: none; }
     .image-group { position: relative; width: 100%; margin: 0 0 20px; padding: 10px; border: 1px solid #aeb4bb; border-radius: 4px; background: #fafbfb; break-inside: avoid; user-select: none; }
     .image-group.selected { border-color: var(--cyan); box-shadow: 0 0 0 2px rgb(7 139 168 / 18%); }
@@ -148,128 +148,128 @@
 <body>
   <div class="app">
     <header class="topbar">
-      <span class="mark">P</span><span class="brand">PRESHOT</span><span class="title">分页连续文档 · 设计评审</span>
-      <span class="spacer"></span><span class="status">交互原型</span>
+      <span class="mark">P</span><span class="brand">PRESHOT</span><span class="title">Paginated Continuous Document · Design Review</span>
+      <span class="spacer"></span><span class="status">Interaction Prototype</span>
     </header>
     <div class="review-layout">
       <main class="stage" id="stage">
-        <div class="insert-row"><button class="insert" type="button">＋ 插入图片组</button></div>
-        <div class="document" id="document" contenteditable="true" role="textbox" aria-label="跨页连续方案正文" spellcheck="false">
-          <section class="paper" aria-label="第 1 页">
+        <div class="insert-row"><button class="insert" type="button">＋ Insert Image Group</button></div>
+        <div class="document" id="document" contenteditable="true" role="textbox" aria-label="Cross-page continuous plan body" spellcheck="false">
+          <section class="paper" aria-label="Page 1">
             <div class="page-content text-flow">
-              <h1 class="document-title">夏季小清新人像拍摄经验</h1>
-              <h2>镜头选择</h2>
-              <p>1. 85mm 镜头：特写、远景</p>
-              <p>2. 35mm 镜头：环境人像、半身</p>
-              <h2>服装</h2>
-              <p>夏季常服，草帽等轻量配饰，颜色以清透低饱和为主。</p>
-              <h2>拍摄顺序</h2>
-              <ul><li>先拍窗边近景，确认肤色和高光。</li><li>再拍环境半身，保留背景空间。</li></ul>
-              <h2>现场备注</h2>
-              <div class="editable-space" id="editable-space"><p>图片组高度超过本页剩余区域，因此整体进入下一页。</p><p id="mixed-size-demo"><span style="font-size:12px">混合字号 12px</span><span style="font-size:20px"> 与 20px 示例</span></p><p><br></p></div>
+              <h1 class="document-title">Summer Fresh Portrait Shoot Notes</h1>
+              <h2>Lens Selection</h2>
+              <p>1. 85mm lens: close-ups, wide shots</p>
+              <p>2. 35mm lens: environmental portraits, half-body shots</p>
+              <h2>Wardrobe</h2>
+              <p>Summer everyday wear, lightweight accessories such as straw hats, and clear low-saturation colors.</p>
+              <h2>Shoot Sequence</h2>
+              <ul><li>Start with close shots by the window to confirm skin tone and highlights.</li><li>Then shoot half-body environmental portraits while preserving background space.</li></ul>
+              <h2>On-site Notes</h2>
+              <div class="editable-space" id="editable-space"><p>The image group is taller than the remaining space on this page, so it moves to the next page as a whole.</p><p id="mixed-size-demo"><span style="font-size:12px">Mixed font size 12px</span><span style="font-size:20px"> and 20px example</span></p><p><br></p></div>
             </div>
             <div class="page-rule" aria-hidden="true"></div><span class="page-number">1 / 2</span>
           </section>
-          <section class="paper" aria-label="第 2 页">
+          <section class="paper" aria-label="Page 2">
             <div class="page-content text-flow">
-              <div class="image-group" id="image-group" contenteditable="false" tabindex="0" role="group" aria-label="参考图片组，3 张图片">
-                <div class="image-group-label"><span>参考图片组</span><span class="keep-badge">整体换页，不拆分</span></div>
+              <div class="image-group" id="image-group" contenteditable="false" tabindex="0" role="group" aria-label="Reference image group, 3 images">
+                <div class="image-group-label"><span>Reference Image Group</span><span class="keep-badge">Move as a whole to the next page, do not split</span></div>
                 <div class="gallery">
-                  <figure><img src="../../resources/city-07.png" alt="街道纵深参考"></figure>
-                  <figure><img src="../../resources/city-08.png" alt="环境留白参考"></figure>
-                  <figure><img src="../../resources/city-09.png" alt="侧逆光参考"></figure>
+                  <figure><img src="../../resources/city-07.png" alt="Street depth reference"></figure>
+                  <figure><img src="../../resources/city-08.png" alt="Environmental negative-space reference"></figure>
+                  <figure><img src="../../resources/city-09.png" alt="Side-backlit reference"></figure>
                 </div>
               </div>
-              <h2>图片组之后仍可继续写</h2>
-              <p class="after-group">正文保持为同一份文档，键盘导航可以越过图片组继续编辑。</p>
+              <h2>You can keep writing after the image group</h2>
+              <p class="after-group">The body text remains one document, and keyboard navigation can move past the image group to continue editing.</p>
             </div>
             <div class="page-rule" aria-hidden="true"></div><span class="page-number">2 / 2</span>
           </section>
         </div>
       </main>
       <aside class="annotation">
-        <h1>本轮确认点</h1>
-        <p>在左侧原型中选择任意文字，或点击参考图片组。点击灰色工作区可清除选择。</p>
-        <div class="note"><strong>01 · 只保留 Canvas 边框</strong><span>文字区域没有卡片、描边和独立容器感。白色 A4 纸张是唯一画布边界。</span></div>
-        <div class="note"><strong>02 · 图片组保留边框</strong><span>参考图片组用轻量 1px 边框表达原子组件；选中时切换为青色状态。</span></div>
-        <div class="note"><strong>03 · 图片组整体换页</strong><span>当图片组放不进当前页剩余空间时，整个组件进入下一页，不能跨页或拆成多行。</span></div>
-        <div class="note"><strong>04 · 空白仍可输入文字</strong><span>图片组换页后，上一页剩余空间仍属于连续正文。点击“现场备注”下方可继续输入。</span></div>
-        <div class="note"><strong>05 · Compact 两行 Style 栏</strong><span>内容自适应宽度，无装饰空白。第一行是块类型、字号、颜色；第二行是字形、标准对齐图标和缩进。</span></div>
-        <div class="note"><strong>06 · 独立完整色盘</strong><span>工具栏显示当前颜色。Standard Colors 与 More Colors 是两个互斥表面；More Colors 独立居中，提供完整色盘和 RGB/HEX。</span></div>
-        <div class="note"><strong>07 · 完整块类型与段落命令</strong><span>支持正文、H1–H6、引用、无序/有序/任务列表、代码块，以及左中右对齐和增加/减少缩进。</span></div>
-        <div class="note"><strong>08 · 混合字号归一</strong><span>12px 与 20px 的混合选区显示 12+；点击 ± 后以最小值计算，并把整个选区统一为新字号。</span></div>
-        <div class="note"><strong>09 · 空白行插入</strong><span>点击任意空白段落，A4 左侧显示 +。菜单当前只有图片组，并在该行位置插入，原空白行继续保留。</span></div>
-        <div class="legend"><i></i><span>带边框区域仅表示图片组，不表示文案框</span></div>
+        <h1>This Round's Confirmation Points</h1>
+        <p>Select any text in the prototype on the left, or click the Reference Image Group. Click the gray workspace to clear the selection.</p>
+        <div class="note"><strong>01 · Keep only the canvas border</strong><span>The text area has no card, outline, or separate-container feel. The white A4 page is the only canvas boundary.</span></div>
+        <div class="note"><strong>02 · Keep a border on the image group</strong><span>Use a light 1px border to express the Reference Image Group as an atomic component; switch to cyan when selected.</span></div>
+        <div class="note"><strong>03 · Move the image group as a whole to the next page</strong><span>When the image group does not fit in the remaining space on the current page, the whole component moves to the next page; it cannot cross pages or break into multiple rows.</span></div>
+        <div class="note"><strong>04 · Blank space remains editable</strong><span>After the image group moves to the next page, the remaining space on the previous page still belongs to the continuous body text. Click below “On-site Notes” to keep typing.</span></div>
+        <div class="note"><strong>05 · Compact two-row style bar</strong><span>The content adapts to width with no decorative empty space. Row 1 contains block type, font size, and color; row 2 contains font style, standard alignment icons, and indentation.</span></div>
+        <div class="note"><strong>06 · Independent full color panel</strong><span>The toolbar shows the current color. Standard Colors and More Colors are two mutually exclusive surfaces; More Colors is centered independently and provides a full color panel plus RGB/HEX.</span></div>
+        <div class="note"><strong>07 · Full block types and paragraph commands</strong><span>Support body text, H1–H6, quotes, unordered/ordered/task lists, code blocks, left/center/right alignment, and increase/decrease indent.</span></div>
+        <div class="note"><strong>08 · Normalize mixed font sizes</strong><span>A mixed 12px/20px selection shows 12+; after clicking ±, use the minimum value as the base and normalize the whole selection to the new size.</span></div>
+        <div class="note"><strong>09 · Insert on blank lines</strong><span>Click any blank paragraph to show a + on the left side of the A4 page. The menu currently contains only the image group, which inserts at that line while keeping the original blank line.</span></div>
+        <div class="legend"><i></i><span>Bordered areas indicate only image groups, not text boxes</span></div>
       </aside>
     </div>
   </div>
-  <button class="blank-line-insert" id="blank-line-insert" data-open="false" aria-expanded="false" aria-haspopup="menu" aria-label="在空白行插入组件" title="在空白行插入组件" type="button">+</button>
-  <div class="component-menu" id="component-menu" data-open="false" role="menu" aria-label="选择组件">
-    <button id="insert-image-group" role="menuitem" type="button">图片组</button>
+  <button class="blank-line-insert" id="blank-line-insert" data-open="false" aria-expanded="false" aria-haspopup="menu" aria-label="Insert component on blank line" title="Insert component on blank line" type="button">+</button>
+  <div class="component-menu" id="component-menu" data-open="false" role="menu" aria-label="Choose component">
+    <button id="insert-image-group" role="menuitem" type="button">Image Group</button>
   </div>
-  <div class="selection-toolbar" id="toolbar" data-open="false" role="toolbar" aria-label="文字样式">
+  <div class="selection-toolbar" id="toolbar" data-open="false" role="toolbar" aria-label="Text styling">
     <div class="toolbar-row">
-      <span class="toolbar-label">层级</span>
-      <select class="select-tool" id="block-level" aria-label="文字层级">
-        <option value="p">正文</option>
-        <option value="h1">一级标题</option><option value="h2">二级标题</option><option value="h3">三级标题</option>
-        <option value="h4">四级标题</option><option value="h5">五级标题</option><option value="h6">六级标题</option>
-        <option value="blockquote">引用</option><option value="ul">无序列表</option><option value="ol">有序列表</option>
-        <option value="taskList">任务列表</option><option value="pre">代码块</option>
+      <span class="toolbar-label">Level</span>
+      <select class="select-tool" id="block-level" aria-label="Text level">
+        <option value="p">Body</option>
+        <option value="h1">Heading 1</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option>
+        <option value="h4">Heading 4</option><option value="h5">Heading 5</option><option value="h6">Heading 6</option>
+        <option value="blockquote">Quote</option><option value="ul">Bulleted List</option><option value="ol">Ordered List</option>
+        <option value="taskList">Task List</option><option value="pre">Code Block</option>
       </select>
-      <span class="divider"></span><span class="toolbar-label">字号</span>
-      <div class="font-stepper" aria-label="字号调整">
-        <button id="font-smaller" type="button" aria-label="减小字号">−</button><output id="font-size">16 px</output><button id="font-larger" type="button" aria-label="增大字号">＋</button>
+      <span class="divider"></span><span class="toolbar-label">Font size</span>
+      <div class="font-stepper" aria-label="Font size adjustment">
+        <button id="font-smaller" type="button" aria-label="Decrease font size">−</button><output id="font-size">16 px</output><button id="font-larger" type="button" aria-label="Increase font size">＋</button>
       </div>
       <span class="divider"></span>
-      <div class="color-control" aria-label="当前文字颜色">
-        <button class="current-color" id="current-color" type="button" aria-label="应用当前文字颜色" title="应用当前文字颜色">A</button>
-        <button class="color-menu-trigger" id="color-menu-trigger" type="button" aria-label="选择文字颜色" title="选择文字颜色">▼</button>
+      <div class="color-control" aria-label="Current text color">
+        <button class="current-color" id="current-color" type="button" aria-label="Apply current text color" title="Apply current text color">A</button>
+        <button class="color-menu-trigger" id="color-menu-trigger" type="button" aria-label="Choose text color" title="Choose text color">▼</button>
       </div>
     </div>
     <div class="toolbar-row">
-      <button class="tool" data-command="bold" type="button" aria-label="加粗"><b>B</b></button>
-      <button class="tool" data-command="italic" type="button" aria-label="倾斜"><i>I</i></button>
-      <button class="tool" data-command="underline" type="button" aria-label="下划线"><u>U</u></button>
-      <button class="tool" data-command="strikeThrough" type="button" aria-label="删除线"><s>S</s></button>
+      <button class="tool" data-command="bold" type="button" aria-label="Bold"><b>B</b></button>
+      <button class="tool" data-command="italic" type="button" aria-label="Italic"><i>I</i></button>
+      <button class="tool" data-command="underline" type="button" aria-label="Underline"><u>U</u></button>
+      <button class="tool" data-command="strikeThrough" type="button" aria-label="Strikethrough"><s>S</s></button>
       <span class="divider"></span>
-      <button class="tool" data-command="justifyLeft" type="button" aria-label="左对齐"><i data-lucide="align-left"></i></button>
-      <button class="tool" data-command="justifyCenter" type="button" aria-label="居中对齐"><i data-lucide="align-center"></i></button>
-      <button class="tool" data-command="justifyRight" type="button" aria-label="右对齐"><i data-lucide="align-right"></i></button>
+      <button class="tool" data-command="justifyLeft" type="button" aria-label="Align left"><i data-lucide="align-left"></i></button>
+      <button class="tool" data-command="justifyCenter" type="button" aria-label="Align center"><i data-lucide="align-center"></i></button>
+      <button class="tool" data-command="justifyRight" type="button" aria-label="Align right"><i data-lucide="align-right"></i></button>
       <span class="divider"></span>
-      <button class="tool" data-command="outdent" type="button" aria-label="减少缩进"><i data-lucide="indent-decrease"></i></button>
-      <button class="tool" data-command="indent" type="button" aria-label="增加缩进"><i data-lucide="indent-increase"></i></button>
+      <button class="tool" data-command="outdent" type="button" aria-label="Decrease indent"><i data-lucide="indent-decrease"></i></button>
+      <button class="tool" data-command="indent" type="button" aria-label="Increase indent"><i data-lucide="indent-increase"></i></button>
     </div>
-    <div class="color-panel" id="color-panel" data-open="false" role="menu" aria-label="标准颜色">
+    <div class="color-panel" id="color-panel" data-open="false" role="menu" aria-label="Standard colors">
       <div class="panel-heading">Standard Colors</div>
       <div class="standard-grid">
-        <button class="color-swatch" data-color="#202329" style="--swatch:#202329" type="button" aria-label="石墨黑"></button>
-        <button class="color-swatch" data-color="#6B6F76" style="--swatch:#6B6F76" type="button" aria-label="中性灰"></button>
-        <button class="color-swatch" data-color="#C2385C" style="--swatch:#C2385C" type="button" aria-label="浆果红"></button>
-        <button class="color-swatch" data-color="#C78218" style="--swatch:#C78218" type="button" aria-label="琥珀色"></button>
-        <button class="color-swatch" data-color="#2E7D4F" style="--swatch:#2E7D4F" type="button" aria-label="松绿色"></button>
-        <button class="color-swatch" data-color="#078BA8" style="--swatch:#078BA8" type="button" aria-label="青蓝色"></button>
-        <button class="color-swatch" data-color="#2457D6" style="--swatch:#2457D6" type="button" aria-label="钴蓝色"></button>
-        <button class="color-swatch" data-color="#7C3AAD" style="--swatch:#7C3AAD" type="button" aria-label="紫罗兰"></button>
-        <button class="color-swatch" data-color="#D92D20" style="--swatch:#D92D20" type="button" aria-label="标准红"></button>
-        <button class="color-swatch" data-color="#F79009" style="--swatch:#F79009" type="button" aria-label="标准橙"></button>
-        <button class="color-swatch" data-color="#84CC16" style="--swatch:#84CC16" type="button" aria-label="标准绿"></button>
-        <button class="color-swatch" data-color="#06B6D4" style="--swatch:#06B6D4" type="button" aria-label="标准青"></button>
-        <button class="color-swatch" data-color="#0EA5E9" style="--swatch:#0EA5E9" type="button" aria-label="标准蓝"></button>
-        <button class="color-swatch" data-color="#1D4ED8" style="--swatch:#1D4ED8" type="button" aria-label="深蓝色"></button>
-        <button class="color-swatch" data-color="#581C87" style="--swatch:#581C87" type="button" aria-label="深紫色"></button>
-        <button class="color-swatch" data-color="#000000" style="--swatch:#000000" type="button" aria-label="纯黑色"></button>
+        <button class="color-swatch" data-color="#202329" style="--swatch:#202329" type="button" aria-label="Graphite Black"></button>
+        <button class="color-swatch" data-color="#6B6F76" style="--swatch:#6B6F76" type="button" aria-label="Neutral Gray"></button>
+        <button class="color-swatch" data-color="#C2385C" style="--swatch:#C2385C" type="button" aria-label="Berry Red"></button>
+        <button class="color-swatch" data-color="#C78218" style="--swatch:#C78218" type="button" aria-label="Amber"></button>
+        <button class="color-swatch" data-color="#2E7D4F" style="--swatch:#2E7D4F" type="button" aria-label="Pine Green"></button>
+        <button class="color-swatch" data-color="#078BA8" style="--swatch:#078BA8" type="button" aria-label="Cyan Blue"></button>
+        <button class="color-swatch" data-color="#2457D6" style="--swatch:#2457D6" type="button" aria-label="Cobalt Blue"></button>
+        <button class="color-swatch" data-color="#7C3AAD" style="--swatch:#7C3AAD" type="button" aria-label="Violet"></button>
+        <button class="color-swatch" data-color="#D92D20" style="--swatch:#D92D20" type="button" aria-label="Standard Red"></button>
+        <button class="color-swatch" data-color="#F79009" style="--swatch:#F79009" type="button" aria-label="Standard Orange"></button>
+        <button class="color-swatch" data-color="#84CC16" style="--swatch:#84CC16" type="button" aria-label="Standard Green"></button>
+        <button class="color-swatch" data-color="#06B6D4" style="--swatch:#06B6D4" type="button" aria-label="Standard Cyan"></button>
+        <button class="color-swatch" data-color="#0EA5E9" style="--swatch:#0EA5E9" type="button" aria-label="Standard Blue"></button>
+        <button class="color-swatch" data-color="#1D4ED8" style="--swatch:#1D4ED8" type="button" aria-label="Deep Blue"></button>
+        <button class="color-swatch" data-color="#581C87" style="--swatch:#581C87" type="button" aria-label="Deep Purple"></button>
+        <button class="color-swatch" data-color="#000000" style="--swatch:#000000" type="button" aria-label="Pure Black"></button>
       </div>
       <button class="more-colors" id="more-colors" type="button">More Colors…</button>
     </div>
   </div>
-  <div class="more-colors-panel" id="more-colors-panel" data-open="false" role="dialog" aria-label="更多颜色">
+  <div class="more-colors-panel" id="more-colors-panel" data-open="false" role="dialog" aria-label="More colors">
     <div class="panel-heading">More Colors</div>
-    <p class="more-colors-copy">完整 RGB 色域 · Hue × Saturation × Brightness</p>
+    <p class="more-colors-copy">Full RGB gamut · Hue × Saturation × Brightness</p>
     <div class="custom-color-layout">
       <div class="spectrum-zone">
-        <div class="spectrum" id="spectrum" role="slider" aria-label="完整色相与饱和度色盘" tabindex="0"><span class="spectrum-marker" id="spectrum-marker"></span></div>
-        <label class="brightness-control"><span>亮</span><input class="brightness-range" id="brightness" type="range" min="0" max="100" value="66" aria-label="明度"><span>暗</span></label>
+        <div class="spectrum" id="spectrum" role="slider" aria-label="Full hue and saturation panel" tabindex="0"><span class="spectrum-marker" id="spectrum-marker"></span></div>
+        <label class="brightness-control"><span>Light</span><input class="brightness-range" id="brightness" type="range" min="0" max="100" value="66" aria-label="Brightness"><span>Dark</span></label>
       </div>
       <div>
         <div class="rgb-fields">
@@ -410,8 +410,8 @@
       const mixed = sizes.length > 1;
       fontSizeOutput.textContent = `${currentFontSize}${mixed ? "+" : " px"}`;
       fontSizeOutput.setAttribute("aria-label", mixed
-        ? `混合字号，最小值 ${currentFontSize} 像素`
-        : `字号 ${currentFontSize} 像素`);
+        ? `Mixed font sizes, minimum value ${currentFontSize}px`
+        : `Font size ${currentFontSize}px`);
       fontSizeOutput.dataset.mixed = String(mixed);
     }
 
@@ -426,7 +426,7 @@
     function applyCommand(command, label) {
       if (!restoreRange()) return;
       document.execCommand(command, false);
-      finishFormat(`${label}已应用`);
+      finishFormat(`${label} applied`);
     }
 
     function applyBlockLevel(level) {
@@ -459,7 +459,7 @@
         item.dataset.checked = "false";
         const label = document.createElement("label");
         label.contentEditable = "false";
-        label.innerHTML = '<input type="checkbox" aria-label="任务完成状态">';
+        label.innerHTML = '<input type="checkbox" aria-label="Task completion state">';
         const content = document.createElement("div");
         content.innerHTML = block.innerHTML;
         item.append(label, content);
@@ -472,7 +472,7 @@
       } else {
         document.execCommand("formatBlock", false, level);
       }
-      finishFormat(`${blockLevel.selectedOptions[0].textContent}已应用`);
+      finishFormat(`${blockLevel.selectedOptions[0].textContent} applied`);
     }
 
     function applyFontSize(nextSize) {
@@ -485,7 +485,7 @@
       });
       fontSizeOutput.textContent = `${currentFontSize} px`;
       fontSizeOutput.dataset.mixed = "false";
-      finishFormat(`字号已调整为 ${currentFontSize}px`);
+      finishFormat(`Font size changed to ${currentFontSize}px`);
     }
 
     function applyColor(color, label) {
@@ -494,7 +494,7 @@
       currentColor = color.toUpperCase();
       currentColorButton.style.setProperty("--current-color", currentColor);
       toolbar.querySelectorAll("[data-color]").forEach((swatch) => swatch.classList.toggle("active", swatch.dataset.color.toLowerCase() === color.toLowerCase()));
-      finishFormat(`${label}已应用`);
+      finishFormat(`${label} applied`);
     }
 
     function clamp(value, minimum, maximum) {
@@ -597,8 +597,8 @@
       group.contentEditable = "false";
       group.tabIndex = 0;
       group.setAttribute("role", "group");
-      group.setAttribute("aria-label", "新图片组，0 张图片");
-      group.innerHTML = '<div class="image-group-label"><span>图片组</span><span class="keep-badge">0 张图片</span></div><div style="display:grid;height:84px;place-items:center;border:1px dashed #c7cbd0;border-radius:3px;color:#777c83;font-size:9px">＋ 添加图片</div>';
+      group.setAttribute("aria-label", "New image group, 0 images");
+      group.innerHTML = '<div class="image-group-label"><span>Image Group</span><span class="keep-badge">0 images</span></div><div style="display:grid;height:84px;place-items:center;border:1px dashed #c7cbd0;border-radius:3px;color:#777c83;font-size:9px">＋ Add Image</div>';
       return group;
     }
 
@@ -632,7 +632,7 @@
       toolbar.dataset.open = "false";
       imageGroup.classList.add("selected");
       window.getSelection()?.removeAllRanges();
-      notify("图片组属性栏将在组件右上显示");
+      notify("The image-group toolbar will appear at the component's top-right corner");
     });
     toolbar.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
@@ -657,7 +657,7 @@
       componentMenu.dataset.open = "false";
       blankLineInsert.setAttribute("aria-expanded", "false");
       positionBlankLineInsert();
-      notify("已在空白行插入图片组");
+      notify("Inserted an image group on the blank line");
     });
     toolbar.querySelectorAll("[data-command]").forEach((button) => button.addEventListener("pointerdown", (event) => {
       event.preventDefault();
@@ -674,7 +674,7 @@
     }));
     currentColorButton.addEventListener("pointerdown", (event) => {
       event.preventDefault();
-      applyColor(currentColor, "当前颜色");
+      applyColor(currentColor, "Current Color");
     });
     colorMenuTrigger.addEventListener("pointerdown", (event) => {
       event.preventDefault();
@@ -695,7 +695,7 @@
     document.getElementById("cancel-color").addEventListener("pointerdown", (event) => { event.preventDefault(); moreColorsPanel.dataset.open = "false"; });
     document.getElementById("apply-color").addEventListener("pointerdown", (event) => {
       event.preventDefault();
-      applyColor(hexFromRgb(rgbFromFields()), "自定义颜色");
+      applyColor(hexFromRgb(rgbFromFields()), "Custom Color");
       moreColorsPanel.dataset.open = "false";
       colorPanel.dataset.open = "false";
     });

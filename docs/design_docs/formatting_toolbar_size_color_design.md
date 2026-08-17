@@ -1,298 +1,298 @@
-# 字号与字体颜色工具栏设计
+# Font size and font color toolbar design
 
-## 状态
+## Status
 
-- 状态：已实施并验证
-- 确认日期：2026-08-10
-- 交互参考：`docs/design_refs/preshot-font-size-dropdown-review.html`
-- 设计方法：`ui-ux-pro-max`，采用其密集工具、键盘可达、渐进披露、无布局位移原则；舍弃不适用于桌面编辑器的营销页与紫色主题建议
+- Status: Implemented and validated
+- Confirmation date: 2026-08-10
+- Interaction reference: `docs/design_refs/preshot-font-size-dropdown-review.html`
+- Design method: `ui-ux-pro-max`, following its compact tools, keyboard reachability, progressive disclosure, and no-layout-shift principles; marketing-page and purple-theme suggestions that do not fit a desktop editor were discarded
 
-## 目标
+## Goal
 
-在不更换 BlockNote、不改变文档 schema 的前提下，将选区工具栏中的字号和字体颜色改造成接近 Microsoft PowerPoint 的紧凑组合控件：
+Without replacing BlockNote or changing document schema, redesign the selection toolbar's font-size and text-color controls into compact composite controls similar to Microsoft PowerPoint:
 
-1. 字号入口从最右侧移动到删除线之后、段落对齐之前。
-2. 字号收起态显示数字和右侧独立小箭头，不显示 `px`。
-3. 字体颜色紧邻字号，显示带当前颜色下划线的 `A` 和右侧独立小箭头。
-4. 颜色箭头首先打开常用主题色板；“更多颜色…”再打开色相盘和精确 RGB 输入。
-5. 所有操作保留当前 ProseMirror 选区，并保持 HTML、自动保存和 PDF 输出一致。
+1. Move the font-size entry from the far right to immediately after strikethrough and before paragraph alignment.
+2. In collapsed state, show the numeric size and a separate small arrow on the right, with no `px` label.
+3. Place font color right next to font size, showing an `A` with the current-color underline plus a separate small arrow on the right.
+4. The color arrow first opens a common theme palette; `More Colors…` then opens a hue board and precise RGB input.
+5. All operations preserve the current ProseMirror selection and keep HTML, autosave, and PDF output consistent.
 
-## 非目标
+## Non-goals
 
-- 不支持字体家族切换。
-- 不支持透明度或 RGBA；纸张和 PDF 使用不透明文字颜色。
-- 不修改 `schemaVersion: 10`、`PlanTextLeaf` 或项目迁移逻辑。
-- 不修改段落类型、对齐、链接、嵌套等 BlockNote 现有行为。
-- 本文原定“不改成常驻卡片栏”已被 `persistent_text_toolbar_design.md` 取代；当前每个文案叶子始终显示独立格式栏。
+- No font-family switching.
+- No alpha or RGBA; paper and PDF use opaque text colors.
+- Do not change `schemaVersion: 10`, `PlanTextLeaf`, or project migration logic.
+- Do not change existing BlockNote behavior for paragraph type, alignment, links, nesting, and similar capabilities.
+- This document originally said "do not convert to a persistent card bar", but that has been superseded by `persistent_text_toolbar_design.md`; every text leaf now always shows its own formatting bar.
 
-## 工具栏顺序
+## Toolbar order
 
-### v12 连续文档更新（2026-08-12）
+### v12 continuous-document update (2026-08-12)
 
-以下规则取代本节原有单行顺序，用于当前 TipTap v12 选区 Style 栏：
+The following rules replace the original single-row order in this section and apply to the current TipTap v12 selection Style bar:
 
-- 工具栏固定两行、无内部滚动。
-- 第一行：块类型、字号减小/当前值/增大、当前颜色分体按钮。
-- 第二行：加粗、倾斜、下划线、删除线、左/中/右对齐、减少/增加缩进。
-- 工具栏使用 `width: max-content` 按实际内容收缩；外边距 4px、控件 gap 1px、图标按钮 26px，不显示冗余分组标签或固定宽度空白。
-- 对齐使用 Lucide AlignLeft/AlignCenter/AlignRight，缩进使用 IndentDecrease/IndentIncrease；不可用相同文本符号表示不同对齐方式。
-- 块类型完整覆盖当前启用且可作用于选区的 TipTap 节点：正文、H1–H6、引用、无序列表、有序列表、任务列表、代码块。
-- 表格、分隔线和图片组是结构插入，不列入块类型下拉。
-- 对齐写入段落/标题 `textAlign`；列表缩进使用 `sinkListItem` / `liftListItem`，引用使用嵌套/取消嵌套。
-- 所有块类型、对齐和缩进命令执行前恢复 ProseMirror Selection，执行后保留选区。
+- The toolbar is fixed to two rows with no internal scrolling.
+- First row: block type, decrease current-size increase, current-color split button.
+- Second row: bold, italic, underline, strikethrough, left/center/right align, decrease/increase indent.
+- The toolbar uses `width: max-content` to shrink-wrap actual content; outer padding is 4px, control gap is 1px, icon buttons are 26px, and redundant group labels or fixed-width blank filler are removed.
+- Alignment uses Lucide AlignLeft/AlignCenter/AlignRight, and indent uses IndentDecrease/IndentIncrease; the same text symbol must not represent different alignments.
+- Block type fully covers the TipTap nodes currently enabled and applicable to the selection: body text, H1-H6, blockquote, unordered list, ordered list, task list, code block.
+- Tables, separators, and image groups are structural insertions and are not included in the block-type dropdown.
+- Alignment writes paragraph/heading `textAlign`; list indent uses `sinkListItem` / `liftListItem`, and blockquotes use nest / unnest semantics.
+- Before executing all block-type, alignment, and indent commands, restore the ProseMirror Selection; after execution, preserve the selection.
 
-浏览器原型已逐项验证 12 种块结构、三种对齐和列表增减缩进；compact 工具栏桌面为 277×68px、390px 为 273×68px，两行无空白填充、无滚动、无页面溢出。交互参考为 `docs/design_refs/preshot-paged-document-review.html`。
+The browser prototype has validated all 12 block structures, three alignments, and list indent/outdent one by one. The compact toolbar measures 277×68px on desktop and 273×68px at 390px; both rows have no blank filler, no scrolling, and no page overflow. The interaction reference is `docs/design_refs/preshot-paged-document-review.html`.
 
-从左到右：
+From left to right:
 
-1. 段落类型
-2. 加粗
-3. 斜体
-4. 下划线
-5. 删除线
-6. 字号组合下拉
-7. 字体颜色组合按钮
-8. 左对齐
-9. 居中
-10. 右对齐
-11. 嵌套 / 取消嵌套
-12. 链接
+1. Paragraph type
+2. Bold
+3. Italic
+4. Underline
+5. Strikethrough
+6. Font-size composite dropdown
+7. Font-color composite button
+8. Align left
+9. Align center
+10. Align right
+11. Nest / unnest
+12. Link
 
-字号与字体颜色属于字符格式，应位于字符样式之后、段落布局之前。两者之间保持 `4px` 间距，并通过前后分隔线与其他工具组建立层级。
+Font size and font color are character formatting and should sit after character styles and before paragraph layout. Keep `4px` spacing between them and use separators before/after them to define visual grouping.
 
-## 字号组合下拉
+## Font-size composite dropdown
 
-### 收起态
+### Collapsed state
 
-- 总高度与现有工具栏按钮一致，视觉高度 `30px`。
-- 数字区域约 `39px`，使用等宽数字。
-- 箭头区域约 `23px`，左侧有一条浅分隔线。
-- 显示 `14`，不显示 `14 px`。
-- 数字区域或箭头区域都可以打开菜单；右侧箭头提供明确下拉暗示。
-- 混合字号选区显示“最小字号+”，例如 12px 与 20px 显示 `12+`；辅助名称必须说明混合状态和最小值。
-- 混合选区执行字号 `+`/`−` 时，以最小字号为基数计算目标值并覆盖整个选区；直接选择字号时同样将整个选区统一为目标值。不得让不同 text node 各自在原字号上增减。
+- Overall visual height matches the existing toolbar buttons at `30px`.
+- The numeric area is about `39px`, using tabular digits.
+- The arrow area is about `23px`, with a faint separator on the left.
+- Show `14`, not `14 px`.
+- Either the numeric area or the arrow area can open the menu; the right arrow provides the explicit dropdown affordance.
+- Mixed-size selections display `minimum+`, for example 12px and 20px show `12+`; the accessible name must explain the mixed state and minimum value.
+- When `+` / `−` is used on a mixed selection, compute the target size from the minimum value and overwrite the whole selection; directly picking a size likewise unifies the full selection to that target. Different text nodes must not increment/decrement relative to their prior individual sizes.
 
-### 菜单
+### Menu
 
-- 单列显示：`10 / 12 / 14 / 16 / 18 / 24`。
-- 当前字号同时使用勾选和较粗字重，不只依赖颜色。
-- 菜单宽约 `86px`，每项高 `29px`。
-- 点击字号立即应用并关闭菜单，焦点返回字号触发器。
-- 不加入任意字号文本输入；本阶段保持已有受控字号集合。
+- Single-column options: `10 / 12 / 14 / 16 / 18 / 24`.
+- The current font size uses both a checkmark and a bolder weight rather than color alone.
+- Menu width is about `86px`, and each item is `29px` high.
+- Clicking a size applies it immediately, closes the menu, and returns focus to the font-size trigger.
+- No arbitrary text input for font size is added; this phase keeps the existing controlled size set.
 
-### 键盘
+### Keyboard
 
-- `Enter` / `Space`：打开菜单。
-- `ArrowDown` / `ArrowUp`：在字号项间循环移动。
-- `Enter`：应用当前聚焦项。
-- `Escape`：不修改内容并关闭，焦点返回触发器。
-- `Tab`：按视觉顺序离开控件，不形成键盘陷阱。
+- `Enter` / `Space`: open the menu.
+- `ArrowDown` / `ArrowUp`: cycle through size items.
+- `Enter`: apply the currently focused item.
+- `Escape`: close without changing content and return focus to the trigger.
+- `Tab`: leave the control in visual order without creating a keyboard trap.
 
-## 字体颜色组合按钮
+## Font-color composite button
 
-### 收起态
+### Collapsed state
 
-- 主按钮显示 `A`，下方 `3px` 色条表示当前或最近一次使用的文字颜色。
-- 主按钮：立即将当前颜色应用到选区。
-- 右侧箭头：打开主题色板。
-- 与字号控件高度、边框、圆角、箭头区域尺寸一致。
-- 选区包含混合颜色时，色条显示最近一次显式选择的颜色；菜单不错误标记某个颜色为当前选区唯一颜色。
+- The primary button shows `A`, with a `3px` color bar below it indicating the current or most recently used text color.
+- Primary button: immediately applies the current color to the selection.
+- Right arrow: opens the theme palette.
+- Height, border, corner radius, and arrow-area size match the font-size control.
+- When the selection contains mixed colors, the color bar shows the most recently explicit chosen color; the menu must not incorrectly mark any one color as the selection's only current color.
 
-### 主题色板
+### Theme palette
 
-第一层色板保持紧凑，提供 10 个不透明主题颜色：
+The first-level palette stays compact and provides 10 opaque theme colors:
 
-- 石墨黑 `#202329`
-- 中性灰 `#6B6F76`
-- 浆果红 `#C2385C`
-- 深红 `#B42342`
-- 琥珀 `#C78218`
-- 松绿 `#2F7D65`
-- 功能青 `#0891B2`
-- 钴蓝 `#2563A9`
-- 鸢尾紫 `#6F56A6`
-- 白色 `#FFFFFF`
+- Graphite black `#202329`
+- Neutral gray `#6B6F76`
+- Berry red `#C2385C`
+- Deep red `#B42342`
+- Amber `#C78218`
+- Pine green `#2F7D65`
+- Functional cyan `#0891B2`
+- Cobalt blue `#2563A9`
+- Iris purple `#6F56A6`
+- White `#FFFFFF`
 
-色板规则：
+Palette rules:
 
-- 使用 `5 × 2` 色块网格，色块约 `22 × 22px`。
-- 当前项使用勾选；每个色块有颜色名称和 HEX 的无障碍名称。
-- 颜色菜单打开时自动关闭字号菜单，反之亦然。
-- 色板底部提供“更多颜色…”。
+- Use a `5 × 2` swatch grid with swatches about `22 × 22px`.
+- The current item uses a checkmark; each swatch has an accessible name containing both human-readable color name and HEX.
+- Opening the color menu automatically closes the font-size menu, and vice versa.
+- The bottom of the palette provides `More Colors…`.
 
-## 更多颜色
+## More Colors
 
-### 渐进披露
+### Progressive disclosure
 
-点击 `More Colors…` 后关闭 Standard Colors，并打开挂载到页面顶层的独立完整颜色选择器。完整色盘不嵌套、不依附标准色面板，也不复用其尺寸或定位。普通用户无需看到 RGB 字段，只有需要精确颜色时才进入该独立表面。
+Clicking `More Colors…` closes Standard Colors and opens a fully independent full-color picker mounted at the page top level. The full panel is not nested in, attached to, or sized/positioned like the standard palette. Ordinary users do not need to see RGB fields until they ask for precise color.
 
-### 面板内容
+### Panel contents
 
-- 桌面面板约 `408px` 宽，窄屏使用 `calc(100vw - 12px)`，独立居中且不改变工具栏或画布布局。
-- 左侧二维色盘横轴一次展示完整 0–360° Hue 彩虹，纵轴控制 Saturation；不能只显示当前 Hue 的单色渐变。
-- 色盘右侧提供独立 Brightness 轴；Hue×Saturation×Brightness 覆盖完整 HSV/RGB 色域。
-- 右侧显示颜色预览。
-- 提供 `R / G / B` 三个数值输入，范围均为 `0–255`。
-- 显示只读 HEX 预览；本阶段不提供 HEX 直接编辑。
-- 底部提供“取消”和“应用”。
-- 不提供 Alpha / 透明度。
+- Desktop panel width is about `408px`; narrow screens use `calc(100vw - 12px)`, centered independently, without changing toolbar or canvas layout.
+- The left 2D color field shows the full 0–360° Hue rainbow across the x-axis at once, with Saturation on the y-axis; it must not collapse into a single-hue gradient.
+- A separate Brightness axis sits to the right of the field; Hue×Saturation×Brightness covers the full HSV/RGB gamut.
+- The right side shows a color preview.
+- Provide numeric `R / G / B` inputs, all in the range `0–255`.
+- Show a read-only HEX preview; direct HEX editing is not provided in this phase.
+- The bottom contains `Cancel` and `Apply`.
+- No Alpha / transparency.
 
-### 值同步与校验
+### Value sync and validation
 
-- 色盘或 Brightness 变化后，同步 RGB、HEX 和预览色。
-- RGB 输入变化后，同步 Hue×Saturation 位置、Brightness、HEX 和预览色。
-- RGB 仅接受整数 `0–255`。
-- 空值、非整数或越界值显示字段级错误，并禁用“应用”；不静默截断，也不修改正文。
-- “取消”、`Escape` 或关闭按钮丢弃草稿，恢复打开前颜色。
-- “应用”将颜色规范化为大写六位 HEX，例如 `#0891B2`，再写入 BlockNote `textColor` 样式。
+- Changes in the color field or Brightness sync RGB, HEX, and preview.
+- Changes in RGB sync Hue×Saturation position, Brightness, HEX, and preview.
+- RGB accepts only integers `0–255`.
+- Empty, non-integer, or out-of-range values show field-level errors and disable `Apply`; do not silently clamp or modify body text.
+- `Cancel`, `Escape`, or the close button discards the draft and restores the pre-open color.
+- `Apply` normalizes the color to uppercase 6-digit HEX such as `#0891B2`, then writes it into BlockNote `textColor` style.
 
-### 完整色盘实现
+### Full-color picker implementation
 
-生产实现优先采用成熟的 React 全色域组件，必须同时支持完整 Hue×Saturation 平面和独立 Brightness，避免手写指针坐标、HSV/RGB 转换和键盘行为。引入前应检查包体积、维护状态和许可证；适配层只向编辑器暴露标准 HEX 字符串。
+Production implementation should prefer a mature React full-gamut component that supports both a full Hue×Saturation plane and an independent Brightness axis, avoiding handwritten pointer math, HSV/RGB conversion, and keyboard behavior. Check bundle size, maintenance state, and license before adoption; the adapter layer should expose only normalized HEX strings to the editor.
 
-若候选依赖不满足要求，则使用原生颜色转换工具和受测的纯函数实现，完整色盘交互仍须具备键盘替代路径，RGB 输入始终是精确操作入口。
+If no dependency meets the requirements, use native color-conversion utilities plus tested pure functions instead; the full-color picker must still provide keyboard alternatives, and RGB input remains the precise-entry path.
 
-## 选区与编辑器行为
+## Selection and editor behavior
 
-所有字号和颜色操作复用当前选区保护机制：
+All font-size and color operations reuse the existing selection-preservation flow:
 
-1. 工具栏 `pointerdown` 捕获阶段保存 TipTap/ProseMirror Selection。
-2. 阻止工具栏控件抢走编辑器焦点。
-3. 命令执行前恢复保存的 Selection。
-4. 字号通过 `fontSize` mark 写入，例如 `14px`。
-5. 颜色通过 TipTap `setColor("#0891B2")` 写入。
-6. 默认颜色操作使用 `unsetColor`，而不是写入伪造的默认色。
-7. 命令完成后焦点返回编辑器或对应触发器，不折叠原选区。
+1. During toolbar `pointerdown` capture, save the TipTap/ProseMirror Selection.
+2. Prevent toolbar controls from stealing editor focus.
+3. Restore the saved Selection before command execution.
+4. Font size writes through `fontSize` mark, for example `14px`.
+5. Color writes through TipTap `setColor("#0891B2")`.
+6. Default-color operations use `unsetColor` rather than writing a fake default color.
+7. After the command finishes, focus returns to the editor or the corresponding trigger, and the original selection is not collapsed.
 
-菜单打开期间只维护一个活动弹层：
+Only one popup layer stays active at a time while menus are open:
 
 - `sizeMenuOpen`
 - `colorMenuOpen`
 - `customColorOpen`
 
-任一状态变为 `true` 时关闭其他两个状态。点击外部、`Escape`、编辑器卸载或选区失效时全部关闭。
+Whenever any one becomes `true`, the other two must close. Clicking outside, `Escape`, editor unmount, or selection invalidation closes all of them.
 
-## 数据与持久化
+## Data and persistence
 
-- 不新增领域字段。
-- BlockNote 继续序列化为 HTML。
-- 字号继续保存为内联 `font-size`。
-- 文字颜色继续保存为内联 `color`。
-- 自定义 RGB 在写入前规范化为 HEX，以减少等价颜色的序列化差异。
-- 自动保存、撤销/重做和项目重载沿用现有 HTML 变更链路。
+- No new domain fields.
+- BlockNote continues to serialize as HTML.
+- Font size continues to persist as inline `font-size`.
+- Text color continues to persist as inline `color`.
+- Custom RGB normalizes to HEX before writing to reduce serialized variance between equivalent colors.
+- Autosave, undo/redo, and project reload continue to use the existing HTML change pipeline.
 
-## PDF 一致性
+## PDF consistency
 
-现有 PDF 链路已经支持本方案：
+The current PDF pipeline already supports this design:
 
-- `htmlToBlocks.ts` 读取内联 `style.color` 和 `style.fontSize`。
-- `pdfTextLayout.ts` 将颜色和字号传递到绘制命令。
-- `canvasPdfExporter.ts` 的 `parseColor` 支持三位/六位 HEX 和 RGB/RGBA 文本。
+- `htmlToBlocks.ts` reads inline `style.color` and `style.fontSize`.
+- `pdfTextLayout.ts` passes color and font size into drawing commands.
+- `canvasPdfExporter.ts` `parseColor` supports 3/6-digit HEX and RGB/RGBA text.
 
-实施时新增任意 RGB 回归测试，验证：
+Implementation should add regression tests for arbitrary RGB and verify:
 
-1. `#0891B2` 在 PDF 中转换为正确的归一化 RGB。
-2. 自定义颜色与字号可同时作用于同一文本 run。
-3. 保存/重载后 HTML 与 PDF 颜色保持一致。
-4. 链接色仍按现有链接规则优先，不被普通文字色破坏。
-5. 完整色盘在 Brightness 100 时可分别产生红、绿、蓝主色，且 RGB `123/45/210` 精确得到 `#7B2DD2`。
+1. `#0891B2` converts to the correct normalized RGB in PDF.
+2. Custom color and font size can both apply to the same text run.
+3. HTML and PDF colors remain consistent after save/reload.
+4. Link color still follows existing link rules and is not broken by ordinary text color.
+5. With Brightness 100, the full-color picker can produce red, green, and blue primary hues respectively, and RGB `123/45/210` yields exactly `#7B2DD2`.
 
-## 组件设计
+## Component design
 
-建议在 `src/features/plan` 内拆分：
+Suggested split under `src/features/plan`:
 
-- `FormattingSelectionGuard` 或等价 hook：保存/恢复 ProseMirror Selection。
-- `FontSizeControl`：字号收起态、菜单和键盘行为。
-- `FontColorControl`：当前颜色、主题色板和快速应用。
-- `CustomColorPanel`：色相盘、RGB 草稿、HEX 预览和校验。
-- `colorValue.ts`：纯函数负责 RGB/HEX 规范化、范围验证和转换。
+- `FormattingSelectionGuard` or equivalent hook: save/restore ProseMirror Selection.
+- `FontSizeControl`: collapsed font-size state, menu, and keyboard behavior.
+- `FontColorControl`: current color, theme palette, and quick-apply action.
+- `CustomColorPanel`: hue field, RGB draft, HEX preview, and validation.
+- `colorValue.ts`: pure functions for RGB/HEX normalization, range validation, and conversion.
 
-这些模块属于富文本编辑特性，不放入 `shared`，不进入 `domain`。`RichTextEditor` 负责组合顺序和把 editor 传给控件。
+These modules belong to the rich-text editing feature and should not go into `shared` or `domain`. `RichTextEditor` is responsible for composition order and passing the editor into the controls.
 
-## 无障碍
+## Accessibility
 
-- 字号使用 `combobox` / `listbox` / `option` 语义，维护 `aria-expanded`、`aria-controls` 和 `aria-activedescendant` 或 roving focus。
-- 字体颜色主按钮与箭头使用不同的可访问名称：“应用当前文字颜色”和“选择文字颜色”。
-- 色块名称包含可读颜色名和 HEX，不只暴露视觉色块。
-- 自定义颜色面板使用命名的 `dialog`，打开后聚焦 `R` 输入或色相盘的键盘替代入口。
-- 关闭后焦点返回颜色箭头。
-- 输入错误使用 `role="alert"` 或 `aria-live`，并通过 `aria-invalid` 关联字段。
-- 焦点环使用功能青，正常文字对比度至少 4.5:1。
-- 所有状态变化不引发布局位移，遵循 reduced motion。
+- Font size uses `combobox` / `listbox` / `option` semantics and maintains `aria-expanded`, `aria-controls`, and `aria-activedescendant` or roving focus.
+- The primary font-color button and its arrow use different accessible names: "Apply current text color" and "Choose text color".
+- Swatch names expose readable color names plus HEX, not just visual swatches.
+- The custom-color panel is a named `dialog`; when opened, focus lands on the `R` input or the keyboard alternative for the hue field.
+- Closing it returns focus to the color arrow.
+- Input errors use `role="alert"` or `aria-live` and connect fields through `aria-invalid`.
+- Focus rings use functional cyan, and ordinary text contrast is at least 4.5:1.
+- State changes must not cause layout shift and should respect reduced motion.
 
-## 视觉规格
+## Visual spec
 
-- 保持现有白色浮动工具栏，不引入紫色或新的主色。
-- 控件圆角 `5px`，工具栏圆角不超过 `8px`。
-- 箭头使用 Lucide `ChevronDown`，不使用字符或 emoji。
-- 弹层使用统一边框和阴影层级。
-- 主题色板约 `146px` 宽；自定义面板约 `244px` 宽。
-- 菜单应自动翻转或平移，保证留在视口和可见 A4 区域内。
-- 参考页在 `1440 × 900` 下验证无横向、纵向溢出。
+- Keep the existing white floating toolbar and do not introduce purple or any new primary color.
+- Control corner radius is `5px`; toolbar corner radius is at most `8px`.
+- Use Lucide `ChevronDown` for arrows, not text characters or emoji.
+- Popups use unified border and shadow elevation.
+- The theme palette is about `146px` wide; the custom panel is about `244px` wide.
+- Menus should auto-flip or translate so they remain inside the viewport and visible A4 area.
+- Validate the reference page at `1440 × 900` with no horizontal or vertical overflow.
 
-## 测试计划
+## Test plan
 
-### 纯函数
+### Pure functions
 
-- RGB 边界：`0`、`255`。
-- 非整数、空值、NaN、越界拒绝。
-- RGB ↔ HEX 转换与大写六位规范化。
-- 色相盘值转换后的 RGB 稳定性。
+- RGB boundaries: `0`, `255`.
+- Reject non-integer, empty, NaN, and out-of-range values.
+- RGB ↔ HEX conversion and uppercase 6-digit normalization.
+- Stability of RGB after color-field value conversion.
 
-### 组件测试
+### Component tests
 
-- 字号控件位于删除线之后、左对齐之前。
-- 颜色控件位于字号之后、左对齐之前。
-- 字号菜单当前项勾选，选择后关闭并恢复焦点。
-- 主题色选择调用 `addStyles`。
-- 主颜色按钮复用最近颜色。
-- “更多颜色…”打开二级面板并关闭主题色板。
-- RGB 错误不提交；有效值提交规范化 HEX。
-- 取消与 Escape 不修改编辑器。
+- The font-size control sits after strikethrough and before align-left.
+- The color control sits after font size and before align-left.
+- The current size item is checked in the size menu, and selecting it closes the menu and restores focus.
+- Theme-color selection calls `addStyles`.
+- The primary color button reuses the recent color.
+- `More Colors…` opens the secondary panel and closes the theme palette.
+- Invalid RGB does not submit; valid values submit normalized HEX.
+- Cancel and Escape do not modify the editor.
 
 ### Playwright
 
-- 单叶文本真实拖选后应用字号和主题颜色。
-- 窄分栏叶子真实拖选后应用加粗、字号和自定义 RGB。
-- 保存状态变化并自动保存。
-- 重载后字号和颜色仍存在。
-- 主题色板与更多颜色面板不被卡片、画布或工具栏裁切。
-- 键盘完整操作字号菜单和 RGB 面板。
-- PDF 导出后无错误，并由 PDF 单元测试验证颜色命令。
+- Real drag-selection on a single-leaf text applies font size and theme color.
+- Real drag-selection in a narrow split leaf applies bold, font size, and custom RGB.
+- Save status changes and autosaves.
+- Font size and color still exist after reload.
+- The theme palette and More Colors panel are not clipped by the card, canvas, or toolbar.
+- Keyboard fully operates the size menu and RGB panel.
+- PDF export finishes without error, and PDF unit tests validate color drawing commands.
 
-## 实施顺序
+## Implementation order
 
-1. 先添加 RGB/HEX 纯函数失败测试。
-2. 实现并验证颜色值规范化。
-3. 添加字号组合下拉组件测试，替换现有字号按钮。
-4. 添加主题色组合按钮测试，替换默认 ColorStyleButton 位置。
-5. 添加更多颜色面板与 RGB 校验测试。
-6. 接入统一 Selection Guard。
-7. 添加单叶和窄分栏 Playwright 回归。
-8. 添加 HTML/PDF 自定义颜色回归。
-9. 跑 `pnpm typecheck`、`pnpm lint`、`pnpm test`、`pnpm test:e2e`、`pnpm build`。
+1. First add failing tests for RGB/HEX pure functions.
+2. Implement and validate color-value normalization.
+3. Add tests for the font-size composite dropdown and replace the existing size button.
+4. Add tests for the theme-color composite button and replace the default `ColorStyleButton` position.
+5. Add tests for the More Colors panel and RGB validation.
+6. Integrate the unified Selection Guard.
+7. Add Playwright regressions for single-leaf and narrow split leaves.
+8. Add HTML/PDF regressions for custom colors.
+9. Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e`, and `pnpm build`.
 
-## 验收标准
+## Acceptance criteria
 
-1. 字号显示在删除线之后、对齐之前，收起态不显示 `px`。
-2. 字号箭头展开固定字号菜单，当前项可识别并支持键盘操作。
-3. 字体颜色位于字号右侧，A 下划线准确显示当前或最近颜色。
-4. 主题色选择、快速复用颜色和更多颜色均能正确作用于当前选区。
-5. 色相盘与 RGB 输入双向同步，RGB 仅接受 `0–255` 整数。
-6. 无透明度设置；写入值统一为六位 HEX。
-7. 加粗、斜体、下划线、删除线、字号、颜色和链接不会因工具栏点击丢失选区。
-8. 保存、撤销/重做、重载和 PDF 导出保持字号与颜色。
-9. 所有菜单无裁切、无页面溢出、无布局位移。
-10. 鼠标、键盘和屏幕阅读器均可完成核心操作。
+1. Font size appears after strikethrough and before alignment, and the collapsed state does not show `px`.
+2. The font-size arrow expands a fixed-size menu where the current item is identifiable and keyboard operable.
+3. Font color is to the right of font size, and the underline below A accurately shows the current or recent color.
+4. Theme-color selection, quick reuse, and More Colors all correctly apply to the current selection.
+5. The hue field and RGB inputs synchronize bidirectionally, and RGB accepts only integers `0–255`.
+6. No transparency setting exists; written values are standardized to 6-digit HEX.
+7. Bold, italic, underline, strikethrough, font size, color, and links do not lose selection because of toolbar clicks.
+8. Save, undo/redo, reload, and PDF export preserve font size and color.
+9. All menus avoid clipping, page overflow, and layout shift.
+10. Mouse, keyboard, and screen readers can all complete the core operations.
 
-## 实施验证
+## Implementation validation
 
-- 字号组合控件已位于删除线之后、对齐之前，收起态显示数字和独立箭头。
-- 字体颜色组合控件已紧邻字号，支持主题色板、最近颜色快速应用、`react-colorful` 色相盘和 RGB `0–255` 精确输入。
-- 自定义颜色通过受测的 RGB/HEX 纯函数规范化；BlockNote 序列化后可能将 HEX 表示为 CSS `rgb(...)`，PDF 解析器已支持该标准形式。
-- 字号与颜色箭头在 `pointerdown` 阶段打开，避免 Tauri WebView 在 `mousedown → click` 之间重算选区并卸载浮层；键盘激活仍通过 click/Enter/Space。
-- 浏览器测试覆盖真实选区的字号、主题颜色、自定义 RGB、自动保存和重载；窄分栏中的选区格式化仍保持正常。
-- 段落、字号、颜色、链接四类二级弹层均覆盖 pointerdown 与完整指针点击；加粗、斜体、下划线、删除线、对齐、嵌套/取消嵌套、段落类型和链接均验证实际内容变更。
-- 段落、字号、颜色、链接弹层均通过 portal 挂载到 `document.body`，不再受 BlockNote 工具栏 `overflow: auto` 裁切；滚动或缩放时跟随触发器，靠近视口边缘时自动翻转或平移。
-- “更多颜色”面板恢复为 244px 宽；实时页面测量为 244×220px，完整显示色板、RGB 字段和操作按钮。
-- 验证：84 Vitest 文件 / 461 测试，47 Playwright 测试，TypeScript 和生产构建通过；ESLint 仅保留既有 ThemeProvider Fast Refresh warning。
+- The font-size composite control now sits after strikethrough and before alignment, and its collapsed state shows the number with a separate arrow.
+- The font-color composite control now sits immediately beside font size and supports a theme palette, quick recent-color apply, a `react-colorful` hue field, and precise RGB `0–255` input.
+- Custom colors normalize through tested RGB/HEX pure functions. After BlockNote serialization, HEX may be represented as CSS `rgb(...)`; the PDF parser already supports that standard form.
+- Font-size and color arrows open during `pointerdown`, avoiding Tauri WebView recomputing selection and unmounting the popup between `mousedown` and `click`; keyboard activation still uses click/Enter/Space.
+- Browser tests cover real selection for font size, theme color, custom RGB, autosave, and reload; formatting in narrow split columns remains correct.
+- Four secondary popups—paragraph, size, color, and link—are all covered for pointerdown and full pointer-click interaction; bold, italic, underline, strikethrough, alignment, nest/unnest, paragraph type, and link all verify real content changes.
+- Paragraph, size, color, and link popups are all portaled to `document.body`, so they are no longer clipped by BlockNote toolbar `overflow: auto`; they follow the trigger on scroll/zoom and auto-flip or translate near viewport edges.
+- The `More Colors` panel has been restored to 244px width; live page measurement is 244×220px and shows the full color field, RGB fields, and action buttons.
+- Validation: 84 Vitest files / 461 tests, 47 Playwright tests, TypeScript, and production build all pass; ESLint retains only the existing ThemeProvider Fast Refresh warning.

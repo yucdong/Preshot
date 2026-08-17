@@ -1,5 +1,3 @@
-import type { CanvasPlanService } from "../../domain/plan/canvas/service";
-
 class ProjectRetirementCoordinator {
   private readonly barriers = new Map<string, Promise<void>>();
   private sequencingTail: Promise<void> = Promise.resolve();
@@ -36,10 +34,10 @@ class ProjectRetirementCoordinator {
   }
 }
 
-const coordinators = new WeakMap<CanvasPlanService, ProjectRetirementCoordinator>();
+const coordinators = new WeakMap<object, ProjectRetirementCoordinator>();
 
 export function getProjectRetirementCoordinator(
-  service: CanvasPlanService,
+  service: object,
 ): ProjectRetirementCoordinator {
   let coordinator = coordinators.get(service);
   if (!coordinator) {

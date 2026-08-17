@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Preshot 常驻文本工具栏设计评审</title>
+<title>Preshot Persistent Text Toolbar Design Review</title>
 <style>
 @font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
 @font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype");font-weight:600 800;font-display:swap}
@@ -26,72 +26,72 @@
 </head>
 <body>
 <div class="app">
-<header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="title">常驻文本工具栏评审</span><span class="badge">推荐方案</span><span class="spacer"></span><span class="saved">设计状态 · 已同步</span></header>
+<header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="title">Persistent Text Toolbar Review</span><span class="badge">Recommended Direction</span><span class="spacer"></span><span class="saved">Design state · synced</span></header>
 <div class="workspace">
 <main class="stage">
   <div class="page-wrap" id="page-wrap">
     <article class="paper">
-      <header class="paper-head"><h1>夏日人像拍摄</h1><span>文本组件 · 常驻格式工具</span></header>
+      <header class="paper-head"><h1>Summer Portrait Shoot</h1><span>Text component · persistent formatting tools</span></header>
       <section class="component" id="component">
-        <button class="component-close" aria-label="删除文案组件" title="删除文案组件">×</button>
+        <button class="component-close" aria-label="Delete text component" title="Delete text component">×</button>
         <div class="leaf-grid">
           <section class="leaf">
-            <div class="leaf-toolbar" role="toolbar" aria-label="正文一格式">
-              <button class="paragraph" id="paragraph-trigger" aria-expanded="true" type="button"><span class="paragraph-label">二级标题</span><span class="type-icon">H2</span><span class="chevron"></span></button>
-              <button class="tool" title="加粗"><b>B</b></button><button class="tool" title="斜体"><i>I</i></button><button class="tool" title="下划线"><u>U</u></button><button class="tool" title="删除线"><s>S</s></button>
-              <span class="size"><b>24</b><button aria-label="选择字号"><span class="chevron"></span></button></span>
-              <button class="tool color-tool" id="color-trigger" aria-expanded="false" aria-label="选择文字颜色" title="文字颜色">A</button><button class="tool active" data-optional="true" title="左对齐">≡</button><button class="tool" data-optional="true" title="添加链接">↗</button><button class="tool more" title="更多格式">···</button>
+            <div class="leaf-toolbar" role="toolbar" aria-label="Text Area 1 Formatting">
+              <button class="paragraph" id="paragraph-trigger" aria-expanded="true" type="button"><span class="paragraph-label">Heading 2</span><span class="type-icon">H2</span><span class="chevron"></span></button>
+              <button class="tool" title="Bold"><b>B</b></button><button class="tool" title="Italic"><i>I</i></button><button class="tool" title="Underline"><u>U</u></button><button class="tool" title="Strikethrough"><s>S</s></button>
+              <span class="size"><b>24</b><button aria-label="Choose font size"><span class="chevron"></span></button></span>
+              <button class="tool color-tool" id="color-trigger" aria-expanded="false" aria-label="Choose text color" title="Text color">A</button><button class="tool active" data-optional="true" title="Align left">≡</button><button class="tool" data-optional="true" title="Add link">↗</button><button class="tool more" title="More formatting">···</button>
             </div>
-            <div class="editor" id="primary-editor" contenteditable="true" spellcheck="false">35mm 人像写真<br><span style="font-size:14px;font-weight:400">自然光 · 清爽蓝白 · 情绪特写</span></div>
+            <div class="editor" id="primary-editor" contenteditable="true" spellcheck="false">35mm Portrait Session<br><span style="font-size:14px;font-weight:400">Natural light · fresh blue-and-white styling · emotional close-ups</span></div>
           </section>
           <section class="leaf secondary">
-            <div class="leaf-toolbar" role="toolbar" aria-label="正文二格式">
-              <button class="paragraph" type="button"><span class="paragraph-label">段落</span><span class="type-icon">T</span><span class="chevron"></span></button>
+            <div class="leaf-toolbar" role="toolbar" aria-label="Text Area 2 Formatting">
+              <button class="paragraph" type="button"><span class="paragraph-label">Paragraph</span><span class="type-icon">T</span><span class="chevron"></span></button>
               <button class="tool"><b>B</b></button><button class="tool"><i>I</i></button><button class="tool"><u>U</u></button><span class="size"><b>14</b><button><span class="chevron"></span></button></span><button class="tool color-tool">A</button><button class="tool more">···</button>
             </div>
-            <div class="editor" contenteditable="true" spellcheck="false">镜头顺序：环境全景、人物互动、情绪特写。<br>逆光时增加白色反光板。</div>
+            <div class="editor" contenteditable="true" spellcheck="false">Lens order: wide environmental shots, subject interaction, emotional close-ups.<br>Add a white reflector in backlit scenes.</div>
           </section>
         </div>
       </section>
     </article>
   </div>
-  <div class="menu" id="type-menu" role="menu" aria-label="段落类型">
-    <button class="menu-item" role="menuitem"><span class="type-icon">T</span><span>段落</span><span></span></button>
-    <button class="menu-item" role="menuitem"><span class="type-icon">H1</span><span>一级标题</span><span></span></button>
-    <button class="menu-item selected" role="menuitem"><span class="type-icon">H2</span><span>二级标题</span><span class="check">✓</span></button>
-    <button class="menu-item" role="menuitem"><span class="type-icon">H3</span><span>三级标题</span><span></span></button>
-    <button class="menu-item" role="menuitem"><span class="type-icon">H4</span><span>四级标题</span><span></span></button>
-    <button class="menu-item" role="menuitem"><span class="type-icon">H5</span><span>五级标题</span><span></span></button>
-    <button class="menu-item" role="menuitem"><span class="type-icon">H6</span><span>六级标题</span><span></span></button>
-    <button class="menu-item" role="menuitem"><span class="type-icon">▸H1</span><span>可折叠一级标题</span><span></span></button>
-    <button class="menu-item" role="menuitem"><span class="type-icon">▸H2</span><span>可折叠二级标题</span><span></span></button>
-    <button class="menu-item" role="menuitem"><span class="type-icon">▸H3</span><span>可折叠三级标题</span><span></span></button>
-    <button class="menu-item" role="menuitem"><span class="type-icon">❞</span><span>引用</span><span></span></button>
-    <button class="menu-item" role="menuitem"><span class="type-icon">•</span><span>无序列表</span><span></span></button>
+  <div class="menu" id="type-menu" role="menu" aria-label="Paragraph type">
+    <button class="menu-item" role="menuitem"><span class="type-icon">T</span><span>Paragraph</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">H1</span><span>Heading 1</span><span></span></button>
+    <button class="menu-item selected" role="menuitem"><span class="type-icon">H2</span><span>Heading 2</span><span class="check">✓</span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">H3</span><span>Heading 3</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">H4</span><span>Heading 4</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">H5</span><span>Heading 5</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">H6</span><span>Heading 6</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">▸H1</span><span>Collapsible Heading 1</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">▸H2</span><span>Collapsible Heading 2</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">▸H3</span><span>Collapsible Heading 3</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">❞</span><span>Quote</span><span></span></button>
+    <button class="menu-item" role="menuitem"><span class="type-icon">•</span><span>Bulleted List</span><span></span></button>
   </div>
-  <div class="color-menu" id="color-menu" role="listbox" aria-label="文字颜色" hidden>
-    <span class="color-title">主题颜色</span>
+  <div class="color-menu" id="color-menu" role="listbox" aria-label="Text color" hidden>
+    <span class="color-title">Theme Colors</span>
     <div class="color-grid">
-      <button class="swatch" style="--swatch:#202329" data-color="#202329" aria-label="石墨黑 #202329" aria-selected="true" role="option"></button>
-      <button class="swatch" style="--swatch:#6B6F76" data-color="#6B6F76" aria-label="中性灰 #6B6F76" aria-selected="false" role="option"></button>
-      <button class="swatch" style="--swatch:#C2385C" data-color="#C2385C" aria-label="浆果红 #C2385C" aria-selected="false" role="option"></button>
-      <button class="swatch" style="--swatch:#C78218" data-color="#C78218" aria-label="琥珀 #C78218" aria-selected="false" role="option"></button>
-      <button class="swatch" style="--swatch:#2F7D65" data-color="#2F7D65" aria-label="松绿 #2F7D65" aria-selected="false" role="option"></button>
-      <button class="swatch" style="--swatch:#0891B2" data-color="#0891B2" aria-label="功能青 #0891B2" aria-selected="false" role="option"></button>
-      <button class="swatch" style="--swatch:#2563A9" data-color="#2563A9" aria-label="钴蓝 #2563A9" aria-selected="false" role="option"></button>
-      <button class="swatch" style="--swatch:#6F56A6" data-color="#6F56A6" aria-label="鸢尾紫 #6F56A6" aria-selected="false" role="option"></button>
-      <button class="swatch" style="--swatch:#B42342" data-color="#B42342" aria-label="深红 #B42342" aria-selected="false" role="option"></button>
-      <button class="swatch" style="--swatch:#FFFFFF" data-color="#FFFFFF" aria-label="白色 #FFFFFF" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#202329" data-color="#202329" aria-label="Graphite Black #202329" aria-selected="true" role="option"></button>
+      <button class="swatch" style="--swatch:#6B6F76" data-color="#6B6F76" aria-label="Neutral Gray #6B6F76" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#C2385C" data-color="#C2385C" aria-label="Berry Red #C2385C" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#C78218" data-color="#C78218" aria-label="Amber #C78218" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#2F7D65" data-color="#2F7D65" aria-label="Pine Green #2F7D65" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#0891B2" data-color="#0891B2" aria-label="Functional Cyan #0891B2" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#2563A9" data-color="#2563A9" aria-label="Cobalt Blue #2563A9" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#6F56A6" data-color="#6F56A6" aria-label="Iris Purple #6F56A6" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#B42342" data-color="#B42342" aria-label="Deep Red #B42342" aria-selected="false" role="option"></button>
+      <button class="swatch" style="--swatch:#FFFFFF" data-color="#FFFFFF" aria-label="White #FFFFFF" aria-selected="false" role="option"></button>
     </div>
-    <div class="color-result" id="color-result" role="status">当前：#202329</div>
+    <div class="color-result" id="color-result" role="status">Current: #202329</div>
   </div>
 </main>
 <aside class="inspector">
-  <header class="inspector-head"><span class="eyebrow">UI/UX PRO MAX · DENSE CREATIVE TOOL</span><h2>常驻、可读、缩放稳定</h2><p>核心格式能力不再依赖 hover；弹层保持 portal，不占文本框布局。</p></header>
-  <section class="section"><h3>预览状态</h3><div class="segments"><button class="active" data-layout="wide">双栏常规</button><button data-layout="narrow">窄文本框</button></div><label class="range"><span>画布缩放</span><input id="zoom" type="range" min="72" max="125" value="100"><output id="zoom-value">100%</output></label></section>
-  <section class="section"><h3>关键尺寸</h3><div class="metric"><b>叶子工具栏</b><span>36px / 常驻</span></div><div class="metric"><b>段落菜单</b><span>220px / 行高 ≥ 36px</span></div><div class="metric"><b>关闭按钮</b><span>18–22px / 右上内嵌</span></div><div class="metric"><b>弹层安全距</b><span>8px / viewport</span></div></section>
-  <section class="section"><h3>实施规则</h3><div class="rule-list"><div class="rule"><strong>01</strong><div><b>工具栏属于叶子</b><p>每个文本框独立常驻，进入布局测量但不进入 PDF。</p></div></div><div class="rule"><strong>02</strong><div><b>窄宽度自动降级</b><p>隐藏文字标签与低频项，保留段落、B/I/U、字号、颜色和更多。</p></div></div><div class="rule"><strong>03</strong><div><b>菜单禁止换行</b><p>图标、标签、勾选三列；标签单行，项目高度按内容计算。</p></div></div><div class="rule"><strong>04</strong><div><b>组件 chrome 独立测量</b><p>关闭按钮锚定外框 rect，不再依赖正文自然高度或内部 padding。</p></div></div></div></section>
-  <div class="decision">推荐：采用“叶子常驻工具栏 + portal 菜单 + 屏幕空间组件按钮”。这比继续修改 BlockNote 选区浮动条更稳定。</div>
+  <header class="inspector-head"><span class="eyebrow">UI/UX PRO MAX · DENSE CREATIVE TOOL</span><h2>Persistent, legible, and zoom-stable</h2><p>Core formatting no longer depends on hover; popovers stay in a portal and do not affect text-box layout.</p></header>
+  <section class="section"><h3>Preview State</h3><div class="segments"><button class="active" data-layout="wide">Two-column default</button><button data-layout="narrow">Narrow text box</button></div><label class="range"><span>Canvas Zoom</span><input id="zoom" type="range" min="72" max="125" value="100"><output id="zoom-value">100%</output></label></section>
+  <section class="section"><h3>Key Measurements</h3><div class="metric"><b>Leaf toolbar</b><span>36px / persistent</span></div><div class="metric"><b>Paragraph menu</b><span>220px / row height ≥ 36px</span></div><div class="metric"><b>Close button</b><span>18–22px / embedded top-right</span></div><div class="metric"><b>Popover safe margin</b><span>8px / viewport</span></div></section>
+  <section class="section"><h3>Implementation Rules</h3><div class="rule-list"><div class="rule"><strong>01</strong><div><b>Toolbar belongs to the leaf</b><p>Each text box keeps its own persistent toolbar, participates in layout measurement, but is excluded from PDF output.</p></div></div><div class="rule"><strong>02</strong><div><b>Auto-degrade at narrow widths</b><p>Hide text labels and low-frequency items, keeping paragraph, B/I/U, font size, color, and more.</p></div></div><div class="rule"><strong>03</strong><div><b>Menus must not wrap</b><p>Use icon, label, and checkmark columns; keep labels single-line and size each row to its content.</p></div></div><div class="rule"><strong>04</strong><div><b>Measure component chrome independently</b><p>Anchor the close button to the outer rect instead of the text body's natural height or internal padding.</p></div></div></div></section>
+  <div class="decision">Recommendation: use “persistent leaf toolbars + portal menus + screen-space component buttons.” This is more stable than continuing to tweak BlockNote's floating selection toolbar.</div>
 </aside>
 </div>
 </div>
@@ -103,7 +103,7 @@ function setMenu(open){menu.hidden=!open;trigger.setAttribute('aria-expanded',St
 function placeColorMenu(){const r=colorTrigger.getBoundingClientRect(),m=colorMenu.getBoundingClientRect(),margin=8,gap=5;const left=Math.min(innerWidth-m.width-margin,Math.max(margin,r.left+(r.width-m.width)/2));let top=r.bottom+gap;if(top+m.height>innerHeight-margin)top=Math.max(margin,r.top-m.height-gap);colorMenu.style.left=`${left}px`;colorMenu.style.top=`${top}px`}
 function setColorMenu(open){colorMenu.hidden=!open;colorTrigger.setAttribute('aria-expanded',String(open));if(open){setMenu(false);requestAnimationFrame(placeColorMenu)}}
 function captureSelection(){const selection=getSelection();if(selection&&selection.rangeCount){const range=selection.getRangeAt(0);if(primaryEditor.contains(range.commonAncestorContainer))savedRange=range.cloneRange()}}
-function applyColor(color){primaryEditor.focus();if(savedRange){const selection=getSelection();selection.removeAllRanges();selection.addRange(savedRange)}document.execCommand('foreColor',false,color);captureSelection();document.documentElement.style.setProperty('--active-color',color);colorResult.textContent=`已应用：${color}`;document.querySelectorAll('.swatch').forEach(item=>item.setAttribute('aria-selected',String(item.dataset.color===color)));setColorMenu(false)}
+function applyColor(color){primaryEditor.focus();if(savedRange){const selection=getSelection();selection.removeAllRanges();selection.addRange(savedRange)}document.execCommand('foreColor',false,color);captureSelection();document.documentElement.style.setProperty('--active-color',color);colorResult.textContent=`Applied: ${color}`;document.querySelectorAll('.swatch').forEach(item=>item.setAttribute('aria-selected',String(item.dataset.color===color)));setColorMenu(false)}
 primaryEditor.addEventListener('mouseup',captureSelection);primaryEditor.addEventListener('keyup',captureSelection);document.addEventListener('selectionchange',captureSelection);colorTrigger.addEventListener('mousedown',event=>event.preventDefault());colorTrigger.addEventListener('click',()=>setColorMenu(colorMenu.hidden));colorMenu.addEventListener('mousedown',event=>event.preventDefault());colorMenu.addEventListener('click',event=>{const swatch=event.target.closest('.swatch');if(swatch)applyColor(swatch.dataset.color)});
 function updateChrome(){const value=Number(zoom.value)/100,target=Math.min(22,Math.max(18,18*value));document.documentElement.style.setProperty('--chrome-size-local',`${target/value}px`);document.documentElement.style.setProperty('--chrome-inset-local',`${Math.min(8,Math.max(4,5*value))/value}px`);document.documentElement.style.setProperty('--chrome-font-local',`${12/value}px`)}
 trigger.addEventListener('click',()=>setMenu(menu.hidden));document.querySelectorAll('[data-layout]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-layout]').forEach(item=>item.classList.toggle('active',item===button));component.classList.toggle('narrow',button.dataset.layout==='narrow');requestAnimationFrame(()=>{placeMenu();placeColorMenu()})}));zoom.addEventListener('input',()=>{document.documentElement.style.setProperty('--zoom',String(Number(zoom.value)/100));zoomValue.value=`${zoom.value}%`;updateChrome();requestAnimationFrame(()=>{placeMenu();placeColorMenu()})});addEventListener('resize',()=>{placeMenu();placeColorMenu()});updateChrome();setMenu(true);

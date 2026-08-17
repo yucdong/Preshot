@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Preshot 文案图片插入 Demo</title>
+  <title>Preshot Text Image Insertion Demo</title>
   <style>
     :root {
       --ink: #202329;
@@ -228,50 +228,50 @@
   <header class="app-header">
     <div class="brand">
       <strong>Preshot</strong>
-      <span class="document-name">小清新人像拍摄 / 文案</span>
+      <span class="document-name">Fresh Portrait Shoot / Copy</span>
     </div>
-    <span class="save-state" id="save-state">已保存</span>
+    <span class="save-state" id="save-state">Saved</span>
   </header>
 
   <main>
-    <section class="stage" aria-label="文案图片插入示例">
-      <div class="toolbar" role="toolbar" aria-label="文字格式">
-        <select class="block-select" id="block-type" aria-label="段落类型" title="段落类型">
-          <option value="p">段落</option>
-          <option value="h1">一级标题</option>
-          <option value="h2">二级标题</option>
+    <section class="stage" aria-label="Text image insertion example">
+      <div class="toolbar" role="toolbar" aria-label="Text formatting">
+        <select class="block-select" id="block-type" aria-label="Paragraph type" title="Paragraph type">
+          <option value="p">Paragraph</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
         </select>
         <span class="separator" aria-hidden="true"></span>
-        <button class="tool-button" data-command="bold" type="button" aria-label="加粗" title="加粗"><strong>B</strong></button>
-        <button class="tool-button" data-command="italic" type="button" aria-label="斜体" title="斜体"><em>I</em></button>
-        <button class="tool-button" data-command="underline" type="button" aria-label="下划线" title="下划线"><u>U</u></button>
+        <button class="tool-button" data-command="bold" type="button" aria-label="Bold" title="Bold"><strong>B</strong></button>
+        <button class="tool-button" data-command="italic" type="button" aria-label="Italic" title="Italic"><em>I</em></button>
+        <button class="tool-button" data-command="underline" type="button" aria-label="Underline" title="Underline"><u>U</u></button>
         <span class="separator" aria-hidden="true"></span>
-        <button class="tool-button" data-command="justifyLeft" type="button" aria-label="左对齐" title="左对齐"><i data-lucide="align-left"></i></button>
-        <button class="tool-button" data-command="justifyCenter" type="button" aria-label="居中" title="居中"><i data-lucide="align-center"></i></button>
-        <button class="tool-button" data-command="insertUnorderedList" type="button" aria-label="无序列表" title="无序列表"><i data-lucide="list"></i></button>
+        <button class="tool-button" data-command="justifyLeft" type="button" aria-label="Align left" title="Align left"><i data-lucide="align-left"></i></button>
+        <button class="tool-button" data-command="justifyCenter" type="button" aria-label="Center" title="Center"><i data-lucide="align-center"></i></button>
+        <button class="tool-button" data-command="insertUnorderedList" type="button" aria-label="Bulleted list" title="Bulleted list"><i data-lucide="list"></i></button>
         <span class="separator" aria-hidden="true"></span>
-        <button class="tool-button accent" id="insert-image" type="button" aria-label="插入图片" title="插入图片"><i data-lucide="image-plus"></i></button>
+        <button class="tool-button accent" id="insert-image" type="button" aria-label="Insert image" title="Insert image"><i data-lucide="image-plus"></i></button>
         <input id="image-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
       </div>
 
       <div class="paper">
-        <article class="editor" id="editor" contenteditable="true" role="textbox" aria-label="拍摄文案" aria-multiline="true" spellcheck="false">
-          <h1>清晨窗边人像</h1>
-          <p>08:10 到达场地。先让模特靠近东侧窗户，保留室内的安静层次，再用白色反光板轻轻补亮眼神光。</p>
-          <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&amp;fit=crop&amp;w=1200&amp;q=88" alt="窗边自然光人像参考">
-          <p class="caption">机位参考：85mm，f/2.0，人物与窗户约 45°。</p>
-          <h2>拍摄备注</h2>
+        <article class="editor" id="editor" contenteditable="true" role="textbox" aria-label="Shoot copy" aria-multiline="true" spellcheck="false">
+          <h1>Morning Window Portrait</h1>
+          <p>Arrive on site at 08:10. First place the model near the east window to preserve the quiet interior layers, then lightly add catchlight with a white reflector.</p>
+          <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&amp;fit=crop&amp;w=1200&amp;q=88" alt="Window natural-light portrait reference">
+          <p class="caption">Camera reference: 85mm, f/2.0, subject about 45° from the window.</p>
+          <h2>Shoot Notes</h2>
           <ul>
-            <li>第一组使用米白针织衫，背景保留窗帘纹理。</li>
-            <li>第二组加入玻璃反射，画面重心放在右侧三分线。</li>
-            <li>每组结束后检查高光与睫毛对焦。</li>
+            <li>Use an off-white knit for the first set and preserve the curtain texture in the background.</li>
+            <li>Add glass reflections in the second set and place the visual center on the right third.</li>
+            <li>After each set, check the highlights and eyelash focus.</li>
           </ul>
         </article>
       </div>
     </section>
   </main>
 
-  <div class="toast" id="toast" role="status" aria-live="polite">图片已插入</div>
+  <div class="toast" id="toast" role="status" aria-live="polite">Image inserted</div>
 
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <script>
@@ -301,7 +301,7 @@
     }
 
     function markChanged() {
-      saveState.textContent = "有未保存更改";
+      saveState.textContent = "Unsaved changes";
       saveState.style.setProperty("color", "#ffd3df");
     }
 
@@ -329,8 +329,8 @@
         const handle = document.createElement("button");
         handle.className = "demo-image-resize";
         handle.type = "button";
-        handle.ariaLabel = "调整图片大小";
-        handle.title = "拖动调整图片大小";
+        handle.ariaLabel = "Resize image";
+        handle.title = "Drag to resize image";
         frame.append(handle);
 
         handle.addEventListener("pointerdown", (event) => {
@@ -353,7 +353,7 @@
             document.removeEventListener("pointermove", move);
             document.removeEventListener("pointerup", finish);
             markChanged();
-            showToast("图片尺寸已更新 · 比例保持不变");
+            showToast("Image size updated · aspect ratio preserved");
           };
           document.addEventListener("pointermove", move);
           document.addEventListener("pointerup", finish);
@@ -422,7 +422,7 @@
       captureRange();
       picker.value = "";
       markChanged();
-      showToast("图片已插入 · 保持原始比例");
+      showToast("Image inserted · original aspect ratio preserved");
     });
 
     document.querySelectorAll(".editor > img").forEach(makeResizable);

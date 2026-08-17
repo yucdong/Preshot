@@ -1,191 +1,154 @@
 # Testing
 
-## Commands
+## Principles
 
-Run these from the repository root on Windows:
+- Add a failing regression test before fixing a defect.
+- Keep domain tests pure and fast.
+- Keep component tests focused on accessible, user-visible behavior.
+- Mock only platform boundaries such as Tauri `invoke`, file pickers, or browser storage.
+- Use Playwright as a browser-shell smoke/integration layer rather than a replacement for unit coverage.
+- Keep Midscene evidence supplementary; it does not replace deterministic assertions.
+- Use the real Simplified Chinese UI strings in tests unless the change intentionally updates localization.
 
-```powershell
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm test:init
-pnpm test:e2e
-pnpm test:e2e:blocknote
-pnpm midscene:proxy
-pnpm midscene:model:verify
-pnpm midscene:smoke
-pnpm test:midscene:web
-pnpm midscene:report:merge
-& $env:ComSpec /c 'call "<VS>\VC\Auxiliary\Build\vcvars64.bat" >nul && cd /d C:\projects\Preshot && cargo test --manifest-path src-tauri\Cargo.toml'
-pnpm build
-```
+## Command matrix
 
-Playwright starts Vite in `e2e` mode and uses Microsoft Edge. It selects the
-browser workspace and canvas adapters, never a live Tauri backend.
+Run commands from the repository root on Windows.
 
-### Midscene Proxy Mode
+### Static checks, unit tests, and build
 
-Midscene uses `gpt-5.6-sol` through the local Responses API proxy at
-`http://localhost:4141/v1`. Because Midscene currently calls Chat Completions,
-start the repository's protocol bridge in a dedicated terminal:
-
-```powershell
-pnpm midscene:proxy
-```
-
-The bridge listens on `http://127.0.0.1:4142/v1`, converts Midscene Chat
-Completions requests to the upstream Responses API, and maps unsupported image
-detail `original` to `high`. It does not log prompts or screenshots.
-
-With the bridge running, verify the model and then run a read-only Preshot
-browser smoke (the app must already be available at port 1420):
-
-```powershell
-pnpm midscene:model:verify
-pnpm midscene:smoke
-```
-
-The smoke report is written under `midscene_run/report/`. Local `.env` and
-Midscene report directories are ignored by Git.
-
-The full plan-text suite creates a unique project per case, records evidence,
-removes the project through the UI, and purges only Midscene-prefixed browser
-storage. The final merged report is generated with `pnpm midscene:report:merge`.
-
-## Verified Matrix
-
-BlockNote v13 migration verification on 2026-08-15:
-
-| Command | Result |
+| Command | Purpose |
 | --- | --- |
-| `pnpm lint` | passed with 0 errors (one existing fast-refresh warning) |
-| `pnpm typecheck` | passed |
-| `pnpm test` | 85 files, 435 tests passed after continuous-canvas migration |
-| `pnpm test:init` | 4 initializer checks passed |
-| `pnpm test:e2e` | 9 unified BlockNote/workspace/layout/theme/PDF journeys passed |
-| `pnpm test:e2e:blocknote` | 2 v13 journeys passed |
-| Rust tests | 48 passed |
-| `pnpm build` | passed with the existing large-chunk warning |
-| `pnpm tauri:build` | passed; MSI produced |
+| `pnpm docs:check` | English-only repository documentation, feature-list JSON parsing, local Markdown links, and stale current-v13/old-name checks. |
+| `pnpm lint` | ESLint for the TypeScript, React, and script code. |
+| `pnpm typecheck` | TypeScript project build in type-check mode. |
+| `pnpm test` | Vitest suite for domain, components, adapters, and utility logic. |
+| `pnpm test:watch` | Vitest watch mode for local TDD. |
+| `cargo test --manifest-path src-tauri\Cargo.toml` | Rust unit tests for Tauri-side commands and helpers. |
+| `pnpm build` | TypeScript build plus Vite production bundle. |
+| `pnpm tauri:build` | Desktop package build. |
 
-Verified on 2026-08-12:
+If Visual Studio tools are not already active in the shell, use **Developer PowerShell for VS 2022** before running Rust or Tauri packaging commands.
 
-| Command | Result |
+## Preshot 0.0.1 verification
+
+The release-hardening matrix completed on 2026-08-17:
+
+- documentation checks passed;
+- ESLint passed with zero warnings;
+- TypeScript passed;
+- 93 Vitest files and 480 tests passed;
+- 4 PowerShell initializer tests passed;
+- 51 Rust tests passed;
+- 15 unified Playwright journeys passed;
+- 8 focused BlockNote v14 Playwright journeys passed;
+- the production web and Tauri builds passed; and
+- the installer was produced as `Preshot_0.0.1_x64_en-US.msi`.
+
+Vite still reports its advisory large-chunk warning for the production bundle.
+
+### Browser-shell tests
+
+| Command | Purpose |
 | --- | --- |
-| `pnpm lint` | passed with 0 errors (one existing fast-refresh warning) |
-| `pnpm typecheck` | passed |
-| `pnpm test` | 88 files, 495 tests passed |
-| `pnpm test:init` | 4 initializer harness checks passed |
-| `pnpm test:e2e` | 25 Playwright tests passed, including 17 v12 canvas UI/UE regressions |
-| `pnpm midscene:model:verify` | text, vision, and AI locate checks passed through the local proxy bridge |
-| `pnpm midscene:smoke` | read-only Preshot `aiAct` passed and generated an HTML report |
-| `pnpm test:midscene:web` | 8 plan-text AI journeys passed across isolated fresh-project runs; all UI cleanup receipts reported zero storage residue |
-| `cargo test --manifest-path src-tauri\Cargo.toml` | 48 Rust tests passed |
-| `pnpm build` | passed (Vite reports the existing large-chunk warning) |
+| `pnpm test:e2e` | Main Playwright suite on `http://127.0.0.1:1420` using Microsoft Edge. |
+| `pnpm test:e2e:blocknote` | Focused BlockNote v14 Playwright suite on `http://127.0.0.1:1430`. |
+| `pnpm test:init` | PowerShell harness for `init.ps1` error handling and Node version boundaries. |
 
-## Coverage by Layer
+### Midscene and AI-assisted checks
 
-### UI/UE Contract Regression
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev:midscene` | Dedicated Vite server for Midscene-driven tests. |
+| `pnpm midscene:proxy` | Start the local bridge that translates Midscene Chat Completions traffic to the Responses API. |
+| `pnpm midscene:model:verify` | Verify the configured Midscene model pipeline. |
+| `pnpm midscene:smoke` | Run the read-only Midscene smoke against a running app. |
+| `pnpm test:midscene:web` | Serialized Midscene browser suite from `e2e-midscene/`. |
+| `pnpm midscene:report:merge` | Merge Midscene text/HTML reports under `midscene_run\report`. |
 
-`docs/design_docs/uiue.md` is the required UI/UE regression index. Every
-accepted interaction has a stable UIUE ID and maps to one or more deterministic
-component or Playwright tests. A UI/UE change is incomplete until the contract,
-implementation, mapped tests, and affected architecture/design documentation
-are updated together. When expected behavior changes, update the requirement
-first and then change the test; do not merely loosen geometry or visibility
-assertions to make an old implementation pass.
-
-Use React Testing Library for accessible local states and close/cancel behavior.
-Use Playwright for selection, outside-pointer dismissal, responsive geometry,
-page-relative scaling, persistence, and cross-feature workflows. Midscene may
-add visual evidence for interactions that require judgment, but it does not
-replace deterministic assertions. The current mapping is maintained in the
-UI/UE contract rather than duplicated here.
+## Coverage by layer
 
 ### Domain
 
-The schema-v12 canvas tests cover migration from legacy payloads, strict marker
-integrity, visual-order flattening of recursive text, canonical document HTML,
-and per-image frame/crop metadata preservation.
-`engine.test.ts` covers reference pagination, including the regression that
-moves a late component when no complete first image row fits while preserving
-normal top-of-page and fitting-row behavior.
+Domain tests cover pure behavior such as:
 
-`referenceLayout`, caption sizing, naming, history, drop-target, and service
-tests cover pure image slots, independent captions, description visibility,
-drag targets, persistence boundaries, and no-op identity behavior without
-browser or Tauri mocks.
+- BlockNote v14 schema validation,
+- v13-to-v14 migration,
+- block nesting and image-group invariants,
+- extraction of referenced `media/` files,
+- image-group geometry and crop helpers,
+- PDF layout primitives,
+- workspace registry behavior, and
+- settings normalization.
 
-### Components
+Prefer domain tests when the bug can be reproduced without React or Tauri.
 
-React Testing Library tests assert accessible UI behavior:
+### React components and feature providers
 
-- component frames expose all four resize edges;
-- image tiles render four direct-size handles above caption editors and expose
-  reset only for a custom `displayHeight`;
-- reference views keep toolbar and final-slot import/capture actions, hide only
-  the group description, and preserve independent caption editing;
-- `ProjectCanvasProvider` covers capture cancellation, partial batch-import
-  reporting, retirement/rebase persistence, and image-ratio hydration.
+Component tests cover user-visible behavior for:
 
-### Adapters and PDF
+- the workspace launcher, project rail, and project cards,
+- app-shell resizing and focus mode,
+- settings interactions,
+- save-state UI,
+- the BlockNote editor wrapper,
+- image-group block behavior, and
+- the reference-image lightbox.
 
-Tauri/browser adapter tests validate command names, payloads, result shapes,
-and contextual failures. Browser seed tests assert canonical schema-v12
-document HTML, matching image-group markers, and deterministic image IDs.
+Use React Testing Library and assert via roles, labels, visible text, and interaction outcomes.
 
-PDF tests use real pdf-lib fonts and generated PNGs. They cover hidden
-descriptions, independent captions, exact image slots, continuation fragments,
-and scale `0.5`, `1`, and `2` for component geometry, reference imagery,
-component titles, rich-text sizes/line heights, and caption sizes. Image-view
-tests additionally cover centered-cover migration, normalized crop validation,
-source-pixel mapping, focal-point preservation, and crop-aware PDF bitmaps.
+### Infrastructure adapters
+
+Adapter tests validate:
+
+- Tauri workspace/plan/settings/screen-capture/PDF adapters,
+- browser test adapters used by memory and Midscene modes,
+- argument shaping for narrow native commands, and
+- logging/sanitization helpers.
+
+These tests should confirm boundary contracts without re-testing the pure domain logic underneath them.
 
 ### Rust
 
-Rust unit tests cover atomic manifest/PDF writes, image import and removal,
-workspace manifests, settings, and the Windows capture helper. Capture tests
-cover token lifecycle, PNG writing, and invalid RGBA rejection without opening
-the screen-snipping UI.
+Rust unit tests cover:
 
-### Browser Smoke
+- project creation and inspection,
+- manifest reading and migration from `.preshot` to `.preshotproj`,
+- manifest plan save/load,
+- reference-image import/load/remove,
+- native media import/load/remove,
+- settings read/write behavior,
+- PDF atomic writes, and
+- Windows screen-capture helpers.
 
-The focused Playwright suite verifies canonical v12 loading, one unrestricted
-document, resizable atomic image groups, page-relative contextual toolbar
-geometry, selection-only visibility, outside-pointer dismissal, centered wheel
-zoom, top/page-end insertion, image import and group scaling, atomic deletion,
-HTML persistence, Word-style four-corner pages, inert page gaps, unified
-title-free editing, PDF export, workspace navigation, settings, and undo/redo.
-The focused `PagedCanvasSurface` component regression additionally fixes the
-corner mapping and verifies that each inward-pointing vertex lands on the text
-boundary while its line arms remain outside it.
+### Playwright
 
-The focused `PlanCanvas` document-mode regression covers image selection,
-invisible four-edge/four-corner image and group resize zones, dual-axis image
-resize, image-toolbar-only deletion, source lightbox opening, group frame resize,
-`− / px / +` group scaling, and contextual-toolbar dismissal on wheel.
-`ReferenceImageLightbox` coverage verifies reset-before-close ordering and focus
-restoration to the originating image.
-The matching browser journey also locks selection styling: group background
-changes while group/image borders, shadows, and geometry remain unchanged; the
-group has no selection pseudo-frame, and the selected image shows its number.
-Browser-level canvas coverage retains import, wrapping, persistence, atomic
-group deletion, pagination, and PDF export journeys.
+`pnpm test:e2e` exercises the browser-shell path used for smoke coverage. It starts Vite in `e2e` mode, uses Microsoft Edge, and validates top-level workflows such as workspace loading, project opening, editor presence, and related UI flows.
 
-The independent BlockNote v13 Playwright configuration runs on port 1430 with
-the same production BlockNote canvas. It covers new-project JSON editing, slash-menu
-image-group insertion, image import, eight-way image/group handles, image
-resize/reorder, standard side-menu duplication/deletion, autosave, JSON PDF
-export, and schema-v12 incompatibility.
+`pnpm test:e2e:blocknote` is the focused browser suite for the current v14 editor surface. Use it when changing BlockNote document behavior, image groups, columns, native media, or PDF-adjacent editing flows.
 
-The v13 layout regression asserts that the editor has exactly one continuous
-document surface and no `canvas-page-background` elements. Adding blocks grows
-the document and the middle workspace scrolls; PDF pagination is tested only in
-the exporter.
+### Midscene
 
-## Expectations
+Midscene tests are intentionally slower and serialized (`maxWorkers: 1`, no file parallelism). Use them when you need AI-assisted browser evidence beyond deterministic Playwright assertions.
 
-Add a failing regression before fixing a defect. Use the smallest focused test
-first, then run the affected matrix. Keep domain tests free of platform mocks,
-component tests user-visible and accessible, and Playwright limited to
-cross-feature smoke flows rather than duplicating unit coverage.
+## Documentation-linked behavior
+
+The editor interaction contract lives alongside the design docs:
+
+- [BlockNote v14 design](design_docs/blocknote_v14_design.md)
+- [UI/UX contract](design_docs/UI_UX_CONTRACT.md)
+
+When accepted behavior changes, update the implementation, the relevant tests, and those references together.
+
+## Recommended test selection
+
+- Small pure-logic change: run the smallest affected Vitest file first.
+- Adapter-only change: run the matching adapter tests plus the nearest smoke coverage.
+- Editor UI change: run the focused component tests first, then `pnpm test:e2e:blocknote` if behavior crosses browser/editor boundaries.
+- Native command change: run the Rust unit tests that cover that command, then the affected TypeScript adapter tests.
+- Documentation-only change: application test runs are optional unless you changed behavior claims; validate the edited document links instead.
+
+## Non-goals
+
+- Do not use broad snapshot coverage for dynamic editor, image layout, or PDF output.
+- Do not replace deterministic browser assertions with Midscene-only evidence.
+- Do not “fix” failing tests by loosening accepted behavior without updating the documented contract.

@@ -1,208 +1,192 @@
 # Architecture
 
-## Goals
+## Scope
 
-Preshot is a Windows-first desktop application for local photography planning.
-It keeps platform-independent rules in TypeScript domain code and puts native
-filesystem, dialog, PDF-save, and capture work behind narrow Tauri adapters.
+Preshot is a Windows-first desktop application for local photography planning. The shipping desktop path already covers project creation/opening, a BlockNote-based plan editor, project-local media management, persisted settings, and PDF export.
 
 ```text
-React UI -> domain use case -> domain port -> infrastructure adapter -> Tauri
+Workspace launcher / app shell
+  -> BlockNote project canvas provider
+  -> domain plan service
+  -> infrastructure adapter
+  -> Tauri command
+  -> Rust filesystem / dialog / OS integration
 ```
 
-`src/domain` never imports React, browser APIs, Tauri, or infrastructure.
-Direct `@tauri-apps/api` imports are confined to `src/infrastructure`; Rust
-commands serialize OS work only and do not contain UI or planning rules.
+The mounted editor path in the app is `BlockNoteProjectCanvasProvider`; legacy canvas modules remain in the repository for compatibility, migration support, and shared layout logic, but they are not the primary UI route.
 
-## Areas
+## Layers
 
-- `src/app`: dependency composition, workspace lifecycle, shell, settings, and
-  error boundary.
-- `src/features`: canvas/editor UI, interactions, image import progress, and
-  project-retirement orchestration.
-- `src/domain`: workspace and schema-v12 canvas models, pure layout/reducers,
-  migration, and ports.
-- `src/infrastructure`: Tauri and browser implementations of those ports.
-- `src-tauri`: filesystem, PDF, screen-capture, menu, and settings commands.
+- `src/app`: dependency composition, theme provider, workspace provider, and shell layout
+- `src/features`: workspace launcher, settings UI, assistant preview UI, BlockNote editor, image-group UI, and save status
+- `src/domain`: pure workspace/settings/plan models, services, ports, validation, migration, crop, and layout helpers
+- `src/infrastructure`: Tauri/browser adapters, file dialogs, PDF exporter, and persistence wiring
+- `src-tauri`: serializable native commands for project management, plan persistence, media import/load/remove, PDF save, reveal, settings, and screen capture
 
-## Workspace and Project Storage
+## Application flow
 
-`workspace.json` in AppData records recent projects. Each project directory has
-a `.preshot` manifest containing project identity and the optional plan. The
-workspace service serializes mutations; unavailable manifests remain visible
-for recovery but cannot be opened as a project.
+1. `WorkspaceProvider` loads recent projects and auto-opens the most recently edited available project.
+2. `AppShell` renders the resizable project rail, center workspace, settings access, focus mode, and assistant preview panel.
+3. `Workspace` mounts `BlockNoteProjectCanvasProvider` for the active project.
+4. `BlockNoteProjectCanvasProvider` loads the plan through `BlockNotePlanService`, then loads referenced `references/` images and `media/` files.
+5. `BlockNoteDocumentEditor` owns the live BlockNote instance; the provider reconciles its serialized document with `plan.imageGroups` and runtime-loaded media URLs.
+6. PDF export goes through `createBlockNotePdfExporter`, then the PDF save target opens a native save dialog and calls the Rust `save_pdf` command.
 
-Production now creates schema-v14 BlockNote canvas plans. The canonical v14
-document is strict JSON (`document.format = "preshot-blocks"`, document version
-2), supports `columnList` / `column` rows, and stores image-group metadata
-separately in `imageGroups`. Schema v13 plans are migrated atomically to v14;
-older schema v1-v12 plans are returned as an explicit incompatible load result
-and are never opened, autosaved, exported, or modified.
+Browser-only adapters exist for tests and Midscene-driven workflows, but production wiring uses the Tauri adapters.
 
-Legacy canvas plans were migrated at the manifest boundary to `schemaVersion: 12`.
-Earlier schemas are accepted only as migration input. In strict v12,
-`documentHtml` is the sole source of text and image-group order, while
-`components` contains only reference/image-group metadata. Every image-group
-marker must match exactly one component record and vice versa. Reference image
-records preserve source dimensions, frame geometry, captions, and normalized
-crop independently of the HTML marker.
+## Persistence model
 
-## Legacy Schema v12 Continuous Document
+### Workspace metadata
 
-Schema-v12 historically used one TipTap 3 editor behind the shared `RichTextEditor`
-contract. Text blocks and resizable atomic image-group nodes share one
-ProseMirror document, so text can continue before, between, and after image
-groups without separate frames. Top-level nodes provide pagination boundaries;
-editor serialization persists stable image-group markers rather than runtime
-NodeView DOM or data URLs.
+Workspace recents are stored through the Tauri Store plugin in `workspace.json` with schema version 1. Each record tracks the project ID, path, cover reference, availability, timestamps, and `lastOpenedAt`.
 
-The editor is visually paged like a word processor. Each A4 background exposes
-four printable-area corner marks; page-gap overlays sit above the continuous
-ProseMirror surface so a caret cannot be placed between pages. Pagination uses
-ProseMirror decorations to move keep-together blocks and view-fit oversized
-blocks without changing canonical HTML. `ProjectPlan.title` remains project
-metadata only: canonical v12 canvas and PDF do not render a separate title
-input or title band. A visible document title is ordinary H1/H2 content inside
-`documentHtml`.
+### Project manifest
 
-The A4 document is horizontally centered in its scroll viewport. Wheel zoom
-uses the page center horizontally and preserves the vertical interaction point.
-Contextual toolbars are portaled to `document.body` for reliable viewport
-positioning, then explicitly scaled by the current A4 scale. A text toolbar is
-visible only for a non-empty text selection; outside pointer input collapses
-the selection and closes contextual UI.
+Each project directory contains `.preshotproj`. The manifest has `schemaVersion: 1` and currently stores:
 
-Image-group records contain:
+- project identity and timestamps,
+- an optional `coverImage`, and
+- an optional `plan` JSON payload.
 
-- a rich-text `description` and `showDescription`; hiding it removes it from
-  the canvas and PDF while preserving its stored content;
-- a shared `imageHeight`;
-- image records with aspect ratio, an optional independent `caption`, and an
-  optional `displayHeight`, source dimensions, and normalized crop.
+Legacy `.preshot` manifests are still accepted on read. When one is found, Rust rewrites it as `.preshotproj` and removes the old filename on a best-effort basis.
 
-`displayHeight` is a per-image override bounded by the group image height.
-Dragging any image edge changes that image only and recalculates its crop while
-preserving the current focal point. Adjustment mode pans the crop without
-activating image reorder. Reset restores the source ratio and full-image crop.
-Captions are independent per-image editors, not a group-level visibility
-toggle. Caption bands are calculated with the same slot model used by screen
-and PDF output.
+### Plan schema
 
-Image-group pagination keeps each image intact and may break only between image
-rows. The screen and PDF both resolve marker order through `documentHtml` and
-render frame/crop geometry from the matching image-group record.
+The active editable plan is schema v14:
 
-## Schema v14 BlockNote Document
+```json
+{
+  "schemaVersion": 14,
+  "title": "...",
+  "document": {
+    "format": "preshot-blocks",
+    "version": 2,
+    "blocks": []
+  },
+  "imageGroups": []
+}
+```
 
-New projects use one BlockNote editor with native paragraph, H1-H3, list,
-checklist, toggle, quote, code, table, divider, formatting toolbar, slash menu,
-side menu, undo/redo, and block drag behavior. Font-size and H4-H6 parity are
-not part of v14.
+The v14 document is validated in TypeScript before persistence. Key invariants:
 
-The custom `imageGroup` block has no editable content and stores only a
-primitive `groupId`. Its React renderer resolves frame/crop/image metadata from
-the plan's `imageGroups` collection. Image groups may be top-level or direct
-children of `column` blocks. Internal image pointer regions use
-`bn-drag-exclude` so image DnD/resize does not start BlockNote block drag.
+- block IDs must be unique,
+- `columnList` blocks are top-level only,
+- `column` blocks may only exist under `columnList`,
+- `imageGroup` blocks may be top-level or direct children of a `column`, and
+- every image-group ID must appear exactly once in `document.blocks` and exactly once in `plan.imageGroups`.
 
-The GPL-3.0 `@blocknote/xl-multi-column` extension adds `columnList` and
-`column` structures, adjustable flex-weight widths, and two-/three-column slash
-commands. Preshot's pointer drag detects left/right block edges to create or
-extend column rows under CSS zoom.
+Schema v13 plans are migrated in the load path to schema v14 / document v2. Older schemas are treated as incompatible and are not opened for editing.
 
-Native BlockNote `image`, `video`, and `audio` blocks use the editor's
-`uploadFile` boundary. Tauri stores accepted files under the project's
-`media/` directory and returns runtime data URLs; canonical JSON persists only
-relative `media/...` paths. Removed media remains available for undo and is
-physically deleted during project retirement. Native images render in PDF;
-video and audio render explicit caption/name fallback rows because PDF cannot
-embed interactive players.
+### File layout inside a project
 
-BlockNote document changes remain editor-owned. Image-group deletion retains
-runtime tombstones so native undo can restore metadata; unreferenced project
-files are reaped at project retirement. Same-project duplication creates new
-group and image IDs while safely reusing the underlying files.
+- `references/` stores imported reference JPG/PNG files.
+- `media/` stores native BlockNote image/audio/video files.
+- The manifest remains the source of truth for plan JSON; media and reference files are loaded lazily when the editor opens.
 
-The BlockNote editing canvas is one continuous white document that grows
-vertically with its blocks. It does not render A4 page backgrounds, page gaps,
-corner marks, runtime page spacers, or view-fit transforms. v13 PDF export
-performs A4 pagination independently, traverses JSON directly, and resolves
-image groups through `groupId`; it does not serialize to HTML and parse it
-again.
+### App-level settings
 
-Image-group custom blocks constrain their rendered x/width to the actual
-BlockNote block-content box rather than the nominal document geometry, so the
-card aligns to both text edges and cannot overflow the paper. Ctrl+wheel zooms
-the continuous canvas from 50% to 150% around the pointer; ordinary wheel input
-remains scrolling.
+App settings are stored in `%USERPROFILE%\.preshot\settings.json`. The current settings surface is:
 
-Imported image data URLs are decoded once to record source dimensions.
-All images imported in one group start from the same frame height, while each
-frame width is derived from the source aspect ratio. Canvas and PDF consume
-these persisted frame dimensions and full-source crop, so images are never
-stretched.
+- theme (`light`, `dark`, `system`),
+- project-rail width, and
+- assistant-panel width.
 
-## UI/UE Contract
+The default new-project parent directory is `%USERPROFILE%\.preshot\projects`.
 
-`docs/design_docs/uiue.md` is the canonical summary of accepted UI/UE
-interaction requirements. Feature design documents may contain richer visual
-exploration, but their accepted behavior must be assigned a stable UIUE ID and
-summarized there. Any interaction change must update the UI/UE contract,
-implementation, mapped regression tests, and affected architecture/testing
-documentation in the same change.
+## BlockNote editor model
 
-## Legacy Canvas UI and PDF
+Preshot uses BlockNote 0.53 with Mantine styling and the built-in Chinese dictionary. The active schema includes:
 
-The removed `PlanCanvas` path routed canonical v12 plans to `PlanDocumentCanvas`, which rendered
-one Word-style paged A4 TipTap document. The legacy component canvas remains only as a
-compatibility branch for fixtures without `documentHtml` and is not a second
-canonical persistence model. Each page draws Word-style corner marks outside the
-printable text rectangle, with their four vertices pointing inward and coinciding
-with the rectangle corners.
+- `paragraph`
+- `heading`
+- `bulletListItem`
+- `numberedListItem`
+- `checkListItem`
+- `toggleListItem`
+- `quote`
+- `codeBlock`
+- `table`
+- `divider`
+- native `image`, `video`, and `audio`
+- custom `imageGroup`
+- `columnList` and `column` through `@blocknote/xl-multi-column@0.53.0`
 
-Document image-group NodeViews reuse persisted reference metadata rather than
-introducing a second editor store. Group corner resize writes existing
-`x/width/height` fields through `resizeComponent`; image edge/corner resize
-writes `frameWidth/frameHeight` through `setImageFrame`, which recomputes the
-single normalized crop. Reset restores the default frame and full-source crop.
-When a resized group cannot contain its frames, the shared document image-group
-layout computes one display fit scale consumed by both the NodeView and PDF
-renderer without mutating persisted image frames.
+### Custom image groups
 
-`canvasPdfExporter` builds the same layout using pdf-lib and bundled Noto Sans
-SC. It prepares text at logical component width, scales PDF text commands and
-image/caption rectangles, and rasterizes the persisted normalized crop into
-each framed slot. Canvas CSS and PDF bitmap rendering derive from the same pure
-`ImageViewRenderSpec`; export adapters do not independently contain, cover, or
-recenter images. A future PPT adapter must consume this contract as well.
-The PDF save adapter opens a native save dialog and calls the narrow Rust
-`save_pdf` command for atomic byte writes.
+`imageGroup` is a BlockNote block with no editable inline content. It stores only a primitive `groupId`; all group metadata lives in `plan.imageGroups`.
 
-## Image Import and Windows Capture
+Each group record contains the image-group frame plus its images, including persisted frame sizes, aspect ratios, and optional crop data. The React block view resolves the metadata from context and handles:
 
-The canvas plan service serializes image operations. A native import moves a
-validated image into `references/`, returns its data URL, updates the plan,
-and preserves operation context on failure. Multi-file imports proceed one
-file at a time so successful items remain available when another file fails.
+- creating and cloning groups,
+- importing images,
+- Windows screen capture import,
+- resize and crop updates,
+- within-group and cross-group reordering, and
+- lightbox opening.
 
-`ScreenCapture` is a domain port. Its Windows implementation starts
-`ms-screenclip:`, associates a token with the clipboard sequence number, and
-polls until a later clipboard image can be written to a token-specific
-temporary PNG. The provider then imports that path through the ordinary image
-flow. Cancelling invalidates the token, dismisses the overlay, and prevents a
-late capture result from mutating the plan.
+### Multi-column layout
 
-## Persistence and Retirement
+The multi-column extension is the source of `columnList` and `column` blocks. Preshot adds slash-menu entries for two-column and three-column layouts and enforces valid nesting when serializing the document.
 
-`ProjectCanvasProvider` maintains a per-project persistence snapshot and
-auto-saves only changed serialized plans every five seconds. Image side-effect
-operations persist through the service queue. On project switch or unmount,
-the project-retirement coordinator serializes retirement barriers, waits for
-in-flight mutations and image measurement, and saves the latest rebased
-snapshot before another provider loads that project.
+### Native media
 
-## Error Flow
+BlockNote native image/video/audio blocks use the editor `uploadFile` boundary. Runtime editing may use data URLs, but persisted JSON must store only relative `media/<file>` paths. In the exported PDF:
 
-Adapters wrap native failures with operation context. Expected failures become
-visible feature errors; they never return success-shaped fallback data.
-Unexpected rendering failures reach the application error boundary only.
+- image blocks render as embedded images when their source is project-local media,
+- video blocks render as labeled fallback text, and
+- audio blocks render as labeled fallback text.
+
+## Editor behavior
+
+The visible editor is one continuous white document surface inside a zoomable viewport; it is not an A4-paged runtime canvas.
+
+Implemented editor behaviors include:
+
+- auto-fit width on first load,
+- manual zoom controls plus Ctrl+wheel zoom,
+- a 5-second change-detected auto-save loop,
+- Ctrl/Cmd+S immediate save,
+- slash-menu insertion for image groups and columns,
+- side-menu block duplication/move/delete helpers, and
+- image/lightbox interactions that remain project-local.
+
+## PDF export
+
+`createBlockNotePdfExporter` converts the v14 block document directly into export blocks, lays them out against A4 content width, paginates at export time, and renders with bundled Noto Sans SC fonts.
+
+Important consequences:
+
+- the editor does not need to emulate paged PDF layout,
+- image-group geometry and crops are consumed from persisted metadata,
+- project-local media images can be embedded directly, and
+- video/audio remain readable in PDF via fallback rows even though PDF cannot host an interactive player.
+
+Saving the PDF uses a native dialog plus the narrow Rust `save_pdf` command for atomic writes.
+
+## Native boundary
+
+Direct `@tauri-apps/api` imports are confined to `src/infrastructure`. Native responsibilities are intentionally narrow:
+
+- create/inspect/relocate-compatible project directories,
+- read and write the manifest plan payload,
+- import, load, and remove reference images,
+- import, load, and remove native media,
+- save PDF bytes,
+- reveal project/output paths,
+- start/poll/cancel Windows screen capture, and
+- read/write app settings.
+
+Rust commands should stay serializable and free of editor, layout, or business-rule logic.
+
+## Localization and documentation
+
+The runtime UI is Simplified Chinese and should stay that way unless the task explicitly changes localization. English documentation exists for contributors and maintenance work.
+
+Use these companion documents:
+
+- [Documentation index](README.md)
+- [Testing](TESTING.md)
+- [Reliability](RELIABILITY.md)
+- [BlockNote v14 design](design_docs/blocknote_v14_design.md)
+- [UI/UX contract](design_docs/UI_UX_CONTRACT.md)
+- [Feature status tracker](design_docs/featurelist.json)

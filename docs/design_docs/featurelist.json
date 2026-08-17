@@ -5,14 +5,14 @@
     {
       "name": "Workspace Setup",
       "feature_descriptions": [
-        "app有一个自己的metadata存储，对于windows可以放在用户的appdata目录",
-        "metadata存储记录了用户的信息，比如projects",
-        "用户的projects是一个一个的文件夹，里面包含了每个拍摄项目相关的文件",
-        "项目打开界面将会显示所有的projects，显示前三个，并且用一个滑块拖动查看后面的项目，项目用一张图片（如果项目中有图片）展示，如果没有图片，则显示项目名字",
-        "点击项目后可以打开这个主界面",
-        "页面的菜单栏有文件下拉菜单，可以选择新建、关闭、打开，打开新窗口等，打开新项目就会让你重新选择一个项目所在的目录",
-        "每个项目文件夹下面有一个.preshot的文件表示这是一个preshot项目，打开项目必须检索到这个文件才能支持打开",
-        "打开app后直接进入最近编辑的项目（无需先显示所有项目的开始页），最左侧栏显示按最后编辑时间排序（最新在最上）的项目列表，点击列表中的项目即可切换项目"
+        "The app has its own metadata storage; on Windows it can live in the user's AppData directory",
+        "Metadata storage records user information, such as projects",
+        "Each user project is its own folder containing the files related to that shoot project",
+        "The project-open screen shows all projects, displays the first three, and lets the user use a slider to browse the later projects. Each project is shown with one image (if the project contains images); otherwise, show the project name",
+        "Clicking a project opens this main interface",
+        "The menu bar includes a File dropdown with options such as New, Close, Open, and Open New Window. Opening a new project makes the user choose the directory where that project lives again",
+        "Each project folder contains a `.preshot` file indicating that it is a Preshot project; opening a project is supported only if that file can be found",
+        "After opening the app, go directly into the most recently edited project (no need to show a start page listing all projects first). The far-left sidebar shows projects sorted by last edited time, newest first, and clicking a project in that list switches projects"
       ],
       "status": "completed",
       "decisions": [
@@ -53,26 +53,26 @@
       }
     },
     {
-      "name": "基础方案编辑",
+      "name": "Basic Plan Editing",
       "feature_descriptions": [
-        "project打开后，首先最重要的一栏是方案",
-        "点击方案，右侧会显示几个tab，分别是摄影计划、参考样图",
-        "参考样图可以添加多组，每组可以编辑每行显示的图片数量，然后按照这个去排版",
-        "显示的时候将每张图压缩到1:1放入一行，鼠标点击之后，显示这个图片的完整内容",
-        "摄影计划和参考样图显示在同一个面板中（无需切换tab），所见即所得",
-        "摄影计划与每组描述支持富文本编辑（HTML），基于 TipTap，向后兼容旧的纯文本",
-        "每组参考样图带有一个可编辑的描述文本框，标题与描述使用黑色高对比字体",
-        "project状态每隔5秒自动保存：检测到变化才写入.preshot，无变化则跳过",
-        "面板顶部显示保存状态（保存中/未保存/已保存），支持 Ctrl/Cmd+S 立即保存",
-        "将方案与参考样图排版导出为 A4 PDF；图片按每行数量以正方形站位等比留白填充",
-        "导出 PDF 时弹出保存位置对话框，默认保存到项目目录下的 output.pdf",
-        "主界面采用三栏布局：左侧项目栏约15%、中间方案区约60%、右侧约25%为预留的对话/agent面板（底部含输入框占位）",
-        "参考样图缩略图限定为固定尺寸（最大约160px方格），避免占比过大",
-        "富文本编辑器提供工具栏：加粗、斜体、下划线、删除线、标题、列表、字号、颜色、链接，所见即所得",
-        "导出的 PDF 中每张图片占据固定正方形站位并带浅灰色外框标示范围，图片按尺寸在框内留白；文本渲染支持下划线、删除线、颜色与字号",
-        "富文本编辑器改用 BlockNote，提供 Notion 风格的块编辑（斜杠菜单、拖拽块、清单/表格/代码块），方案与每组描述统一；持久化仍为 HTML，向后兼容旧内容",
-        "参考样图支持鼠标拖拽重新排序：可在组内调整顺序，也可拖到其它组；松开在非法位置则取消，移动后原组图片自动回填空位",
-        "拖动参考样图时实时预览松手后的排版效果：其余图片让位显示插入位置（可插到组的最前、中间、结尾，也可拖入空的组），所见即所得；仅移动单张图并回填，不做换位"
+        "After a project is opened, the most important section is the plan",
+        "Clicking Plan shows several tabs on the right: Photography Plan and Reference Images",
+        "Multiple reference-image groups can be added. Each group can edit how many images appear per row and then lay them out accordingly",
+        "When displayed, each image is compressed to 1:1 and placed into a row; clicking it shows that image's full content",
+        "Photography Plan and Reference Images are shown in the same panel, with no need to switch tabs, and remain WYSIWYG",
+        "The Photography Plan and each group description support rich-text editing (HTML) based on TipTap, and stay backward compatible with older plain text",
+        "Each reference-image group has an editable description text box, and both title and description use black high-contrast type",
+        "Project state autosaves every 5 seconds: write to `.preshot` only when changes are detected, otherwise skip the write",
+        "The top of the panel shows save status (Saving / Unsaved / Saved) and supports Ctrl/Cmd+S for immediate save",
+        "Export the plan and reference-image layout as A4 PDF; images occupy square slots according to the images-per-row count, with proportional blank-space padding",
+        "When exporting PDF, show a save-location dialog and default to `output.pdf` under the project directory",
+        "The main interface uses a three-column layout: the left project column is about 15%, the middle plan area about 60%, and the right reserved conversation/agent panel about 25% (with an input placeholder at the bottom)",
+        "Reference-image thumbnails are limited to a fixed size (maximum about a 160px square) so they do not occupy too much space",
+        "The rich-text editor provides a toolbar with bold, italic, underline, strikethrough, headings, lists, font size, color, and links, WYSIWYG",
+        "In exported PDF, each image occupies a fixed square slot with a light-gray border marking its extent, and images are padded within that frame according to size; text rendering supports underline, strikethrough, color, and font size",
+        "The rich-text editor switches to BlockNote and provides Notion-style block editing (slash menu, drag blocks, checklists/tables/code blocks). The plan and each group description are unified, while persistence remains HTML and stays backward compatible with older content",
+        "Reference images support mouse drag-and-drop reordering: they can be reordered within a group or dragged into another group; releasing in an invalid location cancels the move, and the source group automatically backfills the gap afterward",
+        "While dragging a reference image, preview the post-drop layout in real time: other images make room to show the insertion position (at the beginning, middle, or end of a group, or into an empty group), WYSIWYG. Only single-image moves with backfill are supported; no swapping is performed"
       ],
       "status": "completed",
       "decisions": [
@@ -142,7 +142,7 @@
         "Application defaults to Chinese (zh) language across the entire UI",
         "Implemented react-i18next with typed translation keys for type-safe localization",
         "All user-facing strings use localized translation keys (shell, agent, plan, reference, workspace, dialogs, errors)",
-        "Chinese demo seed content: photography plan '日落大片' and reference group '造型参考'",
+        "Chinese demo seed content: photography plan 'Sunset Hero Shot' and reference group 'Styling Reference'",
         "BlockNote editor configured with Chinese dictionary for block menu and UI elements",
         "Generic error banners display Chinese messages",
         "Browser demo seed and e2e tests updated to Chinese strings",
@@ -167,8 +167,8 @@
           "Wrapped App with I18nextProvider and tested i18n initialization",
           "Localized AppShell (tagline, projects nav), AgentPanel (title, preview, input), PlanPanel (export button, save status), PhotographyPlanTab (section label), ReferenceImagesTab (heading, add group button), ReferenceGroup (title/description labels, delete/add image), SortableImageTile (open/remove image aria-labels), ReferenceImageLightbox (close button), SaveStatus (statuses), WorkspaceLauncher (intro, actions, empty state), ProjectRail (recent projects, previous/next hints), ProjectCard (open/relocate/remove actions, unavailable hint), CreateProjectDialog (eyebrow, title, labels, cancel/create), GenericErrorBanner (workspace/plan messages), and AppErrorBoundary (title, body)",
           "Configured BlockNote editor with the built-in @blocknote/core/locales zh dictionary imported directly via import { zh } from '@blocknote/core/locales' and passed to useCreateBlockNote({ dictionary: zh }) for type-safe Notion-style block editing in Chinese",
-          "Updated browser demo seed (browserPlan.ts SEEDED_PLAN) to Chinese: '日落大片' photography plan, '造型参考' reference group title/description; updated browserWorkspace.ts demo project name to '编辑大片示例'; updated corresponding test assertions",
-          "Updated all e2e Playwright queries to Chinese: plan.spec.ts ('参考分组：造型参考', '打开参考图 X', '添加参考图', '添加参考分组', '导出 PDF', '正在导出…', '关闭图片', '已保存所有更改', '有未保存的更改', '摄影计划'), layout.spec.ts ('新建项目', '打开项目', '添加参考分组', '参考分组：新建分组', '添加参考图', and PlanPanel structural 'Plan' kept as-is), workspace.spec.ts ('项目', '打开项目 编辑大片示例', '添加参考分组')",
+          "Updated browser demo seed (browserPlan.ts SEEDED_PLAN) to Chinese: 'Sunset Hero Shot' photography plan, 'Styling Reference' reference-group title/description; updated browserWorkspace.ts demo project name to 'Hero Shot Editing Example'; updated corresponding test assertions",
+          "Updated all e2e Playwright queries to Chinese: plan.spec.ts ('Reference group: Styling Reference', 'Open reference image X', 'Add reference image', 'Add reference group', 'Export PDF', 'Exporting…', 'Close image', 'All changes saved', 'Unsaved changes', 'Photography Plan'), layout.spec.ts ('New project', 'Open project', 'Add reference group', 'Reference group: New group', 'Add reference image', and PlanPanel structural 'Plan' kept as-is), workspace.spec.ts ('Projects', 'Open project Hero Shot Editing Example', 'Add reference group')",
           "Ran full validation matrix: pnpm typecheck (clean), pnpm lint (clean), pnpm test (207 tests passed), pnpm test:e2e (10 e2e tests passed), pnpm build (succeeded)"
         ],
         "lastVerified": {
@@ -188,7 +188,7 @@
         "Plan editing migrated from fixed v1 tabs to a flexible v2 canvas component system",
         "A4-based flow layout: components stack vertically, auto-paginate with WYSIWYG page breaks",
         "Insert menu: add Plan or Reference components via button; drag handle to reorder components",
-        "Plan component: BlockNote rich-text editor, configurable height, seeds with Chinese default template (拍摄时间/拍摄地点/道具和服装/器材)",
+        "Plan component: BlockNote rich-text editor, configurable height, seeded with a Chinese default template (Shoot time / Shoot location / Props and wardrobe / Equipment)",
         "Reference component: configurable title, optional description, image import, drag-to-reorder images within group, and independent per-image caption editors in screen and PDF",
         "Resize handles: adjust component widths (1/2, 2/3, 1) and heights interactively",
         "PDF export: render canvas to multi-page A4 PDF preserving exact WYSIWYG layout with font subsetting (small file sizes), image slots fit gutter-inset content box",
@@ -251,9 +251,9 @@
         "Unified SPACING constant = 24px for all canvas margins, gaps, and handle sizes (DRY, visual rhythm)",
         "Drag handle extends to the entire top bar: move handle becomes invisible (w-0, opacity-0, focusable for a11y); the top bar itself is draggable; low-emphasis gray type label added for component identification",
         "Four-edge resizing: add left/top/bottom handles to ComponentFrame; ResizeDirection enum ('width' | 'height' | 'both' | 'left' | 'top'); useComponentResize hook recognizes all five directions; resizeComponent reducer clamps width 0.4–1.0 and height 120–1000",
-        "Delete confirmation: wrap ComponentFrame delete in AlertDialog with 删除/取消 actions; deletion only commits on 删除",
+        "Delete confirmation: wrap ComponentFrame delete in AlertDialog with Delete/Cancel actions; deletion is committed only on Delete",
         "Insert at top (array.unshift): insertComponent reducer prepends to components array at index 0 instead of pushing to end; WYSIWYG matches user expectation for stacking order",
-        "Seed plan + reference on project creation: EMPTY_PLAN_V3 factory includes one plan component (seeded with content.planTemplate) and one reference component (title '新建分组')",
+        "Seed plan + reference on project creation: the EMPTY_PLAN_V3 factory includes one plan component (seeded with content.planTemplate) and one reference component (title 'New Group')",
         "Reference image aspect ratio: SortableImageTile renders img at natural aspect ratio (height: auto, max-h: imageHeight) instead of 1:1; ReferenceComponent.imageHeight controls the max-height (default 160); ReferenceComponentView adds a stepper (±20, range 60–300) to adjust imageHeight per component",
         "Multi-select images: Tauri dialog filter multiple: true; import_images command loops and maps the file array; createReferenceImage generates sequential IDs for batch import",
         "PDF export folder reveal: export_canvas_to_pdf returns the saved PDF path; a new export_folder Rust command invokes platform-specific folder-reveal (Windows: explorer /select, macOS: open -R, Linux: xdg-open parent); ProjectCanvasProvider calls it after save completes",
@@ -262,9 +262,9 @@
       "feature_descriptions": [
         "Continuous component width: drag any border (left/right) to adjust width fluidly; widthFraction persisted as number (0.4–1.0, step 0.01); double-click handles snap to presets (1/2, 2/3, 1)",
         "Unified spacing constant: SPACING = 24px for top/left/right margins, inter-component gaps, and handle sizes",
-        "Move components by whole top bar: draggable area is the entire top bar (not just the drag handle icon); low-emphasis type label (摄影计划/参考图组) helps identify components",
+        "Move components by whole top bar: the draggable area is the entire top bar, not just the drag-handle icon; a low-emphasis type label (Photography Plan / Reference Image Group) helps identify components",
         "Four-edge + corner resize: drag left/right edges for width, top/bottom for height, bottom-right corner for both; height 120–1000px",
-        "Delete confirmation dialog: clicking × shows AlertDialog ('确定删除该组件？') before removing the component",
+        "Delete confirmation dialog: clicking × shows AlertDialog ('Are you sure you want to delete this component?') before removing the component",
         "Insert at top: new components always insert at index 0, not at the end",
         "Seeded new projects: fresh projects seed with a plan component + a reference component (both at default widthFraction 1)",
         "Reference images natural aspect ratio: tiles render at per-image natural height (no 1:1 squashing); configurable per-component imageHeight (default 160, range 60–300, ±20 stepper, i18n reference.imageHeight label)",
@@ -290,11 +290,11 @@
         "completed": [
           "T1: Replaced fractional width presets with continuous drag (widthFraction number 0.4–1.0, quantized 0.01, persisted; double-click snap to presets; removed WidthResizeMenu)",
           "T2: Unified spacing constant (SPACING=24px) applied to all canvas margins, gaps, handle sizes",
-          "T3: Extended drag handle to entire top bar (invisible handle for a11y, draggable parent); added low-emphasis type label (摄影计划/参考图组)",
+          "T3: Extended the drag handle to the entire top bar (invisible handle for accessibility, draggable parent) and added a low-emphasis type label (Photography Plan / Reference Image Group)",
           "T4: Four-edge + corner resize (left/right/top/bottom handles, ResizeDirection enum, useComponentResize recognizes 5 directions, width 0.4–1.0 / height 120–1000)",
-          "T5: Delete confirmation dialog (AlertDialog wraps ComponentFrame delete, 确定删除该组件？ with 删除/取消)",
+          "T5: Delete confirmation dialog (AlertDialog wraps ComponentFrame delete, using 'Are you sure you want to delete this component?' with Delete/Cancel)",
           "T6: Insert at top (insertComponent unshifts to index 0 instead of push)",
-          "T7: Seeded new projects with plan + reference (EMPTY_PLAN_V3 includes one plan seeded with template, one reference '新建分组')",
+          "T7: Seeded new projects with plan + reference (EMPTY_PLAN_V3 includes one plan seeded with the template and one reference group named 'New Group')",
           "T8: Reference images natural aspect ratio (SortableImageTile height: auto, max-h: imageHeight); per-component imageHeight stepper (±20, 60–300, i18n reference.imageHeight)",
           "T9: Multi-select image insert (Tauri dialog multiple: true, import_images loops file array, createReferenceImage sequential IDs)",
           "T10: PDF export folder reveal (export_canvas_to_pdf returns path, export_folder Rust command shell opens parent directory)",
@@ -308,13 +308,13 @@
       "name": "Theming + Settings",
       "feature_descriptions": [
         "Support light, dark, and system theme modes",
-        "In-app settings panel accessible via gear button (设置) for theme selection",
+        "An in-app settings panel is accessible through the gear button (Settings) for theme selection",
         "Theme persistence in ~/.preshot/settings.json via Tauri commands (read_settings/write_settings)",
         "Tailwind v4 class-based dark mode (dark class on html element)",
         "Dark mode styling for BlockNote rich text editor",
         "Browser-based settings adapter for e2e tests (memory storage)",
         "Theme state managed via ThemeProvider with read/write to SettingsRepository",
-        "Settings panel supports light (浅色), dark (深色), and system (跟随系统) theme selection",
+        "The settings panel supports Light, Dark, and System theme selection",
         "Editorial Studio visual system with graphite global chrome, paper-white content, berry creation/export actions, functional-cyan editing states, and restrained 8px corners",
         "Bundled Outfit Variable display typography plus Noto Sans SC body typography with Lucide outline icons",
         "Globally persisted draggable project/assistant panel widths with keyboard operation, double-click reset, and safe min/max constraints",
@@ -416,7 +416,7 @@
     {
       "name": "Undo / Redo",
       "feature_descriptions": [
-        "Session-scoped structural undo/redo for the canvas via 撤销/重做 toolbar buttons and Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y",
+        "Session-scoped structural undo/redo for the canvas via Undo/Redo toolbar buttons and Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y",
         "Structural-only scope: add/remove/move/resize components, image add/remove/reorder/caption, image height, group title, and description visibility are undoable",
         "Rich-text editing (plan body and reference description) is left to BlockNote's own Ctrl+Z; the global handler never fights the editor",
         "On undo/redo the structural snapshot is restored while the CURRENT html/description of components surviving by id is preserved (structural undo never rewinds typed text)",
@@ -442,7 +442,7 @@
           "T2: mergeStructural text-preserving restore",
           "T3: provider history integration (mutate + undo/redo + reset on load + canUndo/canRedo)",
           "T4: keyboard shortcuts with contenteditable/editor focus routing",
-          "T5: 撤销/重做 toolbar buttons + zh i18n history keys + disabled-state coverage",
+          "T5: Undo/Redo toolbar buttons + zh i18n history keys + disabled-state coverage",
           "T6: e2e smoke (keyboard + toolbar insert/undo/redo) + featurelist + full matrix"
         ],
         "lastVerified": {
@@ -650,7 +650,7 @@
         "Rejected duplicate or empty component names restore the last committed name",
         "Batch image import shows determinate progress, retains successful imports, continues after individual failures, and reports a final summary",
         "Each image group includes a screenshot action that opens Windows native screen clipping and imports the new clipboard image",
-        "Reference image groups continue across pages without rendering repeated “name（续）” headings",
+        "Reference image groups continue across pages without rendering repeated 'name (continued)' headings",
         "Import and screenshot controls live on the left of the image-size toolbar with hover descriptions and a monochrome screenshot icon; size controls stay on the right"
       ],
       "decisions": [
@@ -733,7 +733,7 @@
         "Share A4 geometry, exclusive-row ordering, persisted continuations, and horizontal offsets between screen and PDF while the retained PDF engine is retired incrementally",
         "Treat oversized unsplit components as an explicit normalization error rather than allowing cross-page rendering",
         "Validate source schemas according to their own geometry: v7 accepts finite continuous-canvas heights, then v7-to-v8 clamps to A4 before continuation normalization; v8 remains strict",
-        "Use compact 20pt×17pt hover/focus-revealed Lucide up/down controls with visible 上移/下移 labels, fully outside the left card border with a 2pt gap; first/last boundaries use native disabled state and component DnD code is removed",
+        "Use compact 20pt×17pt Lucide up/down controls that appear on hover/focus with visible Move up / Move down labels, fully outside the left card border with a 2pt gap; first/last boundaries use native disabled state and component drag-and-drop code is removed",
         "Use average frameHeight as the group value; minus/plus commit one proportional 4pt scale mutation, preserve per-image frame ratios, and disable growth at the calculated one-page maximum",
         "Compress each unique PDF image once using the maximum final placement across all pages; preserve aspect ratio, never upscale, flatten transparency against paper white, and use browser Canvas high-quality resampling",
         "Generate document-specific TTFs with fonteditor-core from the exact plan characters, then embed with pdf-lib subset:false; direct fontkit TrueType subsetting is forbidden because it emits malformed CJK glyf records"
@@ -758,13 +758,13 @@
           "Preserved exclusive rows and horizontal offsets in PDF export and kept complete-image readiness validation",
           "Aligned browser smoke coverage with the approved removal of image captions, description hiding, and the group image-height stepper",
           "Fixed schema-v7 oversized-card compatibility: continuous-canvas heights above one A4 page now reach the existing v8 clamp and continuation normalization instead of failing source-schema validation",
-          "Validated the complete 小清新人像拍摄 manifest in memory, then preserved its original schema-v7 manifest as a verified backup before live migration",
+          "Validated the complete Fresh Portrait Shoot manifest in memory, then preserved its original schema-v7 manifest as a verified backup before live migration",
           "Made fitting plan components converge bidirectionally to natural BlockNote height and retired legacy in-editor page spacer injection",
           "Added generation-tagged BlockNote block serialization so stale block HTML cannot be paired with newer DOM measurements and duplicate continuation content",
           "Added optional validated v8 plan contentScale with compensated screen zoom and PDF adapter parity",
           "Persisted loaded-component height normalization immediately without adding undo history, while inserted components and later user edits retain normal unsaved behavior",
-          "Merged all 小清新人像拍摄 (2)/(3) components into their bases using the user-selected force-fit policy; retained 7 components and 0 numbered continuations",
-          "Made fitting reference cards converge bidirectionally to the final packed image-row bottom; compacted 延安西路/夏日西瓜 to 297.77pt/397.38pt so each shares an A4 page with its adjacent plan card",
+          "Merged all Fresh Portrait Shoot (2)/(3) components into their base components using the user-selected force-fit policy; retained 7 components and 0 numbered continuations",
+          "Made fitting reference cards converge bidirectionally to the final packed image-row bottom; compacted Yan'an West Road / Summer Watermelon to 297.77pt / 397.38pt so each shares an A4 page with its adjacent plan card",
           "Added minus/value/plus controls after reference import/capture: 24pt minimum, exact 4pt steps, and a domain-calculated maximum that keeps the full group on one A4 page",
           "Removed component useSortable, component collision/drop helpers, drag handles/placeholders/overlays, and replaced them with hover/focus-revealed labeled one-position up/down edge controls",
           "2026-08-09: replaced CFF OpenType Noto Sans SC assets with OFL static TrueType 400/700 instances, then diagnosed that direct fontkit TrueType subsetting still corrupts CJK glyf records after the user supplied a rendered failure screenshot",
@@ -783,7 +783,7 @@
           "androidPdfCompatibility": "Both document-specific CJK weights embed as valid CIDFontType2 fonts with Identity-H encoding and ToUnicode maps; tests extract both FontFile2 streams and verify every expected Chinese glyph has a nonempty outline; Poppler rendering and exact text extraction passed on a real browser export",
           "pdfImageCompression": "Each unique source is downsampled once to its largest final draw box at 144 DPI, flattened to paper white, and encoded as 76% JPEG; Chromium size/dimension regression and four existing PDF export browser flows passed",
           "visualChecks": "1440x1000 and 900x800: A4 surface and all frames contained; no horizontal overflow",
-          "schemaV7Compatibility": "小清新人像拍摄 persists schema v8 with 7 merged components, no numbered continuation names, and all 107 images; reference cards persist exact natural heights; page 1 contains 拍摄计划 + 延安西路 and page 2 contains 拍摄注意点 + 夏日西瓜; recovery manifests are retained"
+          "schemaV7Compatibility": "Fresh Portrait Shoot persists schema v8 with 7 merged components, no numbered continuation names, and all 107 images; reference cards persist exact natural heights; page 1 contains Shooting Plan + Yan'an West Road and page 2 contains Shooting Notes + Summer Watermelon; recovery manifests are retained"
         },
         "remaining": [
           "Split a single indivisible BlockNote block taller than one printable page at measured visual-line boundaries; current behavior fails closed with a contextual error",
@@ -964,7 +964,7 @@
         "designSpec": "docs/design_docs/reference_image_view_ppt_design.md",
         "interactivePoc": "docs/design_refs/preshot-image-view-ppt-wysiwyg-demo.html",
         "pocValidation": "A local 2000x1200 source was rendered into arbitrary 4:5, panned, and 16:9 views. Browser checks confirmed canvas, PDF, and PPT image width/height/left/top crop styles were identical in every state with no horizontal overflow. The legacy contain toggle visibly made both exports diverge.",
-        "projectMigrationValidation": "Migrated the real 小清新人像拍摄 manifest from a transitional plan marked v10 but already containing v11 crop/source fields. The migration created a timestamped backup, strictly validated schema v11, preserved 6 components and 106 image references with zero missing files, was idempotent on a second dry-run, and passed a read-only desktop visual check in the latest Tauri app.",
+        "projectMigrationValidation": "Migrated the real Fresh Portrait Shoot manifest from a transitional plan marked v10 but already containing v11 crop/source fields. The migration created a timestamped backup, strictly validated schema v11, preserved 6 components and 106 image references with zero missing files, was idempotent on a second dry-run, and passed a read-only desktop visual check in the latest Tauri app.",
         "implementation": "Implemented schema-v11 optional source dimensions and normalized crop with strict validation plus centered-cover v10 migration. A shared ImageViewRenderSpec drives explicit canvas CSS and crop-aware PDF bitmap generation. Per-image edge resize preserves crop focus, adjustment mode pans without conflicting with reorder, autosave/reload preserves the view, reset restores source ratio/full crop, and the lightbox still shows the immutable source. PDF caching is keyed by image view identity rather than source file. No PPT adapter exists yet.",
         "remaining": [
           "Add an explicit crop zoom control and persistence coverage",
@@ -1020,8 +1020,8 @@
         "smartGuidesReview": "docs/design_refs/preshot-image-smart-guides-review.html",
         "smartGuidesPlacementFix": "Equal-width labels now center from their measured size with translateX(-50%) and a fixed gap below the bracket; equal-height labels sit to the bracket's right with translateY(-50%).",
         "pictureCardPrototypeComparison": "Production now matches the approved resize-v2 HTML: image and group four-edge/four-corner transparent resize zones, non-text grab/default cursors, 30px upper-right toolbars without size controls, no reset action, single-click full-size viewing, hover delete with confirmation, stable same-node image resize/drag, within-group and cross-group image movement, and gray-surface whole-group document reordering among prose and other groups.",
-        "implementation": "Kept the strict v12 TipTap document architecture and upgraded its image-group NodeView interactions. Image and group resize continue to persist frame/crop and x/width/height metadata while reusing existing frame/button/img nodes. The contextual image and group toolbars are compact 30px upper-right portals; the group bar contains only type, add, and delete actions. Removed image reset UI and its domain command. Single-click image activation opens the full-size viewer while retaining NodeSelection; drag activation uses a movement threshold so image clicks do not become drags. Images move within and across groups through the existing moveImage reducer, with the original frame DOM temporarily lifted to a body-level drag preview and explicit target placeholders so source decoding and identity remain stable. Hover delete and toolbar delete share a globally portaled confirmation dialog. Pressing and dragging a group's gray background applies a non-layout-shifting preview plus a document drop indicator, then commits one ProseMirror transaction that moves the atomic marker among text blocks and other groups. Image resize Smart Guides now freeze candidate geometry at pointerdown, use 6px entry and 10px release hysteresis, prioritize equal dimensions over edges and centers, render one magenta dashed position guide per axis with endpoint markers and semantic labels, and separately render dimension brackets plus `同宽/同高` labels. Preview writes are requestAnimationFrame-batched and all overlays clear on finish or cancel. Existing pagination, PDF marker order, autosave, undo/redo, migration, and crop-aware rendering remain unchanged.",
-        "projectMigrationValidation": "Wrote and strictly verified schema v12 for 小清新人像拍摄 (v11 to v12, 5 image groups, 106 images) and Sunset Shanghai (v8 to v12, 3 image groups, 17 images). Both writes created timestamped pre-schema-v12 backups.",
+        "implementation": "Kept the strict v12 TipTap document architecture and upgraded its image-group NodeView interactions. Image and group resize continue to persist frame/crop and x/width/height metadata while reusing existing frame/button/img nodes. The contextual image and group toolbars are compact 30px upper-right portals; the group bar contains only type, add, and delete actions. Removed image reset UI and its domain command. Single-click image activation opens the full-size viewer while retaining NodeSelection; drag activation uses a movement threshold so image clicks do not become drags. Images move within and across groups through the existing moveImage reducer, with the original frame DOM temporarily lifted to a body-level drag preview and explicit target placeholders so source decoding and identity remain stable. Hover delete and toolbar delete share a globally portaled confirmation dialog. Pressing and dragging a group's gray background applies a non-layout-shifting preview plus a document drop indicator, then commits one ProseMirror transaction that moves the atomic marker among text blocks and other groups. Image resize Smart Guides now freeze candidate geometry at pointerdown, use 6px entry and 10px release hysteresis, prioritize equal dimensions over edges and centers, render one magenta dashed position guide per axis with endpoint markers and semantic labels, and separately render dimension brackets plus `Equal width / Equal height` labels. Preview writes are requestAnimationFrame-batched and all overlays clear on finish or cancel. Existing pagination, PDF marker order, autosave, undo/redo, migration, and crop-aware rendering remain unchanged.",
+        "projectMigrationValidation": "Wrote and strictly verified schema v12 for Fresh Portrait Shoot (v11 to v12, 5 image groups, 106 images) and Sunset Shanghai (v8 to v12, 3 image groups, 17 images). Both writes created timestamped pre-schema-v12 backups.",
         "lastVerified": {
           "date": "2026-08-13",
           "typecheck": "clean",
@@ -1031,7 +1031,7 @@
           "rustTests": "48 passed",
           "build": "passed with the existing Vite large-chunk warning"
         },
-        "visualVerification": "Playwright exercised the running browser shell with real pointer input: equal-width resizing displayed only a dimension bracket and `同宽` label, while a true edge match displayed a magenta dashed guide and `右边对齐` label; all overlays disappeared after pointerup. Unselected images exposed balanced inner resize zones with a pointer cursor; top-edge shrinking preserved the bottom and DOM identity; group top-edge dragging left the live group and images unchanged while a body-level preview moved upward, then committed once with the lower edge fixed. Existing image drag, group drag, deletion confirmation, lightbox, persistence, pagination, and PDF flows also passed.",
+        "visualVerification": "Playwright exercised the running browser shell with real pointer input: equal-width resizing displayed only a dimension bracket and `Equal width` label, while a true edge match displayed a magenta dashed guide and `Right edge aligned` label; all overlays disappeared after pointerup. Unselected images exposed balanced inner resize zones with a pointer cursor; top-edge shrinking preserved the bottom and DOM identity; group top-edge dragging left the live group and images unchanged while a body-level preview moved upward, then committed once with the lower edge fixed. Existing image drag, group drag, deletion confirmation, lightbox, persistence, pagination, and PDF flows also passed.",
         "remaining": [
           "Open both migrated projects in an interactive Windows desktop session and visually confirm image-group counts, crop/frame rendering, contextual controls, and PDF export"
         ]
@@ -1065,7 +1065,7 @@
       "progress": {
         "designedAt": "2026-08-14",
         "implementationPlan": "session plan.md",
-        "designSpec": "docs/design_docs/blocknote_v13_migration_design.md",
+        "designSpec": "docs/design_docs/blocknote_v14_design.md",
         "viewportDesignSpec": "docs/design_refs/preshot-canvas-focus-zoom-demo.html",
         "blockOperationsDesignSpec": "docs/design_docs/block_operations_design.md",
         "multiColumnResearchSpec": "docs/design_docs/blocknote_multi_column_research.md",
@@ -1112,20 +1112,25 @@
           "Added direct JSON PDF mapping and exporter",
           "Added independent BlockNote Playwright configuration",
           "Fixed Enter/new-line creation by removing pre-change block diff inspection before BlockNote assigns the new block ID; top-level image-group normalization now runs after changes",
-          "Measured imported source dimensions and laid out batch images at equal height with width derived from each original aspect ratio"
+          "Measured imported source dimensions and laid out batch images at equal height with width derived from each original aspect ratio",
+          "Hardened 0.0.1 persistence by serializing overlapping saves, flushing the latest snapshot before project retirement, keeping failed saves visibly unsaved, and surfacing actionable save errors",
+          "Added validated cleanup for Preshot-owned temporary Windows capture PNGs after project import",
+          "Extracted theme context, image hydration, canvas toolbar presentation, and pure image-group interaction geometry into focused modules with regression tests",
+          "Rebuilt canonical repository documentation in English and added automated checks for Han characters, JSON parsing, local links, and stale canonical document names"
         ],
         "dependencyNote": "Organization npm mirror provides BlockNote core/react/mantine and @blocknote/xl-multi-column at 0.53.0. The XL package is used under GPL-3.0; exact 0.54.x upgrade remains a follow-up.",
         "lastVerified": {
           "date": "2026-08-17",
-          "lint": "0 errors; existing ThemeProvider Fast Refresh warning remains",
+          "documentation": "pnpm docs:check passed",
+          "lint": "0 errors and 0 warnings",
           "typecheck": "passed",
-          "unitTests": "88 files, 458 tests passed",
+          "unitTests": "93 files, 480 tests passed",
           "e2eTests": "15 unified BlockNote/workspace/layout/theme/PDF Playwright journeys passed",
           "focusedBlockNoteE2E": "8 BlockNote v14 journeys passed, including v13 migration, nested block controls, pointer dragging, columns, image groups, and native image/video/audio upload, relative-path persistence, reload, and PDF export",
           "initializer": "4 PowerShell initializer checks passed",
-          "rustTests": "50 passed",
+          "rustTests": "51 passed",
           "build": "pnpm build passed with no direct TipTap dependencies and the existing large-chunk warning",
-          "tauriBuild": "passed with multi-column and native media commands/CSP; produced Preshot_0.1.0_x64_en-US.msi"
+          "tauriBuild": "passed with multi-column and native media commands/CSP; produced Preshot_0.0.1_x64_en-US.msi"
         },
         "visualVerification": "At a 1440px viewport both side panels are visible by default and the fixed 1080px document fits the remaining center workspace at 85%. Multi-column text/image-group rows align within 0.02px, gray-surface image-group dragging creates one group per column, and the XL divider persists width weights. Native BlockNote image, video, and audio blocks rendered their preview/player controls and captions from project-managed media; reload restored them from relative media paths. The compact BlockNote control strip measured 221-251.59px, exactly between the white canvas left edge and text start; each drag button measured 15.30px, matching 18px × 85% zoom. PDF renders native images and explicit video/audio fallback rows.",
         "remaining": [

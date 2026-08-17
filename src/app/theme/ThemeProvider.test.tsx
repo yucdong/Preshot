@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { ThemeProvider, useTheme } from "./ThemeProvider";
+import { useTheme } from "./ThemeContext";
+import { ThemeProvider } from "./ThemeProvider";
 import type { SettingsRepository } from "../../domain/settings/ports";
 import type { AppSettings } from "../../domain/settings/models";
 

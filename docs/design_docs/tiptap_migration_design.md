@@ -1,42 +1,42 @@
-# TipTap 编辑器迁移设计
+# TipTap editor migration design
 
-## 状态
+## Status
 
-- 状态：生产迁移已完成并通过完整验证矩阵
-- 日期：2026-08-10
-- POC：`docs/design_refs/preshot-tiptap-editor-demo.html`
-- 拆分 POC：`docs/design_refs/preshot-tiptap-split-editor-demo.html`
-- 目标版本：TipTap `3.29.2`
-- 上游：`https://github.com/ueberdosis/tiptap`
-- 许可证：MIT；本方案不依赖付费 Pro Extensions
+- Status: Production migration completed and passed the full validation matrix
+- Date: 2026-08-10
+- POC: `docs/design_refs/preshot-tiptap-editor-demo.html`
+- Split POC: `docs/design_refs/preshot-tiptap-split-editor-demo.html`
+- Target version: TipTap `3.29.2`
+- Upstream: `https://github.com/ueberdosis/tiptap`
+- License: MIT; this plan does not depend on paid Pro Extensions
 
-生产实现：`src/features/plan/TiptapRichTextEditor.tsx`。BlockNote、Mantine editor styles 与 `react-colorful` 已移除；圆形 HSV 色盘由 Preshot 自有 React 组件实现。
+Production implementation: `src/features/plan/TiptapRichTextEditor.tsx`. BlockNote, Mantine editor styles, and `react-colorful` have been removed; the circular HSV color picker is now a Preshot-owned React component.
 
-## 目标
+## Goal
 
-将 `RichTextEditor` 的 BlockNote 内核替换为 TipTap，同时保持：
+Replace the BlockNote engine inside `RichTextEditor` with TipTap while preserving:
 
-1. schema v10 与 `PlanTextLeaf.html` 不变；
-2. 每个文本叶子的常驻格式工具栏视觉基本不变；
-3. 段落、字号、颜色、链接弹层继续使用 viewport-aware portal；
-4. 自动保存、撤销/重做、递归拆分、自然高度和 PDF 输出语义不变；
-5. 现有项目 HTML 无需数据迁移即可打开。
+1. schema v10 and `PlanTextLeaf.html` unchanged;
+2. each text leaf's persistent formatting toolbar looking basically the same;
+3. paragraph, font-size, color, and link popups continuing to use a viewport-aware portal;
+4. autosave, undo/redo, recursive splitting, natural height, and PDF output semantics unchanged;
+5. existing project HTML opening without any data migration.
 
-拆分 POC 直接复用 schema-v10 的递归 `leaf` / `split` 语义。每个叶子创建独立 TipTap editor；`columns` 与 `rows` 父节点只负责等分几何和 10px 间距。拆分保留第一叶内容、创建第二叶，删除叶子后由同级节点填满剩余区域。
+The split POC directly reuses schema-v10 recursive `leaf` / `split` semantics. Each leaf creates its own TipTap editor; `columns` and `rows` parent nodes only split geometry evenly and keep 10px gaps. Splitting preserves the first leaf's content and creates the second leaf; after deleting a leaf, sibling nodes fill the freed remaining area.
 
-## 为什么选择 TipTap
+## Why TipTap was chosen
 
-- TipTap 与 BlockNote 都建立在 ProseMirror 上，选区、事务和文档树模型相近。
-- TipTap 是 headless，现有 Preshot 工具栏不需要适配 Mantine 或覆盖 BlockNote UI。
-- 官方 `TextStyle`、`Color`、`FontSize` 直接输出 PDF 解析器已支持的内联 HTML：
+- TipTap and BlockNote are both built on ProseMirror, so selection, transaction, and document-tree models are similar.
+- TipTap is headless, so the existing Preshot toolbar does not need Mantine adaptation or BlockNote UI overrides.
+- Official `TextStyle`, `Color`, and `FontSize` directly output inline HTML already supported by the PDF parser:
   - `<span style="color: #0891B2">`
   - `<span style="font-size: 14px">`
-- 官方 Link、TextAlign、Table、TaskList 扩展可以按能力逐项启用。
-- React API 提供 `useEditor`、`EditorContent`、`useEditorState`；可以让 toolbar 只订阅 active state，避免整个编辑器反复重渲染。
+- Official Link, TextAlign, Table, and TaskList extensions can be enabled capability by capability.
+- The React API provides `useEditor`, `EditorContent`, and `useEditorState`; the toolbar can subscribe only to active state and avoid rerendering the full editor repeatedly.
 
-## 不变边界
+## Stable boundaries
 
-`RichTextEditor` 的公共接口保持不变：
+The public interface of `RichTextEditor` remains unchanged:
 
 ```ts
 interface RichTextEditorProps {
@@ -50,7 +50,7 @@ interface RichTextEditorProps {
 }
 ```
 
-领域与基础设施不依赖 TipTap：
+Domain and infrastructure stay independent from TipTap:
 
 ```text
 PlanTextLeaf.html
@@ -60,9 +60,9 @@ PlanTextLeaf.html
   -> existing autosave / PDF parser
 ```
 
-## 依赖方案
+## Dependency strategy
 
-生产迁移使用统一版本 `3.29.2`：
+Production migration uses unified version `3.29.2`:
 
 ```powershell
 pnpm add @tiptap/core@3.29.2 @tiptap/pm@3.29.2 `
@@ -75,15 +75,15 @@ pnpm add @tiptap/core@3.29.2 @tiptap/pm@3.29.2 `
   @tiptap/extension-task-item@3.29.2
 ```
 
-`StarterKit` v3 已包含 Link 与 Underline，不重复注册单独扩展。Link 通过 `StarterKit.configure({ link: ... })` 配置。
+`StarterKit` v3 already contains Link and Underline, so separate extensions are not re-registered. Link is configured via `StarterKit.configure({ link: ... })`.
 
-迁移完成并通过完整矩阵后移除：
+After migration completes and passes the full matrix, remove:
 
 ```powershell
 pnpm remove @blocknote/core @blocknote/mantine @blocknote/react
 ```
 
-## Extension 配置
+## Extension configuration
 
 ```ts
 const extensions = [
@@ -105,35 +105,35 @@ const extensions = [
 ];
 ```
 
-只启用 PDF 和现有 UI 能可靠处理的节点。图片仍由 Preshot reference component 管理，不放进富文本 editor。
+Enable only nodes that PDF and the current UI can reliably handle. Images remain managed by Preshot reference components and do not enter the rich-text editor.
 
-## HTML 兼容策略
+## HTML compatibility strategy
 
-### 直接兼容
+### Direct compatibility
 
-以下现有 HTML 可由 TipTap 直接解析并重新输出：
+The following existing HTML can be parsed and re-emitted directly by TipTap:
 
-- `p`, `h1`–`h6`；
-- `strong`, `em`, `u`, `s`；
-- `ul`, `ol`, `li`；
-- `blockquote`, `pre`, `code`；
-- `a[href]`；
-- `span style="font-size/color"`；
-- `table`, `thead`, `tbody`, `tr`, `th`, `td`（启用 TableKit 后）。
+- `p`, `h1`–`h6`;
+- `strong`, `em`, `u`, `s`;
+- `ul`, `ol`, `li`;
+- `blockquote`, `pre`, `code`;
+- `a[href]`;
+- `span style="font-size/color"`;
+- `table`, `thead`, `tbody`, `tr`, `th`, `td` (after enabling TableKit).
 
-### 需要兼容夹具验证
+### Compatibility fixtures required
 
-BlockNote 可能输出额外 `data-*`、class 或 details/checklist 包装。迁移前建立真实 fixture corpus：
+BlockNote may emit extra `data-*`, classes, or details/checklist wrappers. Before migration, build a real fixture corpus:
 
-1. 从测试和浏览器 seed 收集所有当前 HTML；
-2. TipTap `setContent(html)` 后读取 `getHTML()`；
-3. 比较语义，而不是比较字符串：文本、块序列、marks、链接、表格与列表；
-4. 对 TipTap 不识别的包装，在 adapter 入口做 DOMParser 规范化；
-5. 不修改 schema，不批量重写项目文件；仅在用户实际编辑后保存 TipTap 规范化 HTML。
+1. Collect all current HTML from tests and browser seeds.
+2. Run TipTap `setContent(html)` and then read `getHTML()`.
+3. Compare semantics rather than raw strings: text, block order, marks, links, tables, and lists.
+4. For wrappers TipTap does not recognize, normalize with DOMParser at the adapter entry.
+5. Do not change schema or bulk rewrite project files; save TipTap-normalized HTML only after the user actually edits.
 
-## 顶层块序列化契约
+## Top-level block serialization contract
 
-当前 `onBlockHtmlChange` 依赖 BlockNote `blocksToHTMLLossy()`。TipTap 替代方案直接使用 ProseMirror schema：
+Current `onBlockHtmlChange` depends on BlockNote `blocksToHTMLLossy()`. The TipTap replacement serializes top-level ProseMirror nodes directly:
 
 ```ts
 import { DOMSerializer } from "@tiptap/pm/model";
@@ -150,18 +150,18 @@ function serializeTopLevelBlocks(editor: Editor): string[] {
 }
 ```
 
-每个顶层 ProseMirror node 对应一个分页块。生成号沿用当前 generation ref，避免异步旧结果覆盖新内容。
+Each top-level ProseMirror node corresponds to one pagination block. The generation number continues to use the current generation ref so stale async results cannot overwrite new content.
 
-## DOM 测量迁移
+## DOM measurement migration
 
-移除对以下 BlockNote 结构的依赖：
+Remove dependence on these BlockNote structures:
 
-- `.bn-editor`；
-- `.bn-block-group`；
-- `[data-node-type="blockOuter"]`；
-- `.bn-toolbar`。
+- `.bn-editor`;
+- `.bn-block-group`;
+- `[data-node-type="blockOuter"]`;
+- `.bn-toolbar`.
 
-TipTap 渲染时为顶层节点增加稳定测量属性：
+When TipTap renders, add stable measurement attributes to top-level nodes:
 
 ```ts
 const MeasuredParagraph = Paragraph.extend({
@@ -171,133 +171,133 @@ const MeasuredParagraph = Paragraph.extend({
 });
 ```
 
-Heading、列表、blockquote、code block、table 同样输出 `data-editor-block="true"`。测量 hook 只读取：
+Heading, list, blockquote, code block, and table should also output `data-editor-block="true"`. The measurement hook then reads only:
 
 ```css
 .tiptap-editor > [data-editor-block="true"]
 ```
 
-常驻 toolbar 仍通过 `screenHeightPoints` 只影响运行时 frame；`heightPoints` 与 block heights 只测正文，继续服务持久化和 PDF。
+The persistent toolbar still affects runtime frame only through `screenHeightPoints`; `heightPoints` and block heights continue to measure body content only and therefore keep driving persistence and PDF.
 
-## UI 命令映射
+## UI command mapping
 
-| 当前能力 | TipTap 命令 |
+| Current capability | TipTap command |
 | --- | --- |
-| 段落 | `setParagraph()` |
+| Paragraph | `setParagraph()` |
 | H1–H6 | `setHeading({ level })` |
-| 加粗 | `toggleBold()` |
-| 斜体 | `toggleItalic()` |
-| 下划线 | `toggleUnderline()` |
-| 删除线 | `toggleStrike()` |
-| 字号 | `setFontSize("14px")` |
-| 文字颜色 | `setColor("#0891B2")` |
-| 左/中/右对齐 | `setTextAlign(...)` |
-| 无序/有序列表 | `toggleBulletList()` / `toggleOrderedList()` |
-| 引用 | `toggleBlockquote()` |
-| 链接 | `extendMarkRange("link").setLink({ href })` |
-| 清除链接 | `unsetLink()` |
+| Bold | `toggleBold()` |
+| Italic | `toggleItalic()` |
+| Underline | `toggleUnderline()` |
+| Strikethrough | `toggleStrike()` |
+| Font size | `setFontSize("14px")` |
+| Text color | `setColor("#0891B2")` |
+| Left/center/right align | `setTextAlign(...)` |
+| Unordered / ordered list | `toggleBulletList()` / `toggleOrderedList()` |
+| Blockquote | `toggleBlockquote()` |
+| Link | `extendMarkRange("link").setLink({ href })` |
+| Clear link | `unsetLink()` |
 
-所有 toolbar `pointerdown` 继续 `preventDefault()`，然后执行 `editor.chain().focus()...run()`；TipTap 会恢复 ProseMirror selection，无需项目自己保存 Selection object。
+All toolbar `pointerdown` handlers continue to call `preventDefault()` and then execute `editor.chain().focus()...run()`; TipTap restores the ProseMirror selection automatically, so the project no longer needs to save its own Selection object.
 
-## UI 保留与变化
+## UI preserved vs changed
 
-### 保留
+### Preserved
 
-- 每个文本框顶部 36px 常驻工具栏；
-- graphite / paper / cyan / berry 视觉 token；
-- 220px 段落菜单与单行 36px 项；
-- 字号组合按钮；
-- A 色条、主题色与自定义颜色；自定义面板包含圆形 HSV 色盘、明度滑条和严格的 0–255 整数 RGB 输入；
-- responsive More portal；
-- 固定 18px 组件关闭按钮，放入组件右上角内部槽位；
-- 视口安全距、翻转与 portal 层级。
+- A 36px persistent toolbar at the top of every text box;
+- graphite / paper / cyan / berry visual tokens;
+- 220px paragraph menu with single-line 36px items;
+- font-size composite button;
+- A underline, theme colors, and custom colors; the custom panel includes a circular HSV color field, brightness slider, and strict 0–255 integer RGB input;
+- responsive More portal;
+- fixed 18px component close button inside the component's upper-right internal slot;
+- viewport safe distance, flipping, and portal elevation.
 
-### 组件右上角关闭槽
+### Component upper-right close slot
 
-- 关闭按钮位于组件边框内部，不再使用负 `top/right` 悬挂到外框之外。
-- 常驻工具栏右侧预留 34px screen-space 槽位，18px 关闭按钮在该槽位中居中。
-- 预留空间只占工具栏右端，不新增整条 header；正文编辑区仍使用完整组件宽度。
-- 关闭按钮使用 graphite 背景，hover/focus 切换 danger，并保留 2px 可见焦点环。
-- 容器查询计算可见格式命令时必须扣除该槽位；溢出的低频命令进入“更多格式”。
+- The close button sits inside the component border and no longer hangs outside it with negative `top/right` offsets.
+- The persistent toolbar reserves a 34px screen-space slot on the right, with the 18px close button centered within that slot.
+- The reserved space occupies only the right end of the toolbar and does not create a full new header; the body editing area still uses full component width.
+- The close button uses graphite background and switches to danger on hover/focus while keeping a visible 2px focus ring.
+- Container-query logic that decides visible formatting commands must subtract this slot; low-frequency overflow actions go into "More formatting".
 
-### 明确变化
+### Explicit changes
 
-- 删除 BlockNote/Mantine DOM 与样式类；
-- BlockNote 斜杠菜单、块 side menu、块拖拽不自动保留；
-- “可折叠标题”需要自定义 `details/summary` node，第一阶段菜单显示禁用或移除；
-- TipTap 自身无 UI，这些行为均由 Preshot 组件负责。
+- Remove BlockNote/Mantine DOM and style classes;
+- BlockNote slash menu, block side menu, and block drag are not preserved automatically;
+- "Collapsible headings" require a custom `details/summary` node, so phase 1 should disable or remove that menu item;
+- TipTap itself has no built-in UI, so all these behaviors are owned by Preshot components.
 
-## 分阶段实施
+## Phased implementation
 
-### Phase 1：兼容 adapter 与纯函数
+### Phase 1: compatibility adapter and pure functions
 
-- 安装 TipTap 依赖但不切换 UI；
-- 建立 extension set；
-- 添加旧 HTML round-trip fixture；
-- 实现顶层块序列化；
-- 将测量 hook 改为 editor-neutral `[data-editor-block]`；
-- 保持 BlockNote editor 运行，TipTap 只在测试中解析 fixture。
+- Install TipTap dependencies without switching UI;
+- Build the extension set;
+- Add old-HTML round-trip fixtures;
+- Implement top-level block serialization;
+- Change the measurement hook to editor-neutral `[data-editor-block]`;
+- Keep BlockNote editor running, with TipTap parsing fixtures only in tests.
 
-验收：所有 fixture 语义 round-trip；PDF parser 无变化。
+Acceptance: all fixture semantics round-trip, and the PDF parser is unchanged.
 
-### Phase 2：替换 RichTextEditor 内核
+### Phase 2: replace RichTextEditor core
 
-- `useCreateBlockNote` -> `useEditor`；
-- `BlockNoteView` -> `EditorContent`；
-- hydration 使用 `setContent(html, { emitUpdate: false })`；
-- `onUpdate` 使用 `getHTML()`；
-- toolbar active state 使用 `useEditorState`；
-- 保留当前 portal 与颜色组件。
+- `useCreateBlockNote` -> `useEditor`;
+- `BlockNoteView` -> `EditorContent`;
+- hydration uses `setContent(html, { emitUpdate: false })`;
+- `onUpdate` uses `getHTML()`;
+- toolbar active state uses `useEditorState`;
+- keep the existing portals and color components.
 
-验收：组件测试、格式 Playwright、自动保存无 hydration echo。
+Acceptance: component tests, formatting Playwright, and autosave complete without hydration echo.
 
-### Phase 3：块能力与测量
+### Phase 3: block capability and measurement
 
-- 启用 TableKit、TaskList、TaskItem；
-- 所有顶层 node 增加 `data-editor-block`；
-- 切换 `onBlockHtmlChange` 到 DOMSerializer；
-- 验证长文拆分、递归叶子自然高度和 PDF。
+- Enable TableKit, TaskList, and TaskItem;
+- Add `data-editor-block` to all top-level nodes;
+- switch `onBlockHtmlChange` to DOMSerializer;
+- validate long-text splitting, recursive leaf natural height, and PDF.
 
-验收：分页、窄叶子、PDF parity 全部通过。
+Acceptance: pagination, narrow leaves, and PDF parity all pass.
 
-### Phase 4：清理 BlockNote
+### Phase 4: clean up BlockNote
 
-- 删除 BlockNote imports、样式与 jsdom shims；
-- 删除 `.bn-*` CSS；
-- 移除三个 BlockNote packages；
-- 更新架构、测试文档和 featurelist。
+- Remove BlockNote imports, styles, and jsdom shims;
+- remove `.bn-*` CSS;
+- remove the three BlockNote packages;
+- update architecture, test docs, and featurelist.
 
-## 测试矩阵
+## Test matrix
 
-### 组件
+### Component
 
-- 空/非空 HTML hydration 不触发 `onChange`；
-- 外部 HTML 更新使用 `emitUpdate: false`；
-- 常驻 toolbar 始终可见；
-- active/mixed formatting 状态正确；
-- Escape 与键盘菜单完整；
-- compact reference editor 可访问。
+- Empty / non-empty HTML hydration does not trigger `onChange`;
+- external HTML updates use `emitUpdate: false`;
+- persistent toolbar always stays visible;
+- active/mixed formatting state is correct;
+- Escape and keyboard menus are complete;
+- compact reference editor remains accessible.
 
-### HTML 兼容
+### HTML compatibility
 
-- H1–H6、列表、引用、代码、任务列表、表格；
-- 嵌套 bold/italic/underline/strike；
-- 字号 + 颜色同一 span；
-- 链接与普通颜色；
-- BlockNote fixture -> TipTap -> PDF parser 语义相同。
+- H1–H6, lists, blockquotes, code, task lists, tables;
+- nested bold/italic/underline/strike;
+- font size + color on the same span;
+- links plus ordinary color;
+- BlockNote fixture -> TipTap -> PDF parser keeps identical semantics.
 
 ### Playwright
 
-- 每个叶子一个常驻 toolbar；
-- 段落、字号、颜色、链接 popup；
-- 主题色、自定义 RGB 实际写入并重载保留；
-- responsive More 中对齐/嵌套；
-- 递归拆分、窄叶子、自然高度；
-- autosave、undo/redo、PDF 导出。
+- One persistent toolbar per leaf;
+- paragraph, font-size, color, and link popups;
+- theme colors and custom RGB truly write and persist after reload;
+- alignment/nesting in responsive More;
+- recursive splitting, narrow leaves, natural height;
+- autosave, undo/redo, and PDF export.
 
-## 回滚策略
+## Rollback strategy
 
-在 Phase 1–3 保留同一个 `RichTextEditorProps`，并用内部 feature flag 选择 adapter：
+During Phases 1–3, keep the same `RichTextEditorProps` and choose the adapter behind an internal feature flag:
 
 ```ts
 const EditorImplementation = tiptapEnabled
@@ -305,17 +305,17 @@ const EditorImplementation = tiptapEnabled
   : BlockNoteRichTextEditor;
 ```
 
-不改 schema、不迁移文件，因此关闭 flag 即可回滚。只有 Phase 4 完整矩阵通过后才删除 BlockNote。
+Because schema is unchanged and files are not migrated, rollback is just turning the flag off. Only after the full Phase 4 matrix passes should BlockNote be removed.
 
-## POC 范围
+## POC scope
 
-交互 demo 使用实际 TipTap `3.29.2` ESM 包，验证：
+The interaction demo uses the real TipTap `3.29.2` ESM package to validate:
 
-- H1–H6、段落、列表、引用；
-- bold/italic/underline/strike；
-- FontSize、Color、TextAlign、Link；
-- 当前 Preshot 常驻工具栏视觉；
-- HTML 实时输出；
-- 颜色写入 HTML 与浏览器计算色双重证明。
+- H1–H6, paragraph, lists, blockquote;
+- bold/italic/underline/strike;
+- FontSize, Color, TextAlign, Link;
+- the current Preshot persistent-toolbar visual style;
+- live HTML output;
+- dual proof that color is written into HTML and computed correctly by the browser.
 
-POC 中“可折叠标题”明确显示为自定义节点，不伪装已支持。
+The POC clearly marks "collapsible heading" as a custom node rather than pretending it is already supported.

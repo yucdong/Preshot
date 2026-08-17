@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Preshot TipTap 编辑器迁移 Demo</title>
+<title>Preshot TipTap Editor Migration Demo</title>
 <style>
 @font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
 @font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype");font-weight:600 800;font-display:swap}
@@ -17,27 +17,27 @@
 </head>
 <body>
 <div class="app">
-<header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="title">TipTap 编辑器迁移 Demo</span><span class="badge">实际 TipTap 3.29.2</span><span class="spacer"></span><span class="save" id="save-status">已保存</span></header>
+<header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="title">TipTap Editor Migration Demo</span><span class="badge">Real TipTap 3.29.2</span><span class="spacer"></span><span class="save" id="save-status">Saved</span></header>
 <div class="workspace">
 <main class="stage">
   <article class="page">
-    <header class="page-head"><h1>夏日人像拍摄</h1><span>schema v10 · HTML 边界不变</span></header>
+    <header class="page-head"><h1>Summer Portrait Shoot</h1><span>schema v10 · HTML boundary unchanged</span></header>
     <section class="component">
-      <button class="close" aria-label="删除文案组件" title="删除文案组件">×</button>
+      <button class="close" aria-label="Delete text component" title="Delete text component">×</button>
       <section class="leaf">
-        <div class="toolbar" id="toolbar" role="toolbar" aria-label="文案正文格式">
-          <button class="paragraph" id="block-trigger" aria-expanded="false" aria-label="段落类型" type="button"><span class="type-icon" id="block-icon">T</span><span class="paragraph-label" id="block-label">段落</span><span class="chevron"></span></button>
-          <button class="tool" data-command="bold" aria-label="加粗" aria-pressed="false"><b>B</b></button>
-          <button class="tool" data-command="italic" aria-label="斜体" aria-pressed="false"><i>I</i></button>
-          <button class="tool" data-command="underline" aria-label="下划线" aria-pressed="false"><u>U</u></button>
-          <button class="tool" data-command="strike" aria-label="删除线" aria-pressed="false"><s>S</s></button>
-          <span class="split"><button class="split-value" id="size-value" aria-label="当前字号">14</button><button class="split-trigger" id="size-trigger" aria-label="选择字号" aria-expanded="false"><span class="chevron"></span></button></span>
-          <span class="split"><button class="tool color-main" id="color-main" aria-label="应用当前文字颜色">A</button><button class="split-trigger" id="color-trigger" aria-label="选择文字颜色" aria-expanded="false"><span class="chevron"></span></button></span>
-          <button class="tool secondary" data-command="align-left" aria-label="左对齐" aria-pressed="false">≡</button>
-          <button class="tool secondary" data-command="align-center" aria-label="居中" aria-pressed="false">≣</button>
-          <button class="tool secondary" data-command="align-right" aria-label="右对齐" aria-pressed="false">≡</button>
-          <button class="tool" id="link-trigger" aria-label="添加链接" aria-expanded="false">↗</button>
-          <button class="tool" id="more-trigger" aria-label="更多格式" aria-expanded="false">···</button>
+        <div class="toolbar" id="toolbar" role="toolbar" aria-label="Text body formatting">
+          <button class="paragraph" id="block-trigger" aria-expanded="false" aria-label="Paragraph type" type="button"><span class="type-icon" id="block-icon">T</span><span class="paragraph-label" id="block-label">Paragraph</span><span class="chevron"></span></button>
+          <button class="tool" data-command="bold" aria-label="Bold" aria-pressed="false"><b>B</b></button>
+          <button class="tool" data-command="italic" aria-label="Italic" aria-pressed="false"><i>I</i></button>
+          <button class="tool" data-command="underline" aria-label="Underline" aria-pressed="false"><u>U</u></button>
+          <button class="tool" data-command="strike" aria-label="Strikethrough" aria-pressed="false"><s>S</s></button>
+          <span class="split"><button class="split-value" id="size-value" aria-label="Current font size">14</button><button class="split-trigger" id="size-trigger" aria-label="Choose font size" aria-expanded="false"><span class="chevron"></span></button></span>
+          <span class="split"><button class="tool color-main" id="color-main" aria-label="Apply current text color">A</button><button class="split-trigger" id="color-trigger" aria-label="Choose text color" aria-expanded="false"><span class="chevron"></span></button></span>
+          <button class="tool secondary" data-command="align-left" aria-label="Align left" aria-pressed="false">≡</button>
+          <button class="tool secondary" data-command="align-center" aria-label="Center" aria-pressed="false">≣</button>
+          <button class="tool secondary" data-command="align-right" aria-label="Align right" aria-pressed="false">≡</button>
+          <button class="tool" id="link-trigger" aria-label="Add link" aria-expanded="false">↗</button>
+          <button class="tool" id="more-trigger" aria-label="More formatting" aria-expanded="false">···</button>
         </div>
         <div class="editor-shell" id="editor"></div>
       </section>
@@ -45,42 +45,42 @@
   </article>
 </main>
 <aside class="inspector">
-  <header class="inspector-head"><span class="eyebrow">TIPTAP POC · HEADLESS / MIT</span><h2>保留 Preshot UI，仅换内核</h2><p>工具栏、portal、色板和画布几何保持现有视觉。正文由 TipTap/ProseMirror 实际驱动。</p></header>
-  <section class="section"><h3>能力验证</h3><div class="metric"><b>HTML 持久化</b><span>getHTML / setContent</span></div><div class="metric"><b>字体样式</b><span>TextStyleKit</span></div><div class="metric"><b>链接</b><span>StarterKit Link</span></div><div class="metric"><b>对齐</b><span>TextAlign</span></div><div class="metric"><b>顶层块</b><span>ProseMirror doc.content</span></div></section>
-  <section class="section"><h3>颜色验收</h3><div class="proof"><b id="color-proof">尚未应用颜色</b><span>选中文字后选择主题色；此处读取 TipTap `getHTML()` 与 DOM 计算色双重确认。</span></div></section>
-  <section class="section"><h3>实时 HTML</h3><pre class="html-preview" id="html-preview"></pre></section>
-  <div class="decision">迁移建议：先建立 TipTap adapter 与块序列化契约，再替换 React UI，最后移除 BlockNote/Mantine。不要一次改完依赖、测量、工具栏和 PDF。</div>
+  <header class="inspector-head"><span class="eyebrow">TIPTAP POC · HEADLESS / MIT</span><h2>Keep the Preshot UI and swap only the engine</h2><p>The toolbar, portal, palette, and canvas geometry keep the current visuals. The body text is driven by TipTap/ProseMirror.</p></header>
+  <section class="section"><h3>Capability Validation</h3><div class="metric"><b>HTML Persistence</b><span>getHTML / setContent</span></div><div class="metric"><b>Text Styling</b><span>TextStyleKit</span></div><div class="metric"><b>Links</b><span>StarterKit Link</span></div><div class="metric"><b>Alignment</b><span>TextAlign</span></div><div class="metric"><b>Top-level blocks</b><span>ProseMirror doc.content</span></div></section>
+  <section class="section"><h3>Color Acceptance</h3><div class="proof"><b id="color-proof">Color not yet applied</b><span>Select text and then choose a theme color; this area verifies both TipTap `getHTML()` and the DOM computed color.</span></div></section>
+  <section class="section"><h3>Live HTML</h3><pre class="html-preview" id="html-preview"></pre></section>
+  <div class="decision">Migration recommendation: first establish the TipTap adapter and block-serialization contract, then replace the React UI, and finally remove BlockNote/Mantine. Do not change dependencies, measurement, the toolbar, and PDF all at once.</div>
 </aside>
 </div>
 </div>
-<div class="menu" id="block-menu" role="menu" aria-label="段落类型" hidden></div>
-<div class="menu" id="size-menu" role="listbox" aria-label="字号" hidden></div>
-<div class="menu" id="more-menu" role="dialog" aria-label="更多格式" hidden></div>
-<div class="palette" id="color-menu" role="listbox" aria-label="文字颜色" hidden><span class="palette-title">主题颜色</span><div class="swatches" id="swatches"></div></div>
-<form class="link-pop" id="link-pop" aria-label="添加链接" hidden><input aria-label="链接地址" name="url" placeholder="输入 URL"><button type="submit">应用</button></form>
+<div class="menu" id="block-menu" role="menu" aria-label="Paragraph type" hidden></div>
+<div class="menu" id="size-menu" role="listbox" aria-label="Font size" hidden></div>
+<div class="menu" id="more-menu" role="dialog" aria-label="More formatting" hidden></div>
+<div class="palette" id="color-menu" role="listbox" aria-label="Text color" hidden><span class="palette-title">Theme Colors</span><div class="swatches" id="swatches"></div></div>
+<form class="link-pop" id="link-pop" aria-label="Add link" hidden><input aria-label="Link URL" name="url" placeholder="Enter URL"><button type="submit">Apply</button></form>
 <script type="module">
 import { Editor } from 'https://esm.sh/@tiptap/core@3.29.2'
 import StarterKit from 'https://esm.sh/@tiptap/starter-kit@3.29.2'
 import { TextStyle, Color, FontSize } from 'https://esm.sh/@tiptap/extension-text-style@3.29.2'
 import TextAlign from 'https://esm.sh/@tiptap/extension-text-align@3.29.2'
 
-const colors=[['石墨黑','#202329'],['中性灰','#6B6F76'],['浆果红','#C2385C'],['深红','#B42342'],['琥珀','#C78218'],['松绿','#2F7D65'],['功能青','#0891B2'],['钴蓝','#2563A9'],['鸢尾紫','#6F56A6'],['白色','#FFFFFF']]
+const colors=[['Graphite Black','#202329'],['Neutral Gray','#6B6F76'],['Berry Red','#C2385C'],['Deep Red','#B42342'],['Amber','#C78218'],['Pine Green','#2F7D65'],['Functional Cyan','#0891B2'],['Cobalt Blue','#2563A9'],['Iris Purple','#6F56A6'],['White','#FFFFFF']]
 const sizes=[10,12,14,16,18,24]
 const blocks=[
-  ['T','段落',()=>editor.chain().focus().setParagraph().run()],
-  ['H1','一级标题',()=>editor.chain().focus().setHeading({level:1}).run()],
-  ['H2','二级标题',()=>editor.chain().focus().setHeading({level:2}).run()],
-  ['H3','三级标题',()=>editor.chain().focus().setHeading({level:3}).run()],
-  ['H4','四级标题',()=>editor.chain().focus().setHeading({level:4}).run()],
-  ['H5','五级标题',()=>editor.chain().focus().setHeading({level:5}).run()],
-  ['H6','六级标题',()=>editor.chain().focus().setHeading({level:6}).run()],
-  ['❞','引用',()=>editor.chain().focus().toggleBlockquote().run()],
-  ['•','无序列表',()=>editor.chain().focus().toggleBulletList().run()],
-  ['1.','有序列表',()=>editor.chain().focus().toggleOrderedList().run()],
+  ['T','Paragraph',()=>editor.chain().focus().setParagraph().run()],
+  ['H1','Heading 1',()=>editor.chain().focus().setHeading({level:1}).run()],
+  ['H2','Heading 2',()=>editor.chain().focus().setHeading({level:2}).run()],
+  ['H3','Heading 3',()=>editor.chain().focus().setHeading({level:3}).run()],
+  ['H4','Heading 4',()=>editor.chain().focus().setHeading({level:4}).run()],
+  ['H5','Heading 5',()=>editor.chain().focus().setHeading({level:5}).run()],
+  ['H6','Heading 6',()=>editor.chain().focus().setHeading({level:6}).run()],
+  ['❞','Quote',()=>editor.chain().focus().toggleBlockquote().run()],
+  ['•','Bulleted List',()=>editor.chain().focus().toggleBulletList().run()],
+  ['1.','Ordered List',()=>editor.chain().focus().toggleOrderedList().run()],
 ]
 let lastColor='#202329', saveTimer
 const storageKey='preshot-tiptap-editor-demo-html'
-const initialContent=localStorage.getItem(storageKey)||'<h2>35mm 人像写真</h2><p>拍摄时间：2026.8.10 / 17:00</p><p>地点：延安西路、上生新所</p><p><span style="font-size: 14px">造型：清爽蓝白，自然妆感</span></p>'
+const initialContent=localStorage.getItem(storageKey)||'<h2>35mm Portrait Session</h2><p>Shoot time: 2026.8.10 / 17:00</p><p>Location: Yan'an West Road, Columbia Circle</p><p><span style="font-size: 14px">Styling: fresh blue-and-white palette, natural makeup</span></p>'
 const editor=new Editor({
   element:document.querySelector('#editor'),
   extensions:[
@@ -91,17 +91,17 @@ const editor=new Editor({
     TextAlign.configure({types:['heading','paragraph']}),
   ],
   content:initialContent,
-  editorProps:{attributes:{'aria-label':'文案正文','aria-multiline':'true',role:'textbox'}},
+  editorProps:{attributes:{'aria-label':'Text body','aria-multiline':'true',role:'textbox'}},
   onTransaction:updateUI,
   onSelectionUpdate:updateUI,
-  onUpdate:({editor})=>{const html=editor.getHTML();document.querySelector('#save-status').textContent='有未保存的更改';clearTimeout(saveTimer);saveTimer=setTimeout(()=>{localStorage.setItem(storageKey,html);document.querySelector('#save-status').textContent='已保存'},700);renderHTML(html)},
+  onUpdate:({editor})=>{const html=editor.getHTML();document.querySelector('#save-status').textContent='Unsaved changes';clearTimeout(saveTimer);saveTimer=setTimeout(()=>{localStorage.setItem(storageKey,html);document.querySelector('#save-status').textContent='Saved'},700);renderHTML(html)},
 })
 
 function renderHTML(html){document.querySelector('#html-preview').textContent=html}
 function updateUI(){
   const states={bold:editor.isActive('bold'),italic:editor.isActive('italic'),underline:editor.isActive('underline'),strike:editor.isActive('strike'),'align-left':editor.isActive({textAlign:'left'}),'align-center':editor.isActive({textAlign:'center'}),'align-right':editor.isActive({textAlign:'right'})}
   for(const [name,active] of Object.entries(states)){const button=document.querySelector(`[data-command="${name}"]`);if(button){button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active))}}
-  let label='段落',icon='T';for(let level=1;level<=6;level++){if(editor.isActive('heading',{level})){label=`${['一','二','三','四','五','六'][level-1]}级标题`;icon=`H${level}`}}
+  let label='Paragraph',icon='T';for(let level=1;level<=6;level++){if(editor.isActive('heading',{level})){label=`${['Heading 1','Heading 2','Heading 3','Heading 4','Heading 5','Heading 6'][level-1]}`;icon=`H${level}`}}
   document.querySelector('#block-label').textContent=label;document.querySelector('#block-icon').textContent=icon
   const size=editor.getAttributes('textStyle').fontSize;document.querySelector('#size-value').textContent=size?String(parseInt(size,10)):'-'
 }
@@ -112,20 +112,20 @@ function closeAll(except){for(const id of ['block-menu','size-menu','color-menu'
 function toggle(surface,trigger,align='start'){const opening=surface.hidden;closeAll(opening?surface.id:null);if(opening)place(surface,trigger,align);else surface.hidden=true;trigger.setAttribute('aria-expanded',String(opening))}
 
 const blockMenu=document.querySelector('#block-menu');for(const [icon,label,action] of blocks){const button=document.createElement('button');button.className='menu-item';button.role='menuitem';button.innerHTML=`<span class="type-icon">${icon}</span><span>${label}</span><span></span>`;button.addEventListener('pointerdown',event=>{event.preventDefault();action();blockMenu.hidden=true});blockMenu.append(button)}
-for(const [icon,label] of [['▸H1','可折叠一级标题'],['▸H2','可折叠二级标题'],['▸H3','可折叠三级标题']]){const button=document.createElement('button');button.className='menu-item';button.disabled=true;button.innerHTML=`<span class="type-icon">${icon}</span><span>${label}</span><small>自定义节点</small>`;blockMenu.append(button)}
+for(const [icon,label] of [['▸H1','Collapsible Heading 1'],['▸H2','Collapsible Heading 2'],['▸H3','Collapsible Heading 3']]){const button=document.createElement('button');button.className='menu-item';button.disabled=true;button.innerHTML=`<span class="type-icon">${icon}</span><span>${label}</span><small>Custom node</small>`;blockMenu.append(button)}
 document.querySelector('#block-trigger').addEventListener('click',event=>toggle(blockMenu,event.currentTarget))
 
 const sizeMenu=document.querySelector('#size-menu');for(const size of sizes){const button=document.createElement('button');button.className='menu-item';button.role='option';button.innerHTML=`<span></span><span>${size}</span><span></span>`;button.addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus().setFontSize(`${size}px`).run();sizeMenu.hidden=true});sizeMenu.append(button)}
 document.querySelector('#size-trigger').addEventListener('click',event=>toggle(sizeMenu,event.currentTarget))
 document.querySelector('#size-value').addEventListener('click',event=>toggle(sizeMenu,event.currentTarget))
 
-const swatches=document.querySelector('#swatches');for(const [label,color] of colors){const button=document.createElement('button');button.className='swatch';button.role='option';button.style.setProperty('--swatch',color);button.setAttribute('aria-label',`${label} ${color}`);button.addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus().setColor(color).run();lastColor=color;document.documentElement.style.setProperty('--active-color',color);colorMenu.hidden=true;requestAnimationFrame(()=>{const span=document.querySelector('#editor [style*="color"]');const computed=span?getComputedStyle(span).color:'未找到';document.querySelector('#color-proof').textContent=`已生效：${color} / ${computed}`;renderHTML(editor.getHTML())})});swatches.append(button)}
+const swatches=document.querySelector('#swatches');for(const [label,color] of colors){const button=document.createElement('button');button.className='swatch';button.role='option';button.style.setProperty('--swatch',color);button.setAttribute('aria-label',`${label} ${color}`);button.addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus().setColor(color).run();lastColor=color;document.documentElement.style.setProperty('--active-color',color);colorMenu.hidden=true;requestAnimationFrame(()=>{const span=document.querySelector('#editor [style*="color"]');const computed=span?getComputedStyle(span).color:'Not found';document.querySelector('#color-proof').textContent=`Applied: ${color} / ${computed}`;renderHTML(editor.getHTML())})});swatches.append(button)}
 const colorMenu=document.querySelector('#color-menu');document.querySelector('#color-trigger').addEventListener('click',event=>toggle(colorMenu,event.currentTarget,'center'));document.querySelector('#color-main').addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus().setColor(lastColor).run()})
 
 for(const [name,command] of Object.entries({bold:'toggleBold',italic:'toggleItalic',underline:'toggleUnderline',strike:'toggleStrike'})){document.querySelector(`[data-command="${name}"]`).addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus()[command]().run()})}
 for(const [name,align] of [['align-left','left'],['align-center','center'],['align-right','right']])document.querySelector(`[data-command="${name}"]`).addEventListener('pointerdown',event=>{event.preventDefault();editor.chain().focus().setTextAlign(align).run()})
 const linkPop=document.querySelector('#link-pop'),linkTrigger=document.querySelector('#link-trigger');linkTrigger.addEventListener('click',()=>{toggle(linkPop,linkTrigger,'end');if(!linkPop.hidden){linkPop.elements.url.value=editor.getAttributes('link').href||'';linkPop.elements.url.focus()}});linkPop.addEventListener('submit',event=>{event.preventDefault();const url=linkPop.elements.url.value.trim();if(url)editor.chain().focus().extendMarkRange('link').setLink({href:/^[a-z][a-z\d+.-]*:/i.test(url)?url:`https://${url}`}).run();else editor.chain().focus().unsetLink().run();linkPop.hidden=true})
-const moreMenu=document.querySelector('#more-menu'),moreTrigger=document.querySelector('#more-trigger');for(const [label,action] of [['无序列表',()=>editor.chain().focus().toggleBulletList().run()],['有序列表',()=>editor.chain().focus().toggleOrderedList().run()],['引用',()=>editor.chain().focus().toggleBlockquote().run()],['代码块',()=>editor.chain().focus().toggleCodeBlock().run()],['清除格式',()=>editor.chain().focus().unsetAllMarks().clearNodes().run()]]){const button=document.createElement('button');button.className='menu-item';button.type='button';button.innerHTML=`<span></span><span>${label}</span><span></span>`;button.addEventListener('pointerdown',event=>{event.preventDefault();action();moreMenu.hidden=true});moreMenu.append(button)}moreTrigger.addEventListener('click',()=>toggle(moreMenu,moreTrigger,'end'))
+const moreMenu=document.querySelector('#more-menu'),moreTrigger=document.querySelector('#more-trigger');for(const [label,action] of [['Bulleted List',()=>editor.chain().focus().toggleBulletList().run()],['Ordered List',()=>editor.chain().focus().toggleOrderedList().run()],['Quote',()=>editor.chain().focus().toggleBlockquote().run()],['Code Block',()=>editor.chain().focus().toggleCodeBlock().run()],['Clear Formatting',()=>editor.chain().focus().unsetAllMarks().clearNodes().run()]]){const button=document.createElement('button');button.className='menu-item';button.type='button';button.innerHTML=`<span></span><span>${label}</span><span></span>`;button.addEventListener('pointerdown',event=>{event.preventDefault();action();moreMenu.hidden=true});moreMenu.append(button)}moreTrigger.addEventListener('click',()=>toggle(moreMenu,moreTrigger,'end'))
 document.querySelector('#toolbar').addEventListener('mousedown',event=>event.preventDefault())
 document.addEventListener('keydown',event=>{if(event.key==='Escape')closeAll()})
 renderHTML(editor.getHTML());updateUI();window.__preshotTipTapDemo={editor}

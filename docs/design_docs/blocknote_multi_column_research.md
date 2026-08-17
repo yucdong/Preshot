@@ -1,23 +1,23 @@
-# BlockNote 同行多列布局调研
+# BlockNote inline multi-column layout research
 
-状态：已实施  
-日期：2026-08-17
+Status: Implemented
+Date: 2026-08-17
 
-## 结论
+## Conclusion
 
-可以支持同一行放置“文本 block + 图片组 block”。
+Placing a "text block + image-group block" on the same row is supported.
 
-BlockNote 官方 `@blocknote/xl-multi-column` 扩展提供：
+BlockNote's official `@blocknote/xl-multi-column` extension provides:
 
 ```text
 columnList
 ├─ column { width }
-│  └─ 普通或自定义 blocks
+│  └─ regular or custom blocks
 └─ column { width }
-   └─ 普通或自定义 blocks
+   └─ regular or custom blocks
 ```
 
-因此目标结构可以表示为：
+Therefore the target structure can be represented as:
 
 ```json
 {
@@ -27,7 +27,7 @@ columnList
       "type": "column",
       "props": { "width": 0.75 },
       "children": [
-        { "type": "paragraph", "content": "拍摄说明……" }
+        { "type": "paragraph", "content": "Shooting notes..." }
       ]
     },
     {
@@ -41,34 +41,32 @@ columnList
 }
 ```
 
-列宽是 `flex-grow` 权重，不要求总和等于 1；两列默认均为 1。
+Column width is a `flex-grow` weight and does not need to sum to 1; both columns default to 1.
 
-## 官方能力与版本
+## Official capability and version
 
-- 官方文档：
+- Official documentation:
   [Document Structure - Column Blocks](https://www.blocknotejs.org/docs/foundations/document-structure#column-blocks)
-- 当前组织 npm 镜像提供：
+- Current organization npm mirror provides:
   `@blocknote/xl-multi-column@0.53.0`
-- 与当前项目的 `@blocknote/core/react@0.53.0` 完全匹配。
-- 主要导出：
+- It matches the project's current `@blocknote/core/react@0.53.0` exactly.
+- Main exports:
   - `withMultiColumn(schema)`
   - `ColumnBlock`
   - `ColumnListBlock`
   - `insertColumnList(editor, numColumns)`
   - `getMultiColumnSlashMenuItems(editor)`
   - `multiColumnDropCursor`
-- package 许可：
-  `GPL-3.0 OR PROPRIETARY`。如果 Preshot 不以 GPL-3.0 发布，需要先确认并取得
-  BlockNote 的商业许可。
+- Package license:
+  `GPL-3.0 OR PROPRIETARY`. If Preshot is not distributed under GPL-3.0, BlockNote commercial licensing must be confirmed and obtained first.
 
-## 当前 Preshot 为什么还不能直接使用
+## Why current Preshot could not use it directly yet
 
-### 1. Schema 未包含列 block
+### 1. The schema did not include column blocks
 
-`src/features/plan/blocknote/blockNoteSchema.tsx` 只注册当前受限 block 类型和
-`imageGroup`，没有 `columnList` / `column`。
+`src/features/plan/blocknote/blockNoteSchema.tsx` only registered the currently restricted block types and `imageGroup`; it did not include `columnList` / `column`.
 
-建议：
+Recommendation:
 
 ```ts
 const baseSchema = BlockNoteSchema.create({
@@ -80,102 +78,94 @@ const baseSchema = BlockNoteSchema.create({
 export const preshotBlockNoteSchema = withMultiColumn(baseSchema);
 ```
 
-Slash menu 合并 `getMultiColumnSlashMenuItems(editor)`，提供“两列”和“三列”。
+Merge `getMultiColumnSlashMenuItems(editor)` into the slash menu and provide "Two columns" and "Three columns".
 
-### 2. 持久化契约拒绝列结构
+### 2. The persistence contract rejected column structure
 
-`PRESHOT_BLOCK_TYPES` 没有 `columnList` / `column`，验证器也没有以下规则：
+`PRESHOT_BLOCK_TYPES` did not contain `columnList` / `column`, and the validator lacked these rules:
 
 - `columnList.content === undefined`
-- `columnList.children` 至少两项且只能是 `column`
+- `columnList.children` contains at least two items and only `column`
 - `column.content === undefined`
-- `column.props.width` 为正数
-- `column.children` 至少包含一个普通 block
-- `column` 中不能再次嵌套 `columnList`
+- `column.props.width` is positive
+- `column.children` contains at least one regular block
+- `column` cannot nest another `columnList`
 
-这是新的持久化能力。为防止旧版本打开后丢失列结构，建议升级到 schema 14
-（或至少将 block document version 升到 2），而不是静默扩展 v13。
+This is new persistence capability. To prevent old versions from silently dropping column structure on open, schema 14 should be introduced (or at least block document version 2) rather than silently extending v13.
 
-### 3. 图片组当前被强制为顶层
+### 3. Image groups were currently forced to be top-level
 
-当前有两层限制：
+There were two existing restrictions:
 
-- `blockDocument.ts`：任何非顶层 `imageGroup` 都报错。
-- `BlockNoteDocumentEditor.tsx`：检测到嵌套图片组后自动移回顶层。
+- `blockDocument.ts`: any non-top-level `imageGroup` is rejected.
+- `BlockNoteDocumentEditor.tsx`: nested image groups are auto-moved back to the top level when detected.
 
-需要改为：
+It needed to change to:
 
-- 图片组允许处于文档顶层，或作为 `column` 的直接普通 block 子项。
-- 图片组仍禁止嵌套到段落、列表、引用、图片组等普通 block 下。
-- `imageGroup.children` 继续必须为空。
+- image groups may exist at the document top level, or as direct regular-block children of a `column`;
+- image groups still may not nest under paragraphs, lists, blockquotes, image groups, or other regular blocks;
+- `imageGroup.children` must still remain empty.
 
-图片组视图已经按 `.bn-block-content.clientWidth` 约束宽度，因此进入列后可自然
-适应列宽，不需要重写内部图片布局。
+The image-group view already constrains width using `.bn-block-content.clientWidth`, so when it enters a column it can naturally adapt to the column width without rewriting internal image layout.
 
-### 4. 当前 Pointer 拖拽需要支持左右边缘
+### 4. Current Pointer drag needed to support left/right edges
 
-官方扩展通过 HTML5 drag 的 left/right edge drop 创建列，但 Preshot 已因 CSS
-zoom 改用 Pointer Events，不能直接依赖该 drop handler。
+The official extension creates columns from left/right-edge HTML5 drag drop, but Preshot already switched to Pointer Events because of CSS zoom and therefore could not rely directly on that drop handler.
 
-需要给当前 `PreshotBlockSideMenu` 增加：
+`PreshotBlockSideMenu` needed to add:
 
-- `left` / `right` drop placement；
-- 目标 block 左右 20%-25% 区域显示竖向青色预览；
-- 普通 block 边缘 drop：用 `replaceBlocks` 创建两列 `columnList`；
-- 已在列中的 block 边缘 drop：创建新 `column`；
-- 拖回上下插入线：移出 column；
-- 空列自动删除；只剩一列时自动拆除 `columnList`。
+- `left` / `right` drop placement;
+- a vertical cyan preview in the left/right 20%-25% target zone of a block;
+- for edge drop on a regular block: create a two-column `columnList` with `replaceBlocks`;
+- for edge drop on a block already inside a column: create a new `column`;
+- dropping back on above/below insertion lines removes it from the column;
+- delete empty columns automatically; remove `columnList` automatically when only one column remains.
 
-图片组拖入列时，顶层约束应停在 `column`，不能继续映射到文档顶层。
+When an image group is dragged into a column, top-level enforcement must stop at the `column` container and must not remap it all the way back to the document top level.
 
-### 5. PDF 当前会把 children 纵向拍平
+### 5. PDF currently flattened children vertically
 
-`blockDocumentToBlocks.ts` 目前递归 `flatMap` children。即使屏幕显示两列，
-PDF 仍会输出“先文本、后图片”的纵向结构。
+`blockDocumentToBlocks.ts` currently recursively `flatMap`s children. Even if the screen showed two columns, PDF would still output a vertical structure of "text first, image second".
 
-需要新增 PDF `columns` layout block：
+A new PDF `columns` layout block was required:
 
-- 按 `column.props.width` 分配可用宽度；
-- 每列独立测量文本和图片组；
-- 整个 column row 高度取最高列；
-- column row 作为整体分页，默认不跨页拆分；
-- 图片组 frame/crop 在列宽内重新布局，但不改变保存数据。
+- allocate available width by `column.props.width`;
+- measure text and image groups independently per column;
+- use the tallest column as the row height;
+- paginate the whole column row as one keep-together unit by default;
+- relayout image-group frame/crop within column width without changing persisted data.
 
-### 6. 操作菜单需要理解列容器
+### 6. Operation menus needed to understand column containers
 
-- 普通 block 菜单增加“与左侧/右侧并排”。
-- 列内 block 增加“移出分栏”。
-- `columnList` 提供“新增列 / 删除列 / 平均分布”。
-- 列数建议先限制为 2，后续最多 3。
-- 逻辑最小列宽建议 280px；当前 1008px 内容区适合两列，三列只适合短文本或
-  单图。
+- Add "Place beside left/right" to regular-block menus.
+- Add "Remove from columns" for blocks inside columns.
+- Provide "Add column / Delete column / Distribute evenly" for `columnList`.
+- Limit the recommended column count to 2 first, then at most 3 later.
+- Logical minimum column width should be about 280px; the current 1008px content area suits two columns, while three columns fit only short text or a single image.
 
-## 推荐交互
+## Recommended interaction
 
-1. `/两列` 插入空的两列布局。
-2. 拖动 block 到另一 block 左/右边缘，出现竖向青色放置线。
-3. 松手后两者进入同一 `columnList`。
-4. 列间显示 8px 可拖拽分隔手柄，实时调整 flex 权重。
-5. 文本 + 图片组推荐初始比例 38:62。
-6. 窄列中的图片组继续保留内部拖动、缩放、删除和查看大图能力。
-7. 删除某列最后一个 block 时自动保留空段落；主动“移出分栏”后若只剩一列，
-   自动恢复普通纵向 blocks。
+1. Insert an empty two-column layout with `/Two columns`.
+2. Drag a block to the left/right edge of another block until a vertical cyan placement line appears.
+3. Release to place both inside the same `columnList`.
+4. Show an 8px draggable divider between columns and adjust flex weights live.
+5. Recommended initial text + image-group ratio is 38:62.
+6. Image groups inside narrow columns keep internal drag, resize, delete, and large-image viewing capability.
+7. When deleting the last block in a column, keep an empty paragraph automatically; when explicitly removing from columns, if only one column remains, restore ordinary vertical blocks automatically.
 
-## 不推荐方案
+## Not recommended
 
-- **表格模拟**：BlockNote table cell 存的是 inline content，不是 block children，
-  不能放入 `imageGroup`。
-- **单个自定义 textImageRow block**：需要在 custom block 内重新实现富文本编辑、
-  block 操作、拖拽和 JSON 转换，会失去 BlockNote 原生能力。
-- **直接复制 GPL 扩展源码**：若 Preshot 不是 GPL 项目会带来许可风险。
+- **Table simulation**: BlockNote table cells store inline content rather than block children, so `imageGroup` cannot be placed inside them.
+- **A single custom `textImageRow` block**: this would require reimplementing rich-text editing, block operations, drag-and-drop, and JSON conversion inside a custom block, losing native BlockNote capability.
+- **Directly copying GPL extension source**: if Preshot is not a GPL project, that introduces licensing risk.
 
-## 实施结果
+## Implementation result
 
-- 已选择 GPL-3.0，增加第三方 notice 和完整许可证文本。
-- 已升级 schema 14 / document version 2，并自动迁移 v13。
-- 已接入 `withMultiColumn`、两列/三列 slash menu 和列 resize。
-- 已允许图片组作为 column 子项。
-- 已扩展 Pointer left/right drop 创建同行布局。
-- 已更新 JSON 校验、复制、删除、undo、autosave 和引用完整性。
-- 已实现 column-aware PDF layout 和整行 keep-together 分页。
-- 已覆盖文本+图片组同行、列宽调整、保存重载、v13 迁移和 PDF E2E。
+- GPL-3.0 was chosen, and third-party notice plus full license text were added.
+- Schema 14 / document version 2 was introduced, with automatic migration from v13.
+- `withMultiColumn`, two-column / three-column slash menu items, and column resize were integrated.
+- Image groups are now allowed as column children.
+- Pointer left/right drop was extended to create same-row layout.
+- JSON validation, duplication, deletion, undo, autosave, and reference integrity were updated.
+- Column-aware PDF layout and whole-row keep-together pagination were implemented.
+- Coverage now includes text+image same-row layout, column-width adjustment, save/reload, v13 migration, and PDF E2E.

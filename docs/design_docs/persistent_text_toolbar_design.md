@@ -1,118 +1,118 @@
-# 常驻文本工具栏与缩放组件 Chrome 设计
+# Persistent text toolbar and zoom-component chrome design
 
-## 状态
+## Status
 
-- 状态：已实施并验证
-- 日期：2026-08-10
-- 交互参考：`docs/design_refs/preshot-persistent-text-toolbar-review.html`
-- 方法：`ui-ux-pro-max`，密度 9、动效 2；采用键盘可达、非 hover 依赖、可读菜单、安全定位原则
-- 视觉基线：`design-system/preshot/MASTER.md`
+- Status: Implemented and validated
+- Date: 2026-08-10
+- Interaction reference: `docs/design_refs/preshot-persistent-text-toolbar-review.html`
+- Method: `ui-ux-pro-max`, density 9, motion 2; follows keyboard reachability, non-hover dependence, readable menus, and safe positioning
+- Visual baseline: `design-system/preshot/MASTER.md`
 
-## 问题诊断
+## Problem diagnosis
 
-1. 当前段落菜单宽度为 176px，项目使用固定 `h-8`。中文长标签换成两行后仍被限制在 32px，高度不足导致“可折叠一级标题”等项目互相覆盖。
-2. 当前文本格式栏来自 BlockNote 的选区浮动工具栏，只有编辑/选区激活后出现，不满足每个文本框始终可见的工作流。
-3. 当前关闭按钮尺寸和负偏移都直接乘画布 `scale`。实测 1.125 倍画布下按钮为 18px、偏移 -9px。虽然数值发生缩放，但它仍属于组件内部绝对定位层，受自然高度、padding 和 overflow 影响，视觉锚点不稳定。
-4. BlockNote 工具栏自身为 `overflow: auto`。二级菜单已通过 portal 修复，不应回退为工具栏子元素。
+1. The current paragraph menu is 176px wide and items use fixed `h-8`. When long Chinese labels wrap to two lines, they are still constrained to 32px height, so items such as "Collapsible heading level 1" overlap each other.
+2. The current text-format bar comes from BlockNote's floating selection toolbar and appears only after editing/selection activation, which does not fit the workflow where every text box should always show its controls.
+3. Current close-button size and negative offset are both multiplied directly by canvas `scale`. At 1.125× canvas scale, the measured button is 18px with offset -9px. Although the number changes with scale, it still belongs to an absolutely positioned layer inside the component and is affected by natural height, padding, and overflow, so the visual anchor is unstable.
+4. BlockNote's own toolbar still uses `overflow: auto`. Secondary menus have already been fixed with portals and must not regress back into toolbar children.
 
-## 推荐结构
+## Recommended structure
 
-每个 `PlanTextLeaf` 使用以下三层结构：
+Each `PlanTextLeaf` uses the following three-layer structure:
 
 ```text
 TextLeaf
-├─ PersistentLeafToolbar   常驻、参与屏幕布局、不导出
-├─ RichTextEditorContent   只测量正文自然高度
-└─ PortaledMenus           挂载 document.body，不参与叶子高度
+├─ PersistentLeafToolbar   persistent, participates in screen layout, not exported
+├─ RichTextEditorContent   measures only natural body height
+└─ PortaledMenus           mounted to document.body, does not contribute to leaf height
 ```
 
-组件级按钮独立于叶子：
+Component-level buttons stay independent from the leaf:
 
 ```text
 ComponentFrame
-├─ ComponentChromeLayer    排序、关闭、缩放状态
-└─ TextTree                叶子与正文
+├─ ComponentChromeLayer    ordering, close, resize state
+└─ TextTree                leaves and body
 ```
 
-## 常驻工具栏
+## Persistent toolbar
 
-- 每个文本叶子顶部固定显示一条 36px 工具栏，不依赖 hover、选区或焦点。
-- 默认顺序：段落类型、加粗、斜体、下划线、删除线、字号、颜色、对齐、链接、更多。
-- 工具栏属于屏幕编辑 chrome，PDF 导出忽略。
-- 工具栏高度计入组件屏幕自然高度；正文测量必须排除工具栏，避免把 chrome 当作 PDF 文本高度。
-- 没有选区时，命令作用于当前插入点或后续输入；有选区时作用于选区。
-- 非活动叶子的工具栏保持可见，但使用弱化背景；活动叶子用 cyan 边框/焦点环，不改变尺寸。
+- Every text leaf always shows a 36px toolbar at the top, without depending on hover, selection, or focus.
+- Default order: paragraph type, bold, italic, underline, strikethrough, font size, color, alignment, link, more.
+- The toolbar belongs to screen editing chrome and is ignored by PDF export.
+- Toolbar height counts toward the component's natural screen height; body measurement must exclude the toolbar so chrome is not mistaken for PDF text height.
+- With no selection, commands apply to the current insertion point or future input; with a selection, they apply to the selection.
+- Inactive leaf toolbars stay visible but use a subdued background; the active leaf uses a cyan border/focus ring without changing size.
 
-### 响应式密度
+### Responsive density
 
-使用叶子容器查询，而不是视口媒体查询：
+Use leaf-container queries instead of viewport media queries:
 
-- `>= 420px`：完整单行工具栏。
-- `280–419px`：段落标签缩短，隐藏右对齐/嵌套等低频按钮并收进“更多”。
-- `< 280px`：段落只显示 `T/H1/H2` 图标；保留 B/I/U、字号、颜色、更多，不产生横向滚动。
-- 低频能力始终可从“更多”菜单访问，不因宽度消失。
+- `>= 420px`: full single-row toolbar.
+- `280–419px`: shorten paragraph labels and move low-frequency actions such as align-right / nest into "More".
+- `< 280px`: paragraph shows only `T/H1/H2` icons; keep B/I/U, font size, color, and More, with no horizontal scrolling.
+- Low-frequency capabilities must always remain accessible from the More menu and never disappear because of width.
 
-## 段落菜单
+## Paragraph menu
 
-- 通过现有 viewport-aware portal 挂载到 `document.body`。
-- 宽度从 176px 增至 220px。
-- 每项使用三列：`22px 图标 / 标签 / 16px 勾选`。
-- 使用 `min-height: 36px`，不使用固定高度。
-- 标签 `white-space: nowrap`，字号 12px，行高 20px。
-- 最大高度 `min(420px, 100vh - 16px)`，菜单自身滚动。
-- 靠近底边自动翻到触发器上方；四边保持至少 8px 安全距。
-- 键盘支持上下移动、Enter 应用、Escape 关闭并返回触发器。
+- Mount to `document.body` through the existing viewport-aware portal.
+- Increase width from 176px to 220px.
+- Each item uses three columns: `22px icon / label / 16px checkmark`.
+- Use `min-height: 36px` rather than fixed height.
+- Labels use `white-space: nowrap`, font size 12px, and line height 20px.
+- Maximum height is `min(420px, 100vh - 16px)`, and the menu itself scrolls.
+- Near the bottom edge, it flips above the trigger automatically; keep at least 8px safe distance on all sides.
+- Keyboard supports up/down movement, Enter apply, and Escape close + return focus to the trigger.
 
-## 关闭按钮
+## Close button
 
-推荐改成组件级 screen-space chrome：
+Recommended as component-level screen-space chrome:
 
-- 锚点为 `ComponentFrame.getBoundingClientRect()` 的右上角。
-- 按钮放在外框内部 `4–6px`，不再使用 `right/top: -8 * scale` 的负偏移。
-- 视觉尺寸随画布缩放做有界变化：`clamp(18px, 18px * scale, 22px)`。
-- 每次组件 ResizeObserver、画布缩放或滚动时更新锚点。
-- 自然高度变化只移动锚点，不参与正文测量。
-- 按钮使用 graphite；hover/focus 切换 danger，并保留 `aria-label` 与 2px 焦点环。
+- Anchor to the upper-right corner of `ComponentFrame.getBoundingClientRect()`.
+- Place the button `4–6px` inside the outer border instead of using negative `right/top: -8 * scale` offsets.
+- Visual size changes with bounded scaling: `clamp(18px, 18px * scale, 22px)`.
+- Update the anchor on every component ResizeObserver event, canvas zoom, or scroll.
+- Natural-height changes move only the anchor and do not participate in body measurement.
+- The button uses graphite by default, switches to danger on hover/focus, and keeps `aria-label` plus a 2px focus ring.
 
-该方案同时解决“位置不对”和“缩放变化不稳定”：按钮跟随外框实际 rect，而不是推导内部 padding 后的位置。
+This solves both "incorrect position" and "unstable behavior under zoom": the button follows the real component-frame rect rather than an inferred inner-padding coordinate.
 
-## 状态与动效
+## State and motion
 
-- 工具栏常驻，无进入/退出动画。
-- 菜单 120–160ms opacity + translateY(2px)，reduced motion 下取消。
-- 叶子激活仅改变边框/背景，不改变工具栏或正文尺寸。
-- 禁止宽高动画，避免文本测量和保存循环。
+- The toolbar is persistent and has no enter/exit animation.
+- Menus use 120–160ms opacity + translateY(2px); reduced motion disables the motion.
+- Activating a leaf changes only border/background and never changes toolbar or body size.
+- Width/height animation is prohibited to avoid text measurement and save loops.
 
-## 实施路径
+## Implementation path
 
-1. 从 `PreshotFormattingToolbar` 提取可复用命令模型与 `PersistentLeafToolbar`。
-2. 在 `TextLeafEditor` 中常驻渲染工具栏，保留每个 BlockNote editor 自己的 selection state。
-3. 移除 `FormattingToolbarController` 的浮动显示职责；保留 BlockNote 编辑器本体。
-4. 将段落菜单改为 220px、内容高度、单行标签，并补键盘 roving focus。
-5. 把组件关闭按钮移到独立 `ComponentChromeLayer`，以 frame rect 定位。
-6. 更新自然高度计算：屏幕组件高度包含 toolbar；PDF/文本 measurement 只读取正文。
-7. 验证单叶、左右/上下/嵌套叶子以及 72%–125% 画布缩放。
+1. Extract reusable command models and `PersistentLeafToolbar` from `PreshotFormattingToolbar`.
+2. Render the toolbar persistently inside `TextLeafEditor` while keeping each BlockNote editor's own selection state.
+3. Remove floating-visibility responsibility from `FormattingToolbarController`; keep the BlockNote editor body.
+4. Change the paragraph menu to 220px, content height, single-line labels, and add keyboard roving focus.
+5. Move the component close button into an independent `ComponentChromeLayer` positioned from frame rect.
+6. Update natural-height calculation: screen component height includes toolbar, but PDF/text measurement reads body only.
+7. Validate single-leaf, left/right split, top/bottom split, nested leaves, and 72%–125% canvas zoom.
 
-## 验收标准
+## Acceptance criteria
 
-1. 每个文本框无需 hover 即可看到格式工具栏。
-2. 所有段落类型标签无换行、重叠或裁切。
-3. 最窄允许叶子没有水平滚动，所有命令仍可从“更多”访问。
-4. 段落、字号、颜色和链接菜单均跳出工具栏裁切边界。
-5. 关闭按钮在组件缩放、自然高度变化、滚动和画布缩放后仍锚定右上角。
-6. 工具栏不进入 PDF，且不会污染正文高度测量。
-7. 鼠标、键盘和屏幕阅读器均可完成核心格式操作。
-8. 主题颜色和自定义 RGB 必须实际写入当前选区；测试读取编辑器 HTML/CSS 样式，并在自动保存后重载确认颜色仍存在。
+1. Every text box shows a formatting toolbar without hover.
+2. All paragraph-type labels avoid wrapping, overlap, and clipping.
+3. The narrowest supported leaf has no horizontal scroll, and all commands remain reachable through More.
+4. Paragraph, size, color, and link menus all escape toolbar clipping boundaries.
+5. After component resize, natural-height changes, scrolling, and canvas zoom, the close button remains anchored to the upper-right corner.
+6. The toolbar never enters PDF and does not pollute body-height measurement.
+7. Mouse, keyboard, and screen readers can all complete the core formatting operations.
+8. Theme colors and custom RGB must actually write to the current selection; tests should read editor HTML/CSS styles and confirm the color still exists after autosave and reload.
 
-## 设计验证
+## Design validation
 
-- 交互参考稿中选中“35mm 人像写真”并应用功能青后，DOM 写入 `color="#0891b2"`，浏览器计算颜色为 `rgb(8, 145, 178)`。
-- 参考稿同时更新颜色按钮下划线和状态文本 `已应用：#0891B2`；色板关闭后正文颜色继续保留。
-- 生产 Playwright 覆盖主题色完整指针点击、自定义 RGB `#C2385C`、自动保存与重载持久化，相关测试通过。
-- 960×720、72% 画布缩放下，窄工具栏 `scrollWidth === clientWidth`，页面无横向溢出；关闭按钮保持 `18×18px` 屏幕尺寸并位于外框右上安全区。
-- 段落菜单宽 220px，项目标签使用单行布局；展开时每项高度 36px，不再出现“可折叠一级标题”等中文标签重叠。
-- 每个文案叶子现在始终显示独立格式栏；窄叶子保留段落、B/I/U、字号、颜色、链接和“更多格式”，对齐/嵌套从 portal More 面板访问。
-- 关闭按钮使用固定 `18×18px` screen-space 尺寸，中心锚定组件外框右上角，允许 1px 边框容差，不再乘画布 scale。
-- `screenHeightPoints` 只驱动画布运行时外框；纯正文 `heightPoints` 继续驱动持久化、分页和 PDF，工具栏不会进入导出或项目 schema。
-- 参考图片改为并发加载、一次性提交比例，避免文本运行时测量中断顺序图片加载。
-- 最终验证：84 个 Vitest 文件 / 461 测试，47 个 Playwright 测试，TypeScript 与生产构建通过；ESLint 仅保留既有 ThemeProvider Fast Refresh warning。
+- In the interaction reference, selecting "35mm portrait session" and applying functional cyan writes `color="#0891b2"` into the DOM, and the browser-computed color is `rgb(8, 145, 178)`.
+- The reference also updates the color-button underline and the status text `Applied: #0891B2`; after the palette closes, the body color remains.
+- Production Playwright covers full pointer clicks on theme colors, custom RGB `#C2385C`, autosave, and reload persistence, and the related tests pass.
+- At 960×720 and 72% canvas zoom, the narrow toolbar satisfies `scrollWidth === clientWidth`, the page has no horizontal overflow, and the close button remains `18×18px` in screen space inside the safe upper-right border zone.
+- The paragraph menu is 220px wide and item labels use a single-line layout; when expanded, each item is 36px high, and labels such as "Collapsible heading level 1" no longer overlap.
+- Every text leaf now always shows its own formatting bar; narrow leaves retain paragraph, B/I/U, font size, color, link, and "More formatting", while alignment/nesting are reached through the portaled More panel.
+- The close button uses a fixed `18×18px` screen-space size and centers on the component-frame upper-right corner with a 1px border tolerance; it no longer multiplies by canvas scale.
+- `screenHeightPoints` drives only the runtime canvas outer frame; pure body `heightPoints` still drives persistence, pagination, and PDF, so the toolbar never enters export or project schema.
+- Reference images now load concurrently and commit aspect ratio once, avoiding interruption of text runtime measurement by sequential image loading.
+- Final validation: 84 Vitest files / 461 tests, 47 Playwright tests, TypeScript, and production build all pass; ESLint retains only the existing ThemeProvider Fast Refresh warning.

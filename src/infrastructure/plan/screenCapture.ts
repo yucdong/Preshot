@@ -75,6 +75,15 @@ export function createTauriScreenCapture({
         });
       }
     },
+    async discard(path) {
+      try {
+        await invokeCommand("discard_screen_capture", { path });
+      } catch (error) {
+        throw new Error(`Unable to discard the screen capture: ${detail(error)}`, {
+          cause: error,
+        });
+      }
+    },
   };
 }
 

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Preshot 字号下拉设计评审</title>
+<title>Preshot Font Size Dropdown Design Review</title>
 <style>
 @font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
 @font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype");font-weight:600 700;font-display:swap}
@@ -16,24 +16,24 @@
 </head>
 <body>
 <div class="review">
-  <header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="title">字号控件设计评审</span><span class="badge">推荐方案</span><span class="spacer"></span><span class="state">PowerPoint 式组合下拉</span></header>
+  <header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="title">Font Size Control Design Review</span><span class="badge">Recommended Direction</span><span class="spacer"></span><span class="state">PowerPoint-style Split Dropdown</span></header>
   <div class="workspace">
     <main class="stage">
       <article class="paper">
-        <h1 class="paper-title">夏日人像拍摄</h1>
+        <h1 class="paper-title">Summer Portrait Shoot</h1>
         <section class="text-card">
-          <div class="copy">拍摄时间：2026.8.9 / 2026.8.10<br>拍摄地点：上海，摄影棚、<span class="selection">上生新所、志屋、延安西路</span>、小乔治咖啡厅<br>道具和服装：常服</div>
-          <div class="toolbar" role="toolbar" aria-label="文字格式">
-            <button class="tool tool-label" type="button"><span>段落</span><span class="paragraph-chevron" aria-hidden="true"></span></button>
+          <div class="copy">Shoot time: 2026.8.9 / 2026.8.10<br>Location: Shanghai, studio, <span class="selection">Columbia Circle, Zhiwu, Yan'an West Road</span>, Little George Cafe<br>Props and wardrobe: everyday clothes</div>
+          <div class="toolbar" role="toolbar" aria-label="Text formatting">
+            <button class="tool tool-label" type="button"><span>Paragraph</span><span class="paragraph-chevron" aria-hidden="true"></span></button>
             <span class="separator"></span>
-            <button class="tool" type="button" aria-label="加粗"><b>B</b></button>
-            <button class="tool italic" type="button" aria-label="斜体">I</button>
-            <button class="tool underline" type="button" aria-label="下划线">U</button>
-            <button class="tool strike" type="button" aria-label="删除线">S</button>
+            <button class="tool" type="button" aria-label="Bold"><b>B</b></button>
+            <button class="tool italic" type="button" aria-label="Italic">I</button>
+            <button class="tool underline" type="button" aria-label="Underline">U</button>
+            <button class="tool strike" type="button" aria-label="Strikethrough">S</button>
             <div class="font-size" id="font-size-control">
-              <button class="size-value" id="size-value" type="button" aria-label="当前字号 14">14</button>
-              <button class="size-trigger" id="size-trigger" type="button" aria-label="选择字号" aria-expanded="true" aria-haspopup="listbox"><span class="size-chevron" aria-hidden="true"></span></button>
-              <div class="size-menu" id="size-menu" role="listbox" aria-label="字号">
+              <button class="size-value" id="size-value" type="button" aria-label="Current font size 14">14</button>
+              <button class="size-trigger" id="size-trigger" type="button" aria-label="Choose font size" aria-expanded="true" aria-haspopup="listbox"><span class="size-chevron" aria-hidden="true"></span></button>
+              <div class="size-menu" id="size-menu" role="listbox" aria-label="Font size">
                 <button class="size-option" role="option" aria-selected="false" data-size="10" type="button">10</button>
                 <button class="size-option" role="option" aria-selected="false" data-size="12" type="button">12</button>
                 <button class="size-option" role="option" aria-selected="true" data-size="14" type="button">14</button>
@@ -43,53 +43,53 @@
               </div>
             </div>
             <div class="font-color" id="font-color-control" style="--current-color:#202329">
-              <button class="color-apply" id="color-apply" type="button" aria-label="应用当前文字颜色">A</button>
-              <button class="color-trigger" id="color-trigger" type="button" aria-label="选择文字颜色" aria-expanded="false" aria-haspopup="listbox"><span class="size-chevron" aria-hidden="true"></span></button>
-              <div class="color-menu" id="color-menu" role="listbox" aria-label="文字颜色" hidden>
-                <span class="color-title">主题颜色</span>
+              <button class="color-apply" id="color-apply" type="button" aria-label="Apply current text color">A</button>
+              <button class="color-trigger" id="color-trigger" type="button" aria-label="Choose text color" aria-expanded="false" aria-haspopup="listbox"><span class="size-chevron" aria-hidden="true"></span></button>
+              <div class="color-menu" id="color-menu" role="listbox" aria-label="Text color" hidden>
+                <span class="color-title">Theme Colors</span>
                 <div class="swatches">
-                  <button class="swatch" style="--swatch:#202329" data-color="#202329" aria-label="石墨黑" aria-selected="true" role="option" type="button"></button>
-                  <button class="swatch" style="--swatch:#6b6f76" data-color="#6b6f76" aria-label="中性灰" aria-selected="false" role="option" type="button"></button>
-                  <button class="swatch" style="--swatch:#c2385c" data-color="#c2385c" aria-label="浆果红" aria-selected="false" role="option" type="button"></button>
-                  <button class="swatch" style="--swatch:#b42342" data-color="#b42342" aria-label="深红" aria-selected="false" role="option" type="button"></button>
-                  <button class="swatch" style="--swatch:#c78218" data-color="#c78218" aria-label="琥珀" aria-selected="false" role="option" type="button"></button>
-                  <button class="swatch" style="--swatch:#2f7d65" data-color="#2f7d65" aria-label="松绿" aria-selected="false" role="option" type="button"></button>
-                  <button class="swatch" style="--swatch:#0891b2" data-color="#0891b2" aria-label="功能青" aria-selected="false" role="option" type="button"></button>
-                  <button class="swatch" style="--swatch:#2563a9" data-color="#2563a9" aria-label="钴蓝" aria-selected="false" role="option" type="button"></button>
-                  <button class="swatch" style="--swatch:#6f56a6" data-color="#6f56a6" aria-label="鸢尾紫" aria-selected="false" role="option" type="button"></button>
-                  <button class="swatch" style="--swatch:#ffffff" data-color="#ffffff" aria-label="白色" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#202329" data-color="#202329" aria-label="Graphite Black" aria-selected="true" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#6b6f76" data-color="#6b6f76" aria-label="Neutral Gray" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#c2385c" data-color="#c2385c" aria-label="Berry Red" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#b42342" data-color="#b42342" aria-label="Deep Red" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#c78218" data-color="#c78218" aria-label="Amber" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#2f7d65" data-color="#2f7d65" aria-label="Pine Green" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#0891b2" data-color="#0891b2" aria-label="Functional Cyan" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#2563a9" data-color="#2563a9" aria-label="Cobalt Blue" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#6f56a6" data-color="#6f56a6" aria-label="Iris Purple" aria-selected="false" role="option" type="button"></button>
+                  <button class="swatch" style="--swatch:#ffffff" data-color="#ffffff" aria-label="White" aria-selected="false" role="option" type="button"></button>
                 </div>
-                <button class="more-colors" id="more-colors" type="button">更多颜色…</button>
+                <button class="more-colors" id="more-colors" type="button">More Colors…</button>
               </div>
-              <div class="custom-color" id="custom-color" role="dialog" aria-label="更多颜色" hidden>
-                <div class="custom-head"><strong>更多颜色</strong><button class="custom-close" id="custom-close" aria-label="关闭更多颜色" type="button">×</button></div>
+              <div class="custom-color" id="custom-color" role="dialog" aria-label="More Colors" hidden>
+                <div class="custom-head"><strong>More Colors</strong><button class="custom-close" id="custom-close" aria-label="Close More Colors" type="button">×</button></div>
                 <div class="custom-body">
-                  <div class="hue-wheel" id="hue-wheel" aria-label="色相盘"><span class="hue-cursor"></span></div>
+                  <div class="hue-wheel" id="hue-wheel" aria-label="Hue Wheel"><span class="hue-cursor"></span></div>
                   <div>
                     <div class="color-preview" id="color-preview"></div>
                     <div class="rgb-grid"><label for="red">R</label><input id="red" type="number" min="0" max="255" value="8"><label for="green">G</label><input id="green" type="number" min="0" max="255" value="145"><label for="blue">B</label><input id="blue" type="number" min="0" max="255" value="178"></div>
                     <div class="hex-row"><label>HEX</label><output id="hex-value">#0891B2</output></div>
                   </div>
                 </div>
-                <div class="custom-actions"><button class="custom-cancel" id="custom-cancel" type="button">取消</button><button class="custom-apply" id="custom-apply" type="button">应用</button></div>
+                <div class="custom-actions"><button class="custom-cancel" id="custom-cancel" type="button">Cancel</button><button class="custom-apply" id="custom-apply" type="button">Apply</button></div>
               </div>
             </div>
             <span class="separator"></span>
-            <button class="tool active" type="button" aria-label="左对齐"><span class="align-icon"><i></i><i></i><i></i></span></button>
-            <button class="tool" type="button" aria-label="居中"><span class="align-icon"><i></i><i></i><i></i></span></button>
-            <button class="tool" type="button" aria-label="右对齐"><span class="align-icon"><i></i><i></i><i></i></span></button>
-            <button class="tool" type="button" aria-label="添加链接">↗</button>
+            <button class="tool active" type="button" aria-label="Align left"><span class="align-icon"><i></i><i></i><i></i></span></button>
+            <button class="tool" type="button" aria-label="Center"><span class="align-icon"><i></i><i></i><i></i></span></button>
+            <button class="tool" type="button" aria-label="Align right"><span class="align-icon"><i></i><i></i><i></i></span></button>
+            <button class="tool" type="button" aria-label="Add link">↗</button>
           </div>
         </section>
       </article>
     </main>
     <aside class="inspector">
-      <header class="inspector-head"><span class="eyebrow">UI/UX PRO MAX · DENSE TOOL</span><h1>推荐：组合字号下拉</h1><p>沿用当前工具栏，只调整字号控件的位置、结构和菜单密度。</p></header>
-      <section class="section"><h2>控件结构</h2><div class="diagram"><div class="mini-control"><b>14</b><span>⌄</span></div><span class="arrow">→</span><div><strong>数字 + 独立箭头</strong><small>数字区域可直接应用当前字号；右侧箭头仅负责展开菜单。</small></div></div><div style="height:9px"></div><div class="diagram"><div class="mini-control mini-color"><b>A</b><span>⌄</span></div><span class="arrow">→</span><div><strong>字体颜色组合按钮</strong><small>A 下方显示当前颜色；主按钮复用颜色，箭头展开色板。</small></div></div></section>
-      <section class="section"><h2>位置调整</h2><div class="rules"><div class="rule"><b>1</b><div><strong>移动到删除线之后</strong><span>与粗体、斜体、下划线归为同一组，早于段落对齐。</span></div></div><div class="rule"><b>2</b><div><strong>收起态不显示 px</strong><span>字号单位在编辑器中已明确，减少约 14px 横向占用。</span></div></div><div class="rule"><b>3</b><div><strong>当前字号始终可扫描</strong><span>使用等宽数字，菜单当前项同时用勾选和字重标识。</span></div></div></div></section>
-      <section class="section"><h2>自定义颜色</h2><div class="rules"><div class="rule"><b>1</b><div><strong>更多颜色…</strong><span>标准色板保持紧凑，需要时再进入色相盘。</span></div></div><div class="rule"><b>2</b><div><strong>RGB 精确输入</strong><span>R/G/B 限定 0–255，HEX 同步预览；不支持透明度。</span></div></div></div></section>
-      <section class="section"><h2>键盘行为</h2><div class="keyboard"><span class="key">Enter / Space 展开</span><span class="key">↑ ↓ 移动</span><span class="key">Enter 应用</span><span class="key">Esc 关闭</span></div></section>
-      <div class="decision"><div class="decision-box">确认后，生产实现会复用已经修复的 ProseMirror 选区保护，不改变 schema、HTML 持久化或 PDF 字号与颜色渲染。</div></div>
+      <header class="inspector-head"><span class="eyebrow">UI/UX PRO MAX · DENSE TOOL</span><h1>Recommendation: Split Font Size Dropdown</h1><p>Keep the current toolbar and only adjust the font-size control's position, structure, and menu density.</p></header>
+      <section class="section"><h2>Control Structure</h2><div class="diagram"><div class="mini-control"><b>14</b><span>⌄</span></div><span class="arrow">→</span><div><strong>Number + Separate Arrow</strong><small>The number area can apply the current size directly; the arrow only opens the menu.</small></div></div><div style="height:9px"></div><div class="diagram"><div class="mini-control mini-color"><b>A</b><span>⌄</span></div><span class="arrow">→</span><div><strong>Split Font Color Button</strong><small>Show the current color under A; the main button reapplies it, and the arrow opens the palette.</small></div></div></section>
+      <section class="section"><h2>Placement Adjustments</h2><div class="rules"><div class="rule"><b>1</b><div><strong>Move after strikethrough</strong><span>Group it with bold, italic, and underline before paragraph alignment.</span></div></div><div class="rule"><b>2</b><div><strong>Hide px in collapsed state</strong><span>The editor already makes the unit clear, saving about 14px of horizontal space.</span></div></div><div class="rule"><b>3</b><div><strong>Keep the current size scannable</strong><span>Use tabular numerals and mark the current menu item with both a check and weight.</span></div></div></div></section>
+      <section class="section"><h2>Custom Colors</h2><div class="rules"><div class="rule"><b>1</b><div><strong>More Colors…</strong><span>Keep the default palette compact and open the Hue Wheel only when needed.</span></div></div><div class="rule"><b>2</b><div><strong>Precise RGB Input</strong><span>Limit R/G/B to 0–255, sync the HEX preview, and do not support alpha.</span></div></div></div></section>
+      <section class="section"><h2>Keyboard Behavior</h2><div class="keyboard"><span class="key">Enter / Space opens</span><span class="key">↑ ↓ move</span><span class="key">Enter applies</span><span class="key">Esc closes</span></div></section>
+      <div class="decision"><div class="decision-box">After approval, the production implementation will reuse the fixed ProseMirror selection protection without changing the schema, HTML persistence, or PDF font-size and color rendering.</div></div>
     </aside>
   </div>
 </div>
@@ -101,7 +101,7 @@ const options=[...document.querySelectorAll(".size-option")];
 const colorTrigger=document.getElementById("color-trigger"),colorMenu=document.getElementById("color-menu"),colorControl=document.getElementById("font-color-control"),swatches=[...document.querySelectorAll(".swatch")];
 const customColor=document.getElementById("custom-color"),red=document.getElementById("red"),green=document.getElementById("green"),blue=document.getElementById("blue"),preview=document.getElementById("color-preview"),hexValue=document.getElementById("hex-value");
 function setOpen(open){menu.hidden=!open;trigger.setAttribute("aria-expanded",String(open));if(open){const selected=options.find(option=>option.getAttribute("aria-selected")==="true");selected?.focus()}}
-function choose(option){options.forEach(item=>item.setAttribute("aria-selected",String(item===option)));value.textContent=option.dataset.size;value.setAttribute("aria-label",`当前字号 ${option.dataset.size}`);setOpen(false);trigger.focus()}
+function choose(option){options.forEach(item=>item.setAttribute("aria-selected",String(item===option)));value.textContent=option.dataset.size;value.setAttribute("aria-label",`Current font size ${option.dataset.size}`);setOpen(false);trigger.focus()}
 trigger.addEventListener("click",()=>setOpen(menu.hidden));
 value.addEventListener("click",()=>setOpen(true));
 options.forEach(option=>option.addEventListener("click",()=>choose(option)));

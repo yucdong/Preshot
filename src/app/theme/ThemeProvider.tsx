@@ -1,6 +1,4 @@
 import {
-  createContext,
-  useContext,
   useEffect,
   useState,
   type ReactNode,
@@ -14,25 +12,7 @@ import {
   type AppSettings,
   type Theme,
 } from "../../domain/settings/models";
-
-interface ThemeContextValue {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-  resolved: "light" | "dark";
-  projectRailWidth: number;
-  assistantWidth: number;
-  setPanelWidths: (widths: { projectRailWidth: number; assistantWidth: number }) => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
-
-export function useTheme(): ThemeContextValue {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error("useTheme must be used within a ThemeProvider");
-  }
-  return context;
-}
+import { ThemeContext } from "./ThemeContext";
 
 interface ThemeProviderProps {
   repository: SettingsRepository;

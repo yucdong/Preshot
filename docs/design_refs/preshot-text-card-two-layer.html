@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Preshot 双层文案卡片草图</title>
+<title>Preshot Two-layer Text Card Sketch</title>
 <style>
 @font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
 @font-face{font-family:NotoSC;src:url("../../src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf") format("truetype");font-weight:600 800;font-display:swap}
@@ -39,52 +39,52 @@
 </head>
 <body>
 <div class="app">
-  <header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="project">小清新人像拍摄</span><span class="version">双层文案草图</span><span class="spacer"></span><span class="save">已保存</span><button class="export">导出 PDF</button></header>
+  <header class="topbar"><span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span><span class="project">Fresh Portrait Shoot</span><span class="version">Two-layer Text Sketch</span><span class="spacer"></span><span class="save">Saved</span><button class="export">Export PDF</button></header>
   <div class="workspace">
     <main class="stage">
       <div class="page-wrap" id="page-wrap">
-        <button class="insert">＋ 插入组件</button>
+        <button class="insert">＋ Insert Component</button>
         <article class="paper">
-          <header class="paper-head"><h1>夏日人像拍摄</h1><span>编辑状态 · 画布缩放与导出共用布局</span></header>
-          <section class="card-shell" id="card" aria-label="文案卡片">
-            <button class="card-close" aria-label="删除文案卡片" title="删除文案卡片">×</button>
+          <header class="paper-head"><h1>Summer Portrait Shoot</h1><span>Editing state · canvas zoom and export share the same layout</span></header>
+          <section class="card-shell" id="card" aria-label="Text card">
+            <button class="card-close" aria-label="Delete text card" title="Delete text card">×</button>
             <span class="resize-handle" aria-hidden="true"></span>
-            <span class="resize-limit" id="resize-limit" role="status" hidden><svg aria-hidden="true" viewBox="0 0 24 24"><rect width="14" height="10" x="5" y="11" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>内容已达到最小尺寸</span>
-            <span class="layer-tag layer-outer">第 1 层：文案卡片</span>
-            <span class="layer-tag layer-inner">第 2 层：正文框</span>
+            <span class="resize-limit" id="resize-limit" role="status" hidden><svg aria-hidden="true" viewBox="0 0 24 24"><rect width="14" height="10" x="5" y="11" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>Content has reached the minimum size</span>
+            <span class="layer-tag layer-outer">Layer 1: Text Card</span>
+            <span class="layer-tag layer-inner">Layer 2: Text Frame</span>
             <div class="text-layout single" id="text-layout"></div>
           </section>
         </article>
       </div>
-      <div class="status" id="status">单个正文框 · 100% 卡片宽度</div>
+      <div class="status" id="status">Single text frame · 100% card width</div>
     </main>
-    <aside class="inspector" aria-label="草图控制">
-      <header class="inspector-head"><b>正文占比与缩放保护</b><span>切换布局并向左拖动宽度；达到内容下限后卡片停止缩小</span></header>
-      <section class="section"><span class="section-label">正文占比</span><div class="metric-grid"><div class="metric"><b>95.4% × 72.5%</b><span>当前测量</span></div><div class="metric target"><b>约 98% × 90%+</b><span>推荐目标</span></div></div><div class="limit-note">关闭按钮改为浮层，移除空 header；外卡片安全边距由 12pt 缩为 6pt。</div></section>
+    <aside class="inspector" aria-label="Sketch controls">
+      <header class="inspector-head"><b>Text Coverage and Resize Protection</b><span>Switch layouts and drag the width leftward; the card stops shrinking once it reaches the content limit</span></header>
+      <section class="section"><span class="section-label">Text Coverage</span><div class="metric-grid"><div class="metric"><b>95.4% × 72.5%</b><span>Current measurement</span></div><div class="metric target"><b>About 98% × 90%+</b><span>Recommended target</span></div></div><div class="limit-note">Move the close button to an overlay, remove the empty header, and shrink the outer-card safe margin from 12pt to 6pt.</div></section>
       <section class="section">
-        <span class="section-label">拆分预览</span>
+        <span class="section-label">Split Preview</span>
         <div class="segments" id="segments">
-          <button class="active" data-mode="single">单个正文</button><button data-mode="columns">左右拆分</button><button data-mode="rows">上下拆分</button><button data-mode="nested">混合拆分</button>
+          <button class="active" data-mode="single">Single Body</button><button data-mode="columns">Left/Right Split</button><button data-mode="rows">Top/Bottom Split</button><button data-mode="nested">Mixed Split</button>
         </div>
-        <div class="range-row"><label for="width">卡片宽度</label><input id="width" type="range" min="20" max="100" value="100"><output id="width-value">100%</output></div>
-        <div class="range-row"><label for="zoom">画布缩放</label><input id="zoom" type="range" min="62" max="115" value="100"><output id="zoom-value">100%</output></div>
+        <div class="range-row"><label for="width">Card Width</label><input id="width" type="range" min="20" max="100" value="100"><output id="width-value">100%</output></div>
+        <div class="range-row"><label for="zoom">Canvas Zoom</label><input id="zoom" type="range" min="62" max="115" value="100"><output id="zoom-value">100%</output></div>
       </section>
-      <section class="section"><span class="section-label">视觉层级</span><div class="legend"><div class="legend-row"><span class="swatch outer"></span>外层：组件选择、缩放、排序</div><div class="legend-row"><span class="swatch inner"></span>内层：正文编辑与拆分操作</div></div></section>
-      <section class="section"><div class="no-title"><b>删除标题逻辑</b><br>不再显示“插入标题”、标题输入框或标题占位高度；导出也只输出正文。</div></section>
-      <section class="section"><span class="section-label">尺寸规则</span><div class="rules"><div class="rule"><strong>01</strong><div><b>6pt 安全边距</b><p>正文更贴近外框，但四边始终保留一致缓冲。</p></div></div><div class="rule"><strong>02</strong><div><b>正文永不滚动</b><p>正文完整呈现；变窄时增高，变宽、行数减少时自动缩短。</p></div></div><div class="rule"><strong>03</strong><div><b>递归最小宽度</b><p>每个叶子至少 132pt；分栏按树结构累加所需宽度。</p></div></div><div class="rule"><strong>04</strong><div><b>自然高度下限</b><p>上下拖动不能越过当前宽度下完整内容所需高度。</p></div></div><div class="rule"><strong>05</strong><div><b>即时边界反馈</b><p>达到限制时把手变琥珀色，卡片停在最后一个完整状态。</p></div></div></div></section>
+      <section class="section"><span class="section-label">Visual Hierarchy</span><div class="legend"><div class="legend-row"><span class="swatch outer"></span>Outer layer: component selection, resize, reorder</div><div class="legend-row"><span class="swatch inner"></span>Inner layer: text editing and split actions</div></div></section>
+      <section class="section"><div class="no-title"><b>Remove Title Logic</b><br>Do not show “Insert Title,” a title input, or title placeholder height anymore; export outputs only the body.</div></section>
+      <section class="section"><span class="section-label">Sizing Rules</span><div class="rules"><div class="rule"><strong>01</strong><div><b>6pt safe margin</b><p>The body moves closer to the frame while keeping consistent padding on all sides.</p></div></div><div class="rule"><strong>02</strong><div><b>Body never scrolls</b><p>The body is always fully visible; it grows taller when narrowed and automatically shortens when widened and line count drops.</p></div></div><div class="rule"><strong>03</strong><div><b>Recursive minimum width</b><p>Each leaf needs at least 132pt; column layouts add width based on the tree structure.</p></div></div><div class="rule"><strong>04</strong><div><b>Natural height floor</b><p>Vertical dragging cannot go below the height required to show the full content at the current width.</p></div></div><div class="rule"><strong>05</strong><div><b>Immediate boundary feedback</b><p>When the limit is reached, the handle turns amber and the card stays at the last fully valid state.</p></div></div></div></section>
     </aside>
   </div>
 </div>
-<div class="confirm-backdrop" id="delete-dialog" hidden><div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description"><h2 id="delete-dialog-title">删除这块文案？</h2><p id="delete-dialog-description">该正文会被删除，相邻文案将自动填满剩余区域。此操作可以撤销。</p><div class="confirm-actions"><button class="cancel-delete" id="cancel-delete" type="button">取消</button><button class="confirm-delete" id="confirm-delete" type="button">删除</button></div></div></div>
-<div class="undo-toast" id="undo-toast" role="status" hidden><span>已删除子文案</span><button id="undo-delete" type="button">撤销</button></div>
-<template id="leaf-template"><section class="leaf"><div class="leaf-tools"><button data-split="columns" title="左右拆分" aria-label="左右拆分"><svg aria-hidden="true" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M12 3v18"></path></svg></button><button data-split="rows" title="上下拆分" aria-label="上下拆分"><svg aria-hidden="true" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 12h18"></path></svg></button><button class="remove" title="删除并合并" aria-label="删除并合并"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></div><div class="editor" contenteditable="true" role="textbox" aria-multiline="true"></div></section></template>
+<div class="confirm-backdrop" id="delete-dialog" hidden><div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description"><h2 id="delete-dialog-title">Delete this text block?</h2><p id="delete-dialog-description">This body text will be deleted, and adjacent text will automatically fill the remaining area. This action can be undone.</p><div class="confirm-actions"><button class="cancel-delete" id="cancel-delete" type="button">Cancel</button><button class="confirm-delete" id="confirm-delete" type="button">Delete</button></div></div></div>
+<div class="undo-toast" id="undo-toast" role="status" hidden><span>Deleted child text</span><button id="undo-delete" type="button">Undo</button></div>
+<template id="leaf-template"><section class="leaf"><div class="leaf-tools"><button data-split="columns" title="Left/Right Split" aria-label="Left/Right Split"><svg aria-hidden="true" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M12 3v18"></path></svg></button><button data-split="rows" title="Top/Bottom Split" aria-label="Top/Bottom Split"><svg aria-hidden="true" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 12h18"></path></svg></button><button class="remove" title="Delete and merge" aria-label="Delete and merge"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></div><div class="editor" contenteditable="true" role="textbox" aria-multiline="true"></div></section></template>
 <script>
-const content=["拍摄时间：2026.8.9 / 2026.8.10<br>拍摄地点：上海，摄影棚、上生新所、志屋、延安西路、小河边<br>道具和服装：常服<br>器材：Z52 + 24-120 + 35.2 + 851.8 一个闪光灯备用","镜头顺序：环境全景、双人互动、人物特写。<br>优先使用自然光，逆光时增加白色反光板。","补拍清单：服装细节、手部动作、场地空镜。","避免高饱和暖色配饰；肤色保持清透自然。"];
+const content=["Shoot time: 2026.8.9 / 2026.8.10<br>Location: Shanghai, studio, Columbia Circle, Zhiwu, Yan'an West Road, riverside<br>Props and wardrobe: everyday clothes<br>Gear: Z52 + 24-120 + 35.2 + 851.8, with one flash as backup","Lens order: wide environmental shots, couple interaction, portrait close-ups.<br>Prioritize natural light and add a white reflector in backlit scenes.","Pickup list: wardrobe details, hand gestures, empty location shots.","Avoid highly saturated warm accessories; keep skin tone clear and natural."];
 const layout=document.getElementById("text-layout"),card=document.getElementById("card"),page=document.getElementById("page-wrap"),status=document.getElementById("status"),template=document.getElementById("leaf-template");
 const deleteDialog=document.getElementById("delete-dialog"),cancelDelete=document.getElementById("cancel-delete"),confirmDelete=document.getElementById("confirm-delete"),undoToast=document.getElementById("undo-toast"),undoDelete=document.getElementById("undo-delete"),resizeLimit=document.getElementById("resize-limit");
 let mode="single",previousMode=null;
-function updateStatus(){const height=Math.round(card.getBoundingClientRect().height/(Number(document.getElementById("zoom").value)/100));const label=mode==="single"?"单个正文":mode==="columns"?"左右拆分 · 同行等高":mode==="rows"?"上下拆分 · 各自自然高度":"混合拆分 · 同行对齐";status.textContent=`${label} · 自然高度 ${height}px · 无内部滚动条`}
-function render(){layout.className=`text-layout ${mode}`;layout.replaceChildren();const count=mode==="single"?1:mode==="nested"?3:2;for(let index=0;index<count;index+=1){const leaf=template.content.firstElementChild.cloneNode(true);leaf.querySelector(".editor").innerHTML=content[index];leaf.querySelector(".editor").setAttribute("aria-label",`正文 ${index+1}`);leaf.querySelector(".editor").addEventListener("input",updateStatus);if(index===0){leaf.classList.add("active");const bar=document.createElement("div");bar.className="formatbar";bar.innerHTML='<button class="active"><b>B</b></button><button><i>I</i></button><button><u>U</u></button><button class="size">14 px</button>';leaf.append(bar)}if(count===1)leaf.querySelector(".remove").remove();layout.append(leaf)}requestAnimationFrame(updateStatus)}
+function updateStatus(){const height=Math.round(card.getBoundingClientRect().height/(Number(document.getElementById("zoom").value)/100));const label=mode==="single"?"Single Body":mode==="columns"?"Left/Right Split · equal row height":mode==="rows"?"Top/Bottom Split · independent natural heights":"Mixed Split · aligned in the same row";status.textContent=`${label} · Natural height ${height}px · no internal scrollbar`}
+function render(){layout.className=`text-layout ${mode}`;layout.replaceChildren();const count=mode==="single"?1:mode==="nested"?3:2;for(let index=0;index<count;index+=1){const leaf=template.content.firstElementChild.cloneNode(true);leaf.querySelector(".editor").innerHTML=content[index];leaf.querySelector(".editor").setAttribute("aria-label",`Body ${index+1}`);leaf.querySelector(".editor").addEventListener("input",updateStatus);if(index===0){leaf.classList.add("active");const bar=document.createElement("div");bar.className="formatbar";bar.innerHTML='<button class="active"><b>B</b></button><button><i>I</i></button><button><u>U</u></button><button class="size">14 px</button>';leaf.append(bar)}if(count===1)leaf.querySelector(".remove").remove();layout.append(leaf)}requestAnimationFrame(updateStatus)}
 function minimumWidth(){return mode==="columns"?54:mode==="nested"?68:34}
 function setCardWidth(requested){const minimum=minimumWidth(),next=Math.max(requested,minimum),locked=requested<minimum;document.getElementById("width").value=String(next);document.getElementById("width-value").value=`${next}%`;card.style.setProperty("--card-width",`${next}%`);card.classList.toggle("at-limit",locked);resizeLimit.hidden=!locked;requestAnimationFrame(updateStatus)}
 function setMode(next){mode=next;document.querySelectorAll("button[data-mode]").forEach(item=>item.classList.toggle("active",item.dataset.mode===mode));render();setCardWidth(Number(document.getElementById("width").value))}

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Preshot Block 操作控制设计稿</title>
+  <title>Preshot Block Operation Controls Design Draft</title>
   <style>
     @font-face {
       font-family: NotoSC;
@@ -381,78 +381,78 @@
   <div class="app">
     <header class="topbar">
       <span class="mark">P</span><span class="brand">PRESHOT</span><span class="divider"></span>
-      <span class="project">编辑大片示例</span><span class="tagline">Block 操作控制设计</span>
-      <span class="top-spacer"></span><span class="mode-chip">官方 Side Menu 扩展方案</span>
+      <span class="project">Editorial Showcase Example</span><span class="tagline">Block Operation Controls Design</span>
+      <span class="top-spacer"></span><span class="mode-chip">Official Side Menu Extension</span>
     </header>
     <div class="workspace">
-      <nav class="rail" aria-label="项目">
-        <div class="panel-title">最近项目</div>
-        <div class="project-card"><img src="../../resources/water-09.png" alt=""><div><strong>编辑大片示例</strong><span>当前项目</span></div></div>
+      <nav class="rail" aria-label="Projects">
+        <div class="panel-title">Recent Projects</div>
+        <div class="project-card"><img src="../../resources/water-09.png" alt=""><div><strong>Editorial Showcase Example</strong><span>Current project</span></div></div>
       </nav>
       <div class="splitter"></div>
       <main class="stage-shell">
-        <div class="canvas-bar"><strong>BlockNote Canvas v13</strong><div class="canvas-actions"><span>85%</span><span>● 已保存</span><span>导出 PDF</span></div></div>
+        <div class="canvas-bar"><strong>BlockNote Canvas v13</strong><div class="canvas-actions"><span>85%</span><span>● Saved</span><span>Export PDF</span></div></div>
         <div class="stage">
           <article class="paper">
-            <h1 class="document-title">海边日落人像拍摄方案</h1>
-            <p class="document-subtitle">将鼠标移动到任意 block 左侧，点击六点手柄打开完整操作菜单。支持拖拽、层级和快捷操作。</p>
+            <h1 class="document-title">Seaside Sunset Portrait Shoot Plan</h1>
+            <p class="document-subtitle">Move the pointer to the left side of any block and click the six-dot handle to open the full action menu. Dragging, hierarchy changes, and shortcuts are supported.</p>
             <div class="block-list" id="block-list"></div>
           </article>
         </div>
       </main>
       <div class="splitter"></div>
-      <aside class="assistant"><div class="assistant-head">助手　<span style="color:#c2385c">预览</span></div><div class="assistant-card">Block 操作由编辑器原生 API 驱动；助手面板保持常驻，不影响控制菜单定位。</div></aside>
+      <aside class="assistant"><div class="assistant-head">Assistant　<span style="color:#c2385c">Preview</span></div><div class="assistant-card">Block operations are driven by the editor's native API; the assistant panel stays pinned and does not affect action-menu placement.</div></aside>
     </div>
   </div>
 
-  <div class="menu" id="menu" role="menu" aria-label="Block 操作">
-    <div class="menu-head"><strong id="menu-title">段落</strong><span id="menu-meta">层级 0</span></div>
+  <div class="menu" id="menu" role="menu" aria-label="Block Actions">
+    <div class="menu-head"><strong id="menu-title">Paragraph</strong><span id="menu-meta">Level 0</span></div>
     <div class="quick-row">
-      <button class="quick" data-action="up" type="button" aria-label="上移 block" title="上移 Alt+↑"><svg><use href="#i-up"/></svg></button>
-      <button class="quick" data-action="down" type="button" aria-label="下移 block" title="下移 Alt+↓"><svg><use href="#i-down"/></svg></button>
-      <button class="quick" data-action="outdent" type="button" aria-label="减少缩进" title="减少缩进 Shift+Tab"><svg><use href="#i-outdent"/></svg></button>
-      <button class="quick" data-action="indent" type="button" aria-label="增加缩进" title="增加缩进 Tab"><svg><use href="#i-indent"/></svg></button>
+      <button class="quick" data-action="up" type="button" aria-label="Move block up" title="Move up Alt+↑"><svg><use href="#i-up"/></svg></button>
+      <button class="quick" data-action="down" type="button" aria-label="Move block down" title="Move down Alt+↓"><svg><use href="#i-down"/></svg></button>
+      <button class="quick" data-action="outdent" type="button" aria-label="Outdent" title="Outdent Shift+Tab"><svg><use href="#i-outdent"/></svg></button>
+      <button class="quick" data-action="indent" type="button" aria-label="Indent" title="Indent Tab"><svg><use href="#i-indent"/></svg></button>
     </div>
     <div class="menu-divider"></div>
-    <button class="menu-item" data-action="insert-before" type="button"><svg><use href="#i-before"/></svg>在上方插入<span class="shortcut">Alt+Shift+↑</span></button>
-    <button class="menu-item" data-action="insert-after" type="button"><svg><use href="#i-after"/></svg>在下方插入<span class="shortcut">Alt+Shift+↓</span></button>
-    <button class="menu-item" data-action="duplicate" type="button"><svg><use href="#i-copy"/></svg>复制 block<span class="shortcut">Ctrl+D</span></button>
-    <button class="menu-item" id="convert-trigger" type="button"><svg><use href="#i-type"/></svg>转换为<svg style="margin-left:auto"><use href="#i-chevron"/></svg></button>
+    <button class="menu-item" data-action="insert-before" type="button"><svg><use href="#i-before"/></svg>Insert Above<span class="shortcut">Alt+Shift+↑</span></button>
+    <button class="menu-item" data-action="insert-after" type="button"><svg><use href="#i-after"/></svg>Insert Below<span class="shortcut">Alt+Shift+↓</span></button>
+    <button class="menu-item" data-action="duplicate" type="button"><svg><use href="#i-copy"/></svg>Duplicate block<span class="shortcut">Ctrl+D</span></button>
+    <button class="menu-item" id="convert-trigger" type="button"><svg><use href="#i-type"/></svg>Convert to<svg style="margin-left:auto"><use href="#i-chevron"/></svg></button>
     <div class="menu-divider"></div>
-    <button class="menu-item danger" data-action="delete" type="button"><svg><use href="#i-trash"/></svg><span id="delete-label">删除 block</span></button>
+    <button class="menu-item danger" data-action="delete" type="button"><svg><use href="#i-trash"/></svg><span id="delete-label">Delete block</span></button>
   </div>
-  <div class="type-menu" id="type-menu" role="menu" aria-label="转换 block 类型">
-    <button class="menu-item" data-type="paragraph" type="button">正文</button>
-    <button class="menu-item" data-type="heading" type="button">二级标题</button>
-    <button class="menu-item" data-type="bulletListItem" type="button">项目符号列表</button>
-    <button class="menu-item" data-type="checkListItem" type="button">待办事项</button>
-    <button class="menu-item" data-type="quote" type="button">引用</button>
+  <div class="type-menu" id="type-menu" role="menu" aria-label="Convert Block Type">
+    <button class="menu-item" data-type="paragraph" type="button">Body</button>
+    <button class="menu-item" data-type="heading" type="button">Heading 2</button>
+    <button class="menu-item" data-type="bulletListItem" type="button">Bulleted List</button>
+    <button class="menu-item" data-type="checkListItem" type="button">Checklist Item</button>
+    <button class="menu-item" data-type="quote" type="button">Quote</button>
   </div>
   <div class="tooltip" id="tooltip"></div>
-  <div class="toast" id="toast"><span id="toast-copy"></span><button id="undo" type="button">撤销</button></div>
-  <aside class="legend"><strong>交互提示</strong>点击 `+` 插入段落；单击六点手柄打开菜单；直接拖动手柄可排序。图片组保持顶层，因此“增加缩进”会禁用。支持 Alt+↑/↓、Tab、Shift+Tab、Ctrl+D 和 Ctrl+Z。</aside>
+  <div class="toast" id="toast"><span id="toast-copy"></span><button id="undo" type="button">Undo</button></div>
+  <aside class="legend"><strong>Interaction Hint</strong>Click `+` to insert a paragraph; click the six-dot handle to open the menu; drag the handle directly to reorder. The image group stays top-level, so “Indent” is disabled. Supports Alt+↑/↓, Tab, Shift+Tab, Ctrl+D, and Ctrl+Z.</aside>
 
   <script>
     const typeNames = {
-      heading: "标题",
-      paragraph: "正文",
-      bulletListItem: "项目符号",
-      checkListItem: "待办事项",
-      quote: "引用",
-      divider: "分隔线",
-      imageGroup: "图片组",
+      heading: "Heading",
+      paragraph: "Body",
+      bulletListItem: "Bullet",
+      checkListItem: "Checklist Item",
+      quote: "Quote",
+      divider: "Divider",
+      imageGroup: "Image Group",
     };
     let blocks = [
-      { id: "b1", type: "heading", text: "拍摄概念", level: 0 },
-      { id: "b2", type: "paragraph", text: "以蓝调时刻和落日余晖为主要光线，画面强调海岸线、人物动态与自然风的关系。", level: 0 },
-      { id: "b3", type: "bulletListItem", text: "优先完成逆光中景和环境人像", level: 1 },
-      { id: "b4", type: "checkListItem", text: "确认日落时间与潮汐", level: 1, checked: true },
-      { id: "b5", type: "checkListItem", text: "准备反光板与备用电池", level: 1, checked: false },
+      { id: "b1", type: "heading", text: "Shoot Concept", level: 0 },
+      { id: "b2", type: "paragraph", text: "Use blue hour and sunset glow as the primary light, emphasizing the relationship between the coastline, subject movement, and the natural breeze.", level: 0 },
+      { id: "b3", type: "bulletListItem", text: "Prioritize backlit mid-shots and environmental portraits", level: 1 },
+      { id: "b4", type: "checkListItem", text: "Confirm sunset time and tide", level: 1, checked: true },
+      { id: "b5", type: "checkListItem", text: "Prepare the reflector and spare batteries", level: 1, checked: false },
       { id: "b6", type: "imageGroup", text: "", level: 0, topLevelOnly: true },
-      { id: "b7", type: "quote", text: "人物动作保持自然，避免每个镜头都直视相机。", level: 0 },
+      { id: "b7", type: "quote", text: "Keep the subject's movement natural and avoid having every shot stare directly into the camera.", level: 0 },
       { id: "b8", type: "divider", text: "", level: 0 },
-      { id: "b9", type: "heading", text: "现场执行", level: 0 },
-      { id: "b10", type: "paragraph", text: "18:10–18:35 完成暖色逆光；18:35 后切换蓝调静态构图。", level: 0 },
+      { id: "b9", type: "heading", text: "On-site Execution", level: 0 },
+      { id: "b10", type: "paragraph", text: "18:10–18:35 finish the warm backlit shots; after 18:35 switch to static blue-hour compositions.", level: 0 },
     ];
     let activeId = null;
     let dragId = null;
@@ -482,7 +482,7 @@
     }
     function blockMarkup(block) {
       if (block.type === "imageGroup") {
-        return `<div class="image-grid"><img src="../../resources/water-04.png" alt="海边参考"><img src="../../resources/water-07.png" alt="动作参考"><img src="../../resources/water-10.png" alt="蓝调参考"></div>`;
+        return `<div class="image-grid"><img src="../../resources/water-04.png" alt="Seaside Reference"><img src="../../resources/water-07.png" alt="Pose Reference"><img src="../../resources/water-10.png" alt="Blue-hour Reference"></div>`;
       }
       if (block.type === "divider") return "";
       return block.text;
@@ -493,8 +493,8 @@
           data-id="${block.id}" data-level="${block.level}" data-type="${block.type}" data-checked="${block.checked ? "true" : "false"}"
           style="--level:${block.level}" draggable="true">
           <div class="block-rail">
-            <button class="rail-button add" type="button" aria-label="在此 block 后插入" data-add="${block.id}"><svg><use href="#i-plus"/></svg></button>
-            <button class="rail-button drag" type="button" aria-label="打开 block 操作" aria-expanded="${activeId === block.id && menu.classList.contains("open")}" data-menu="${block.id}" draggable="true"><svg><use href="#i-grip"/></svg></button>
+            <button class="rail-button add" type="button" aria-label="Insert after this block" data-add="${block.id}"><svg><use href="#i-plus"/></svg></button>
+            <button class="rail-button drag" type="button" aria-label="Open block actions" aria-expanded="${activeId === block.id && menu.classList.contains("open")}" data-menu="${block.id}" draggable="true"><svg><use href="#i-grip"/></svg></button>
           </div>
           <div class="block-content" ${["paragraph","heading","quote","bulletListItem","checkListItem"].includes(block.type) ? "contenteditable=\"true\"" : ""}>${blockMarkup(block)}</div>
         </section>
@@ -543,14 +543,14 @@
       if (!block) return;
       const children = subtreeEnd(index) - index - 1;
       document.getElementById("menu-title").textContent = typeNames[block.type];
-      document.getElementById("menu-meta").textContent = `层级 ${block.level}${children ? ` · ${children} 个子 block` : ""}`;
-      document.getElementById("delete-label").textContent = children ? `删除 block 与 ${children} 个子 block` : "删除 block";
+      document.getElementById("menu-meta").textContent = `Level ${block.level}${children ? ` · ${children} child block${children > 1 ? "s" : ""}` : ""}`;
+      document.getElementById("delete-label").textContent = children ? `Delete block and ${children} child blocks` : "Delete block";
       const previousSibling = findPreviousSibling(index);
       const nextSibling = findNextSibling(index);
-      setDisabled("up", previousSibling < 0, "已是同级第一个 block");
-      setDisabled("down", nextSibling < 0, "已是同级最后一个 block");
-      setDisabled("outdent", block.level === 0, "已经是顶层 block");
-      setDisabled("indent", block.topLevelOnly || previousSibling < 0, block.topLevelOnly ? "图片组必须保持顶层" : "前方没有可作为父级的 block");
+      setDisabled("up", previousSibling < 0, "Already the first block at this level");
+      setDisabled("down", nextSibling < 0, "Already the last block at this level");
+      setDisabled("outdent", block.level === 0, "Already a top-level block");
+      setDisabled("indent", block.topLevelOnly || previousSibling < 0, block.topLevelOnly ? "The image group must stay top-level" : "There is no preceding block to use as a parent");
       document.getElementById("convert-trigger").disabled = block.type === "imageGroup" || block.type === "divider";
     }
     function setDisabled(action, disabled, reason) {
@@ -583,7 +583,7 @@
         : destination - currentTree.length;
       blocks.splice(insertionIndex, 0, ...currentTree);
       render();
-      showToast(direction === "up" ? "Block 已上移" : "Block 已下移");
+      showToast(direction === "up" ? "Block moved up" : "Block moved down");
       closeMenus();
     }
     function indent(delta) {
@@ -600,7 +600,7 @@
         blocks[cursor].level = Math.max(0, blocks[cursor].level + delta);
       }
       render();
-      showToast(delta > 0 ? "Block 已嵌套" : "Block 已取消嵌套");
+      showToast(delta > 0 ? "Block indented" : "Block outdented");
       closeMenus();
     }
     function insertRelative(id, placement) {
@@ -608,9 +608,9 @@
       if (index < 0) return;
       snapshot();
       const target = placement === "before" ? index : subtreeEnd(index);
-      blocks.splice(target, 0, { id: uid(), type: "paragraph", text: "新段落", level: blocks[index].level });
+      blocks.splice(target, 0, { id: uid(), type: "paragraph", text: "New paragraph", level: blocks[index].level });
       render();
-      showToast(placement === "before" ? "已在上方插入段落" : "已在下方插入段落");
+      showToast(placement === "before" ? "Inserted paragraph above" : "Inserted paragraph below");
       closeMenus();
     }
     function duplicate() {
@@ -620,7 +620,7 @@
       const clones = structuredClone(blocks.slice(index, end)).map((block) => ({ ...block, id: uid() }));
       blocks.splice(end, 0, ...clones);
       render();
-      showToast(`已复制 ${clones.length} 个 block`);
+      showToast(`Duplicated ${clones.length} block${clones.length > 1 ? "s" : ""}`);
       closeMenus();
     }
     function removeActive() {
@@ -631,7 +631,7 @@
       blocks.splice(index, count);
       activeId = null;
       render();
-      showToast(count > 1 ? `已删除 block 与 ${count - 1} 个子 block` : "已删除 block");
+      showToast(count > 1 ? `Deleted block and ${count - 1} child blocks` : "Deleted block");
       closeMenus();
     }
     function convert(type) {
@@ -641,7 +641,7 @@
       block.type = type;
       block.checked = type === "checkListItem" ? false : undefined;
       render();
-      showToast(`已转换为${typeNames[type]}`);
+      showToast(`Converted to ${typeNames[type]}`);
       closeMenus();
     }
     function startDrag(event) {
@@ -684,7 +684,7 @@
       blocks.splice(targetIndex, 0, ...tree);
       activeId = dragId;
       clearDrag();
-      showToast("Block 已移动");
+      showToast("Block moved");
     }
     function clearDrag() {
       dragId = null;
@@ -737,7 +737,7 @@
         blocks = undoSnapshot;
         undoSnapshot = null;
         render();
-        showToast("已撤销上一步操作");
+        showToast("Undid the previous action");
       }
       if (!activeId) return;
       if (event.altKey && event.key === "ArrowUp") { event.preventDefault(); move("up"); }

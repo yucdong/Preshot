@@ -56,6 +56,7 @@ pub fn run() {
             screenshot::start_screen_capture,
             screenshot::poll_screen_capture,
             screenshot::cancel_screen_capture,
+            screenshot::discard_screen_capture,
             settings::read_settings,
             settings::write_settings,
         ])

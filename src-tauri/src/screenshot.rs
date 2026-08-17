@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    fs::File,
+    fs::{self, File},
     io::BufWriter,
     path::{Path, PathBuf},
     process::Command,
@@ -175,6 +175,35 @@ pub fn cancel_screen_capture(
     Ok(())
 }
 
+fn is_owned_capture_path(path: &Path) -> bool {
+    let temp_dir = std::env::temp_dir();
+    let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    path.parent() == Some(temp_dir.as_path())
+        && file_name.starts_with("preshot-capture-")
+        && file_name.ends_with(".png")
+}
+
+#[tauri::command]
+pub fn discard_screen_capture(path: String) -> Result<(), CommandError> {
+    let path = PathBuf::from(path);
+    if !is_owned_capture_path(&path) {
+        return Err(CommandError::new(
+            "screen_capture_invalid_path",
+            "Only Preshot screen capture temporary files can be discarded",
+        ));
+    }
+    match fs::remove_file(&path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(CommandError::new(
+            "screen_capture_discard_failed",
+            format!("Unable to remove the captured PNG: {error}"),
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,5 +235,22 @@ mod tests {
         let error =
             write_capture_png(&directory.path().join("bad.png"), 2, 2, &[0; 4]).unwrap_err();
         assert_eq!(error.code, "screen_capture_invalid_image");
+    }
+
+    #[test]
+    fn discards_only_owned_capture_files() {
+        let path = capture_temp_path("discard-test");
+        std::fs::write(&path, b"capture").unwrap();
+        discard_screen_capture(path.to_string_lossy().into_owned()).unwrap();
+        assert!(!path.exists());
+
+        let error = discard_screen_capture(
+            std::env::temp_dir()
+                .join("unrelated.png")
+                .to_string_lossy()
+                .into_owned(),
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "screen_capture_invalid_path");
     }
 }

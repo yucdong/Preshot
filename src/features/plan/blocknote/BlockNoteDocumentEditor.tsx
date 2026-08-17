@@ -23,7 +23,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { useTheme } from "../../../app/theme/ThemeProvider";
+import { useTheme } from "../../../app/theme/ThemeContext";
 import {
   BLOCK_DOCUMENT_SCHEMA_VERSION,
   type PreshotBlockDocument,
