@@ -79,6 +79,9 @@ BlockNote v13 是唯一编辑画布入口，不再提供 TipTap feature flag 或
   drag；拖动时显示独立 fixed 插入线/嵌套高亮，松手后通过事务移动完整子树。
 - 图片组除六点手柄外，也可从不属于图片、按钮或 resize handle 的灰色空白区域
   启动同一套 block Pointer 拖拽；内部图片拖动和尺寸调整不会冒泡为 block 拖动。
+- 图片组右上工具栏为“拖动图片组 / 插入图片 / 截图 / 删除图片组”提供原生
+  hover title。删除调用与左侧 block 菜单相同的 removeBlocks 路径，并在删除前
+  关闭上一 history group，确保 toast 的撤销只恢复本次删除。
 - `Ctrl+D` 复制当前 block，`Alt+↑/↓` 执行同级移动；Tab/Shift+Tab
   继续使用 BlockNote 原生嵌套快捷键。
 - 图片组不允许使用普通缩进嵌套，但可通过 column layout 进入同一行；移动、

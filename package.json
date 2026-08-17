@@ -47,6 +47,7 @@
     "konva": "^10.3.0",
     "lucide-react": "^1.28.0",
     "pdf-lib": "^1.17.1",
+    "prosemirror-history": "1.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^17.0.11",

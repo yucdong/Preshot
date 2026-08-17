@@ -1099,6 +1099,9 @@
           "Added same-level subtree movement so menu arrows never change nesting implicitly",
           "Replaced unreliable BlockNote HTML5 block dragging under CSS zoom with a custom Pointer Events drag handle, 6px activation threshold, before/after/inside targets, fixed drop overlays, full-subtree transactions, and image-group hierarchy enforcement",
           "Allowed image-group blocks to start the same Pointer block drag from their gray empty surface while excluding images, buttons, and resize handles",
+          "Added image-group toolbar hover titles for drag, image insertion, and screenshot; added a danger delete-group button routed through the same isolated BlockNote history, tombstone, toast, and undo path as the side menu",
+          "Changed all image-group toolbar hover cursors to the normal arrow while active block dragging still uses grabbing",
+          "Compacted the BlockNote add/drag controls to two 18px buttons so their 36px total width fits exactly in the page padding without overlapping text and continues scaling with CSS zoom",
           "Added Ctrl+D duplication and Alt+Arrow block movement shortcuts; Tab and Shift+Tab retain native BlockNote nesting behavior",
           "Constrained image-group cards to the actual BlockNote content width with exact left/right alignment",
           "Added pointer-anchored Ctrl+wheel continuous-canvas zoom from 50% to 150%",
@@ -1124,7 +1127,7 @@
           "build": "pnpm build passed with no direct TipTap dependencies and the existing large-chunk warning",
           "tauriBuild": "passed with multi-column and native media commands/CSP; produced Preshot_0.1.0_x64_en-US.msi"
         },
-        "visualVerification": "At a 1440px viewport both side panels are visible by default and the fixed 1080px document fits the remaining center workspace at 85%. Multi-column text/image-group rows align within 0.02px, gray-surface image-group dragging creates one group per column, and the XL divider persists width weights. Native BlockNote image, video, and audio blocks rendered their preview/player controls and captions from project-managed media; reload restored them from relative media paths. PDF renders native images and explicit video/audio fallback rows.",
+        "visualVerification": "At a 1440px viewport both side panels are visible by default and the fixed 1080px document fits the remaining center workspace at 85%. Multi-column text/image-group rows align within 0.02px, gray-surface image-group dragging creates one group per column, and the XL divider persists width weights. Native BlockNote image, video, and audio blocks rendered their preview/player controls and captions from project-managed media; reload restored them from relative media paths. The compact BlockNote control strip measured 221-251.59px, exactly between the white canvas left edge and text start; each drag button measured 15.30px, matching 18px × 85% zoom. PDF renders native images and explicit video/audio fallback rows.",
         "remaining": [
           "Upgrade BlockNote packages to 0.54.x when available",
           "Complete Midscene visual validation for standard BlockNote block dragging"

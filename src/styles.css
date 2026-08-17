@@ -158,6 +158,22 @@ button:disabled {
   border-left: 1px solid color-mix(in srgb, var(--app-border) 76%, transparent);
 }
 
+.preshot-blocknote-document .bn-side-menu {
+  transform: none;
+}
+
+.preshot-blocknote-document .bn-side-menu .bn-button {
+  --ai-size: 18px !important;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+}
+
+.preshot-blocknote-document .bn-side-menu .bn-button svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
 .preshot-block-drag-trigger {
   touch-action: none;
 }
@@ -700,6 +716,11 @@ button:disabled {
   top: 4px !important;
   right: 4px !important;
   z-index: 80 !important;
+}
+
+.preshot-blocknote-image-group-toolbar,
+.preshot-blocknote-image-group-toolbar * {
+  cursor: default;
 }
 
 .preshot-document-image-group {

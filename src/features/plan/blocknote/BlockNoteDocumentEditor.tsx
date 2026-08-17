@@ -18,6 +18,7 @@ import { Columns2, Columns3, Images } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -34,6 +35,7 @@ import {
   type ImageGroupBlockController,
 } from "./ImageGroupBlockContext";
 import {
+  deleteBlockOrSelection,
   duplicateBlockTree,
   moveSpecificBlock,
   type PreshotEditorBlock,
@@ -269,6 +271,18 @@ export function BlockNoteDocumentEditor({
     }, 3_000);
   }, []);
 
+  const contextualImageGroupController = useMemo<
+    ImageGroupBlockController
+  >(() => ({
+    ...imageGroupController,
+    removeBlock(blockId) {
+      const block = editor.getBlock(blockId);
+      if (!block || block.type !== "imageGroup") return;
+      deleteBlockOrSelection(editor, block as PreshotEditorBlock);
+      notifyBlockOperation("已删除 block");
+    },
+  }), [editor, imageGroupController, notifyBlockOperation]);
+
   const handleBlockShortcut = useCallback((
     event: ReactKeyboardEvent<HTMLDivElement>,
   ) => {
@@ -313,7 +327,7 @@ export function BlockNoteDocumentEditor({
       onKeyDownCapture={handleBlockShortcut}
       role="group"
     >
-      <ImageGroupBlockContext.Provider value={imageGroupController}>
+      <ImageGroupBlockContext.Provider value={contextualImageGroupController}>
         <BlockNoteView
           editor={editor}
           onChange={handleChange}
@@ -378,6 +392,7 @@ export function BlockNoteDocumentEditor({
             <span>{operationToast}</span>
             <button
               onClick={() => {
+                editor.focus();
                 if (editor.undo()) setOperationToast(null);
               }}
               type="button"

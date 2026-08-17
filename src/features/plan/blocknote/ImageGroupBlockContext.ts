@@ -5,6 +5,7 @@ export interface ImageGroupBlockController {
   createGroup(): string;
   subscribe(listener: () => void): () => void;
   cloneGroup(sourceGroupId: string): string | null;
+  removeBlock?(blockId: string): void;
   getGroup(groupId: string): ReferenceComponent | undefined;
   getImageSrc(file: string): string | undefined;
   addImages(groupId: string): void;

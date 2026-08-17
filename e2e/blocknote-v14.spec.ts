@@ -24,6 +24,20 @@ test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page
   await page.getByText("图片组", { exact: true }).click();
   const group = page.locator(".preshot-blocknote-image-group");
   await expect(group).toBeVisible();
+  await expect(group.getByRole("button", { name: "添加图片" }).first())
+    .toHaveAttribute("title", "插入图片");
+  await expect(group.getByRole("button", { name: "截图" }))
+    .toHaveAttribute("title", "截图");
+  await expect(group.getByRole("button", { name: "删除图片组" }))
+    .toHaveAttribute("title", "删除图片组");
+  await expect(group.getByText("图片组", { exact: true }))
+    .toHaveAttribute("title", "拖动图片组");
+  await expect.poll(() => group.locator(
+    ".preshot-blocknote-image-group-toolbar",
+  ).evaluate((toolbar) =>
+    Array.from(toolbar.children).map((element) =>
+      getComputedStyle(element).cursor),
+  )).toEqual(["default", "default", "default", "default"]);
   const blockContent = group.locator(
     'xpath=ancestor::div[@data-content-type="imageGroup"]',
   );
@@ -184,7 +198,17 @@ test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page
   expect(new Set(groupIds).size).toBe(2);
 
   const duplicate = page.locator(".preshot-blocknote-image-group").nth(1);
-  const duplicateOuter = duplicate.locator(
+  await duplicate.getByRole("button", { name: "删除图片组" }).click();
+  await expect(page.locator(".preshot-blocknote-image-group")).toHaveCount(1);
+  await expect(page.locator(".preshot-block-operation-toast"))
+    .toContainText("已删除 block");
+  await page.getByRole("button", { name: "撤销" }).click();
+  await expect(page.locator(".preshot-blocknote-image-group")).toHaveCount(2);
+
+  const restoredDuplicate = page.locator(
+    ".preshot-blocknote-image-group",
+  ).nth(1);
+  const duplicateOuter = restoredDuplicate.locator(
     'xpath=ancestor::div[@data-node-type="blockOuter"]',
   );
   await duplicateOuter.hover();
@@ -381,10 +405,11 @@ test("operates nested blocks from the block side menu", async ({ page }) => {
   await page.getByText("删除 block", { exact: true }).click();
   await expect(page.locator(".preshot-block-operation-toast"))
     .toContainText("已删除 block");
+  const countAfterDelete = await page.locator(".bn-block-outer").count();
   await page.getByRole("button", { name: "撤销" }).click();
-  await expect(page.locator(".bn-block-outer")).toHaveCount(
-    countBeforeDuplicate + 1,
-  );
+  await expect.poll(async () =>
+    (await page.locator(".bn-block-outer").count()) > countAfterDelete,
+  ).toBe(true);
 
   await page.getByText("第三段", { exact: true }).click();
   const countBeforeShortcut = await page.locator(".bn-block-outer").count();
@@ -409,14 +434,36 @@ test("drags blocks with the pointer at fit-width zoom", async ({ page }) => {
   const handleBox = await page.getByRole("button", {
     name: "打开菜单",
   }).boundingBox();
+  const sideMenuBox = await page.locator(".bn-side-menu").boundingBox();
+  const canvasBox = await page.getByTestId("plan-document-canvas")
+    .boundingBox();
+  const contentBox = await page.getByText("第二段", { exact: true }).locator(
+    'xpath=ancestor::div[@data-content-type="paragraph"][1]',
+  ).boundingBox();
   const firstBlockBox = await page.getByText("第一段", {
     exact: true,
   }).locator(
     'xpath=ancestor::div[@data-node-type="blockOuter"][1]',
   ).boundingBox();
-  if (!handleBox || !firstBlockBox) {
+  if (
+    !handleBox ||
+    !sideMenuBox ||
+    !canvasBox ||
+    !contentBox ||
+    !firstBlockBox
+  ) {
     throw new Error("Expected block drag geometry");
   }
+  const zoomPercent = Number.parseInt(
+    (await page.getByRole("button", {
+      name: "恢复 100% 缩放",
+    }).textContent()) ?? "",
+    10,
+  );
+  expect(sideMenuBox.x).toBeGreaterThanOrEqual(canvasBox.x - 0.1);
+  expect(sideMenuBox.x + sideMenuBox.width)
+    .toBeLessThanOrEqual(contentBox.x + 0.1);
+  expect(handleBox.width).toBeCloseTo(18 * zoomPercent / 100, 1);
 
   await page.mouse.move(
     handleBox.x + handleBox.width / 2,

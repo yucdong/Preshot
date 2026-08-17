@@ -586,10 +586,13 @@ export function ImageGroupBlockView({
         }}
       >
         <div className="preshot-blocknote-image-group-toolbar absolute right-0 top-[-34px] z-20 flex h-[30px] items-center gap-1 rounded border border-white/10 bg-[#202329] px-1 text-white shadow-lg">
-          <span className="flex h-6 items-center gap-1 rounded bg-app-functional/20 px-2 text-[10px] font-bold text-cyan-100">
+          <span
+            className="flex h-6 items-center gap-1 rounded bg-app-functional/20 px-2 text-[10px] font-bold text-cyan-100"
+            title="拖动图片组"
+          >
             <Images aria-hidden size={14} />图片组
           </span>
-          <button aria-label="添加图片" className="grid h-6 w-6 place-items-center rounded hover:bg-white/10" onClick={() => controller.addImages(groupId)} type="button">
+          <button aria-label="添加图片" className="grid h-6 w-6 place-items-center rounded hover:bg-white/10" onClick={() => controller.addImages(groupId)} title="插入图片" type="button">
             <Plus aria-hidden size={14} />
           </button>
           {controller.captureImage ? (
@@ -597,11 +600,21 @@ export function ImageGroupBlockView({
               aria-label="截图"
               className="grid h-6 w-6 place-items-center rounded hover:bg-white/10"
               onClick={() => controller.captureImage?.(groupId)}
+              title="截图"
               type="button"
             >
               <Camera aria-hidden size={14} />
             </button>
           ) : null}
+          <button
+            aria-label="删除图片组"
+            className="grid h-6 w-6 place-items-center rounded text-rose-200 hover:bg-app-danger hover:text-white"
+            onClick={() => controller.removeBlock?.(blockId)}
+            title="删除图片组"
+            type="button"
+          >
+            <Trash2 aria-hidden size={14} />
+          </button>
         </div>
         <div className="relative h-full overflow-hidden">
           {group.images.length === 0 ? (

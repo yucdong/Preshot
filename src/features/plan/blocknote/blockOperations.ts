@@ -1,4 +1,5 @@
 import type { PartialBlock } from "@blocknote/core";
+import { closeHistory } from "prosemirror-history";
 import { preshotBlockNoteSchema } from "./blockNoteSchema";
 
 export type PreshotBlockNoteEditor =
@@ -349,5 +350,8 @@ export function deleteBlockOrSelection(
     selectedBlocks?.some((selected) => selected.id === block.id)
       ? selectedBlocks
       : [block];
+  editor.prosemirrorView.dispatch(
+    closeHistory(editor.prosemirrorView.state.tr),
+  );
   editor.removeBlocks(blocksToRemove);
 }
