@@ -26,6 +26,9 @@ describe("createPlanDependencies", () => {
     expect(deps.service.savePlan).toBeDefined();
     expect(deps.screenCapture).toBeDefined();
     expect(deps.exporter.implementation).toBe("react-pdf");
+    expect(deps.docxExporter.implementation).toBe("blocknote-docx");
+    expect(deps.saver.revealProjectDirectoryAfterSave).toBe(false);
+    expect(deps.docxSaver.revealProjectDirectoryAfterSave).toBe(false);
   }, DEPENDENCY_TEST_TIMEOUT);
 
   it("uses the React-PDF exporter for the Midscene browser path", async () => {
@@ -33,9 +36,13 @@ describe("createPlanDependencies", () => {
     vi.stubEnv("PROD", false);
     const createPlanDependencies = await getCreatePlanDependencies();
 
-    expect(createPlanDependencies().exporter.implementation).toBe(
+    const dependencies = createPlanDependencies();
+    expect(dependencies.exporter.implementation).toBe(
       "react-pdf",
     );
+    expect(dependencies.docxExporter.implementation).toBe("blocknote-docx");
+    expect(dependencies.saver.revealProjectDirectoryAfterSave).toBe(false);
+    expect(dependencies.docxSaver.revealProjectDirectoryAfterSave).toBe(false);
   }, DEPENDENCY_TEST_TIMEOUT);
 
   it("fails closed for the memory adapter in production", async () => {
@@ -53,6 +60,9 @@ describe("createPlanDependencies", () => {
     expect(dependencies.picker).toBeDefined();
     expect(dependencies.screenCapture).toBeDefined();
     expect(dependencies.exporter.implementation).toBe("react-pdf");
+    expect(dependencies.docxExporter.implementation).toBe("blocknote-docx");
+    expect(dependencies.saver.revealProjectDirectoryAfterSave).toBe(true);
+    expect(dependencies.docxSaver.revealProjectDirectoryAfterSave).toBe(true);
   }, DEPENDENCY_TEST_TIMEOUT);
 
   it.each([

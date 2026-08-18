@@ -5,10 +5,17 @@ export interface CanvasPlanRepository {
   saveRawPlan(projectPath: string, plan: ProjectPlan): Promise<void>;
 }
 
-export interface PdfSaveTarget {
-  save(bytes: Uint8Array, suggestedName: string): Promise<string | null>;
+export interface DocumentSaveOptions {
+  suggestedName: string;
+  defaultDirectory: string;
 }
 
-export interface PdfRevealTarget {
-  reveal(path: string): Promise<void>;
+export interface DocumentSaveTarget {
+  revealProjectDirectoryAfterSave?: boolean;
+  save(bytes: Uint8Array, options: DocumentSaveOptions): Promise<string | null>;
 }
+
+export type PdfSaveOptions = DocumentSaveOptions;
+export type PdfSaveTarget = DocumentSaveTarget;
+export type DocxSaveOptions = DocumentSaveOptions;
+export type DocxSaveTarget = DocumentSaveTarget;

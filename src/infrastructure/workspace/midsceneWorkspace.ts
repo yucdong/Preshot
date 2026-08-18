@@ -112,7 +112,7 @@ export function createMidsceneWorkspaceDependencies(
       },
     },
     projectDirectoryRevealer: {
-      async revealProjectDirectory() {
+      async revealProjectDirectory(_path: string) {
         return undefined;
       },
     },

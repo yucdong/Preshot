@@ -62,6 +62,22 @@ preflight, and verifies non-empty PDF bytes before opening the save target.
 Mapping/render failures remain visible in the canvas and never trigger the
 explicit legacy pdf-lib adapter automatically.
 
+The native save dialog receives a platform-joined
+`<project directory>\output.pdf` default path. Windows verbatim drive and UNC
+prefixes are converted to Explorer-compatible drive and standard UNC forms
+before path joining, without changing ordinary paths, trailing separators,
+spaces, or Unicode. Cancelling the dialog performs no write and opens no
+directory. After a successful `save_pdf` write, the app opens the normalized
+current project directory through the existing `open_project_directory`
+command without selecting a file. The native command verifies that the path
+still exists and is a directory before starting Explorer. If validation or
+Explorer startup fails after the write succeeds, the saved PDF remains
+successful: the app logs the separate failure and shows a non-fatal
+notification instead of retrying or reclassifying the write.
+
+Browser-memory and Midscene export targets keep the `output.pdf` download
+filename and do not request a native directory reveal.
+
 Preflight and rendering are offline and deterministic: the shared schema,
 bundled Noto Sans SC fonts, normalized crop/cache keys, and local optimized
 assets are fixed before mapping. Root and weighted-column image groups keep
@@ -164,6 +180,37 @@ Current accepted types and limits in Rust are:
 
 Runtime editing may use data URLs returned by the native layer, but persisted plan JSON must keep only relative `media/<file>` paths.
 
+### DOCX export isolation and save semantics
+
+The production DOCX exporter is infrastructure-only and receives an immutable map
+of project-relative asset names to Blob, byte, or data-URL content. Its private
+resolver accepts only single-file `media/` and `references/` names or direct
+data URLs. It rejects HTTP(S), absolute paths, traversal, missing assets, and
+unsupported image bytes without invoking the BlockNote hosted proxy or any
+network request.
+
+Project-local media fallback text never includes the stored relative path.
+Native images embed only the supplied bytes and use caption/name metadata for
+alternative text. Chinese text relies on Word/system fallback fonts, so exact
+automatic pagination can vary by installed fonts and Word version; explicit
+page breaks and section geometry remain deterministic.
+
+DOCX generation validates a non-empty ZIP/PK payload before save. The native
+`save_docx` command accepts only `.docx` output paths with an existing parent
+directory, decodes bytes, writes and syncs a create-new UUID-named sibling
+temporary file, and atomically replaces the destination. PDF uses the same
+shared byte writer. Every write, flush, sync, or finalize failure removes only
+that writer's temporary file and preserves the prior destination. Windows
+finalization retries bounded transient access, sharing, and lock conflicts so
+concurrent writers can each commit one complete payload without sharing temp
+state.
+
+Save cancellation is quiet and never reveals Explorer. A write failure stops
+the flow before reveal. Explorer is opened only after a successful desktop
+write through the existing normalized project-directory command; reveal
+failure is logged and shown as a non-fatal format-specific notice. Browser and
+Midscene targets download `output.docx` and never request reveal.
+
 ### Detached cleanup
 
 The active provider tracks detached image groups and detached media references while the editor is open. On unmount, it asks the plan service to delete project-local files that are no longer referenced by the active document.
@@ -199,8 +246,9 @@ Infrastructure adapters wrap native failures with clear operation context such a
 - unable to create/open a project,
 - unable to read/save a plan,
 - unable to import/load/remove media,
-- unable to start/poll/cancel screen capture, or
-- unable to save the PDF.
+- unable to start/poll/cancel screen capture,
+- unable to save the PDF, or
+- unable to open the project directory after a successful PDF save.
 
 `src/shared/logging/logger.ts` emits structured JSON and intentionally removes sensitive keys such as:
 

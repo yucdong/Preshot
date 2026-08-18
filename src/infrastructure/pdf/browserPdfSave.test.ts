@@ -13,10 +13,16 @@ describe("browserPdfSaveTarget", () => {
       .mockReturnValue("blob:preshot-pdf");
     const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL")
       .mockImplementation(() => {});
+    const anchor = document.createElement("a");
+    vi.spyOn(document, "createElement").mockReturnValue(anchor);
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => {});
 
-    await expect(browserPdfSaveTarget.save(bytes, "output.pdf"))
+    expect(browserPdfSaveTarget.revealProjectDirectoryAfterSave).toBe(false);
+    await expect(browserPdfSaveTarget.save(bytes, {
+      suggestedName: "output.pdf",
+      defaultDirectory: "C:\\Editorial",
+    }))
       .resolves.toBe("output.pdf");
 
     expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
@@ -24,6 +30,7 @@ describe("browserPdfSaveTarget", () => {
     expect(blob?.type).toBe("application/pdf");
     await expect(blob?.arrayBuffer()).resolves.toEqual(bytes.buffer);
     expect(click).toHaveBeenCalledTimes(1);
+    expect(anchor.download).toBe("output.pdf");
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:preshot-pdf");
   });
 });

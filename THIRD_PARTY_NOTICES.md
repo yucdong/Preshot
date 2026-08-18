@@ -28,6 +28,38 @@ for `@blocknote/xl-multi-column`. Distributed Preshot application builds that
 include the PDF exporter are provided under GPL-3.0 with corresponding source
 code and license notices.
 
+## BlockNote XL DOCX Exporter
+
+- Package: `@blocknote/xl-docx-exporter`
+- Version: `0.53.0`
+- Copyright: TypeCellOS / BlockNote contributors
+- License: `GPL-3.0 OR PROPRIETARY`
+- Source: <https://github.com/TypeCellOS/BlockNote>
+- License text: [`LICENSES/GPL-3.0.txt`](LICENSES/GPL-3.0.txt)
+
+Preshot uses the GPL-3.0 option for open-source distribution. Distributed
+Preshot application builds that include the DOCX exporter are provided under
+GPL-3.0 with corresponding source code and license notices. The proprietary
+option would require a separate BlockNote commercial license and is not the
+open-source distribution path documented by this repository.
+
+Preshot uses the dependency for its production DOCX mappings, offline asset
+resolution, image-group composition, ZIP packing, and desktop/browser export
+workflow.
+
+## docx
+
+- Package: `docx`
+- Version: `9.6.1`
+- Copyright: Dolan Miu and docx contributors
+- License: MIT
+- Source: <https://github.com/dolanmiu/docx>
+
+`docx` is the document-generation library used by the BlockNote XL DOCX
+exporter. Its MIT license is GPL-compatible and does not change Preshot's
+existing GPL obligations when an XL exporter is included in a distributed
+application build.
+
 ## React-PDF Renderer
 
 - Package: `@react-pdf/renderer`

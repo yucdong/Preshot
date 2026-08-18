@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
+import { join } from "@tauri-apps/api/path";
 import { save } from "@tauri-apps/plugin-dialog";
 import type { PdfSaveTarget } from "../../domain/plan/canvas/ports";
+import { normalizeWindowsShellPath } from "../../shared/path/windowsShellPath";
 import { bytesToBase64 } from "./base64";
 
 type SaveDialog = (options: {
@@ -9,20 +11,28 @@ type SaveDialog = (options: {
 }) => Promise<string | null>;
 
 type InvokeCommand = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
+type JoinPath = (directory: string, name: string) => Promise<string>;
 
 interface Dependencies {
   saveDialog?: SaveDialog;
   invokeCommand?: InvokeCommand;
+  joinPath?: JoinPath;
 }
 
 export function createTauriPdfSaveTarget({
   saveDialog = save as unknown as SaveDialog,
   invokeCommand = invoke,
+  joinPath = join,
 }: Dependencies = {}): PdfSaveTarget {
   return {
-    async save(bytes, suggestedName) {
+    revealProjectDirectoryAfterSave: true,
+    async save(bytes, { suggestedName, defaultDirectory }) {
+      const defaultPath = await joinPath(
+        normalizeWindowsShellPath(defaultDirectory),
+        suggestedName,
+      );
       const path = await saveDialog({
-        defaultPath: suggestedName,
+        defaultPath,
         filters: [{ name: "PDF", extensions: ["pdf"] }],
       });
 

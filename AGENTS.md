@@ -53,6 +53,10 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
 - `pdf-lib` remains available only through the explicitly constructed legacy
   rollback adapter. Production failures must surface and must not silently
   fall back.
+- DOCX export uses `@blocknote/xl-docx-exporter@0.53.0`, `docx@9.6.1`, the
+  shared BlockNote schema, offline project assets, and the composited
+  `imageGroup` mapping. Desktop saves default to `output.docx`; browser and
+  Midscene modes download the same name.
 - New editor work should go through the BlockNote v14 path unless the task explicitly targets compatibility code.
 
 ## Commands
@@ -119,9 +123,12 @@ pnpm migrate:project
 ## UI and platform notes
 
 - BlockNote 0.53 plus Mantine is the active rich-text/block editor stack.
-- The multi-column and PDF export dependencies use
-  `@blocknote/xl-multi-column` and `@blocknote/xl-pdf-exporter` under their
-  GPL-3.0 options; distributed builds that include either are GPL-3.0.
+- The multi-column, PDF export, and DOCX export dependencies use
+  `@blocknote/xl-multi-column`, `@blocknote/xl-pdf-exporter`, and
+  `@blocknote/xl-docx-exporter` under their GPL-3.0 options; distributed builds
+  that include any of them follow the existing GPL-3.0 obligations.
+- `docx` bundles the browser shims used by `Packer`. Do not add an app-wide
+  Buffer/process/global polyfill unless a verified runtime need appears.
 - React-PDF requires the least-privilege Tauri CSP to keep
   `script-src 'self' 'wasm-unsafe-eval'`; bundled PDF fonts are covered by
   `default-src 'self'`, and no broad network origin is allowed.
@@ -138,5 +145,5 @@ pnpm migrate:project
 - Avoid snapshots for dynamic editor, image-layout, or PDF output.
 - Use the real Chinese UI strings in assertions unless the change explicitly updates localization.
 
-See [docs/README.md](docs/README.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING.md), and [docs/RELIABILITY.md](docs/RELIABILITY.md).
+See [docs/README.md](docs/README.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING.md), [docs/RELIABILITY.md](docs/RELIABILITY.md), and [docs/LICENSING.md](docs/LICENSING.md).
 For active design references, use [docs/design_docs/blocknote_v14_design.md](docs/design_docs/blocknote_v14_design.md), [docs/design_docs/UI_UX_CONTRACT.md](docs/design_docs/UI_UX_CONTRACT.md), and [docs/design_docs/featurelist.json](docs/design_docs/featurelist.json).

@@ -254,6 +254,63 @@ are loaded from self under `default-src 'self'`; and `connect-src` is limited to
 self plus the Tauri IPC origins. Hosted font, emoji, image, or asset proxies
 are not permitted.
 
+## Production DOCX export
+
+`src/infrastructure/docx` contains the infrastructure-only BlockNote 0.53 DOCX
+mapping, image-group compositor, production adapter, and save targets. It uses
+the exact `preshotBlockNoteSchema`
+instance and composes `docxDefaultSchemaMappings` with Preshot overrides rather
+than maintaining a second document schema.
+
+The ordinary mapping layer preserves editable paragraphs, H1-H6, all four list
+kinds, quote/code/divider/page-break/table blocks, links, inline emphasis,
+text/background colors, and alignment. Word `ilvl` is calculated only from
+list ancestors; ordinary structural wrappers do not add a level, and entering
+a `columnList` or `column` resets list context so every column starts at level
+0. True nested lists preserve levels 0-8. Level 9 and deeper are rejected
+before packing rather than silently clamped. Native images are embedded from
+caller-supplied local Blob or data-URL values with aspect ratio, caption, and
+alternative text. Audio, video, and file blocks become contextual hyperlinks
+for external URLs or path-free fallback text for project-local/missing media.
+
+Multi-column rows are represented by a borderless fixed-layout Word table.
+The A4 body is 10,946 twips wide after 24pt margins; each 10pt inter-column gap
+is exactly 200 twips, and the remaining integer twips are allocated
+deterministically from persisted column weights. Mixed or long-text rows remain
+splittable. `cantSplit` is emitted only for the conservative known-short
+all-atomic set.
+
+The factory configures A4 portrait, 24pt page margins, `zh-CN` styles, and
+Chinese document metadata. It intentionally does not embed a Chinese font:
+ordinary Chinese text uses Word/system fallback, so line breaks and final page
+counts can vary between machines. Explicit page-break blocks remain stable,
+but exact pagination is not a cross-system contract.
+
+The production adapter snapshots the current plan and resolved asset map, runs
+the same immutable offline geometry/asset preflight used by PDF, injects the
+custom image-group mapping, asks `DOCXExporter` for a docx.js `Document`, and
+packs it with `docx` `Packer` into validated ZIP bytes. DOCX/docx.js types stay
+inside infrastructure.
+
+Image resolution is private to the exporter. It accepts only supplied
+`media/<file>`, `references/<file>`, or data-URL content and returns Blob data;
+it never calls the BlockNote hosted CORS proxy, fetches the network, reads an
+absolute filesystem path, or writes a local path into the DOCX. `imageGroup`
+has a typed injected block-mapping seam and no ordinary-content fallback
+renderer.
+
+The provider exposes adjacent PDF and DOCX actions with independent progress
+labels and one shared concurrency guard. Native DOCX saving uses a dedicated
+`save_docx` command, defaults the dialog to `<project>\output.docx`, validates
+the extension and parent directory, writes decoded bytes through a unique
+UUID-named sibling temporary file, and atomically finalizes them. Windows
+replacement retries only transient access, sharing, or lock conflicts so
+concurrent PDF/DOCX saves cannot collide on a shared temporary name.
+After a successful desktop write the existing normalized project-directory
+revealer opens Explorer; cancellation and write failure never reveal, while a
+reveal failure is a separate non-fatal notice. Browser, memory, and Midscene
+composition downloads `output.docx` and skips reveal.
+
 ## Native boundary
 
 Direct `@tauri-apps/api` imports are confined to `src/infrastructure`. Native responsibilities are intentionally narrow:
@@ -264,7 +321,7 @@ Direct `@tauri-apps/api` imports are confined to `src/infrastructure`. Native re
 - validate, encode, atomically replace, commit, or roll back a cropped project
   reference image,
 - import, load, and remove native media,
-- save PDF bytes,
+- save PDF or DOCX bytes through distinct commands,
 - reveal project/output paths,
 - start/poll/cancel Windows screen capture, and
 - read/write app settings.

@@ -153,6 +153,10 @@ export interface PreshotPdfImageSlotContext {
 export interface PreshotPdfImageGroupContext {
   readonly blockId: string;
   readonly groupId: string;
+  readonly accessibility: {
+    readonly name: string;
+    readonly description: string;
+  };
   readonly order: number;
   readonly empty: boolean;
   readonly render: boolean;
@@ -739,6 +743,10 @@ export function buildPreshotPdfLayoutManifest(
         const mutableGroup: MutableGroupContext = {
           blockId: block.id,
           groupId: group.id,
+          accessibility: {
+            name: group.name,
+            description: group.description,
+          },
           order: blockOrder,
           empty,
           render: !empty,

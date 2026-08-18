@@ -195,7 +195,7 @@ export function createBrowserWorkspaceDependencies(
       },
     },
     projectDirectoryRevealer: {
-      async revealProjectDirectory(): Promise<void> {
+      async revealProjectDirectory(_path: string): Promise<void> {
         return undefined;
       },
     },

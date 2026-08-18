@@ -2,6 +2,24 @@
 
 All notable changes to Preshot are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Production DOCX export through the exact shared BlockNote schema, official
+  ordinary mappings, offline project assets, weighted columns, and the custom
+  composited image-group mapping.
+- Adjacent PDF/DOCX toolbar actions with independent progress, a cross-format
+  concurrency guard, dedicated native `save_docx` atomic writes, default
+  `<project>\output.docx`, post-save Explorer reveal, and browser/Midscene
+  `output.docx` downloads.
+
+### Licensing
+
+- Open-source distributions that include the BlockNote XL DOCX exporter use
+  its `GPL-3.0 OR PROPRIETARY` license through the GPL-3.0 option, matching the
+  existing XL package obligations. The underlying `docx@9.6.1` library is MIT.
+
 ## [0.0.1] - 2026-08-17
 
 ### Added

@@ -415,6 +415,7 @@ export function WorkspaceProvider({
       >
         <Workspace
           dependencies={planDependencies}
+          projectDirectoryRevealer={dependencies.projectDirectoryRevealer}
           projectName={view.project.name}
           projectPath={view.project.path}
         />

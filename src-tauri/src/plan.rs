@@ -9,10 +9,10 @@ use chrono::{SecondsFormat, Utc};
 use image::{GenericImageView, ImageFormat};
 use uuid::Uuid;
 
-use crate::error::CommandError;
 use crate::workspace::{
     canonicalize_directory, read_manifest, write_manifest_atomically, ProjectManifest,
 };
+use crate::{byte_write::replace_file_atomically, error::CommandError};
 
 const REFERENCES_DIR: &str = "references";
 const MEDIA_DIR: &str = "media";
@@ -260,42 +260,6 @@ fn copy_file(source: &Path, destination: &Path) -> Result<(), CommandError> {
         )
     })?;
     Ok(())
-}
-
-#[cfg(windows)]
-fn replace_file_atomically(temporary: &Path, destination: &Path) -> std::io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::{
-        MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
-    };
-
-    let temporary = temporary
-        .as_os_str()
-        .encode_wide()
-        .chain(Some(0))
-        .collect::<Vec<_>>();
-    let destination = destination
-        .as_os_str()
-        .encode_wide()
-        .chain(Some(0))
-        .collect::<Vec<_>>();
-    let result = unsafe {
-        MoveFileExW(
-            temporary.as_ptr(),
-            destination.as_ptr(),
-            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
-        )
-    };
-    if result == 0 {
-        Err(std::io::Error::last_os_error())
-    } else {
-        Ok(())
-    }
-}
-
-#[cfg(not(windows))]
-fn replace_file_atomically(temporary: &Path, destination: &Path) -> std::io::Result<()> {
-    fs::rename(temporary, destination)
 }
 
 fn write_reference_atomically(destination: &Path, bytes: &[u8]) -> Result<(), CommandError> {

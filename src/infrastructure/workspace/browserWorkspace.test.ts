@@ -34,5 +34,10 @@ describe("createBrowserWorkspaceDependencies", () => {
     expect(openedProject.coverDataUrl).toBeNull();
     expect(reloadedProjects[0].name).toBe("编辑大片示例");
     expect(reloadedProjects[0].coverDataUrl).toBeNull();
+    await expect(
+      dependencies.projectDirectoryRevealer.revealProjectDirectory(
+        EDITORIAL_DEMO_PATH,
+      ),
+    ).resolves.toBeUndefined();
   });
 });

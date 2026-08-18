@@ -1,3 +1,5 @@
+mod byte_write;
+mod docx;
 mod error;
 mod menu;
 mod pdf;
@@ -54,7 +56,7 @@ pub fn run() {
             plan::load_plan_media,
             plan::remove_plan_media,
             pdf::save_pdf,
-            reveal::reveal_path,
+            docx::save_docx,
             reveal::open_project_directory,
             screenshot::start_screen_capture,
             screenshot::poll_screen_capture,

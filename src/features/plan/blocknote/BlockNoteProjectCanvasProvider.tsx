@@ -24,8 +24,16 @@ import {
 } from "../../../domain/plan/canvas/models";
 import { cropForResizedFrame } from "../../../domain/plan/canvas/imageView";
 import type { PlanImagePicker, ScreenCapture } from "../../../domain/plan/ports";
-import type { PdfSaveTarget } from "../../../domain/plan/canvas/ports";
+import type {
+  DocxSaveTarget,
+  PdfSaveTarget,
+} from "../../../domain/plan/canvas/ports";
+import type {
+  ProjectDirectoryRevealer,
+  WorkspaceLogger,
+} from "../../../domain/workspace/ports";
 import type { BlockNotePdfExporter } from "../../../infrastructure/pdf/blockNotePdfExporter";
+import type { BlockNoteDocxExporter } from "../../../infrastructure/docx/blockNoteDocxExporter";
 import type { SaveState } from "../SaveStatus";
 import { ReferenceImageLightbox } from "../ReferenceImageLightbox";
 import { getProjectRetirementCoordinator } from "../projectRetirementCoordinator";
@@ -47,8 +55,12 @@ import { applyMeasuredImages } from "./imageHydration";
 interface BlockNoteProjectCanvasProviderProps {
   projectName: string;
   projectPath: string;
+  docxExporter: BlockNoteDocxExporter;
+  docxSaver: DocxSaveTarget;
   exporter: BlockNotePdfExporter;
+  logger: WorkspaceLogger;
   picker: PlanImagePicker;
+  projectDirectoryRevealer: ProjectDirectoryRevealer;
   saver: PdfSaveTarget;
   screenCapture?: ScreenCapture;
   service: BlockNotePlanService;
@@ -69,8 +81,12 @@ interface LightboxTarget {
 export function BlockNoteProjectCanvasProvider({
   projectName,
   projectPath,
+  docxExporter,
+  docxSaver,
   exporter,
+  logger,
   picker,
+  projectDirectoryRevealer,
   saver,
   screenCapture,
   service,
@@ -79,19 +95,22 @@ export function BlockNoteProjectCanvasProvider({
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [canvasError, setCanvasError] = useState<string | null>(null);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
   const [mediaSrc, setMediaSrc] = useState<Record<string, string>>({});
   const [lightboxTarget, setLightboxTarget] = useState<LightboxTarget | null>(
     null,
   );
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exportingDocx, setExportingDocx] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const scrollerRef = useRef<HTMLDivElement>(null);
   const autoFitRef = useRef(true);
   const initializedProjectRef = useRef("");
   const captureTokenRef = useRef<string | null>(null);
+  const exportInFlightRef = useRef(false);
   const planRef = useRef<ProjectPlanV14 | null>(null);
   const mediaSrcRef = useRef<Record<string, string>>({});
   const metadataListenersRef = useRef(new Set<() => void>());
@@ -650,26 +669,71 @@ export function BlockNoteProjectCanvasProvider({
     return url;
   };
 
+  const runExport = (
+    format: "PDF" | "DOCX",
+    exportDocument: (
+      plan: ProjectPlanV14,
+      assets: Record<string, string>,
+    ) => Promise<Uint8Array>,
+    saveDocument: PdfSaveTarget | DocxSaveTarget,
+  ) => {
+    if (exportInFlightRef.current) return;
+    const plan = planRef.current;
+    if (!plan) return;
+    exportInFlightRef.current = true;
+    setCanvasError(null);
+    setExportNotice(null);
+    if (format === "PDF") setExportingPdf(true);
+    else setExportingDocx(true);
+
+    void exportDocument(plan, { ...imageSrc, ...mediaSrc })
+      .then((bytes) => saveDocument.save(bytes, {
+        suggestedName: format === "PDF" ? "output.pdf" : "output.docx",
+        defaultDirectory: projectPath,
+      }))
+      .then(async (savedPath) => {
+        if (
+          savedPath === null ||
+          saveDocument.revealProjectDirectoryAfterSave === false
+        ) {
+          return;
+        }
+        try {
+          await projectDirectoryRevealer.revealProjectDirectory(projectPath);
+        } catch (error) {
+          logger.warn(
+            `${format} saved but unable to open project directory`,
+            { error, projectPath },
+          );
+          setExportNotice(
+            `${format} 已保存，但无法打开项目文件夹：${
+              error instanceof Error ? error.message : String(error)
+            }。请从文件资源管理器手动打开项目文件夹。`,
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        setCanvasError(
+          `无法导出 ${format}：${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      })
+      .finally(() => {
+        exportInFlightRef.current = false;
+        if (format === "PDF") setExportingPdf(false);
+        else setExportingDocx(false);
+      });
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <BlockNoteCanvasToolbar
-        exporting={exporting}
-        onExport={() => {
-          const plan = planRef.current;
-          if (!plan) return;
-          setCanvasError(null);
-          setExporting(true);
-          void exporter.export(plan, { ...imageSrc, ...mediaSrc })
-            .then((bytes) => saver.save(bytes, "output.pdf"))
-            .catch((error: unknown) => {
-              setCanvasError(
-                `无法导出 PDF：${
-                  error instanceof Error ? error.message : String(error)
-                }`,
-              );
-            })
-            .finally(() => setExporting(false));
-        }}
+        exportingDocx={exportingDocx}
+        exportingPdf={exportingPdf}
+        onExportDocx={() =>
+          runExport("DOCX", docxExporter.export, docxSaver)}
+        onExportPdf={() => runExport("PDF", exporter.export, saver)}
         onFitWidth={() => {
           const next = fitBlockNoteDocumentZoom(viewportSize.width);
           autoFitRef.current = true;
@@ -704,6 +768,15 @@ export function BlockNoteProjectCanvasProvider({
           role="alert"
         >
           操作失败：{canvasError}
+        </div>
+      ) : null}
+      {exportNotice ? (
+        <div
+          aria-live="polite"
+          className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-800"
+          role="status"
+        >
+          {exportNotice}
         </div>
       ) : null}
       <div

@@ -16,6 +16,22 @@ export interface OptimizedPdfImage {
   bytes: Uint8Array;
 }
 
+export interface RasterImagePixelBounds {
+  width: number;
+  height: number;
+}
+
+export interface OptimizedRasterImage extends OptimizedPdfImage {
+  sourceWidth: number;
+  sourceHeight: number;
+}
+
+export type RasterImageOptimizer = (
+  dataUrl: string,
+  bounds: RasterImagePixelBounds,
+  view?: PdfImageView,
+) => Promise<OptimizedRasterImage>;
+
 export type PdfImageOptimizer = (
   dataUrl: string,
   drawBox: PdfImageDrawBox,
@@ -82,21 +98,24 @@ function canvasBlob(
   });
 }
 
-export const optimizePdfImage: PdfImageOptimizer = async (dataUrl, drawBox, view) => {
+export const optimizeRasterImage: RasterImageOptimizer = async (
+  dataUrl,
+  bounds,
+  view,
+) => {
   const image = await loadImage(dataUrl);
   if (image.naturalWidth <= 0 || image.naturalHeight <= 0) {
-    throw new Error("Reference image dimensions are invalid for PDF export");
+    throw new Error("Reference image dimensions are invalid for export");
   }
 
-  const bounds = pdfImagePixelBounds(drawBox);
-  const width = bounds.width;
-  const height = bounds.height;
+  const width = Math.max(1, Math.round(bounds.width));
+  const height = Math.max(1, Math.round(bounds.height));
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) {
-    throw new Error("Unable to create an image compression canvas for PDF export");
+    throw new Error("Unable to create an image compression canvas for export");
   }
 
   context.fillStyle = "#ffffff";
@@ -120,5 +139,23 @@ export const optimizePdfImage: PdfImageOptimizer = async (dataUrl, drawBox, view
   return {
     mime: "image/jpeg",
     bytes: new Uint8Array(await blob.arrayBuffer()),
+    sourceWidth: image.naturalWidth,
+    sourceHeight: image.naturalHeight,
+  };
+};
+
+export const optimizePdfImage: PdfImageOptimizer = async (
+  dataUrl,
+  drawBox,
+  view,
+) => {
+  const optimized = await optimizeRasterImage(
+    dataUrl,
+    pdfImagePixelBounds(drawBox),
+    view,
+  );
+  return {
+    mime: optimized.mime,
+    bytes: optimized.bytes,
   };
 };

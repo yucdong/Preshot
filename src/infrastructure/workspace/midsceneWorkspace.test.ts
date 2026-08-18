@@ -23,6 +23,11 @@ describe("createMidsceneWorkspaceDependencies", () => {
 
     await dependencies.service.removeRecord(first.projectId);
     expect((await dependencies.service.loadProjects()).map((project) => project.name)).toEqual(["UIAUTO-B"]);
+    await expect(
+      dependencies.projectDirectoryRevealer.revealProjectDirectory(
+        second.path,
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it("clears only Midscene-prefixed storage", () => {

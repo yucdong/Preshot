@@ -1,6 +1,6 @@
 # Preshot
 
-Preshot is a Windows-first desktop application for photography planning. The current application is not just a shell: it opens local projects, edits plans in a BlockNote 0.53 document, manages image groups and native media, and exports PDF files.
+Preshot is a Windows-first desktop application for photography planning. The current application is not just a shell: it opens local projects, edits plans in a BlockNote 0.53 document, manages image groups and native media, and exports PDF and DOCX files.
 
 > The application UI is currently localized in Simplified Chinese. This documentation is written in English on purpose; do not treat Chinese UI copy as missing translation work unless the task is explicitly about localization.
 
@@ -16,13 +16,16 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - A4 PDF export through `@blocknote/xl-pdf-exporter@0.53.0` and
   `@react-pdf/renderer@4.3.0`, with offline project-local asset preflight and a
   native save dialog
+- Editable DOCX export through `@blocknote/xl-docx-exporter@0.53.0` and
+  `docx@9.6.1`, including offline native images, weighted columns, and
+  composited image groups
 
 ## Repository layout
 
 - `src/app` application composition, shell, theme, and workspace provider
 - `src/features` React feature surfaces, especially the BlockNote plan editor and workspace UI
 - `src/domain` pure models, use cases, ports, schema validation, and shared layout logic
-- `src/infrastructure` Tauri/browser adapters and PDF export wiring
+- `src/infrastructure` Tauri/browser adapters and PDF/DOCX export wiring
 - `src-tauri` Rust commands and Tauri configuration
 - `docs` architecture, testing, reliability, and design documentation
 - `e2e` Playwright smoke coverage
@@ -45,6 +48,8 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - BlockNote 0.53, Mantine 8
 - Tailwind CSS 4
 - `@blocknote/xl-pdf-exporter@0.53.0` + `@react-pdf/renderer@4.3.0`
+- `@blocknote/xl-docx-exporter@0.53.0` + `docx@9.6.1` for the production DOCX
+  exporter, offline resolver, custom image-group compositor, and ZIP packing
 - `pdf-lib` + `@pdf-lib/fontkit` retained only by the explicit rollback adapter
 - Vitest, React Testing Library, Playwright
 - pnpm 10.15.0
@@ -143,6 +148,7 @@ If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo co
 - [Architecture](docs/ARCHITECTURE.md)
 - [Testing](docs/TESTING.md)
 - [Reliability](docs/RELIABILITY.md)
+- [Licensing and distribution](docs/LICENSING.md)
 - [BlockNote v14 design](docs/design_docs/blocknote_v14_design.md)
 - [UI/UX contract](docs/design_docs/UI_UX_CONTRACT.md)
 - [Feature status tracker](docs/design_docs/featurelist.json)
@@ -151,9 +157,12 @@ If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo co
 
 Preshot's own source code is under the [MIT License](LICENSE).
 
-Distributed application builds that include `@blocknote/xl-multi-column` or
-`@blocknote/xl-pdf-exporter` use those dependencies through their GPL-3.0
-option, so shipped Preshot application distributions must be provided under
-GPL-3.0 with the corresponding source and license notices.
+Distributed application builds that include `@blocknote/xl-multi-column`,
+`@blocknote/xl-pdf-exporter`, or `@blocknote/xl-docx-exporter` use those
+dependencies through their GPL-3.0 option, so shipped Preshot application
+distributions must be provided under GPL-3.0 with the corresponding source and
+license notices. The `docx@9.6.1` dependency is MIT-licensed.
 
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [LICENSES/GPL-3.0.txt](LICENSES/GPL-3.0.txt).
+See [Licensing and distribution](docs/LICENSING.md),
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and
+[LICENSES/GPL-3.0.txt](LICENSES/GPL-3.0.txt).

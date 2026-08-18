@@ -116,7 +116,7 @@ describe.sequential("Preshot 文案组件 Midscene UI Automation", () => {
       await ctx.agent.aiAct("选中第一行“PDF 自动化测试”并设置为一级标题。再选中第二行“导出列表项目”并设置为无序列表，确认前面有圆点。");
       await ctx.agent.aiAct("选中第三行“console.log('Preshot')”，打开更多格式并设置为代码块。确认显示等宽代码区域，然后等待保存完成。");
       await evidence.checkpoint("pdf-content");
-      await ctx.agent.aiAct("点击页面顶部“导出 PDF”按钮，等待导出过程完成。确认按钮恢复为“导出 PDF”，页面没有错误提示，并且文案卡片仍完整显示标题、列表圆点和代码块。");
+      await ctx.agent.aiAct("点击页面顶部“导出”按钮，在菜单中选择“导出 PDF”，等待导出过程完成。确认按钮恢复为“导出”，页面没有错误提示，并且文案卡片仍完整显示标题、列表圆点和代码块。");
       await evidence.checkpoint("pdf-exported");
       await ctx.agent.aiAct("点击文案卡片右上角 X，在确认对话框中确认删除。确认画布恢复为空并重新显示“插入组件”按钮，顶部最终显示“已保存所有更改”。");
       await evidence.checkpoint("component-deleted");

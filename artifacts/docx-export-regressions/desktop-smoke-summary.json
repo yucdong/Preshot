@@ -1,0 +1,18 @@
+{
+  "word": {
+    "opened": true,
+    "paragraphs": 3,
+    "inlineShapes": 1,
+    "pages": 1,
+    "editRoundtrip": "word-edit-roundtrip.docx",
+    "editSaved": true,
+    "roundtripInlineShapes": 1
+  },
+  "libreOffice": {
+    "conversionSucceeded": true,
+    "pdf": "browser-production.pdf",
+    "renderedPage": "libreoffice-page-1.png",
+    "renderedWidth": 1241,
+    "renderedHeight": 1754
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "zipValid": true,
+  "entryCount": 24,
+  "requiredEntries": [
+    "[Content_Types].xml",
+    "_rels/.rels",
+    "word/document.xml",
+    "word/_rels/document.xml.rels",
+    "word/settings.xml",
+    "word/styles.xml"
+  ],
+  "xmlParsed": true,
+  "paragraphs": 2,
+  "inlineImages": 1,
+  "anchors": 0,
+  "keepLines": 1,
+  "pageBreakBefore": 0,
+  "manualPageBreaks": 0,
+  "media": [
+    {
+      "name": "word/media/69cb3a6c152800a3b3b8c040bb9dc7a3cd85b21e.png",
+      "widthPixels": 2280,
+      "heightPixels": 724,
+      "effectivePpiX": 299.96,
+      "effectivePpiY": 300.04
+    }
+  ],
+  "externalRelationshipTargets": [],
+  "privatePathsPresent": false,
+  "editorChromePresent": false,
+  "editableTextPresent": true,
+  "zhCnStylePresent": true,
+  "settingsPresent": true
+}

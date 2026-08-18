@@ -134,6 +134,8 @@ function renderProvider(service: BlockNotePlanService) {
   return render(
     <ThemeProvider repository={settings}>
       <BlockNoteProjectCanvasProvider
+        docxExporter={{ implementation: "blocknote-docx", export: vi.fn() }}
+        docxSaver={{ save: vi.fn() }}
         exporter={{ implementation: "react-pdf", export: vi.fn() }}
         picker={{
           pickImageFile: vi.fn().mockResolvedValue(null),
@@ -141,6 +143,15 @@ function renderProvider(service: BlockNotePlanService) {
         }}
         projectName="Editorial"
         projectPath={"C:\\Editorial"}
+        logger={{
+          debug: vi.fn(),
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+        }}
+        projectDirectoryRevealer={{
+          revealProjectDirectory: vi.fn().mockResolvedValue(undefined),
+        }}
         saver={{ save: vi.fn() }}
         service={service}
       />

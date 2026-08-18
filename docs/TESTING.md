@@ -31,17 +31,17 @@ If Visual Studio tools are not already active in the shell, use **Developer Powe
 
 ## Preshot 0.0.1 verification
 
-The final release-hardening matrix completed on 2026-08-18 after all PDF
-review fixes:
+The final release-hardening matrix completed on 2026-08-18 after the PDF and
+DOCX export reviews:
 
 - documentation checks passed;
 - ESLint passed with zero warnings;
 - TypeScript passed;
-- 108 Vitest files / 597 tests passed;
+- 115 Vitest files / 676 tests passed;
 - 4 PowerShell initializer tests passed;
-- 57 Rust tests passed;
-- 16 unified Playwright journeys passed;
-- 9 focused BlockNote v14 Playwright journeys passed;
+- 73 Rust tests passed;
+- 18 unified Playwright journeys passed;
+- 11 focused BlockNote v14 Playwright journeys passed;
 - the production web and Tauri builds passed; and
 - the installer was produced as
   `src-tauri\target\release\bundle\msi\Preshot_0.0.1_x64_en-US.msi`, with no
@@ -56,6 +56,18 @@ native image with long Latin/CJK captions, atomic image groups, no editor
 chrome or oversize warning, contextual asset failures, and no silent legacy
 fallback. The production CSP permits self-hosted fonts and Yoga WASM while
 rejecting remote proxy/network sources.
+
+The production DOCX acceptance retains seven small files under
+`artifacts\docx-export-regressions`: the downloaded DOCX, browser summary,
+independent archive/XML inspection, Word-edited round trip, LibreOffice PDF
+conversion, rendered first-page PNG, and desktop smoke summary. The browser
+journey verifies the real `output.docx` download, required ZIP parts, valid
+document/settings/styles/relationship XML, one inline composite PNG for one
+image group, editable text, `keepLines`, no anchor or implicit
+`pageBreakBefore`, no editor chrome/private path/external request, and an
+effective 300 PPI raster. Microsoft Word opens and edits the artifact while
+preserving its inline image; LibreOffice converts it to a one-page PDF whose
+first page renders at 1241 x 1754 pixels.
 
 Vite still reports its advisory large-chunk warning for the production bundle.
 This is a known advisory, not a build failure.
@@ -118,7 +130,10 @@ Component tests cover user-visible behavior for:
   movement, side-only live resize, wrapping, cancellation, and guide feedback,
 - reference-image crop presets, Free sizing, pan/nudge, zoom, reset,
   cancel/confirm, progress, focus restoration, and actionable errors, and
-- provider refresh/reflow and save-state behavior after crop overwrite.
+- provider refresh/reflow and save-state behavior after crop overwrite, and
+- PDF and DOCX export menu ordering, format-specific progress, concurrency guards,
+  orchestration ordering, cancellation, write failures, browser downloads, and
+  non-fatal project-directory open failures after a successful write.
 
 Use React Testing Library and assert via roles, labels, visible text, and interaction outcomes.
 
@@ -147,10 +162,26 @@ Adapter tests validate:
   positive-offset next-page keep-together behavior, oversized one-page
   scaling, weighted columns, mixed long-text/image rows, real annotations,
   image draws, page dimensions, and absence of editor chrome,
+- packed DOCX XML coverage for the exact shared schema, editable text and
+  H1-H6 styles, top-level lists, list-only nesting depth, level-0 lists inside
+  two- and three-column rows, true nested lists within columns, column-context
+  resets, mixed structural nesting, nine supported levels, explicit level-9
+  rejection without clamping, quote/code/table, links/colors/alignment,
+  embedded native images, contextual media fallbacks, fixed weighted columns,
+  conservative `cantSplit`, A4/24pt sections, Chinese locale/metadata, path
+  suppression, and zero hosted/network resolution,
+- production DOCX adapter coverage for immutable plan/assets, offline
+  preflight, injected image-group composition, ZIP/PK bytes, contextual
+  failures, native `output.docx` dialog/command arguments, cancellation,
+  browser MIME/download behavior, and no browser reveal,
 - least-privilege Tauri CSP coverage for the exact React-PDF WASM allowance,
   self-hosted assets/fonts, Tauri IPC origins, and rejection of broad network
   or general eval sources,
 - browser test adapters used by memory and Midscene modes,
+- typed PDF save options, Windows verbatim drive/UNC normalization,
+  platform-safe `<project>\output.pdf` joining across trailing separators,
+  spaces, and Unicode paths, unchanged PDF bytes, browser `output.pdf`
+  downloads, and browser/Midscene export flows that skip directory reveal,
 - argument shaping for narrow native commands, and
 - deterministic same-path browser crop replacement/rollback plus validated
   Tauri crop begin/commit/rollback command arguments/results, and
@@ -163,6 +194,8 @@ These tests should confirm boundary contracts without re-testing the pure domain
 Rust unit tests cover:
 
 - project creation and inspection,
+- Explorer-compatible normalization of canonical drive/UNC project paths plus
+  missing, invalid, non-directory, and spawn-failure handling,
 - manifest reading and migration from `.preshot` to `.preshotproj`,
 - manifest plan save/load,
 - reference-image import/load/remove,
@@ -172,14 +205,14 @@ Rust unit tests cover:
   identifiers,
 - native media import/load/remove,
 - settings read/write behavior,
-- PDF atomic writes, and
+- PDF atomic writes plus DOCX extension/path validation and atomic writes, and
 - Windows screen-capture helpers.
 
 ### Playwright
 
 `pnpm test:e2e` exercises the browser-shell path used for smoke coverage. It starts Vite in `e2e` mode, uses Microsoft Edge, and validates top-level workflows such as workspace loading, project opening, editor presence, and related UI flows.
 
-`pnpm test:e2e:blocknote` is the focused browser suite for the current v14 editor surface. Use it when changing BlockNote document behavior, image groups, columns, native media, or PDF-adjacent editing flows.
+`pnpm test:e2e:blocknote` is the focused browser suite for the current v14 editor surface. Use it when changing BlockNote document behavior, image groups, columns, native media, or PDF/DOCX-adjacent editing flows.
 
 Its create/edit/save journey asserts single-click selection, double-click
 viewer opening, drag-safe viewer suppression, side-only image handles,
@@ -192,11 +225,31 @@ Poppler when available to validate text order and render the first page to PNG.
 Set `PRESHOT_PDF_REVIEW_ARTIFACTS=artifacts\pdf-export-regressions` to retain
 the reviewed PDF, PNG, and measurement summary.
 
+The export-menu browser acceptance covers one top-right trigger, closed/open
+state, below-trigger unclipped geometry at a 1280 × 700 viewport, PDF-before-
+DOCX ordering, mouse/outside-click/toggle behavior, Enter/Space, Arrow-key
+opening and cycling, Escape focus restoration, Tab departure, roles, expanded
+state, and title. Component/provider regressions additionally cover
+format-specific disabled progress labels, close-before-callback ordering,
+exactly-once callbacks, cross-format concurrency, and incompatible-schema
+suppression.
+
+The DOCX browser acceptance performs a real `output.docx` download and
+inspects required ZIP entries, document relationships, settings, styles,
+editable text, inline image count, pagination properties, private-path
+suppression, and external-request isolation.
+
 The reviewed 2026-08-18 artifacts are
 `browser-production.pdf`, `browser-production-page-1.png`, and
 `browser-production-summary.json`. The summary records A4
 595.28 × 841.89pt output, two measurable image draw boxes, zero external
 requests, preserved text order, and a 1241 × 1754 rendered first page.
+
+The reviewed DOCX artifacts are `browser-production.docx`,
+`browser-production-summary.json`, `archive-inspection.json`,
+`word-edit-roundtrip.docx`, `browser-production.pdf`,
+`libreoffice-page-1.png`, and `desktop-smoke-summary.json` under
+`artifacts\docx-export-regressions`.
 
 Native image multiline-caption coverage verifies:
 
