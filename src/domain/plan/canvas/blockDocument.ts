@@ -42,10 +42,12 @@ export const PRESHOT_BLOCK_TYPES = [
   "codeBlock",
   "table",
   "divider",
+  "pageBreak",
   "imageGroup",
   "image",
   "video",
   "audio",
+  "file",
   "column",
   "columnList",
 ] as const;
@@ -267,7 +269,8 @@ function assertBlock(
   } else if (
     blockType === "image" ||
     blockType === "video" ||
-    blockType === "audio"
+    blockType === "audio" ||
+    blockType === "file"
   ) {
     const url = value.props.url;
     if (
@@ -295,7 +298,7 @@ function assertBlock(
     }
   } else if (blockType === "table") {
     assertTableContent(value.content, `${context} table`);
-  } else if (blockType === "divider") {
+  } else if (blockType === "divider" || blockType === "pageBreak") {
     if (value.content !== undefined) {
       throw new Error(`${context} divider content must be undefined`);
     }
@@ -368,7 +371,8 @@ export function mediaFilesInBlockDocument(
         (
           block.type === "image" ||
           block.type === "video" ||
-          block.type === "audio"
+          block.type === "audio" ||
+          block.type === "file"
         ) &&
         typeof block.props.url === "string" &&
         /^media\/[^/\\]+$/i.test(block.props.url)

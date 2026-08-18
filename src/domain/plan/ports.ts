@@ -9,6 +9,34 @@ export interface ReferenceImageStore {
   removeImage(projectPath: string, file: string): Promise<void>;
 }
 
+export interface ReferenceImageCropBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface OverwrittenReferenceImage extends ImportedImage {
+  width: number;
+  height: number;
+}
+
+export interface ReferenceImageCropTransaction {
+  image: OverwrittenReferenceImage;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+}
+
+export interface ReferenceImageCropStore {
+  beginImageCrop(
+    projectPath: string,
+    input: {
+      file: string;
+      bounds: ReferenceImageCropBounds;
+    },
+  ): Promise<ReferenceImageCropTransaction>;
+}
+
 export interface ImportedPlanMedia {
   file: string;
   dataUrl: string;

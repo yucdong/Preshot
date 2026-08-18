@@ -12,7 +12,7 @@ import {
   nestSpecificBlock,
   unnestSpecificBlock,
 } from "./blockOperations";
-import { preshotBlockNoteSchema } from "./blockNoteSchema";
+import { preshotBlockNoteSchema } from "./preshotBlockNoteSchema";
 
 function editorWithNestedContent() {
   return BlockNoteEditor.create({

@@ -46,7 +46,13 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
 - Every image-group ID must appear exactly once in the BlockNote document and exactly once in `plan.imageGroups`.
 - Native BlockNote media persists as relative `media/<file>` paths; runtime data URLs must not be written back to the manifest.
 - Reference image imports copy project-local JPG/PNG files into `references/####.<ext>` and leave the original user-selected files untouched.
-- PDF export paginates during export; the editor itself is a continuous document, not an A4 page canvas.
+- PDF export paginates during export through the official
+  `@blocknote/xl-pdf-exporter@0.53.0` and `@react-pdf/renderer@4.3.0`
+  production path; the editor itself is a continuous document, not an A4 page
+  canvas.
+- `pdf-lib` remains available only through the explicitly constructed legacy
+  rollback adapter. Production failures must surface and must not silently
+  fall back.
 - New editor work should go through the BlockNote v14 path unless the task explicitly targets compatibility code.
 
 ## Commands
@@ -113,7 +119,12 @@ pnpm migrate:project
 ## UI and platform notes
 
 - BlockNote 0.53 plus Mantine is the active rich-text/block editor stack.
-- The multi-column feature uses `@blocknote/xl-multi-column` under its GPL-3.0 option; distributed builds that include it are GPL-3.0.
+- The multi-column and PDF export dependencies use
+  `@blocknote/xl-multi-column` and `@blocknote/xl-pdf-exporter` under their
+  GPL-3.0 options; distributed builds that include either are GPL-3.0.
+- React-PDF requires the least-privilege Tauri CSP to keep
+  `script-src 'self' 'wasm-unsafe-eval'`; bundled PDF fonts are covered by
+  `default-src 'self'`, and no broad network origin is allowed.
 - The app shell supports focus mode, persisted theme choice, and persisted project/assistant panel widths.
 - The assistant panel is currently a preview surface; do not document it as a working chat backend.
 - Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v14.

@@ -1,17 +1,14 @@
-import type { PartialBlock } from "@blocknote/core";
 import { closeHistory } from "prosemirror-history";
-import { preshotBlockNoteSchema } from "./blockNoteSchema";
+import type {
+  PreshotBlockNoteEditor,
+  PreshotEditorBlock,
+  PreshotEditorPartialBlock,
+} from "./preshotBlockNoteSchema";
 
-export type PreshotBlockNoteEditor =
-  typeof preshotBlockNoteSchema.BlockNoteEditor;
-export type PreshotEditorBlock =
-  PreshotBlockNoteEditor["document"][number];
-
-type EditorPartialBlock = PartialBlock<
-  typeof preshotBlockNoteSchema.blockSchema,
-  typeof preshotBlockNoteSchema.inlineContentSchema,
-  typeof preshotBlockNoteSchema.styleSchema
->;
+export type {
+  PreshotBlockNoteEditor,
+  PreshotEditorBlock,
+} from "./preshotBlockNoteSchema";
 
 export interface BlockTreeContext {
   block: PreshotEditorBlock;
@@ -56,7 +53,9 @@ export function blockContext(
   return undefined;
 }
 
-function cloneForInsertion(block: PreshotEditorBlock): EditorPartialBlock {
+function cloneForInsertion(
+  block: PreshotEditorBlock,
+): PreshotEditorPartialBlock {
   const clone = structuredClone(block) as PreshotEditorBlock;
   const partial: Record<string, unknown> = {
     type: clone.type,
@@ -71,7 +70,7 @@ function cloneForInsertion(block: PreshotEditorBlock): EditorPartialBlock {
         width === null ? undefined : width),
     };
   }
-  return partial as EditorPartialBlock;
+  return partial as PreshotEditorPartialBlock;
 }
 
 export function duplicateBlockTree(
@@ -335,7 +334,7 @@ export function convertBlock(
   block: PreshotEditorBlock,
   type: ConvertibleBlockType,
 ): PreshotEditorBlock {
-  const update: EditorPartialBlock = type === "heading"
+  const update: PreshotEditorPartialBlock = type === "heading"
     ? { type, props: { level: 2 } }
     : { type };
   return editor.updateBlock(block, update) as PreshotEditorBlock;

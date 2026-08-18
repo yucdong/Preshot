@@ -6,7 +6,12 @@ import {
   useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { layoutDocumentImageGroup } from "../../../domain/plan/canvas/documentImageGroupLayout";
+import {
+  DOCUMENT_IMAGE_GROUP_INSET,
+  layoutDocumentImageGroup,
+  layoutDocumentImageGroupForWidth,
+  type DocumentImageGroupSlot,
+} from "../../../domain/plan/canvas/documentImageGroupLayout";
 import { imageCropForView, imageViewCss } from "../../../domain/plan/canvas/imageView";
 import type { ReferenceImage } from "../../../domain/plan/canvas/models";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
@@ -19,8 +24,9 @@ import type {
   PreshotEditorBlock,
 } from "./blockOperations";
 import {
-  frameResizePreview,
   groupResizePreview,
+  IMAGE_RESIZE_DIRECTIONS,
+  imageGroupFrameResizePreview,
   imageWithPreview,
   RESIZE_DIRECTIONS,
   resizeHandleStyle,
@@ -52,6 +58,7 @@ export function ImageGroupBlockView({
   const [groupPreview, setGroupPreview] = useState<GroupPreview | null>(null);
   const [guide, setGuide] = useState<GuideState>({});
   const [availableWidth, setAvailableWidth] = useState(group?.width ?? 0);
+  const suppressViewerUntilRef = useRef(0);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -96,47 +103,67 @@ export function ImageGroupBlockView({
     0,
     Math.min(displayedGroup.x, Math.max(0, availableWidth - constrainedWidth)),
   );
-  const layout = layoutDocumentImageGroup(
-    displayImages,
-    constrainedWidth,
-    displayedGroup.height,
-  );
+  const displayedHeight =
+    framePreview?.groupHeight ?? displayedGroup.height;
+  const layout = framePreview
+    ? layoutDocumentImageGroupForWidth(displayImages, constrainedWidth)
+    : layoutDocumentImageGroup(
+        displayImages,
+        constrainedWidth,
+        displayedHeight,
+      );
   const imagesById = new Map(displayImages.map((image) => [image.id, image]));
 
   const startImageResize = (
     image: ReferenceImage,
+    renderedSlot: DocumentImageGroupSlot,
     direction: ResizeDirection,
     event: ReactPointerEvent<HTMLSpanElement>,
   ) => {
     event.preventDefault();
     event.stopPropagation();
     const startX = event.clientX;
-    const startY = event.clientY;
     const startWidth = image.frameWidth;
     const startHeight = image.frameHeight;
     const startOffsetX = image.frameOffsetX ?? 0;
     const startOffsetY = image.frameOffsetY ?? 0;
     const frameElement = event.currentTarget.closest<HTMLElement>("[data-image-id]");
-    const groupElement = rootRef.current;
-    const startRect = frameElement?.getBoundingClientRect();
-    const groupRect = groupElement?.getBoundingClientRect();
+    const renderedRect = frameElement?.getBoundingClientRect();
+    const zoomScale =
+      renderedRect && renderedSlot.width > 0
+        ? renderedRect.width / renderedSlot.width
+        : 1;
+    const pointerScale =
+      Number.isFinite(zoomScale) && zoomScale > 0 ? zoomScale : 1;
+    const naturalLayout = layoutDocumentImageGroupForWidth(
+      group.images,
+      constrainedWidth,
+    );
+    const startSlot = naturalLayout.slots.find((slot) => slot.id === image.id);
+    const startRect = startSlot
+      ? {
+          left: startSlot.x,
+          right: startSlot.x + startSlot.width,
+          top: startSlot.y,
+          bottom: startSlot.y + startSlot.height,
+        }
+      : null;
     const candidates = group.images
       .filter((candidate) => candidate.id !== image.id)
       .flatMap((candidate) => {
-        const element = groupElement?.querySelector<HTMLElement>(
-          `[data-image-id="${CSS.escape(candidate.id)}"]`,
+        const slot = naturalLayout.slots.find(
+          (entry) => entry.id === candidate.id,
         );
-        if (!element) return [];
-        const rect = element.getBoundingClientRect();
+        if (!slot) return [];
         return [{
           id: candidate.id,
           frameWidth: candidate.frameWidth,
           frameHeight: candidate.frameHeight,
           rect: {
-            left: rect.left,
-            right: rect.right,
-            top: rect.top,
-            bottom: rect.bottom,
+            left: slot.x,
+            right: slot.x + slot.width,
+            top: slot.y,
+            bottom: slot.y + slot.height,
           },
         }] satisfies ImageResizeCandidate[];
       });
@@ -155,9 +182,10 @@ export function ImageGroupBlockView({
     };
 
     const move = (moveEvent: PointerEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
-      const result = frameResizePreview({
+      const dx = (moveEvent.clientX - startX) / pointerScale;
+      const result = imageGroupFrameResizePreview({
+        images: group.images,
+        groupWidth: constrainedWidth,
         start: {
           imageId: image.id,
           frameWidth: startWidth,
@@ -168,10 +196,18 @@ export function ImageGroupBlockView({
         startRect: startRect ?? null,
         direction,
         deltaX: dx,
-        deltaY: dy,
+        deltaY: 0,
         candidates,
         snapState,
-        groupRect: groupRect ?? null,
+        groupRect: {
+          left: 0,
+          right: Math.max(
+            1,
+            constrainedWidth - DOCUMENT_IMAGE_GROUP_INSET * 2,
+          ),
+          top: 0,
+          bottom: naturalLayout.height,
+        },
       });
       next = result.preview;
       snapState = result.snapState;
@@ -203,6 +239,8 @@ export function ImageGroupBlockView({
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => {
     if (event.button !== 0) return;
+    event.stopPropagation();
+    controller.selectImage?.(image.id);
     const startX = event.clientX;
     const startY = event.clientY;
     let dragging = false;
@@ -232,9 +270,11 @@ export function ImageGroupBlockView({
           );
       });
       targetIndex = before ? frames.indexOf(before) : frames.length;
+      document.querySelectorAll<HTMLElement>("[data-image-drop-target]")
+        .forEach((entry) => delete entry.dataset.imageDropTarget);
       targetGroup.dataset.imageDropTarget = "true";
     };
-    const finish = () => {
+    const cleanup = () => {
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", finish);
       document.removeEventListener("pointercancel", cancel);
@@ -242,15 +282,16 @@ export function ImageGroupBlockView({
       button.style.removeProperty("z-index");
       document.querySelectorAll<HTMLElement>("[data-image-drop-target]")
         .forEach((target) => delete target.dataset.imageDropTarget);
+    };
+    const finish = () => {
+      cleanup();
       if (dragging) {
+        suppressViewerUntilRef.current = Date.now() + 500;
         controller.moveImage(groupId, image.id, targetGroupId, targetIndex);
-      } else {
-        controller.openImage(groupId, image.id, image.file);
       }
     };
     const cancel = () => {
-      dragging = false;
-      finish();
+      cleanup();
     };
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", finish);
@@ -337,7 +378,7 @@ export function ImageGroupBlockView({
         onPointerDown={startGroupBlockDrag}
         ref={rootRef}
         style={{
-          height: `${displayedGroup.height}px`,
+          height: `${displayedHeight}px`,
           marginLeft: `${constrainedX}px`,
           translate: `0 ${displayedGroup.frameOffsetY ?? 0}px`,
           width: `${constrainedWidth}px`,
@@ -385,16 +426,37 @@ export function ImageGroupBlockView({
             const image = imagesById.get(slot.id);
             if (!image) return null;
             const src = controller.getImageSrc(image.file);
+            const selected = controller.selectedImageId === image.id;
             return (
               <div
-                className="group absolute overflow-visible rounded border border-app-border bg-[#e7e8ea]"
+                className={`group absolute overflow-visible rounded border bg-[#e7e8ea] ${
+                  selected
+                    ? "border-app-accent ring-2 ring-app-accent/40"
+                    : "border-app-border"
+                }`}
                 data-image-id={image.id}
+                data-selected={selected ? "true" : "false"}
                 key={image.id}
                 style={{ height: slot.height, left: slot.x, top: slot.y, width: slot.width }}
               >
                 <button
                   aria-label={`选择参考图 ${index + 1}`}
+                  aria-pressed={selected}
                   className="absolute inset-0 h-full w-full cursor-pointer overflow-hidden"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    controller.selectImage?.(image.id);
+                  }}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    if (Date.now() < suppressViewerUntilRef.current) return;
+                    controller.openImage(groupId, image.id, image.file);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    controller.openImage(groupId, image.id, image.file);
+                  }}
                   onPointerDown={(event) => startImageDrag(image, event)}
                   type="button"
                 >
@@ -404,16 +466,18 @@ export function ImageGroupBlockView({
                   aria-label={`删除参考图 ${index + 1}`}
                   className="absolute right-1 top-1 z-[60] grid h-[18px] w-[18px] place-items-center rounded bg-[#202329]/85 text-white opacity-0 group-hover:opacity-100 focus:opacity-100"
                   onClick={(event) => { event.stopPropagation(); setPendingDelete(image.id); }}
+                  onPointerDown={(event) => event.stopPropagation()}
                   type="button"
                 >
                   <Trash2 aria-hidden size={10} />
                 </button>
-                {RESIZE_DIRECTIONS.map((direction) => (
+                {IMAGE_RESIZE_DIRECTIONS.map((direction) => (
                   <span
                     aria-label={`从${direction}调整参考图 ${index + 1}`}
+                    aria-orientation="vertical"
                     data-image-resize-edge={direction}
                     key={direction}
-                    onPointerDown={(event) => startImageResize(image, direction, event)}
+                    onPointerDown={(event) => startImageResize(image, slot, direction, event)}
                     role="separator"
                     style={resizeHandleStyle(direction)}
                     tabIndex={0}

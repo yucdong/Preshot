@@ -1,4 +1,4 @@
-const PDF_IMAGE_DPI = 144;
+export const PDF_IMAGE_DPI = 144 as const;
 const PDF_POINTS_PER_INCH = 72;
 const PDF_JPEG_QUALITY = 0.76;
 

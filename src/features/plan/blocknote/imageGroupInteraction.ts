@@ -1,4 +1,9 @@
 import type { CSSProperties } from "react";
+import {
+  layoutDocumentImageGroupForWidth,
+  type DocumentImageGroupLayout,
+} from "../../../domain/plan/canvas/documentImageGroupLayout";
+import { MIN_COMPONENT_HEIGHT } from "../../../domain/plan/canvas/models";
 import type { ReferenceImage } from "../../../domain/plan/canvas/models";
 
 export type ResizeDirection =
@@ -22,12 +27,15 @@ export const RESIZE_DIRECTIONS: readonly ResizeDirection[] = [
   "bottom-right",
 ];
 
+export const IMAGE_RESIZE_DIRECTIONS = ["left", "right"] as const;
+
 export interface FramePreview {
   imageId: string;
   frameWidth: number;
   frameHeight: number;
   frameOffsetX: number;
   frameOffsetY: number;
+  groupHeight?: number;
 }
 
 export interface GroupPreview {
@@ -70,6 +78,10 @@ export interface FrameResizeResult {
   snapState: ImageResizeSnapState;
 }
 
+export interface ImageGroupFrameResizeResult extends FrameResizeResult {
+  layout: DocumentImageGroupLayout;
+}
+
 export interface SnapCandidate<T> {
   key: string;
   value: number;
@@ -82,17 +94,35 @@ export function nearestSnap<T>(
   candidates: readonly SnapCandidate<T>[],
   activeKey: string | null,
 ): (SnapCandidate<T> & { distance: number }) | null {
-  return candidates
+  const eligibleCandidates = candidates
     .map((candidate) => ({
       ...candidate,
       distance: Math.abs(candidate.value - value),
     }))
     .filter((candidate) =>
       candidate.distance <= (candidate.key === activeKey ? 10 : 6),
-    )
-    .sort((left, right) =>
-      left.priority - right.priority || left.distance - right.distance,
-    )[0] ?? null;
+    );
+  if (eligibleCandidates.length === 0) return null;
+
+  const winningPriority = Math.min(
+    ...eligibleCandidates.map((candidate) => candidate.priority),
+  );
+  const activeCandidate = eligibleCandidates.find(
+    (candidate) =>
+      candidate.priority === winningPriority && candidate.key === activeKey,
+  );
+  if (activeCandidate) return activeCandidate;
+
+  return eligibleCandidates.reduce<
+    (SnapCandidate<T> & { distance: number }) | null
+  >(
+    (nearest, candidate) =>
+      candidate.priority === winningPriority &&
+        (nearest === null || candidate.distance < nearest.distance)
+        ? candidate
+        : nearest,
+    null,
+  );
 }
 
 export function affects(
@@ -148,32 +178,11 @@ export function resizeHandleStyle(
       };
 }
 
-function resizedRect(
-  startRect: ResizeRect | null,
-  direction: ResizeDirection,
-  frameWidth: number,
-  frameHeight: number,
-): ResizeRect {
-  const left = affects(direction, "left") && startRect
-    ? startRect.right - frameWidth
-    : startRect?.left ?? 0;
-  const top = affects(direction, "top") && startRect
-    ? startRect.bottom - frameHeight
-    : startRect?.top ?? 0;
-  return {
-    left,
-    right: left + frameWidth,
-    top,
-    bottom: top + frameHeight,
-  };
-}
-
 export function frameResizePreview({
   start,
   startRect,
   direction,
   deltaX,
-  deltaY,
   candidates,
   snapState,
   groupRect,
@@ -185,136 +194,104 @@ export function frameResizePreview({
   deltaY: number;
   candidates: readonly ImageResizeCandidate[];
   snapState: ImageResizeSnapState;
-  groupRect: Pick<ResizeRect, "left" | "top"> | null;
+  groupRect: ResizeRect | null;
 }): FrameResizeResult {
-  const horizontalResize =
-    affects(direction, "left") || affects(direction, "right");
-  const verticalResize =
-    affects(direction, "top") || affects(direction, "bottom");
-  let frameWidth = Math.max(
-    32,
-    start.frameWidth +
-      (affects(direction, "right")
-        ? deltaX
-        : affects(direction, "left")
-          ? -deltaX
-          : 0),
+  const side = direction === "left" || direction === "right"
+    ? direction
+    : "right";
+  const aspectRatio = Math.max(0.001, start.frameWidth / start.frameHeight);
+  const minimumWidth = Math.max(32, 32 * aspectRatio);
+  const maximumWidth = groupRect
+    ? Math.max(minimumWidth, groupRect.right - groupRect.left)
+    : Number.POSITIVE_INFINITY;
+  const rawWidth = Math.min(
+    maximumWidth,
+    Math.max(
+      minimumWidth,
+      start.frameWidth + (side === "right" ? deltaX : -deltaX),
+    ),
   );
-  let frameHeight = Math.max(
-    32,
-    start.frameHeight +
-      (affects(direction, "bottom")
-        ? deltaY
-        : affects(direction, "top")
-          ? -deltaY
-          : 0),
-  );
-  const widthMatch = horizontalResize
-    ? nearestSnap(
-        frameWidth,
-        candidates.map((candidate) => ({
-          key: `width:${candidate.id}`,
-          value: candidate.frameWidth,
-          priority: 0,
-          data: candidate,
-        })),
-        snapState.widthKey,
-      )
-    : null;
-  const heightMatch = verticalResize
-    ? nearestSnap(
-        frameHeight,
-        candidates.map((candidate) => ({
-          key: `height:${candidate.id}`,
-          value: candidate.frameHeight,
-          priority: 0,
-          data: candidate,
-        })),
-        snapState.heightKey,
-      )
-    : null;
-  if (widthMatch) frameWidth = widthMatch.data.frameWidth;
-  if (heightMatch) frameHeight = heightMatch.data.frameHeight;
-
-  let activeRect = resizedRect(startRect, direction, frameWidth, frameHeight);
-  let verticalMatch: ReturnType<typeof nearestSnap<{ label: string }>> = null;
-  let horizontalMatch: ReturnType<typeof nearestSnap<{ label: string }>> = null;
-  if (!widthMatch && horizontalResize) {
-    const movingX = affects(direction, "left")
-      ? activeRect.left
-      : activeRect.right;
-    verticalMatch = nearestSnap(
-      movingX,
-      candidates.flatMap((candidate) => [
-        {
-          key: `x:${candidate.id}:left`,
-          value: candidate.rect.left,
-          priority: 1,
-          data: { label: "左边对齐" },
-        },
-        {
-          key: `x:${candidate.id}:right`,
-          value: candidate.rect.right,
-          priority: 1,
-          data: { label: "右边对齐" },
-        },
-        {
-          key: `x:${candidate.id}:center`,
-          value: (candidate.rect.left + candidate.rect.right) / 2,
-          priority: 2,
-          data: { label: "水平中心" },
-        },
-      ]),
-      snapState.verticalKey,
-    );
-    if (verticalMatch) {
-      const correction = verticalMatch.value - movingX;
-      frameWidth = Math.max(
-        32,
-        frameWidth +
-          (affects(direction, "left") ? -correction : correction),
-      );
-      activeRect = resizedRect(startRect, direction, frameWidth, frameHeight);
-    }
+  const fixedX = startRect
+    ? side === "left" ? startRect.right : startRect.left
+    : 0;
+  const widthCandidates: SnapCandidate<{
+    kind: "width" | "height" | "edge";
+    label: string;
+    guideX?: number;
+  }>[] = [
+    ...candidates.map((candidate) => ({
+      key: `width:${candidate.id}`,
+      value: candidate.frameWidth,
+      priority: 0,
+      data: {
+        kind: "width" as const,
+        label: `同宽 ${Math.round(candidate.frameWidth)}`,
+      },
+    })),
+    ...candidates.map((candidate) => ({
+      key: `height:${candidate.id}`,
+      value: candidate.frameHeight * aspectRatio,
+      priority: 1,
+      data: {
+        kind: "height" as const,
+        label: `同高 ${Math.round(candidate.frameHeight)}`,
+      },
+    })),
+  ];
+  const edgeTargets = [
+    ...(groupRect
+      ? [
+          {
+            key: "group:left",
+            x: groupRect.left,
+            label: "图片组左边缘",
+          },
+          {
+            key: "group:right",
+            x: groupRect.right,
+            label: "图片组右边缘",
+          },
+        ]
+      : []),
+    ...candidates.flatMap((candidate) => [
+      {
+        key: `image:${candidate.id}:left`,
+        x: candidate.rect.left,
+        label: "图片左边缘",
+      },
+      {
+        key: `image:${candidate.id}:right`,
+        x: candidate.rect.right,
+        label: "图片右边缘",
+      },
+    ]),
+  ];
+  for (const target of edgeTargets) {
+    const targetWidth = side === "left"
+      ? fixedX - target.x
+      : target.x - fixedX;
+    if (targetWidth < minimumWidth || targetWidth > maximumWidth) continue;
+    widthCandidates.push({
+      key: target.key,
+      value: targetWidth,
+      priority: 2,
+      data: {
+        kind: "edge",
+        label: target.label,
+        guideX: target.x,
+      },
+    });
   }
-
-  if (!heightMatch && verticalResize) {
-    const movingY = affects(direction, "top")
-      ? activeRect.top
-      : activeRect.bottom;
-    horizontalMatch = nearestSnap(
-      movingY,
-      candidates.flatMap((candidate) => [
-        {
-          key: `y:${candidate.id}:top`,
-          value: candidate.rect.top,
-          priority: 1,
-          data: { label: "上边对齐" },
-        },
-        {
-          key: `y:${candidate.id}:bottom`,
-          value: candidate.rect.bottom,
-          priority: 1,
-          data: { label: "下边对齐" },
-        },
-        {
-          key: `y:${candidate.id}:center`,
-          value: (candidate.rect.top + candidate.rect.bottom) / 2,
-          priority: 2,
-          data: { label: "垂直中心" },
-        },
-      ]),
-      snapState.horizontalKey,
-    );
-    if (horizontalMatch) {
-      const correction = horizontalMatch.value - movingY;
-      frameHeight = Math.max(
-        32,
-        frameHeight +
-          (affects(direction, "top") ? -correction : correction),
-      );
-    }
-  }
+  const activeKey =
+    snapState.widthKey ?? snapState.heightKey ?? snapState.verticalKey;
+  const match = nearestSnap(rawWidth, widthCandidates, activeKey);
+  const frameWidth = match?.value ?? rawWidth;
+  const frameHeight = frameWidth / aspectRatio;
+  const dimensionMatch =
+    match?.data.kind === "width" || match?.data.kind === "height"
+      ? match
+      : null;
+  const edgeMatch = match?.data.kind === "edge" ? match : null;
 
   return {
     preview: {
@@ -324,44 +301,50 @@ export function frameResizePreview({
       frameOffsetX: affects(direction, "left")
         ? start.frameOffsetX + start.frameWidth - frameWidth
         : start.frameOffsetX,
-      frameOffsetY: affects(direction, "top")
-        ? start.frameOffsetY + start.frameHeight - frameHeight
-        : start.frameOffsetY,
+      frameOffsetY: start.frameOffsetY,
     },
     guide: {
-      ...(verticalMatch && groupRect
+      ...(edgeMatch?.data.guideX !== undefined && groupRect
         ? {
             vertical: {
-              x: verticalMatch.value - groupRect.left,
-              label: verticalMatch.data.label,
+              x: edgeMatch.data.guideX - groupRect.left,
+              label: edgeMatch.data.label,
             },
           }
         : {}),
-      ...(horizontalMatch && groupRect
-        ? {
-            horizontal: {
-              y: horizontalMatch.value - groupRect.top,
-              label: horizontalMatch.data.label,
-            },
-          }
-        : {}),
-      ...(widthMatch || heightMatch
-        ? {
-            dimension: [
-              widthMatch ? `同宽 ${Math.round(frameWidth)}` : "",
-              heightMatch ? `同高 ${Math.round(frameHeight)}` : "",
-            ]
-              .filter(Boolean)
-              .join(" · "),
-          }
+      ...(dimensionMatch
+        ? { dimension: dimensionMatch.data.label }
         : {}),
     },
     snapState: {
-      widthKey: widthMatch?.key ?? null,
-      heightKey: heightMatch?.key ?? null,
-      verticalKey: verticalMatch?.key ?? null,
-      horizontalKey: horizontalMatch?.key ?? null,
+      widthKey: match?.data.kind === "width" ? match.key : null,
+      heightKey: match?.data.kind === "height" ? match.key : null,
+      verticalKey: match?.data.kind === "edge" ? match.key : null,
+      horizontalKey: null,
     },
+  };
+}
+
+export function imageGroupFrameResizePreview({
+  images,
+  groupWidth,
+  ...resize
+}: Parameters<typeof frameResizePreview>[0] & {
+  images: readonly ReferenceImage[];
+  groupWidth: number;
+}): ImageGroupFrameResizeResult {
+  const result = frameResizePreview(resize);
+  const previewImages = images.map((image) =>
+    imageWithPreview(image, result.preview),
+  );
+  const layout = layoutDocumentImageGroupForWidth(previewImages, groupWidth);
+  return {
+    ...result,
+    preview: {
+      ...result.preview,
+      groupHeight: Math.max(MIN_COMPONENT_HEIGHT, layout.height),
+    },
+    layout,
   };
 }
 
@@ -397,5 +380,12 @@ export function imageWithPreview(
   image: ReferenceImage,
   preview: FramePreview | null,
 ): ReferenceImage {
-  return preview?.imageId === image.id ? { ...image, ...preview } : image;
+  if (preview?.imageId !== image.id) return image;
+  return {
+    ...image,
+    frameWidth: preview.frameWidth,
+    frameHeight: preview.frameHeight,
+    frameOffsetX: preview.frameOffsetX,
+    frameOffsetY: preview.frameOffsetY,
+  };
 }

@@ -37,7 +37,11 @@ import {
   type PreshotEditorBlock,
 } from "./blockOperations";
 import type { ImageGroupBlockController } from "./ImageGroupBlockContext";
-import { preshotBlockNoteSchema } from "./blockNoteSchema";
+import type {
+  PreshotBlockSchema,
+  PreshotInlineContentSchema,
+  PreshotStyleSchema,
+} from "./preshotBlockNoteSchema";
 
 interface BlockOperationsMenuProps {
   controller: ImageGroupBlockController;
@@ -132,9 +136,9 @@ export function BlockOperationsMenu({
 }: BlockOperationsMenuProps) {
   const Components = useComponentsContext();
   const editor = useBlockNoteEditor<
-    typeof preshotBlockNoteSchema.blockSchema,
-    typeof preshotBlockNoteSchema.inlineContentSchema,
-    typeof preshotBlockNoteSchema.styleSchema
+    PreshotBlockSchema,
+    PreshotInlineContentSchema,
+    PreshotStyleSchema
   >();
   const block = useExtensionState(SideMenuExtension, {
     editor,

@@ -1,6 +1,10 @@
 import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
 import type { BlockNotePlanRepository } from "../../domain/plan/blocknote/ports";
-import type { ReferenceImageStore } from "../../domain/plan/ports";
+import type {
+  ReferenceImageCropBounds,
+  ReferenceImageCropStore,
+  ReferenceImageStore,
+} from "../../domain/plan/ports";
 import type { PlanImagePicker } from "../../domain/plan/ports";
 import type { PlanMediaStore } from "../../domain/plan/ports";
 
@@ -17,6 +21,62 @@ const browserImages = new Map<string, string>();
 const browserMedia = new Map<string, string>();
 let imageCounter = 0;
 let mediaCounter = 0;
+
+type BrowserImageCropper = (
+  dataUrl: string,
+  bounds: ReferenceImageCropBounds,
+) => Promise<string>;
+
+function cropBrowserImage(
+  dataUrl: string,
+  bounds: ReferenceImageCropBounds,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      if (
+        !Number.isInteger(bounds.x) ||
+        !Number.isInteger(bounds.y) ||
+        !Number.isInteger(bounds.width) ||
+        !Number.isInteger(bounds.height) ||
+        bounds.x < 0 ||
+        bounds.y < 0 ||
+        bounds.width <= 0 ||
+        bounds.height <= 0 ||
+        bounds.x + bounds.width > image.naturalWidth ||
+        bounds.y + bounds.height > image.naturalHeight
+      ) {
+        reject(new Error("Crop bounds are outside the browser reference image"));
+        return;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = bounds.width;
+      canvas.height = bounds.height;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        reject(new Error("Browser image cropping is unavailable"));
+        return;
+      }
+      context.drawImage(
+        image,
+        bounds.x,
+        bounds.y,
+        bounds.width,
+        bounds.height,
+        0,
+        0,
+        bounds.width,
+        bounds.height,
+      );
+      const mimeType = dataUrl.startsWith("data:image/jpeg")
+        ? "image/jpeg"
+        : "image/png";
+      resolve(canvas.toDataURL(mimeType));
+    };
+    image.onerror = () => reject(new Error("Unable to decode browser reference image"));
+    image.src = dataUrl;
+  });
+}
 
 function dataUrlFromBytes(bytes: number[], mimeType: string): Promise<string> {
   const reader = new FileReader();
@@ -43,25 +103,51 @@ export const browserBlockNotePlanRepository: BlockNotePlanRepository = {
   },
 };
 
-export const browserBlockNoteImageStore: ReferenceImageStore = {
-  async importImage() {
-    imageCounter += 1;
-    const file =
-      `references/blocknote-${String(imageCounter).padStart(4, "0")}.png`;
-    const dataUrl = imageCounter % 2 === 1 ? LANDSCAPE_PNG : PORTRAIT_PNG;
-    browserImages.set(file, dataUrl);
-    return {
-      file,
-      dataUrl,
-    };
-  },
-  async loadImage(_projectPath, file) {
-    return browserImages.get(file) ?? TINY_PNG;
-  },
-  async removeImage(_projectPath, file) {
-    browserImages.delete(file);
-  },
-};
+export function createBrowserBlockNoteImageStore(
+  cropper: BrowserImageCropper = cropBrowserImage,
+): ReferenceImageStore & ReferenceImageCropStore {
+  return {
+    async importImage() {
+      imageCounter += 1;
+      const file =
+        `references/blocknote-${String(imageCounter).padStart(4, "0")}.png`;
+      const dataUrl = imageCounter % 2 === 1 ? LANDSCAPE_PNG : PORTRAIT_PNG;
+      browserImages.set(file, dataUrl);
+      return {
+        file,
+        dataUrl,
+      };
+    },
+    async loadImage(_projectPath, file) {
+      return browserImages.get(file) ?? TINY_PNG;
+    },
+    async removeImage(_projectPath, file) {
+      browserImages.delete(file);
+    },
+    async beginImageCrop(_projectPath, input) {
+      const source = browserImages.get(input.file);
+      if (!source) {
+        throw new Error(`Unknown browser reference image: ${input.file}`);
+      }
+      const dataUrl = await cropper(source, input.bounds);
+      browserImages.set(input.file, dataUrl);
+      return {
+        image: {
+          file: input.file,
+          dataUrl,
+          width: input.bounds.width,
+          height: input.bounds.height,
+        },
+        async commit() {},
+        async rollback() {
+          browserImages.set(input.file, source);
+        },
+      };
+    },
+  };
+}
+
+export const browserBlockNoteImageStore = createBrowserBlockNoteImageStore();
 
 export const browserBlockNoteMediaStore: PlanMediaStore = {
   async importMedia(_projectPath, input) {

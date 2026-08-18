@@ -31,20 +31,34 @@ If Visual Studio tools are not already active in the shell, use **Developer Powe
 
 ## Preshot 0.0.1 verification
 
-The release-hardening matrix completed on 2026-08-17:
+The final release-hardening matrix completed on 2026-08-18 after all PDF
+review fixes:
 
 - documentation checks passed;
 - ESLint passed with zero warnings;
 - TypeScript passed;
-- 93 Vitest files and 480 tests passed;
+- 108 Vitest files / 597 tests passed;
 - 4 PowerShell initializer tests passed;
-- 51 Rust tests passed;
-- 15 unified Playwright journeys passed;
-- 8 focused BlockNote v14 Playwright journeys passed;
+- 57 Rust tests passed;
+- 16 unified Playwright journeys passed;
+- 9 focused BlockNote v14 Playwright journeys passed;
 - the production web and Tauri builds passed; and
-- the installer was produced as `Preshot_0.0.1_x64_en-US.msi`.
+- the installer was produced as
+  `src-tauri\target\release\bundle\msi\Preshot_0.0.1_x64_en-US.msi`, with no
+  other MSI in that output directory.
+
+The final acceptance reran the production browser export while retaining only
+the three reviewed files under `artifacts\pdf-export-regressions`. It confirmed
+non-empty UI-downloaded React-PDF bytes, A4/page/text/link/image structure,
+CJK-first content, cropped/resized/wrapped and weighted-column image groups,
+near-bottom and positive-offset pagination, oversized uniform scaling, a tall
+native image with long Latin/CJK captions, atomic image groups, no editor
+chrome or oversize warning, contextual asset failures, and no silent legacy
+fallback. The production CSP permits self-hosted fonts and Yoga WASM while
+rejecting remote proxy/network sources.
 
 Vite still reports its advisory large-chunk warning for the production bundle.
+This is a known advisory, not a build failure.
 
 ### Browser-shell tests
 
@@ -76,7 +90,16 @@ Domain tests cover pure behavior such as:
 - block nesting and image-group invariants,
 - extraction of referenced `media/` files,
 - image-group geometry and crop helpers,
-- PDF layout primitives,
+- stable-gap non-overlap wrapping, derived group height, side-only
+  current-ratio resize, and prioritized Smart Guide snapping,
+- PDF layout primitives and typed BlockNote PDF visual-contract boundaries
+  (root/column scaling, stable rounding, and oversized keep-together fitting),
+- deterministic React-PDF preflight traversal for root groups, weighted
+  columns, empty groups, page-limit groups, positive-offset flow footprints,
+  zero/negative offset safety, and oversized uniform scaling,
+- pure React-PDF image-group render models for root and weighted-column
+  geometry, persisted-height wrapping, crop/asset identity, deterministic
+  empty output, and actionable missing-context/asset failures,
 - workspace registry behavior, and
 - settings normalization.
 
@@ -91,8 +114,11 @@ Component tests cover user-visible behavior for:
 - settings interactions,
 - save-state UI,
 - the BlockNote editor wrapper,
-- image-group block behavior, and
-- the reference-image lightbox.
+- image-group selection, drag-safe double-click viewing, within/cross-group
+  movement, side-only live resize, wrapping, cancellation, and guide feedback,
+- reference-image crop presets, Free sizing, pan/nudge, zoom, reset,
+  cancel/confirm, progress, focus restoration, and actionable errors, and
+- provider refresh/reflow and save-state behavior after crop overwrite.
 
 Use React Testing Library and assert via roles, labels, visible text, and interaction outcomes.
 
@@ -101,8 +127,33 @@ Use React Testing Library and assert via roles, labels, visible text, and intera
 Adapter tests validate:
 
 - Tauri workspace/plan/settings/screen-capture/PDF adapters,
+- BlockNote PDF asset preflight, including normalized crop caching, repeated
+  source reuse, largest draw-box selection, native-image measurement, missing
+  and corrupt asset context, and hosted-proxy avoidance,
+- React-PDF image-group mapping structure, including one relative
+  `wrap={false}` flow wrapper, explicit positive top padding, one-time visual
+  offset positioning, absolute ordered slots, standalone/column keep-together
+  behavior, local optimized data, and absence of editor chrome,
+- React-PDF ordinary mappings and rendering for bundled CJK fonts, H1-H6,
+  inline styles/colors/alignment, lists, quote/code, row-safe tables, real link
+  annotations, contextual media fallbacks, weighted columns, and offline
+  project-local resolution without a hosted proxy,
+- production exporter composition from preflight through mapping and
+  browser-compatible Blob bytes, including A4 output, immutable plan input,
+  contextual failures, no silent legacy fallback, and unchanged save bytes and
+  filename,
+- production renderer acceptance for complete CJK/H1-H6/list/style/link
+  documents, native and fallback media, image-heavy wrapped groups,
+  positive-offset next-page keep-together behavior, oversized one-page
+  scaling, weighted columns, mixed long-text/image rows, real annotations,
+  image draws, page dimensions, and absence of editor chrome,
+- least-privilege Tauri CSP coverage for the exact React-PDF WASM allowance,
+  self-hosted assets/fonts, Tauri IPC origins, and rejection of broad network
+  or general eval sources,
 - browser test adapters used by memory and Midscene modes,
 - argument shaping for narrow native commands, and
+- deterministic same-path browser crop replacement/rollback plus validated
+  Tauri crop begin/commit/rollback command arguments/results, and
 - logging/sanitization helpers.
 
 These tests should confirm boundary contracts without re-testing the pure domain logic underneath them.
@@ -115,6 +166,10 @@ Rust unit tests cover:
 - manifest reading and migration from `.preshot` to `.preshotproj`,
 - manifest plan save/load,
 - reference-image import/load/remove,
+- JPG/PNG crop decode/encode, strict in-bitmap bounds, unchanged bytes after
+  rejected crops, same-path output, atomic replacement, exact-byte rollback,
+  idempotent committed-backup cleanup, and rejection of untrusted transaction
+  identifiers,
 - native media import/load/remove,
 - settings read/write behavior,
 - PDF atomic writes, and
@@ -125,6 +180,32 @@ Rust unit tests cover:
 `pnpm test:e2e` exercises the browser-shell path used for smoke coverage. It starts Vite in `e2e` mode, uses Microsoft Edge, and validates top-level workflows such as workspace loading, project opening, editor presence, and related UI flows.
 
 `pnpm test:e2e:blocknote` is the focused browser suite for the current v14 editor surface. Use it when changing BlockNote document behavior, image groups, columns, native media, or PDF-adjacent editing flows.
+
+Its create/edit/save journey asserts single-click selection, double-click
+viewer opening, drag-safe viewer suppression, side-only image handles,
+current-ratio resizing, group resizing, persistence, reload, and PDF export.
+
+The production PDF browser journey performs a real download through the
+memory-browser save target, parses the bytes, checks A4 geometry and image draw
+boxes, verifies transient progress and no external/proxy traffic, and uses
+Poppler when available to validate text order and render the first page to PNG.
+Set `PRESHOT_PDF_REVIEW_ARTIFACTS=artifacts\pdf-export-regressions` to retain
+the reviewed PDF, PNG, and measurement summary.
+
+The reviewed 2026-08-18 artifacts are
+`browser-production.pdf`, `browser-production-page-1.png`, and
+`browser-production-summary.json`. The summary records A4
+595.28 × 841.89pt output, two measurable image draw boxes, zero external
+requests, preserved text order, and a 1241 × 1754 rendered first page.
+
+Native image multiline-caption coverage verifies:
+
+- Noto Sans metric-based CJK character and Latin word wrapping;
+- iterative fitting at the final scaled image width;
+- exact reuse of precomputed caption lines by the React-PDF mapping;
+- local preflight optimization using the fitted image draw box; and
+- a production-renderer acceptance document containing a 1000pt-tall image and
+  an 80-word caption on one page without a React-PDF oversize warning.
 
 ### Midscene
 
@@ -145,7 +226,14 @@ When accepted behavior changes, update the implementation, the relevant tests, a
 - Adapter-only change: run the matching adapter tests plus the nearest smoke coverage.
 - Editor UI change: run the focused component tests first, then `pnpm test:e2e:blocknote` if behavior crosses browser/editor boundaries.
 - Native command change: run the Rust unit tests that cover that command, then the affected TypeScript adapter tests.
-- Documentation-only change: application test runs are optional unless you changed behavior claims; validate the edited document links instead.
+- Reference-image crop change: cover normalized geometry and alias resets in
+  the domain service, stale queued-save coalescing, manifest-failure rollback,
+  viewer/provider behavior in component tests, the browser and Tauri adapters,
+  Rust atomic overwrite/restore, and reload/PDF implications.
+- Documentation-only change: application test runs are optional unless you
+  changed behavior claims; run `pnpm docs:check`, parse
+  `docs/design_docs/featurelist.json`, validate local Markdown links and
+  English-only canonical docs, then run `git diff --check`.
 
 ## Non-goals
 

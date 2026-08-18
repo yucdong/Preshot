@@ -25,6 +25,17 @@ describe("createPlanDependencies", () => {
     expect(deps.service.loadPlan).toBeDefined();
     expect(deps.service.savePlan).toBeDefined();
     expect(deps.screenCapture).toBeDefined();
+    expect(deps.exporter.implementation).toBe("react-pdf");
+  }, DEPENDENCY_TEST_TIMEOUT);
+
+  it("uses the React-PDF exporter for the Midscene browser path", async () => {
+    vi.stubEnv("VITE_WORKSPACE_ADAPTER", "midscene");
+    vi.stubEnv("PROD", false);
+    const createPlanDependencies = await getCreatePlanDependencies();
+
+    expect(createPlanDependencies().exporter.implementation).toBe(
+      "react-pdf",
+    );
   }, DEPENDENCY_TEST_TIMEOUT);
 
   it("fails closed for the memory adapter in production", async () => {
@@ -41,6 +52,7 @@ describe("createPlanDependencies", () => {
     expect(dependencies.service).toBeDefined();
     expect(dependencies.picker).toBeDefined();
     expect(dependencies.screenCapture).toBeDefined();
+    expect(dependencies.exporter.implementation).toBe("react-pdf");
   }, DEPENDENCY_TEST_TIMEOUT);
 
   it.each([

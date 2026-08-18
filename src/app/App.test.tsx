@@ -53,6 +53,7 @@ function planDeps(): PlanDependencies {
       loadMedia: vi.fn(),
       savePlan: vi.fn(),
       importImages: vi.fn(),
+      commitImageCrop: vi.fn(),
       removeImage: vi.fn(),
       removeGroup: vi.fn(),
       purgeDetachedGroups: vi.fn(),
@@ -63,7 +64,7 @@ function planDeps(): PlanDependencies {
       pickImageFiles: vi.fn().mockResolvedValue([]),
     },
     logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-    exporter: { export: vi.fn() },
+    exporter: { implementation: "react-pdf", export: vi.fn() },
     saver: { save: vi.fn() },
   };
 }

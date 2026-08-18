@@ -1,5 +1,4 @@
 import "@blocknote/core/fonts/inter.css";
-import type { PartialBlock } from "@blocknote/core";
 import { zh } from "@blocknote/core/locales";
 import {
   filterSuggestionItems,
@@ -29,7 +28,11 @@ import {
   type PreshotBlockDocument,
   validateBlockDocument,
 } from "../../../domain/plan/canvas/blockDocument";
-import { preshotBlockNoteSchema } from "./blockNoteSchema";
+import {
+  preshotBlockNoteSchema,
+  type PreshotBlockNoteEditor,
+  type PreshotEditorPartialBlock,
+} from "./preshotBlockNoteSchema";
 import {
   ImageGroupBlockContext,
   type ImageGroupBlockController,
@@ -47,17 +50,11 @@ interface BlockNoteDocumentEditorProps {
   document: PreshotBlockDocument;
   imageGroupController: ImageGroupBlockController;
   onChange(document: PreshotBlockDocument): void;
-  onEditorReady?(editor: typeof preshotBlockNoteSchema.BlockNoteEditor): void;
+  onEditorReady?(editor: PreshotBlockNoteEditor): void;
   persistMediaUrl(url: string): string;
   resolveMediaUrl(url: string): string;
   uploadFile(file: File): Promise<string>;
 }
-
-type EditorPartialBlock = PartialBlock<
-  typeof preshotBlockNoteSchema.blockSchema,
-  typeof preshotBlockNoteSchema.inlineContentSchema,
-  typeof preshotBlockNoteSchema.styleSchema
->;
 
 function invalidNestedImageGroup(
   blocks: readonly PreshotEditorBlock[],
@@ -86,7 +83,7 @@ function invalidNestedImageGroup(
 function cloneBlocks(
   document: PreshotBlockDocument,
   resolveMediaUrl: (url: string) => string,
-): EditorPartialBlock[] {
+): PreshotEditorPartialBlock[] {
   const normalize = (block: PreshotBlockDocument["blocks"][number]): unknown => {
     const content = block.content;
     const normalizedContent =
@@ -106,7 +103,8 @@ function cloneBlocks(
         (
           block.type === "image" ||
           block.type === "video" ||
-          block.type === "audio"
+          block.type === "audio" ||
+          block.type === "file"
         ) && typeof block.props.url === "string"
           ? {
               ...block.props,
@@ -118,7 +116,7 @@ function cloneBlocks(
     };
   };
   const normalized: unknown = structuredClone(document.blocks).map(normalize);
-  return normalized as EditorPartialBlock[];
+  return normalized as PreshotEditorPartialBlock[];
 }
 
 function serializeEditorDocument(
@@ -139,7 +137,8 @@ function serializeEditorDocument(
       (
         block.type === "image" ||
         block.type === "video" ||
-        block.type === "audio"
+        block.type === "audio" ||
+        block.type === "file"
       ) &&
       typeof block.props.url === "string"
     ) {

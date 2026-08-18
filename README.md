@@ -13,7 +13,9 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - Custom image-group blocks with resize, reorder, lightbox, native import, and Windows screen capture
 - Native BlockNote image, video, and audio blocks backed by project-local `media/`
 - Auto-save, explicit save shortcut, theme settings, resizable shell panels, and focus mode
-- A4 PDF export through `pdf-lib` plus a native save dialog
+- A4 PDF export through `@blocknote/xl-pdf-exporter@0.53.0` and
+  `@react-pdf/renderer@4.3.0`, with offline project-local asset preflight and a
+  native save dialog
 
 ## Repository layout
 
@@ -42,7 +44,8 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - Tauri 2, Rust
 - BlockNote 0.53, Mantine 8
 - Tailwind CSS 4
-- `pdf-lib` + `@pdf-lib/fontkit`
+- `@blocknote/xl-pdf-exporter@0.53.0` + `@react-pdf/renderer@4.3.0`
+- `pdf-lib` + `@pdf-lib/fontkit` retained only by the explicit rollback adapter
 - Vitest, React Testing Library, Playwright
 - pnpm 10.15.0
 
@@ -106,6 +109,7 @@ If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo co
 
 | Command | Purpose |
 | --- | --- |
+| `pnpm docs:check` | Check English-only docs, feature-list JSON, local links, and stale canonical references. |
 | `pnpm lint` | Run ESLint. |
 | `pnpm typecheck` | Run the TypeScript project build in type-check mode. |
 | `pnpm test` | Run the Vitest suite. |
@@ -147,6 +151,9 @@ If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo co
 
 Preshot's own source code is under the [MIT License](LICENSE).
 
-Distributed application builds that include `@blocknote/xl-multi-column` use that dependency through its GPL-3.0 option, so shipped Preshot application distributions must be provided under GPL-3.0 with the corresponding source and license notices.
+Distributed application builds that include `@blocknote/xl-multi-column` or
+`@blocknote/xl-pdf-exporter` use those dependencies through their GPL-3.0
+option, so shipped Preshot application distributions must be provided under
+GPL-3.0 with the corresponding source and license notices.
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [LICENSES/GPL-3.0.txt](LICENSES/GPL-3.0.txt).

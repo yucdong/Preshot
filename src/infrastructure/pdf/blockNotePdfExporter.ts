@@ -1,4 +1,10 @@
 import fontkit from "@pdf-lib/fontkit";
+import type {
+  BlockSchema,
+  CustomBlockNoteSchema,
+  InlineContentSchema,
+  StyleSchema,
+} from "@blocknote/core";
 import {
   PDFDocument,
   rgb,
@@ -81,12 +87,19 @@ function drawText(
   }
 }
 
-export function createBlockNotePdfExporter(
+export function createLegacyBlockNotePdfExporter<
+  B extends BlockSchema,
+  I extends InlineContentSchema,
+  S extends StyleSchema,
+>(
   loadFonts: () => Promise<Fonts>,
+  schema: CustomBlockNoteSchema<B, I, S>,
   options: { optimizeImage?: PdfImageOptimizer } = {},
 ) {
   const optimizeImage = options.optimizeImage ?? optimizePdfImage;
   return {
+    implementation: "legacy-pdf-lib" as const,
+    schema,
     async export(
       plan: ProjectPlanV14,
       images: Record<string, string>,
@@ -174,4 +187,10 @@ export function createBlockNotePdfExporter(
   };
 }
 
-export type BlockNotePdfExporter = ReturnType<typeof createBlockNotePdfExporter>;
+export interface BlockNotePdfExporter {
+  readonly implementation: "react-pdf" | "legacy-pdf-lib";
+  export(
+    plan: ProjectPlanV14,
+    images: Record<string, string>,
+  ): Promise<Uint8Array>;
+}

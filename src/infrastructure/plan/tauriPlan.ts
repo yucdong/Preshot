@@ -3,6 +3,7 @@ import type {
   ImportedImage,
   ImportedPlanMedia,
   PlanMediaStore,
+  ReferenceImageCropStore,
   ReferenceImageStore,
 } from "../../domain/plan/ports";
 import type { CanvasPlanRepository } from "../../domain/plan/canvas/ports";
@@ -53,7 +54,15 @@ function validateImportedMedia(value: unknown): ImportedPlanMedia {
   };
 }
 
+function requirePositiveInteger(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    throw new Error("Malformed native response");
+  }
+  return value;
+}
+
 export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): ReferenceImageStore &
+  ReferenceImageCropStore &
   PlanMediaStore &
   CanvasPlanRepository &
   BlockNotePlanRepository {
@@ -79,6 +88,58 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         await invokeCommand("remove_reference_image", { projectPath, file });
       } catch (error) {
         throw new Error(`Unable to remove the reference image: ${detail(error)}`, { cause: error });
+      }
+    },
+    async beginImageCrop(projectPath, input) {
+      try {
+        const value = await invokeCommand("crop_reference_image", {
+          projectPath,
+          file: input.file,
+          bounds: input.bounds,
+        });
+        if (!isRecord(value)) {
+          throw new Error("Malformed native response");
+        }
+        const transactionId = requireString(value.transactionId);
+        const image = {
+          file: requireString(value.file),
+          dataUrl: requireString(value.dataUrl),
+          width: requirePositiveInteger(value.width),
+          height: requirePositiveInteger(value.height),
+        };
+        return {
+          image,
+          async commit() {
+            try {
+              await invokeCommand("commit_reference_image_crop", {
+                projectPath,
+                file: image.file,
+                transactionId,
+              });
+            } catch (error) {
+              throw new Error(`Unable to finalize the project reference image crop: ${detail(error)}`, {
+                cause: error,
+              });
+            }
+          },
+          async rollback() {
+            try {
+              await invokeCommand("rollback_reference_image_crop", {
+                projectPath,
+                file: image.file,
+                transactionId,
+              });
+            } catch (error) {
+              throw new Error(`Unable to restore the project reference image: ${detail(error)}`, {
+                cause: error,
+              });
+            }
+          },
+        };
+      } catch (error) {
+        throw new Error(`Unable to crop the project reference image: ${detail(error)}`, {
+          cause: error,
+        });
       }
     },
     async importMedia(projectPath, input) {

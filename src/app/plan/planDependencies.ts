@@ -2,7 +2,6 @@ import type { PlanDependencies } from "../../features/plan/blocknote/dependencie
 import { planImagePicker } from "../../infrastructure/plan/planDialog";
 import { tauriPlan } from "../../infrastructure/plan/tauriPlan";
 import { planLogger } from "../../shared/logging/logger";
-import { loadNotoSansSc } from "../../infrastructure/pdf/fontAssets";
 import { tauriPdfSaveTarget } from "../../infrastructure/pdf/tauriPdfSave";
 import { browserPdfSaveTarget } from "../../infrastructure/pdf/browserPdfSave";
 import { tauriScreenCapture } from "../../infrastructure/plan/screenCapture";
@@ -14,15 +13,16 @@ import {
   browserBlockNoteImagePicker,
   browserBlockNotePlanRepository,
 } from "../../infrastructure/plan/browserBlockNotePlan";
-import { createBlockNotePdfExporter } from "../../infrastructure/pdf/blockNotePdfExporter";
+import { createReactPdfBlockNoteExporter } from "../../infrastructure/pdf/reactPdfBlockNoteExporter";
 
-const blockNotePdfExporter = createBlockNotePdfExporter(loadNotoSansSc);
+const blockNotePdfExporter = createReactPdfBlockNoteExporter();
 
 function createProductionPlanDependencies(): PlanDependencies {
   return {
     service: createBlockNotePlanService({
       repository: tauriPlan,
       imageStore: tauriPlan,
+      imageCropStore: tauriPlan,
       mediaStore: tauriPlan,
       createId: () => crypto.randomUUID(),
       logger: planLogger,
@@ -46,6 +46,7 @@ export function createPlanDependencies(): PlanDependencies {
       service: createBlockNotePlanService({
         repository: browserBlockNotePlanRepository,
         imageStore: browserBlockNoteImageStore,
+        imageCropStore: browserBlockNoteImageStore,
         mediaStore: browserBlockNoteMediaStore,
         createId: () => crypto.randomUUID(),
         logger: planLogger,
@@ -67,6 +68,7 @@ export function createPlanDependencies(): PlanDependencies {
       service: createBlockNotePlanService({
         repository: browserBlockNotePlanRepository,
         imageStore: browserBlockNoteImageStore,
+        imageCropStore: browserBlockNoteImageStore,
         mediaStore: browserBlockNoteMediaStore,
         createId: () => crypto.randomUUID(),
         logger: planLogger,

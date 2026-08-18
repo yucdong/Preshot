@@ -31,15 +31,42 @@
   non-interactive gray surface.
 - A group can move before or after other blocks or into a column layout.
 - Images can move within a group or between groups.
-- Group and image frames expose four edge handles and four corner handles.
-- Resize previews must not change document layout until the gesture commits.
-- Images use a grab cursor; controls use the normal arrow cursor. Editable text
-  alone uses the text cursor.
+- A single click selects an image and may begin dragging after the movement
+  threshold. A pointer opens the full viewer only by double-clicking the image
+  body; Enter is the keyboard equivalent.
+- Images expose left and right resize handles only. Side resizing preserves the
+  ratio displayed at pointer-down and anchors the opposite side.
+- Image groups retain four edge handles and four corner handles.
+- Image resize previews reflow every image live, preserve order and stable
+  gaps, wrap before overflow without overlap, and grow or shrink the group to
+  the resulting content height. Pointer-up commits the coherent image/group
+  geometry; pointer cancellation restores it.
+- Equal-width and equal-height feedback takes priority over group/image edge
+  alignment. Equal-size matches show a dimension label; edge matches show one
+  dashed guide. Guide entry/release thresholds prevent flicker.
+- The image body is the selection/drag target. Controls use the normal arrow
+  cursor, side handles use horizontal resize feedback, and editable text alone
+  uses the text cursor.
 - The compact upper-right toolbar exposes drag, insert image, screen capture,
   and delete actions with native hover titles.
 - Deleting a group follows the same tombstone, notification, and undo behavior
   as deleting it from the block menu.
 - There is no automatic size-reset command; frame size is user-controlled.
+
+## Full-image viewer and crop
+
+- Pointer users open the full-image viewer only from an image-body
+  double-click; keyboard users can press Enter on the focused image.
+- Crop mode provides Original, Free, 1:1, 4:5, 3:4, and 16:9 presets, pointer
+  panning, keyboard nudging, 1x-8x zoom, Free width/height controls, reset,
+  cancel, and confirm.
+- Crop drafts are reversible. Escape, backdrop close, Cancel, or Reset never
+  writes a draft; closing is disabled while confirmation is in flight.
+- Confirming a crop physically overwrites only the image copy stored in the
+  open project's `references/` directory. The external source selected during
+  import remains unchanged.
+- Progress, success, and actionable failure feedback stay in the viewer. A
+  successful commit refreshes the viewer and document tile immediately.
 
 ## Columns
 
@@ -57,6 +84,34 @@
 - Image imports are limited to 16 MiB, audio to 64 MiB, and video to 128 MiB.
 - Successful Windows captures are imported into the project and their
   Preshot-owned temporary PNG is discarded.
+- Reload reads confirmed reference-image crops from the same project-relative
+  path. Autosave persists the refreshed schema-v14 frame/source metadata, and
+  PDF export uses the cropped project bitmap and current layout.
+
+## PDF export
+
+- Export uses the official `@blocknote/xl-pdf-exporter@0.53.0` mappings with
+  `@react-pdf/renderer@4.3.0` as the production default. The legacy `pdf-lib`
+  adapter is rollback-only and is never selected after a production failure.
+- Output is A4 at 595.28 × 841.89pt with 24pt margins. The continuous editor
+  does not show PDF page breaks, but ordinary blocks preserve their BlockNote
+  semantics and custom image groups preserve their visible frame, crop,
+  wrapping, spacing, and root/weighted-column geometry.
+- Image groups are indivisible export units. A whole group moves to the next
+  page when the current page lacks room; it is uniformly reduced only when its
+  complete footprint is taller than one usable page.
+- Positive vertical group offsets reserve matching flow space so following
+  content and pagination remain WYSIWYG. Zero/negative offsets never create a
+  negative layout footprint.
+- Native image blocks preserve aspect ratio and fit within the available page
+  width and height. Multiline captions wrap with bundled Noto Sans SC metrics;
+  export iteratively fits the image against the exact wrapped caption height,
+  then renders those precomputed lines so the complete image/caption block
+  stays on one usable page. Video and audio remain readable as labeled fallback
+  rows.
+- Export preflight resolves and optimizes only project-local assets. Missing or
+  corrupt assets produce an actionable error; the app does not use a hosted
+  proxy or silently emit degraded fallback output.
 
 ## Feedback and accessibility
 
@@ -66,6 +121,8 @@
 - Save failures remain visibly unsaved and show an actionable error.
 - Unexpected rendering failures remain the responsibility of the application
   error boundary; expected operation failures are handled locally.
+- Contributor documentation remains English; the production runtime UI,
+  including viewer and crop labels, remains Simplified Chinese.
 
 ## Historical specifications
 

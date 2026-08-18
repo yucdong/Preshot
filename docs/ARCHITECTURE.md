@@ -30,7 +30,12 @@ The mounted editor path in the app is `BlockNoteProjectCanvasProvider`; legacy c
 3. `Workspace` mounts `BlockNoteProjectCanvasProvider` for the active project.
 4. `BlockNoteProjectCanvasProvider` loads the plan through `BlockNotePlanService`, then loads referenced `references/` images and `media/` files.
 5. `BlockNoteDocumentEditor` owns the live BlockNote instance; the provider reconciles its serialized document with `plan.imageGroups` and runtime-loaded media URLs.
-6. PDF export goes through `createBlockNotePdfExporter`, then the PDF save target opens a native save dialog and calls the Rust `save_pdf` command.
+6. Reference-image crop confirmation goes through the revision-aware queued
+   domain service and a narrow begin/commit/rollback crop port backed by Rust.
+7. PDF export goes through `createReactPdfBlockNoteExporter`, which uses
+   `@blocknote/xl-pdf-exporter@0.53.0` with
+   `@react-pdf/renderer@4.3.0`; the PDF save target then opens a native save
+   dialog and calls the Rust `save_pdf` command.
 
 Browser-only adapters exist for tests and Midscene-driven workflows, but production wiring uses the Tauri adapters.
 
@@ -82,6 +87,9 @@ Schema v13 plans are migrated in the load path to schema v14 / document v2. Olde
 - `references/` stores imported reference JPG/PNG files.
 - `media/` stores native BlockNote image/audio/video files.
 - The manifest remains the source of truth for plan JSON; media and reference files are loaded lazily when the editor opens.
+- Confirmed reference-image crops retain the same `references/<file>` identity
+  and physically replace only that project-owned bitmap. The external import
+  source is not part of the project model and is never written after import.
 
 ### App-level settings
 
@@ -120,9 +128,23 @@ Each group record contains the image-group frame plus its images, including pers
 - creating and cloning groups,
 - importing images,
 - Windows screen capture import,
-- resize and crop updates,
+- global image selection and double-click viewing,
+- side-only current-ratio image resizing with live non-overlap wrapping,
+- eight-direction group resizing and prioritized equal-size/edge guides,
+- preset/free crop editing and project-copy overwrite,
 - within-group and cross-group reordering, and
 - lightbox opening.
+
+The width-led layout computes ordered rows with a stable gap and returns the
+derived content height. During an image resize, the same layout is used for the
+live preview and pointer-up commit so wrapped positions and group height remain
+coherent.
+
+Crop confirmation converts normalized viewer geometry into strict source-pixel
+bounds. `BlockNotePlanService` serializes the native overwrite with plan saves,
+imports, removals, and retirement cleanup. Every metadata alias of the same
+project file is then reset to the new bitmap dimensions, a full-image crop,
+zero offsets, and a frame width derived from its retained height.
 
 ### Multi-column layout
 
@@ -148,20 +170,89 @@ Implemented editor behaviors include:
 - Ctrl/Cmd+S immediate save,
 - slash-menu insertion for image groups and columns,
 - side-menu block duplication/move/delete helpers, and
-- image/lightbox interactions that remain project-local.
+- single-click image selection/dragging and double-click full viewing,
+- side-only ratio-locked image resize with live wrapping and dynamic height,
+- edge/equal-size Smart Guide feedback, and
+- crop presets, pan, zoom, reset/cancel/confirm, and project-local overwrite.
 
 ## PDF export
 
-`createBlockNotePdfExporter` converts the v14 block document directly into export blocks, lays them out against A4 content width, paginates at export time, and renders with bundled Noto Sans SC fonts.
+`createReactPdfBlockNoteExporter` is the production default. It snapshots the
+v14 plan and resolved local asset map, builds deterministic preflight context,
+converts the exact shared schema through the official
+`@blocknote/xl-pdf-exporter@0.53.0` mappings, and renders with
+`@react-pdf/renderer@4.3.0` to a browser-compatible Blob before adapting it to
+the existing byte-oriented exporter/save contracts.
 
 Important consequences:
 
 - the editor does not need to emulate paged PDF layout,
 - image-group geometry and crops are consumed from persisted metadata,
+- a confirmed destructive crop exports the physically cropped project bitmap
+  with full-image crop metadata, both immediately and after reload,
 - project-local media images can be embedded directly, and
 - video/audio remain readable in PDF via fallback rows even though PDF cannot host an interactive player.
 
 Saving the PDF uses a native dialog plus the narrow Rust `save_pdf` command for atomic writes.
+
+The production BlockNote React-PDF path has deterministic preflight and mapping
+layers:
+
+- `pdfVisualContract.ts` fixes A4 at 595.28 × 841.89pt with 24pt margins and a
+  547.28pt content width, and owns the shared typography, spacing, color,
+  border, column, and image-group tokens.
+- `pdfExportPreflight.ts` validates marker/group integrity, walks root and
+  weighted-column blocks in document order, and produces portable logical/PDF
+  dimensions plus keep-together image-group geometry. Root groups use the
+  1008-logical-unit content scale; column children use the persisted weights
+  and width-conserving column rounding.
+- `blockNotePdfPreflight.ts` receives the exact shared BlockNote schema and
+  resolved project-local assets, measures native images, and invokes the
+  injectable browser canvas optimizer at 144 DPI.
+- Repeated assets are normalized by project-relative source and crop, then
+  optimized once at the largest required draw box. Missing or corrupt data is
+  rejected with block/group/image context.
+- The immutable `PreshotPdfExportContext` contains block/group indexes,
+  columns, slots, optimized assets, visual tokens, warnings, and fatal-error
+  contracts. It contains no React-PDF types and does not use hosted proxies or
+  private filesystem paths.
+- `imageGroupPdfRenderModel.ts` resolves each marker through that context and
+  produces a pure keep-together model using the exact root/column conversion,
+  persisted frame height, wrapped slot geometry, optimized local assets, and
+  preflight oversized scale. Positive group Y offsets become explicit flow-top
+  padding and participate in the flow height and scale; negative offsets keep a
+  non-negative footprint and remain relative visual positioning.
+- `imageGroupPdfMapping.tsx` renders one relative `wrap={false}` flow wrapper,
+  an optional positive-offset spacer, and one visual container with absolute
+  image frames and no editor chrome. This applies the visible offset once while
+  giving Yoga the complete keep-together footprint. A group that does not fit
+  the remaining space moves intact to the next page; uniform scaling is applied
+  only when its complete flow footprint is taller than one usable A4 page.
+- `blockNoteReactPdfMappings.tsx` composes the official BlockNote 0.53 defaults
+  with Preshot A4/type/spacing tokens for ordinary blocks, inline content, and
+  styles. It registers bundled Noto Sans SC regular/bold, disables emoji
+  networking, creates real PDF links, preserves weighted columns, and resolves
+  images only through preflight assets. The custom image-group renderer remains
+  a typed injected seam.
+- Native image blocks are measured before mapping, preserve aspect ratio, and
+  remain keep-together. Preflight loads the bundled Noto Sans SC regular-face
+  metrics, wraps CJK characters and Latin words at the candidate image width,
+  and iterates caption layout plus image scaling until the image, wrapped
+  caption, and trailing spacing fit one usable page. The resulting line array
+  is stored in the export context and rendered verbatim, so React-PDF cannot
+  choose different line breaks after fitting.
+
+Production, memory-browser, and Midscene composition select the React-PDF
+adapter. The previous pdf-lib implementation remains explicitly constructible
+as `createLegacyBlockNotePdfExporter` for acceptance comparison and rollback;
+the production adapter never invokes it after a React-PDF failure.
+
+The Tauri CSP remains least-privilege for this pipeline:
+`script-src 'self' 'wasm-unsafe-eval'` permits the renderer's required WASM
+execution without allowing general `unsafe-eval`; bundled Noto Sans SC files
+are loaded from self under `default-src 'self'`; and `connect-src` is limited to
+self plus the Tauri IPC origins. Hosted font, emoji, image, or asset proxies
+are not permitted.
 
 ## Native boundary
 
@@ -170,6 +261,8 @@ Direct `@tauri-apps/api` imports are confined to `src/infrastructure`. Native re
 - create/inspect/relocate-compatible project directories,
 - read and write the manifest plan payload,
 - import, load, and remove reference images,
+- validate, encode, atomically replace, commit, or roll back a cropped project
+  reference image,
 - import, load, and remove native media,
 - save PDF bytes,
 - reveal project/output paths,
@@ -177,6 +270,15 @@ Direct `@tauri-apps/api` imports are confined to `src/infrastructure`. Native re
 - read/write app settings.
 
 Rust commands should stay serializable and free of editor, layout, or business-rule logic.
+
+`crop_reference_image` accepts only a project path, a project-relative
+`references/` path, and integer pixel bounds. It validates containment and
+bitmap bounds, writes a UUID-scoped sibling backup and a unique flushed
+temporary crop, then uses an atomic replace operation. The matching commit and
+rollback commands derive the backup path from the validated reference path and
+UUID rather than accepting an arbitrary path. The domain layer decides which
+plan records must be updated and retains the backup until the manifest save
+succeeds.
 
 ## Localization and documentation
 

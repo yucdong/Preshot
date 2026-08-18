@@ -47,6 +47,46 @@ describe("createTauriPlan", () => {
     });
   });
 
+  it("shapes crop overwrite arguments and validates dimensions", async () => {
+    const invokeCommand = vi.fn().mockResolvedValue({
+      file: "references/0001.png",
+      dataUrl: "data:image/png;base64,AA",
+      width: 640,
+      height: 480,
+      transactionId: "crop-transaction",
+    });
+    const plan = createTauriPlan({ invokeCommand });
+
+    const transaction = await plan.beginImageCrop("C:\\p", {
+      file: "references/0001.png",
+      bounds: { x: 10, y: 20, width: 640, height: 480 },
+    });
+
+    expect(transaction.image).toEqual({
+      file: "references/0001.png",
+      dataUrl: "data:image/png;base64,AA",
+      width: 640,
+      height: 480,
+    });
+    expect(invokeCommand).toHaveBeenCalledWith("crop_reference_image", {
+      projectPath: "C:\\p",
+      file: "references/0001.png",
+      bounds: { x: 10, y: 20, width: 640, height: 480 },
+    });
+    await transaction.commit();
+    expect(invokeCommand).toHaveBeenCalledWith("commit_reference_image_crop", {
+      projectPath: "C:\\p",
+      file: "references/0001.png",
+      transactionId: "crop-transaction",
+    });
+    await transaction.rollback();
+    expect(invokeCommand).toHaveBeenCalledWith("rollback_reference_image_crop", {
+      projectPath: "C:\\p",
+      file: "references/0001.png",
+      transactionId: "crop-transaction",
+    });
+  });
+
   it("reads a raw canvas plan", async () => {
     const invokeCommand = vi.fn().mockResolvedValue({
       schemaVersion: 2,

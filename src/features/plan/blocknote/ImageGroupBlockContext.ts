@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
 
 export interface ImageGroupBlockController {
+  selectedImageId?: string | null;
   createGroup(): string;
   subscribe(listener: () => void): () => void;
   cloneGroup(sourceGroupId: string): string | null;
@@ -11,6 +12,7 @@ export interface ImageGroupBlockController {
   addImages(groupId: string): void;
   captureImage?(groupId: string): void;
   removeImage(groupId: string, imageId: string): void;
+  selectImage?(imageId: string): void;
   openImage(groupId: string, imageId: string, file: string): void;
   setImageFrame(
     groupId: string,
@@ -20,6 +22,7 @@ export interface ImageGroupBlockController {
       frameHeight: number;
       frameOffsetX: number;
       frameOffsetY: number;
+      groupHeight?: number;
     },
   ): void;
   resizeGroup(

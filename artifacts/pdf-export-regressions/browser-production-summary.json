@@ -1,0 +1,27 @@
+{
+  "pageCount": 1,
+  "pageSize": {
+    "width": 595.280029,
+    "height": 841.890015
+  },
+  "imageDrawBoxes": [
+    {
+      "width": 135.890793,
+      "height": 84.931702,
+      "x": 0.75,
+      "y": 85.681702
+    },
+    {
+      "width": 48.8643,
+      "height": 73.296402,
+      "x": 0.75,
+      "y": 74.046402
+    }
+  ],
+  "externalRequests": [],
+  "textOrderVerified": true,
+  "renderedDimensions": {
+    "width": 1241,
+    "height": 1754
+  }
+}

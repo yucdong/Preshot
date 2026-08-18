@@ -5,7 +5,10 @@ import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../../domain/settings/ports";
 import type { PreshotBlockDocument } from "../../../domain/plan/canvas/blockDocument";
 import { BlockNoteDocumentEditor } from "./BlockNoteDocumentEditor";
-import { preshotBlockNoteSchema } from "./blockNoteSchema";
+import {
+  preshotBlockNoteSchema,
+  type PreshotBlockNoteEditor,
+} from "./preshotBlockNoteSchema";
 
 const settings: SettingsRepository = {
   read: vi.fn().mockResolvedValue({ theme: "light" }),
@@ -35,7 +38,7 @@ const document: PreshotBlockDocument = {
 
 describe("BlockNoteDocumentEditor", () => {
   it("renders portable JSON blocks and the custom image-group block", async () => {
-    let editor: typeof preshotBlockNoteSchema.BlockNoteEditor | undefined;
+    let editor: PreshotBlockNoteEditor | undefined;
     const cloneGroup = vi.fn().mockReturnValue("group-copy");
     const imageGroup = {
       id: "group-1",
@@ -83,6 +86,7 @@ describe("BlockNoteDocumentEditor", () => {
     expect(screen.getByText("添加图片")).toBeVisible();
 
     await waitFor(() => expect(editor).toBeDefined());
+    expect(editor!.schema).toBe(preshotBlockNoteSchema);
     const imageGroupBlock = editor!.document.find((block) => block.type === "imageGroup")!;
     editor!.insertBlocks(
       [{ type: "imageGroup", props: { groupId: "group-1" } }],

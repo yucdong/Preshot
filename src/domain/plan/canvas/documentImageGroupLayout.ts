@@ -14,6 +14,7 @@ export interface DocumentImageGroupSlot {
 export interface DocumentImageGroupLayout {
   scale: number;
   slots: DocumentImageGroupSlot[];
+  height: number;
 }
 
 function slotsAtScale(
@@ -56,11 +57,53 @@ function slotsAtScale(
   return slots;
 }
 
+function contentHeight(slots: readonly DocumentImageGroupSlot[]): number {
+  return slots.reduce(
+    (maximum, slot) => Math.max(maximum, slot.y + slot.height),
+    0,
+  );
+}
+
+function maximumFootprintWidth(images: readonly ReferenceImage[]): number {
+  return images.reduce((maximum, image) => {
+    const offsetX = image.frameOffsetX ?? 0;
+    const minimumX = Math.min(0, offsetX);
+    const footprintWidth =
+      Math.max(0, offsetX + Math.max(1, image.frameWidth)) - minimumX;
+    return Math.max(maximum, footprintWidth);
+  }, 0);
+}
+
+function layoutAtScale(
+  images: readonly ReferenceImage[],
+  availableWidth: number,
+  scale: number,
+): DocumentImageGroupLayout {
+  const slots = slotsAtScale(images, availableWidth, scale);
+  return {
+    scale,
+    slots,
+    height: contentHeight(slots) + DOCUMENT_IMAGE_GROUP_INSET * 2,
+  };
+}
+
 function fits(slots: readonly DocumentImageGroupSlot[], width: number, height: number) {
   return slots.every((slot) =>
     slot.x + slot.width <= width + 0.001 &&
     slot.y + slot.height <= height + 0.001,
   );
+}
+
+export function layoutDocumentImageGroupForWidth(
+  images: readonly ReferenceImage[],
+  frameWidth: number,
+): DocumentImageGroupLayout {
+  const availableWidth = Math.max(1, frameWidth - DOCUMENT_IMAGE_GROUP_INSET * 2);
+  const widestFootprint = maximumFootprintWidth(images);
+  const scale = widestFootprint > availableWidth
+    ? availableWidth / widestFootprint
+    : 1;
+  return layoutAtScale(images, availableWidth, scale);
 }
 
 export function layoutDocumentImageGroup(
@@ -70,18 +113,18 @@ export function layoutDocumentImageGroup(
 ): DocumentImageGroupLayout {
   const availableWidth = Math.max(1, frameWidth - DOCUMENT_IMAGE_GROUP_INSET * 2);
   const availableHeight = Math.max(1, frameHeight - DOCUMENT_IMAGE_GROUP_INSET * 2);
-  const naturalSlots = slotsAtScale(images, availableWidth, 1);
-  if (fits(naturalSlots, availableWidth, availableHeight)) {
-    return { scale: 1, slots: naturalSlots };
+  const widthLayout = layoutDocumentImageGroupForWidth(images, frameWidth);
+  if (fits(widthLayout.slots, availableWidth, availableHeight)) {
+    return widthLayout;
   }
 
   let low = 0.01;
-  let high = 1;
+  let high = widthLayout.scale;
   for (let attempt = 0; attempt < 18; attempt += 1) {
     const middle = (low + high) / 2;
     const slots = slotsAtScale(images, availableWidth, middle);
     if (fits(slots, availableWidth, availableHeight)) low = middle;
     else high = middle;
   }
-  return { scale: low, slots: slotsAtScale(images, availableWidth, low) };
+  return layoutAtScale(images, availableWidth, low);
 }

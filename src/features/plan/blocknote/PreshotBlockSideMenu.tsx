@@ -12,7 +12,11 @@ import { BlockOperationsMenu } from "./BlockOperationsMenu";
 import type { PreshotEditorBlock } from "./blockOperations";
 import { startBlockPointerDrag } from "./blockPointerDrag";
 import type { ImageGroupBlockController } from "./ImageGroupBlockContext";
-import { preshotBlockNoteSchema } from "./blockNoteSchema";
+import type {
+  PreshotBlockSchema,
+  PreshotInlineContentSchema,
+  PreshotStyleSchema,
+} from "./preshotBlockNoteSchema";
 
 interface PreshotBlockSideMenuProps {
   controller: ImageGroupBlockController;
@@ -25,9 +29,9 @@ export function PreshotBlockSideMenu({
 }: PreshotBlockSideMenuProps) {
   const Components = useComponentsContext();
   const editor = useBlockNoteEditor<
-    typeof preshotBlockNoteSchema.blockSchema,
-    typeof preshotBlockNoteSchema.inlineContentSchema,
-    typeof preshotBlockNoteSchema.styleSchema
+    PreshotBlockSchema,
+    PreshotInlineContentSchema,
+    PreshotStyleSchema
   >();
   const sideMenu = useExtension(SideMenuExtension);
   const block = useExtensionState(SideMenuExtension, {

@@ -60,6 +60,12 @@ type LoadState =
   | Extract<BlockNotePlanLoadResult, { status: "incompatible" }>
   | { status: "ready"; plan: ProjectPlanV14 };
 
+interface LightboxTarget {
+  groupId: string;
+  imageId: string;
+  file: string;
+}
+
 export function BlockNoteProjectCanvasProvider({
   projectName,
   projectPath,
@@ -75,7 +81,10 @@ export function BlockNoteProjectCanvasProvider({
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
   const [mediaSrc, setMediaSrc] = useState<Record<string, string>>({});
-  const [lightboxFile, setLightboxFile] = useState<string | null>(null);
+  const [lightboxTarget, setLightboxTarget] = useState<LightboxTarget | null>(
+    null,
+  );
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
@@ -385,6 +394,7 @@ export function BlockNoteProjectCanvasProvider({
     });
   };
   const imageGroupController: ImageGroupBlockController = {
+    selectedImageId,
     subscribe(listener) {
       metadataListenersRef.current.add(listener);
       return () => metadataListenersRef.current.delete(listener);
@@ -518,6 +528,7 @@ export function BlockNoteProjectCanvasProvider({
       : undefined,
     removeImage(groupId, imageId) {
       if (!planRef.current) return;
+      if (selectedImageId === imageId) setSelectedImageId(null);
       void service.removeImage(
         projectPath,
         planRef.current,
@@ -525,12 +536,28 @@ export function BlockNoteProjectCanvasProvider({
         imageId,
       ).then(applyPlan);
     },
-    openImage(_groupId, _imageId, file) {
-      setLightboxFile(file);
+    selectImage(imageId) {
+      setSelectedImageId(imageId);
+    },
+    openImage(groupId, imageId, file) {
+      setLightboxTarget({ groupId, imageId, file });
     },
     setImageFrame(groupId, imageId, frame) {
       const current = planRef.current;
       if (!current) return;
+      const {
+        groupHeight,
+        frameWidth,
+        frameHeight,
+        frameOffsetX,
+        frameOffsetY,
+      } = frame;
+      const imageFrame = {
+        frameWidth,
+        frameHeight,
+        frameOffsetX,
+        frameOffsetY,
+      };
       applyPlan({
         ...current,
         imageGroups: current.imageGroups.map((group) =>
@@ -543,10 +570,13 @@ export function BlockNoteProjectCanvasProvider({
                     ? image
                     : {
                         ...image,
-                        ...frame,
-                        crop: cropForResizedFrame(image, frame),
+                        ...imageFrame,
+                        crop: cropForResizedFrame(image, imageFrame),
                       },
                 ),
+                ...(groupHeight === undefined
+                  ? {}
+                  : { height: Math.max(MIN_COMPONENT_HEIGHT, groupHeight) }),
               },
         ),
       });
@@ -627,9 +657,17 @@ export function BlockNoteProjectCanvasProvider({
         onExport={() => {
           const plan = planRef.current;
           if (!plan) return;
+          setCanvasError(null);
           setExporting(true);
           void exporter.export(plan, { ...imageSrc, ...mediaSrc })
             .then((bytes) => saver.save(bytes, "output.pdf"))
+            .catch((error: unknown) => {
+              setCanvasError(
+                `无法导出 PDF：${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+            })
             .finally(() => setExporting(false));
         }}
         onFitWidth={() => {
@@ -709,11 +747,47 @@ export function BlockNoteProjectCanvasProvider({
           />
         </div>
       </div>
-      {lightboxFile && imageSrc[lightboxFile] ? (
+      {lightboxTarget && imageSrc[lightboxTarget.file] ? (
         <ReferenceImageLightbox
           alt="参考图"
-          onClose={() => setLightboxFile(null)}
-          src={imageSrc[lightboxFile]}
+          cropAction={(() => {
+            const image = planRef.current?.imageGroups
+              .find((group) => group.id === lightboxTarget.groupId)
+              ?.images.find((entry) => entry.id === lightboxTarget.imageId);
+            if (
+              !image ||
+              !Number.isFinite(image.sourceWidth) ||
+              !Number.isFinite(image.sourceHeight) ||
+              (image.sourceWidth ?? 0) <= 0 ||
+              (image.sourceHeight ?? 0) <= 0
+            ) {
+              return undefined;
+            }
+            return {
+              sourceWidth: image.sourceWidth!,
+              sourceHeight: image.sourceHeight!,
+              confirm: async (crop) => {
+                const current = planRef.current;
+                if (!current) {
+                  throw new Error("当前方案不可用，请重新打开项目");
+                }
+                const result = await service.commitImageCrop(
+                  projectPath,
+                  current,
+                  lightboxTarget.groupId,
+                  lightboxTarget.imageId,
+                  crop,
+                );
+                setImageSrc((existing) => ({
+                  ...existing,
+                  [result.image.file]: result.dataUrl,
+                }));
+                applyPlan(result.plan);
+              },
+            };
+          })()}
+          onClose={() => setLightboxTarget(null)}
+          src={imageSrc[lightboxTarget.file]}
         />
       ) : null}
     </div>

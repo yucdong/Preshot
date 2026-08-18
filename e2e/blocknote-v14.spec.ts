@@ -1,4 +1,59 @@
 import { expect, test } from "@playwright/test";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
+import {
+  decodePDFRawStream,
+  PDFArray,
+  PDFDocument,
+  PDFRawStream,
+} from "pdf-lib";
+
+function pageContent(pdf: PDFDocument, pageIndex: number): string {
+  const contents = pdf.getPages()[pageIndex].node.normalizedEntries().Contents;
+  if (!(contents instanceof PDFArray)) return "";
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+  for (let index = 0; index < contents.size(); index += 1) {
+    const stream = pdf.context.lookup(contents.get(index));
+    if (!(stream instanceof PDFRawStream)) continue;
+    chunks.push(decoder.decode(decodePDFRawStream(stream).decode()));
+  }
+  return chunks.join("\n");
+}
+
+function pageImageDrawCount(pdf: PDFDocument, pageIndex: number): number {
+  return pageContent(pdf, pageIndex).match(/\/I\d+\s+Do/g)?.length ?? 0;
+}
+
+function pageImageDrawBoxes(
+  pdf: PDFDocument,
+  pageIndex: number,
+): Array<{ width: number; height: number; x: number; y: number }> {
+  return [...pageContent(pdf, pageIndex).matchAll(
+    /(-?[\d.]+)\s+0\s+0\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+cm\s+\/I\d+\s+Do/g,
+  )].map((match) => ({
+    width: Math.abs(Number(match[1])),
+    height: Math.abs(Number(match[2])),
+    x: Number(match[3]),
+    y: Number(match[4]),
+  }));
+}
+
+function pngDimensions(bytes: Uint8Array): {
+  width: number;
+  height: number;
+} {
+  const view = new DataView(
+    bytes.buffer,
+    bytes.byteOffset,
+    bytes.byteLength,
+  );
+  return {
+    width: view.getUint32(16),
+    height: view.getUint32(20),
+  };
+}
 
 test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page }) => {
   await page.goto("/");
@@ -104,8 +159,17 @@ test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page
       ) < 0.02,
     ) && Math.abs(frames[0].height - frames[1].height) < 1;
   }).toBe(true);
-  await expect(group.locator("[data-image-resize-edge]")).toHaveCount(16);
+  await expect(group.locator("[data-image-resize-edge]")).toHaveCount(4);
   await expect(group.locator("[data-group-resize-edge]")).toHaveCount(8);
+  const firstImageButton = group.getByRole("button", {
+    name: "选择参考图 1",
+  });
+  await firstImageButton.click();
+  await expect(firstImageButton).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("dialog", { name: "参考图" })).toHaveCount(0);
+  await firstImageButton.dblclick();
+  await expect(page.getByRole("dialog", { name: "参考图" })).toBeVisible();
+  await page.getByRole("button", { name: "关闭图片" }).click();
 
   const groupHeightBeforeResize = (await group.boundingBox())?.height ?? 0;
   await group.locator('[data-group-resize-edge="bottom"]').evaluate((handle) => {
@@ -140,7 +204,11 @@ test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page
   });
 
   const firstFrame = group.locator("[data-image-id]").nth(0);
-  const firstWidth = (await firstFrame.boundingBox())?.width ?? 0;
+  const firstFrameBeforeResize = await firstFrame.boundingBox();
+  const firstWidth = firstFrameBeforeResize?.width ?? 0;
+  const firstRatio = firstFrameBeforeResize
+    ? firstFrameBeforeResize.width / firstFrameBeforeResize.height
+    : 0;
   const rightEdge = firstFrame.locator('[data-image-resize-edge="right"]');
   await rightEdge.evaluate((handle) => {
     const rect = handle.getBoundingClientRect();
@@ -167,6 +235,10 @@ test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page
   });
   await expect.poll(async () => (await firstFrame.boundingBox())?.width ?? 0)
     .toBeGreaterThan(firstWidth);
+  await expect.poll(async () => {
+    const box = await firstFrame.boundingBox();
+    return box ? box.width / box.height : 0;
+  }).toBeCloseTo(firstRatio, 2);
 
   const sourceIds = await group.locator("[data-image-id]").evaluateAll((frames) =>
     frames.map((frame) => (frame as HTMLElement).dataset.imageId ?? ""));
@@ -178,6 +250,7 @@ test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page
   await page.mouse.move(secondBox.x + secondBox.width - 3, secondBox.y + secondBox.height / 2, {
     steps: 8,
   });
+  await expect(page.getByRole("dialog", { name: "参考图" })).toHaveCount(0);
   await page.mouse.up();
   await expect.poll(async () =>
     group.locator("[data-image-id]").evaluateAll((frames) =>
@@ -224,6 +297,202 @@ test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page
   const exportButton = page.getByRole("button", { name: "导出 PDF" });
   await exportButton.click();
   await expect(exportButton).toHaveText("导出 PDF", { timeout: 10_000 });
+});
+
+test("downloads and inspects production React-PDF bytes without external export traffic", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  const editor = page.locator(".bn-editor");
+  await editor.click();
+  await page.keyboard.type("浏览器导出验收第一段");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("浏览器导出验收第二段");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("/");
+  await page.getByText("图片组", { exact: true }).click();
+
+  const group = page.locator(".preshot-blocknote-image-group");
+  await expect(group).toBeVisible();
+  await group.getByRole("button", { name: "添加图片" }).first().click();
+  await expect(group.locator("[data-image-id]")).toHaveCount(2);
+
+  const firstFrame = group.locator("[data-image-id]").first();
+  const widthBefore = (await firstFrame.boundingBox())?.width ?? 0;
+  await firstFrame.locator('[data-image-resize-edge="right"]').evaluate(
+    (handle) => {
+      const rect = handle.getBoundingClientRect();
+      const clientX = rect.left + rect.width / 2;
+      const clientY = rect.top + rect.height / 2;
+      handle.dispatchEvent(new PointerEvent("pointerdown", {
+        bubbles: true,
+        clientX,
+        clientY,
+        pointerId: 301,
+      }));
+      document.dispatchEvent(new PointerEvent("pointermove", {
+        bubbles: true,
+        clientX: clientX + 24,
+        clientY,
+        pointerId: 301,
+      }));
+      document.dispatchEvent(new PointerEvent("pointerup", {
+        bubbles: true,
+        clientX: clientX + 24,
+        clientY,
+        pointerId: 301,
+      }));
+    },
+  );
+  await expect.poll(async () => (await firstFrame.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(widthBefore);
+  await expect(page.getByTestId("save-status")).toHaveText(
+    "已保存所有更改",
+    { timeout: 10_000 },
+  );
+
+  const externalRequests: string[] = [];
+  const appOrigin = new URL(page.url()).origin;
+  let exporting = false;
+  page.on("request", (request) => {
+    if (!exporting) return;
+    const url = request.url();
+    if (
+      /^https?:\/\//i.test(url) &&
+      new URL(url).origin !== appOrigin
+    ) {
+      externalRequests.push(url);
+    }
+  });
+
+  const exportButton = page.getByRole("button", { name: "导出 PDF" });
+  await exportButton.evaluate((button) => {
+    const target = window as typeof window & {
+      __PRESHOT_PDF_PROGRESS_SEEN__?: boolean;
+    };
+    target.__PRESHOT_PDF_PROGRESS_SEEN__ = false;
+    const observer = new MutationObserver(() => {
+      if (button.textContent === "导出中…" && button.hasAttribute("disabled")) {
+        target.__PRESHOT_PDF_PROGRESS_SEEN__ = true;
+        observer.disconnect();
+      }
+    });
+    observer.observe(button, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+  });
+  const downloadPromise = page.waitForEvent("download");
+  exporting = true;
+  await exportButton.click();
+  const download = await downloadPromise;
+  const pdfPath = testInfo.outputPath("production-react-pdf.pdf");
+  await download.saveAs(pdfPath);
+  await expect(exportButton).toHaveText("导出 PDF", { timeout: 30_000 });
+  expect(await page.evaluate(() =>
+    (window as typeof window & {
+      __PRESHOT_PDF_PROGRESS_SEEN__?: boolean;
+    }).__PRESHOT_PDF_PROGRESS_SEEN__
+  )).toBe(true);
+  exporting = false;
+
+  const bytes = new Uint8Array(await readFile(pdfPath));
+  const pdf = await PDFDocument.load(bytes);
+  expect(new TextDecoder().decode(bytes.slice(0, 8))).toMatch(/^%PDF-/);
+  expect(download.suggestedFilename()).toBe("output.pdf");
+  expect(pdf.getPageCount()).toBeGreaterThanOrEqual(1);
+  expect(pdf.getPages()[0].getWidth()).toBeCloseTo(595.28, 1);
+  expect(pdf.getPages()[0].getHeight()).toBeCloseTo(841.89, 1);
+  expect(pdf.getPages().reduce(
+    (total, _page, index) => total + pageImageDrawCount(pdf, index),
+    0,
+  )).toBe(2);
+  const drawBoxes = pdf.getPages().flatMap((_page, index) =>
+    pageImageDrawBoxes(pdf, index)
+  );
+  expect(drawBoxes).toHaveLength(2);
+  expect(drawBoxes[0].width).not.toBeCloseTo(drawBoxes[1].width, 1);
+  expect(drawBoxes.every((box) =>
+    box.width > 0 &&
+    box.height > 0 &&
+    box.x >= 0 &&
+    box.y >= 0
+  )).toBe(true);
+  expect(externalRequests).toEqual([]);
+  await testInfo.attach("production React-PDF", {
+    path: pdfPath,
+    contentType: "application/pdf",
+  });
+
+  let textOrderVerified = false;
+  const textResult = spawnSync("pdftotext", [pdfPath, "-"], {
+    encoding: "utf8",
+  });
+  if (textResult.status === 0) {
+    const extracted = textResult.stdout;
+    expect(extracted.indexOf("浏览器导出验收第一段")).toBeGreaterThanOrEqual(0);
+    expect(extracted.indexOf("浏览器导出验收第二段")).toBeGreaterThan(
+      extracted.indexOf("浏览器导出验收第一段"),
+    );
+    expect(extracted).not.toMatch(/添加图片|删除图片组|打开菜单/);
+    textOrderVerified = true;
+  }
+
+  const pngBase = testInfo.outputPath("production-react-pdf-page-1");
+  const renderResult = spawnSync("pdftoppm", [
+    "-png",
+    "-f",
+    "1",
+    "-singlefile",
+    pdfPath,
+    pngBase,
+  ]);
+  let renderedDimensions: { width: number; height: number } | null = null;
+  let renderedPng: Uint8Array | null = null;
+  if (renderResult.status === 0) {
+    const pngPath = `${pngBase}.png`;
+    const png = new Uint8Array(await readFile(pngPath));
+    const dimensions = pngDimensions(png);
+    expect(dimensions.width / dimensions.height).toBeCloseTo(
+      595.28 / 841.89,
+      2,
+    );
+    renderedDimensions = dimensions;
+    renderedPng = png;
+    await testInfo.attach("production React-PDF page 1", {
+      path: pngPath,
+      contentType: "image/png",
+    });
+  }
+
+  const reviewArtifactDirectory =
+    process.env.PRESHOT_PDF_REVIEW_ARTIFACTS;
+  if (reviewArtifactDirectory) {
+    const directory = resolve(reviewArtifactDirectory);
+    await mkdir(directory, { recursive: true });
+    await writeFile(resolve(directory, "browser-production.pdf"), bytes);
+    if (renderedPng) {
+      await writeFile(
+        resolve(directory, "browser-production-page-1.png"),
+        renderedPng,
+      );
+    }
+    await writeFile(
+      resolve(directory, "browser-production-summary.json"),
+      JSON.stringify({
+        pageCount: pdf.getPageCount(),
+        pageSize: {
+          width: pdf.getPages()[0].getWidth(),
+          height: pdf.getPages()[0].getHeight(),
+        },
+        imageDrawBoxes: drawBoxes,
+        externalRequests,
+        textOrderVerified,
+        renderedDimensions,
+      }, null, 2),
+    );
+  }
 });
 
 test("blocks schema-v12 projects without opening the canvas", async ({ page }) => {

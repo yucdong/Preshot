@@ -11,8 +11,11 @@ import {
   type ReferenceComponent,
   type ReferenceImage,
 } from "../canvas/models";
+import type { NormalizedImageCrop } from "../canvas/imageView";
 import type {
   PlanMediaStore,
+  ReferenceImageCropTransaction,
+  ReferenceImageCropStore,
   ReferenceImageStore,
 } from "../ports";
 import type { WorkspaceLogger } from "../../workspace/ports";
@@ -21,6 +24,7 @@ import type { BlockNotePlanRepository } from "./ports";
 interface Dependencies {
   repository: BlockNotePlanRepository;
   imageStore: ReferenceImageStore;
+  imageCropStore: ReferenceImageCropStore;
   mediaStore: PlanMediaStore;
   createId(): string;
   logger: WorkspaceLogger;
@@ -57,6 +61,17 @@ export interface BlockNotePlanService {
   ): Promise<{
     plan: ProjectPlanV14;
     images: Array<{ image: ReferenceImage; dataUrl: string }>;
+  }>;
+  commitImageCrop(
+    projectPath: string,
+    plan: ProjectPlanV14,
+    groupId: string,
+    imageId: string,
+    crop: NormalizedImageCrop,
+  ): Promise<{
+    plan: ProjectPlanV14;
+    image: ReferenceImage;
+    dataUrl: string;
   }>;
   removeImage(
     projectPath: string,
@@ -97,11 +112,18 @@ function schemaVersionOf(raw: unknown): number | null {
 export function createBlockNotePlanService({
   repository,
   imageStore,
+  imageCropStore,
   mediaStore,
   createId,
   logger,
 }: Dependencies): BlockNotePlanService {
   let queue: Promise<void> = Promise.resolve();
+  const projectRevisions = new Map<string, number>();
+  const committedCrops = new Map<string, Map<string, {
+    revision: number;
+    width: number;
+    height: number;
+  }>>();
 
   function enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const run = queue.then(operation, operation);
@@ -110,6 +132,74 @@ export function createBlockNotePlanService({
       () => undefined,
     );
     return run;
+  }
+
+  function revisionOf(projectPath: string): number {
+    return projectRevisions.get(projectPath) ?? 0;
+  }
+
+  function cleanupCommittedCrop(
+    transaction: ReferenceImageCropTransaction,
+    file: string,
+  ): void {
+    void Promise.resolve().then(() => transaction.commit()).catch((error) => {
+      logger.warn("BlockNote reference image crop backup cleanup deferred", {
+        file,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      void Promise.resolve().then(() => transaction.commit()).catch((retryError) => {
+        logger.warn("BlockNote reference image crop backup cleanup remains pending", {
+          file,
+          error: retryError instanceof Error
+            ? retryError.message
+            : String(retryError),
+        });
+      });
+    });
+  }
+
+  function withCropMetadata(
+    image: ReferenceImage,
+    width: number,
+    height: number,
+  ): ReferenceImage {
+    const aspectRatio = width / height;
+    const frameHeight = Number.isFinite(image.frameHeight) && image.frameHeight > 0
+      ? image.frameHeight
+      : DEFAULT_IMAGE_HEIGHT;
+    return {
+      ...image,
+      aspectRatio,
+      sourceWidth: width,
+      sourceHeight: height,
+      frameWidth: frameHeight * aspectRatio,
+      frameHeight,
+      frameOffsetX: 0,
+      frameOffsetY: 0,
+      crop: { x: 0, y: 0, width: 1, height: 1 },
+    };
+  }
+
+  function coalesceCommittedCrops(
+    projectPath: string,
+    plan: ProjectPlanV14,
+    requestedRevision: number,
+  ): ProjectPlanV14 {
+    const crops = committedCrops.get(projectPath);
+    if (!crops) return plan;
+    let changed = false;
+    const imageGroups = plan.imageGroups.map((group) => {
+      let groupChanged = false;
+      const images = group.images.map((image) => {
+        const crop = crops.get(image.file);
+        if (!crop || crop.revision <= requestedRevision) return image;
+        changed = true;
+        groupChanged = true;
+        return withCropMetadata(image, crop.width, crop.height);
+      });
+      return groupChanged ? { ...group, images } : group;
+    });
+    return changed ? { ...plan, imageGroups } : plan;
   }
 
   function referencesFile(plan: ProjectPlanV14, file: string): boolean {
@@ -131,6 +221,47 @@ export function createBlockNotePlanService({
       return next;
     });
     return changed ? { ...plan, imageGroups } : plan;
+  }
+
+  function cropBounds(
+    image: ReferenceImage,
+    crop: NormalizedImageCrop,
+  ) {
+    const values = [crop.x, crop.y, crop.width, crop.height];
+    if (
+      values.some((value) => !Number.isFinite(value)) ||
+      crop.x < 0 ||
+      crop.y < 0 ||
+      crop.width <= 0 ||
+      crop.height <= 0 ||
+      crop.x + crop.width > 1 ||
+      crop.y + crop.height > 1
+    ) {
+      throw new Error(`Unable to commit crop for reference image "${image.file}": crop bounds are invalid`);
+    }
+    if (
+      typeof image.sourceWidth !== "number" ||
+      typeof image.sourceHeight !== "number" ||
+      !Number.isInteger(image.sourceWidth) ||
+      !Number.isInteger(image.sourceHeight) ||
+      image.sourceWidth <= 0 ||
+      image.sourceHeight <= 0
+    ) {
+      throw new Error(`Unable to commit crop for reference image "${image.file}": source pixel dimensions are unavailable`);
+    }
+    const sourceWidth = image.sourceWidth;
+    const sourceHeight = image.sourceHeight;
+    const pairedEdges = (start: number, length: number, size: number) => {
+      const first = Math.min(size - 1, Math.max(0, Math.round(start * size)));
+      const last = Math.min(
+        size,
+        Math.max(first + 1, Math.round((start + length) * size)),
+      );
+      return [first, last] as const;
+    };
+    const [x, right] = pairedEdges(crop.x, crop.width, sourceWidth);
+    const [y, bottom] = pairedEdges(crop.y, crop.height, sourceHeight);
+    return { x, y, width: right - x, height: bottom - y };
   }
 
   return {
@@ -157,8 +288,16 @@ export function createBlockNotePlanService({
       }
       return { status: "loaded", plan: validateProjectPlanV14(raw) };
     },
-    async savePlan(projectPath, plan) {
-      await repository.saveRawPlan(projectPath, validateProjectPlanV14(plan));
+    savePlan(projectPath, plan) {
+      const requestedRevision = revisionOf(projectPath);
+      return enqueue(() =>
+        repository.saveRawPlan(
+          projectPath,
+          validateProjectPlanV14(
+            coalesceCommittedCrops(projectPath, plan, requestedRevision),
+          ),
+        )
+      );
     },
     async loadImage(projectPath, file) {
       return imageStore.loadImage(projectPath, file);
@@ -195,6 +334,112 @@ export function createBlockNotePlanService({
           count: imported.length,
         });
         return { plan: next, images: imported };
+      });
+    },
+    commitImageCrop(projectPath, plan, groupId, imageId, crop) {
+      const requestedRevision = revisionOf(projectPath);
+      return enqueue(async () => {
+        const currentPlan = coalesceCommittedCrops(
+          projectPath,
+          plan,
+          requestedRevision,
+        );
+        const target = currentPlan.imageGroups
+          .find((group) => group.id === groupId)
+          ?.images.find((image) => image.id === imageId);
+        if (!target) {
+          throw new Error(`Unable to commit crop for reference image "${imageId}": image was not found`);
+        }
+        const bounds = cropBounds(target, crop);
+        let transaction;
+        try {
+          transaction = await imageCropStore.beginImageCrop(projectPath, {
+            file: target.file,
+            bounds,
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `Unable to commit crop for reference image "${target.file}": ${message}`,
+            { cause: error },
+          );
+        }
+        const overwritten = transaction.image;
+        if (
+          overwritten.file !== target.file ||
+          !Number.isInteger(overwritten.width) ||
+          !Number.isInteger(overwritten.height) ||
+          overwritten.width <= 0 ||
+          overwritten.height <= 0
+        ) {
+          try {
+            await transaction.rollback();
+          } catch (rollbackError) {
+            throw new Error(
+              `Unable to commit crop for reference image "${target.file}": malformed overwrite result; rollback also failed: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
+              { cause: rollbackError },
+            );
+          }
+          throw new Error(`Unable to commit crop for reference image "${target.file}": malformed overwrite result`);
+        }
+        let updatedTarget: ReferenceImage | undefined;
+        const imageGroups = currentPlan.imageGroups.map((group) => ({
+          ...group,
+          images: group.images.map((image) => {
+            if (image.file !== target.file) return image;
+            const updated = withCropMetadata(
+              image,
+              overwritten.width,
+              overwritten.height,
+            );
+            if (image.id === imageId && group.id === groupId) {
+              updatedTarget = updated;
+            }
+            return updated;
+          }),
+        }));
+        const next = { ...currentPlan, imageGroups };
+        try {
+          await repository.saveRawPlan(projectPath, next);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          let rollbackContext = "";
+          try {
+            await transaction.rollback();
+          } catch (rollbackError) {
+            rollbackContext = `; rollback also failed: ${
+              rollbackError instanceof Error
+                ? rollbackError.message
+                : String(rollbackError)
+            }`;
+          }
+          throw new Error(
+            `Reference image "${target.file}" crop metadata could not be saved: ${message}${rollbackContext}`,
+            { cause: error },
+          );
+        }
+        const revision = revisionOf(projectPath) + 1;
+        projectRevisions.set(projectPath, revision);
+        const crops = committedCrops.get(projectPath) ?? new Map();
+        crops.set(target.file, {
+          revision,
+          width: overwritten.width,
+          height: overwritten.height,
+        });
+        committedCrops.set(projectPath, crops);
+        cleanupCommittedCrop(transaction, target.file);
+        logger.info("BlockNote reference image crop committed", {
+          groupId,
+          imageId,
+          file: target.file,
+          width: overwritten.width,
+          height: overwritten.height,
+        });
+        return {
+          plan: next,
+          image: updatedTarget ?? target,
+          dataUrl: overwritten.dataUrl,
+        };
       });
     },
     removeImage(projectPath, plan, groupId, imageId) {
