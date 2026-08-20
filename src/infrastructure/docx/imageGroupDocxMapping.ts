@@ -290,12 +290,17 @@ export function buildPreshotDocxImageGroupCompositeRequest(
     usableHeightWithSafety -
       DOCX_IMAGE_GROUP_PAGE_EPSILON_POINTS,
   );
-  const docxOversizedScale =
+  const docxPageHeightScale =
     group.pdf.unscaledFlowHeight > usableHeightWithSafety
       ? fittedHeight / group.pdf.unscaledFlowHeight
       : 1;
+  const docxExportOnlyGroupPhysicalScale = Math.min(
+    group.pdf.exportOnlyGroupPhysicalScale,
+    docxPageHeightScale,
+  );
   const geometryScale =
-    docxOversizedScale / group.pdf.oversizedScale;
+    docxExportOnlyGroupPhysicalScale /
+    group.pdf.exportOnlyGroupPhysicalScale;
   const displayWidth = rounded(group.pdf.width * geometryScale);
   const displayHeight = rounded(group.pdf.flowHeight * geometryScale);
   const indent = rounded(group.pdf.x * geometryScale);

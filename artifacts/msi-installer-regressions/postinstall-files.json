@@ -1,0 +1,17 @@
+{
+  "InstallPath": "C:\\Users\\dongyuchen\\AppData\\Local\\Programs\\Preshot",
+  "InstallExists": true,
+  "Files": [
+    {
+      "FullName": "C:\\Users\\dongyuchen\\AppData\\Local\\Programs\\Preshot\\preshot.exe",
+      "Length": 23836160,
+      "SHA256": "e1d605d80f5c555e72664fe62d3c631ab3f5bd2e2f79e3c00e1b9ebf870adfdb"
+    }
+  ],
+  "StartMenuPath": "C:\\Users\\dongyuchen\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Preshot\\Preshot.lnk",
+  "StartMenuExists": true,
+  "DesktopPath": "C:\\Users\\dongyuchen\\Desktop\\Preshot.lnk",
+  "DesktopExists": false,
+  "PublicDesktopPath": "C:\\Users\\Public\\Desktop\\Preshot.lnk",
+  "PublicDesktopExists": false
+}

@@ -4,6 +4,7 @@ use std::{
     io::ErrorKind,
     path::{Component, Path, PathBuf},
     sync::{Mutex, MutexGuard},
+    thread,
     time::{Duration, Instant},
 };
 
@@ -16,6 +17,9 @@ use crate::error::CommandError;
 const MANIFEST_FILE_NAME: &str = ".preshotproj";
 const LEGACY_MANIFEST_FILE_NAME: &str = ".preshot";
 const MANIFEST_TEMP_FILE_NAME: &str = ".preshotproj.tmp";
+const STARTER_PROJECT_NAME: &str = "Preshot 入门示例";
+const STARTER_CONTENTION_ATTEMPTS: usize = 100;
+const STARTER_CONTENTION_DELAY: Duration = Duration::from_millis(10);
 const MAX_COVER_BYTES: u64 = 16 * 1024 * 1024;
 const PENDING_ROLLBACK_TTL: Duration = Duration::from_secs(60);
 const RESERVED_WINDOWS_NAMES: [&str; 22] = [
@@ -54,6 +58,34 @@ pub struct CreatedProject {
     pub rollback_token: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisteredProjectIdentity {
+    pub project_id: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserDataRoots {
+    pub user_root: String,
+    pub projects_root: String,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserDataBootstrapResult {
+    pub roots: UserDataRoots,
+    pub project: Option<InspectedProject>,
+    pub rollback_token: Option<String>,
+}
+
+#[derive(Debug)]
+struct StarterProject {
+    project: InspectedProject,
+    created: bool,
+}
+
 #[derive(Debug, Clone)]
 struct ResolvedCover {
     absolute_path: PathBuf,
@@ -65,6 +97,7 @@ struct ResolvedCover {
 struct PendingProjectRollback {
     project_path: PathBuf,
     project_id: String,
+    manifest_bytes: Vec<u8>,
     created_at: Instant,
 }
 
@@ -74,14 +107,20 @@ pub struct PendingProjectRollbacks {
 }
 
 impl PendingProjectRollbacks {
-    fn register(&self, project_path: PathBuf, project_id: String) -> String {
-        self.register_with_instant(project_path, project_id, Instant::now())
+    fn register(
+        &self,
+        project_path: PathBuf,
+        project_id: String,
+        manifest_bytes: Vec<u8>,
+    ) -> String {
+        self.register_with_instant(project_path, project_id, manifest_bytes, Instant::now())
     }
 
     fn register_with_instant(
         &self,
         project_path: PathBuf,
         project_id: String,
+        manifest_bytes: Vec<u8>,
         created_at: Instant,
     ) -> String {
         let token = Uuid::new_v4().to_string();
@@ -92,6 +131,7 @@ impl PendingProjectRollbacks {
             PendingProjectRollback {
                 project_path,
                 project_id,
+                manifest_bytes,
                 created_at,
             },
         );
@@ -248,9 +288,215 @@ fn default_projects_path_in(home: &Path) -> Result<PathBuf, CommandError> {
     Ok(dir)
 }
 
+fn ensure_user_data_roots_in(user_root: &Path) -> Result<UserDataRoots, CommandError> {
+    fs::create_dir_all(user_root).map_err(|error| {
+        CommandError::new(
+            "user_root_create_failed",
+            format!("Unable to create the Preshot user data directory: {error}"),
+        )
+    })?;
+    let projects_root = default_projects_path_in(user_root)?;
+    let user_root = user_root.canonicalize().map_err(|error| {
+        CommandError::new(
+            "user_root_access_failed",
+            format!("Unable to access the Preshot user data directory: {error}"),
+        )
+    })?;
+    let projects_root = projects_root.canonicalize().map_err(|error| {
+        CommandError::new(
+            "projects_root_access_failed",
+            format!("Unable to access the Preshot projects directory: {error}"),
+        )
+    })?;
+    Ok(UserDataRoots {
+        user_root: path_to_string(&user_root),
+        projects_root: path_to_string(&projects_root),
+    })
+}
+
+fn ensure_user_data_roots_for_current_user() -> Result<UserDataRoots, CommandError> {
+    ensure_user_data_roots_in(&preshot_home()?)
+}
+
 /// Returns `~/.preshot/projects`, creating it if missing.
 fn default_projects_path() -> Result<PathBuf, CommandError> {
     default_projects_path_in(&preshot_home()?)
+}
+
+fn starter_project_plan() -> serde_json::Value {
+    let intro = [
+        "欢迎使用 Preshot。这是一份可以直接编辑的入门拍摄方案。",
+        "在这里写下拍摄目标、镜头清单、时间安排和现场提醒。",
+        "你可以修改或删除这些文字，也可以继续添加图片、表格和更多内容。",
+    ];
+    let blocks = intro
+        .into_iter()
+        .map(|text| {
+            serde_json::json!({
+                "id": Uuid::new_v4().to_string(),
+                "type": "paragraph",
+                "props": {},
+                "content": [{
+                    "type": "text",
+                    "text": text,
+                    "styles": {}
+                }],
+                "children": []
+            })
+        })
+        .collect::<Vec<_>>();
+
+    serde_json::json!({
+        "schemaVersion": 14,
+        "title": STARTER_PROJECT_NAME,
+        "document": {
+            "format": "preshot-blocks",
+            "version": 2,
+            "blocks": blocks
+        },
+        "imageGroups": []
+    })
+}
+
+fn create_starter_project_in(projects_root: &Path) -> Result<StarterProject, CommandError> {
+    create_starter_project_in_with_manifest_writer(projects_root, &write_manifest_atomically)
+}
+
+fn create_starter_project_in_with_manifest_writer<F>(
+    projects_root: &Path,
+    manifest_writer: &F,
+) -> Result<StarterProject, CommandError>
+where
+    F: Fn(&Path, &ProjectManifest) -> Result<(), CommandError>,
+{
+    let projects_root = canonicalize_directory(
+        projects_root,
+        "projects_root_not_found",
+        "projects_root_not_directory",
+    )?;
+    let project_path = projects_root.join(STARTER_PROJECT_NAME);
+
+    match fs::create_dir(&project_path) {
+        Ok(()) => {
+            let now = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
+            let manifest = ProjectManifest {
+                schema_version: 1,
+                id: Uuid::new_v4().to_string(),
+                name: STARTER_PROJECT_NAME.to_string(),
+                created_at: now.clone(),
+                updated_at: now,
+                cover_image: None,
+                plan: Some(starter_project_plan()),
+            };
+            if let Err(error) = manifest_writer(&project_path, &manifest) {
+                remove_dir_if_empty(&project_path);
+                return Err(error);
+            }
+            Ok(StarterProject {
+                project: inspect_project_directory(&project_path)?,
+                created: true,
+            })
+        }
+        Err(error) if error.kind() == ErrorKind::AlreadyExists => {
+            for _ in 0..STARTER_CONTENTION_ATTEMPTS {
+                if let Ok(project) = inspect_project_directory(&project_path) {
+                    return Ok(StarterProject {
+                        project,
+                        created: false,
+                    });
+                }
+                thread::sleep(STARTER_CONTENTION_DELAY);
+            }
+            Err(CommandError::new(
+                "starter_project_conflict",
+                format!(
+                    "The starter project path already exists but is not a valid Preshot project: {}",
+                    path_to_string(&project_path)
+                ),
+            ))
+        }
+        Err(error) => Err(CommandError::new(
+            "starter_directory_create_failed",
+            format!("Unable to create the starter project directory: {error}"),
+        )),
+    }
+}
+
+fn discover_valid_project(projects_root: &Path) -> Result<Option<InspectedProject>, CommandError> {
+    let mut paths = fs::read_dir(projects_root)
+        .map_err(|error| {
+            CommandError::new(
+                "projects_root_read_failed",
+                format!("Unable to enumerate the default projects directory: {error}"),
+            )
+        })?
+        .map(|entry| {
+            entry.map(|entry| entry.path()).map_err(|error| {
+                CommandError::new(
+                    "projects_root_read_failed",
+                    format!("Unable to enumerate the default projects directory: {error}"),
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    paths.sort();
+
+    for path in paths {
+        if path.is_dir() {
+            if let Ok(project) = inspect_project_directory(&path) {
+                return Ok(Some(project));
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn has_available_registered_project(registered_projects: &[RegisteredProjectIdentity]) -> bool {
+    registered_projects.iter().any(|registered| {
+        inspect_project_directory(Path::new(&registered.path))
+            .map(|project| project.manifest.id == registered.project_id)
+            .unwrap_or(false)
+    })
+}
+
+fn bootstrap_user_data_in(
+    user_root: &Path,
+    registered_projects: &[RegisteredProjectIdentity],
+    pending_rollbacks: &PendingProjectRollbacks,
+) -> Result<UserDataBootstrapResult, CommandError> {
+    let roots = ensure_user_data_roots_in(user_root)?;
+    if has_available_registered_project(registered_projects) {
+        return Ok(UserDataBootstrapResult {
+            roots,
+            project: None,
+            rollback_token: None,
+        });
+    }
+
+    let projects_root = PathBuf::from(&roots.projects_root);
+    if let Some(project) = discover_valid_project(&projects_root)? {
+        return Ok(UserDataBootstrapResult {
+            roots,
+            project: Some(project),
+            rollback_token: None,
+        });
+    }
+
+    let starter = create_starter_project_in(&projects_root)?;
+    let rollback_token = if starter.created {
+        Some(pending_rollbacks.register(
+            PathBuf::from(&starter.project.path),
+            starter.project.manifest.id.clone(),
+            encode_manifest(&starter.project.manifest)?,
+        ))
+    } else {
+        None
+    };
+    Ok(UserDataBootstrapResult {
+        roots,
+        project: Some(starter.project),
+        rollback_token,
+    })
 }
 
 fn create_project_in_with_manifest_writer<F>(
@@ -299,12 +545,7 @@ pub(crate) fn write_manifest_atomically(
 ) -> Result<(), CommandError> {
     let temporary_path = project.join(MANIFEST_TEMP_FILE_NAME);
     let manifest_path = project.join(MANIFEST_FILE_NAME);
-    let manifest_bytes = serde_json::to_vec_pretty(manifest).map_err(|error| {
-        CommandError::new(
-            "manifest_encode_failed",
-            format!("Unable to encode project manifest: {error}"),
-        )
-    })?;
+    let manifest_bytes = encode_manifest(manifest)?;
 
     if let Err(error) = fs::write(&temporary_path, manifest_bytes) {
         remove_file_if_exists(&temporary_path);
@@ -323,6 +564,15 @@ pub(crate) fn write_manifest_atomically(
     }
 
     Ok(())
+}
+
+fn encode_manifest(manifest: &ProjectManifest) -> Result<Vec<u8>, CommandError> {
+    serde_json::to_vec_pretty(manifest).map_err(|error| {
+        CommandError::new(
+            "manifest_encode_failed",
+            format!("Unable to encode project manifest: {error}"),
+        )
+    })
 }
 
 pub(crate) fn read_manifest(project_path: &Path) -> Result<ProjectManifest, CommandError> {
@@ -589,26 +839,34 @@ fn encode_cover_data_url(cover: &ResolvedCover) -> Result<String, CommandError> 
 pub fn rollback_created_project_directory(
     path: &Path,
     project_id: &str,
+    expected_manifest_bytes: &[u8],
 ) -> Result<(), CommandError> {
-    rollback_created_project_directory_with_hook(path, project_id, &|_| {})
+    rollback_created_project_directory_with_hooks(
+        path,
+        project_id,
+        expected_manifest_bytes,
+        &|_| {},
+        &|_| {},
+    )
 }
 
-fn rollback_created_project_directory_with_hook<F>(
+fn rollback_created_project_directory_with_hooks<F, G>(
     path: &Path,
     project_id: &str,
-    after_quarantine: &F,
+    expected_manifest_bytes: &[u8],
+    before_quarantine: &F,
+    after_quarantine: &G,
 ) -> Result<(), CommandError>
 where
     F: Fn(&Path),
+    G: Fn(&Path),
 {
     let project_path = canonicalize_directory(path, "project_not_found", "project_not_directory")?;
-    let inspected = inspect_project_directory(&project_path)?;
-
-    if inspected.manifest.id != project_id {
-        return Err(rollback_id_mismatch());
-    }
-
+    let manifest_bytes = read_manifest_bytes(&project_path)?;
+    ensure_manifest_matches_project_id(&manifest_bytes, project_id)?;
+    ensure_manifest_is_unchanged(&manifest_bytes, expected_manifest_bytes)?;
     ensure_marker_only_directory(&project_path)?;
+    before_quarantine(&project_path);
 
     let quarantine_path = unique_quarantine_path(&project_path);
     fs::rename(&project_path, &quarantine_path).map_err(|error| {
@@ -624,6 +882,7 @@ where
     let rollback_result = (|| {
         let bytes = read_manifest_bytes(&quarantine_path)?;
         ensure_manifest_matches_project_id(&bytes, project_id)?;
+        ensure_manifest_is_unchanged(&bytes, expected_manifest_bytes)?;
         ensure_marker_only_directory(&quarantine_path)?;
         manifest_bytes = Some(bytes);
 
@@ -657,7 +916,11 @@ fn rollback_created_project_with_token(
     rollback_token: &str,
 ) -> Result<(), CommandError> {
     let pending = pending_rollbacks.take(rollback_token)?;
-    rollback_created_project_directory(&pending.project_path, &pending.project_id)
+    rollback_created_project_directory(
+        &pending.project_path,
+        &pending.project_id,
+        &pending.manifest_bytes,
+    )
 }
 
 #[tauri::command]
@@ -667,13 +930,29 @@ pub fn create_project(
     name: String,
 ) -> Result<CreatedProject, CommandError> {
     let project = create_project_in(Path::new(&parent_path), &name)?;
-    let rollback_token =
-        pending_rollbacks.register(PathBuf::from(&project.path), project.manifest.id.clone());
+    let rollback_token = pending_rollbacks.register(
+        PathBuf::from(&project.path),
+        project.manifest.id.clone(),
+        encode_manifest(&project.manifest)?,
+    );
 
     Ok(CreatedProject {
         project,
         rollback_token,
     })
+}
+
+#[tauri::command]
+pub fn ensure_user_data_roots() -> Result<UserDataRoots, CommandError> {
+    ensure_user_data_roots_for_current_user()
+}
+
+#[tauri::command]
+pub fn bootstrap_user_data(
+    pending_rollbacks: tauri::State<'_, PendingProjectRollbacks>,
+    registered_projects: Vec<RegisteredProjectIdentity>,
+) -> Result<UserDataBootstrapResult, CommandError> {
+    bootstrap_user_data_in(&preshot_home()?, &registered_projects, &pending_rollbacks)
 }
 
 #[tauri::command]
@@ -721,6 +1000,13 @@ fn rollback_id_mismatch() -> CommandError {
     CommandError::new(
         "rollback_id_mismatch",
         "The project ID does not match the requested rollback target",
+    )
+}
+
+fn rollback_manifest_changed() -> CommandError {
+    CommandError::new(
+        "rollback_manifest_changed",
+        "The project manifest changed after rollback authorization was issued",
     )
 }
 
@@ -788,6 +1074,17 @@ fn ensure_manifest_matches_project_id(
 
     if manifest.id != project_id {
         return Err(rollback_id_mismatch());
+    }
+
+    Ok(())
+}
+
+fn ensure_manifest_is_unchanged(
+    manifest_bytes: &[u8],
+    expected_manifest_bytes: &[u8],
+) -> Result<(), CommandError> {
+    if manifest_bytes != expected_manifest_bytes {
+        return Err(rollback_manifest_changed());
     }
 
     Ok(())
@@ -909,6 +1206,7 @@ mod tests {
     use std::{
         fs,
         path::{Path, PathBuf},
+        sync::{Arc, Barrier},
         time::{Duration, Instant},
     };
     use tempfile::TempDir;
@@ -1014,6 +1312,196 @@ mod tests {
         let dir = default_projects_path_in(home.path()).unwrap();
         assert_eq!(dir, home.path().join("projects"));
         assert!(dir.is_dir());
+    }
+
+    #[test]
+    fn bootstrap_creates_absent_roots_and_one_schema_14_starter() {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = profile.path().join(".preshot");
+        let pending = PendingProjectRollbacks::default();
+
+        let result = bootstrap_user_data_in(&user_root, &[], &pending).unwrap();
+        let project = result.project.unwrap();
+        let plan = project.manifest.plan.unwrap();
+
+        assert!(user_root.is_dir());
+        assert!(user_root.join("projects").is_dir());
+        assert_eq!(project.manifest.name, STARTER_PROJECT_NAME);
+        assert_eq!(plan["schemaVersion"], 14);
+        assert_eq!(plan["document"]["version"], 2);
+        assert_eq!(plan["imageGroups"], serde_json::json!([]));
+        assert_eq!(plan["document"]["blocks"].as_array().unwrap().len(), 3);
+        assert!(result.rollback_token.is_some());
+        assert_eq!(fs::read_dir(user_root.join("projects")).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn bootstrap_uses_an_empty_existing_root_without_overwriting_settings() {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = profile.path().join(".preshot");
+        fs::create_dir_all(user_root.join("projects")).unwrap();
+        let settings = br#"{"theme":"dark","keep":true}"#;
+        fs::write(user_root.join("settings.json"), settings).unwrap();
+
+        let result =
+            bootstrap_user_data_in(&user_root, &[], &PendingProjectRollbacks::default()).unwrap();
+
+        assert!(result.project.is_some());
+        assert_eq!(fs::read(user_root.join("settings.json")).unwrap(), settings);
+    }
+
+    #[test]
+    fn bootstrap_skips_creation_for_an_available_registered_project() {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = profile.path().join(".preshot");
+        let elsewhere = tempfile::tempdir().unwrap();
+        let registered = create_project_in(elsewhere.path(), "Authoritative").unwrap();
+        let identities = [RegisteredProjectIdentity {
+            project_id: registered.manifest.id,
+            path: registered.path,
+        }];
+
+        let result =
+            bootstrap_user_data_in(&user_root, &identities, &PendingProjectRollbacks::default())
+                .unwrap();
+
+        assert!(result.project.is_none());
+        assert!(result.rollback_token.is_none());
+        assert_eq!(fs::read_dir(user_root.join("projects")).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn bootstrap_adopts_a_valid_unregistered_default_root_project() {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = profile.path().join(".preshot");
+        let roots = ensure_user_data_roots_in(&user_root).unwrap();
+        let existing = create_project_in(Path::new(&roots.projects_root), "Existing").unwrap();
+
+        let result =
+            bootstrap_user_data_in(&user_root, &[], &PendingProjectRollbacks::default()).unwrap();
+
+        assert_eq!(result.project.unwrap().manifest.id, existing.manifest.id);
+        assert!(result.rollback_token.is_none());
+        assert!(!Path::new(&roots.projects_root)
+            .join(STARTER_PROJECT_NAME)
+            .exists());
+    }
+
+    #[test]
+    fn second_bootstrap_reuses_the_registered_starter() {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = profile.path().join(".preshot");
+        let pending = PendingProjectRollbacks::default();
+        let first = bootstrap_user_data_in(&user_root, &[], &pending).unwrap();
+        let first_project = first.project.unwrap();
+        let identities = [RegisteredProjectIdentity {
+            project_id: first_project.manifest.id.clone(),
+            path: first_project.path.clone(),
+        }];
+
+        let second = bootstrap_user_data_in(&user_root, &identities, &pending).unwrap();
+
+        assert!(second.project.is_none());
+        assert!(second.rollback_token.is_none());
+        assert_eq!(fs::read_dir(user_root.join("projects")).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn concurrent_bootstrap_creates_exactly_one_starter() {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = Arc::new(profile.path().join(".preshot"));
+        let barrier = Arc::new(Barrier::new(2));
+        let handles = (0..2)
+            .map(|_| {
+                let user_root = Arc::clone(&user_root);
+                let barrier = Arc::clone(&barrier);
+                thread::spawn(move || {
+                    barrier.wait();
+                    bootstrap_user_data_in(&user_root, &[], &PendingProjectRollbacks::default())
+                        .unwrap()
+                })
+            })
+            .collect::<Vec<_>>();
+        let results = handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect::<Vec<_>>();
+
+        let ids = results
+            .iter()
+            .map(|result| result.project.as_ref().unwrap().manifest.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(ids[0], ids[1]);
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| result.rollback_token.is_some())
+                .count(),
+            1
+        );
+        assert_eq!(fs::read_dir(user_root.join("projects")).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn root_creation_failure_is_actionable_and_preserves_the_existing_file() {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = profile.path().join(".preshot");
+        fs::write(&user_root, "authoritative").unwrap();
+
+        let error = ensure_user_data_roots_in(&user_root).unwrap_err();
+
+        assert_eq!(error.code, "user_root_create_failed");
+        assert_eq!(fs::read_to_string(user_root).unwrap(), "authoritative");
+    }
+
+    #[test]
+    fn starter_manifest_write_failure_removes_only_the_new_empty_attempt() {
+        let projects_root = tempfile::tempdir().unwrap();
+        fs::write(projects_root.path().join("existing.txt"), "keep").unwrap();
+
+        let error =
+            create_starter_project_in_with_manifest_writer(projects_root.path(), &|_, _| {
+                Err(CommandError::new(
+                    "manifest_write_failed",
+                    "simulated permission failure",
+                ))
+            })
+            .unwrap_err();
+
+        assert_eq!(error.code, "manifest_write_failed");
+        assert!(!projects_root.path().join(STARTER_PROJECT_NAME).exists());
+        assert_eq!(
+            fs::read_to_string(projects_root.path().join("existing.txt")).unwrap(),
+            "keep"
+        );
+    }
+
+    #[test]
+    fn bootstrap_adopts_and_migrates_a_legacy_default_root_manifest() {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = profile.path().join(".preshot");
+        let roots = ensure_user_data_roots_in(&user_root).unwrap();
+        let legacy_path = Path::new(&roots.projects_root).join("Legacy");
+        fs::create_dir(&legacy_path).unwrap();
+        fs::write(
+            legacy_path.join(LEGACY_MANIFEST_FILE_NAME),
+            serde_json::to_vec_pretty(&json!({
+                "schemaVersion": 1,
+                "id": "487cbc59-e196-4900-80d3-7221e64eb181",
+                "name": "Legacy",
+                "createdAt": "2026-07-27T17:00:00.000Z",
+                "updatedAt": "2026-07-27T17:00:00.000Z"
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let result =
+            bootstrap_user_data_in(&user_root, &[], &PendingProjectRollbacks::default()).unwrap();
+
+        assert_eq!(result.project.unwrap().manifest.name, "Legacy");
+        assert!(result.rollback_token.is_none());
+        assert!(legacy_path.join(MANIFEST_FILE_NAME).is_file());
     }
 
     #[test]
@@ -1190,8 +1678,10 @@ mod tests {
         let parent = tempfile::tempdir().unwrap();
         let created = create_project_in(parent.path(), "Rollback").unwrap();
         let project_path = parent.path().join("Rollback");
+        let manifest_bytes = read_manifest_bytes(&project_path).unwrap();
 
-        rollback_created_project_directory(&project_path, &created.manifest.id).unwrap();
+        rollback_created_project_directory(&project_path, &created.manifest.id, &manifest_bytes)
+            .unwrap();
 
         assert!(!project_path.exists());
     }
@@ -1201,17 +1691,23 @@ mod tests {
         let parent = tempfile::tempdir().unwrap();
         let created = create_project_in(parent.path(), "Protected").unwrap();
         let project_path = parent.path().join("Protected");
+        let manifest_bytes = read_manifest_bytes(&project_path).unwrap();
 
         let error = rollback_created_project_directory(
             &project_path,
             "00000000-0000-0000-0000-000000000000",
+            &manifest_bytes,
         )
         .unwrap_err();
         assert_eq!(error.code, "rollback_id_mismatch");
 
         fs::write(project_path.join("notes.txt"), "keep me").unwrap();
-        let error =
-            rollback_created_project_directory(&project_path, &created.manifest.id).unwrap_err();
+        let error = rollback_created_project_directory(
+            &project_path,
+            &created.manifest.id,
+            &manifest_bytes,
+        )
+        .unwrap_err();
         assert_eq!(error.code, "rollback_not_empty");
     }
 
@@ -1225,12 +1721,14 @@ mod tests {
         let token = pending.register_with_instant(
             project_path.clone(),
             "project-1".to_string(),
+            b"original manifest".to_vec(),
             Instant::now(),
         );
 
         let authorized = pending.take(&token).unwrap();
         assert_eq!(authorized.project_path, project_path);
         assert_eq!(authorized.project_id, "project-1");
+        assert_eq!(authorized.manifest_bytes, b"original manifest");
 
         let reused = pending.take(&token).unwrap_err();
         assert_eq!(reused.code, "rollback_not_authorized");
@@ -1238,6 +1736,7 @@ mod tests {
         let expired_token = pending.register_with_instant(
             PathBuf::from(r"C:\projects\Preshot\expired"),
             "project-expired".to_string(),
+            b"expired manifest".to_vec(),
             Instant::now() - PENDING_ROLLBACK_TTL - Duration::from_secs(1),
         );
         let expired = pending.take(&expired_token).unwrap_err();
@@ -1245,20 +1744,25 @@ mod tests {
     }
 
     #[test]
-    fn token_rollback_refuses_an_inspected_project_id_without_the_matching_token() {
+    fn token_rollback_refuses_tampering_and_an_id_used_as_a_token() {
         let parent = tempfile::tempdir().unwrap();
         let created = create_project_in(parent.path(), "Protected").unwrap();
         let pending = PendingProjectRollbacks::default();
         let token = pending.register_with_instant(
             PathBuf::from(&created.path),
             created.manifest.id.clone(),
+            read_manifest_bytes(Path::new(&created.path)).unwrap(),
             Instant::now(),
         );
 
-        let error =
+        let id_error =
             rollback_created_project_with_token(&pending, &created.manifest.id).unwrap_err();
+        let tampered_error =
+            rollback_created_project_with_token(&pending, &format!("{token}-tampered"))
+                .unwrap_err();
 
-        assert_eq!(error.code, "rollback_not_authorized");
+        assert_eq!(id_error.code, "rollback_not_authorized");
+        assert_eq!(tampered_error.code, "rollback_not_authorized");
         assert!(Path::new(&created.path).exists());
 
         let stored = pending.take(&token).unwrap();
@@ -1270,10 +1774,13 @@ mod tests {
         let parent = tempfile::tempdir().unwrap();
         let created = create_project_in(parent.path(), "Protected").unwrap();
         let project_path = parent.path().join("Protected");
+        let manifest_bytes = read_manifest_bytes(&project_path).unwrap();
 
-        let error = rollback_created_project_directory_with_hook(
+        let error = rollback_created_project_directory_with_hooks(
             &project_path,
             &created.manifest.id,
+            &manifest_bytes,
+            &|_| {},
             &|quarantine_path| {
                 fs::write(quarantine_path.join("notes.txt"), "keep me").unwrap();
             },
@@ -1297,12 +1804,103 @@ mod tests {
         let token = pending.register_with_instant(
             PathBuf::from(&created.path),
             created.manifest.id.clone(),
+            read_manifest_bytes(Path::new(&created.path)).unwrap(),
             Instant::now(),
         );
 
         rollback_created_project_with_token(&pending, &token).unwrap();
 
         assert!(!Path::new(&created.path).exists());
+    }
+
+    fn assert_bootstrap_manifest_mutation_is_preserved(mutate: impl FnOnce(&mut ProjectManifest)) {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = profile.path().join(".preshot");
+        let pending = PendingProjectRollbacks::default();
+        let result = bootstrap_user_data_in(&user_root, &[], &pending).unwrap();
+        let project = result.project.unwrap();
+        let token = result.rollback_token.unwrap();
+        let project_path = PathBuf::from(&project.path);
+        let mut manifest = read_manifest(&project_path).unwrap();
+        mutate(&mut manifest);
+        write_manifest_atomically(&project_path, &manifest).unwrap();
+        let mutated_bytes = read_manifest_bytes(&project_path).unwrap();
+
+        let error = rollback_created_project_with_token(&pending, &token).unwrap_err();
+
+        assert_eq!(error.code, "rollback_manifest_changed");
+        assert_eq!(read_manifest_bytes(&project_path).unwrap(), mutated_bytes);
+        assert_eq!(read_manifest(&project_path).unwrap(), manifest);
+    }
+
+    #[test]
+    fn bootstrap_rollback_refuses_plan_title_and_timestamp_mutations() {
+        assert_bootstrap_manifest_mutation_is_preserved(|manifest| {
+            manifest.plan.as_mut().unwrap()["document"]["blocks"][0]["content"][0]["text"] =
+                json!("Edited after bootstrap");
+        });
+        assert_bootstrap_manifest_mutation_is_preserved(|manifest| {
+            manifest.plan.as_mut().unwrap()["title"] = json!("Edited title");
+        });
+        assert_bootstrap_manifest_mutation_is_preserved(|manifest| {
+            manifest.updated_at = "2026-08-20T00:42:57.306Z".to_string();
+        });
+    }
+
+    #[test]
+    fn concurrent_plan_save_after_bootstrap_prevents_rollback_without_data_loss() {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = profile.path().join(".preshot");
+        let pending = PendingProjectRollbacks::default();
+        let result = bootstrap_user_data_in(&user_root, &[], &pending).unwrap();
+        let token = result.rollback_token.unwrap();
+        let authorization = pending.take(&token).unwrap();
+        let saved_plan = json!({
+            "schemaVersion": 14,
+            "title": "Saved concurrently",
+            "document": {
+                "format": "preshot-blocks",
+                "version": 2,
+                "blocks": []
+            },
+            "imageGroups": []
+        });
+
+        let error = rollback_created_project_directory_with_hooks(
+            &authorization.project_path,
+            &authorization.project_id,
+            &authorization.manifest_bytes,
+            &|project_path| {
+                let project_path = project_path.to_path_buf();
+                let saved_plan = saved_plan.clone();
+                thread::spawn(move || crate::plan::save_project_plan_in(&project_path, saved_plan))
+                    .join()
+                    .unwrap()
+                    .unwrap();
+            },
+            &|_| {},
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "rollback_manifest_changed");
+        assert!(authorization.project_path.is_dir());
+        assert_eq!(
+            crate::plan::read_project_plan_in(&authorization.project_path).unwrap(),
+            saved_plan
+        );
+    }
+
+    #[test]
+    fn unchanged_bootstrap_manifest_rolls_back_successfully() {
+        let profile = tempfile::tempdir().unwrap();
+        let user_root = profile.path().join(".preshot");
+        let pending = PendingProjectRollbacks::default();
+        let result = bootstrap_user_data_in(&user_root, &[], &pending).unwrap();
+        let project_path = PathBuf::from(result.project.unwrap().path);
+
+        rollback_created_project_with_token(&pending, &result.rollback_token.unwrap()).unwrap();
+
+        assert!(!project_path.exists());
     }
 
     #[test]

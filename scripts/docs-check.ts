@@ -19,6 +19,16 @@ const ROOT_DOCUMENTS = [
   "CLAUDE.md",
   "THIRD_PARTY_NOTICES.md",
 ];
+const REQUIRED_DOCUMENTS = [
+  "docs/README.md",
+  "docs/ARCHITECTURE.md",
+  "docs/TESTING.md",
+  "docs/RELIABILITY.md",
+  "docs/WINDOWS_INSTALLER.md",
+  "docs/design_docs/blocknote_v14_design.md",
+  "docs/design_docs/UI_UX_CONTRACT.md",
+  "docs/design_docs/featurelist.json",
+];
 const OLD_CANONICAL_REFERENCES = [
   /blocknote_v13_migration_design\.md/i,
   /\buiue\.md\b/i,
@@ -164,6 +174,14 @@ export async function checkDocumentation(root: string): Promise<string[]> {
     .filter((file) => DOCUMENT_EXTENSIONS.has(path.extname(file).toLowerCase()));
   const rootFiles = ROOT_DOCUMENTS.map((file) => path.join(root, file));
   const files = [...rootFiles, ...docsFiles].sort();
+
+  for (const relative of REQUIRED_DOCUMENTS) {
+    try {
+      await stat(path.join(root, relative));
+    } catch {
+      errors.push(`${relative}: required documentation file is missing`);
+    }
+  }
 
   for (const file of files) {
     const content = await readFile(file, "utf8");

@@ -319,8 +319,8 @@ describe("v7 canvas reducers", () => {
       expect.objectContaining({
         id: "default",
         aspectRatio: 2,
-        frameWidth: 270,
-        frameHeight: 135,
+        frameWidth: 480,
+        frameHeight: 240,
       }),
       expect.objectContaining({
         id: "custom",

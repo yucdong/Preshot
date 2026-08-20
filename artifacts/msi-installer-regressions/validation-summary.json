@@ -1,0 +1,160 @@
+{
+  "ValidatedAt": "2026-08-20T01:35:50.7842502+08:00",
+  "FourTracks": {
+    "PerUserLineage": {
+      "Status": "passed",
+      "UpgradeCode": "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6",
+      "LegacyUpgradeCode": "97EE9B44-6313-52EB-A67E-A1334832EB86",
+      "LegacyDetection": "detect-only attributes 770; uninstall-first LaunchCondition"
+    },
+    "RollbackManifest": {
+      "Status": "passed",
+      "Binding": "exact original manifest bytes, project ID and canonical path",
+      "NativeTests": "39 workspace tests passed; full Rust 85 passed"
+    },
+    "SignerAndHook": {
+      "Status": "passed",
+      "Signer": "normalized SHA1, same-signer and configured-signer enforcement covered",
+      "Hook": "local invocation omits Publish switch; publish invocation includes it; spaces and failure exit covered"
+    },
+    "WebViewAndExecutable": {
+      "Status": "passed",
+      "MainProgram": [
+        "RegistryEntries",
+        "Path"
+      ],
+      "Environment": [
+        "PathEnvironment"
+      ],
+      "Bootstrapper": [
+        {
+          "Action": "DownloadAndInvokeBootstrapper",
+          "Type": "1058",
+          "Source": "PreshotInstallDir",
+          "Target": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& { $ErrorActionPreference = 'Stop'; try { [\\[]Net.ServicePointManager[\\]]::SecurityProtocol = [\\[]Net.SecurityProtocolType[\\]]::Tls12 } catch {}; $bootstrapper = Join-Path $env:TEMP 'MicrosoftEdgeWebview2Setup.exe'; Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $bootstrapper; $process = Start-Process -FilePath $bootstrapper -ArgumentList @('/silent', '/install') -PassThru -Wait; if ($process.ExitCode -notin @(0, 1641, 3010)) { exit $process.ExitCode } }\""
+        }
+      ]
+    }
+  },
+  "Matrix": {
+    "Docs": "passed",
+    "Lint": "passed",
+    "Typecheck": "passed",
+    "Vitest": "117 files / 738 tests",
+    "ProductionTooling": "passed",
+    "Rust": "85 tests",
+    "Playwright": "18 tests",
+    "BlockNotePlaywright": "11 tests",
+    "ProductionBuild": "passed",
+    "ProductionVerify": "passed without rebuilding"
+  },
+  "Release": {
+    "Identity": {
+      "Msi": {
+        "Path": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\bundle\\msi\\Preshot_0.0.1_x64_en-US.msi",
+        "Size": 16580608,
+        "Sha256": "4f8f2c1ea08d79c160756909ddd41f72ced23aa87d9f4160a896f4e948ea9a70"
+      },
+      "Exe": {
+        "Path": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\preshot.exe",
+        "Size": 23837696,
+        "Sha256": "323b14f906f09501e2522c1bd8f11f387e96eac6ec6b188f24c70e2c523f8970",
+        "Version": "0.0.1"
+      },
+      "Metadata": {
+        "ProductName": "Preshot",
+        "ProductVersion": "0.0.1",
+        "Manufacturer": "yucdong",
+        "ProductCode": "{7B87293F-A463-4EE4-8339-116EA775AA00}",
+        "UpgradeCode": "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6",
+        "Architecture": "x64",
+        "Template": "x64;0",
+        "LegacyUpgradeCode": "97EE9B44-6313-52EB-A67E-A1334832EB86",
+        "LegacyVersionMin": "0.0.0",
+        "LegacyVersionMax": "255.255.65535",
+        "LegacyUpgradeAttributes": 770,
+        "LegacyActionProperty": "LEGACY_MACHINE_PRESHOT_FOUND",
+        "LegacyLaunchCondition": "Installed OR NOT LEGACY_MACHINE_PRESHOT_FOUND",
+        "LegacyLaunchConditionMessage": "A machine-wide Preshot installation was detected. Uninstall the old machine-wide Preshot from Windows Installed apps, then run this per-user installer again."
+      }
+    },
+    "Files": [
+      {
+        "Name": "Preshot_0.0.1_x64_en-US.msi",
+        "Size": 16580608,
+        "Sha256": "4f8f2c1ea08d79c160756909ddd41f72ced23aa87d9f4160a896f4e948ea9a70"
+      },
+      {
+        "Name": "Preshot_0.0.1_x64_en-US.msi.sha256",
+        "Size": 94,
+        "Sha256": "afa458e0d49a8d3bfd78bb3fd0cdfcecac64fd93543edd4b10e1019a329b3bc9"
+      },
+      {
+        "Name": "Preshot-0.0.1-release.json",
+        "Size": 2165,
+        "Sha256": "f406480102b084e8253a7833768fedba35e334101749ffc20815d994bcbef9ec"
+      }
+    ],
+    "Signed": false,
+    "Publishable": false,
+    "Blockers": [
+      "version-must-exceed-historical-per-machine-0.0.1",
+      "authenticode-signatures-required"
+    ]
+  },
+  "Lifecycle": {
+    "Install": "passed",
+    "Bootstrap": {
+      "ProjectCount": 1,
+      "ProjectName": "Preshot 入门示例",
+      "ManifestSchema": 1,
+      "PlanSchema": 14,
+      "DocumentVersion": 2,
+      "FirstHash": "cbc35b80099eda609b0b6b6c056dbb98fd01b705ea4104f68322f4170686e56c",
+      "SecondHash": "cbc35b80099eda609b0b6b6c056dbb98fd01b705ea4104f68322f4170686e56c",
+      "Idempotent": true,
+      "SentinelHash": "10173bc0c8cf9bd2d378fb0ab188690ef48e25ab553b0a06083aa11f77c71199"
+    },
+    "RepairAndUpgrade": {
+      "RepairExit": 0,
+      "UpgradeExit": 0,
+      "BaseState": -1,
+      "UpgradeState": 5,
+      "InstalledVersion": "0.0.2",
+      "SentinelBefore": "10173bc0c8cf9bd2d378fb0ab188690ef48e25ab553b0a06083aa11f77c71199",
+      "SentinelAfter": "10173bc0c8cf9bd2d378fb0ab188690ef48e25ab553b0a06083aa11f77c71199",
+      "RepairLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\post-four-repair.log",
+      "UpgradeLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\post-four-upgrade.log"
+    },
+    "DowngradeAndUninstall": {
+      "DowngradeExit": 1603,
+      "Rejected": true,
+      "UninstallExit": 0,
+      "BaseState": -1,
+      "UpgradeState": -1,
+      "InstallExists": false,
+      "ShortcutsExist": false,
+      "SentinelHash": "10173bc0c8cf9bd2d378fb0ab188690ef48e25ab553b0a06083aa11f77c71199",
+      "ManifestHash": "cbc35b80099eda609b0b6b6c056dbb98fd01b705ea4104f68322f4170686e56c",
+      "DowngradeLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\post-four-downgrade.log",
+      "UninstallLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\post-four-uninstall.log"
+    },
+    "DesktopAndScope": {
+      "DesktopInstallExit": 0,
+      "DesktopCreated": true,
+      "DesktopUninstallExit": 0,
+      "DesktopRemoved": true,
+      "AllUsersExit": 1603,
+      "AllUsersRejected": true,
+      "NoPartialInstall": true,
+      "SentinelHash": "10173bc0c8cf9bd2d378fb0ab188690ef48e25ab553b0a06083aa11f77c71199"
+    }
+  },
+  "RemainingVmOnly": [
+    "Historical machine-wide installation blocking with an actual legacy machine-context product",
+    "Forced execute-sequence rollback or cancellation",
+    "Clean non-admin token and local policy behavior",
+    "Missing-WebView2 offline/network failure"
+  ],
+  "Artifacts": "artifacts\\msi-installer-regressions"
+}

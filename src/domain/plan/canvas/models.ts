@@ -5,9 +5,11 @@ export const DEFAULT_PLAN_HEIGHT = 220; // points
 export const DEFAULT_REFERENCE_HEIGHT = 320; // points
 export const MIN_COMPONENT_WIDTH = 120; // points
 
-// These values and clamps are retained for v1-v6 migration and the temporary
-// paged PDF adapter. They are not fields in the v7 persisted schema.
-export const DEFAULT_IMAGE_HEIGHT = 135; // points
+export const DEFAULT_IMAGE_HEIGHT = 240; // logical units
+// Recognizes untouched v1-v14 defaults during hydration and legacy migration.
+export const LEGACY_DEFAULT_IMAGE_HEIGHT = 135; // points
+// These clamps are retained for v1-v6 migration and the temporary paged PDF
+// adapter. They are not fields in the v7 persisted schema.
 export const MIN_IMAGE_HEIGHT = 67.5; // points
 export const MAX_IMAGE_HEIGHT = 400; // points
 export const MIN_REFERENCE_IMAGE_DISPLAY_HEIGHT = 32; // points

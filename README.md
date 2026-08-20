@@ -40,6 +40,9 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - Native BlockNote media files live under `media/`.
 - Theme and shell settings are stored in `%USERPROFILE%\.preshot\settings.json`.
 - New-project picking defaults to `%USERPROFILE%\.preshot\projects`.
+- On startup, the application creates those user-owned roots when absent,
+  adopts an existing valid default-root project when possible, or creates and
+  opens one editable localized starter project.
 
 ## Tech stack
 
@@ -97,6 +100,46 @@ The script validates Node.js, pnpm, Rust, Cargo, Visual C++ Build Tools, and Web
 
 If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo commands from **Developer PowerShell for VS 2022**.
 
+## MSI installation contract
+
+The x64 MSI is built with the source-controlled
+`src-tauri\wix\main.wxs` template, pinned to the Tauri CLI 2.11.4 upstream
+template. It is a limited per-user package installed under
+`%LOCALAPPDATA%\Programs\Preshot`; attempts to set `ALLUSERS` are rejected.
+The package owns only application files, Start Menu/Desktop shortcuts, and
+HKCU application registration. `%USERPROFILE%\.preshot`, `.preshotproj`
+projects, legacy `.preshot` data, settings, and workspace metadata are never
+installer-owned or removed. The application, not the MSI, performs the
+first-start user-data bootstrap and creates the default starter only when no
+valid registered or default-root project is available.
+
+The per-user lineage uses UpgradeCode
+`493c5fb5-639d-4fba-94d3-aebe4eb0dce6`. If the historical machine-wide
+lineage `97ee9b44-6313-52eb-a67e-a1334832eb86` is installed, the MSI blocks
+with localized guidance to uninstall it through Windows **Installed apps**;
+the limited installer never attempts elevated removal. If machine-wide
+`0.0.1` was public, the first publishable per-user version is `0.0.2`.
+
+The Start Menu shortcut is installed by default. The Desktop shortcut is an
+opt-in public MSI feature:
+
+```powershell
+msiexec.exe /i ".\Preshot_0.0.2_x64_en-US.msi" DESKTOPSHORTCUT=1
+```
+
+Install a higher version with the same `/i` form for a major upgrade. Repair
+and uninstall are also available to operators:
+
+```powershell
+msiexec.exe /i ".\Preshot_0.0.3_x64_en-US.msi"
+msiexec.exe /famus "{PRODUCT-CODE-GUID}" /qn /norestart
+msiexec.exe /x ".\Preshot_0.0.3_x64_en-US.msi"
+```
+
+Uninstall through Windows **Installed apps** / Add or Remove Programs for the
+normal interactive flow. The MSI does not create an uninstall shortcut.
+Install, upgrade, repair, and uninstall preserve `%USERPROFILE%\.preshot`.
+
 ## Commands
 
 ### Development and packaging
@@ -109,6 +152,8 @@ If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo co
 | `pnpm tauri:dev` | Start the desktop application in Tauri development mode. |
 | `pnpm build` | Run the TypeScript build and Vite production build. |
 | `pnpm tauri:build` | Build Windows desktop bundles. |
+| `pnpm production:build` | Validate the release matrix and build the explicit MSVC x64 release MSI. |
+| `pnpm production:verify` | Re-run the full matrix, including E2E and installer validation, against existing release artifacts without rebuilding. |
 
 ### Validation
 
@@ -120,6 +165,7 @@ If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo co
 | `pnpm test` | Run the Vitest suite. |
 | `pnpm test:watch` | Run Vitest in watch mode. |
 | `pnpm test:init` | Run the PowerShell initializer regression harness. |
+| `pnpm test:production-scripts` | Run isolated production/release script fixtures. |
 | `pnpm test:e2e` | Run the main Playwright browser-shell smoke suite. |
 | `pnpm test:e2e:blocknote` | Run the focused BlockNote v14 Playwright suite. |
 | `cargo test --manifest-path src-tauri\Cargo.toml` | Run the Rust unit tests. |
@@ -140,6 +186,44 @@ If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo co
 | Command | Purpose |
 | --- | --- |
 | `pnpm migrate:project` | Run the project-manifest migration utility. |
+| `pnpm release:set-version -- <x.y.z>` | Synchronize package, Tauri, Cargo, and lockfile release versions within MSI limits. |
+
+### Release signing and metadata
+
+`production:build` writes an MSI SHA-256 sidecar and deterministic release
+manifest beside the installer. It uses `SOURCE_DATE_EPOCH` when set, otherwise
+the Git commit timestamp, and omits the timestamp when neither is available.
+For version `<version>`, the paths are:
+
+```text
+src-tauri\target\x86_64-pc-windows-msvc\release\preshot.exe
+src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot_<version>_x64_en-US.msi
+src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot_<version>_x64_en-US.msi.sha256
+src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot-<version>-release.json
+```
+
+Local unsigned or partially signed builds are labeled non-publishable. Set
+`PRESHOT_PUBLISH=1` or run `pnpm production:build -- --Publish` and
+`pnpm production:verify -- --Publish` to require valid Authenticode signatures
+on both the executable and MSI.
+
+Tauri's documented `bundle.windows.signCommand` can sign during bundling.
+Alternatively, post-build `signtool.exe` signing supports
+`PRESHOT_SIGNTOOL_PATH` plus either `PRESHOT_SIGN_CERT_SHA1` or
+`PRESHOT_SIGN_CERT_FILE`; optional settings are `PRESHOT_SIGN_CERT_PASSWORD`,
+`PRESHOT_SIGN_TIMESTAMP_URL`, `PRESHOT_SIGN_DESCRIPTION`, and
+`PRESHOT_SIGN_DESCRIPTION_URL`. The executable is signed before MSI bundling,
+then the MSI is signed, so the installed payload and outer package are both
+covered. Keep certificate passwords in the process environment only.
+`PRESHOT_INSTALLER_VERIFY_SCRIPT` may point to a
+non-destructive PowerShell validation hook accepting `-MsiPath`,
+`-ManifestPath`, and `-Publish`.
+
+See the [Windows installer operator guide](docs/WINDOWS_INSTALLER.md) for
+silent commands, upgrade/rollback checks, WebView2 behavior, troubleshooting,
+and the pinned Tauri template update procedure. Local installs may be
+unsigned; published artifacts must be signed and pass publish-mode
+verification.
 
 ## Documentation
 
@@ -148,6 +232,7 @@ If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo co
 - [Architecture](docs/ARCHITECTURE.md)
 - [Testing](docs/TESTING.md)
 - [Reliability](docs/RELIABILITY.md)
+- [Windows installer operator guide](docs/WINDOWS_INSTALLER.md)
 - [Licensing and distribution](docs/LICENSING.md)
 - [BlockNote v14 design](docs/design_docs/blocknote_v14_design.md)
 - [UI/UX contract](docs/design_docs/UI_UX_CONTRACT.md)

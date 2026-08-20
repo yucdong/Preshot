@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preshot Large Image Group Wrap Reference</title>
+  <style>
+    :root {
+      --chrome: #1f2227;
+      --chrome-raised: #2a2d33;
+      --stage: #dfe1e5;
+      --panel: #f6f5f3;
+      --paper: #fff;
+      --ink: #202329;
+      --muted: #6d727a;
+      --line: #d5d8dc;
+      --cyan: #078ead;
+      --cyan-soft: #e3f4f7;
+      --berry: #c2385c;
+      --berry-dark: #942642;
+      --berry-soft: #f8e7ec;
+      --success: #287153;
+      --warning: #a76518;
+      --logical-width: 1080px;
+      --canvas-scale: 1;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; min-width: 1080px; margin: 0; }
+    body {
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--stage);
+      font-family: "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
+      font-size: 12px;
+    }
+    button { color: inherit; font: inherit; }
+    button:not(:disabled) { cursor: pointer; }
+    button:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 2px;
+    }
+    svg { display: block; }
+
+    .app {
+      display: grid;
+      grid-template-rows: 46px minmax(0, 1fr);
+      height: 100vh;
+    }
+    .topbar {
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      color: #fff;
+      background: var(--chrome);
+      box-shadow: 0 1px 0 rgb(255 255 255 / 7%);
+    }
+    .mark {
+      display: grid;
+      width: 26px;
+      height: 26px;
+      place-items: center;
+      border-radius: 5px;
+      background: var(--berry);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .brand { font-size: 12px; font-weight: 800; letter-spacing: .04em; }
+    .top-divider { width: 1px; height: 18px; background: #464950; }
+    .file-title { color: #d5d8dd; font-size: 10px; }
+    .mode-pill {
+      padding: 3px 7px;
+      border: 1px solid #4c5057;
+      border-radius: 4px;
+      color: #bdc2c8;
+      font-size: 8px;
+    }
+    .save-state {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+      color: #cbd0d6;
+      font-size: 9px;
+    }
+    .save-state::before {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #55b696;
+      content: "";
+    }
+    .top-button {
+      display: grid;
+      width: 30px;
+      height: 28px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid #42464d;
+      border-radius: 4px;
+      color: #d7dbe0;
+      background: #292c31;
+    }
+    .top-button:hover { background: #353940; }
+    .top-button svg { width: 14px; height: 14px; }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 154px minmax(620px, 1fr) 286px;
+      min-height: 0;
+    }
+    .project-rail, .inspector {
+      min-height: 0;
+      overflow: auto;
+      background: var(--panel);
+    }
+    .project-rail { border-right: 1px solid #cdd0d4; }
+    .inspector { border-left: 1px solid #cdd0d4; }
+    .panel-head {
+      display: flex;
+      height: 42px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .panel-head span { color: #8a8e95; font-size: 8px; font-weight: 600; }
+    .rail-body { padding: 12px 10px; }
+    .rail-label, .section-label {
+      display: block;
+      margin: 0 0 8px;
+      color: #777c84;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .project-card {
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #cddce0;
+      border-radius: 5px;
+      background: #fff;
+      box-shadow: inset 3px 0 var(--cyan), 0 1px 3px rgb(24 27 31 / 6%);
+    }
+    .project-thumb {
+      position: relative;
+      width: 32px;
+      height: 40px;
+      overflow: hidden;
+      border: 1px solid #c8ccd0;
+      background:
+        linear-gradient(150deg, transparent 49%, rgb(255 255 255 / 28%) 50%),
+        linear-gradient(145deg, #253f4d, #879a86 62%, #c49369);
+    }
+    .project-card b { display: block; font-size: 9px; line-height: 1.25; }
+    .project-card small { color: var(--muted); font-size: 8px; }
+    .page-list { display: grid; gap: 4px; margin-top: 14px; }
+    .page-row {
+      display: grid;
+      grid-template-columns: 23px 1fr;
+      gap: 7px;
+      align-items: center;
+      padding: 7px 6px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      color: #575c63;
+      font-size: 9px;
+    }
+    .page-row.active {
+      border-color: #cfdfe3;
+      color: #075f73;
+      background: var(--cyan-soft);
+      font-weight: 700;
+    }
+    .page-number {
+      display: grid;
+      width: 23px;
+      height: 18px;
+      place-items: center;
+      border: 1px solid #c7cbd0;
+      background: #fff;
+      font-size: 7px;
+    }
+    .rail-tip {
+      margin-top: 18px;
+      padding: 10px;
+      border: 1px solid #d8dadd;
+      border-radius: 5px;
+      color: #6b7078;
+      background: #fff;
+      font-size: 8px;
+      line-height: 1.6;
+    }
+
+    .workspace {
+      position: relative;
+      min-width: 0;
+      overflow: auto;
+      padding: 24px 18px 56px;
+      background-color: var(--stage);
+      background-image:
+        linear-gradient(rgb(56 61 68 / 3.5%) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(56 61 68 / 3.5%) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .canvas-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: calc(var(--logical-width) * var(--canvas-scale));
+      margin: 0 auto 7px;
+      color: #6e737b;
+      font-size: 8px;
+    }
+    .canvas-meta b { color: #484d55; }
+    .canvas-frame {
+      position: relative;
+      width: calc(var(--logical-width) * var(--canvas-scale));
+      min-height: calc(760px * var(--canvas-scale));
+      margin: 0 auto;
+    }
+    .canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1080px;
+      min-height: 760px;
+      overflow: hidden;
+      background: var(--paper);
+      box-shadow: 0 18px 48px rgb(24 27 31 / 18%);
+      transform: scale(var(--canvas-scale));
+      transform-origin: top left;
+    }
+    .page-guideline {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgb(8 145 178 / 10%);
+      pointer-events: none;
+    }
+    .page-guideline.left { left: 35px; }
+    .page-guideline.right { right: 35px; }
+    .document-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      margin: 0 35px;
+      padding: 30px 0 16px;
+      border-bottom: 1px solid #e1e3e5;
+    }
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--berry);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .document-head h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 27px;
+      font-weight: 700;
+      line-height: 1.15;
+    }
+    .document-meta { color: #8a8e95; font-size: 9px; text-align: right; }
+    .document-meta b { display: block; margin-bottom: 3px; color: #464b53; }
+
+    .spec-strip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 12px 35px 10px;
+    }
+    .spec-pill {
+      padding: 4px 7px;
+      border: 1px solid #d7dade;
+      border-radius: 999px;
+      color: #666b73;
+      background: #fafafa;
+      font-size: 8px;
+      font-weight: 700;
+    }
+    .spec-pill.strong {
+      border-color: #b7dce4;
+      color: #08738a;
+      background: var(--cyan-soft);
+    }
+    .spec-rule {
+      margin-left: auto;
+      color: var(--berry-dark);
+      font-size: 9px;
+      font-weight: 800;
+    }
+
+    .image-group {
+      position: relative;
+      width: 1010px;
+      margin: 0 35px 26px;
+      border: 1px solid #c8cdd2;
+      border-radius: 5px;
+      background: #f4f5f5;
+      box-shadow: 0 2px 8px rgb(31 35 41 / 6%);
+      user-select: none;
+    }
+    .group-topline {
+      display: flex;
+      height: 34px;
+      align-items: center;
+      gap: 8px;
+      padding: 0 9px;
+      border-bottom: 1px solid #d9dcdf;
+      border-radius: 4px 4px 0 0;
+      color: #747981;
+      background: #fff;
+      font-size: 8px;
+    }
+    .group-topline b { color: #343941; font-size: 9px; }
+    .group-status { margin-left: auto; color: #656a72; font-variant-numeric: tabular-nums; }
+    .group-body { padding: 9px; }
+    .packing-surface {
+      position: relative;
+      width: 990px;
+      min-height: 240px;
+      background:
+        linear-gradient(rgb(92 98 106 / 4%) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(92 98 106 / 4%) 1px, transparent 1px),
+        #eef0f1;
+      background-size: 18px 18px;
+    }
+    .packing-surface::before {
+      position: absolute;
+      z-index: 1;
+      inset: 0;
+      border: 1px dashed rgb(72 78 86 / 17%);
+      content: "";
+      pointer-events: none;
+    }
+
+    .image-tile {
+      position: absolute;
+      z-index: 3;
+      width: var(--tile-w);
+      height: var(--tile-h);
+      border: 1px solid #aeb4ba;
+      border-radius: 3px;
+      background: #d5d9dc;
+      box-shadow: 0 2px 7px rgb(28 32 37 / 13%);
+      contain: layout style;
+      will-change: left, top, width, height;
+    }
+    .image-tile.is-selected {
+      z-index: 10;
+      box-shadow: 0 0 0 2px var(--cyan), 0 6px 17px rgb(28 32 37 / 19%);
+    }
+    .image-tile.is-resizing {
+      z-index: 30;
+      box-shadow: 0 0 0 2px var(--berry), 0 10px 24px rgb(28 32 37 / 24%);
+    }
+    .image-select {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      padding: 0;
+      border: 0;
+      border-radius: 2px;
+      background: #d7dade;
+    }
+    .image-select svg {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .tile-number, .tile-row {
+      position: absolute;
+      z-index: 5;
+      top: 7px;
+      display: grid;
+      height: 22px;
+      place-items: center;
+      border-radius: 4px;
+      color: #fff;
+      background: rgb(26 29 34 / 72%);
+      font-size: 8px;
+      font-weight: 800;
+      pointer-events: none;
+    }
+    .tile-number { left: 7px; min-width: 23px; padding: 0 5px; }
+    .tile-row { right: 7px; padding: 0 6px; }
+    .tile-dimensions {
+      position: absolute;
+      z-index: 5;
+      right: 7px;
+      bottom: 7px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      color: #fff;
+      background: rgb(26 29 34 / 72%);
+      font-size: 8px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+    }
+    .resize-handle {
+      position: absolute;
+      top: 50%;
+      z-index: 35;
+      display: grid;
+      width: 44px;
+      height: 52px;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      transform: translateY(-50%);
+      touch-action: none;
+      cursor: ew-resize;
+    }
+    .resize-handle.left { left: -22px; }
+    .resize-handle.right { right: -22px; }
+    .handle-mark {
+      width: 7px;
+      height: 34px;
+      border: 1px solid #fff;
+      border-radius: 4px;
+      background: var(--cyan);
+      box-shadow: 0 1px 4px rgb(0 0 0 / 24%);
+    }
+    .image-tile:not(.is-selected) .resize-handle { display: none; }
+    .image-tile.is-resizing .handle-mark { background: var(--berry); }
+
+    .smart-guide {
+      position: absolute;
+      z-index: 80;
+      display: none;
+      pointer-events: none;
+    }
+    .smart-guide.is-visible { display: block; }
+    .smart-guide.vertical {
+      top: -5px;
+      bottom: -5px;
+      width: 0;
+      border-left: 1px dashed var(--berry);
+    }
+    .smart-guide.horizontal {
+      height: 0;
+      border-top: 1px dashed var(--berry);
+    }
+    .smart-guide::before, .smart-guide::after {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border: 1px solid var(--berry);
+      border-radius: 50%;
+      background: #fff;
+      content: "";
+    }
+    .smart-guide.vertical::before { top: -3px; left: -3px; }
+    .smart-guide.vertical::after { bottom: -3px; left: -3px; }
+    .smart-guide.horizontal::before { top: -3px; left: -3px; }
+    .smart-guide.horizontal::after { top: -3px; right: -3px; }
+    .guide-label, .dimension-label {
+      position: absolute;
+      z-index: 90;
+      display: none;
+      padding: 4px 7px;
+      border: 1px solid var(--berry);
+      border-radius: 4px;
+      color: #fff;
+      background: var(--berry-dark);
+      box-shadow: 0 2px 7px rgb(80 16 39 / 18%);
+      font-size: 8px;
+      font-weight: 800;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .guide-label.is-visible, .dimension-label.is-visible { display: block; }
+    .dimension-label {
+      color: var(--berry-dark);
+      background: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+    .dimension-bracket {
+      position: absolute;
+      z-index: 75;
+      display: none;
+      pointer-events: none;
+    }
+    .dimension-bracket.is-visible { display: block; }
+    .dimension-bracket.width {
+      height: 8px;
+      border-top: 1px dashed var(--berry);
+      border-right: 1px solid var(--berry);
+      border-left: 1px solid var(--berry);
+    }
+    .dimension-bracket.height {
+      width: 8px;
+      border-top: 1px solid var(--berry);
+      border-bottom: 1px solid var(--berry);
+      border-left: 1px dashed var(--berry);
+    }
+
+    .canvas-foot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 35px 28px;
+      padding: 9px 11px;
+      border: 1px solid #d9dcdf;
+      border-radius: 4px;
+      color: #666b73;
+      background: #fafafa;
+      font-size: 8px;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+    .canvas-foot strong { color: #343941; }
+    .canvas-foot span:last-child { margin-left: auto; }
+
+    .inspector-section { padding: 13px 12px; border-bottom: 1px solid var(--line); }
+    .scenario-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+    .scenario-button, .reset-button {
+      min-height: 38px;
+      padding: 6px;
+      border: 1px solid #d0d3d7;
+      border-radius: 5px;
+      color: #5c6169;
+      background: #fff;
+      font-size: 8px;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .scenario-button:hover, .reset-button:hover { border-color: #aeb4ba; background: #fafafa; }
+    .scenario-button[aria-pressed="true"] {
+      border-color: #8fc9d5;
+      color: #086d82;
+      background: var(--cyan-soft);
+      box-shadow: inset 0 0 0 1px rgb(7 142 173 / 9%);
+    }
+    .reset-button {
+      width: 100%;
+      min-height: 34px;
+      margin-top: 6px;
+      color: #42474e;
+    }
+    .scenario-note { margin: 8px 0 0; color: #727780; font-size: 8px; line-height: 1.55; }
+    .selection-card {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 9px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #d7dade;
+      border-radius: 5px;
+      background: #fff;
+    }
+    .selection-thumb {
+      width: 48px;
+      height: 38px;
+      overflow: hidden;
+      border: 1px solid #c6cacf;
+      border-radius: 3px;
+      background: #d7dade;
+    }
+    .selection-thumb svg { width: 100%; height: 100%; }
+    .selection-card b { display: block; font-size: 9px; }
+    .selection-card span { color: #6d727a; font-size: 8px; }
+    .layout-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8px;
+      font-variant-numeric: tabular-nums;
+    }
+    .layout-table th {
+      padding: 0 5px 6px;
+      color: #828790;
+      font-size: 7px;
+      letter-spacing: .06em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    .layout-table td {
+      padding: 6px 5px;
+      border-top: 1px solid #e1e3e5;
+      color: #565b63;
+    }
+    .layout-table td:first-child { color: #252a31; font-weight: 800; }
+    .layout-table tr.selected td { color: #08748a; background: #edf8fa; }
+    .layout-summary {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #dddfe2;
+      color: #747981;
+      font-size: 8px;
+    }
+    .layout-summary b { color: #343941; }
+    .note-list { display: grid; gap: 7px; }
+    .note {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 7px;
+      padding: 8px;
+      border: 1px solid #d9dadd;
+      border-radius: 5px;
+      color: #656a72;
+      background: #fff;
+      font-size: 8px;
+      line-height: 1.5;
+    }
+    .note b { color: #343941; }
+    .note-index {
+      display: grid;
+      width: 22px;
+      height: 22px;
+      place-items: center;
+      border-radius: 4px;
+      color: #08748a;
+      background: var(--cyan-soft);
+      font-weight: 800;
+    }
+    .size-comparison {
+      display: grid;
+      grid-template-columns: 1fr 16px 1fr;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 9px;
+      border: 1px solid #ead2d9;
+      border-radius: 5px;
+      color: #6e4a55;
+      background: var(--berry-soft);
+      text-align: center;
+    }
+    .size-comparison strong { display: block; color: var(--berry-dark); font-size: 15px; }
+    .size-comparison span { font-size: 8px; font-weight: 700; }
+    .design-rule {
+      padding: 9px;
+      border: 1px solid #e1b8c5;
+      border-radius: 5px;
+      color: var(--berry-dark);
+      background: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      text-align: center;
+    }
+    .a11y-hint {
+      margin: 8px 0 0;
+      color: #747981;
+      font-size: 8px;
+      line-height: 1.5;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
+    @media (max-width: 1240px) {
+      .shell { grid-template-columns: 132px minmax(610px, 1fr) 252px; }
+      .project-rail .rail-tip { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <span class="mark" aria-hidden="true">P</span>
+      <span class="brand">PRESHOT</span>
+      <span class="top-divider" aria-hidden="true"></span>
+      <span class="file-title">Editorial Shoot Plan / Image Group Wrap Study</span>
+      <span class="mode-pill">Design reference</span>
+      <span class="save-state">Offline prototype</span>
+      <button class="top-button" type="button" aria-label="Reference information">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 10v6M12 7h.01"></path>
+        </svg>
+      </button>
+    </header>
+
+    <div class="shell">
+      <aside class="project-rail" aria-label="Project navigation">
+        <div class="panel-head">PROJECTS <span>3 pages</span></div>
+        <div class="rail-body">
+          <span class="rail-label">Open project</span>
+          <div class="project-card">
+            <span class="project-thumb" aria-hidden="true"></span>
+            <span><b>Editorial Portraits</b><small>Saved locally</small></span>
+          </div>
+          <nav class="page-list" aria-label="Document pages">
+            <div class="page-row"><span class="page-number">01</span><span>Brief</span></div>
+            <div class="page-row active"><span class="page-number">02</span><span>References</span></div>
+            <div class="page-row"><span class="page-number">03</span><span>Shot list</span></div>
+          </nav>
+          <div class="rail-tip">
+            <b>Interaction scope</b><br>
+            Select a tile, then drag its left or right handle. No crop, move, reorder, or automatic size operation is active.
+          </div>
+        </div>
+      </aside>
+
+      <main class="workspace" id="workspace">
+        <div class="canvas-meta">
+          <span><b>Page 02</b> · 1080 logical px canvas</span>
+          <span id="zoom-label">Fit 100%</span>
+        </div>
+        <div class="canvas-frame" id="canvas-frame">
+          <article class="canvas" id="canvas" aria-label="1080 pixel document canvas">
+            <span class="page-guideline left" aria-hidden="true"></span>
+            <span class="page-guideline right" aria-hidden="true"></span>
+
+            <header class="document-head">
+              <div>
+                <p class="eyebrow">Reference Board / Layout Behavior</p>
+                <h1>Large Default Image Group</h1>
+              </div>
+              <div class="document-meta">
+                <b>Desktop document canvas</b>
+                Page 02 · Image group selected
+              </div>
+            </header>
+
+            <div class="spec-strip" aria-label="Layout specifications">
+              <span class="spec-pill strong">Inner width 990</span>
+              <span class="spec-pill">Inset 9</span>
+              <span class="spec-pill">Fixed gap 7</span>
+              <span class="spec-pill">Aspect locked</span>
+              <span class="spec-rule">No automatic scaling</span>
+            </div>
+
+            <section class="image-group" id="image-group" aria-labelledby="group-title">
+              <header class="group-topline">
+                <b id="group-title">Location references</b>
+                <span>Source order is authoritative</span>
+                <span>Snap 6 px entry / 10 px release</span>
+                <span class="group-status" id="group-status">5 images · 2 rows</span>
+              </header>
+              <div class="group-body">
+                <div class="packing-surface" id="packing-surface">
+                  <div class="smart-guide vertical" id="edge-guide"></div>
+                  <div class="smart-guide vertical" id="origin-guide"></div>
+                  <div class="smart-guide horizontal" id="height-guide"></div>
+                  <div class="dimension-bracket width" id="width-bracket"></div>
+                  <div class="dimension-bracket height" id="height-bracket"></div>
+                  <div class="guide-label" id="guide-label"></div>
+                  <div class="dimension-label" id="dimension-label"></div>
+                </div>
+              </div>
+            </section>
+
+            <footer class="canvas-foot" aria-live="polite">
+              <span class="status-dot" aria-hidden="true"></span>
+              <strong id="canvas-status">Ready · Image 01 selected</strong>
+              <span>Drag a side handle to preview whole-group reflow</span>
+            </footer>
+          </article>
+        </div>
+      </main>
+
+      <aside class="inspector" aria-label="Image group inspector">
+        <div class="panel-head">IMAGE GROUP <span>Reference</span></div>
+
+        <section class="inspector-section">
+          <span class="section-label">Scenario</span>
+          <div class="scenario-buttons" role="group" aria-label="Image count scenarios">
+            <button class="scenario-button" type="button" data-scenario="one" aria-pressed="false">1 image<br>640 × 240</button>
+            <button class="scenario-button" type="button" data-scenario="two" aria-pressed="false">2 images<br>480 × 240</button>
+            <button class="scenario-button" type="button" data-scenario="many" aria-pressed="true">3+ images<br>320 × 240</button>
+          </div>
+          <button class="reset-button" id="reset-button" type="button">Reset current scenario</button>
+          <p class="scenario-note">Scenario buttons load the defined defaults. After loading, only direct pointer drag changes a tile's authoritative dimensions.</p>
+        </section>
+
+        <section class="inspector-section">
+          <span class="section-label">Selection</span>
+          <div class="selection-card">
+            <div class="selection-thumb" id="selection-thumb" aria-hidden="true"></div>
+            <div><b id="selection-title">Image 01</b><span id="selection-meta">320 × 240 · 4:3 locked</span></div>
+          </div>
+        </section>
+
+        <section class="inspector-section">
+          <span class="section-label">Layout inspector</span>
+          <table class="layout-table">
+            <thead><tr><th>Tile</th><th>Authoritative size</th><th>Row</th></tr></thead>
+            <tbody id="layout-rows"></tbody>
+          </table>
+          <div class="layout-summary">
+            <span>Group height <b id="group-height">496 px</b></span>
+            <span><b id="row-count">2 rows</b></span>
+          </div>
+        </section>
+
+        <section class="inspector-section">
+          <span class="section-label">Design decision</span>
+          <div class="size-comparison">
+            <span><strong>135 px</strong>old default</span>
+            <span aria-hidden="true">→</span>
+            <span><strong>240 px</strong>new default</span>
+          </div>
+          <div class="design-rule">Wrap before overflow; never auto-shrink</div>
+        </section>
+
+        <section class="inspector-section">
+          <span class="section-label">Behavior notes</span>
+          <div class="note-list">
+            <div class="note"><span class="note-index">01</span><span><b>Direct size authority</b><br>Only side-handle drag edits a loaded tile size. The ratio stays locked and width is clamped only to the full 990 px inner width.</span></div>
+            <div class="note"><span class="note-index">02</span><span><b>Immediate ordered wrap</b><br>If the next tile plus the 7 px gap cannot fit, it starts the next row. Dimensions and source order never change.</span></div>
+            <div class="note"><span class="note-index">03</span><span><b>Stable live preview</b><br>One animation-frame update repacks the whole group, so expansion pushes later images and user shrink can bring them back.</span></div>
+            <div class="note"><span class="note-index">04</span><span><b>Smart guides</b><br>Group and image edges, equal width or height, and live dimensions use 6 px entry / 10 px release hysteresis. A chosen snap becomes the explicit drag size.</span></div>
+          </div>
+          <p class="a11y-hint">Keyboard: Tab selects controls and image tiles; Enter or Space selects a tile; Escape cancels an active drag. Resizing intentionally requires direct pointer drag.</p>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <p class="sr-only" id="resize-instructions">Drag left or right to resize proportionally. The whole image group reflows while dragging. Press Escape to cancel.</p>
+
+  <script>
+    (() => {
+      const INNER_WIDTH = 990;
+      const INSET = 9;
+      const GAP = 7;
+      const MIN_WIDTH = 120;
+      const SNAP_ENTRY = 6;
+      const SNAP_RELEASE = 10;
+      const EPSILON = 0.01;
+
+      const $ = (id) => document.getElementById(id);
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+      const surface = $("packing-surface");
+      const imageGroup = $("image-group");
+      const canvas = $("canvas");
+      const canvasFrame = $("canvas-frame");
+      const workspace = $("workspace");
+      const edgeGuide = $("edge-guide");
+      const originGuide = $("origin-guide");
+      const heightGuide = $("height-guide");
+      const widthBracket = $("width-bracket");
+      const heightBracket = $("height-bracket");
+      const guideLabel = $("guide-label");
+      const dimensionLabel = $("dimension-label");
+
+      const scenarioDefinitions = {
+        one: { count: 1, width: 640, height: 240 },
+        two: { count: 2, width: 480, height: 240 },
+        many: { count: 5, width: 320, height: 240 }
+      };
+
+      const palette = [
+        ["#263e4b", "#90a28b", "#d09a69"],
+        ["#314a55", "#a8b8aa", "#d2b58e"],
+        ["#2e4145", "#76866c", "#c58f67"],
+        ["#263947", "#7b98a1", "#d0a46e"],
+        ["#3e3d49", "#a48683", "#d3b497"]
+      ];
+
+      let scenario = "many";
+      let items = [];
+      let selectedId = 1;
+      let resizeSession = null;
+      let currentScale = 1;
+
+      function artwork(index) {
+        const [dark, mid, warm] = palette[index % palette.length];
+        const suffix = `art-${index}`;
+        const scenes = [
+          `<circle cx="770" cy="178" r="104" fill="#f3d39a" opacity=".78"/>
+           <path d="M0 590 220 330 402 510 620 255 900 590Z" fill="${dark}"/>
+           <path d="M390 720 705 360 1200 700V800H390Z" fill="${mid}"/>
+           <path d="M0 648c245-86 405 53 625-34 198-78 360-56 575 22v164H0Z" fill="${warm}" opacity=".88"/>`,
+          `<rect x="90" y="72" width="442" height="648" fill="#f4eadc" opacity=".4"/>
+           <path d="M138 92v590M312 92v590" stroke="#fff" stroke-width="12" opacity=".56"/>
+           <circle cx="770" cy="254" r="132" fill="${dark}"/>
+           <path d="M592 800c24-244 84-376 180-376 102 0 174 144 205 376Z" fill="${mid}"/>
+           <circle cx="410" cy="205" r="330" fill="#f4deb3" opacity=".22"/>`,
+          `<ellipse cx="605" cy="686" rx="485" ry="86" fill="${dark}" opacity=".52"/>
+           <rect x="295" y="350" width="252" height="300" rx="18" fill="${warm}"/>
+           <path d="M650 632c-62-254 46-405 150-396 128 11 160 196 60 396Z" fill="#dbc9aa"/>
+           <path d="M812 230c-12 168-52 286-130 382" fill="none" stroke="${mid}" stroke-width="31"/>
+           <circle cx="860" cy="180" r="92" fill="${mid}"/>`,
+          `<path d="M0 550c158-130 286-181 421-128 138 54 207 38 337-64 148-116 282-94 442 36v406H0Z" fill="${mid}"/>
+           <path d="M0 674c224-85 386-56 544 20 202 96 398-36 656-62v168H0Z" fill="${dark}"/>
+           <circle cx="938" cy="164" r="82" fill="#f1ca8e" opacity=".78"/>
+           <path d="M112 142h312v348H112Z" fill="#fff" opacity=".18"/>`,
+          `<rect x="0" y="0" width="1200" height="800" fill="${dark}"/>
+           <path d="M0 0h460L208 800H0ZM520 0h218L502 800H284Z" fill="#f4e8d8" opacity=".22"/>
+           <circle cx="806" cy="272" r="126" fill="${warm}"/>
+           <path d="M650 800c30-244 86-380 174-380 101 0 166 143 195 380Z" fill="${mid}"/>
+           <rect x="1010" y="90" width="94" height="530" fill="#f4e8d8" opacity=".18"/>`
+        ];
+        return `
+          <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+              <linearGradient id="${suffix}" x1="0" y1="0" x2="1" y2="1">
+                <stop stop-color="${dark}"/>
+                <stop offset=".55" stop-color="${mid}"/>
+                <stop offset="1" stop-color="${warm}"/>
+              </linearGradient>
+            </defs>
+            <rect width="1200" height="800" fill="url(#${suffix})"/>
+            ${scenes[index % scenes.length]}
+          </svg>`;
+      }
+
+      function ratioLabel(ratio) {
+        const known = [
+          [8 / 3, "8:3"],
+          [2, "2:1"],
+          [4 / 3, "4:3"]
+        ].find(([value]) => Math.abs(value - ratio) < 0.01);
+        return known ? known[1] : ratio.toFixed(2);
+      }
+
+      function createTile(item) {
+        const tile = document.createElement("div");
+        tile.className = "image-tile";
+        tile.dataset.id = String(item.id);
+        tile.innerHTML = `
+          <button class="image-select" type="button" aria-label="Select image ${String(item.id).padStart(2, "0")}">
+            ${artwork(item.id - 1)}
+          </button>
+          <span class="tile-number">${String(item.id).padStart(2, "0")}</span>
+          <span class="tile-row">ROW 1</span>
+          <span class="tile-dimensions"></span>
+          <button class="resize-handle left" type="button" data-side="left"
+            aria-label="Resize image ${String(item.id).padStart(2, "0")} proportionally from the left"
+            aria-describedby="resize-instructions"><span class="handle-mark"></span></button>
+          <button class="resize-handle right" type="button" data-side="right"
+            aria-label="Resize image ${String(item.id).padStart(2, "0")} proportionally from the right"
+            aria-describedby="resize-instructions"><span class="handle-mark"></span></button>`;
+        tile.querySelector(".image-select").addEventListener("click", () => selectItem(item.id));
+        tile.querySelectorAll(".resize-handle").forEach((handle) => {
+          handle.addEventListener("pointerdown", (event) => beginResize(event, handle));
+          handle.addEventListener("pointermove", moveResize);
+          handle.addEventListener("pointerup", endResize);
+          handle.addEventListener("pointercancel", cancelResize);
+          handle.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              selectItem(item.id);
+              $("canvas-status").textContent = "Pointer drag is required to change image dimensions";
+            }
+          });
+        });
+        return tile;
+      }
+
+      function loadScenario(nextScenario) {
+        if (resizeSession) cancelResize();
+        scenario = nextScenario;
+        const definition = scenarioDefinitions[scenario];
+        const ratio = definition.width / definition.height;
+        items = Array.from({ length: definition.count }, (_, index) => ({
+          id: index + 1,
+          width: definition.width,
+          ratio
+        }));
+        selectedId = 1;
+        surface.querySelectorAll(".image-tile").forEach((tile) => tile.remove());
+        items.forEach((item) => surface.appendChild(createTile(item)));
+        document.querySelectorAll(".scenario-button").forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.scenario === scenario));
+        });
+        const layout = layoutGroup();
+        updateSelection(layout);
+        $("canvas-status").textContent = `${definition.count} image${definition.count === 1 ? "" : "s"} loaded · Default ${definition.width} × ${definition.height}`;
+      }
+
+      function committedWidths() {
+        return Object.fromEntries(items.map((item) => [item.id, item.width]));
+      }
+
+      function computeLayout(widths = committedWidths()) {
+        const rects = {};
+        let x = 0;
+        let y = 0;
+        let row = 1;
+        let rowHeight = 0;
+
+        items.forEach((item) => {
+          const width = clamp(widths[item.id] ?? item.width, MIN_WIDTH, INNER_WIDTH);
+          const height = width / item.ratio;
+          if (x > 0 && x + width > INNER_WIDTH + EPSILON) {
+            x = 0;
+            y += rowHeight + GAP;
+            row += 1;
+            rowHeight = 0;
+          }
+          rects[item.id] = { x, y, width, height, row };
+          x += width + GAP;
+          rowHeight = Math.max(rowHeight, height);
+        });
+
+        return {
+          rects,
+          rows: row,
+          surfaceHeight: y + rowHeight
+        };
+      }
+
+      function applyLayout(layout) {
+        surface.style.height = `${layout.surfaceHeight}px`;
+        items.forEach((item) => {
+          const rect = layout.rects[item.id];
+          const tile = surface.querySelector(`.image-tile[data-id="${item.id}"]`);
+          tile.style.left = `${rect.x}px`;
+          tile.style.top = `${rect.y}px`;
+          tile.style.setProperty("--tile-w", `${rect.width}px`);
+          tile.style.setProperty("--tile-h", `${rect.height}px`);
+          tile.querySelector(".tile-row").textContent = `ROW ${rect.row}`;
+          tile.querySelector(".tile-dimensions").textContent = `${Math.round(rect.width)} × ${Math.round(rect.height)}`;
+        });
+        canvas.style.minHeight = `${Math.max(760, imageGroup.offsetTop + imageGroup.offsetHeight + 68)}px`;
+        updateInspector(layout);
+        requestAnimationFrame(updateCanvasFrame);
+      }
+
+      function layoutGroup(widths = committedWidths()) {
+        const layout = computeLayout(widths);
+        applyLayout(layout);
+        return layout;
+      }
+
+      function updateInspector(layout) {
+        const rows = $("layout-rows");
+        rows.innerHTML = items.map((item) => {
+          const rect = layout.rects[item.id];
+          return `<tr class="${item.id === selectedId ? "selected" : ""}">
+            <td>${String(item.id).padStart(2, "0")}</td>
+            <td>${Math.round(rect.width)} × ${Math.round(rect.height)}</td>
+            <td>${rect.row}</td>
+          </tr>`;
+        }).join("");
+        $("group-height").textContent = `${Math.round(imageGroup.offsetHeight)} px`;
+        $("row-count").textContent = `${layout.rows} row${layout.rows === 1 ? "" : "s"}`;
+        $("group-status").textContent = `${items.length} image${items.length === 1 ? "" : "s"} · ${layout.rows} row${layout.rows === 1 ? "" : "s"} · inner 990`;
+      }
+
+      function selectItem(id) {
+        selectedId = id;
+        const layout = computeLayout(resizeSession?.previewWidths ?? committedWidths());
+        updateSelection(layout);
+      }
+
+      function updateSelection(layout = computeLayout()) {
+        surface.querySelectorAll(".image-tile").forEach((tile) => {
+          tile.classList.toggle("is-selected", Number(tile.dataset.id) === selectedId);
+        });
+        const item = items.find((candidate) => candidate.id === selectedId);
+        const rect = layout.rects[selectedId];
+        $("selection-thumb").innerHTML = artwork(selectedId - 1);
+        $("selection-title").textContent = `Image ${String(selectedId).padStart(2, "0")}`;
+        $("selection-meta").textContent = `${Math.round(rect.width)} × ${Math.round(rect.height)} · ${ratioLabel(item.ratio)} locked`;
+        $("canvas-status").textContent = `Ready · Image ${String(selectedId).padStart(2, "0")} selected`;
+        updateInspector(layout);
+      }
+
+      function clearGuides() {
+        [edgeGuide, originGuide, heightGuide, widthBracket, heightBracket, guideLabel, dimensionLabel]
+          .forEach((element) => element.classList.remove("is-visible"));
+      }
+
+      function buildSnapCandidates(rawWidth, rawLayout) {
+        const selected = items.find((item) => item.id === selectedId);
+        const selectedRect = rawLayout.rects[selectedId];
+        const candidates = [];
+
+        items.forEach((item) => {
+          if (item.id === selectedId) return;
+          const other = rawLayout.rects[item.id];
+          const equalWidth = other.width;
+          const equalHeightWidth = other.height * selected.ratio;
+          const sameTarget = Math.abs(equalWidth - equalHeightWidth) < 0.1;
+          candidates.push({
+            key: sameTarget ? `equal-both-${item.id}` : `equal-width-${item.id}`,
+            type: "dimension",
+            kind: sameTarget ? "both" : "width",
+            label: sameTarget
+              ? `Equal width & height · Image ${String(item.id).padStart(2, "0")}`
+              : `Equal width · Image ${String(item.id).padStart(2, "0")}`,
+            targetWidth: equalWidth,
+            distance: Math.abs(rawWidth - equalWidth),
+            priority: 0,
+            matchId: item.id
+          });
+          if (!sameTarget) {
+            candidates.push({
+              key: `equal-height-${item.id}`,
+              type: "dimension",
+              kind: "height",
+              label: `Equal height · Image ${String(item.id).padStart(2, "0")}`,
+              targetWidth: equalHeightWidth,
+              distance: Math.abs(rawWidth - equalHeightWidth),
+              priority: 0,
+              matchId: item.id
+            });
+          }
+        });
+
+        const edgeTargets = [
+          { key: "group-right", x: INNER_WIDTH, label: "Group right edge", priority: 1 }
+        ];
+        items.forEach((item) => {
+          if (item.id === selectedId) return;
+          const rect = rawLayout.rects[item.id];
+          const number = String(item.id).padStart(2, "0");
+          edgeTargets.push(
+            { key: `image-${item.id}-left`, x: rect.x, label: `Image ${number} left edge`, priority: 2 },
+            { key: `image-${item.id}-right`, x: rect.x + rect.width, label: `Image ${number} right edge`, priority: 2 }
+          );
+        });
+        edgeTargets.forEach((target) => {
+          const targetWidth = target.x - selectedRect.x;
+          if (targetWidth < MIN_WIDTH || targetWidth > INNER_WIDTH) return;
+          candidates.push({
+            ...target,
+            key: `edge-${target.key}`,
+            type: "edge",
+            targetWidth,
+            distance: Math.abs(rawWidth - targetWidth)
+          });
+        });
+        return candidates;
+      }
+
+      function chooseSnap(candidates) {
+        if (resizeSession.activeSnap) {
+          const retained = candidates.find((candidate) => candidate.key === resizeSession.activeSnap.key);
+          if (retained && retained.distance <= SNAP_RELEASE) {
+            resizeSession.activeSnap = retained;
+            return retained;
+          }
+        }
+        const next = candidates
+          .filter((candidate) => candidate.distance <= SNAP_ENTRY)
+          .sort((a, b) => a.priority - b.priority || a.distance - b.distance)[0] ?? null;
+        resizeSession.activeSnap = next;
+        return next;
+      }
+
+      function calculateResize(clientX) {
+        const direction = resizeSession.side === "right" ? 1 : -1;
+        const logicalDelta = (clientX - resizeSession.startX) / currentScale;
+        const rawWidth = clamp(
+          resizeSession.startWidth + logicalDelta * direction,
+          MIN_WIDTH,
+          INNER_WIDTH
+        );
+        const rawWidths = { ...resizeSession.startWidths, [selectedId]: rawWidth };
+        const rawLayout = computeLayout(rawWidths);
+        const snapped = chooseSnap(buildSnapCandidates(rawWidth, rawLayout));
+        const width = clamp(snapped ? snapped.targetWidth : rawWidth, MIN_WIDTH, INNER_WIDTH);
+        const previewWidths = { ...resizeSession.startWidths, [selectedId]: width };
+        const layout = computeLayout(previewWidths);
+        return { width, previewWidths, layout, snapped };
+      }
+
+      function showResizeFeedback(result) {
+        clearGuides();
+        const rect = result.layout.rects[selectedId];
+        const item = items.find((candidate) => candidate.id === selectedId);
+
+        dimensionLabel.textContent = `${Math.round(rect.width)} × ${Math.round(rect.height)} · ${ratioLabel(item.ratio)} locked`;
+        dimensionLabel.style.left = `${clamp(rect.x + rect.width / 2 - 58, 4, INNER_WIDTH - 145)}px`;
+        dimensionLabel.style.top = `${clamp(rect.y + rect.height + 12, 4, result.layout.surfaceHeight - 22)}px`;
+        dimensionLabel.classList.add("is-visible");
+
+        if (Math.abs(rect.x) < EPSILON && result.snapped?.label !== "Group right edge") {
+          originGuide.style.left = "0px";
+          originGuide.classList.add("is-visible");
+          if (!result.snapped) {
+            guideLabel.textContent = "Group left edge";
+            guideLabel.style.left = "7px";
+            guideLabel.style.top = `${Math.max(4, rect.y + 7)}px`;
+            guideLabel.classList.add("is-visible");
+          }
+        }
+
+        if (result.snapped?.type === "edge") {
+          edgeGuide.style.left = `${result.snapped.x}px`;
+          edgeGuide.classList.add("is-visible");
+          guideLabel.textContent = result.snapped.label;
+          guideLabel.style.left = `${clamp(result.snapped.x + 7, 4, INNER_WIDTH - 140)}px`;
+          guideLabel.style.top = `${Math.max(4, rect.y + 7)}px`;
+          guideLabel.classList.add("is-visible");
+        }
+
+        if (result.snapped?.type === "dimension") {
+          const other = result.layout.rects[result.snapped.matchId];
+          const showWidth = result.snapped.kind === "width" || result.snapped.kind === "both";
+          const showHeight = result.snapped.kind === "height" || result.snapped.kind === "both";
+          if (showWidth) {
+            widthBracket.style.left = `${rect.x}px`;
+            widthBracket.style.top = `${rect.y + rect.height + 6}px`;
+            widthBracket.style.width = `${rect.width}px`;
+            widthBracket.classList.add("is-visible");
+          }
+          if (showHeight) {
+            heightBracket.style.left = `${rect.x + rect.width + 6}px`;
+            heightBracket.style.top = `${rect.y}px`;
+            heightBracket.style.height = `${rect.height}px`;
+            heightBracket.classList.add("is-visible");
+            heightGuide.style.left = `${Math.min(rect.x, other.x) - 5}px`;
+            heightGuide.style.top = `${rect.y + rect.height}px`;
+            heightGuide.style.width = `${Math.max(rect.x + rect.width, other.x + other.width) - Math.min(rect.x, other.x) + 10}px`;
+            heightGuide.classList.add("is-visible");
+          }
+          guideLabel.textContent = result.snapped.label;
+          guideLabel.style.left = `${clamp(rect.x + 8, 4, INNER_WIDTH - 180)}px`;
+          guideLabel.style.top = `${Math.max(4, rect.y + 8)}px`;
+          guideLabel.classList.add("is-visible");
+        }
+      }
+
+      function updateResizePreview(result) {
+        resizeSession.previewWidths = result.previewWidths;
+        resizeSession.previewWidth = result.width;
+        applyLayout(result.layout);
+        updateSelection(result.layout);
+        showResizeFeedback(result);
+        const action = result.snapped ? `Snap · ${result.snapped.label}` : "Direct user size";
+        $("canvas-status").textContent = `${action} · ${Math.round(result.width)} × ${Math.round(result.layout.rects[selectedId].height)}`;
+      }
+
+      function beginResize(event, handle) {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const tile = handle.closest(".image-tile");
+        selectedId = Number(tile.dataset.id);
+        const item = items.find((candidate) => candidate.id === selectedId);
+        resizeSession = {
+          pointerId: event.pointerId,
+          handle,
+          tile,
+          side: handle.dataset.side,
+          startX: event.clientX,
+          startWidth: item.width,
+          startWidths: committedWidths(),
+          previewWidths: committedWidths(),
+          previewWidth: item.width,
+          activeSnap: null,
+          pendingClientX: event.clientX,
+          frame: 0
+        };
+        handle.setPointerCapture(event.pointerId);
+        tile.classList.add("is-resizing");
+        updateSelection(computeLayout());
+        updateResizePreview(calculateResize(event.clientX));
+      }
+
+      function renderPendingResize() {
+        if (!resizeSession) return;
+        resizeSession.frame = 0;
+        updateResizePreview(calculateResize(resizeSession.pendingClientX));
+      }
+
+      function moveResize(event) {
+        if (!resizeSession || event.pointerId !== resizeSession.pointerId) return;
+        resizeSession.pendingClientX = event.clientX;
+        if (!resizeSession.frame) resizeSession.frame = requestAnimationFrame(renderPendingResize);
+      }
+
+      function endResize(event) {
+        if (!resizeSession || event.pointerId !== resizeSession.pointerId) return;
+        if (resizeSession.frame) cancelAnimationFrame(resizeSession.frame);
+        const result = calculateResize(event.clientX);
+        const item = items.find((candidate) => candidate.id === selectedId);
+        const tile = resizeSession.tile;
+        item.width = result.width;
+        resizeSession = null;
+        tile.classList.remove("is-resizing");
+        clearGuides();
+        const layout = layoutGroup();
+        updateSelection(layout);
+        $("canvas-status").textContent = `Committed · Image ${String(selectedId).padStart(2, "0")} · ${Math.round(result.width)} × ${Math.round(result.layout.rects[selectedId].height)}`;
+      }
+
+      function cancelResize(event) {
+        if (!resizeSession || (event?.pointerId != null && event.pointerId !== resizeSession.pointerId)) return;
+        if (resizeSession.frame) cancelAnimationFrame(resizeSession.frame);
+        const tile = resizeSession.tile;
+        resizeSession = null;
+        tile.classList.remove("is-resizing");
+        clearGuides();
+        const layout = layoutGroup();
+        updateSelection(layout);
+        $("canvas-status").textContent = "Resize cancelled · Authoritative dimensions restored";
+      }
+
+      function updateCanvasFrame() {
+        canvasFrame.style.width = `${1080 * currentScale}px`;
+        canvasFrame.style.height = `${canvas.offsetHeight * currentScale}px`;
+      }
+
+      function fitCanvas() {
+        const available = Math.max(620, workspace.clientWidth - 36);
+        currentScale = Math.min(1, available / 1080);
+        document.documentElement.style.setProperty("--canvas-scale", currentScale.toFixed(4));
+        $("zoom-label").textContent = `Fit ${Math.round(currentScale * 100)}% · logical sizes unchanged`;
+        updateCanvasFrame();
+      }
+
+      document.querySelectorAll(".scenario-button").forEach((button) => {
+        button.addEventListener("click", () => loadScenario(button.dataset.scenario));
+      });
+      $("reset-button").addEventListener("click", () => loadScenario(scenario));
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && resizeSession) cancelResize();
+      });
+      window.addEventListener("resize", fitCanvas);
+
+      loadScenario("many");
+      fitCanvas();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "workspace": {
+    "projects": [
+      {
+        "coverImage": null,
+        "createdAt": "2026-08-19T17:33:40.368Z",
+        "lastOpenedAt": "2026-08-19T17:33:40.388Z",
+        "name": "Preshot 入门示例",
+        "path": "\\\\?\\C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\post-four-isolated-profile\\.preshot\\projects\\Preshot 入门示例",
+        "projectId": "7bc89fad-10b4-4ffc-91c8-79edd4e5e633",
+        "status": "available",
+        "updatedAt": "2026-08-19T17:33:40.368Z"
+      }
+    ],
+    "schemaVersion": 1
+  }
+}

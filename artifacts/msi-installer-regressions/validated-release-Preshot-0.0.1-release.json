@@ -1,0 +1,48 @@
+{
+    "schemaVersion":  2,
+    "product":  "Preshot",
+    "version":  "0.0.1",
+    "target":  "x86_64-pc-windows-msvc",
+    "profile":  "release",
+    "architecture":  "x64",
+    "commit":  "3b938f3b2062d13f60322b1fa69d6d410c98fc4b",
+    "generatedAt":  "2026-08-18T09:50:01Z",
+    "timestampStrategy":  "git-commit",
+    "signing":  {
+                    "state":  "unsigned",
+                    "signed":  false,
+                    "validForPublication":  false
+                },
+    "installer":  {
+                      "scope":  "perUser",
+                      "upgradeCode":  "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6",
+                      "historicalPerMachine":  {
+                                                   "upgradeCode":  "97EE9B44-6313-52EB-A67E-A1334832EB86",
+                                                   "lastPublishedVersion":  "0.0.1",
+                                                   "detectionProperty":  "LEGACY_MACHINE_PRESHOT_FOUND",
+                                                   "action":  "block-and-uninstall-first"
+                                               },
+                      "firstPublishableVersion":  "0.0.2"
+                  },
+    "publication":  {
+                        "publishable":  false,
+                        "blockers":  [
+                                         "version-must-exceed-historical-per-machine-0.0.1",
+                                         "authenticode-signatures-required"
+                                     ]
+                    },
+    "files":  [
+                  {
+                      "kind":  "executable",
+                      "name":  "preshot.exe",
+                      "size":  23837696,
+                      "sha256":  "af7b9f6b1368caceaacc7a9163f79dfa05d83115e9e180566cf5d2839e5be1b2"
+                  },
+                  {
+                      "kind":  "msi",
+                      "name":  "Preshot_0.0.1_x64_en-US.msi",
+                      "size":  16580608,
+                      "sha256":  "17ee5c138532ce89fe77799796b8348980e64fafc7d7181fd275e5602580ac18"
+                  }
+              ]
+}

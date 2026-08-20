@@ -1,0 +1,17 @@
+{
+  "Profile": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-isolated-profile",
+  "UserRootExists": true,
+  "ProjectsRootExists": true,
+  "SettingsRoot": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-isolated-profile\\.preshot",
+  "SettingsFilePath": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-isolated-profile\\.preshot\\settings.json",
+  "SettingsFileExists": false,
+  "ProjectCount": 1,
+  "ProjectName": "Preshot 入门示例",
+  "ManifestPath": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-isolated-profile\\.preshot\\projects\\Preshot 入门示例\\.preshotproj",
+  "ManifestSha256": "c57d22214983e8247b7465749f3271dee2d86bff38a1bfe2dabfee24127aff7b",
+  "ManifestSchemaVersion": 1,
+  "PlanSchemaVersion": 14,
+  "DocumentFormat": "preshot-blocks",
+  "DocumentVersion": 2,
+  "BlockCount": 3
+}

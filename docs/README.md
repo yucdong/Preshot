@@ -12,6 +12,7 @@ This directory contains the English maintenance documentation for the current Pr
 - [Architecture](ARCHITECTURE.md)
 - [Testing](TESTING.md)
 - [Reliability](RELIABILITY.md)
+- [Windows installer operator guide](WINDOWS_INSTALLER.md)
 - [Licensing and distribution](LICENSING.md)
 
 ## Active v14 specifications

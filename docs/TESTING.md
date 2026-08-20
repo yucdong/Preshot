@@ -22,12 +22,55 @@ Run commands from the repository root on Windows.
 | `pnpm lint` | ESLint for the TypeScript, React, and script code. |
 | `pnpm typecheck` | TypeScript project build in type-check mode. |
 | `pnpm test` | Vitest suite for domain, components, adapters, and utility logic. |
+| `pnpm exec vitest run src\app\packaging\docsCheck.test.ts src\app\packaging\msiConfig.test.ts src\app\packaging\versionConfig.test.ts src\domain\workspace\starterProject.test.ts src\domain\workspace\service.test.ts src\infrastructure\workspace\tauriWorkspace.test.ts` | Focused documentation, MSI, release-version, starter/bootstrap, service, and Tauri-adapter contracts. |
 | `pnpm test:watch` | Vitest watch mode for local TDD. |
 | `cargo test --manifest-path src-tauri\Cargo.toml` | Rust unit tests for Tauri-side commands and helpers. |
 | `pnpm build` | TypeScript build plus Vite production bundle. |
 | `pnpm tauri:build` | Desktop package build. |
 
 If Visual Studio tools are not already active in the shell, use **Developer PowerShell for VS 2022** before running Rust or Tauri packaging commands.
+
+### Production MSI matrix
+
+The non-installing release matrix is:
+
+| Stage | Exact command | Coverage |
+| --- | --- | --- |
+| Documentation | `pnpm docs:check` | English canonical docs, required files, JSON, links, stale canonical references. |
+| Static packaging/bootstrap contracts | `pnpm exec vitest run src\app\packaging\docsCheck.test.ts src\app\packaging\msiConfig.test.ts src\app\packaging\versionConfig.test.ts src\domain\workspace\starterProject.test.ts src\domain\workspace\service.test.ts src\infrastructure\workspace\tauriWorkspace.test.ts` | WiX/Tauri pin, distinct per-user and historical per-machine UpgradeCodes, localized legacy detection/LaunchCondition, mandatory executable ownership, checked WebView2 command construction, version policy, scripts/artifact paths, starter content, bootstrap ordering/rollback, native argument shaping. |
+| Production-script fixtures | `pnpm test:production-scripts` | Version limits and synchronization, first-publish lineage gate, offline targeted Cargo.lock updates, command failure propagation, compiled MSI Upgrade/LaunchCondition and runtime table assertions, artifact inspection, expected/mismatched signer handling across PowerShell and signtool readers, publish/local hook invocation, deterministic manifest/checksum, tamper rejection, and safe stale-MSI cleanup. |
+| Native bootstrap contracts | `cargo test --manifest-path src-tauri\Cargo.toml workspace::tests::` | Root creation, adoption, exact starter creation, contention, atomic manifest failure cleanup, token authority, quarantine rollback, and preservation. |
+| Full unit/static | `pnpm test` | Complete Vitest suite. |
+| Full native | `cargo test --manifest-path src-tauri\Cargo.toml --target x86_64-pc-windows-msvc --all-features --all-targets --locked` | Locked full Rust release-target suite. |
+| Build | `pnpm production:build` | All non-E2E checks above, prerequisites, safe stale-MSI cleanup, explicit x64 MSI build with a version-only bundle override, compiled Upgrade/LaunchCondition/FeatureComponents/CustomAction/File/Shortcut inspection, optional signing, artifact metadata/checksum/manifest generation. |
+| Existing-artifact verification | `pnpm production:verify` | Repeats the full static/unit/native matrix, both Playwright suites, compiled MSI runtime-contract, signature, and metadata verification, then an optional non-destructive installer hook; does not rebuild or install. |
+
+Expected versioned outputs are:
+
+```text
+src-tauri\target\x86_64-pc-windows-msvc\release\preshot.exe
+src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot_<version>_x64_en-US.msi
+src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot_<version>_x64_en-US.msi.sha256
+src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot-<version>-release.json
+```
+
+### Clean-VM installer matrix
+
+Run this only in disposable Windows VMs after the non-installing matrix passes:
+
+| Scenario | Exact command |
+| --- | --- |
+| Interactive default install | `msiexec.exe /i ".\Preshot_<version>_x64_en-US.msi" /L*v ".\install.log"` |
+| Silent Desktop-opt-in install | `msiexec.exe /i ".\Preshot_<version>_x64_en-US.msi" DESKTOPSHORTCUT=1 /qn /norestart /L*v ".\install-desktop.log"` |
+| Higher-version major upgrade | `msiexec.exe /i ".\Preshot_<higher-version>_x64_en-US.msi" /L*v ".\upgrade.log"` |
+| Repair | `msiexec.exe /famus "{PRODUCT-CODE-GUID}" /qn /norestart /L*v ".\repair.log"` |
+| Silent uninstall | `msiexec.exe /x "{PRODUCT-CODE-GUID}" /qn /norestart /L*v ".\uninstall.log"` |
+
+For every VM scenario, assert LocalAppData/HKCU scope, shortcut policy,
+WebView2 behavior, application launch, starter/adoption behavior, and
+preservation of `%USERPROFILE%\.preshot` across upgrade, forced rollback,
+repair, and uninstall. Also run negative attempts for downgrade and
+`ALLUSERS=1`. Do not run this matrix on a developer workstation.
 
 ## Preshot 0.0.1 verification
 
@@ -44,8 +87,8 @@ DOCX export reviews:
 - 11 focused BlockNote v14 Playwright journeys passed;
 - the production web and Tauri builds passed; and
 - the installer was produced as
-  `src-tauri\target\release\bundle\msi\Preshot_0.0.1_x64_en-US.msi`, with no
-  other MSI in that output directory.
+  `src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot_0.0.1_x64_en-US.msi`,
+  with no other Preshot MSI in that output directory.
 
 The final acceptance reran the production browser export while retaining only
 the three reviewed files under `artifacts\pdf-export-regressions`. It confirmed
@@ -79,6 +122,7 @@ This is a known advisory, not a build failure.
 | `pnpm test:e2e` | Main Playwright suite on `http://127.0.0.1:1420` using Microsoft Edge. |
 | `pnpm test:e2e:blocknote` | Focused BlockNote v14 Playwright suite on `http://127.0.0.1:1430`. |
 | `pnpm test:init` | PowerShell harness for `init.ps1` error handling and Node version boundaries. |
+| `pnpm test:production-scripts` | Isolated PowerShell production/release tooling contracts. |
 
 ### Midscene and AI-assisted checks
 
@@ -287,6 +331,10 @@ When accepted behavior changes, update the implementation, the relevant tests, a
   changed behavior claims; run `pnpm docs:check`, parse
   `docs/design_docs/featurelist.json`, validate local Markdown links and
   English-only canonical docs, then run `git diff --check`.
+- MSI/bootstrap/production-script change: run the focused production MSI
+  matrix above, then `pnpm test`, `pnpm lint`, `pnpm typecheck`, and
+  `git diff --check`. Defer the destructive clean-VM matrix until explicitly
+  scheduled.
 
 ## Non-goals
 

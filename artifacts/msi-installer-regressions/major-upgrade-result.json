@@ -1,0 +1,7 @@
+{
+  "ExitCode": 0,
+  "OldProductState": 5,
+  "NewProductState": 5,
+  "SentinelSha256": "84a42d343a66cd75ff4fd45c27feccf41c2740cf787689b7c8a19e33c0b2f7d7",
+  "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\major-upgrade-0.0.2.log"
+}

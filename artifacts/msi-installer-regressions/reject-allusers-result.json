@@ -1,0 +1,7 @@
+{
+  "ExitCode": 1603,
+  "ExpectedFailure": true,
+  "ProductStateAfter": -1,
+  "InstallDirectoryExists": false,
+  "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\reject-allusers.log"
+}

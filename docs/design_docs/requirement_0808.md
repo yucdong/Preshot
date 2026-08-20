@@ -6,7 +6,11 @@ If another project with the same name already exists under that parent directory
 The default project folder is `.preshot` under the current system user's home directory. When creating a project, open the `projects` directory under that folder by default. All Preshot system-related configuration files are stored under `.preshot`, and all project files are named `.preshotproj`.
 
 ## Installation management
-Build a Windows installer and produce an `.msi` package. After installation, it should automatically configure the required files and executables, create the `.preshot` folder, add the executable to the executable path, and perform other actions expected from an installer.
+Build a Windows installer and produce an `.msi` package. The implemented
+installer configures only application files, shortcuts, and HKCU registration
+under LocalAppData. The application creates `%USERPROFILE%\.preshot` and its
+starter project at startup; the installer never owns or removes that user
+data.
 
 # Canvas management
 

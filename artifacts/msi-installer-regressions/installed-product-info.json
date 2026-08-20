@@ -1,0 +1,11 @@
+{
+  "ProductCode": "{C42AF1AC-B6BF-4008-8C75-5D594FDD543D}",
+  "State": 5,
+  "ProductName": "Preshot",
+  "VersionString": "0.0.1",
+  "Publisher": "yucdong",
+  "InstallLocation": "C:\\Users\\dongyuchen\\AppData\\Local\\Programs\\Preshot\\",
+  "InstallSource": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\bundle\\msi\\",
+  "LocalPackage": "C:\\Windows\\Installer\\19b2b935.msi",
+  "Uninstallable": null
+}

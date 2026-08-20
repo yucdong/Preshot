@@ -1,0 +1,11 @@
+{
+  "ProjectCount": 1,
+  "ProjectName": "Preshot 入门示例",
+  "ManifestSchema": 1,
+  "PlanSchema": 14,
+  "DocumentVersion": 2,
+  "FirstHash": "cbc35b80099eda609b0b6b6c056dbb98fd01b705ea4104f68322f4170686e56c",
+  "SecondHash": "cbc35b80099eda609b0b6b6c056dbb98fd01b705ea4104f68322f4170686e56c",
+  "Idempotent": true,
+  "SentinelHash": "10173bc0c8cf9bd2d378fb0ab188690ef48e25ab553b0a06083aa11f77c71199"
+}

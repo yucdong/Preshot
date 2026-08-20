@@ -1,0 +1,356 @@
+{
+  "summary": {
+    "template": "x64;0",
+    "revision": "{D7B2CBB2-4E30-48AE-99EB-23DE499B6B6D}",
+    "wordCount": "10"
+  },
+  "properties": [
+    null,
+    null,
+    {
+      "property": "UpgradeCode",
+      "value": "{97EE9B44-6313-52EB-A67E-A1334832EB86}"
+    },
+    {
+      "property": "WIXUI_EXITDIALOGOPTIONALCHECKBOX",
+      "value": "1"
+    },
+    {
+      "property": "WixUIRMOption",
+      "value": "UseRM"
+    },
+    {
+      "property": "WIXUI_INSTALLDIR",
+      "value": "PreshotInstallDir"
+    },
+    {
+      "property": "ARPNOMODIFY",
+      "value": "1"
+    },
+    {
+      "property": "ARPNOREPAIR",
+      "value": "yes"
+    },
+    {
+      "property": "REINSTALLMODE",
+      "value": "amus"
+    },
+    {
+      "property": "DESKTOPSHORTCUT",
+      "value": "0"
+    },
+    {
+      "property": "ARPPRODUCTICON",
+      "value": "ProductIcon"
+    },
+    {
+      "property": "ARPURLINFOABOUT",
+      "value": "https://github.com/yucdong/Preshot"
+    },
+    {
+      "property": "ARPHELPLINK",
+      "value": "https://github.com/yucdong/Preshot"
+    },
+    {
+      "property": "ARPURLUPDATEINFO",
+      "value": "https://github.com/yucdong/Preshot"
+    },
+    {
+      "property": "WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT",
+      "value": "Launch Preshot"
+    },
+    {
+      "property": "Manufacturer",
+      "value": "yucdong"
+    },
+    {
+      "property": "ProductCode",
+      "value": "{C42AF1AC-B6BF-4008-8C75-5D594FDD543D}"
+    },
+    {
+      "property": "ProductLanguage",
+      "value": "1033"
+    },
+    {
+      "property": "ProductName",
+      "value": "Preshot"
+    },
+    {
+      "property": "ProductVersion",
+      "value": "0.0.1"
+    },
+    {
+      "property": "DefaultUIFont",
+      "value": "WixUI_Font_Normal"
+    },
+    {
+      "property": "WixUI_Mode",
+      "value": "InstallDir"
+    },
+    {
+      "property": "ErrorDialog",
+      "value": "ErrorDlg"
+    },
+    {
+      "property": "SecureCustomProperties",
+      "value": "ARPNOREPAIR;AUTOLAUNCHAPP;DESKTOPSHORTCUT;LAUNCHAPPARGS;WIX_DOWNGRADE_DETECTED;WIX_UPGRADE_DETECTED"
+    }
+  ],
+  "directories": [
+    null,
+    null,
+    {
+      "directory": "DesktopFolder",
+      "parent": "TARGETDIR",
+      "defaultDir": "Desktop"
+    },
+    {
+      "directory": "PreshotInstallDir",
+      "parent": "PreshotProgramsFolder",
+      "defaultDir": "Preshot"
+    },
+    {
+      "directory": "ApplicationProgramsFolder",
+      "parent": "ProgramMenuFolder",
+      "defaultDir": "Preshot"
+    },
+    {
+      "directory": "TARGETDIR",
+      "parent": "",
+      "defaultDir": "SourceDir"
+    },
+    {
+      "directory": "PreshotProgramsFolder",
+      "parent": "LocalAppDataFolder",
+      "defaultDir": "Programs"
+    },
+    {
+      "directory": "LocalAppDataFolder",
+      "parent": "TARGETDIR",
+      "defaultDir": "."
+    },
+    {
+      "directory": "ProgramMenuFolder",
+      "parent": "TARGETDIR",
+      "defaultDir": "."
+    }
+  ],
+  "features": [
+    null,
+    null,
+    {
+      "feature": "DesktopShortcutFeature",
+      "parent": "ShortcutsFeature",
+      "title": "Desktop shortcut",
+      "level": "2",
+      "directory": "",
+      "attributes": "0"
+    },
+    {
+      "feature": "ShortcutsFeature",
+      "parent": "MainProgram",
+      "title": "Shortcuts",
+      "level": "1",
+      "directory": "",
+      "attributes": "0"
+    },
+    {
+      "feature": "MainProgram",
+      "parent": "",
+      "title": "Application",
+      "level": "1",
+      "directory": "",
+      "attributes": "24"
+    },
+    {
+      "feature": "Environment",
+      "parent": "MainProgram",
+      "title": "PATH Environment Variable",
+      "level": "1",
+      "directory": "",
+      "attributes": "0"
+    },
+    {
+      "feature": "External",
+      "parent": "",
+      "title": "",
+      "level": "1",
+      "directory": "",
+      "attributes": "24"
+    }
+  ],
+  "conditions": [
+    null,
+    null,
+    {
+      "feature": "DesktopShortcutFeature",
+      "level": "1",
+      "condition": "DESKTOPSHORTCUT = \"1\""
+    }
+  ],
+  "registry": [
+    null,
+    null,
+    {
+      "registry": "regC7176A1F7B2BB3D692F0F638B2DC6A96",
+      "root": "1",
+      "key": "Software\\yucdong\\Preshot",
+      "name": "Desktop Shortcut",
+      "value": "#1",
+      "component": "ApplicationShortcutDesktop"
+    },
+    {
+      "registry": "reg4554D235A7A01B9F257894C238E498B9",
+      "root": "1",
+      "key": "Software\\yucdong\\Preshot",
+      "name": "InstallDir",
+      "value": "[PreshotInstallDir]",
+      "component": "RegistryEntries"
+    },
+    {
+      "registry": "regA6A61EA487E94F0B082A01D19669B365",
+      "root": "1",
+      "key": "Software\\yucdong\\Preshot",
+      "name": "Start Menu Shortcut",
+      "value": "#1",
+      "component": "ApplicationShortcut"
+    }
+  ],
+  "shortcuts": [
+    null,
+    null,
+    {
+      "shortcut": "ApplicationStartMenuShortcut",
+      "directory": "ApplicationProgramsFolder",
+      "name": "Preshot",
+      "component": "ApplicationShortcut",
+      "target": "[!Path]",
+      "arguments": "",
+      "description": "Runs Preshot",
+      "workingDirectory": "PreshotInstallDir",
+      "icon": "ProductIcon"
+    },
+    {
+      "shortcut": "ApplicationDesktopShortcut",
+      "directory": "DesktopFolder",
+      "name": "Preshot",
+      "component": "ApplicationShortcutDesktop",
+      "target": "[!Path]",
+      "arguments": "",
+      "description": "Runs Preshot",
+      "workingDirectory": "PreshotInstallDir",
+      "icon": ""
+    }
+  ],
+  "customActions": [
+    null,
+    null,
+    {
+      "action": "LaunchApplication",
+      "type": "210",
+      "source": "Path",
+      "target": "[LAUNCHAPPARGS]"
+    },
+    {
+      "action": "WixUIValidatePath",
+      "type": "65",
+      "source": "WixUIWixca",
+      "target": "ValidatePath"
+    },
+    {
+      "action": "WixUIPrintEula",
+      "type": "65",
+      "source": "WixUIWixca",
+      "target": "PrintEula"
+    },
+    {
+      "action": "SetARPNOMODIFY",
+      "type": "51",
+      "source": "ARPNOMODIFY",
+      "target": "1"
+    },
+    {
+      "action": "DownloadAndInvokeBootstrapper",
+      "type": "1058",
+      "source": "PreshotInstallDir",
+      "target": "powershell.exe -NoProfile -windowstyle hidden try [\\{] [\\[]Net.ServicePointManager[\\]]::SecurityProtocol = [\\[]Net.SecurityProtocolType[\\]]::Tls12 [\\}] catch [\\{][\\}]; Invoke-WebRequest -Uri \"https://go.microsoft.com/fwlink/p/?LinkId=2124703\" -OutFile \"$env:TEMP\\MicrosoftEdgeWebview2Setup.exe\" ; Start-Process -FilePath \"$env:TEMP\\MicrosoftEdgeWebview2Setup.exe\" -ArgumentList ('/silent', '/install') -Wait"
+    },
+    {
+      "action": "SetARPINSTALLLOCATION",
+      "type": "51",
+      "source": "ARPINSTALLLOCATION",
+      "target": "[PreshotInstallDir]"
+    }
+  ],
+  "launchConditions": [
+    null,
+    null,
+    {
+      "condition": "NOT ALLUSERS",
+      "description": "Preshot is a per-user package. Remove ALLUSERS and retry."
+    },
+    {
+      "condition": "NOT WIX_DOWNGRADE_DETECTED",
+      "description": "A newer version of Preshot is already installed."
+    }
+  ],
+  "upgrade": [
+    null,
+    null,
+    {
+      "upgradeCode": "{97EE9B44-6313-52EB-A67E-A1334832EB86}",
+      "versionMin": "",
+      "versionMax": "0.0.1",
+      "language": "",
+      "attributes": "1",
+      "remove": "",
+      "actionProperty": "WIX_UPGRADE_DETECTED"
+    },
+    {
+      "upgradeCode": "{97EE9B44-6313-52EB-A67E-A1334832EB86}",
+      "versionMin": "0.0.1",
+      "versionMax": "",
+      "language": "",
+      "attributes": "2",
+      "remove": "",
+      "actionProperty": "WIX_DOWNGRADE_DETECTED"
+    }
+  ],
+  "components": [
+    null,
+    null,
+    {
+      "component": "ApplicationShortcutDesktop",
+      "componentId": "{3690C03B-B899-5947-99AF-3617635E7C1C}",
+      "directory": "DesktopFolder",
+      "attributes": "260",
+      "condition": "",
+      "keyPath": "regC7176A1F7B2BB3D692F0F638B2DC6A96"
+    },
+    {
+      "component": "RegistryEntries",
+      "componentId": "{434F49CC-680A-5AA6-A3DF-47A65A3E9380}",
+      "directory": "PreshotInstallDir",
+      "attributes": "260",
+      "condition": "",
+      "keyPath": "reg4554D235A7A01B9F257894C238E498B9"
+    },
+    {
+      "component": "Path",
+      "componentId": "{9802ED3E-F926-554A-A3EF-3503ECDD46FB}",
+      "directory": "PreshotInstallDir",
+      "attributes": "256",
+      "condition": "",
+      "keyPath": "Path"
+    },
+    {
+      "component": "ApplicationShortcut",
+      "componentId": "{F6E6396D-24D1-5227-BD8F-A9B53AD4D094}",
+      "directory": "ApplicationProgramsFolder",
+      "attributes": "260",
+      "condition": "",
+      "keyPath": "regA6A61EA487E94F0B082A01D19669B365"
+    }
+  ],
+  "removeFiles": []
+}

@@ -1,0 +1,15 @@
+{
+  "RepairExitCode": 0,
+  "UninstallExitCode": 0,
+  "ProductStateAfter": -1,
+  "InstallDirectoryExists": false,
+  "StartMenuExists": false,
+  "DesktopExists": false,
+  "SentinelBefore": "3477e617783993efb2ac0e21990125b4632237f612a48278b111c06b59e4cd86",
+  "SentinelAfterRepair": "3477e617783993efb2ac0e21990125b4632237f612a48278b111c06b59e4cd86",
+  "SentinelAfterUninstall": "3477e617783993efb2ac0e21990125b4632237f612a48278b111c06b59e4cd86",
+  "ManifestExists": true,
+  "ProjectCount": 1,
+  "RepairLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-repair.log",
+  "UninstallLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-uninstall.log"
+}

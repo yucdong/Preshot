@@ -1,0 +1,18 @@
+[
+  {
+    "ProductCode": "{C42AF1AC-B6BF-4008-8C75-5D594FDD543D}",
+    "State": 5,
+    "ProductName": "Preshot",
+    "VersionString": "0.0.1",
+    "InstallLocation": "C:\\Users\\dongyuchen\\AppData\\Local\\Programs\\Preshot\\",
+    "LocalPackage": "C:\\Windows\\Installer\\19b2b953.msi"
+  },
+  {
+    "ProductCode": "{9AAFC951-0459-4933-B7D0-A74BB31C4C95}",
+    "State": 5,
+    "ProductName": "Preshot",
+    "VersionString": "0.0.2",
+    "InstallLocation": "C:\\Users\\dongyuchen\\AppData\\Local\\Programs\\Preshot\\",
+    "LocalPackage": "C:\\Windows\\Installer\\19b2b959.msi"
+  }
+]

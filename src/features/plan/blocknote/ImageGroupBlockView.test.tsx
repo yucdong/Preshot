@@ -180,6 +180,83 @@ describe("ImageGroupBlockView image tile interactions", () => {
     expect(controller.setImageFrame).not.toHaveBeenCalled();
   });
 
+  it("preserves authoritative image sizes, wraps immediately, and grows height", () => {
+    const source = {
+      ...group("group-1", "image-1"),
+      height: 80,
+      images: [
+        {
+          id: "image-1",
+          file: "references/image-1.png",
+          aspectRatio: 2,
+          frameWidth: 200,
+          frameHeight: 100,
+        },
+        {
+          id: "image-2",
+          file: "references/image-2.png",
+          aspectRatio: 2,
+          frameWidth: 200,
+          frameHeight: 100,
+        },
+      ],
+    };
+    renderGroups([source], controllerFor([source]));
+
+    const frames = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-image-id]"),
+    );
+    expect(frames.map((frame) => ({
+      id: frame.dataset.imageId,
+      left: frame.style.left,
+      top: frame.style.top,
+      width: frame.style.width,
+      height: frame.style.height,
+    }))).toEqual([
+      { id: "image-1", left: "0px", top: "0px", width: "200px", height: "100px" },
+      { id: "image-2", left: "0px", top: "107px", width: "200px", height: "100px" },
+    ]);
+    expect(document.querySelector<HTMLElement>(
+      '[data-image-group-id="group-1"]',
+    )).toHaveStyle({ height: "225px" });
+  });
+
+  it("clips a legacy wide image on a safe single overflow row without resizing it", () => {
+    const source = {
+      ...group("group-1", "wide"),
+      height: 80,
+      images: [
+        {
+          id: "wide",
+          file: "references/wide.png",
+          aspectRatio: 2,
+          frameWidth: 400,
+          frameHeight: 200,
+        },
+        {
+          id: "next",
+          file: "references/next.png",
+          aspectRatio: 1,
+          frameWidth: 80,
+          frameHeight: 80,
+        },
+      ],
+    };
+    renderGroups([source], controllerFor([source]));
+
+    const frames = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-image-id]"),
+    );
+    expect(frames[0]).toHaveStyle({
+      left: "0px",
+      top: "0px",
+      width: "400px",
+      height: "200px",
+    });
+    expect(frames[1]).toHaveStyle({ left: "0px", top: "207px" });
+    expect(frames[0]?.parentElement).toHaveClass("overflow-hidden");
+  });
+
   it("suppresses the viewer after press-drag and commits a reorder", () => {
     const groups = [group("group-1", "image-1")];
     const controller = controllerFor(groups, { selectedImageId: "image-1" });

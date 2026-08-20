@@ -8,9 +8,11 @@ import {
 } from "../canvas/blockDocument";
 import {
   DEFAULT_IMAGE_HEIGHT,
+  MIN_COMPONENT_HEIGHT,
   type ReferenceComponent,
   type ReferenceImage,
 } from "../canvas/models";
+import { layoutDocumentImageGroupForWidth } from "../canvas/documentImageGroupLayout";
 import type { NormalizedImageCrop } from "../canvas/imageView";
 import type {
   PlanMediaStore,
@@ -180,6 +182,14 @@ export function createBlockNotePlanService({
     };
   }
 
+  function fitGroupToRows(group: ReferenceComponent): ReferenceComponent {
+    const height = Math.max(
+      MIN_COMPONENT_HEIGHT,
+      layoutDocumentImageGroupForWidth(group.images, group.width).height,
+    );
+    return height === group.height ? group : { ...group, height };
+  }
+
   function coalesceCommittedCrops(
     projectPath: string,
     plan: ProjectPlanV14,
@@ -197,7 +207,7 @@ export function createBlockNotePlanService({
         groupChanged = true;
         return withCropMetadata(image, crop.width, crop.height);
       });
-      return groupChanged ? { ...group, images } : group;
+      return groupChanged ? fitGroupToRows({ ...group, images }) : group;
     });
     return changed ? { ...plan, imageGroups } : plan;
   }
@@ -324,10 +334,12 @@ export function createBlockNotePlanService({
             },
           });
         }
-        const next = replaceGroup(plan, groupId, (group) => ({
-          ...group,
-          images: [...group.images, ...imported.map((entry) => entry.image)],
-        }));
+        const next = replaceGroup(plan, groupId, (group) =>
+          fitGroupToRows({
+            ...group,
+            images: [...group.images, ...imported.map((entry) => entry.image)],
+          })
+        );
         await repository.saveRawPlan(projectPath, next);
         logger.info("BlockNote image-group images imported", {
           groupId,
@@ -383,10 +395,11 @@ export function createBlockNotePlanService({
           throw new Error(`Unable to commit crop for reference image "${target.file}": malformed overwrite result`);
         }
         let updatedTarget: ReferenceImage | undefined;
-        const imageGroups = currentPlan.imageGroups.map((group) => ({
-          ...group,
-          images: group.images.map((image) => {
+        const imageGroups = currentPlan.imageGroups.map((group) => {
+          let groupChanged = false;
+          const images = group.images.map((image) => {
             if (image.file !== target.file) return image;
+            groupChanged = true;
             const updated = withCropMetadata(
               image,
               overwritten.width,
@@ -396,8 +409,11 @@ export function createBlockNotePlanService({
               updatedTarget = updated;
             }
             return updated;
-          }),
-        }));
+          });
+          return groupChanged
+            ? fitGroupToRows({ ...group, images })
+            : group;
+        });
         const next = { ...currentPlan, imageGroups };
         try {
           await repository.saveRawPlan(projectPath, next);

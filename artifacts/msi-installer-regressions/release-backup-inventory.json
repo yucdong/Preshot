@@ -1,0 +1,38 @@
+[
+  {
+    "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\release-backup\\package.json",
+    "Length": 3772
+  },
+  {
+    "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\release-backup\\pnpm-lock.yaml",
+    "Length": 467473
+  },
+  {
+    "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\release-backup\\release\\preshot.exe",
+    "Length": 23836160
+  },
+  {
+    "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\release-backup\\release\\bundle\\msi\\Preshot_0.0.1_x64_en-US.msi",
+    "Length": 16580608
+  },
+  {
+    "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\release-backup\\release\\bundle\\msi\\Preshot_0.0.1_x64_en-US.msi.sha256",
+    "Length": 94
+  },
+  {
+    "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\release-backup\\release\\bundle\\msi\\Preshot-0.0.1-release.json",
+    "Length": 1094
+  },
+  {
+    "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\release-backup\\src-tauri\\Cargo.lock",
+    "Length": 117993
+  },
+  {
+    "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\release-backup\\src-tauri\\Cargo.toml",
+    "Length": 1203
+  },
+  {
+    "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\release-backup\\src-tauri\\tauri.conf.json",
+    "Length": 1363
+  }
+]

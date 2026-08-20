@@ -6,6 +6,19 @@ All notable changes to Preshot are documented in this file.
 
 ### Added
 
+- Production first-run workspace bootstrap that idempotently creates the
+  user-owned Preshot roots, adopts a valid default-root project, or atomically
+  creates and opens one localized schema-14 starter with contention-safe,
+  token-authorized rollback.
+- A source-controlled Tauri 2.11.4 WiX template for one limited per-user x64
+  MSI under LocalAppData, with HKCU registration, fixed major-upgrade family,
+  Start Menu default, Desktop opt-in, WebView2 bootstrap, and explicit
+  exclusion of project/profile data.
+- Production release commands for version synchronization, full validation,
+  explicit MSVC x64 MSI builds, signing enforcement, checksums, deterministic
+  release manifests, and non-destructive existing-artifact verification.
+- Canonical Windows installer operator documentation and packaging,
+  bootstrap, documentation, and PowerShell contract coverage.
 - Production DOCX export through the exact shared BlockNote schema, official
   ordinary mappings, offline project assets, weighted columns, and the custom
   composited image-group mapping.

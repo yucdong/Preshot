@@ -27,6 +27,7 @@
     "active": true,
     "targets": ["msi"],
     "publisher": "yucdong",
+    "homepage": "https://github.com/yucdong/Preshot",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -35,8 +36,19 @@
       "icons/icon.ico"
     ],
     "windows": {
+      "allowDowngrades": false,
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
       "wix": {
-        "language": ["en-US"]
+        "language": {
+          "en-US": {
+            "localePath": "wix/en-US.wxl"
+          }
+        },
+        "template": "wix/main.wxs",
+        "upgradeCode": "493c5fb5-639d-4fba-94d3-aebe4eb0dce6"
       }
     }
   }

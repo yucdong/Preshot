@@ -1,0 +1,8 @@
+{
+  "ExitCode": 0,
+  "ProductState": 5,
+  "InstallLocation": "C:\\Users\\dongyuchen\\AppData\\Local\\Programs\\Preshot\\",
+  "StartMenuExists": true,
+  "DesktopExists": false,
+  "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-install-default.log"
+}

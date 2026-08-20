@@ -106,6 +106,21 @@ function createUnsupportedProject(): Promise<CreatedProject> {
 
 function createBrowserNativeWorkspace(): NativeWorkspace {
   return {
+    async ensureUserDataRoots() {
+      return {
+        userRoot: "C:\\Preshot Browser",
+        projectsRoot: "C:\\Preshot Browser\\projects",
+      };
+    },
+
+    async bootstrapUserData() {
+      return {
+        roots: await this.ensureUserDataRoots(),
+        project: null,
+        rollbackToken: null,
+      };
+    },
+
     createProject() {
       return createUnsupportedProject();
     },

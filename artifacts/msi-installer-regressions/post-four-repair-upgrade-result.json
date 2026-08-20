@@ -1,0 +1,11 @@
+{
+  "RepairExit": 0,
+  "UpgradeExit": 0,
+  "BaseState": -1,
+  "UpgradeState": 5,
+  "InstalledVersion": "0.0.2",
+  "SentinelBefore": "10173bc0c8cf9bd2d378fb0ab188690ef48e25ab553b0a06083aa11f77c71199",
+  "SentinelAfter": "10173bc0c8cf9bd2d378fb0ab188690ef48e25ab553b0a06083aa11f77c71199",
+  "RepairLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\post-four-repair.log",
+  "UpgradeLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\post-four-upgrade.log"
+}

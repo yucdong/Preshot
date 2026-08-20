@@ -84,6 +84,19 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
   image-group geometry follows the documented visual contract.
 - Image groups read actual `.bn-block-content` width, fill it by default, and stay left/right aligned. Persisted width/x is clamped to that range and cannot cross the white canvas.
 - After image import, original pixel width/height are measured. Batch images keep the same `frameHeight`, and `frameWidth = frameHeight × sourceWidth / sourceHeight`, with full original crop persisted so landscape and portrait images are never stretched.
+- New and batch-imported images use exactly 240 logical units of frame height.
+  The loaded-project compatibility pass recognizes only approximately
+  135-unit untouched defaults: square pre-hydration placeholders or widths
+  matching stored, source, or crop-adjusted aspect ratios. It upgrades every
+  match in every image group to exactly 240 units high, preserves image
+  identity/order/crop/focal/offset metadata, and recomputes wrap-first group
+  height from the authoritative group width. Hydration then replaces a square
+  placeholder width with the measured source/crop ratio. Intentional custom
+  dimensions remain authoritative.
+- A changed compatibility pass marks the loaded plan unsaved and displays one
+  non-blocking layout-review notice. Persistence uses the existing service
+  autosave, manual save, and retirement flush; the pass is idempotent, so the
+  saved plan reloads without another notice or write.
 - Image import always copies files into the project's `references/` directory and generates new sequential filenames. The original file selected by the user remains in its original location; rename/move semantics are not used.
 - `Ctrl+Wheel` zooms the entire text canvas between 55% and 180% in 15% steps, anchored at the mouse position. Ordinary wheel still scrolls vertically. The toolbar also provides zoom out, 100%, zoom in, and fit-width buttons.
 
@@ -114,6 +127,11 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
   layout. Rows wrap before overflow with a stable 7px gap, never overlap, and
   update the group height live. Pointer-up commits the image frame and derived
   group height together; pointer cancellation restores persisted geometry.
+- Image frame width and height are authoritative. Editor layout never scales a
+  group or image to fit the remaining row width or persisted group height; it
+  wraps immediately before the next image would overflow. A legacy image wider
+  than the current inner width remains unchanged on a single clipped overflow
+  row until the user directly shrinks it.
 - Smart Guides use a 6px entry threshold and 10px release hysteresis.
   Equal-width feedback has first priority, equal-height feedback second, and
   group/image edge alignment third. Equal-size matches show a dimension label;
@@ -169,10 +187,13 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
 - The React-PDF preflight validates exact image-group marker/data
   integrity, traverses root and weighted-column content in stable order, and
   creates an immutable `PreshotPdfExportContext` with logical/PDF parent
-  widths, editor-equivalent group slots, keep-together metadata, visual tokens,
-  and indexed groups/assets. A positive persisted group Y offset is represented
-  as flow-top padding, so pagination and oversized fitting use
-  `padding + group height`; zero and negative offsets add no flow height.
+  widths, editor-equivalent no-shrink group slots, keep-together metadata,
+  visual tokens, and indexed groups/assets. Persisted frame width/height stays
+  authoritative; parent width selects row breaks and logical-to-output
+  conversion only. A positive persisted group Y offset is represented as
+  flow-top padding, so pagination and oversized fitting use
+  `padding + derived displayed group height`; zero and negative offsets add no
+  flow height.
 - The image-group mapping uses that padding inside one `wrap={false}` outer
   footprint and removes the positive value from relative positioning. Negative
   values remain relative positioning, preserving the editor-visible offset
@@ -180,8 +201,13 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
 - Root image groups use the 1008-unit editor content width and root scale.
   Column children use their weighted, gap-adjusted parent width with
   width-conserving rounding. In either scope, the complete group moves to the
-  next page when the remaining space is insufficient and is uniformly scaled
-  only when its complete flow footprint exceeds one usable page.
+  next page when the remaining space is insufficient. A frame wider than its
+  logical parent remains one overflow row; PDF and DOCX preserve that relative
+  user size until the complete physical group would exceed its page/column
+  width or usable page height, then apply one uniform
+  `exportOnlyGroupPhysicalScale` to the surface, frames, gaps, offsets, and
+  borders. No individual frame is fitted to a row, and DOCX retains its
+  additional maximum-page-height safety scale.
 - Reference and native images are resolved only from project-local data maps
   and optimized through the injectable browser canvas optimizer at 144 DPI.
   Normalized source/crop uses share the largest required draw box; missing or

@@ -1,0 +1,6 @@
+{
+  "ExitCode": 0,
+  "Msi": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\bundle\\msi\\Preshot_0.0.1_x64_en-US.msi",
+  "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\install-default.log",
+  "CompletedAt": "2026-08-20T00:17:17.2209881+08:00"
+}

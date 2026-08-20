@@ -1,0 +1,7 @@
+{
+  "ExitCode": 1603,
+  "Rejected": true,
+  "NewProductState": 5,
+  "SentinelSha256": "d0e3690951ecff6675a11e3f7b114a6159a0c2b795178c50e0454d54cac9d972",
+  "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-downgrade-rejected.log"
+}

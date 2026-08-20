@@ -73,6 +73,80 @@ describe("BlockNote plan service", () => {
     });
   });
 
+  it("imports a batch at the 240-unit default and grows wrapped group height", async () => {
+    let id = 0;
+    const saveRawPlan = vi.fn();
+    const importImage = vi.fn()
+      .mockResolvedValueOnce({
+        file: "references/0001.png",
+        dataUrl: "data:image/png;base64,one",
+      })
+      .mockResolvedValueOnce({
+        file: "references/0002.png",
+        dataUrl: "data:image/png;base64,two",
+      });
+    const service = createBlockNotePlanService({
+      repository: { loadRawPlan: vi.fn(), saveRawPlan },
+      imageStore: {
+        importImage,
+        loadImage: vi.fn(),
+        removeImage: vi.fn(),
+      },
+      imageCropStore: { beginImageCrop: vi.fn() },
+      mediaStore: {
+        importMedia: vi.fn(),
+        loadMedia: vi.fn(),
+        removeMedia: vi.fn(),
+      },
+      createId: () => `image-${++id}`,
+      logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+    });
+    const plan: ProjectPlanV14 = {
+      schemaVersion: 14,
+      title: "Import",
+      document: {
+        format: "preshot-blocks",
+        version: 2,
+        blocks: [{
+          id: "block",
+          type: "imageGroup",
+          props: { groupId: "group" },
+          content: undefined,
+          children: [],
+        }],
+      },
+      imageGroups: [{
+        id: "group",
+        name: "Group",
+        type: "reference",
+        x: 0,
+        width: 500,
+        height: 80,
+        description: "",
+        images: [],
+      }],
+    };
+
+    const result = await service.importImages(
+      "C:\\project",
+      plan,
+      "group",
+      ["C:\\one.png", "C:\\two.png"],
+    );
+
+    expect(result.images.map(({ image }) => image)).toMatchObject([
+      { id: "image-1", frameWidth: 240, frameHeight: 240 },
+      { id: "image-2", frameWidth: 240, frameHeight: 240 },
+    ]);
+    expect(result.plan.imageGroups[0].height).toBe(505);
+    expect(saveRawPlan).toHaveBeenCalledWith("C:\\project", result.plan);
+  });
+
   it("purges only detached project media files", async () => {
       const removeMedia = vi.fn();
       const service = createBlockNotePlanService({

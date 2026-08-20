@@ -4,7 +4,7 @@ import {
   clampWidth,
   CURRENT_SCHEMA_VERSION,
   DEFAULT_CONTENT_SCALE,
-  DEFAULT_IMAGE_HEIGHT,
+  LEGACY_DEFAULT_IMAGE_HEIGHT,
   MAX_CONTENT_SCALE,
   MAX_IMAGE_HEIGHT,
   MIN_COMPONENT_HEIGHT,
@@ -210,7 +210,7 @@ function v2Component(raw: unknown, makeId: IdFactory, componentIndex: number): L
       title: asString(raw.title ?? raw.name),
       description: asString(raw.description),
       showCaptions: raw.showCaptions === true,
-      imageHeight: DEFAULT_IMAGE_HEIGHT,
+      imageHeight: LEGACY_DEFAULT_IMAGE_HEIGHT,
       images: legacyImages(raw.images, componentIndex, makeId),
     };
   }

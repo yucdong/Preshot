@@ -152,6 +152,7 @@ export function createWorkspaceService({
 }: Dependencies): WorkspaceService {
   let metadataCache: WorkspaceMetadata | null = null;
   let projectCache: WorkspaceProjectView[] | null = null;
+  let bootstrapComplete = false;
   let operationQueue: Promise<void> = Promise.resolve();
 
   function queueOperation<T>(operation: () => Promise<T>): Promise<T> {
@@ -245,6 +246,95 @@ export function createWorkspaceService({
 
     await persistProjectsInternal(sortedProjects);
     return cloneProjects(sortedProjects);
+  }
+
+  async function rollbackBootstrapProject(
+    project: WorkspaceProjectView,
+    rollbackToken: string,
+    saveError: unknown,
+  ): Promise<never> {
+    try {
+      await native.rollbackCreatedProject(rollbackToken);
+    } catch (rollbackError) {
+      logger.error("Starter project rollback failed", {
+        projectId: project.projectId,
+        reason: message(rollbackError),
+      });
+      throw new Error(
+        `${message(saveError)}; rollback failed: ${message(rollbackError)}`,
+        { cause: saveError },
+      );
+    }
+
+    throw saveError;
+  }
+
+  async function bootstrapUserDataInternal(): Promise<void> {
+    if (bootstrapComplete) {
+      return;
+    }
+
+    try {
+      await native.ensureUserDataRoots();
+    } catch (error) {
+      throw contextualError("Unable to prepare Preshot user data folders", error);
+    }
+
+    const metadata = await readMetadataInternal();
+    let result;
+
+    try {
+      result = await native.bootstrapUserData(
+        metadata.projects.map(({ projectId, path }) => ({ projectId, path })),
+      );
+    } catch (error) {
+      throw contextualError("Unable to bootstrap the Preshot workspace", error);
+    }
+
+    if (result.project === null) {
+      bootstrapComplete = true;
+      return;
+    }
+
+    const project = inspectedToProject(result.project, clock.now());
+    const currentProjects = metadata.projects.map((record) => ({
+      ...record,
+      coverDataUrl: null,
+    }));
+
+    try {
+      await persistProjectsInternal(
+        upsertProject(currentProjects, cloneProjectView(project)),
+      );
+    } catch (saveError) {
+      if (result.rollbackToken !== null) {
+        await rollbackBootstrapProject(
+          project,
+          result.rollbackToken,
+          saveError,
+        );
+      }
+      throw saveError;
+    }
+
+    if (result.rollbackToken !== null) {
+      try {
+        await native.forgetCreatedProject(result.rollbackToken);
+      } catch (forgetError) {
+        logger.error("Starter project rollback token forget failed", {
+          projectId: project.projectId,
+          reason: message(forgetError),
+        });
+      }
+    }
+
+    bootstrapComplete = true;
+    logger.info(
+      result.rollbackToken === null
+        ? "Default-root project adopted"
+        : "Starter project created",
+      { projectId: project.projectId },
+    );
   }
 
   async function createProjectInternal(
@@ -366,7 +456,10 @@ export function createWorkspaceService({
   }
 
   async function loadProjects(): Promise<WorkspaceProjectView[]> {
-    return queueOperation(() => loadProjectsInternal());
+    return queueOperation(async () => {
+      await bootstrapUserDataInternal();
+      return loadProjectsInternal();
+    });
   }
 
   async function createProject(

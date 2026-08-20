@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const RELEASE_VERSION = "0.0.1";
 const root = process.cwd();
 
 function read(path: string): string {
@@ -34,16 +33,9 @@ describe("release version configuration", () => {
       "Cargo.lock",
     );
 
-    expect({
-      package: packageJson.version,
-      tauri: tauriConfig.version,
-      cargo: cargoVersion,
-      cargoLock: cargoLockVersion,
-    }).toEqual({
-      package: RELEASE_VERSION,
-      tauri: RELEASE_VERSION,
-      cargo: RELEASE_VERSION,
-      cargoLock: RELEASE_VERSION,
-    });
+    expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(tauriConfig.version).toBe(packageJson.version);
+    expect(cargoVersion).toBe(packageJson.version);
+    expect(cargoLockVersion).toBe(packageJson.version);
   });
 });

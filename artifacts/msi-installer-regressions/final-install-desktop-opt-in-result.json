@@ -1,0 +1,6 @@
+{
+  "ExitCode": 0,
+  "DesktopExists": true,
+  "StartMenuExists": true,
+  "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-install-desktop-opt-in.log"
+}

@@ -79,6 +79,72 @@ describe("createTauriWorkspace", () => {
     };
   });
 
+  it("ensures the native user and projects roots", async () => {
+    invokeCommand.mockResolvedValue({
+      userRoot: "C:\\Users\\me\\.preshot",
+      projectsRoot: "C:\\Users\\me\\.preshot\\projects",
+    });
+    const workspace = createTauriWorkspace({
+      invokeCommand,
+      listenForEvent,
+      logger,
+    });
+
+    await expect(workspace.ensureUserDataRoots()).resolves.toEqual({
+      userRoot: "C:\\Users\\me\\.preshot",
+      projectsRoot: "C:\\Users\\me\\.preshot\\projects",
+    });
+    expect(invokeCommand).toHaveBeenCalledWith("ensure_user_data_roots");
+  });
+
+  it("bootstraps with registered identities and validates an adopted project", async () => {
+    const result = {
+      roots: {
+        userRoot: "C:\\Users\\me\\.preshot",
+        projectsRoot: "C:\\Users\\me\\.preshot\\projects",
+      },
+      project: inspectedProject(),
+      rollbackToken: null,
+    };
+    invokeCommand.mockResolvedValue(result);
+    const workspace = createTauriWorkspace({
+      invokeCommand,
+      listenForEvent,
+      logger,
+    });
+
+    await expect(workspace.bootstrapUserData([{
+      projectId: "project-1",
+      path: "C:\\shoots\\project-1",
+    }])).resolves.toEqual(result);
+    expect(invokeCommand).toHaveBeenCalledWith("bootstrap_user_data", {
+      registeredProjects: [{
+        projectId: "project-1",
+        path: "C:\\shoots\\project-1",
+      }],
+    });
+  });
+
+  it("rejects bootstrap rollback authority without a project", async () => {
+    invokeCommand.mockResolvedValue({
+      roots: {
+        userRoot: "C:\\Users\\me\\.preshot",
+        projectsRoot: "C:\\Users\\me\\.preshot\\projects",
+      },
+      project: null,
+      rollbackToken: "unexpected",
+    });
+    const workspace = createTauriWorkspace({
+      invokeCommand,
+      listenForEvent,
+      logger,
+    });
+
+    await expect(workspace.bootstrapUserData([])).rejects.toThrow(
+      "Unable to bootstrap Preshot user data: Malformed native response",
+    );
+  });
+
   it("invokes create_project with camelCase args and returns a typed created project", async () => {
     const result = createdProject();
     invokeCommand.mockResolvedValue(result);

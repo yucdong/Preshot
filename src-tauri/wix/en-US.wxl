@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="en-US" xmlns="http://schemas.microsoft.com/wix/2006/localization">
+    <String Id="LaunchApp">Launch Preshot</String>
+    <String Id="DowngradeErrorMessage">A newer version of Preshot is already installed.</String>
+    <String Id="PathEnvVarFeature">Add Preshot to the current user's PATH so it can be launched from the command line.</String>
+    <String Id="InstallAppFeature">Install Preshot.</String>
+    <String Id="LegacyMachineInstallMessage">A machine-wide Preshot installation was detected. Uninstall the old machine-wide Preshot from Windows Installed apps, then run this per-user installer again.</String>
+</WixLocalization>

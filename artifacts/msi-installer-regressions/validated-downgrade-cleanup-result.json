@@ -1,0 +1,12 @@
+{
+  "DowngradeExitCode": 1603,
+  "DowngradeRejected": true,
+  "FixtureUninstallExitCode": 0,
+  "OldProductState": -1,
+  "NewProductState": -1,
+  "InstallDirectoryExists": false,
+  "SentinelSha256": "3477e617783993efb2ac0e21990125b4632237f612a48278b111c06b59e4cd86",
+  "ManifestSha256": "212a1d3a2a2b19ce6980143540b7351ff22c17f19ba03a765694219edc9b7974",
+  "DowngradeLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-downgrade-rejected.log",
+  "UninstallLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-upgrade-uninstall.log"
+}

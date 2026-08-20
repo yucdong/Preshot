@@ -1,0 +1,17 @@
+{
+  "ProductState": 5,
+  "ProductName": "Preshot",
+  "Version": "0.0.1",
+  "Publisher": "yucdong",
+  "InstallLocation": "C:\\Users\\dongyuchen\\AppData\\Local\\Programs\\Preshot\\",
+  "InstallExists": true,
+  "InstalledFiles": [
+    {
+      "Name": "preshot.exe",
+      "Length": 23836672,
+      "Sha256": "c230554403129a7d64f927b2681365170938d24f1799a20f5cd3cb1509ef8620"
+    }
+  ],
+  "StartMenuExists": true,
+  "DesktopExists": false
+}

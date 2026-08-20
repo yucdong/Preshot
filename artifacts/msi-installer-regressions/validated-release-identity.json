@@ -1,0 +1,29 @@
+{
+  "Msi": {
+    "Path": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\bundle\\msi\\Preshot_0.0.1_x64_en-US.msi",
+    "Size": 16580608,
+    "Sha256": "17ee5c138532ce89fe77799796b8348980e64fafc7d7181fd275e5602580ac18"
+  },
+  "Exe": {
+    "Path": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\preshot.exe",
+    "Size": 23837696,
+    "Sha256": "af7b9f6b1368caceaacc7a9163f79dfa05d83115e9e180566cf5d2839e5be1b2",
+    "Version": "0.0.1"
+  },
+  "Metadata": {
+    "ProductName": "Preshot",
+    "ProductVersion": "0.0.1",
+    "Manufacturer": "yucdong",
+    "ProductCode": "{E92CBB26-89A1-4E80-877D-806FF9E2132D}",
+    "UpgradeCode": "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6",
+    "Architecture": "x64",
+    "Template": "x64;0",
+    "LegacyUpgradeCode": "97EE9B44-6313-52EB-A67E-A1334832EB86",
+    "LegacyVersionMin": "0.0.0",
+    "LegacyVersionMax": "255.255.65535",
+    "LegacyUpgradeAttributes": 770,
+    "LegacyActionProperty": "LEGACY_MACHINE_PRESHOT_FOUND",
+    "LegacyLaunchCondition": "Installed OR NOT LEGACY_MACHINE_PRESHOT_FOUND",
+    "LegacyLaunchConditionMessage": "A machine-wide Preshot installation was detected. Uninstall the old machine-wide Preshot from Windows Installed apps, then run this per-user installer again."
+  }
+}

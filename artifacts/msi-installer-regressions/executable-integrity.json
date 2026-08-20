@@ -1,0 +1,14 @@
+{
+  "ExitCode": 1603,
+  "Source": {
+    "Path": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\preshot.exe",
+    "Size": 23836160,
+    "Sha256": "e1ea63d5f1f937e3f4916adbe9c09107a1ac77f7c501be6aa2d2e1e578b2abae"
+  },
+  "Extracted": null,
+  "Installed": {
+    "Path": "C:\\Users\\dongyuchen\\AppData\\Local\\Programs\\Preshot\\preshot.exe",
+    "Size": 23836160,
+    "Sha256": "e1d605d80f5c555e72664fe62d3c631ab3f5bd2e2f79e3c00e1b9ebf870adfdb"
+  }
+}

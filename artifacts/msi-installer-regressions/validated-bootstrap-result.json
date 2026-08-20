@@ -1,0 +1,19 @@
+{
+  "Profile": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-isolated-profile",
+  "UserRootExists": true,
+  "ProjectsRootExists": true,
+  "SettingsRoot": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-isolated-profile\\.preshot",
+  "SettingsFileExists": false,
+  "ProjectCount": 1,
+  "ProjectNames": "Preshot 入门示例",
+  "ManifestSchemaVersion": 1,
+  "PlanSchemaVersion": 14,
+  "DocumentVersion": 2,
+  "DocumentFormat": "preshot-blocks",
+  "FirstManifestSha256": "212a1d3a2a2b19ce6980143540b7351ff22c17f19ba03a765694219edc9b7974",
+  "SecondManifestSha256": "212a1d3a2a2b19ce6980143540b7351ff22c17f19ba03a765694219edc9b7974",
+  "NoDuplicateOrMutation": true,
+  "WorkspaceStoreExists": true,
+  "SentinelPath": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-isolated-profile\\.preshot\\validated-sentinel.txt",
+  "SentinelSha256": "3477e617783993efb2ac0e21990125b4632237f612a48278b111c06b59e4cd86"
+}

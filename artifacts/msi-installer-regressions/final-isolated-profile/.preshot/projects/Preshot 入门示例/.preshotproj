@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "e7d15cf0-a722-4fc2-8209-bef6210f7cba",
+  "name": "Preshot 入门示例",
+  "createdAt": "2026-08-19T16:47:22.621Z",
+  "updatedAt": "2026-08-19T16:47:22.621Z",
+  "plan": {
+    "document": {
+      "blocks": [
+        {
+          "children": [],
+          "content": [
+            {
+              "styles": {},
+              "text": "欢迎使用 Preshot。这是一份可以直接编辑的入门拍摄方案。",
+              "type": "text"
+            }
+          ],
+          "id": "64e56d47-71cd-4917-b488-7ae63b90bc0e",
+          "props": {},
+          "type": "paragraph"
+        },
+        {
+          "children": [],
+          "content": [
+            {
+              "styles": {},
+              "text": "在这里写下拍摄目标、镜头清单、时间安排和现场提醒。",
+              "type": "text"
+            }
+          ],
+          "id": "8b3c8f59-59c0-4e28-be67-81d78eaf860d",
+          "props": {},
+          "type": "paragraph"
+        },
+        {
+          "children": [],
+          "content": [
+            {
+              "styles": {},
+              "text": "你可以修改或删除这些文字，也可以继续添加图片、表格和更多内容。",
+              "type": "text"
+            }
+          ],
+          "id": "a868a31a-ecd5-4da3-a0ce-c9d230120eb5",
+          "props": {},
+          "type": "paragraph"
+        }
+      ],
+      "format": "preshot-blocks",
+      "version": 2
+    },
+    "imageGroups": [],
+    "schemaVersion": 14,
+    "title": "Preshot 入门示例"
+  }
+}

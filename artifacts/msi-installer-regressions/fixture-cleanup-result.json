@@ -1,0 +1,12 @@
+[
+  {
+    "ProductCode": "{9AAFC951-0459-4933-B7D0-A74BB31C4C95}",
+    "ExitCode": 0,
+    "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\cleanup-9AAFC951-0459-4933-B7D0-A74BB31C4C95.log"
+  },
+  {
+    "ProductCode": "{C42AF1AC-B6BF-4008-8C75-5D594FDD543D}",
+    "ExitCode": 0,
+    "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\cleanup-C42AF1AC-B6BF-4008-8C75-5D594FDD543D.log"
+  }
+]

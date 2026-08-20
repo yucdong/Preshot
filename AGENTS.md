@@ -22,6 +22,7 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - `e2e`: Playwright browser-shell smoke suites
 - `tests`: PowerShell initializer regression harness
 - `scripts`: the Windows Tauri wrapper, Midscene helpers, and maintenance scripts
+- `src-tauri/wix`: the reviewed Tauri-pinned WiX template for the per-user MSI
 - `docs`: architecture, testing, reliability, and design documentation
 
 ## Dependency rules
@@ -58,6 +59,13 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   `imageGroup` mapping. Desktop saves default to `output.docx`; browser and
   Midscene modes download the same name.
 - New editor work should go through the BlockNote v14 path unless the task explicitly targets compatibility code.
+- The MSI owns only application files, shortcuts, and HKCU registration under
+  `%LOCALAPPDATA%\Programs\Preshot`; application startup exclusively owns
+  `%USERPROFILE%\.preshot`, project bootstrap, and the starter project.
+- Keep the MSI per-user and x64-only. Do not add `ALLUSERS`, HKLM writes,
+  Program Files installation, or installer-authored project/profile data.
+- Keep the fixed MSI UpgradeCode stable, increment `x.y.z` before publishing,
+  and let WiX generate ProductCode and PackageCode.
 
 ## Commands
 
@@ -72,6 +80,9 @@ pnpm tauri
 pnpm tauri:dev
 pnpm build
 pnpm tauri:build
+pnpm production:build
+pnpm production:verify
+pnpm release:set-version -- <x.y.z>
 ```
 
 ### Validation
@@ -83,6 +94,7 @@ pnpm typecheck
 pnpm test
 pnpm test:watch
 pnpm test:init
+pnpm test:production-scripts
 pnpm test:e2e
 pnpm test:e2e:blocknote
 cargo test --manifest-path src-tauri\Cargo.toml
@@ -119,6 +131,9 @@ pnpm migrate:project
 - The one intentional soft-recovery path is settings loading: absent or corrupt settings are normalized back to defaults.
 - Let the React error boundary handle only unexpected rendering failures.
 - PowerShell scripts must use non-zero exit codes and actionable messages.
+- Production scripts must keep the explicit `x86_64-pc-windows-msvc` target,
+  exact artifact checks, non-destructive verification, and signed-only
+  publishing contract.
 
 ## UI and platform notes
 
@@ -144,6 +159,9 @@ pnpm migrate:project
 - Playwright stays a smoke/integration layer and should not duplicate unit coverage.
 - Avoid snapshots for dynamic editor, image-layout, or PDF output.
 - Use the real Chinese UI strings in assertions unless the change explicitly updates localization.
+- Installer changes require the static MSI contract, production-script
+  harness, docs check, and a later clean-VM install/upgrade/repair/uninstall
+  matrix; never run that destructive matrix on a developer workstation.
 
-See [docs/README.md](docs/README.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING.md), [docs/RELIABILITY.md](docs/RELIABILITY.md), and [docs/LICENSING.md](docs/LICENSING.md).
+See [docs/README.md](docs/README.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING.md), [docs/RELIABILITY.md](docs/RELIABILITY.md), [docs/WINDOWS_INSTALLER.md](docs/WINDOWS_INSTALLER.md), and [docs/LICENSING.md](docs/LICENSING.md).
 For active design references, use [docs/design_docs/blocknote_v14_design.md](docs/design_docs/blocknote_v14_design.md), [docs/design_docs/UI_UX_CONTRACT.md](docs/design_docs/UI_UX_CONTRACT.md), and [docs/design_docs/featurelist.json](docs/design_docs/featurelist.json).

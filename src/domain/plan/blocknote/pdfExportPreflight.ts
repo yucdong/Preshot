@@ -5,7 +5,7 @@ import {
 } from "../canvas/blockDocument";
 import {
   DOCUMENT_IMAGE_GROUP_INSET,
-  layoutDocumentImageGroup,
+  layoutDocumentImageGroupForWidth,
 } from "../canvas/documentImageGroupLayout";
 import type {
   ReferenceComponent,
@@ -186,7 +186,7 @@ export interface PreshotPdfImageGroupContext {
     readonly offsetY: PdfPoints;
     readonly flowTopPadding: PdfPoints;
     readonly flowHeight: PdfPoints;
-    readonly oversizedScale: PdfScale;
+    readonly exportOnlyGroupPhysicalScale: PdfScale;
   };
   readonly keepTogether: {
     readonly enabled: boolean;
@@ -697,16 +697,23 @@ export function buildPreshotPdfLayoutManifest(
         );
         const layout = empty
           ? { scale: 1, height: 0, slots: [] }
-          : layoutDocumentImageGroup(
-              group.images,
-              displayedWidth,
-              group.height,
-            );
+          : layoutDocumentImageGroupForWidth(group.images, displayedWidth);
+        const displayedHeight = empty
+          ? group.height
+          : Math.max(group.height, layout.height);
+        const contentWidth = layout.slots.reduce(
+          (maximum, slot) =>
+            Math.max(
+              maximum,
+              DOCUMENT_IMAGE_GROUP_INSET * 2 + slot.x + slot.width,
+            ),
+          displayedWidth,
+        );
         const unscaledPdfWidth = points(
-          displayedWidth * parent.logicalToPdfScale,
+          contentWidth * parent.logicalToPdfScale,
         );
         const rawUnscaledPdfHeight =
-          group.height * parent.logicalToPdfScale;
+          displayedHeight * parent.logicalToPdfScale;
         const unscaledPdfHeight = points(rawUnscaledPdfHeight);
         const positiveOffset = Math.max(0, group.frameOffsetY ?? 0);
         const rawUnscaledFlowTopPadding =
@@ -714,11 +721,17 @@ export function buildPreshotPdfLayoutManifest(
         const rawUnscaledFlowHeight =
           rawUnscaledPdfHeight + rawUnscaledFlowTopPadding;
         const unscaledFlowHeight = points(rawUnscaledFlowHeight);
-        const oversizedScale = !empty &&
-            rawUnscaledFlowHeight > visualContract.page.contentHeight
+        const unscaledRightEdge = points(
+          (displayedX + contentWidth) * parent.logicalToPdfScale,
+        );
+        const exportOnlyGroupPhysicalScale = !empty &&
+            (
+              unscaledRightEdge > parent.pdfWidth ||
+              rawUnscaledFlowHeight > visualContract.page.contentHeight
+            )
           ? fitKeepTogetherGroupScaleToPage(
               {
-                width: unscaledPdfWidth,
+                width: unscaledRightEdge,
                 height: unscaledFlowHeight,
               },
               {
@@ -727,12 +740,13 @@ export function buildPreshotPdfLayoutManifest(
               },
             )
           : scale(1);
-        const finalScale = parent.logicalToPdfScale * oversizedScale;
+        const finalScale =
+          parent.logicalToPdfScale * exportOnlyGroupPhysicalScale;
         const displayedFlowHeight = points(
-          unscaledFlowHeight * oversizedScale,
+          unscaledFlowHeight * exportOnlyGroupPhysicalScale,
         );
         const flowTopPadding = points(
-          rawUnscaledFlowTopPadding * oversizedScale,
+          rawUnscaledFlowTopPadding * exportOnlyGroupPhysicalScale,
         );
         const displayedPdfHeight = points(
           displayedFlowHeight - flowTopPadding,
@@ -760,29 +774,31 @@ export function buildPreshotPdfLayoutManifest(
           logical: {
             x: logicalUnits(displayedX),
             width: logicalUnits(displayedWidth),
-            displayedHeight: logicalUnits(group.height),
+            displayedHeight: logicalUnits(displayedHeight),
             persistedHeight: logicalUnits(group.height),
             offsetY: logicalUnits(group.frameOffsetY ?? 0),
             flowTopPadding: logicalUnits(positiveOffset),
-            flowHeight: logicalUnits(group.height + positiveOffset),
+            flowHeight: logicalUnits(displayedHeight + positiveOffset),
             layoutScale: layout.scale,
           },
           pdf: {
             x: points(displayedX * finalScale),
-            width: points(unscaledPdfWidth * oversizedScale),
+            width: points(
+              unscaledPdfWidth * exportOnlyGroupPhysicalScale,
+            ),
             unscaledHeight: unscaledPdfHeight,
             unscaledFlowHeight,
             displayedHeight: displayedPdfHeight,
             offsetY: points((group.frameOffsetY ?? 0) * finalScale),
             flowTopPadding,
             flowHeight: displayedFlowHeight,
-            oversizedScale,
+            exportOnlyGroupPhysicalScale,
           },
           keepTogether: {
             enabled: !empty,
             scope: parent.columnListBlockId ? "column-row" : "block",
             moveToNextPageIfNeeded: !empty,
-            oversizedPageScale: oversizedScale,
+            oversizedPageScale: exportOnlyGroupPhysicalScale,
           },
           slots: layout.slots.map((slot) => {
             const image = imagesById.get(slot.id);

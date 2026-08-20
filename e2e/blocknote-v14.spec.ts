@@ -456,7 +456,7 @@ test("downloads and inspects production React-PDF bytes without external export 
     const observer = new MutationObserver(() => {
       if (
         button.textContent?.includes("正在导出 PDF…") &&
-        button.hasAttribute("disabled")
+        button.getAttribute("aria-disabled") === "true"
       ) {
         target.__PRESHOT_PDF_PROGRESS_SEEN__ = true;
         observer.disconnect();
@@ -624,7 +624,7 @@ test("downloads and inspects production DOCX ZIP/XML", async ({
     const observer = new MutationObserver(() => {
       if (
         button.textContent?.includes("正在导出 DOCX…") &&
-        button.hasAttribute("disabled")
+        button.getAttribute("aria-disabled") === "true"
       ) {
         target.__PRESHOT_DOCX_PROGRESS_SEEN__ = true;
         observer.disconnect();
@@ -1179,15 +1179,37 @@ test("drags an image group from its gray surface beside another group", async ({
     await expect(group.locator("[data-image-id]")).toHaveCount(2);
   }
   const sourceBox = await groups.nth(1).boundingBox();
+  const sourceImageBoxes = await groups.nth(1).locator("[data-image-id]")
+    .evaluateAll((images) => images.map((image) => {
+      const rect = image.getBoundingClientRect();
+      return {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      };
+    }));
   const targetBox = await groups.nth(0).locator(
     'xpath=ancestor::div[@data-node-type="blockOuter"][1]',
   ).boundingBox();
-  if (!sourceBox || !targetBox) {
+  if (!sourceBox || !targetBox || sourceImageBoxes.length < 2) {
     throw new Error("Expected image-group block drag geometry");
   }
+  const [firstImageBox, secondImageBox] = sourceImageBoxes;
+  const sourcePoint = secondImageBox.x >= firstImageBox.x + firstImageBox.width
+    ? {
+        x: (firstImageBox.x + firstImageBox.width + secondImageBox.x) / 2,
+        y: Math.max(firstImageBox.y, secondImageBox.y) +
+          Math.min(firstImageBox.height, secondImageBox.height) / 2,
+      }
+    : {
+        x: Math.max(firstImageBox.x, secondImageBox.x) +
+          Math.min(firstImageBox.width, secondImageBox.width) / 2,
+        y: (firstImageBox.y + firstImageBox.height + secondImageBox.y) / 2,
+      };
   await page.mouse.move(
-    sourceBox.x + sourceBox.width / 2,
-    sourceBox.y + sourceBox.height - 42,
+    sourcePoint.x,
+    sourcePoint.y,
   );
   await page.mouse.down();
   await page.mouse.move(

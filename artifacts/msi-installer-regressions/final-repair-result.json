@@ -1,0 +1,9 @@
+{
+  "ExitCode": 0,
+  "SentinelPath": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-isolated-profile\\.preshot\\final-msi-sentinel.txt",
+  "SentinelBefore": "d0e3690951ecff6675a11e3f7b114a6159a0c2b795178c50e0454d54cac9d972",
+  "SentinelAfter": "d0e3690951ecff6675a11e3f7b114a6159a0c2b795178c50e0454d54cac9d972",
+  "Preserved": true,
+  "InstalledExeExists": true,
+  "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-repair.log"
+}

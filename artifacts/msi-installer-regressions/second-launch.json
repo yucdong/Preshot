@@ -1,0 +1,12 @@
+{
+  "Pid": 14560,
+  "WasAlive": true,
+  "ProjectCount": 1,
+  "ProjectNames": [
+    "Preshot 入门示例"
+  ],
+  "ManifestSha256": "58bae40eacc207c1c31f663e01c65c09aab74c2e7397e9120a61043858622b92",
+  "PlanSchemaVersion": 14,
+  "DocumentVersion": 2,
+  "WorkspaceStoreExists": true
+}

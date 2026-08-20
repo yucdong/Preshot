@@ -9,6 +9,7 @@ import {
   MIN_WIDTH,
   DEFAULT_WIDTH,
   DEFAULT_IMAGE_HEIGHT,
+  LEGACY_DEFAULT_IMAGE_HEIGHT,
   DOCUMENT_TITLE_HEIGHT,
   MIN_IMAGE_HEIGHT,
   MAX_IMAGE_HEIGHT,
@@ -50,7 +51,8 @@ describe("canvas models", () => {
 
   it("provides the v12 schema constants and an empty titled document", () => {
     expect(MIN_IMAGE_HEIGHT).toBe(67.5);
-    expect(DEFAULT_IMAGE_HEIGHT).toBe(135);
+    expect(DEFAULT_IMAGE_HEIGHT).toBe(240);
+    expect(LEGACY_DEFAULT_IMAGE_HEIGHT).toBe(135);
     expect(MAX_IMAGE_HEIGHT).toBe(400);
     expect(DOCUMENT_TITLE_HEIGHT).toBe(36);
     expect(MIN_COMPONENT_WIDTH).toBe(120);

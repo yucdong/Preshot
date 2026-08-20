@@ -1,0 +1,7 @@
+{
+  "ExitCode": 0,
+  "DesktopPath": "C:\\Users\\dongyuchen\\Desktop\\Preshot.lnk",
+  "DesktopExists": true,
+  "StartMenuExists": true,
+  "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\install-desktop-opt-in.log"
+}

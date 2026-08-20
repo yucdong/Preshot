@@ -1,0 +1,35 @@
+{
+  "CanonicalProductionVerifyPassed": true,
+  "Signing": {
+    "State": "unsigned",
+    "Signed": false,
+    "Publishable": false,
+    "VerificationAvailable": true,
+    "VerificationSource": "powershell",
+    "ExpectedSignerThumbprint": null,
+    "Files": [
+      {
+        "Path": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\preshot.exe",
+        "State": "unsigned",
+        "Status": "NotSigned",
+        "Subject": null,
+        "Thumbprint": null
+      },
+      {
+        "Path": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\bundle\\msi\\Preshot_0.0.1_x64_en-US.msi",
+        "State": "unsigned",
+        "Status": "NotSigned",
+        "Subject": null,
+        "Thumbprint": null
+      }
+    ]
+  },
+  "Publication": {
+    "Publishable": false,
+    "Blockers": [
+      "version-must-exceed-historical-per-machine-0.0.1",
+      "authenticode-signatures-required"
+    ]
+  },
+  "PublishModeExpectedFailure": "Publishing mode requires valid Authenticode signatures on the release executable and MSI; current state is 'unsigned'."
+}

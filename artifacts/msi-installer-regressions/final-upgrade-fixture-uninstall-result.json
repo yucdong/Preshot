@@ -1,0 +1,10 @@
+{
+  "ExitCode": 0,
+  "FixtureState": -1,
+  "FinalBaseState": -1,
+  "InstallDirectoryExists": false,
+  "StartMenuExists": false,
+  "DesktopExists": false,
+  "SentinelSha256": "d0e3690951ecff6675a11e3f7b114a6159a0c2b795178c50e0454d54cac9d972",
+  "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-upgrade-fixture-uninstall.log"
+}

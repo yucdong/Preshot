@@ -125,4 +125,23 @@ describe("App", () => {
     expect(screen.queryByText("Canvas")).not.toBeInTheDocument();
     expect(screen.queryByText("Copywriting")).not.toBeInTheDocument();
   });
+
+  it("auto-opens a first-run starter returned by workspace startup", async () => {
+    const starter = makeProject({
+      projectId: "starter",
+      path: "C:\\Users\\me\\.preshot\\projects\\Preshot 入门示例",
+      name: "Preshot 入门示例",
+      updatedAt: "2026-08-19T15:04:03.669Z",
+      lastOpenedAt: "2026-08-19T15:04:03.669Z",
+    });
+    const dependencies = createDependencies(starter);
+
+    render(<App dependencies={dependencies} planDependencies={planDeps()} />);
+
+    expect(await screen.findByText("BlockNote Canvas v14")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "打开项目 Preshot 入门示例" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(dependencies.native.maximizeWindow).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,0 +1,45 @@
+{
+  "Metadata": {
+    "ProductName": "Preshot",
+    "ProductVersion": "0.0.1",
+    "Manufacturer": "yucdong",
+    "ProductCode": "{7B87293F-A463-4EE4-8339-116EA775AA00}",
+    "UpgradeCode": "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6",
+    "Architecture": "x64",
+    "Template": "x64;0",
+    "LegacyUpgradeCode": "97EE9B44-6313-52EB-A67E-A1334832EB86",
+    "LegacyVersionMin": "0.0.0",
+    "LegacyVersionMax": "255.255.65535",
+    "LegacyUpgradeAttributes": 770,
+    "LegacyActionProperty": "LEGACY_MACHINE_PRESHOT_FOUND",
+    "LegacyLaunchCondition": "Installed OR NOT LEGACY_MACHINE_PRESHOT_FOUND",
+    "LegacyLaunchConditionMessage": "A machine-wide Preshot installation was detected. Uninstall the old machine-wide Preshot from Windows Installed apps, then run this per-user installer again."
+  },
+  "MainProgram": [
+    "RegistryEntries",
+    "Path"
+  ],
+  "Environment": [
+    "PathEnvironment"
+  ],
+  "Shortcuts": [
+    {
+      "Shortcut": "ApplicationStartMenuShortcut",
+      "Target": "[!Path]"
+    },
+    {
+      "Shortcut": "ApplicationDesktopShortcut",
+      "Target": "[!Path]"
+    }
+  ],
+  "Bootstrapper": [
+    {
+      "Action": "DownloadAndInvokeBootstrapper",
+      "Type": "1058",
+      "Source": "PreshotInstallDir",
+      "Target": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& { $ErrorActionPreference = 'Stop'; try { [\\[]Net.ServicePointManager[\\]]::SecurityProtocol = [\\[]Net.SecurityProtocolType[\\]]::Tls12 } catch {}; $bootstrapper = Join-Path $env:TEMP 'MicrosoftEdgeWebview2Setup.exe'; Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $bootstrapper; $process = Start-Process -FilePath $bootstrapper -ArgumentList @('/silent', '/install') -PassThru -Wait; if ($process.ExitCode -notin @(0, 1641, 3010)) { exit $process.ExitCode } }\""
+    }
+  ],
+  "MsiHash": "4f8f2c1ea08d79c160756909ddd41f72ced23aa87d9f4160a896f4e948ea9a70",
+  "ExeHash": "323b14f906f09501e2522c1bd8f11f387e96eac6ec6b188f24c70e2c523f8970"
+}

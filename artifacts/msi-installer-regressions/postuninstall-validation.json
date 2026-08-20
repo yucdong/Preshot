@@ -1,0 +1,11 @@
+{
+  "ProductState": -1,
+  "InstallDirectoryExists": false,
+  "StartMenuDirectoryExists": false,
+  "DesktopShortcutExists": false,
+  "SentinelExists": true,
+  "SentinelSha256": "84a42d343a66cd75ff4fd45c27feccf41c2740cf787689b7c8a19e33c0b2f7d7",
+  "ManifestExists": true,
+  "ManifestSha256": "58bae40eacc207c1c31f663e01c65c09aab74c2e7397e9120a61043858622b92",
+  "ProjectCount": 1
+}

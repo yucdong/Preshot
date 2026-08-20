@@ -1,0 +1,17 @@
+{
+  "MsiPath": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\fixture-built-Preshot_0.0.2_x64_en-US.msi",
+  "MsiSize": 16580608,
+  "MsiSha256": "e552fbf59107467155b21352bd87c405de00ca2cfdd44b3524fe03b6460853c2",
+  "ExeSize": 23836672,
+  "ExeSha256": "86f4deb76fbf4b473f3343ca2b74183b4ce57592c3eaaa4904a2f833e8f5ae52",
+  "ExeVersion": "0.0.2",
+  "Metadata": {
+    "ProductName": "Preshot",
+    "ProductVersion": "0.0.2",
+    "Manufacturer": "yucdong",
+    "ProductCode": "{3668F049-DE70-4714-A975-B3644AB515B9}",
+    "Architecture": "x64",
+    "Template": "x64;0"
+  },
+  "PackageCode": "{DFEF9365-4B4D-47B1-B263-D6A9B93AEA7D}"
+}

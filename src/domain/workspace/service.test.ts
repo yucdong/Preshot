@@ -115,6 +115,8 @@ const deferred = <T>() => {
 
 describe("createWorkspaceService", () => {
   let createProjectMock: ReturnType<typeof vi.fn<NativeWorkspace["createProject"]>>;
+  let ensureUserDataRootsMock: ReturnType<typeof vi.fn<NativeWorkspace["ensureUserDataRoots"]>>;
+  let bootstrapUserDataMock: ReturnType<typeof vi.fn<NativeWorkspace["bootstrapUserData"]>>;
   let inspectProjectMock: ReturnType<typeof vi.fn<NativeWorkspace["inspectProject"]>>;
   let rollbackCreatedProjectMock: ReturnType<typeof vi.fn<(rollbackToken: string) => Promise<void>>>;
   let forgetCreatedProjectMock: ReturnType<typeof vi.fn<(rollbackToken: string) => Promise<void>>>;
@@ -147,7 +149,21 @@ describe("createWorkspaceService", () => {
     forgetCreatedProjectMock = vi.fn<(rollbackToken: string) => Promise<void>>()
       .mockResolvedValue(undefined);
     onMenuActionMock = vi.fn<NativeWorkspace["onMenuAction"]>();
+    ensureUserDataRootsMock = vi.fn().mockResolvedValue({
+      userRoot: "C:\\Users\\test\\.preshot",
+      projectsRoot: "C:\\Users\\test\\.preshot\\projects",
+    });
+    bootstrapUserDataMock = vi.fn().mockResolvedValue({
+      roots: {
+        userRoot: "C:\\Users\\test\\.preshot",
+        projectsRoot: "C:\\Users\\test\\.preshot\\projects",
+      },
+      project: null,
+      rollbackToken: null,
+    });
     native = {
+      ensureUserDataRoots: ensureUserDataRootsMock,
+      bootstrapUserData: bootstrapUserDataMock,
       createProject: createProjectMock,
       inspectProject: inspectProjectMock,
       rollbackCreatedProject: rollbackCreatedProjectMock,
@@ -169,6 +185,143 @@ describe("createWorkspaceService", () => {
       warn: warnMock,
       error: errorMock,
     };
+  });
+
+  it("ensures user roots before reading recents and passes registered identities to bootstrap", async () => {
+    registry.load.mockResolvedValue({
+      schemaVersion: 1,
+      projects: [record("registered")],
+    });
+    inspectProjectMock.mockResolvedValue(inspected("registered"));
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await service.loadProjects();
+
+    expect(ensureUserDataRootsMock.mock.invocationCallOrder[0]).toBeLessThan(
+      registry.load.mock.invocationCallOrder[0],
+    );
+    expect(bootstrapUserDataMock).toHaveBeenCalledWith([{
+      projectId: "registered",
+      path: "C:\\shoots\\registered",
+    }]);
+  });
+
+  it("registers and returns a newly created starter project", async () => {
+    const starter = inspected("starter", "C:\\Users\\test\\.preshot\\projects\\Preshot 入门示例", {
+      manifest: {
+        schemaVersion: 1,
+        id: "starter",
+        name: "Preshot 入门示例",
+        createdAt: "2026-08-19T15:04:03.669Z",
+        updatedAt: "2026-08-19T15:04:03.669Z",
+      },
+      resolvedCoverImage: null,
+      coverDataUrl: null,
+    });
+    bootstrapUserDataMock.mockResolvedValue({
+      roots: {
+        userRoot: "C:\\Users\\test\\.preshot",
+        projectsRoot: "C:\\Users\\test\\.preshot\\projects",
+      },
+      project: starter,
+      rollbackToken: "starter-token",
+    });
+    inspectProjectMock.mockResolvedValue(starter);
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await expect(service.loadProjects()).resolves.toEqual([
+      expect.objectContaining({
+        projectId: "starter",
+        name: "Preshot 入门示例",
+        status: "available",
+      }),
+    ]);
+
+    expect(forgetCreatedProjectMock).toHaveBeenCalledWith("starter-token");
+    expect(rollbackCreatedProjectMock).not.toHaveBeenCalled();
+    expect(infoMock).toHaveBeenCalledWith("Starter project created", {
+      projectId: "starter",
+    });
+  });
+
+  it("adopts a valid unregistered default-root project without gaining deletion authority", async () => {
+    const adopted = inspected("adopted", "C:\\Users\\test\\.preshot\\projects\\Existing");
+    bootstrapUserDataMock.mockResolvedValue({
+      roots: {
+        userRoot: "C:\\Users\\test\\.preshot",
+        projectsRoot: "C:\\Users\\test\\.preshot\\projects",
+      },
+      project: adopted,
+      rollbackToken: null,
+    });
+    inspectProjectMock.mockResolvedValue(adopted);
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await expect(service.loadProjects()).resolves.toEqual([
+      expect.objectContaining({ projectId: "adopted" }),
+    ]);
+
+    expect(rollbackCreatedProjectMock).not.toHaveBeenCalled();
+    expect(forgetCreatedProjectMock).not.toHaveBeenCalled();
+    expect(infoMock).toHaveBeenCalledWith("Default-root project adopted", {
+      projectId: "adopted",
+    });
+  });
+
+  it("rolls back only a newly created starter when registry persistence fails", async () => {
+    const starter = inspected("starter", "C:\\Users\\test\\.preshot\\projects\\Preshot 入门示例");
+    bootstrapUserDataMock.mockResolvedValue({
+      roots: {
+        userRoot: "C:\\Users\\test\\.preshot",
+        projectsRoot: "C:\\Users\\test\\.preshot\\projects",
+      },
+      project: starter,
+      rollbackToken: "starter-token",
+    });
+    registry.save.mockRejectedValue(new Error("registry is read-only"));
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await expect(service.loadProjects()).rejects.toThrow(
+      "Unable to save workspace metadata: registry is read-only",
+    );
+    expect(rollbackCreatedProjectMock).toHaveBeenCalledWith("starter-token");
+  });
+
+  it("never rolls back an adopted project when registry persistence fails", async () => {
+    bootstrapUserDataMock.mockResolvedValue({
+      roots: {
+        userRoot: "C:\\Users\\test\\.preshot",
+        projectsRoot: "C:\\Users\\test\\.preshot\\projects",
+      },
+      project: inspected("adopted", "C:\\Users\\test\\.preshot\\projects\\Existing"),
+      rollbackToken: null,
+    });
+    registry.save.mockRejectedValue(new Error("registry is read-only"));
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await expect(service.loadProjects()).rejects.toThrow("registry is read-only");
+    expect(rollbackCreatedProjectMock).not.toHaveBeenCalled();
+  });
+
+  it("runs bootstrap once across concurrent and repeated startup loads", async () => {
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await Promise.all([service.loadProjects(), service.loadProjects()]);
+    await service.loadProjects();
+
+    expect(ensureUserDataRootsMock).toHaveBeenCalledTimes(1);
+    expect(bootstrapUserDataMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces root creation failures before touching the registry", async () => {
+    ensureUserDataRootsMock.mockRejectedValue(new Error("access denied"));
+    const service = createWorkspaceService({ registry, native, clock, logger });
+
+    await expect(service.loadProjects()).rejects.toThrow(
+      "Unable to prepare Preshot user data folders: access denied",
+    );
+    expect(registry.load).not.toHaveBeenCalled();
+    expect(bootstrapUserDataMock).not.toHaveBeenCalled();
   });
 
   it("rolls back a newly created project when registry persistence fails", async () => {

@@ -1,6 +1,9 @@
 import type {
   CreatedProject,
   InspectedProject,
+  RegisteredProjectIdentity,
+  UserDataBootstrapResult,
+  UserDataRoots,
   WorkspaceMetadata,
   WorkspaceProjectRecord,
   WorkspaceProjectView,
@@ -13,6 +16,12 @@ export interface WorkspaceRegistry {
 }
 
 export interface NativeWorkspace {
+  ensureUserDataRoots(): Promise<UserDataRoots>;
+
+  bootstrapUserData(
+    registeredProjects: RegisteredProjectIdentity[],
+  ): Promise<UserDataBootstrapResult>;
+
   createProject(parentPath: string, name: string): Promise<CreatedProject>;
 
   inspectProject(path: string): Promise<InspectedProject>;

@@ -1,0 +1,9 @@
+{
+  "SentinelExists": true,
+  "SentinelSha256": "84a42d343a66cd75ff4fd45c27feccf41c2740cf787689b7c8a19e33c0b2f7d7",
+  "InstalledExeExists": true,
+  "InstalledExeSha256": "e1d605d80f5c555e72664fe62d3c631ab3f5bd2e2f79e3c00e1b9ebf870adfdb",
+  "ProductState": 5,
+  "StartMenuExists": true,
+  "DesktopExists": false
+}

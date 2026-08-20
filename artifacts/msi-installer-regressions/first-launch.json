@@ -1,0 +1,1475 @@
+{
+  "Profile": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile",
+  "UserRootExists": true,
+  "ProjectsRootExists": true,
+  "SettingsFileExists": false,
+  "ProjectCount": 1,
+  "ProjectNames": [
+    "Preshot 入门示例"
+  ],
+  "ManifestPath": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\.preshot\\projects\\Preshot 入门示例\\.preshotproj",
+  "ManifestSha256": "58bae40eacc207c1c31f663e01c65c09aab74c2e7397e9120a61043858622b92",
+  "Manifest": {
+    "schemaVersion": 1,
+    "name": "Preshot 入门示例",
+    "planSchemaVersion": 14,
+    "documentFormat": "preshot-blocks",
+    "documentVersion": 2,
+    "blockCount": 3,
+    "imageGroupCount": 0
+  },
+  "Entries": [
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\.preshot",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.9051095Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:19:55.4500481Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\Desktop",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:19:55.4520503Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\.preshot\\projects",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.9274375Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\.preshot\\projects\\Preshot 入门示例",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.9284401Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\.preshot\\projects\\Preshot 入门示例\\.preshotproj",
+      "PSIsContainer": false,
+      "Length": 1551,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.9284401Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.2595071Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Roaming",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.9634395Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.4286585Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:16.9965234Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\AutoLaunchProtocolsComponent",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9896208Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\BrowserMetrics",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.5168049Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\CertificateRevocation",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9896208Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\component_crx_cache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:16.8812553Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Crashpad",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.4859269Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:16.9538549Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GPUPersistentCache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8752576Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GrShaderCache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1674888Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\hyphen-data",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9906237Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\MEIPreload",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.993619Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\OriginTrials",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9926169Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\PKIMetadata",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9946196Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\ShaderCache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.887255Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Speech Recognition",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9916269Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Subresource Filter",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9966208Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Trust Protection Lists",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0046298Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\TrustTokenKeyCommitments",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9946196Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\WidevineCdm",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9956263Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\CrashpadMetrics-active.pma",
+      "PSIsContainer": false,
+      "Length": 16384,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.3963858Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Last Version",
+      "PSIsContainer": false,
+      "Length": 13,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.888267Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Local State",
+      "PSIsContainer": false,
+      "Length": 12280,
+      "LastWriteTimeUtc": "2026-08-19T16:20:16.9905231Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\lockfile",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.5238056Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Variations",
+      "PSIsContainer": false,
+      "Length": 86,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.5685158Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\BrowserMetrics\\BrowserMetrics-6A85D7B6-8278.pma",
+      "PSIsContainer": false,
+      "Length": 1310720,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.476467Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\component_crx_cache\\metadata.json",
+      "PSIsContainer": false,
+      "Length": 13,
+      "LastWriteTimeUtc": "2026-08-19T16:20:16.8772217Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Crashpad\\attachments",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.4366578Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Crashpad\\reports",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.4356649Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Crashpad\\metadata",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.4859269Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Crashpad\\settings.dat",
+      "PSIsContainer": false,
+      "Length": 288,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4759892Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Crashpad\\throttle_store.dat",
+      "PSIsContainer": false,
+      "Length": 20,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.437657Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\AutofillAiModelCache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4861032Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\AutofillStrikeDatabase",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.493954Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\blob_storage",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.3756602Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\BudgetDatabase",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5000265Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Cache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9716252Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\ClientCertificates",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9605914Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Code Cache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9666322Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\commerce_subscription_db",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.978621Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnGraphiteCache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1500072Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnWebGPUCache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1360104Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\discount_infos_db",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9706257Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\discounts_db",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9696248Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\EdgeSessions",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4881297Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Rules",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0016255Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Scripts",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0229331Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension State",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1704922Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Feature Engagement Tracker",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5220016Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\GPUCache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1196304Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Local Storage",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1470094Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:17.1261922Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\optimization_guide_hint_cache_store",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4840844Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\parcel_tracking_db",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9696248Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\PersistentOriginTrials",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9816298Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Session Storage",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.4792209Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Sessions",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0139301Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Shared Dictionary",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1106399Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0334896Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Site Characteristics Database",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9906237Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Sync Data",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9636299Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\BookmarkMergedSurfaceOrdering",
+      "PSIsContainer": false,
+      "Length": 6,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4780128Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\BrowsingTopicsSiteData",
+      "PSIsContainer": false,
+      "Length": 28672,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5098774Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\BrowsingTopicsSiteData-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5098774Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\BrowsingTopicsState",
+      "PSIsContainer": false,
+      "Length": 414,
+      "LastWriteTimeUtc": "2026-08-19T16:20:12.929377Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\declarative_performance_observer.db",
+      "PSIsContainer": false,
+      "Length": 32768,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4469506Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\declarative_performance_observer.db-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4469506Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DIPS",
+      "PSIsContainer": false,
+      "Length": 4096,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4519465Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DIPS-wal",
+      "PSIsContainer": false,
+      "Length": 53592,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5278202Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\ExtensionActivityComp",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4439504Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\ExtensionActivityEdge",
+      "PSIsContainer": false,
+      "Length": 32768,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4415835Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\ExtensionActivityEdge-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4429405Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Favicons",
+      "PSIsContainer": false,
+      "Length": 20480,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9956263Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Favicons-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9966208Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\favorites_diagnostic.log",
+      "PSIsContainer": false,
+      "Length": 925,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5159338Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\History",
+      "PSIsContainer": false,
+      "Length": 212992,
+      "LastWriteTimeUtc": "2026-08-19T16:20:17.4506633Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\History-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:17.4526785Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9816298Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.979621Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Login Data",
+      "PSIsContainer": false,
+      "Length": 43008,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9766196Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Login Data For Account",
+      "PSIsContainer": false,
+      "Length": 43008,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9766196Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Login Data For Account-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9776231Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Login Data-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9776231Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network Action Predictor",
+      "PSIsContainer": false,
+      "Length": 53248,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4681564Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network Action Predictor-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4681564Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Preferences",
+      "PSIsContainer": false,
+      "Length": 7673,
+      "LastWriteTimeUtc": "2026-08-19T16:20:16.9504834Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\README",
+      "PSIsContainer": false,
+      "Length": 182,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8972632Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Secure Preferences",
+      "PSIsContainer": false,
+      "Length": 9856,
+      "LastWriteTimeUtc": "2026-08-19T16:20:16.9444901Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\ServerCertificate",
+      "PSIsContainer": false,
+      "Length": 20480,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9636299Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\ServerCertificate-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9646295Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Top Sites",
+      "PSIsContainer": false,
+      "Length": 20480,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.3839473Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Top Sites-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.3839473Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Vpn Tokens",
+      "PSIsContainer": false,
+      "Length": 28672,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9696248Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Vpn Tokens-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9706257Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Web Data",
+      "PSIsContainer": false,
+      "Length": 221184,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9856208Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Web Data-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9866234Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\AutofillAiModelCache\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4861032Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\AutofillAiModelCache\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4861032Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\AutofillStrikeDatabase\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.493954Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\AutofillStrikeDatabase\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.493954Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\blob_storage\\cddcbc56-079b-4d8a-9e9f-630581d988ba",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.3756602Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\BudgetDatabase\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5000265Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\BudgetDatabase\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4979996Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Cache\\Cache_Data",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9552604Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Cache\\No_Vary_Search",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9716252Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\ClientCertificates\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9605914Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\ClientCertificates\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9592604Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Code Cache\\js",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.82688Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Code Cache\\wasm",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9656278Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Code Cache\\js\\index-dir",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.982629Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Code Cache\\js\\811187762b34f38e_0",
+      "PSIsContainer": false,
+      "Length": 256,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.8281017Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Code Cache\\js\\index",
+      "PSIsContainer": false,
+      "Length": 24,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9706257Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Code Cache\\js\\index-dir\\the-real-index",
+      "PSIsContainer": false,
+      "Length": 48,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9776231Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Code Cache\\wasm\\index-dir",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9756306Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Code Cache\\wasm\\index",
+      "PSIsContainer": false,
+      "Length": 24,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9636299Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Code Cache\\wasm\\index-dir\\the-real-index",
+      "PSIsContainer": false,
+      "Length": 48,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9706257Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\commerce_subscription_db\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.978621Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\commerce_subscription_db\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9776231Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnGraphiteCache\\data_0",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1440084Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnGraphiteCache\\data_1",
+      "PSIsContainer": false,
+      "Length": 270336,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.3258709Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnGraphiteCache\\data_2",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1470094Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnGraphiteCache\\data_3",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1500072Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnGraphiteCache\\index",
+      "PSIsContainer": false,
+      "Length": 262512,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1420104Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnWebGPUCache\\data_0",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1279793Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnWebGPUCache\\data_1",
+      "PSIsContainer": false,
+      "Length": 270336,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.3248714Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnWebGPUCache\\data_2",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1340063Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnWebGPUCache\\data_3",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1360104Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\DawnWebGPUCache\\index",
+      "PSIsContainer": false,
+      "Length": 262512,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1246453Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\discounts_db\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9696248Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\discounts_db\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9686284Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\discount_infos_db\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9706257Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\discount_infos_db\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9696248Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\EdgeSessions\\SessionRestoreLog",
+      "PSIsContainer": false,
+      "Length": 47,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4901551Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Rules\\000003.log",
+      "PSIsContainer": false,
+      "Length": 38,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0249267Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Rules\\CURRENT",
+      "PSIsContainer": false,
+      "Length": 16,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9926169Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Rules\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.982629Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Rules\\LOG",
+      "PSIsContainer": false,
+      "Length": 407,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0006234Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Rules\\MANIFEST-000001",
+      "PSIsContainer": false,
+      "Length": 41,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.984622Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Scripts\\000003.log",
+      "PSIsContainer": false,
+      "Length": 38,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0259322Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Scripts\\CURRENT",
+      "PSIsContainer": false,
+      "Length": 16,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0159287Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Scripts\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0066338Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Scripts\\LOG",
+      "PSIsContainer": false,
+      "Length": 411,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0219408Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension Scripts\\MANIFEST-000001",
+      "PSIsContainer": false,
+      "Length": 41,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0086197Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension State\\000003.log",
+      "PSIsContainer": false,
+      "Length": 114,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.171492Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension State\\CURRENT",
+      "PSIsContainer": false,
+      "Length": 16,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1634835Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension State\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1590102Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension State\\LOG",
+      "PSIsContainer": false,
+      "Length": 405,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1694938Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Extension State\\MANIFEST-000001",
+      "PSIsContainer": false,
+      "Length": 41,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.160787Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Feature Engagement Tracker\\AvailabilityDB",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5220016Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Feature Engagement Tracker\\EventDB",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5257994Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Feature Engagement Tracker\\AvailabilityDB\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5220016Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Feature Engagement Tracker\\AvailabilityDB\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5199794Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Feature Engagement Tracker\\EventDB\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5257994Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Feature Engagement Tracker\\EventDB\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.5237781Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\GPUCache\\data_0",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1136336Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\GPUCache\\data_1",
+      "PSIsContainer": false,
+      "Length": 270336,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.3238665Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\GPUCache\\data_2",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.118629Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\GPUCache\\data_3",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1206329Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\GPUCache\\index",
+      "PSIsContainer": false,
+      "Length": 262512,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1116367Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Local Storage\\leveldb",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.2054864Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Local Storage\\leveldb\\000003.log",
+      "PSIsContainer": false,
+      "Length": 30,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.2164939Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Local Storage\\leveldb\\CURRENT",
+      "PSIsContainer": false,
+      "Length": 16,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1874933Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Local Storage\\leveldb\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.158012Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Local Storage\\leveldb\\LOG",
+      "PSIsContainer": false,
+      "Length": 419,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.2034831Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Local Storage\\leveldb\\MANIFEST-000001",
+      "PSIsContainer": false,
+      "Length": 41,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1794882Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\Cookies",
+      "PSIsContainer": false,
+      "Length": 20480,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1560156Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\Cookies-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1570127Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\Device Bound Sessions",
+      "PSIsContainer": false,
+      "Length": 20480,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1300141Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\Device Bound Sessions-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1310097Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\Network Persistent State",
+      "PSIsContainer": false,
+      "Length": 59,
+      "LastWriteTimeUtc": "2026-08-19T16:20:17.122153Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\NetworkDataMigrated",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9956263Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\Reporting and NEL",
+      "PSIsContainer": false,
+      "Length": 36864,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.3198713Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\Reporting and NEL-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.3208693Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\SCT Auditing Pending Reports",
+      "PSIsContainer": false,
+      "Length": 2,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1844914Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\Sdch Dictionaries",
+      "PSIsContainer": false,
+      "Length": 40,
+      "LastWriteTimeUtc": "2026-08-19T16:20:17.1201339Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\Trust Tokens",
+      "PSIsContainer": false,
+      "Length": 36864,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1300141Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Network\\Trust Tokens-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1310097Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\optimization_guide_hint_cache_store\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4840844Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\optimization_guide_hint_cache_store\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:10.4800333Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\parcel_tracking_db\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9696248Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\parcel_tracking_db\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9676255Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\PersistentOriginTrials\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9816298Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\PersistentOriginTrials\\LOG",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.979621Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Session Storage\\000003.log",
+      "PSIsContainer": false,
+      "Length": 30,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.4872203Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Session Storage\\CURRENT",
+      "PSIsContainer": false,
+      "Length": 16,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.4642161Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Session Storage\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.447218Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Session Storage\\LOG",
+      "PSIsContainer": false,
+      "Length": 407,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.4772169Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Session Storage\\MANIFEST-000001",
+      "PSIsContainer": false,
+      "Length": 41,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.4562118Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Shared Dictionary\\cache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1146321Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Shared Dictionary\\db",
+      "PSIsContainer": false,
+      "Length": 45056,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1300141Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Shared Dictionary\\db-journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1310097Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Shared Dictionary\\cache\\index-dir",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1216292Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Shared Dictionary\\cache\\index",
+      "PSIsContainer": false,
+      "Length": 24,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1096387Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Shared Dictionary\\cache\\index-dir\\the-real-index",
+      "PSIsContainer": false,
+      "Length": 48,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1156356Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\metadata",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0199299Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\000003.log",
+      "PSIsContainer": false,
+      "Length": 19,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1236352Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\CURRENT",
+      "PSIsContainer": false,
+      "Length": 16,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0274534Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0229331Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\LOG",
+      "PSIsContainer": false,
+      "Length": 405,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0324865Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\MANIFEST-000001",
+      "PSIsContainer": false,
+      "Length": 41,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.023933Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\metadata\\000003.log",
+      "PSIsContainer": false,
+      "Length": 474,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0354855Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\metadata\\CURRENT",
+      "PSIsContainer": false,
+      "Length": 16,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0056295Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\metadata\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0016255Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\metadata\\LOG",
+      "PSIsContainer": false,
+      "Length": 423,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0189366Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\shared_proto_db\\metadata\\MANIFEST-000001",
+      "PSIsContainer": false,
+      "Length": 41,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.0026288Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Site Characteristics Database\\000003.log",
+      "PSIsContainer": false,
+      "Length": 40,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9926169Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Site Characteristics Database\\CURRENT",
+      "PSIsContainer": false,
+      "Length": 16,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9806286Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Site Characteristics Database\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9646295Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Site Characteristics Database\\LOG",
+      "PSIsContainer": false,
+      "Length": 435,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9896208Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Site Characteristics Database\\MANIFEST-000001",
+      "PSIsContainer": false,
+      "Length": 41,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9746235Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Sync Data\\LevelDB",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9906237Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Sync Data\\LevelDB\\000003.log",
+      "PSIsContainer": false,
+      "Length": 65,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1226311Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Sync Data\\LevelDB\\CURRENT",
+      "PSIsContainer": false,
+      "Length": 16,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9766196Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Sync Data\\LevelDB\\LOCK",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9666322Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Sync Data\\LevelDB\\LOG",
+      "PSIsContainer": false,
+      "Length": 411,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9896208Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Default\\Sync Data\\LevelDB\\MANIFEST-000001",
+      "PSIsContainer": false,
+      "Length": 41,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.972623Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GPUPersistentCache\\DawnGraphiteCache",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8762602Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GPUPersistentCache\\DawnGraphiteCache\\3NKWE443ILY3OIX46HBRH4ISRJW4UKAH",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8792631Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GPUPersistentCache\\DawnGraphiteCache\\3NKWE443ILY3OIX46HBRH4ISRJW4UKAH\\cache.db",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8772545Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GPUPersistentCache\\DawnGraphiteCache\\3NKWE443ILY3OIX46HBRH4ISRJW4UKAH\\cache.db-wal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8792631Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GPUPersistentCache\\DawnGraphiteCache\\3NKWE443ILY3OIX46HBRH4ISRJW4UKAH\\cache.journal",
+      "PSIsContainer": false,
+      "Length": 0,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8782582Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GrShaderCache\\data_0",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.162483Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GrShaderCache\\data_1",
+      "PSIsContainer": false,
+      "Length": 270336,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1694938Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GrShaderCache\\data_2",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1664921Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GrShaderCache\\data_3",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1684882Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\GrShaderCache\\index",
+      "PSIsContainer": false,
+      "Length": 262512,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.1560156Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\ShaderCache\\data_0",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8812662Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\ShaderCache\\data_1",
+      "PSIsContainer": false,
+      "Length": 270336,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8892636Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\ShaderCache\\data_2",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8862587Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\ShaderCache\\data_3",
+      "PSIsContainer": false,
+      "Length": 8192,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.888267Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\ShaderCache\\index",
+      "PSIsContainer": false,
+      "Length": 262512,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.8782582Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Local\\com.yucdong.preshot\\EBWebView\\Subresource Filter\\Unindexed Rules",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:06.9966208Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Roaming\\com.yucdong.preshot",
+      "PSIsContainer": true,
+      "Length": null,
+      "LastWriteTimeUtc": "2026-08-19T16:20:07.9644395Z"
+    },
+    {
+      "FullName": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\isolated-profile\\AppData\\Roaming\\com.yucdong.preshot\\workspace.json",
+      "PSIsContainer": false,
+      "Length": 543,
+      "LastWriteTimeUtc": "2026-08-19T16:20:08.1679907Z"
+    }
+  ]
+}

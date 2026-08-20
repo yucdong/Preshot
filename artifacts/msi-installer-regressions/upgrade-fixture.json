@@ -1,0 +1,16 @@
+{
+  "Purpose": "non-release temporary major-upgrade fixture using existing generic Upgrade rows",
+  "Path": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\fixture-Preshot_0.0.2_x64_en-US.msi",
+  "Size": 16580608,
+  "Sha256": "4d86bd6966fb10d784c61cde3ccd5dc1027a2eac7a0dc536e6b5913d67b8fab0",
+  "ProductCode": "{9AAFC951-0459-4933-B7D0-A74BB31C4C95}",
+  "PackageCode": "{925D940D-3968-48B5-9A6B-E42DDCD9D2B9}",
+  "Metadata": {
+    "ProductName": "Preshot",
+    "ProductVersion": "0.0.2",
+    "Manufacturer": "yucdong",
+    "ProductCode": "{9AAFC951-0459-4933-B7D0-A74BB31C4C95}",
+    "Architecture": "x64",
+    "Template": "x64;0"
+  }
+}

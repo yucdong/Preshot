@@ -8,7 +8,6 @@ import {
 } from "react";
 import {
   DOCUMENT_IMAGE_GROUP_INSET,
-  layoutDocumentImageGroup,
   layoutDocumentImageGroupForWidth,
   type DocumentImageGroupSlot,
 } from "../../../domain/plan/canvas/documentImageGroupLayout";
@@ -103,15 +102,12 @@ export function ImageGroupBlockView({
     0,
     Math.min(displayedGroup.x, Math.max(0, availableWidth - constrainedWidth)),
   );
-  const displayedHeight =
-    framePreview?.groupHeight ?? displayedGroup.height;
-  const layout = framePreview
-    ? layoutDocumentImageGroupForWidth(displayImages, constrainedWidth)
-    : layoutDocumentImageGroup(
-        displayImages,
-        constrainedWidth,
-        displayedHeight,
-      );
+  const layout = layoutDocumentImageGroupForWidth(
+    displayImages,
+    constrainedWidth,
+  );
+  const displayedHeight = framePreview?.groupHeight ??
+    Math.max(displayedGroup.height, layout.height);
   const imagesById = new Map(displayImages.map((image) => [image.id, image]));
 
   const startImageResize = (

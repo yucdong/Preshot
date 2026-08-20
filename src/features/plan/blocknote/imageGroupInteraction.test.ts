@@ -434,6 +434,57 @@ describe("image-group interaction utilities", () => {
     expect(result.preview.groupHeight).toBeCloseTo(result.layout.height);
   });
 
+  it("allows direct resize to the full group inner width and wraps neighbors", () => {
+    const images = [
+      {
+        id: "first",
+        file: "references/first.png",
+        aspectRatio: 1,
+        frameWidth: 80,
+        frameHeight: 80,
+      },
+      {
+        id: "second",
+        file: "references/second.png",
+        aspectRatio: 1,
+        frameWidth: 80,
+        frameHeight: 80,
+      },
+    ];
+    const result = imageGroupFrameResizePreview({
+      images,
+      groupWidth: 300,
+      start: {
+        imageId: "first",
+        frameWidth: 80,
+        frameHeight: 80,
+        frameOffsetX: 0,
+        frameOffsetY: 0,
+      },
+      startRect: { left: 0, right: 80, top: 0, bottom: 80 },
+      direction: "right",
+      deltaX: 500,
+      deltaY: 0,
+      candidates: [],
+      snapState: {
+        widthKey: null,
+        heightKey: null,
+        verticalKey: null,
+        horizontalKey: null,
+      },
+      groupRect: { left: 0, right: 282, top: 0, bottom: 200 },
+    });
+
+    expect(result.preview).toMatchObject({
+      frameWidth: 282,
+      frameHeight: 282,
+    });
+    expect(result.layout.slots).toMatchObject([
+      { id: "first", x: 0, y: 0, width: 282, height: 282 },
+      { id: "second", x: 0, y: 289, width: 80, height: 80 },
+    ]);
+  });
+
   it("calculates clamped image-group preview geometry", () => {
     expect(groupResizePreview(
       { x: 40, width: 200, height: 120, frameOffsetY: 5 },

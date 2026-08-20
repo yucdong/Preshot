@@ -1,0 +1,19 @@
+{
+  "Products": [
+    {
+      "ProductCode": "{7B87293F-A463-4EE4-8339-116EA775AA00}",
+      "State": -1
+    },
+    {
+      "ProductCode": "{A951FC74-B101-43C3-80F6-B940D7C69F58}",
+      "State": -1
+    }
+  ],
+  "InstallExists": false,
+  "StartMenuExists": false,
+  "DesktopExists": false,
+  "Processes": [],
+  "ExpectedMsiHash": "4f8f2c1ea08d79c160756909ddd41f72ced23aa87d9f4160a896f4e948ea9a70",
+  "ActualMsiHash": "4f8f2c1ea08d79c160756909ddd41f72ced23aa87d9f4160a896f4e948ea9a70",
+  "ArtifactStable": true
+}

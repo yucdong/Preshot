@@ -212,7 +212,7 @@ describe("image-group React-PDF render model", () => {
     }
   });
 
-  it("uniformly applies only the preflight oversized scale", () => {
+  it("uniformly applies only the export group physical scale", () => {
     const source = group("oversized", {
       x: 30,
       width: 400,
@@ -234,8 +234,8 @@ describe("image-group React-PDF render model", () => {
     if (model.kind !== "content") return;
     const finalScale =
       groupContext.parent.logicalToPdfScale *
-      groupContext.pdf.oversizedScale;
-    expect(groupContext.pdf.oversizedScale).toBeLessThan(1);
+      groupContext.pdf.exportOnlyGroupPhysicalScale;
+    expect(groupContext.pdf.exportOnlyGroupPhysicalScale).toBeLessThan(1);
     expect(model.container.x).toBeCloseTo(source.x * finalScale, 4);
     expect(model.flow.topPadding).toBeCloseTo(
       (source.frameOffsetY ?? 0) * finalScale,

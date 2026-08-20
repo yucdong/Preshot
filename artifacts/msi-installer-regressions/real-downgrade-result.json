@@ -1,0 +1,7 @@
+{
+  "ExitCode": 1603,
+  "Rejected": true,
+  "OldProductState": -1,
+  "NewProductState": 5,
+  "Log": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\real-downgrade-rejected.log"
+}

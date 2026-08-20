@@ -1,0 +1,10 @@
+{
+  "BaseInstallExitCode": 0,
+  "UpgradeExitCode": 0,
+  "OldProductStateAfter": -1,
+  "NewProductStateAfter": 5,
+  "InstalledExeVersion": "0.0.2",
+  "SentinelSha256": "d0e3690951ecff6675a11e3f7b114a6159a0c2b795178c50e0454d54cac9d972",
+  "BaseLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-upgrade-base.log",
+  "UpgradeLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\final-major-upgrade.log"
+}

@@ -8,7 +8,7 @@ import {
   type PageGeometry,
 } from "../geometry";
 import {
-  DEFAULT_IMAGE_HEIGHT,
+  LEGACY_DEFAULT_IMAGE_HEIGHT,
   DOCUMENT_TITLE_HEIGHT,
   MIN_WIDTH,
   type PlanComponent,
@@ -61,7 +61,7 @@ function temporaryExportComponents(
       contentScale: 1,
       description: component.description,
       showDescription: true,
-      imageHeight: DEFAULT_IMAGE_HEIGHT,
+      imageHeight: LEGACY_DEFAULT_IMAGE_HEIGHT,
       images: component.images.map((image) => ({
         id: image.id,
         file: image.file,

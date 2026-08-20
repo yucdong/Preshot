@@ -1,0 +1,13 @@
+{
+  "DesktopInstallExitCode": 0,
+  "DesktopExistsAfterInstall": true,
+  "DesktopUninstallExitCode": 0,
+  "DesktopExistsAfterUninstall": false,
+  "AllUsersExitCode": 1603,
+  "AllUsersRejected": true,
+  "InstallDirectoryExistsAfterRejection": false,
+  "SentinelSha256": "3477e617783993efb2ac0e21990125b4632237f612a48278b111c06b59e4cd86",
+  "InstallLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-desktop-install.log",
+  "UninstallLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-desktop-uninstall.log",
+  "RejectLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\validated-allusers-rejected.log"
+}

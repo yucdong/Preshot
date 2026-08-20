@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import { createEmptyProjectPlanV14 } from "../../../domain/plan/canvas/blockDocument";
 import type { SettingsRepository } from "../../../domain/settings/ports";
@@ -18,6 +18,10 @@ const settings: SettingsRepository = {
   read: vi.fn().mockResolvedValue({ theme: "light" }),
   write: vi.fn().mockResolvedValue(undefined),
 };
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function renderProvider(
   service: BlockNotePlanService,
@@ -109,6 +113,105 @@ describe("BlockNoteProjectCanvasProvider", () => {
     });
     expect(screen.getByRole("button", { name: "适合宽度" })).toBeVisible();
     expect(screen.getByTestId("save-status")).toHaveTextContent("未保存");
+  });
+
+  it("marks a loaded compatibility migration unsaved, saves it, and reloads stably", async () => {
+    class MeasuredImage {
+      naturalWidth = 900;
+      naturalHeight = 600;
+      onerror: (() => void) | null = null;
+      onload: (() => void) | null = null;
+
+      set src(_value: string) {
+        queueMicrotask(() => this.onload?.());
+      }
+
+      decode() {
+        return Promise.resolve();
+      }
+    }
+    vi.stubGlobal("Image", MeasuredImage);
+
+    let persisted = {
+      schemaVersion: 14 as const,
+      title: "Editorial",
+      document: {
+        format: "preshot-blocks" as const,
+        version: 2 as const,
+        blocks: [{
+          id: "group-block",
+          type: "imageGroup" as const,
+          props: { groupId: "group" },
+          content: undefined,
+          children: [],
+        }],
+      },
+      imageGroups: [{
+        id: "group",
+        name: "References",
+        type: "reference" as const,
+        x: 17,
+        width: 500,
+        height: 300,
+        description: "",
+        images: [{
+          id: "legacy",
+          file: "references/legacy.png",
+          aspectRatio: 1.5,
+          sourceWidth: 900,
+          sourceHeight: 600,
+          frameWidth: 202.5,
+          frameHeight: 135,
+        }],
+      }],
+    };
+    const savePlan = vi.fn().mockImplementation(async (
+      _projectPath: string,
+      plan: typeof persisted,
+    ) => {
+      persisted = structuredClone(plan);
+    });
+    const service = serviceWith({
+      loadPlan: vi.fn().mockImplementation(async () => ({
+        status: "loaded",
+        plan: structuredClone(persisted),
+      })),
+      loadImage: vi.fn().mockResolvedValue("data:image/png;base64,AA"),
+      savePlan,
+    });
+
+    const first = renderProvider(service);
+
+    expect(await screen.findByText("BlockNote Canvas v14")).toBeVisible();
+    expect(screen.getByTestId("save-status")).toHaveTextContent("未保存");
+    expect(screen.getByText(
+      /已升级 1 张旧版默认尺寸图片/,
+      { suggest: false },
+    )).toHaveTextContent("已升级 1 张旧版默认尺寸图片");
+
+    first.unmount();
+    await waitFor(() => {
+      expect(savePlan).toHaveBeenCalledTimes(1);
+    });
+    expect(persisted.imageGroups[0]).toMatchObject({
+      x: 17,
+      width: 500,
+      height: 258,
+      images: [{
+        id: "legacy",
+        file: "references/legacy.png",
+        frameWidth: 360,
+        frameHeight: 240,
+      }],
+    });
+
+    renderProvider(service);
+
+    expect(await screen.findByText("BlockNote Canvas v14")).toBeVisible();
+    expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
+    expect(screen.queryByText(/已升级 1 张旧版默认尺寸图片/))
+      .not.toBeInTheDocument();
+    expect(savePlan).toHaveBeenCalledTimes(1);
   });
 
   it("blocks legacy schemas without opening the editor", async () => {

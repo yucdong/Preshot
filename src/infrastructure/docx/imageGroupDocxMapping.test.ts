@@ -9,6 +9,11 @@ import {
 import { PDF_VISUAL_CONTRACT } from "../../domain/plan/blocknote/pdfVisualContract";
 import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
 import {
+  DOCUMENT_IMAGE_GROUP_INSET,
+  layoutDocumentImageGroupForWidth,
+} from "../../domain/plan/canvas/documentImageGroupLayout";
+import { buildPreshotImageGroupPdfRenderModel } from "../pdf/imageGroupPdfRenderModel";
+import {
   buildPreshotDocxImageGroupCompositeRequest,
   calculateDocxImageGroupRasterPlan,
   createPreshotImageGroupDocxBlockMapping,
@@ -243,6 +248,96 @@ async function paragraphXml(paragraph: Paragraph): Promise<{
 }
 
 describe("DOCX image-group composite request", () => {
+  it.each([
+    { label: "root", weights: [] as number[], expectedRows: 1 },
+    { label: "two-column", weights: [1, 1], expectedRows: 3 },
+    { label: "three-column", weights: [1, 1, 1], expectedRows: 3 },
+  ])(
+    "keeps editor, PDF, and DOCX manifests in parity for $label 240-height frames",
+    ({ weights, expectedRows }) => {
+      const source = group("parity", {
+        width: 1_008,
+        height: 240,
+        images: [
+          image("first", 320, 240),
+          image("second", 320, 240),
+          image("third", 320, 240),
+        ],
+      });
+      const block = imageGroupBlock("block", source.id);
+      const blocks = weights.length === 0
+        ? [block]
+        : [{
+            id: "columns",
+            type: "columnList" as const,
+            props: {},
+            content: undefined,
+            children: weights.map((weight, index) => ({
+              id: `column-${index}`,
+              type: "column" as const,
+              props: { width: weight },
+              content: undefined,
+              children: index === 0
+                ? [block]
+                : [paragraphBlock(`copy-${index}`)],
+            })),
+          }];
+      const context = exportContext(plan(blocks, [source]));
+      const groupContext = context.groupsByBlockId.block;
+      const editorLayout = layoutDocumentImageGroupForWidth(
+        source.images,
+        groupContext.logical.width,
+      );
+      const pdfModel = buildPreshotImageGroupPdfRenderModel(block, context);
+      const docxRequest = buildPreshotDocxImageGroupCompositeRequest(
+        block,
+        context,
+      )!;
+      const rowCount = (ys: readonly number[]) =>
+        new Set(ys.map((value) => value.toFixed(4))).size;
+
+      expect(groupContext.logical.layoutScale).toBe(1);
+      expect(rowCount(editorLayout.slots.map((slot) => slot.y)))
+        .toBe(expectedRows);
+      expect(rowCount(groupContext.slots.map((slot) => slot.logical.y)))
+        .toBe(expectedRows);
+      expect(pdfModel.kind).toBe("content");
+      if (pdfModel.kind !== "content") return;
+      expect(rowCount(pdfModel.images.map((entry) => entry.y)))
+        .toBe(expectedRows);
+      expect(rowCount(docxRequest.images.map((entry) =>
+        entry.yPoints - docxRequest.surface.yPoints
+      ))).toBe(expectedRows);
+
+      editorLayout.slots.forEach((editorSlot, index) => {
+        const manifestSlot = groupContext.slots[index];
+        const pdfSlot = pdfModel.images[index];
+        const docxSlot = docxRequest.images[index];
+        expect(manifestSlot.logical).toMatchObject({
+          x: DOCUMENT_IMAGE_GROUP_INSET + editorSlot.x,
+          y: DOCUMENT_IMAGE_GROUP_INSET + editorSlot.y,
+          width: editorSlot.width,
+          height: editorSlot.height,
+        });
+        expect(pdfSlot).toMatchObject({
+          imageId: editorSlot.id,
+          width: manifestSlot.pdf.width,
+          height: manifestSlot.pdf.height,
+        });
+        expect(docxSlot).toMatchObject({
+          imageId: editorSlot.id,
+          widthPoints: manifestSlot.pdf.width,
+          heightPoints: manifestSlot.pdf.height,
+        });
+      });
+
+      if (weights.length === 3) {
+        expect(groupContext.slots[0].logical.width).toBe(320);
+        expect(groupContext.pdf.exportOnlyGroupPhysicalScale).toBeLessThan(1);
+      }
+    },
+  );
+
   it("preserves order, crops, wrapping, offsets, dimensions, gaps, and visual surfaces", () => {
     const firstCrop = { x: 0.2, y: 0.1, width: 0.5, height: 0.7 };
     const source = group("wrapped", {
@@ -642,7 +737,8 @@ describe("DOCX image-group mapping", () => {
         unscaledFlowHeight: 5_000 as typeof original.pdf.unscaledFlowHeight,
         displayedHeight: 5_000 as typeof original.pdf.displayedHeight,
         flowHeight: 5_000 as typeof original.pdf.flowHeight,
-        oversizedScale: 1 as typeof original.pdf.oversizedScale,
+        exportOnlyGroupPhysicalScale:
+          1 as typeof original.pdf.exportOnlyGroupPhysicalScale,
       },
     };
     const warningContext: PreshotPdfExportContext = {

@@ -5,10 +5,14 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import type {
   BlockNotePlanLoadResult,
   BlockNotePlanService,
 } from "../../../domain/plan/blocknote/service";
+import {
+  migrateLegacyDefaultImageFrames,
+} from "../../../domain/plan/blocknote/plan";
 import type {
   PreshotBlockDocument,
   ProjectPlanV14,
@@ -17,6 +21,7 @@ import {
   imageGroupIdsInBlockDocument,
   mediaFilesInBlockDocument,
 } from "../../../domain/plan/canvas/blockDocument";
+import { layoutDocumentImageGroupForWidth } from "../../../domain/plan/canvas/documentImageGroupLayout";
 import { DEFAULT_REFERENCE_HEIGHT } from "../../../domain/plan/canvas/models";
 import {
   MIN_COMPONENT_HEIGHT,
@@ -96,6 +101,7 @@ export function BlockNoteProjectCanvasProvider({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [migrationNotice, setMigrationNotice] = useState<string | null>(null);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
   const [mediaSrc, setMediaSrc] = useState<Record<string, string>>({});
   const [lightboxTarget, setLightboxTarget] = useState<LightboxTarget | null>(
@@ -197,10 +203,21 @@ export function BlockNoteProjectCanvasProvider({
           setLoadState(result);
           return;
         }
-        const plan = result.plan;
+        const persistedPlan = result.plan;
+        const migration = migrateLegacyDefaultImageFrames(persistedPlan);
+        const plan = migration.plan;
         planRef.current = plan;
-        savedRef.current = result.status === "missing" ? "" : JSON.stringify(plan);
-        setSaveState(result.status === "missing" ? "unsaved" : "saved");
+        savedRef.current = result.status === "missing"
+          ? ""
+          : JSON.stringify(persistedPlan);
+        setSaveState(
+          JSON.stringify(plan) === savedRef.current ? "saved" : "unsaved",
+        );
+        setMigrationNotice(
+          migration.migratedImageCount > 0
+            ? `已升级 ${migration.migratedImageCount} 张旧版默认尺寸图片；自定义尺寸未更改。请确认排版，系统将自动保存。`
+            : null,
+        );
         const files = new Set(
           plan.imageGroups.flatMap((group) =>
             group.images.map((image) => image.file),
@@ -233,7 +250,11 @@ export function BlockNoteProjectCanvasProvider({
           const measured = await applyMeasuredImages(plan, imageEntries);
           if (cancelled) return;
           planRef.current = measured;
-          if (measured !== plan) setSaveState("unsaved");
+          setSaveState(
+            JSON.stringify(measured) === savedRef.current
+              ? "saved"
+              : "unsaved",
+          );
           setLoadState({ status: "ready", plan: measured });
         }).catch((error: unknown) => {
           if (cancelled) return;
@@ -617,7 +638,11 @@ export function BlockNoteProjectCanvasProvider({
                 ...group,
                 x: Math.max(0, Math.min(frame.x, canvasWidth - width)),
                 width,
-                height: Math.max(MIN_COMPONENT_HEIGHT, frame.height),
+                height: Math.max(
+                  MIN_COMPONENT_HEIGHT,
+                  frame.height,
+                  layoutDocumentImageGroupForWidth(group.images, width).height,
+                ),
                 frameOffsetY: frame.frameOffsetY,
               },
         ),
@@ -641,6 +666,13 @@ export function BlockNoteProjectCanvasProvider({
         image,
         ...target.images.slice(index),
       ];
+      for (const group of imageGroups) {
+        if (group.id !== fromGroupId && group.id !== toGroupId) continue;
+        group.height = Math.max(
+          MIN_COMPONENT_HEIGHT,
+          layoutDocumentImageGroupForWidth(group.images, group.width).height,
+        );
+      }
       applyPlan({ ...current, imageGroups });
     },
   };
@@ -681,10 +713,12 @@ export function BlockNoteProjectCanvasProvider({
     const plan = planRef.current;
     if (!plan) return;
     exportInFlightRef.current = true;
-    setCanvasError(null);
-    setExportNotice(null);
-    if (format === "PDF") setExportingPdf(true);
-    else setExportingDocx(true);
+    flushSync(() => {
+      setCanvasError(null);
+      setExportNotice(null);
+      if (format === "PDF") setExportingPdf(true);
+      else setExportingDocx(true);
+    });
 
     void exportDocument(plan, { ...imageSrc, ...mediaSrc })
       .then((bytes) => saveDocument.save(bytes, {
@@ -777,6 +811,15 @@ export function BlockNoteProjectCanvasProvider({
           role="status"
         >
           {exportNotice}
+        </div>
+      ) : null}
+      {migrationNotice ? (
+        <div
+          aria-live="polite"
+          className="border-b border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-800"
+          role="status"
+        >
+          {migrationNotice}
         </div>
       ) : null}
       <div

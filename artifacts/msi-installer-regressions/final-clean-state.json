@@ -1,0 +1,32 @@
+{
+  "Products": [
+    {
+      "ProductCode": "{E92CBB26-89A1-4E80-877D-806FF9E2132D}",
+      "State": -1
+    },
+    {
+      "ProductCode": "{A951FC74-B101-43C3-80F6-B940D7C69F58}",
+      "State": -1
+    },
+    {
+      "ProductCode": "{C92EBC1D-0A3C-47E1-BD69-5EDF0DCDDB05}",
+      "State": -1
+    },
+    {
+      "ProductCode": "{3668F049-DE70-4714-A975-B3644AB515B9}",
+      "State": -1
+    },
+    {
+      "ProductCode": "{C42AF1AC-B6BF-4008-8C75-5D594FDD543D}",
+      "State": -1
+    },
+    {
+      "ProductCode": "{9AAFC951-0459-4933-B7D0-A74BB31C4C95}",
+      "State": -1
+    }
+  ],
+  "InstallDirectoryExists": false,
+  "StartMenuExists": false,
+  "DesktopExists": false,
+  "PreshotProcesses": []
+}

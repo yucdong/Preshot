@@ -45,6 +45,22 @@ export interface CreatedProject {
   rollbackToken: string;
 }
 
+export interface UserDataRoots {
+  userRoot: string;
+  projectsRoot: string;
+}
+
+export interface RegisteredProjectIdentity {
+  projectId: string;
+  path: string;
+}
+
+export interface UserDataBootstrapResult {
+  roots: UserDataRoots;
+  project: InspectedProject | null;
+  rollbackToken: string | null;
+}
+
 export const EMPTY_WORKSPACE: WorkspaceMetadata = {
   schemaVersion: 1,
   projects: [],

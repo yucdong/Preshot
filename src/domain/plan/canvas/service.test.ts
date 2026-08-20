@@ -86,8 +86,8 @@ describe("canvas plan service", () => {
 
     expect(imported).toMatchObject({
       id: "i2",
-      frameWidth: 135,
-      frameHeight: 135,
+      frameWidth: 240,
+      frameHeight: 240,
       aspectRatio: 1,
     });
     expect(repository.saveRawPlan).toHaveBeenCalledWith("C:/p", result.plan);

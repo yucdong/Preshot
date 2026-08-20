@@ -51,4 +51,4 @@ The release matrix was rerun on 2026-08-17:
 - `pnpm test:e2e` passed 15 journeys, and `pnpm test:e2e:blocknote` passed 8;
 - `pnpm build` passed with the deferred large-chunk warning; and
 - `pnpm tauri:build` produced
-  `src-tauri\target\release\bundle\msi\Preshot_0.0.1_x64_en-US.msi`.
+  `src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot_0.0.1_x64_en-US.msi`.

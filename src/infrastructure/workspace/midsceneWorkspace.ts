@@ -6,6 +6,10 @@ import {
   type WorkspaceMetadata,
 } from "../../domain/workspace/models";
 import { createWorkspaceService } from "../../domain/workspace/service";
+import {
+  createStarterProjectPlan,
+  STARTER_PROJECT_NAME,
+} from "../../domain/workspace/starterProject";
 import type {
   NativeWorkspace,
   WorkspaceDirectoryPicker,
@@ -16,8 +20,15 @@ import type {
 import { workspaceLogger } from "../../shared/logging/logger";
 
 export const MIDSCENE_PROJECT_ROOT = "C:\\Preshot Midscene Runs";
+export const MIDSCENE_USER_ROOT = "C:\\Preshot Midscene";
+export const MIDSCENE_STARTER_PATH =
+  `${MIDSCENE_PROJECT_ROOT}\\Preshot 入门示例`;
 const WORKSPACE_KEY = "preshot.midscene.workspace";
 const PROJECTS_KEY = "preshot.midscene.projects";
+const STARTER_PLAN_KEY =
+  `preshot.browser-blocknote-plan-v14:${encodeURIComponent(MIDSCENE_STARTER_PATH)}`;
+const STARTER_ID = "midscene-starter-project";
+const STARTER_TIME = "2026-08-19T15:04:03.669Z";
 
 function readJson<T>(key: string, fallback: T): T {
   const value = window.localStorage.getItem(key);
@@ -39,7 +50,18 @@ function createRegistry(): WorkspaceRegistry {
   };
 }
 
-function createNative(): NativeWorkspace {
+function createDeterministicClock() {
+  let tick = 0;
+  return {
+    now() {
+      const value = new Date(Date.UTC(2026, 7, 19, 15, 4, 4, tick)).toISOString();
+      tick += 1;
+      return value;
+    },
+  };
+}
+
+function createNative(clock: { now(): string }): NativeWorkspace {
   const loadProjects = () => readJson<Record<string, ProjectManifest>>(PROJECTS_KEY, {});
   const saveProjects = (projects: Record<string, ProjectManifest>) => writeJson(PROJECTS_KEY, projects);
   const inspected = (path: string, manifest: ProjectManifest): InspectedProject => ({
@@ -50,11 +72,53 @@ function createNative(): NativeWorkspace {
   });
 
   return {
+    async ensureUserDataRoots() {
+      return {
+        userRoot: MIDSCENE_USER_ROOT,
+        projectsRoot: MIDSCENE_PROJECT_ROOT,
+      };
+    },
+    async bootstrapUserData(registeredProjects) {
+      const roots = await this.ensureUserDataRoots();
+      const projects = loadProjects();
+      const registeredAvailable = registeredProjects.some(
+        ({ projectId, path }) => projects[path]?.id === projectId,
+      );
+      if (registeredAvailable) {
+        return { roots, project: null, rollbackToken: null };
+      }
+      const [existingPath] = Object.keys(projects).sort();
+      if (existingPath) {
+        return {
+          roots,
+          project: inspected(existingPath, projects[existingPath]),
+          rollbackToken: null,
+        };
+      }
+      const manifest: ProjectManifest = {
+        schemaVersion: 1,
+        id: STARTER_ID,
+        name: STARTER_PROJECT_NAME,
+        createdAt: STARTER_TIME,
+        updatedAt: STARTER_TIME,
+      };
+      projects[MIDSCENE_STARTER_PATH] = manifest;
+      saveProjects(projects);
+      window.sessionStorage.setItem(
+        STARTER_PLAN_KEY,
+        JSON.stringify(createStarterProjectPlan()),
+      );
+      return {
+        roots,
+        project: inspected(MIDSCENE_STARTER_PATH, manifest),
+        rollbackToken: MIDSCENE_STARTER_PATH,
+      };
+    },
     async createProject(parentPath, name): Promise<CreatedProject> {
       const path = `${parentPath}\\${name}`;
       const projects = loadProjects();
       if (projects[path]) throw new Error(`Project already exists: ${path}`);
-      const now = new Date().toISOString();
+      const now = clock.now();
       const manifest: ProjectManifest = {
         schemaVersion: 1,
         id: `midscene-${crypto.randomUUID()}`,
@@ -75,6 +139,9 @@ function createNative(): NativeWorkspace {
       const projects = loadProjects();
       delete projects[path];
       saveProjects(projects);
+      if (path === MIDSCENE_STARTER_PATH) {
+        window.sessionStorage.removeItem(STARTER_PLAN_KEY);
+      }
     },
     async forgetCreatedProject() {
       return undefined;
@@ -94,12 +161,13 @@ const directoryPicker: WorkspaceDirectoryPicker = {
 export function createMidsceneWorkspaceDependencies(
   logger: WorkspaceLogger = workspaceLogger,
 ) {
-  const native = createNative();
+  const clock = createDeterministicClock();
+  const native = createNative(clock);
   return {
     service: createWorkspaceService({
       registry: createRegistry(),
       native,
-      clock: { now: () => new Date().toISOString() },
+      clock,
       logger,
     }),
     directoryPicker,
@@ -124,4 +192,5 @@ export function clearMidsceneWorkspaceStorage() {
   for (const key of Object.keys(window.localStorage)) {
     if (key.startsWith("preshot.midscene.")) window.localStorage.removeItem(key);
   }
+  window.sessionStorage.removeItem(STARTER_PLAN_KEY);
 }

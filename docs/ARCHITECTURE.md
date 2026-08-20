@@ -25,25 +25,66 @@ The mounted editor path in the app is `BlockNoteProjectCanvasProvider`; legacy c
 
 ## Application flow
 
-1. `WorkspaceProvider` loads recent projects and auto-opens the most recently edited available project.
-2. `AppShell` renders the resizable project rail, center workspace, settings access, focus mode, and assistant preview panel.
-3. `Workspace` mounts `BlockNoteProjectCanvasProvider` for the active project.
-4. `BlockNoteProjectCanvasProvider` loads the plan through `BlockNotePlanService`, then loads referenced `references/` images and `media/` files.
-5. `BlockNoteDocumentEditor` owns the live BlockNote instance; the provider reconciles its serialized document with `plan.imageGroups` and runtime-loaded media URLs.
-6. Reference-image crop confirmation goes through the revision-aware queued
+1. `WorkspaceProvider` asks the workspace domain service to initialize user data before loading recents. Production delegates `%USERPROFILE%\.preshot` and its `projects` child to narrow Rust bootstrap commands; browser and Midscene adapters provide deterministic in-memory equivalents.
+2. When no registered project is available, startup adopts the first valid project under the default projects root or creates, registers, and auto-opens the single localized Preshot starter.
+3. `AppShell` renders the resizable project rail, center workspace, settings access, focus mode, and assistant preview panel.
+4. `Workspace` mounts `BlockNoteProjectCanvasProvider` for the active project.
+5. `BlockNoteProjectCanvasProvider` loads the plan through `BlockNotePlanService`, then loads referenced `references/` images and `media/` files.
+6. `BlockNoteDocumentEditor` owns the live BlockNote instance; the provider reconciles its serialized document with `plan.imageGroups` and runtime-loaded media URLs.
+7. Reference-image crop confirmation goes through the revision-aware queued
    domain service and a narrow begin/commit/rollback crop port backed by Rust.
-7. PDF export goes through `createReactPdfBlockNoteExporter`, which uses
+8. PDF export goes through `createReactPdfBlockNoteExporter`, which uses
    `@blocknote/xl-pdf-exporter@0.53.0` with
    `@react-pdf/renderer@4.3.0`; the PDF save target then opens a native save
    dialog and calls the Rust `save_pdf` command.
 
 Browser-only adapters exist for tests and Midscene-driven workflows, but production wiring uses the Tauri adapters.
 
+## Installer and app-data ownership boundary
+
+The WiX MSI is a per-user deployment mechanism, not a workspace provisioner.
+It installs the executable and bundled resources under
+`%LOCALAPPDATA%\Programs\Preshot`, creates installer-owned shortcuts, and
+writes only HKCU application registration. Its fixed UpgradeCode connects
+higher-version major upgrades, while WiX generates ProductCode and PackageCode
+per build.
+
+The LocalAppData lineage has its own UpgradeCode and never reuses the
+historical machine-wide family. A detection-only Upgrade search blocks when
+that legacy product is present and directs the user to uninstall it first;
+the limited per-user MSI does not attempt cross-context removal.
+
+The installer has no ownership below `%USERPROFILE%\.preshot`. It must not
+create, seed, migrate, repair, or remove settings, workspace metadata, project
+directories, `.preshotproj`, or legacy `.preshot` content. Upgrade rollback
+and uninstall therefore operate only on installer-owned application state.
+This boundary lets user data outlive repair, failed upgrade rollback, and
+uninstall.
+
 ## Persistence model
 
 ### Workspace metadata
 
 Workspace recents are stored through the Tauri Store plugin in `workspace.json` with schema version 1. Each record tracks the project ID, path, cover reference, availability, timestamps, and `lastOpenedAt`.
+
+Production user-owned project storage defaults to `%USERPROFILE%\.preshot\projects`. The installer does not create or seed these folders. Startup creation and discovery stay behind `NativeWorkspace`, so React never imports Tauri directly and the layer flow remains UI -> workspace service -> native port -> infrastructure adapter -> Rust command.
+
+Startup bootstrap is serialized by the workspace service and runs once per
+service instance before recents are inspected:
+
+1. `ensure_user_data_roots` idempotently creates and canonicalizes
+   `%USERPROFILE%\.preshot` and `projects`.
+2. Workspace metadata is loaded and its registered project identities are
+   passed to `bootstrap_user_data`.
+3. Rust returns no project when any registered path still resolves to the
+   recorded identity.
+4. Otherwise Rust adopts the first valid direct child of the default projects
+   root.
+5. If none exists, Rust exclusively creates the exact localized starter
+   directory and atomically writes its schema-14/document-v2 manifest.
+6. The domain service persists the returned project before it becomes the
+   startup project. Only a just-created marker-only starter receives a
+   short-lived rollback token; adopted or existing projects never do.
 
 ### Project manifest
 
@@ -54,6 +95,8 @@ Each project directory contains `.preshotproj`. The manifest has `schemaVersion:
 - an optional `plan` JSON payload.
 
 Legacy `.preshot` manifests are still accepted on read. When one is found, Rust rewrites it as `.preshotproj` and removes the old filename on a best-effort basis.
+
+The first-run starter is a normal user-owned project, not an installed asset. Its manifest contains a schema-14/document-v2 plan with editable Chinese paragraph blocks and no external media references.
 
 ### Plan schema
 
@@ -346,6 +389,7 @@ Use these companion documents:
 - [Documentation index](README.md)
 - [Testing](TESTING.md)
 - [Reliability](RELIABILITY.md)
+- [Windows installer operator guide](WINDOWS_INSTALLER.md)
 - [BlockNote v14 design](design_docs/blocknote_v14_design.md)
 - [UI/UX contract](design_docs/UI_UX_CONTRACT.md)
 - [Feature status tracker](design_docs/featurelist.json)

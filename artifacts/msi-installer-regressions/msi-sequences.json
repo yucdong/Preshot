@@ -1,0 +1,273 @@
+{
+  "InstallExecuteSequence": [
+    null,
+    null,
+    {
+      "action": "AppSearch",
+      "condition": "",
+      "sequence": "50"
+    },
+    {
+      "action": "CostInitialize",
+      "condition": "",
+      "sequence": "800"
+    },
+    {
+      "action": "FileCost",
+      "condition": "",
+      "sequence": "900"
+    },
+    {
+      "action": "CostFinalize",
+      "condition": "",
+      "sequence": "1000"
+    },
+    {
+      "action": "InstallValidate",
+      "condition": "",
+      "sequence": "1400"
+    },
+    {
+      "action": "InstallInitialize",
+      "condition": "",
+      "sequence": "1500"
+    },
+    {
+      "action": "InstallFiles",
+      "condition": "",
+      "sequence": "4000"
+    },
+    {
+      "action": "InstallFinalize",
+      "condition": "",
+      "sequence": "6600"
+    },
+    {
+      "action": "CreateShortcuts",
+      "condition": "",
+      "sequence": "4500"
+    },
+    {
+      "action": "PublishFeatures",
+      "condition": "",
+      "sequence": "6300"
+    },
+    {
+      "action": "PublishProduct",
+      "condition": "",
+      "sequence": "6400"
+    },
+    {
+      "action": "LaunchApplication",
+      "condition": "AUTOLAUNCHAPP AND NOT Installed",
+      "sequence": "6601"
+    },
+    {
+      "action": "SetARPNOMODIFY",
+      "condition": "",
+      "sequence": "1401"
+    },
+    {
+      "action": "DownloadAndInvokeBootstrapper",
+      "condition": "NOT(REMOVE OR INSTALLED_WEBVIEW2_VERSION)",
+      "sequence": "6599"
+    },
+    {
+      "action": "SetARPINSTALLLOCATION",
+      "condition": "",
+      "sequence": "1001"
+    },
+    {
+      "action": "FindRelatedProducts",
+      "condition": "",
+      "sequence": "25"
+    },
+    {
+      "action": "LaunchConditions",
+      "condition": "",
+      "sequence": "100"
+    },
+    {
+      "action": "ValidateProductID",
+      "condition": "",
+      "sequence": "700"
+    },
+    {
+      "action": "MigrateFeatureStates",
+      "condition": "",
+      "sequence": "1200"
+    },
+    {
+      "action": "ProcessComponents",
+      "condition": "",
+      "sequence": "1600"
+    },
+    {
+      "action": "UnpublishFeatures",
+      "condition": "",
+      "sequence": "1800"
+    },
+    {
+      "action": "RemoveRegistryValues",
+      "condition": "",
+      "sequence": "2600"
+    },
+    {
+      "action": "RemoveShortcuts",
+      "condition": "Installed AND NOT UPGRADINGPRODUCTCODE",
+      "sequence": "3200"
+    },
+    {
+      "action": "RemoveFiles",
+      "condition": "",
+      "sequence": "3500"
+    },
+    {
+      "action": "WriteRegistryValues",
+      "condition": "",
+      "sequence": "5000"
+    },
+    {
+      "action": "RegisterUser",
+      "condition": "",
+      "sequence": "6000"
+    },
+    {
+      "action": "RegisterProduct",
+      "condition": "",
+      "sequence": "6100"
+    },
+    {
+      "action": "RemoveExistingProducts",
+      "condition": "",
+      "sequence": "1501"
+    }
+  ],
+  "InstallUISequence": [
+    null,
+    null,
+    {
+      "action": "AppSearch",
+      "condition": "",
+      "sequence": "50"
+    },
+    {
+      "action": "CostInitialize",
+      "condition": "",
+      "sequence": "800"
+    },
+    {
+      "action": "FileCost",
+      "condition": "",
+      "sequence": "900"
+    },
+    {
+      "action": "CostFinalize",
+      "condition": "",
+      "sequence": "1000"
+    },
+    {
+      "action": "FatalError",
+      "condition": "",
+      "sequence": "-3"
+    },
+    {
+      "action": "UserExit",
+      "condition": "",
+      "sequence": "-2"
+    },
+    {
+      "action": "ExitDialog",
+      "condition": "",
+      "sequence": "-1"
+    },
+    {
+      "action": "ExecuteAction",
+      "condition": "",
+      "sequence": "1300"
+    },
+    {
+      "action": "WelcomeDlg",
+      "condition": "NOT Installed OR PATCH",
+      "sequence": "1298"
+    },
+    {
+      "action": "ProgressDlg",
+      "condition": "",
+      "sequence": "1299"
+    },
+    {
+      "action": "PrepareDlg",
+      "condition": "",
+      "sequence": "49"
+    },
+    {
+      "action": "ResumeDlg",
+      "condition": "Installed AND (RESUME OR Preselected)",
+      "sequence": "1297"
+    },
+    {
+      "action": "MaintenanceWelcomeDlg",
+      "condition": "Installed AND NOT RESUME AND NOT Preselected AND NOT PATCH",
+      "sequence": "1296"
+    },
+    {
+      "action": "SetARPINSTALLLOCATION",
+      "condition": "",
+      "sequence": "1001"
+    },
+    {
+      "action": "FindRelatedProducts",
+      "condition": "",
+      "sequence": "25"
+    },
+    {
+      "action": "LaunchConditions",
+      "condition": "",
+      "sequence": "100"
+    },
+    {
+      "action": "ValidateProductID",
+      "condition": "",
+      "sequence": "700"
+    },
+    {
+      "action": "MigrateFeatureStates",
+      "condition": "",
+      "sequence": "1200"
+    }
+  ],
+  "FeatureComponents": [
+    null,
+    null,
+    {
+      "feature": "DesktopShortcutFeature",
+      "component": "ApplicationShortcutDesktop"
+    },
+    {
+      "feature": "ShortcutsFeature",
+      "component": "ApplicationShortcut"
+    },
+    {
+      "feature": "MainProgram",
+      "component": "RegistryEntries"
+    },
+    {
+      "feature": "Environment",
+      "component": "Path"
+    }
+  ],
+  "File": [
+    null,
+    null,
+    {
+      "file": "Path",
+      "component": "Path",
+      "fileName": "preshot.exe",
+      "fileSize": "23836160",
+      "version": "0.0.1.0",
+      "attributes": "1536",
+      "sequence": "1"
+    }
+  ]
+}

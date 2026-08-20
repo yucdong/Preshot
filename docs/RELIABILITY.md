@@ -14,12 +14,103 @@ The main exceptions are intentional and narrow:
 `BlockNoteProjectCanvasProvider` is the active save coordinator for the mounted editor.
 
 - Loading a project reads the manifest plan, then loads referenced `references/` images and `media/` files.
+- During that normal load/hydration path, a pure compatibility pass upgrades
+  only untouched legacy default image frames near 135 logical units high.
+  Square 135-by-135 pre-hydration placeholders and widths matching stored,
+  source, or crop-adjusted aspect ratios qualify; arbitrary custom dimensions
+  do not.
+- Every qualifying frame becomes exactly 240 units high with proportional
+  width. Its identity, file, order, crop/focal metadata, and offsets remain
+  unchanged, and each affected group recomputes wrap-first height from its
+  authoritative width without changing group position or width.
 - Editing marks the plan as unsaved in memory.
 - A 5-second auto-save timer persists only when the serialized JSON changed.
 - Ctrl/Cmd+S triggers an immediate save.
 - No-op saves are skipped by comparing the current serialized plan with the last persisted snapshot.
 
 This means save status stays honest: the UI can show unsaved or saving state without pretending data is already durable.
+
+The compatibility pass is idempotent. A changed loaded plan is compared with
+the persisted snapshot, marked unsaved, shown with a one-time non-blocking
+layout-review notice, and written only through the existing service autosave,
+manual save, or project-retirement flush. No direct user-profile manifest
+access is used. Reloading the saved 240-unit plan performs no migration or
+write, and new 240-unit imports never qualify.
+
+## First-run user-data bootstrap
+
+Production workspace startup idempotently ensures `%USERPROFILE%\.preshot` and `%USERPROFILE%\.preshot\projects` before reading recents. Existing roots, settings, registry records, and projects remain authoritative; startup never deletes or rewrites them merely to seed content.
+
+If no registered project can be inspected with its recorded identity, Rust scans the direct children of the default projects root and returns the first valid project for registration. Only when neither source provides a valid project does it attempt the exact localized starter directory.
+
+The exact directory is acquired with an exclusive native `create_dir`. Concurrent launch losers wait briefly and re-inspect the winning directory instead of choosing a suffixed duplicate. The winner writes one atomic `.preshotproj` containing the schema-14/document-v2 Chinese starter plan. Browser and Midscene adapters model the same decision path without filesystem writes.
+
+Until registry persistence succeeds, only the newly created starter has a short-lived rollback token. Persistence failure may remove that marker-only directory; adopted or pre-existing projects never receive deletion authority. Manifest-write failure removes only the just-created empty attempt, while root creation, permission, path-conflict, registry, and rollback failures retain operation context for actionable recovery.
+
+The TypeScript workspace service serializes startup and all later workspace
+operations through one queue. Concurrent or repeated `loadProjects` calls
+therefore share one completed bootstrap in that service instance. Native
+concurrency remains safe across separate process launches: only one process
+wins exclusive creation of the exact starter directory, while losers retry
+inspection for up to one second and return the same project identity.
+
+Bootstrap atomicity is deliberately narrow. Directory creation is idempotent;
+the starter directory is exclusively acquired; and the manifest is written
+through the existing atomic manifest writer before the project is returned.
+The registry save is a separate boundary. A token authorizes rollback only for
+the just-created, still marker-only starter and expires after 60 seconds. The
+opaque token's Rust-only authorization record binds the canonical project path,
+project ID, and exact original `.preshotproj` bytes. Rollback re-reads and
+compares those bytes both before and after atomic quarantine, so a plan edit,
+title change, timestamp-only save, or any other manifest rewrite refuses
+deletion even when the ID and marker-only shape are unchanged. If new content
+or a concurrent save appears during rollback, restoration wins over deletion.
+Unknown, tampered, expired, and reused tokens remain unauthorized.
+
+## Installer servicing and preservation
+
+The per-user MSI installs only under `%LOCALAPPDATA%\Programs\Preshot`, creates
+installer-owned shortcuts, and writes HKCU application registration.
+`%USERPROFILE%\.preshot` is outside the MSI component graph: no WiX component,
+remove rule, or custom action references it.
+
+Servicing guarantees:
+
+- a higher per-user version uses fixed UpgradeCode
+  `493c5fb5-639d-4fba-94d3-aebe4eb0dce6` for one LocalAppData major-upgrade
+  family;
+- historical machine-wide UpgradeCode
+  `97ee9b44-6313-52eb-a67e-a1334832eb86` is detection-only and blocks with
+  localized uninstall-first guidance rather than elevated automatic removal;
+- downgrades are rejected and same-version packages are not treated as
+  upgrades;
+- failed upgrade rollback restores installer-owned application state without
+  acquiring authority over user data;
+- repair reinstalls application files, registration, and shortcuts only;
+- uninstall removes installer-owned state and preserves settings, workspace
+  metadata, projects, `.preshotproj`, and legacy `.preshot` content.
+
+Unsigned or partially signed local builds are allowed only as non-publishable
+artifacts. Publish mode requires valid Authenticode signatures on both the
+release executable and MSI. The checksum and release manifest are generated
+atomically beside the MSI and are re-derived during `production:verify`;
+manual edits or artifact changes fail verification.
+
+Release metadata records both lineages and publication blockers. Per-user
+`0.0.1` artifacts remain non-publishable; if machine-wide `0.0.1` was public,
+the first published per-user version must be `0.0.2` or newer.
+
+Release version changes update the root Cargo lock entry offline, and the
+two-phase executable/MSI build passes an explicit version-only configuration
+to the bundle phase so cached Tauri configuration cannot reuse the preceding
+MSI version.
+
+Static contracts plus a current-user lifecycle matrix cover install, first
+run, repair, Desktop opt-in, major upgrade, downgrade rejection, uninstall,
+and user-data preservation. Forced execute-sequence rollback, cancellation,
+non-admin policy, and missing-WebView2 behavior remain clean-VM gates. Install, forced-upgrade rollback, repair, and uninstall tests must run on
+a disposable user profile, never a developer workstation. See
+[Windows installer operator guide](WINDOWS_INSTALLER.md).
 
 ## Serialized plan mutations
 

@@ -1,0 +1,246 @@
+{
+  "File": {
+    "Name": "validated-release-Preshot_0.0.1_x64_en-US.msi",
+    "Size": 16580608,
+    "Sha256": "17ee5c138532ce89fe77799796b8348980e64fafc7d7181fd275e5602580ac18"
+  },
+  "Metadata": {
+    "ProductName": "Preshot",
+    "ProductVersion": "0.0.1",
+    "Manufacturer": "yucdong",
+    "ProductCode": "{E92CBB26-89A1-4E80-877D-806FF9E2132D}",
+    "UpgradeCode": "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6",
+    "Architecture": "x64",
+    "Template": "x64;0",
+    "LegacyUpgradeCode": "97EE9B44-6313-52EB-A67E-A1334832EB86",
+    "LegacyVersionMin": "0.0.0",
+    "LegacyVersionMax": "255.255.65535",
+    "LegacyUpgradeAttributes": 770,
+    "LegacyActionProperty": "LEGACY_MACHINE_PRESHOT_FOUND",
+    "LegacyLaunchCondition": "Installed OR NOT LEGACY_MACHINE_PRESHOT_FOUND",
+    "LegacyLaunchConditionMessage": "A machine-wide Preshot installation was detected. Uninstall the old machine-wide Preshot from Windows Installed apps, then run this per-user installer again."
+  },
+  "Summary": {
+    "Template": "x64;0",
+    "PackageCode": "{A56C8BFF-2E19-4D06-961F-49B760139DED}",
+    "WordCount": "10"
+  },
+  "Directories": [
+    null,
+    null,
+    {
+      "directory": "DesktopFolder",
+      "parent": "TARGETDIR",
+      "defaultDir": "Desktop"
+    },
+    {
+      "directory": "PreshotInstallDir",
+      "parent": "PreshotProgramsFolder",
+      "defaultDir": "Preshot"
+    },
+    {
+      "directory": "ApplicationProgramsFolder",
+      "parent": "ProgramMenuFolder",
+      "defaultDir": "Preshot"
+    },
+    {
+      "directory": "TARGETDIR",
+      "parent": "",
+      "defaultDir": "SourceDir"
+    },
+    {
+      "directory": "PreshotProgramsFolder",
+      "parent": "LocalAppDataFolder",
+      "defaultDir": "Programs"
+    },
+    {
+      "directory": "LocalAppDataFolder",
+      "parent": "TARGETDIR",
+      "defaultDir": "."
+    },
+    {
+      "directory": "ProgramMenuFolder",
+      "parent": "TARGETDIR",
+      "defaultDir": "."
+    }
+  ],
+  "Registry": [
+    null,
+    null,
+    {
+      "root": "1",
+      "key": "Software\\yucdong\\Preshot",
+      "name": "Desktop Shortcut",
+      "value": "#1",
+      "component": "ApplicationShortcutDesktop"
+    },
+    {
+      "root": "1",
+      "key": "Software\\yucdong\\Preshot",
+      "name": "InstallDir",
+      "value": "[PreshotInstallDir]",
+      "component": "RegistryEntries"
+    },
+    {
+      "root": "1",
+      "key": "Software\\yucdong\\Preshot",
+      "name": "PATH Environment Variable",
+      "value": "#1",
+      "component": "PathEnvironment"
+    },
+    {
+      "root": "1",
+      "key": "Software\\yucdong\\Preshot",
+      "name": "Start Menu Shortcut",
+      "value": "#1",
+      "component": "ApplicationShortcut"
+    }
+  ],
+  "LaunchConditions": [
+    null,
+    null,
+    {
+      "condition": "NOT ALLUSERS",
+      "description": "Preshot is a per-user package. Remove ALLUSERS and retry."
+    },
+    {
+      "condition": "Installed OR NOT LEGACY_MACHINE_PRESHOT_FOUND",
+      "description": "A machine-wide Preshot installation was detected. Uninstall the old machine-wide Preshot from Windows Installed apps, then run this per-user installer again."
+    },
+    {
+      "condition": "NOT WIX_DOWNGRADE_DETECTED",
+      "description": "A newer version of Preshot is already installed."
+    }
+  ],
+  "Upgrade": [
+    null,
+    null,
+    {
+      "upgradeCode": "{493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6}",
+      "versionMin": "",
+      "versionMax": "0.0.1",
+      "attributes": "1",
+      "actionProperty": "WIX_UPGRADE_DETECTED"
+    },
+    {
+      "upgradeCode": "{493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6}",
+      "versionMin": "0.0.1",
+      "versionMax": "",
+      "attributes": "2",
+      "actionProperty": "WIX_DOWNGRADE_DETECTED"
+    },
+    {
+      "upgradeCode": "{97EE9B44-6313-52EB-A67E-A1334832EB86}",
+      "versionMin": "0.0.0",
+      "versionMax": "255.255.65535",
+      "attributes": "770",
+      "actionProperty": "LEGACY_MACHINE_PRESHOT_FOUND"
+    }
+  ],
+  "RemoveFileRows": null,
+  "RuntimeContract": {
+    "Features": [
+      {
+        "Feature": "Environment",
+        "Parent": "MainProgram",
+        "Attributes": "0"
+      },
+      {
+        "Feature": "DesktopShortcutFeature",
+        "Parent": "ShortcutsFeature",
+        "Attributes": "0"
+      },
+      {
+        "Feature": "ShortcutsFeature",
+        "Parent": "MainProgram",
+        "Attributes": "0"
+      },
+      {
+        "Feature": "MainProgram",
+        "Parent": "",
+        "Attributes": "24"
+      },
+      {
+        "Feature": "External",
+        "Parent": "",
+        "Attributes": "24"
+      }
+    ],
+    "FeatureComponents": [
+      {
+        "Feature": "Environment",
+        "Component": "PathEnvironment"
+      },
+      {
+        "Feature": "DesktopShortcutFeature",
+        "Component": "ApplicationShortcutDesktop"
+      },
+      {
+        "Feature": "ShortcutsFeature",
+        "Component": "ApplicationShortcut"
+      },
+      {
+        "Feature": "MainProgram",
+        "Component": "RegistryEntries"
+      },
+      {
+        "Feature": "MainProgram",
+        "Component": "Path"
+      }
+    ],
+    "Files": [
+      {
+        "File": "Path",
+        "Component": "Path"
+      }
+    ],
+    "CustomActions": [
+      {
+        "Action": "LaunchApplication",
+        "Type": "210",
+        "Source": "Path",
+        "Target": "[LAUNCHAPPARGS]"
+      },
+      {
+        "Action": "WixUIValidatePath",
+        "Type": "65",
+        "Source": "WixUIWixca",
+        "Target": "ValidatePath"
+      },
+      {
+        "Action": "WixUIPrintEula",
+        "Type": "65",
+        "Source": "WixUIWixca",
+        "Target": "PrintEula"
+      },
+      {
+        "Action": "SetARPNOMODIFY",
+        "Type": "51",
+        "Source": "ARPNOMODIFY",
+        "Target": "1"
+      },
+      {
+        "Action": "DownloadAndInvokeBootstrapper",
+        "Type": "1058",
+        "Source": "PreshotInstallDir",
+        "Target": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& { $ErrorActionPreference = 'Stop'; try { [\\[]Net.ServicePointManager[\\]]::SecurityProtocol = [\\[]Net.SecurityProtocolType[\\]]::Tls12 } catch {}; $bootstrapper = Join-Path $env:TEMP 'MicrosoftEdgeWebview2Setup.exe'; Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $bootstrapper; $process = Start-Process -FilePath $bootstrapper -ArgumentList @('/silent', '/install') -PassThru -Wait; if ($process.ExitCode -notin @(0, 1641, 3010)) { exit $process.ExitCode } }\""
+      },
+      {
+        "Action": "SetARPINSTALLLOCATION",
+        "Type": "51",
+        "Source": "ARPINSTALLLOCATION",
+        "Target": "[PreshotInstallDir]"
+      }
+    ],
+    "Shortcuts": [
+      {
+        "Shortcut": "ApplicationStartMenuShortcut",
+        "Target": "[!Path]"
+      },
+      {
+        "Shortcut": "ApplicationDesktopShortcut",
+        "Target": "[!Path]"
+      }
+    ]
+  }
+}

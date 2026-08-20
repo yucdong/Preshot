@@ -39,6 +39,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             platform_info,
+            workspace::ensure_user_data_roots,
+            workspace::bootstrap_user_data,
             workspace::create_project,
             workspace::inspect_project,
             workspace::default_projects_dir,

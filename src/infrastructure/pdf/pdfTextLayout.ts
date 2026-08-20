@@ -3,7 +3,7 @@ import type { ReferenceComponent } from "../../domain/plan/canvas/models";
 import { contentSize, DEFAULT_PAGE_GEOMETRY } from "../../domain/plan/canvas/geometry";
 import {
   DOCUMENT_IMAGE_GROUP_INSET,
-  layoutDocumentImageGroup,
+  layoutDocumentImageGroupForWidth,
 } from "../../domain/plan/canvas/documentImageGroupLayout";
 
 export const PDF_BODY_SIZE = 11;
@@ -303,10 +303,13 @@ export function layoutPdfRichText<Font extends PdfTextMetricFont>(
       const documentWidth = contentSize(DEFAULT_PAGE_GEOMETRY).width;
       const pdfScale = safeWidth / documentWidth;
       const groupWidth = Math.min(documentWidth, Math.max(1, group.width));
-      const groupHeight = Math.max(1, group.height);
       const groupOffsetY = group.frameOffsetY ?? 0;
       const groupX = Math.max(0, Math.min(group.x, documentWidth - groupWidth));
-      const layout = layoutDocumentImageGroup(group.images, groupWidth, groupHeight);
+      const layout = layoutDocumentImageGroupForWidth(
+        group.images,
+        groupWidth,
+      );
+      const groupHeight = Math.max(1, group.height, layout.height);
       const imagesById = new Map(group.images.map((image) => [image.id, image]));
       for (const slot of layout.slots) {
         const source = imagesById.get(slot.id);

@@ -198,6 +198,14 @@ describe("buildPreshotPdfLayoutManifest", () => {
     const context = manifest.groups[0];
 
     expect(context.keepTogether.oversizedPageScale).toBeLessThan(1);
+    expect(context.pdf.exportOnlyGroupPhysicalScale).toBe(
+      context.keepTogether.oversizedPageScale,
+    );
+    expect(context.logical.layoutScale).toBe(1);
+    expect(context.slots[0].logical).toMatchObject({
+      width: 100,
+      height: 2_000,
+    });
     expect(context.pdf.displayedHeight).toBeCloseTo(
       PDF_VISUAL_CONTRACT.page.contentHeight,
       4,
@@ -205,6 +213,59 @@ describe("buildPreshotPdfLayoutManifest", () => {
     expect(context.slots[0].pdf.width / context.slots[0].pdf.height).toBeCloseTo(
       context.slots[0].logical.width / context.slots[0].logical.height,
       5,
+    );
+  });
+
+  it("keeps a narrow-column image authoritative and scales only the whole export group", () => {
+    const source = group("group-1", 1_000, 240);
+    source.images[0].frameWidth = 480;
+    source.images[0].frameHeight = 240;
+    const manifest = buildPreshotPdfLayoutManifest({
+      plan: plan([{
+        id: "columns",
+        type: "columnList",
+        props: {},
+        content: undefined,
+        children: [
+          {
+            id: "narrow",
+            type: "column",
+            props: { width: 1 },
+            content: undefined,
+            children: [{
+              id: "group-block",
+              type: "imageGroup",
+              props: { groupId: "group-1" },
+              content: undefined,
+              children: [],
+            }],
+          },
+          {
+            id: "wide",
+            type: "column",
+            props: { width: 2 },
+            content: undefined,
+            children: [{
+              id: "copy",
+              type: "paragraph",
+              props: {},
+              content: [],
+              children: [],
+            }],
+          },
+        ],
+      }], [source]),
+    });
+    const context = manifest.groupsByBlockId["group-block"];
+
+    expect(context.logical.layoutScale).toBe(1);
+    expect(context.slots[0].logical.width).toBe(480);
+    expect(context.slots[0].logical.height).toBe(240);
+    expect(context.pdf.exportOnlyGroupPhysicalScale).toBeLessThan(1);
+    expect(context.slots[0].pdf.width / context.slots[0].pdf.height)
+      .toBeCloseTo(2, 5);
+    expect(context.pdf.x + context.pdf.width).toBeLessThanOrEqual(
+      context.parent.pdfWidth,
     );
   });
 

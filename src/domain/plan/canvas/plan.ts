@@ -1,5 +1,6 @@
 import {
   DEFAULT_IMAGE_HEIGHT,
+  LEGACY_DEFAULT_IMAGE_HEIGHT,
   type PlanComponent,
   type ProjectPlan,
   type ReferenceComponent,
@@ -51,10 +52,15 @@ export function defaultImageFrame(aspectRatio: number): {
 }
 
 function hasDefaultImageFrame(image: ReferenceImage): boolean {
-  const expected = defaultImageFrame(image.aspectRatio);
-  return (
-    Math.abs(image.frameWidth - expected.frameWidth) < 0.001 &&
-    Math.abs(image.frameHeight - expected.frameHeight) < 0.001
+  const ratio = Number.isFinite(image.aspectRatio) && image.aspectRatio > 0
+    ? image.aspectRatio
+    : 1;
+  return [DEFAULT_IMAGE_HEIGHT, LEGACY_DEFAULT_IMAGE_HEIGHT].some((height) =>
+    Math.abs(image.frameHeight - height) < 0.001 &&
+    (
+      Math.abs(image.frameWidth - height) < 0.001 ||
+      Math.abs(image.frameWidth - height * ratio) < 0.001
+    )
   );
 }
 
@@ -346,6 +352,8 @@ export function setImageAspectRatioForFile(
         image.aspectRatio === params.aspectRatio &&
         image.sourceWidth === measuredSource.sourceWidth &&
         image.sourceHeight === measuredSource.sourceHeight &&
+        image.frameWidth === frame.frameWidth &&
+        image.frameHeight === frame.frameHeight &&
         image.crop !== undefined
       ) {
         return image;

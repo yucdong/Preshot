@@ -28,6 +28,10 @@ async function createDocumentationFixture(root: string) {
     writeFile(path.join(root, "docs", "TESTING.md"), "# Testing\n"),
     writeFile(path.join(root, "docs", "RELIABILITY.md"), "# Reliability\n"),
     writeFile(
+      path.join(root, "docs", "WINDOWS_INSTALLER.md"),
+      "# Windows installer\n",
+    ),
+    writeFile(
       path.join(root, "docs", "design_docs", "blocknote_v14_design.md"),
       "# BlockNote v14\n",
     ),
@@ -132,6 +136,20 @@ describe("documentation checker", () => {
       const errors = await checkDocumentation(root);
 
       expect(errors.some((error) => error.includes("invalid JSON"))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true });
+    }
+  });
+
+  it("reports a missing canonical installer guide", async () => {
+    const root = await createFixtureRoot();
+    try {
+      await createDocumentationFixture(root);
+      await rm(path.join(root, "docs", "WINDOWS_INSTALLER.md"));
+
+      await expect(checkDocumentation(root)).resolves.toContain(
+        "docs/WINDOWS_INSTALLER.md: required documentation file is missing",
+      );
     } finally {
       await rm(root, { recursive: true });
     }

@@ -1,0 +1,13 @@
+{
+  "DowngradeExit": 1603,
+  "Rejected": true,
+  "UninstallExit": 0,
+  "BaseState": -1,
+  "UpgradeState": -1,
+  "InstallExists": false,
+  "ShortcutsExist": false,
+  "SentinelHash": "10173bc0c8cf9bd2d378fb0ab188690ef48e25ab553b0a06083aa11f77c71199",
+  "ManifestHash": "cbc35b80099eda609b0b6b6c056dbb98fd01b705ea4104f68322f4170686e56c",
+  "DowngradeLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\post-four-downgrade.log",
+  "UninstallLog": "C:\\projects\\Preshot\\artifacts\\msi-installer-regressions\\post-four-uninstall.log"
+}

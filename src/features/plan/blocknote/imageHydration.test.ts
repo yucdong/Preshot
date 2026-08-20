@@ -60,8 +60,70 @@ describe("applyMeasuredImages", () => {
       sourceHeight: 500,
       aspectRatio: 1.6,
       frameHeight: 160,
-      frameWidth: 256,
+      frameWidth: 160,
     });
+  });
+
+  it("hydrates a batch at one 240-unit height with aspect-derived widths", async () => {
+    const plan: ProjectPlanV14 = {
+      schemaVersion: 14,
+      title: "Batch",
+      document: {
+        format: "preshot-blocks",
+        version: 2,
+        blocks: [{
+          id: "group-block",
+          type: "imageGroup",
+          props: { groupId: "group" },
+          content: undefined,
+          children: [],
+        }],
+      },
+      imageGroups: [{
+        id: "group",
+        name: "References",
+        type: "reference",
+        x: 0,
+        width: 800,
+        height: 320,
+        description: "",
+        images: [
+          {
+            id: "landscape",
+            file: "references/landscape.png",
+            aspectRatio: 1,
+            frameWidth: 240,
+            frameHeight: 240,
+          },
+          {
+            id: "portrait",
+            file: "references/portrait.png",
+            aspectRatio: 1,
+            frameWidth: 240,
+            frameHeight: 240,
+          },
+        ],
+      }],
+    };
+    const dimensions = new Map([
+      ["landscape", { sourceWidth: 1200, sourceHeight: 800 }],
+      ["portrait", { sourceWidth: 600, sourceHeight: 900 }],
+    ]);
+
+    const result = await applyMeasuredImages(
+      plan,
+      [
+        ["references/landscape.png", "landscape"],
+        ["references/portrait.png", "portrait"],
+      ],
+      async (key) => dimensions.get(key)!,
+    );
+
+    expect(result.imageGroups[0].images).toMatchObject([
+      { frameWidth: 360, frameHeight: 240 },
+      { frameWidth: 160, frameHeight: 240 },
+    ]);
+    expect(result.imageGroups[0].height).toBe(258);
   });
 });
 
