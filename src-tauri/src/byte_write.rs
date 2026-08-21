@@ -147,11 +147,19 @@ pub fn write_base64_atomically(
         )
     })?;
 
+    write_bytes_atomically(path, &bytes, errors)
+}
+
+pub fn write_bytes_atomically(
+    path: &Path,
+    bytes: &[u8],
+    errors: ByteWriteErrors,
+) -> Result<(), CommandError> {
     write_bytes_atomically_with(
         path,
         &errors,
         |file| {
-            file.write_all(&bytes)?;
+            file.write_all(bytes)?;
             file.flush()?;
             file.sync_all()
         },

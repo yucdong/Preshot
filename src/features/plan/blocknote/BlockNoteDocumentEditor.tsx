@@ -31,8 +31,8 @@ import {
 import {
   preshotBlockNoteSchema,
   type PreshotBlockNoteEditor,
-  type PreshotEditorPartialBlock,
 } from "./preshotBlockNoteSchema";
+import { resolveBlockNoteDocumentAssets } from "./blockNoteDocumentAssets";
 import {
   ImageGroupBlockContext,
   type ImageGroupBlockController,
@@ -78,45 +78,6 @@ function invalidNestedImageGroup(
     if (nested) return nested;
   }
   return undefined;
-}
-
-function cloneBlocks(
-  document: PreshotBlockDocument,
-  resolveMediaUrl: (url: string) => string,
-): PreshotEditorPartialBlock[] {
-  const normalize = (block: PreshotBlockDocument["blocks"][number]): unknown => {
-    const content = block.content;
-    const normalizedContent =
-      block.type !== "table" ||
-      content === undefined ||
-      Array.isArray(content) ||
-      content.type !== "tableContent"
-        ? content
-        : {
-            ...content,
-            columnWidths: content.columnWidths.map((width: number | null) =>
-              width === null ? undefined : width),
-          };
-    return {
-      ...block,
-      props:
-        (
-          block.type === "image" ||
-          block.type === "video" ||
-          block.type === "audio" ||
-          block.type === "file"
-        ) && typeof block.props.url === "string"
-          ? {
-              ...block.props,
-              url: resolveMediaUrl(block.props.url),
-            }
-          : block.props,
-      content: normalizedContent,
-      children: block.children.map(normalize),
-    };
-  };
-  const normalized: unknown = structuredClone(document.blocks).map(normalize);
-  return normalized as PreshotEditorPartialBlock[];
 }
 
 function serializeEditorDocument(
@@ -174,7 +135,7 @@ export function BlockNoteDocumentEditor({
   const editor = useCreateBlockNote({
     schema: preshotBlockNoteSchema,
     dictionary: zh,
-    initialContent: cloneBlocks(document, resolveMediaUrl),
+    initialContent: resolveBlockNoteDocumentAssets(document, resolveMediaUrl),
     uploadFile,
   });
 

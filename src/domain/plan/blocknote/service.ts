@@ -42,6 +42,8 @@ export type BlockNotePlanLoadResult =
       requiredSchemaVersion: typeof BLOCKNOTE_PLAN_SCHEMA_VERSION;
     };
 
+export type BlockNotePlanProvider = () => ProjectPlanV14;
+
 export interface BlockNotePlanService {
   loadPlan(projectPath: string, projectName: string): Promise<BlockNotePlanLoadResult>;
   savePlan(projectPath: string, plan: ProjectPlanV14): Promise<void>;
@@ -57,7 +59,7 @@ export interface BlockNotePlanService {
   loadMedia(projectPath: string, file: string): Promise<string>;
   importImages(
     projectPath: string,
-    plan: ProjectPlanV14,
+    getLatestPlan: BlockNotePlanProvider,
     groupId: string,
     sourcePaths: string[],
   ): Promise<{
@@ -66,7 +68,7 @@ export interface BlockNotePlanService {
   }>;
   commitImageCrop(
     projectPath: string,
-    plan: ProjectPlanV14,
+    getLatestPlan: BlockNotePlanProvider,
     groupId: string,
     imageId: string,
     crop: NormalizedImageCrop,
@@ -77,13 +79,13 @@ export interface BlockNotePlanService {
   }>;
   removeImage(
     projectPath: string,
-    plan: ProjectPlanV14,
+    getLatestPlan: BlockNotePlanProvider,
     groupId: string,
     imageId: string,
   ): Promise<ProjectPlanV14>;
   removeGroup(
     projectPath: string,
-    plan: ProjectPlanV14,
+    getLatestPlan: BlockNotePlanProvider,
     groupId: string,
   ): Promise<ProjectPlanV14>;
   purgeDetachedGroups(
@@ -218,6 +220,33 @@ export function createBlockNotePlanService({
     );
   }
 
+  async function rollbackImportedImages(
+    projectPath: string,
+    getLatestPlan: BlockNotePlanProvider,
+    imported: Array<{ image: ReferenceImage; dataUrl: string }>,
+    cause: unknown,
+  ): Promise<never> {
+    const rollbackErrors: string[] = [];
+    for (const file of new Set(imported.map(({ image }) => image.file))) {
+      if (referencesFile(getLatestPlan(), file)) continue;
+      try {
+        await imageStore.removeImage(projectPath, file);
+      } catch (error) {
+        rollbackErrors.push(
+          `${file}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    const message = cause instanceof Error ? cause.message : String(cause);
+    const rollbackContext = rollbackErrors.length > 0
+      ? `; rollback also failed: ${rollbackErrors.join(", ")}`
+      : "";
+    throw new Error(
+      `Unable to import reference images: ${message}${rollbackContext}`,
+      { cause },
+    );
+  }
+
   function replaceGroup(
     plan: ProjectPlanV14,
     groupId: string,
@@ -318,29 +347,43 @@ export function createBlockNotePlanService({
     async loadMedia(projectPath, file) {
       return mediaStore.loadMedia(projectPath, file);
     },
-    importImages(projectPath, plan, groupId, sourcePaths) {
+    importImages(projectPath, getLatestPlan, groupId, sourcePaths) {
       return enqueue(async () => {
         const imported: Array<{ image: ReferenceImage; dataUrl: string }> = [];
-        for (const sourcePath of sourcePaths) {
-          const asset = await imageStore.importImage(projectPath, sourcePath);
-          imported.push({
-            dataUrl: asset.dataUrl,
-            image: {
-              id: createId(),
-              file: asset.file,
-              aspectRatio: 1,
-              frameWidth: DEFAULT_IMAGE_HEIGHT,
-              frameHeight: DEFAULT_IMAGE_HEIGHT,
-            },
-          });
+        let next: ProjectPlanV14;
+        try {
+          for (const sourcePath of sourcePaths) {
+            const asset = await imageStore.importImage(projectPath, sourcePath);
+            imported.push({
+              dataUrl: asset.dataUrl,
+              image: {
+                id: createId(),
+                file: asset.file,
+                aspectRatio: 1,
+                frameWidth: DEFAULT_IMAGE_HEIGHT,
+                frameHeight: DEFAULT_IMAGE_HEIGHT,
+              },
+            });
+          }
+          const plan = getLatestPlan();
+          if (!plan.imageGroups.some((group) => group.id === groupId)) {
+            throw new Error(`image group "${groupId}" was not found`);
+          }
+          next = replaceGroup(plan, groupId, (group) =>
+            fitGroupToRows({
+              ...group,
+              images: [...group.images, ...imported.map((entry) => entry.image)],
+            })
+          );
+          await repository.saveRawPlan(projectPath, next);
+        } catch (error) {
+          return rollbackImportedImages(
+            projectPath,
+            getLatestPlan,
+            imported,
+            error,
+          );
         }
-        const next = replaceGroup(plan, groupId, (group) =>
-          fitGroupToRows({
-            ...group,
-            images: [...group.images, ...imported.map((entry) => entry.image)],
-          })
-        );
-        await repository.saveRawPlan(projectPath, next);
         logger.info("BlockNote image-group images imported", {
           groupId,
           count: imported.length,
@@ -348,12 +391,12 @@ export function createBlockNotePlanService({
         return { plan: next, images: imported };
       });
     },
-    commitImageCrop(projectPath, plan, groupId, imageId, crop) {
+    commitImageCrop(projectPath, getLatestPlan, groupId, imageId, crop) {
       const requestedRevision = revisionOf(projectPath);
       return enqueue(async () => {
         const currentPlan = coalesceCommittedCrops(
           projectPath,
-          plan,
+          getLatestPlan(),
           requestedRevision,
         );
         const target = currentPlan.imageGroups
@@ -394,8 +437,33 @@ export function createBlockNotePlanService({
           }
           throw new Error(`Unable to commit crop for reference image "${target.file}": malformed overwrite result`);
         }
+        const latestPlan = coalesceCommittedCrops(
+          projectPath,
+          getLatestPlan(),
+          requestedRevision,
+        );
+        const latestTarget = latestPlan.imageGroups
+          .find((group) => group.id === groupId)
+          ?.images.find((image) => image.id === imageId);
+        if (!latestTarget || latestTarget.file !== target.file) {
+          try {
+            await transaction.rollback();
+          } catch (rollbackError) {
+            throw new Error(
+              `Unable to commit crop for reference image "${target.file}": image changed before commit; rollback also failed: ${
+                rollbackError instanceof Error
+                  ? rollbackError.message
+                  : String(rollbackError)
+              }`,
+              { cause: rollbackError },
+            );
+          }
+          throw new Error(
+            `Unable to commit crop for reference image "${target.file}": image changed before commit`,
+          );
+        }
         let updatedTarget: ReferenceImage | undefined;
-        const imageGroups = currentPlan.imageGroups.map((group) => {
+        const imageGroups = latestPlan.imageGroups.map((group) => {
           let groupChanged = false;
           const images = group.images.map((image) => {
             if (image.file !== target.file) return image;
@@ -414,7 +482,7 @@ export function createBlockNotePlanService({
             ? fitGroupToRows({ ...group, images })
             : group;
         });
-        const next = { ...currentPlan, imageGroups };
+        const next = { ...latestPlan, imageGroups };
         try {
           await repository.saveRawPlan(projectPath, next);
         } catch (error) {
@@ -458,8 +526,9 @@ export function createBlockNotePlanService({
         };
       });
     },
-    removeImage(projectPath, plan, groupId, imageId) {
+    removeImage(projectPath, getLatestPlan, groupId, imageId) {
       return enqueue(async () => {
+        const plan = getLatestPlan();
         const target = plan.imageGroups
           .find((group) => group.id === groupId)
           ?.images.find((image) => image.id === imageId);
@@ -474,8 +543,9 @@ export function createBlockNotePlanService({
         return next;
       });
     },
-    removeGroup(projectPath, plan, groupId) {
+    removeGroup(projectPath, getLatestPlan, groupId) {
       return enqueue(async () => {
+        const plan = getLatestPlan();
         const target = plan.imageGroups.find((group) => group.id === groupId);
         const next = {
           ...plan,

@@ -1,5 +1,5 @@
 import { createReactBlockSpec } from "@blocknote/react";
-import { ImageGroupBlockView } from "./ImageGroupBlockView";
+import { ImageGroupBlockRenderer } from "./ImageGroupBlockRenderer";
 
 export const imageGroupBlockSpec = createReactBlockSpec(
   {
@@ -11,7 +11,10 @@ export const imageGroupBlockSpec = createReactBlockSpec(
   },
   {
     render: ({ block }) => (
-      <ImageGroupBlockView blockId={block.id} groupId={block.props.groupId} />
+      <ImageGroupBlockRenderer
+        blockId={block.id}
+        groupId={block.props.groupId}
+      />
     ),
     toExternalHTML: ({ block }) => (
       <figure

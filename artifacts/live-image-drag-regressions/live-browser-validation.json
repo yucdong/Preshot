@@ -1,0 +1,127 @@
+{
+  "passed": true,
+  "live": {
+    "sourceOrder": [
+      "source-b"
+    ],
+    "targetOrder": [
+      "target-a",
+      "source-a"
+    ],
+    "sourceHeight": 69.296875,
+    "targetHeight": 69.296875,
+    "overlayVisible": true,
+    "overlayPointerEvents": "none",
+    "sourceGapVisible": true,
+    "targetHighlighted": true,
+    "targetInsertion": true,
+    "saveStatus": "已保存所有更改",
+    "storedUnchanged": true
+  },
+  "geometry": {
+    "sourceHeightBefore": 69.296875,
+    "targetHeightBefore": 69.296875
+  },
+  "afterCommit": {
+    "sourceOrder": [
+      "source-b"
+    ],
+    "targetOrder": [
+      "target-a",
+      "source-a"
+    ],
+    "stored": {
+      "schemaVersion": 14,
+      "title": "Live image drag validation",
+      "document": {
+        "format": "preshot-blocks",
+        "version": 2,
+        "blocks": [
+          {
+            "id": "source-block",
+            "type": "imageGroup",
+            "props": {
+              "groupId": "source-group"
+            },
+            "children": []
+          },
+          {
+            "id": "target-block",
+            "type": "imageGroup",
+            "props": {
+              "groupId": "target-group"
+            },
+            "children": []
+          }
+        ]
+      },
+      "imageGroups": [
+        {
+          "id": "source-group",
+          "name": "Source",
+          "type": "reference",
+          "x": 0,
+          "width": 420,
+          "height": 126,
+          "description": "",
+          "images": [
+            {
+              "id": "source-b",
+              "file": "references/source-b.png",
+              "aspectRatio": 1,
+              "sourceWidth": 1,
+              "sourceHeight": 1,
+              "frameWidth": 135,
+              "frameHeight": 90
+            }
+          ]
+        },
+        {
+          "id": "target-group",
+          "name": "Target",
+          "type": "reference",
+          "x": 0,
+          "width": 420,
+          "height": 126,
+          "description": "",
+          "images": [
+            {
+              "id": "target-a",
+              "file": "references/target-a.png",
+              "aspectRatio": 1,
+              "sourceWidth": 1,
+              "sourceHeight": 1,
+              "frameWidth": 135,
+              "frameHeight": 90
+            },
+            {
+              "id": "source-a",
+              "file": "references/source-a.png",
+              "aspectRatio": 1,
+              "sourceWidth": 1,
+              "sourceHeight": 1,
+              "frameWidth": 135,
+              "frameHeight": 90
+            }
+          ]
+        }
+      ]
+    },
+    "overlayCount": 0,
+    "targetHighlighted": false
+  },
+  "afterReload": {
+    "sourceOrder": [
+      "source-b"
+    ],
+    "targetOrder": [
+      "target-a",
+      "source-a"
+    ]
+  },
+  "runtime": {
+    "consoleErrors": [],
+    "pageErrors": [],
+    "externalRequests": []
+  }
+}

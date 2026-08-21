@@ -53,6 +53,9 @@ describe("Tauri production CSP", () => {
       "'self'",
       "'unsafe-inline'",
     ]);
+    expect(directives.get("worker-src")).toBeUndefined();
+    expect(directives.get("child-src")).toBeUndefined();
+    expect(directives.get("script-src")).toContain("'self'");
   });
 
   it("does not allow hosted proxies or broad network origins", () => {

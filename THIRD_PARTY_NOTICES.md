@@ -70,3 +70,19 @@ application build.
 
 React-PDF is the production renderer used by the BlockNote XL PDF exporter.
 Its MIT license is compatible with Preshot's distribution obligations.
+
+## modern-screenshot
+
+- Package: `modern-screenshot`
+- Version: `4.7.0`
+- Copyright: wxm and modern-screenshot contributors
+- License: MIT
+- Source: <https://github.com/qq15725/modern-screenshot>
+
+Preshot includes this dependency behind a bounded infrastructure adapter for
+the production long-image export workflow. BlockNote does not provide the
+image exporter used by this feature: Preshot renders its shared schema on an
+export-only DOM surface and captures bounded segments with `modern-screenshot`.
+The adapter uses a same-origin worker, bundled fonts and project-local images,
+rejects external capture resources, and explicitly releases its context,
+workers, canvases, and offscreen surface.

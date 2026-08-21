@@ -20,6 +20,11 @@ describe("createPlanDependencies", () => {
     vi.stubEnv("VITE_WORKSPACE_ADAPTER", "memory");
     vi.stubEnv("PROD", false);
     const createPlanDependencies = await getCreatePlanDependencies();
+    const [{ blockNoteLongImageExporter }, { browserLongImageSaveTarget }] =
+      await Promise.all([
+        import("../../infrastructure/longImage/BlockNoteLongImageExporter"),
+        import("../../infrastructure/longImage/browserLongImageSave"),
+      ]);
     const deps = createPlanDependencies();
     expect(deps.service).toBeDefined();
     expect(deps.service.loadPlan).toBeDefined();
@@ -27,8 +32,11 @@ describe("createPlanDependencies", () => {
     expect(deps.screenCapture).toBeDefined();
     expect(deps.exporter.implementation).toBe("react-pdf");
     expect(deps.docxExporter.implementation).toBe("blocknote-docx");
+    expect(deps.longImageExporter).toBe(blockNoteLongImageExporter);
+    expect(deps.longImageSaver).toBe(browserLongImageSaveTarget);
     expect(deps.saver.revealProjectDirectoryAfterSave).toBe(false);
     expect(deps.docxSaver.revealProjectDirectoryAfterSave).toBe(false);
+    expect(deps.longImageSaver.revealProjectDirectoryAfterSave).toBe(false);
   }, DEPENDENCY_TEST_TIMEOUT);
 
   it("uses the React-PDF exporter for the Midscene browser path", async () => {
@@ -41,8 +49,12 @@ describe("createPlanDependencies", () => {
       "react-pdf",
     );
     expect(dependencies.docxExporter.implementation).toBe("blocknote-docx");
+    expect(dependencies.longImageExporter).toBeDefined();
     expect(dependencies.saver.revealProjectDirectoryAfterSave).toBe(false);
     expect(dependencies.docxSaver.revealProjectDirectoryAfterSave).toBe(false);
+    expect(dependencies.longImageSaver.revealProjectDirectoryAfterSave).toBe(
+      false,
+    );
   }, DEPENDENCY_TEST_TIMEOUT);
 
   it("fails closed for the memory adapter in production", async () => {
@@ -55,14 +67,24 @@ describe("createPlanDependencies", () => {
   it("builds production dependencies by default", async () => {
     vi.stubEnv("VITE_WORKSPACE_ADAPTER", "");
     const createPlanDependencies = await getCreatePlanDependencies();
+    const [{ blockNoteLongImageExporter }, { tauriLongImageSaveTarget }] =
+      await Promise.all([
+        import("../../infrastructure/longImage/BlockNoteLongImageExporter"),
+        import("../../infrastructure/longImage/tauriLongImageSave"),
+      ]);
     const dependencies = createPlanDependencies();
     expect(dependencies.service).toBeDefined();
     expect(dependencies.picker).toBeDefined();
     expect(dependencies.screenCapture).toBeDefined();
     expect(dependencies.exporter.implementation).toBe("react-pdf");
     expect(dependencies.docxExporter.implementation).toBe("blocknote-docx");
+    expect(dependencies.longImageExporter).toBe(blockNoteLongImageExporter);
+    expect(dependencies.longImageSaver).toBe(tauriLongImageSaveTarget);
     expect(dependencies.saver.revealProjectDirectoryAfterSave).toBe(true);
     expect(dependencies.docxSaver.revealProjectDirectoryAfterSave).toBe(true);
+    expect(dependencies.longImageSaver.revealProjectDirectoryAfterSave).toBe(
+      true,
+    );
   }, DEPENDENCY_TEST_TIMEOUT);
 
   it.each([

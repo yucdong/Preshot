@@ -21,6 +21,8 @@ export function Workspace({
         docxExporter={dependencies.docxExporter}
         docxSaver={dependencies.docxSaver}
         exporter={dependencies.exporter}
+        longImageExporter={dependencies.longImageExporter}
+        longImageSaver={dependencies.longImageSaver}
         key={projectPath}
         logger={dependencies.logger}
         projectName={projectName}

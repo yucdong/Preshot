@@ -5,6 +5,7 @@ import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../../domain/settings/ports";
 import type { PreshotBlockDocument } from "../../../domain/plan/canvas/blockDocument";
 import { BlockNoteDocumentEditor } from "./BlockNoteDocumentEditor";
+import { ImageDragPreviewProvider } from "./ImageDragPreviewContext";
 import {
   preshotBlockNoteSchema,
   type PreshotBlockNoteEditor,
@@ -50,33 +51,43 @@ describe("BlockNoteDocumentEditor", () => {
       description: "",
       images: [],
     };
+    const imageGroupController = {
+      createGroup: () => "group-new",
+      subscribe: () => () => undefined,
+      cloneGroup,
+      getGroup: (groupId: string) =>
+        groupId === "group-1" ? imageGroup : undefined,
+      getImageSrc: () => undefined,
+      addImages: vi.fn(),
+      captureImage: vi.fn(),
+      removeImage: vi.fn(),
+      openImage: vi.fn(),
+      setImageFrame: vi.fn(),
+      resizeGroup: vi.fn(),
+      moveImage: vi.fn(),
+    };
     render(
       <ThemeProvider repository={settings}>
-        <BlockNoteDocumentEditor
-          ariaLabel="BlockNote 方案正文"
-          document={document}
-          imageGroupController={{
-            createGroup: () => "group-new",
-            subscribe: () => () => undefined,
-            cloneGroup,
-            getGroup: (groupId) => groupId === "group-1" ? imageGroup : undefined,
-            getImageSrc: () => undefined,
-            addImages: vi.fn(),
-            captureImage: vi.fn(),
-            removeImage: vi.fn(),
-            openImage: vi.fn(),
-            setImageFrame: vi.fn(),
-            resizeGroup: vi.fn(),
-            moveImage: vi.fn(),
-          }}
-          onChange={vi.fn()}
-          onEditorReady={(instance) => {
-            editor = instance;
-          }}
-          persistMediaUrl={(url) => url}
-          resolveMediaUrl={(url) => url}
-          uploadFile={vi.fn()}
-        />
+        <ImageDragPreviewProvider
+          imageGroups={[imageGroup]}
+          imageSources={{}}
+          onMoveImage={imageGroupController.moveImage}
+          planRevision={1}
+          projectKey="document-editor-test"
+        >
+          <BlockNoteDocumentEditor
+            ariaLabel="BlockNote 方案正文"
+            document={document}
+            imageGroupController={imageGroupController}
+            onChange={vi.fn()}
+            onEditorReady={(instance) => {
+              editor = instance;
+            }}
+            persistMediaUrl={(url) => url}
+            resolveMediaUrl={(url) => url}
+            uploadFile={vi.fn()}
+          />
+        </ImageDragPreviewProvider>
       </ThemeProvider>,
     );
 

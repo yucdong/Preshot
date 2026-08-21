@@ -1,0 +1,80 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "reason": "Escape",
+      "passed": true,
+      "orders": {
+        "source": [
+          "source-a",
+          "source-b"
+        ],
+        "target": [
+          "target-a"
+        ]
+      },
+      "storedExact": true,
+      "announcement": "已选择第 1 个图片组“Source”中的第 2 张图片。"
+    },
+    {
+      "reason": "pointercancel",
+      "passed": true,
+      "orders": {
+        "source": [
+          "source-a",
+          "source-b"
+        ],
+        "target": [
+          "target-a"
+        ]
+      },
+      "storedExact": true,
+      "announcement": "已取消移动，图片已恢复到原位置。"
+    },
+    {
+      "reason": "blur",
+      "passed": true,
+      "orders": {
+        "source": [
+          "source-a",
+          "source-b"
+        ],
+        "target": [
+          "target-a"
+        ]
+      },
+      "storedExact": true,
+      "announcement": "窗口已失去焦点，本次移动已取消，布局已恢复。"
+    },
+    {
+      "reason": "visibility-hidden",
+      "passed": true,
+      "orders": {
+        "source": [
+          "source-a",
+          "source-b"
+        ],
+        "target": [
+          "target-a"
+        ]
+      },
+      "storedExact": true,
+      "announcement": "窗口已失去焦点，本次移动已取消，布局已恢复。"
+    },
+    {
+      "reason": "outside-pointer-release",
+      "passed": true,
+      "orders": {
+        "source": [
+          "source-a",
+          "source-b"
+        ],
+        "target": [
+          "target-a"
+        ]
+      },
+      "storedExact": true,
+      "announcement": "很抱歉，当前位置不能放置图片，本次移动已取消。"
+    }
+  ]
+}

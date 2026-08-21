@@ -14,6 +14,7 @@ import { BlockNoteCanvasToolbar } from "./BlockNoteCanvasToolbar";
 function createHandlers() {
   return {
     onExportDocx: vi.fn(),
+    onExportLongImage: vi.fn(() => true),
     onExportPdf: vi.fn(),
     onFitWidth: vi.fn(),
     onResetZoom: vi.fn(),
@@ -26,12 +27,14 @@ function renderToolbar(
   handlers = createHandlers(),
   exportingPdf = false,
   exportingDocx = false,
+  exportingLongImage = false,
 ) {
   return {
     handlers,
     ...render(
       <BlockNoteCanvasToolbar
         exportingDocx={exportingDocx}
+        exportingLongImage={exportingLongImage}
         exportingPdf={exportingPdf}
         saveState="saved"
         zoom={0.85}
@@ -54,6 +57,7 @@ function BusyExportHarness({
     <>
       <BlockNoteCanvasToolbar
         exportingDocx={false}
+        exportingLongImage={false}
         exportingPdf={exportingPdf}
         saveState="saved"
         zoom={0.85}
@@ -106,7 +110,7 @@ describe("BlockNoteCanvasToolbar", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(within(menu).getAllByRole("menuitem").map(
       (item) => item.textContent,
-    )).toEqual(["导出 PDF", "导出 DOCX"]);
+    )).toEqual(["导出 PDF", "导出 DOCX", "导出长图"]);
 
     await user.click(trigger);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
@@ -119,11 +123,24 @@ describe("BlockNoteCanvasToolbar", () => {
     await user.click(screen.getByRole("menuitem", { name: "导出 DOCX" }));
     expect(handlers.onExportDocx).toHaveBeenCalledOnce();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    await user.click(screen.getByRole("menuitem", { name: "导出长图" }));
+    expect(screen.getByRole("dialog", { name: "导出长图" })).toBeVisible();
+    expect(handlers.onExportLongImage).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "开始导出" }));
+    expect(handlers.onExportLongImage).toHaveBeenCalledWith({
+      allowSplit: false,
+      preset: "wechat",
+      width: 900,
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 
   it.each([
     ["PDF", "{ArrowDown}{Enter}", "onExportPdf"],
-    ["DOCX", "{ArrowUp} ", "onExportDocx"],
+    ["DOCX", "{ArrowDown}{ArrowDown}{Enter}", "onExportDocx"],
   ] as const)(
     "selects %s once from the keyboard after closing the menu",
     async (_format, keys, handlerName) => {
@@ -164,12 +181,15 @@ describe("BlockNoteCanvasToolbar", () => {
     await user.keyboard("{ArrowDown}");
     const pdfOption = screen.getByRole("menuitem", { name: "导出 PDF" });
     const docxOption = screen.getByRole("menuitem", { name: "导出 DOCX" });
+    const longImageOption = screen.getByRole("menuitem", {
+      name: "导出长图",
+    });
     expect(pdfOption).toHaveFocus();
 
     await user.keyboard("{ArrowDown}");
     expect(docxOption).toHaveFocus();
     await user.keyboard("{ArrowDown}");
-    expect(pdfOption).toHaveFocus();
+    expect(longImageOption).toHaveFocus();
     await user.keyboard("{ArrowUp}");
     expect(docxOption).toHaveFocus();
   });
@@ -197,6 +217,7 @@ describe("BlockNoteCanvasToolbar", () => {
       <>
         <BlockNoteCanvasToolbar
           exportingDocx={false}
+          exportingLongImage={false}
           exportingPdf={false}
           saveState="saved"
           zoom={0.85}
@@ -229,6 +250,7 @@ describe("BlockNoteCanvasToolbar", () => {
       <>
         <BlockNoteCanvasToolbar
           exportingDocx={false}
+          exportingLongImage={false}
           exportingPdf={false}
           saveState="saved"
           zoom={0.85}
@@ -334,14 +356,22 @@ describe("BlockNoteCanvasToolbar", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     expect(handlers.onExportPdf).not.toHaveBeenCalled();
     expect(handlers.onExportDocx).not.toHaveBeenCalled();
+    expect(handlers.onExportLongImage).not.toHaveBeenCalled();
   });
 
   it.each([
-    ["PDF", true, false, "正在导出 PDF…"],
-    ["DOCX", false, true, "正在导出 DOCX…"],
+    ["PDF", true, false, false, "正在导出 PDF…"],
+    ["DOCX", false, true, false, "正在导出 DOCX…"],
+    ["长图", false, false, true, "正在导出长图…"],
   ])(
     "closes the menu and presents format-specific %s progress",
-    async (_format, exportingPdf, exportingDocx, progressLabel) => {
+    async (
+      _format,
+      exportingPdf,
+      exportingDocx,
+      exportingLongImage,
+      progressLabel,
+    ) => {
       const user = userEvent.setup();
       const handlers = createHandlers();
       const view = renderToolbar(handlers);
@@ -351,6 +381,7 @@ describe("BlockNoteCanvasToolbar", () => {
       view.rerender(
         <BlockNoteCanvasToolbar
           exportingDocx={exportingDocx}
+          exportingLongImage={exportingLongImage}
           exportingPdf={exportingPdf}
           saveState="saving"
           zoom={1}

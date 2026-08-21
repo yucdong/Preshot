@@ -1,0 +1,99 @@
+{
+  "validatedAt": "2026-08-21T01:36:00+08:00",
+  "overall": "final-acceptance-passed",
+  "todoFinalized": true,
+  "reviewerStatus": "review-fixes-complete",
+  "finalFixes": {
+    "recursiveColumnKeyboardOrder": "passed",
+    "fastReleaseBeforeRaf": "passed",
+    "pointerAutoScroll": "passed",
+    "asyncImageMutationRaces": "passed",
+    "cancellableLongImageReadiness": "passed"
+  },
+  "focusedKeyboardAndRaf": {
+    "filesPassed": 2,
+    "testsPassed": 60,
+    "testsFailed": 0,
+    "unflushedRafPointerUp": {
+      "sameGroupCommit": "passed",
+      "crossGroupCommit": "passed",
+      "outsideCancellation": "passed",
+      "oneSampleHysteresisStableRelease": "passed",
+      "twoSampleHysteresisPromotion": "passed"
+    }
+  },
+  "finalMatrix": {
+    "unit": {
+      "filesPassed": 136,
+      "testsPassed": 949,
+      "testsFailed": 0
+    },
+    "recursiveKeyboardStress": {
+      "testsPassed": 5,
+      "testsFailed": 0,
+      "workers": 1,
+      "note": "A prior attempt completed four product runs before the Playwright web server exited; the clean five-run rerun is authoritative."
+    },
+    "blockNoteE2E": {
+      "testsPassed": 14,
+      "testsFailed": 0
+    },
+    "mainE2E": {
+      "testsPassed": 24,
+      "testsFailed": 0
+    },
+    "exports": {
+      "reactPdfBrowserRegression": "passed",
+      "docxBrowserRegression": "passed",
+      "longImageBrowserRegressions": "passed",
+      "offlineNetworkContract": "passed",
+      "unitExportRegressions": "passed"
+    },
+    "persistence": {
+      "previewDoesNotPersist": "passed",
+      "committedOrder": [
+        [
+          "source-group",
+          [
+            "source-b"
+          ]
+        ],
+        [
+          "target-group",
+          [
+            "target-a",
+            "source-a"
+          ]
+        ]
+      ],
+      "reloadOrder": "passed",
+      "rollbackMatrix": "passed"
+    },
+    "docsCheck": "passed",
+    "lint": "passed",
+    "typecheck": "passed",
+    "webBuild": "passed",
+    "initializerTestsPassed": 4,
+    "productionScriptHarness": "passed",
+    "rustTestsPassed": 96,
+    "tauriBuild": "passed",
+    "tauriMsi": "src-tauri/target/release/bundle/msi/Preshot_0.0.1_x64_en-US.msi"
+  },
+  "runtimeEvidence": {
+    "consoleErrors": 0,
+    "pageErrors": 0,
+    "externalRequests": 0
+  },
+  "finalCurrentWorktreeArtifacts": [
+    "final-complete-main/live-preview.png",
+    "final-complete-main/committed-layout.png",
+    "final-complete-main/browser-summary.json",
+    "final-complete-blocknote/live-preview.png",
+    "final-complete-blocknote/committed-layout.png",
+    "final-complete-blocknote/browser-summary.json",
+    "current-browser-validation.json",
+    "current-live-preview.png",
+    "current-committed-layout.png",
+    "live-image-drag.webm"
+  ]
+}

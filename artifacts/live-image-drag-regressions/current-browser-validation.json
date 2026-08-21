@@ -1,0 +1,45 @@
+{
+  "passed": true,
+  "live": {
+    "sourceOrder": [
+      "source-b"
+    ],
+    "targetOrder": [
+      "target-a",
+      "source-a"
+    ],
+    "overlay": true,
+    "sourceGap": true,
+    "targetHighlight": true,
+    "storedUnchanged": true
+  },
+  "persistedOrder": [
+    [
+      "source-group",
+      [
+        "source-b"
+      ]
+    ],
+    [
+      "target-group",
+      [
+        "target-a",
+        "source-a"
+      ]
+    ]
+  ],
+  "reload": {
+    "sourceOrder": [
+      "source-b"
+    ],
+    "targetOrder": [
+      "target-a",
+      "source-a"
+    ]
+  },
+  "runtime": {
+    "consoleErrors": [],
+    "pageErrors": [],
+    "externalRequests": []
+  }
+}

@@ -2,7 +2,7 @@
 
 ## Scope
 
-Preshot is a Windows-first desktop application for local photography planning. The shipping desktop path already covers project creation/opening, a BlockNote-based plan editor, project-local media management, persisted settings, and PDF export.
+Preshot is a Windows-first desktop application for local photography planning. The shipping desktop path already covers project creation/opening, a BlockNote-based plan editor, project-local media management, persisted settings, and PDF, DOCX, and long-image export.
 
 ```text
 Workspace launcher / app shell
@@ -20,8 +20,8 @@ The mounted editor path in the app is `BlockNoteProjectCanvasProvider`; legacy c
 - `src/app`: dependency composition, theme provider, workspace provider, and shell layout
 - `src/features`: workspace launcher, settings UI, assistant preview UI, BlockNote editor, image-group UI, and save status
 - `src/domain`: pure workspace/settings/plan models, services, ports, validation, migration, crop, and layout helpers
-- `src/infrastructure`: Tauri/browser adapters, file dialogs, PDF exporter, and persistence wiring
-- `src-tauri`: serializable native commands for project management, plan persistence, media import/load/remove, PDF save, reveal, settings, and screen capture
+- `src/infrastructure`: Tauri/browser adapters, file dialogs, PDF/DOCX/long-image exporters, DOM capture, and persistence wiring
+- `src-tauri`: serializable native commands for project management, plan persistence, media import/load/remove, PDF/DOCX/long-image save, reveal, settings, and screen capture
 
 ## Application flow
 
@@ -37,6 +37,10 @@ The mounted editor path in the app is `BlockNoteProjectCanvasProvider`; legacy c
    `@blocknote/xl-pdf-exporter@0.53.0` with
    `@react-pdf/renderer@4.3.0`; the PDF save target then opens a native save
    dialog and calls the Rust `save_pdf` command.
+9. DOCX export maps the same schema through
+   `@blocknote/xl-docx-exporter@0.53.0`; long-image export instead mounts a
+   separate read-only DOM surface and captures it through
+   `modern-screenshot@4.7.0`, because BlockNote provides no image exporter.
 
 Browser-only adapters exist for tests and Midscene-driven workflows, but production wiring uses the Tauri adapters.
 
@@ -183,6 +187,54 @@ derived content height. During an image resize, the same layout is used for the
 live preview and pointer-up commit so wrapped positions and group height remain
 coherent.
 
+### Transactional live image drag
+
+`ImageDragPreviewProvider` composes one dnd-kit `DndContext` around the active
+BlockNote editor. It registers a pointer sensor (6px mouse activation or
+180ms/6px touch and pen activation), a keyboard sensor, always-measured group
+and tile droppables, a body-level `DragOverlay`, and the central-scroller
+auto-scroll monitor. The export-only BlockNote surface does not mount this
+interactive context: `ImageGroupBlockRenderer` selects
+`ExportImageGroupBlockView` when `ImageGroupExportContext` is present and the
+interactive `ImageGroupBlockView` otherwise.
+
+The domain `imageDragProjection` module is React- and browser-free. It takes a
+deeply frozen group/image snapshot plus plan revision, normalizes row-major
+same-group boundaries after source removal, projects cross-group and empty
+targets, derives wrapped preview groups from authoritative frame dimensions,
+and finalizes to either the exact snapshot identity or one move command. The
+projection never mutates the source arrays and never shrinks frames to fit a
+row. Pointer collision selects the containing group first, then the nearest
+wrapped row and image midpoint; an 8-CSS-pixel/two-sample hysteresis suppresses
+boundary chatter. Pointer release synchronously samples the latest collision
+and cancels any queued projection frame, so a same-frame valid target commits
+once while a same-frame outside release cannot reuse a stale valid preview.
+
+During preview, `ImageGroupBlockView` renders the committed source slot as a
+dashed placeholder, removes the active tile from projected flow, inserts a
+same-sized target placeholder, and animates other tiles with transform/opacity
+only. The crop-aware overlay is portaled outside the CSS-zoomed document.
+Reduced-motion preference disables reflow/drop transitions. The custom
+auto-scroller listens to the latest physical pointer in a fixed 48px viewport
+edge band, stops when that pointer returns to the center, never starts for a
+keyboard drag, and asks dnd-kit to remeasure enabled droppables after scroll.
+
+Keyboard group traversal uses the recursively collected visible BlockNote
+document order rather than `plan.imageGroups` storage order. When projection
+replaces the focused tile with a placeholder, a hidden focus anchor retains
+the dnd-kit keyboard sensor and receives continued arrow/drop/cancel input;
+focus returns to the real image after cancellation or landing.
+
+No preview calls `applyPlan`, dirties the save coordinator, reaches autosave,
+or becomes exporter input. Invalid/outside drops and cancellation caused by
+Escape, pointer cancellation, blur/visibility, project/revision change,
+deleted data, decoded-source replacement, or unmount discard the transaction.
+A valid drop invokes `moveImage` exactly once, creates one provider-level undo
+boundary, and then participates in normal manual save, autosave, retirement
+flush, PDF, DOCX, and long-image snapshots. Older asynchronous image
+import/crop/removal/capture completions rebase onto the latest committed order
+instead of overwriting it, and project retirement waits for both queues.
+
 Crop confirmation converts normalized viewer geometry into strict source-pixel
 bounds. `BlockNotePlanService` serializes the native overwrite with plan saves,
 imports, removals, and retirement cleanup. Every metadata alias of the same
@@ -214,6 +266,11 @@ Implemented editor behaviors include:
 - slash-menu insertion for image groups and columns,
 - side-menu block duplication/move/delete helpers, and
 - single-click image selection/dragging and double-click full viewing,
+- pointer and keyboard image reordering through one immutable preview
+  transaction, with decoded-asset gating, stale-snapshot cancellation,
+  same-/cross-/empty-group reflow, source/target placeholders, polite
+  Simplified-Chinese live-region feedback, reduced-motion handling, and one
+  zoom-independent 48px edge auto-scroller,
 - side-only ratio-locked image resize with live wrapping and dynamic height,
 - edge/equal-size Smart Guide feedback, and
 - crop presets, pan, zoom, reset/cancel/confirm, and project-local overwrite.
@@ -354,6 +411,69 @@ revealer opens Explorer; cancellation and write failure never reveal, while a
 reveal failure is a separate non-fatal notice. Browser, memory, and Midscene
 composition downloads `output.docx` and skips reveal.
 
+## Production long-image export
+
+Long-image export is independent of both page-oriented export pipelines. It
+does not call the BlockNote XL PDF or DOCX exporters, and adding it does not
+change their mappings, pagination, save commands, or output bytes.
+
+`src/domain/plan/blocknote/longImageExportContract.ts` owns the pure contract:
+900px default and 890px compatibility geometry, preset limits, decoded-memory
+estimates, block/row boundary planning, adaptive JPEG decisions, PNG
+re-splitting, safe filenames, manifests, warnings, and typed failures. The
+default WeChat/JPEG values (6000px, 1 MiB, quality 0.84 down to 0.68) are
+conservative empirical compatibility targets rather than official WeChat
+limits. High-quality JPEG targets 8000px / 3 MiB; lossless PNG targets
+4000px / 8 MiB. All presets stop at 32 parts. Their cumulative encoded-byte
+budgets are 24 MiB for WeChat JPEG, 48 MiB for high-quality JPEG, and 64 MiB
+for lossless PNG.
+
+`LongImageExportSurface` mounts the exact shared `preshotBlockNoteSchema` as a
+read-only, control-free BlockNote view. The 1080px logical document, including
+36px side padding and 1008px content, is uniformly scaled to the requested
+890px or 900px outer width. It resolves only already supplied local URLs,
+waits for local fonts/images and stable layout, and annotates top-level blocks,
+atomic blocks, column rows, and wrapped image-group rows for measurement.
+
+`BlockNoteLongImageExporter` snapshots schema-14 plan/assets, creates one
+reusable `modern-screenshot` context, and captures sequential integer-pixel
+viewports. Segmentation prefers the last complete block within the target;
+oversized image groups may split only between complete rows; an indivisible
+block is tiled only at the absolute 8000px safety cap. JPEG encoding searches
+the highest quality under the byte target, then re-splits at an earlier
+semantic boundary when minimum quality is still too large. PNG never exposes
+quality and re-splits by the same byte-aware path. Canvases are zeroed and
+removed after each attempt; workers, capture context, and offscreen React root
+are destroyed after success, failure, or cancellation.
+
+The capture adapter imports a bundled `modern-screenshot` worker as a
+same-origin Vite asset. Its fetch hook rejects external HTTP(S) origins, and
+the Tauri CSP keeps `default-src`/`script-src` at `'self'` without a hosted
+capture proxy or broad worker/network source.
+
+The provider adds long image after PDF and DOCX in the existing export menu.
+Its modal settings select preset, JPEG/PNG, 900/890px width, and automatic
+splitting. Automatic splitting starts unchecked on each dialog open and is not
+enabled by preset, format, or width changes. The exporter also defaults an
+omitted `allowSplit` option to `false`, so non-UI callers retain one-image
+behavior and receive an actionable safety-limit error rather than silent
+multipart output. Generation reports phase and part progress and supports
+AbortController cancellation before save. Desktop persistence opens one save
+dialog, derives deterministic sibling paths, and invokes the narrow
+`save_long_images` command. Rust preflights and serializes the whole batch,
+atomically commits each part, restores replaced bytes and removes only
+attempt-owned new files on failure, then returns exact paths. Successful
+desktop saves request the existing project-directory reveal; cancellation,
+generation/save failure, browser, and Midscene output do not. Browser output
+downloads one part directly; multipart is deliberately represented by a typed
+no-op test adapter rather than a fake ZIP or extra archive dependency.
+
+The desktop adapter preflights part count and cumulative raw bytes before
+opening the dialog or creating base64 strings. Its single JSON IPC request is
+hard-capped at 64 MiB of raw encoded image data. This keeps the existing native
+all-or-rollback batch semantics without introducing a stateful multi-command
+transaction; Rust repeats the 32-part and 64 MiB checks before decoding.
+
 ## Native boundary
 
 Direct `@tauri-apps/api` imports are confined to `src/infrastructure`. Native responsibilities are intentionally narrow:
@@ -364,7 +484,7 @@ Direct `@tauri-apps/api` imports are confined to `src/infrastructure`. Native re
 - validate, encode, atomically replace, commit, or roll back a cropped project
   reference image,
 - import, load, and remove native media,
-- save PDF or DOCX bytes through distinct commands,
+- save PDF, DOCX, or rollback-safe long-image batches through distinct commands,
 - reveal project/output paths,
 - start/poll/cancel Windows screen capture, and
 - read/write app settings.

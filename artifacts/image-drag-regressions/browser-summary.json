@@ -1,0 +1,24 @@
+{
+  "cssZooms": [
+    0.55,
+    0.85,
+    1,
+    1.8
+  ],
+  "previewPersisted": false,
+  "committedOrder": [
+    [
+      "source-group",
+      [
+        "source-b"
+      ]
+    ],
+    [
+      "target-group",
+      [
+        "target-a",
+        "source-a"
+      ]
+    ]
+  ]
+}

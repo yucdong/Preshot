@@ -8,15 +8,21 @@ import {
   type KeyboardEvent,
 } from "react";
 import { flushSync } from "react-dom";
-import { ChevronDown, FileText, Minus, Plus } from "lucide-react";
+import { ChevronDown, FileImage, FileText, Minus, Plus } from "lucide-react";
 import { SaveStatus, type SaveState } from "../SaveStatus";
+import {
+  LongImageExportDialog,
+  type LongImageExportSettings,
+} from "./LongImageExportDialog";
 
 interface BlockNoteCanvasToolbarProps {
   exportingDocx: boolean;
+  exportingLongImage: boolean;
   exportingPdf: boolean;
   saveState: SaveState;
   zoom: number;
   onExportDocx(): void;
+  onExportLongImage(settings: LongImageExportSettings): boolean;
   onExportPdf(): void;
   onFitWidth(): void;
   onResetZoom(): void;
@@ -26,23 +32,28 @@ interface BlockNoteCanvasToolbarProps {
 
 export function BlockNoteCanvasToolbar({
   exportingDocx,
+  exportingLongImage,
   exportingPdf,
   saveState,
   zoom,
   onExportDocx,
+  onExportLongImage,
   onExportPdf,
   onFitWidth,
   onResetZoom,
   onZoomIn,
   onZoomOut,
 }: BlockNoteCanvasToolbarProps) {
-  const exportBusy = exportingPdf || exportingDocx;
+  const exportBusy = exportingPdf || exportingDocx || exportingLongImage;
   const exportLabel = exportingPdf
     ? "正在导出 PDF…"
     : exportingDocx
       ? "正在导出 DOCX…"
+      : exportingLongImage
+        ? "正在导出长图…"
       : "导出";
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [longImageDialogOpen, setLongImageDialogOpen] = useState(false);
   const exportMenuVisible = exportMenuOpen && !exportBusy;
   const exportControlRef = useRef<HTMLDivElement>(null);
   const exportTriggerRef = useRef<HTMLButtonElement>(null);
@@ -54,6 +65,9 @@ export function BlockNoteCanvasToolbar({
     focusOnOpenRef.current = null;
     setExportMenuOpen(false);
     if (restoreTriggerFocus) exportTriggerRef.current?.focus();
+  }, []);
+  const closeLongImageDialog = useCallback(() => {
+    setLongImageDialogOpen(false);
   }, []);
 
   const openExportMenuAndFocus = (itemIndex: number) => {
@@ -114,7 +128,7 @@ export function BlockNoteCanvasToolbar({
     }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      openExportMenuAndFocus(event.key === "ArrowDown" ? 0 : 1);
+      openExportMenuAndFocus(event.key === "ArrowDown" ? 0 : 2);
     } else if (event.key === "Escape" && exportMenuVisible) {
       event.preventDefault();
       closeExportMenu(true);
@@ -133,16 +147,21 @@ export function BlockNoteCanvasToolbar({
       (item) => item === document.activeElement,
     );
     const direction = event.key === "ArrowDown" ? 1 : -1;
-    const nextIndex = (currentIndex + direction + 2) % 2;
+    const nextIndex = (currentIndex + direction + 3) % 3;
     exportItemRefs.current[nextIndex]?.focus();
   };
 
-  const selectExport = (format: "PDF" | "DOCX") => {
+  const selectExport = (format: "PDF" | "DOCX" | "LONG_IMAGE") => {
     if (exportBusy) return;
     flushSync(() => closeExportMenu());
     exportTriggerRef.current?.focus();
-    if (format === "PDF") onExportPdf();
-    else onExportDocx();
+    if (format === "PDF") {
+      onExportPdf();
+    } else if (format === "DOCX") {
+      onExportDocx();
+    } else {
+      setLongImageDialogOpen(true);
+    }
   };
 
   const toggleExportMenu = () => {
@@ -228,11 +247,15 @@ export function BlockNoteCanvasToolbar({
               onKeyDown={handleExportMenuKeyDown}
               role="menu"
             >
-              {(["PDF", "DOCX"] as const).map((format, index) => (
+              {([
+                { id: "PDF", label: "导出 PDF", icon: FileText },
+                { id: "DOCX", label: "导出 DOCX", icon: FileText },
+                { id: "LONG_IMAGE", label: "导出长图", icon: FileImage },
+              ] as const).map(({ id, label, icon: Icon }, index) => (
                 <button
                   className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-xs font-semibold text-white/90 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-app-functional"
-                  key={format}
-                  onClick={() => selectExport(format)}
+                  key={id}
+                  onClick={() => selectExport(id)}
                   ref={(item) => {
                     exportItemRefs.current[index] = item;
                   }}
@@ -240,14 +263,24 @@ export function BlockNoteCanvasToolbar({
                   tabIndex={-1}
                   type="button"
                 >
-                  <FileText aria-hidden className="h-3.5 w-3.5 text-white/65" />
-                  导出 {format}
+                  <Icon aria-hidden className="h-3.5 w-3.5 text-white/65" />
+                  {label}
                 </button>
               ))}
             </div>
           ) : null}
         </div>
       </div>
+      {longImageDialogOpen ? (
+        <LongImageExportDialog
+          onCancel={closeLongImageDialog}
+          onStart={(settings) => {
+            const started = onExportLongImage(settings);
+            if (started) setLongImageDialogOpen(false);
+            return started;
+          }}
+        />
+      ) : null}
     </div>
   );
 }

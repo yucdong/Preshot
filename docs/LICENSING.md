@@ -33,3 +33,13 @@ composition, packing, toolbar, and native/browser save flows.
 
 The `docx` browser build includes the shims used by `Packer`. Preshot does not
 add app-wide Buffer, process, or global polyfills.
+
+## DOM capture dependency
+
+`modern-screenshot@4.7.0` is pinned as an MIT-licensed browser dependency. Its
+bounded infrastructure adapter powers the production offline long-image
+pipeline through a same-origin worker. BlockNote supplies the shared document
+schema and read-only render surface but no image exporter; no additional
+BlockNote XL package or GPL option is introduced by long-image export.
+Attribution is maintained in
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).

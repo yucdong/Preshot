@@ -11,6 +11,11 @@ const blockNotePackages = [
   "@blocknote/xl-multi-column",
   "@blocknote/xl-pdf-exporter",
 ] as const;
+const imageDragPackages = {
+  "@dnd-kit/core": "^6.3.1",
+  "@dnd-kit/sortable": "^10.0.0",
+  "@dnd-kit/utilities": "^3.2.2",
+} as const;
 
 function read(path: string): string {
   return readFileSync(resolve(root, path), "utf8");
@@ -18,11 +23,13 @@ function read(path: string): string {
 
 function readPackage(path: string): {
   version?: string;
+  license?: string;
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
 } {
   return JSON.parse(read(path)) as {
     version?: string;
+    license?: string;
     dependencies?: Record<string, string>;
     peerDependencies?: Record<string, string>;
   };
@@ -79,6 +86,23 @@ describe("export dependency versions", () => {
     }
   });
 
+  it("keeps the production image-drag packages declared and singly resolved", () => {
+    const packageJson = readPackage("package.json");
+    const lockfile = read("pnpm-lock.yaml");
+
+    expect(
+      Object.fromEntries(
+        Object.keys(imageDragPackages).map((name) => [
+          name,
+          packageJson.dependencies?.[name],
+        ]),
+      ),
+    ).toEqual(imageDragPackages);
+    for (const packageName of Object.keys(imageDragPackages)) {
+      expect(new Set(lockVersions(lockfile, packageName)).size).toBe(1);
+    }
+  });
+
   it("supports the repository React 19 line", () => {
     const exporter = readPackage(
       "node_modules/@blocknote/xl-pdf-exporter/package.json",
@@ -117,5 +141,28 @@ describe("export dependency versions", () => {
     expect(docxBundle).toContain("function requireBuffer()");
     expect(packageJson.dependencies?.buffer).toBeUndefined();
     expect(read("vite.config.ts")).not.toContain("globalThis.Buffer");
+  });
+
+  it("pins the production DOM capture renderer without a BlockNote image exporter or Node globals", () => {
+    const packageJson = readPackage("package.json");
+    const dependency = readPackage("node_modules/modern-screenshot/package.json");
+    const bundle = read("node_modules/modern-screenshot/dist/index.mjs");
+    const worker = read("node_modules/modern-screenshot/dist/worker.js");
+
+    expect(
+      Object.keys(packageJson.dependencies ?? {})
+        .filter((name) => name.startsWith("@blocknote/"))
+        .sort(),
+    ).toEqual([...blockNotePackages].sort());
+    expect(packageJson.dependencies?.["@blocknote/xl-image-exporter"])
+      .toBeUndefined();
+    expect(packageJson.dependencies?.["modern-screenshot"]).toBe("4.7.0");
+    expect(dependency.version).toBe("4.7.0");
+    expect(dependency.license).toBe("MIT");
+    expect(new Set(lockVersions(read("pnpm-lock.yaml"), "modern-screenshot")))
+      .toEqual(new Set(["4.7.0"]));
+    expect(`${bundle}\n${worker}`).not.toMatch(
+      /(?:from\s+["']node:|require\(|\bprocess\.|\bBuffer\b|\bglobal\.)/,
+    );
   });
 });

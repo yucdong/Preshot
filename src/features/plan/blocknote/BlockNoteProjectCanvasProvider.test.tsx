@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import { createEmptyProjectPlanV14 } from "../../../domain/plan/canvas/blockDocument";
@@ -12,6 +18,17 @@ import type {
 } from "../../../domain/workspace/ports";
 import type { BlockNotePdfExporter } from "../../../infrastructure/pdf/blockNotePdfExporter";
 import type { BlockNoteDocxExporter } from "../../../infrastructure/docx/blockNoteDocxExporter";
+import type { LongImageSaveTarget } from "../../../domain/plan/longImageSave";
+import type { LongImageExporter } from "./dependencies";
+import {
+  LONG_IMAGE_PRESETS,
+  LongImageContractError,
+  createLongImageGeometry,
+  type LongImageExportResult,
+} from "../../../domain/plan/blocknote/longImageExportContract";
+import type {
+  BlockNoteLongImageExportRequest,
+} from "../../../infrastructure/longImage/BlockNoteLongImageExporter";
 import { BlockNoteProjectCanvasProvider } from "./BlockNoteProjectCanvasProvider";
 
 const settings: SettingsRepository = {
@@ -30,6 +47,8 @@ function renderProvider(
     docxSaver?: PdfSaveTarget;
     exporter?: BlockNotePdfExporter;
     logger?: WorkspaceLogger;
+    longImageExporter?: LongImageExporter;
+    longImageSaver?: LongImageSaveTarget;
     projectDirectoryRevealer?: ProjectDirectoryRevealer;
     saver?: PdfSaveTarget;
   } = {},
@@ -58,6 +77,10 @@ function renderProvider(
           warn: vi.fn(),
           error: vi.fn(),
         }}
+        longImageExporter={dependencies.longImageExporter ?? {
+          export: vi.fn(),
+        }}
+        longImageSaver={dependencies.longImageSaver ?? { save: vi.fn() }}
         projectDirectoryRevealer={dependencies.projectDirectoryRevealer ?? {
           revealProjectDirectory: vi.fn().mockResolvedValue(undefined),
         }}
@@ -92,6 +115,64 @@ function selectExport(format: "PDF" | "DOCX") {
   fireEvent.click(screen.getByRole("menuitem", {
     name: `导出 ${format}`,
   }));
+}
+
+function openLongImageDialog() {
+  fireEvent.click(screen.getByRole("button", { name: "导出" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "导出长图" }));
+}
+
+function longImageResult(partCount = 1): LongImageExportResult {
+  const baseName = "Editorial";
+  const parts = Array.from({ length: partCount }, (_, index) => ({
+    index,
+    top: index * 100,
+    bottom: (index + 1) * 100,
+    height: 100,
+    endKind: index === partCount - 1
+      ? "document-end" as const
+      : "block" as const,
+    ...(index === partCount - 1 ? {} : { endBlockId: `block-${index}` }),
+  }));
+  const fileNames = parts.map((_, index) =>
+    partCount === 1
+      ? `${baseName}.jpg`
+      : `${baseName}-${String(index + 1).padStart(2, "0")}.jpg`
+  );
+  const encodedParts = parts.map((part, index) => ({
+    part,
+    fileName: fileNames[index]!,
+    mime: "image/jpeg" as const,
+    width: 900 as const,
+    height: part.height,
+    encodedBytes: 4,
+    bytes: Uint8Array.from([0xff, 0xd8, index, 0xd9]),
+    quality: 0.84,
+  }));
+  return {
+    manifest: {
+      version: 1,
+      projectTitle: "Editorial",
+      baseName,
+      preset: "wechat",
+      format: "jpeg",
+      geometry: createLongImageGeometry(900),
+      limits: LONG_IMAGE_PRESETS.wechat.limits,
+      cumulativeBudget: LONG_IMAGE_PRESETS.wechat.cumulativeBudget,
+      documentHeight: partCount * 100,
+      allowSplit: true,
+      blocks: [],
+      parts,
+      fileNames,
+      warnings: [],
+    },
+    parts: encodedParts,
+    totalBytes: encodedParts.reduce(
+      (total, part) => total + part.encodedBytes,
+      0,
+    ),
+    warnings: [],
+  };
 }
 
 describe("BlockNoteProjectCanvasProvider", () => {
@@ -750,6 +831,319 @@ describe("BlockNoteProjectCanvasProvider", () => {
     resolvePdf?.(Uint8Array.from([0x25, 0x50, 0x44, 0x46]));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "导出" })).toBeEnabled()
+    );
+  });
+
+  it("exports and saves multiple long-image parts with progress, shared inputs, and one export lock", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "block-1",
+    });
+    let capturedRequest: BlockNoteLongImageExportRequest | undefined;
+    let resolveExport: ((result: LongImageExportResult) => void) | undefined;
+    const exportPromise = new Promise<LongImageExportResult>((resolve) => {
+      resolveExport = resolve;
+    });
+    const exportLongImage = vi.fn().mockImplementation(
+      (request: BlockNoteLongImageExportRequest) => {
+        capturedRequest = request;
+        return exportPromise;
+      },
+    );
+    const saveLongImage = vi.fn().mockResolvedValue([
+      "C:\\Editorial\\Editorial-01.jpg",
+      "C:\\Editorial\\Editorial-02.jpg",
+    ]);
+    const revealProjectDirectory = vi.fn().mockResolvedValue(undefined);
+    const exportPdf = vi.fn();
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
+    }), {
+      exporter: { implementation: "react-pdf", export: exportPdf },
+      longImageExporter: { export: exportLongImage },
+      longImageSaver: {
+        revealProjectDirectoryAfterSave: true,
+        save: saveLongImage,
+      },
+      projectDirectoryRevealer: { revealProjectDirectory },
+    });
+    await screen.findByText("BlockNote Canvas v14");
+
+    openLongImageDialog();
+    fireEvent.click(screen.getByRole("checkbox", { name: "自动分图" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "正在导出长图…" }))
+      .toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("status", { name: "长图导出进度" }))
+      .toHaveTextContent("正在准备长图文档…");
+    expect(capturedRequest?.plan).toEqual(plan);
+    expect(capturedRequest?.resolvedAssets).toEqual({});
+    expect(capturedRequest?.preset).toBe("wechat");
+    expect(capturedRequest?.options).toEqual({
+      allowSplit: true,
+      theme: "light",
+      width: 900,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "正在导出长图…" }));
+    expect(exportPdf).not.toHaveBeenCalled();
+    await act(async () => {
+      capturedRequest?.onProgress?.({
+        phase: "render",
+        partNumber: 1,
+        partCount: 2,
+      });
+    });
+    expect(screen.getByRole("status", { name: "长图导出进度" })).toHaveTextContent(
+      "正在渲染第 1/2 张…",
+    );
+
+    const result = longImageResult(2);
+    await act(async () => {
+      resolveExport?.(result);
+      await exportPromise;
+    });
+    await waitFor(() =>
+      expect(revealProjectDirectory).toHaveBeenCalledWith("C:\\Editorial")
+    );
+    expect(saveLongImage).toHaveBeenCalledWith({
+      format: "jpeg",
+      baseName: "Editorial",
+      defaultDirectory: "C:\\Editorial",
+      parts: [
+        {
+          fileName: "Editorial-01.jpg",
+          bytes: Uint8Array.from([0xff, 0xd8, 0, 0xd9]),
+        },
+        {
+          fileName: "Editorial-02.jpg",
+          bytes: Uint8Array.from([0xff, 0xd8, 1, 0xd9]),
+        },
+      ],
+    });
+    const savedParts = saveLongImage.mock.calls[0]?.[0].parts;
+    expect(savedParts[0].bytes).toBe(result.parts[0]?.bytes);
+    expect(savedParts[1].bytes).toBe(result.parts[1]?.bytes);
+    expect(screen.getByRole("button", { name: "导出" })).toBeEnabled();
+  });
+
+  it("returns promptly from long-image cancellation without surfacing an error", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "block-1",
+    });
+    let exportSignal: AbortSignal | undefined;
+    const exportLongImage = vi.fn().mockImplementation(
+      (request: BlockNoteLongImageExportRequest) =>
+        new Promise<LongImageExportResult>((_resolve, reject) => {
+          exportSignal = request.signal;
+          request.signal?.addEventListener("abort", () => {
+            reject(new DOMException("cancelled", "AbortError"));
+          }, { once: true });
+        }),
+    );
+    const saveLongImage = vi.fn();
+    const logger: WorkspaceLogger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
+    }), {
+      logger,
+      longImageExporter: { export: exportLongImage },
+      longImageSaver: { save: saveLongImage },
+    });
+    await screen.findByText("BlockNote Canvas v14");
+
+    openLongImageDialog();
+    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "取消长图导出" }));
+
+    expect(exportSignal?.aborted).toBe(true);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "导出" })).toBeEnabled()
+    );
+    expect(saveLongImage).not.toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(screen.queryByText(/无法导出长图/)).not.toBeInTheDocument();
+  });
+
+  it("treats a cancelled long-image save as a quiet no-reveal result", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "block-1",
+    });
+    const revealProjectDirectory = vi.fn();
+    const exportLongImage = vi.fn().mockResolvedValue(longImageResult());
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
+    }), {
+      longImageExporter: {
+        export: exportLongImage,
+      },
+      longImageSaver: { save: vi.fn().mockResolvedValue(null) },
+      projectDirectoryRevealer: { revealProjectDirectory },
+    });
+    await screen.findByText("BlockNote Canvas v14");
+
+    openLongImageDialog();
+    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "导出" })).toBeEnabled()
+    );
+    expect(exportLongImage).toHaveBeenCalledWith(expect.objectContaining({
+      options: {
+        allowSplit: false,
+        theme: "light",
+        width: 900,
+      },
+    }));
+    expect(revealProjectDirectory).not.toHaveBeenCalled();
+    expect(screen.queryByText(/无法导出长图/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "generation",
+      vi.fn().mockRejectedValue(new Error("capture failed")),
+      vi.fn(),
+      "无法导出长图：capture failed",
+    ],
+    [
+      "save",
+      vi.fn().mockResolvedValue(longImageResult()),
+      vi.fn().mockRejectedValue(new Error("Disk is full")),
+      "无法导出长图：Disk is full",
+    ],
+  ])(
+    "surfaces contextual long-image %s failures without revealing",
+    async (_stage, exportLongImage, saveLongImage, expected) => {
+      const plan = createEmptyProjectPlanV14("Editorial", {
+        makeId: () => "block-1",
+      });
+      const revealProjectDirectory = vi.fn();
+      renderProvider(serviceWith({
+        loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
+      }), {
+        longImageExporter: { export: exportLongImage },
+        longImageSaver: { save: saveLongImage },
+        projectDirectoryRevealer: { revealProjectDirectory },
+      });
+      await screen.findByText("BlockNote Canvas v14");
+
+      openLongImageDialog();
+      fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(expected);
+      expect(revealProjectDirectory).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    {
+      name: "high-quality JPEG byte",
+      code: "NO_EARLIER_BOUNDARY" as const,
+      configure: (): void => {
+        fireEvent.change(screen.getByLabelText("JPEG 体积目标"), {
+          target: { value: "high-quality" },
+        });
+      },
+      expected:
+        "无法导出长图：自动分图无法继续：当前完整区块或图片组单行仍超过 JPEG 的高度或体积限制。请缩短或拆分这个区块/图片组，或将方案分段导出。也可改用体积更小的“微信兼容” JPEG 预设、降低图片细节，或改用 PDF/DOCX。",
+    },
+    {
+      name: "lossless PNG byte",
+      code: "NO_EARLIER_BOUNDARY" as const,
+      configure: (): void => {
+        fireEvent.change(screen.getByLabelText("图片格式"), {
+          target: { value: "png" },
+        });
+      },
+      expected:
+        "无法导出长图：自动分图无法继续：当前完整区块或图片组单行仍超过 PNG 的高度或体积限制。请缩短或拆分这个区块/图片组，或将方案分段导出。如可接受 JPEG，也可选择体积更小的“微信兼容” JPEG 预设或降低图片细节；也可改用 PDF/DOCX。",
+    },
+    {
+      name: "WeChat JPEG height",
+      code: "UNSAFE_CANVAS" as const,
+      configure: (): void => {},
+      expected:
+        "无法导出长图：自动分图无法继续：当前完整区块或图片组单行仍超过 JPEG 的高度或体积限制。请缩短或拆分这个区块/图片组，或将方案分段导出。也可降低图片细节，或改用 PDF/DOCX。",
+    },
+  ])(
+    "gives actionable Chinese recovery for an unsplittable $name limit",
+    async ({ code, configure, expected }) => {
+      const plan = createEmptyProjectPlanV14("Editorial", {
+        makeId: () => "block-1",
+      });
+      const internalMessage = code === "NO_EARLIER_BOUNDARY"
+        ? "No earlier boundary is available."
+        : "Unsafe canvas height.";
+      renderProvider(serviceWith({
+        loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
+      }), {
+        longImageExporter: {
+          export: vi.fn().mockRejectedValue(
+            new LongImageContractError(code, internalMessage, {
+              partIndex: 0,
+              blockId: "block-1",
+            }),
+          ),
+        },
+      });
+      await screen.findByText("BlockNote Canvas v14");
+
+      openLongImageDialog();
+      configure();
+      fireEvent.click(screen.getByRole("checkbox", { name: "自动分图" }));
+      fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(expected);
+      expect(screen.queryByText(internalMessage)).not.toBeInTheDocument();
+    },
+  );
+
+  it("reports long-image reveal failure separately after successful native saves", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "block-1",
+    });
+    const revealError = new Error("Explorer is unavailable");
+    const revealProjectDirectory = vi.fn().mockRejectedValue(revealError);
+    const logger: WorkspaceLogger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
+    }), {
+      logger,
+      longImageExporter: {
+        export: vi.fn().mockResolvedValue(longImageResult()),
+      },
+      longImageSaver: {
+        revealProjectDirectoryAfterSave: true,
+        save: vi.fn().mockResolvedValue(["C:\\Editorial\\Editorial.jpg"]),
+      },
+      projectDirectoryRevealer: { revealProjectDirectory },
+    });
+    await screen.findByText("BlockNote Canvas v14");
+
+    openLongImageDialog();
+    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+
+    expect(await screen.findByText(
+      /长图已保存，但无法打开项目文件夹/,
+    )).toHaveTextContent(
+      "长图已保存，但无法打开项目文件夹：Explorer is unavailable",
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Long image saved but unable to open project directory",
+      { error: revealError, projectPath: "C:\\Editorial" },
     );
   });
 });

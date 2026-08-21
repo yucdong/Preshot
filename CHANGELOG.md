@@ -26,12 +26,36 @@ All notable changes to Preshot are documented in this file.
   concurrency guard, dedicated native `save_docx` atomic writes, default
   `<project>\output.docx`, post-save Explorer reveal, and browser/Midscene
   `output.docx` downloads.
+- Production offline long-image export from a control-free export-only
+  BlockNote DOM surface through `modern-screenshot@4.7.0`, with default
+  900px WeChat/JPEG output, 890px compatibility, lossless PNG, block- and
+  image-row-aware automatic splitting, adaptive byte/quality limits, bounded
+  memory, cancellation, and deterministic multipart filenames.
+- An accessible long-image settings/progress workflow in the existing export
+  menu, rollback-safe native multipart commits with post-save Explorer reveal,
+  one-part browser downloads, same-origin worker/CSP enforcement, and retained
+  Playwright acceptance artifacts.
+- Cumulative long-image safeguards: 32 parts maximum, 24 MiB retained for
+  WeChat JPEG, 48 MiB for high-quality JPEG, 64 MiB for PNG, and a separate
+  64 MiB raw-image ceiling for the single native IPC batch.
+- Unicode-safe output naming with NFC-normalized project-title bases,
+  120-code-point and 120-UTF-16-unit base caps, a 128-UTF-16-unit final
+  component cap, Windows reserved/traversal checks, and authoritative validated
+  dialog renames.
+- Production dnd-kit image-tile dragging with immutable live same-/cross-/
+  empty-group reflow, body overlay and source/insertion placeholders,
+  pointer/keyboard sensors, Chinese announcements, 48px zoom-safe auto-scroll,
+  reduced-motion handling, stale/decode cancellation, one-step commit undo,
+  and preview isolation from autosave and every export format.
 
 ### Licensing
 
 - Open-source distributions that include the BlockNote XL DOCX exporter use
   its `GPL-3.0 OR PROPRIETARY` license through the GPL-3.0 option, matching the
   existing XL package obligations. The underlying `docx@9.6.1` library is MIT.
+- Long-image export does not use a BlockNote image exporter.
+  `modern-screenshot@4.7.0` is MIT-licensed and introduces no additional
+  BlockNote XL licensing obligation.
 
 ## [0.0.1] - 2026-08-17
 

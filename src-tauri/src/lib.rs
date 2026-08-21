@@ -1,6 +1,7 @@
 mod byte_write;
 mod docx;
 mod error;
+mod long_image;
 mod menu;
 mod pdf;
 mod plan;
@@ -59,6 +60,7 @@ pub fn run() {
             plan::remove_plan_media,
             pdf::save_pdf,
             docx::save_docx,
+            long_image::save_long_images,
             reveal::open_project_directory,
             screenshot::start_screen_capture,
             screenshot::poll_screen_capture,

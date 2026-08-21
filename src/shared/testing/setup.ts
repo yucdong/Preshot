@@ -35,11 +35,13 @@ globalThis.matchMedia ??= ((query: string) => ({
     return false;
   },
 })) as unknown as typeof globalThis.matchMedia;
-if (!Element.prototype.scrollIntoView) {
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function scrollIntoView(): void {};
 }
-Document.prototype.elementFromPoint ??= () => null;
-Document.prototype.elementsFromPoint ??= () => [];
+if (typeof Document !== "undefined") {
+  Document.prototype.elementFromPoint ??= () => null;
+  Document.prototype.elementsFromPoint ??= () => [];
+}
 if (typeof Range !== "undefined") {
   Range.prototype.getClientRects ??= () =>
     ({ item: () => null, length: 0, [Symbol.iterator]: function* () {} }) as unknown as DOMRectList;

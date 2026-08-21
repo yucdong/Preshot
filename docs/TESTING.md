@@ -115,12 +115,33 @@ first page renders at 1241 x 1754 pixels.
 Vite still reports its advisory large-chunk warning for the production bundle.
 This is a known advisory, not a build failure.
 
+## Long-image acceptance (2026-08-20)
+
+The completed long-image audit passed:
+
+- `pnpm docs:check`, ESLint, TypeScript, and `pnpm build`;
+- 127 Vitest files / 842 tests;
+- the 15-file focused long-image/package/composition matrix / 151 tests;
+- 11 focused Rust `long_image` tests;
+- all 22 unified Playwright journeys, including 12 BlockNote journeys and all
+  3 DOM-capture journeys; and
+- the independently rerun focused production long-image journey and isolated
+  3-test capture suite.
+
+The retained production JPEG is 900 × 85px and 2,617 bytes with the expected
+JPEG signature, a `.jpg` filename, and zero external requests. The retained
+fixture evidence includes 900 × 1600px PNG/JPEG captures plus a complete
+900 × 6000px PNG (142,408 bytes), verified bottom sentinel, bounded-pixel flag,
+zero external requests, and zero active workers/iframes after cleanup. The
+eight exact files are listed in the Playwright acceptance section below.
+
 ### Browser-shell tests
 
 | Command | Purpose |
 | --- | --- |
 | `pnpm test:e2e` | Main Playwright suite on `http://127.0.0.1:1420` using Microsoft Edge. |
 | `pnpm test:e2e:blocknote` | Focused BlockNote v14 Playwright suite on `http://127.0.0.1:1430`. |
+| `pnpm test:e2e:capture` | Bounded `modern-screenshot` adapter fixture on `http://127.0.0.1:1440`, including offline fonts/assets, PNG/JPEG bytes, a 6000px capture, contiguous segments from one reused context, worker/CSP compatibility, and cleanup. |
 | `pnpm test:init` | PowerShell harness for `init.ps1` error handling and Node version boundaries. |
 | `pnpm test:production-scripts` | Isolated PowerShell production/release tooling contracts. |
 
@@ -146,6 +167,13 @@ Domain tests cover pure behavior such as:
 - block nesting and image-group invariants,
 - extraction of referenced `media/` files,
 - image-group geometry and crop helpers,
+- immutable image-drag snapshots, projection purity, same-/cross-/empty-group
+  normalization, wrap/no-shrink preview geometry, row-major targeting,
+  hysteresis, keyboard targets, rollback identity, and stale finalization,
+- long-image 1080-to-900/890 geometry, preset limits, decoded-memory bounds,
+  block/image-row segmentation, contiguous parts, no-split failures, adaptive
+  JPEG quality, PNG byte re-splitting, actionable atomic-block/image-row
+  exhaustion failures, safe names, and immutable manifests,
 - stable-gap non-overlap wrapping, derived group height, side-only
   current-ratio resize, and prioritized Smart Guide snapping,
 - PDF layout primitives and typed BlockNote PDF visual-contract boundaries
@@ -171,13 +199,21 @@ Component tests cover user-visible behavior for:
 - save-state UI,
 - the BlockNote editor wrapper,
 - image-group selection, drag-safe double-click viewing, within/cross-group
-  movement, side-only live resize, wrapping, cancellation, and guide feedback,
+  movement and empty targets, dnd-kit pointer/keyboard sensor composition,
+  overlay/source/insertion placeholders, row-major keyboard projection,
+  Chinese announcements, 48px zoom-safe auto-scroll, reduced motion,
+  stale/focus/decode cancellation, one-step undo and save boundaries, preview
+  non-persistence, committed exporter ordering, side-only live resize,
+  wrapping, cancellation, and guide feedback,
 - reference-image crop presets, Free sizing, pan/nudge, zoom, reset,
   cancel/confirm, progress, focus restoration, and actionable errors, and
 - provider refresh/reflow and save-state behavior after crop overwrite, and
 - PDF and DOCX export menu ordering, format-specific progress, concurrency guards,
   orchestration ordering, cancellation, write failures, browser downloads, and
-  non-fatal project-directory open failures after a successful write.
+  non-fatal project-directory open failures after a successful write, and
+- long-image dialog presets, format-dependent controls, focus trap/restoration,
+  honest limit messaging, shared export concurrency, phase/part progress,
+  AbortController cancellation, multipart saves, and contextual failures.
 
 Use React Testing Library and assert via roles, labels, visible text, and interaction outcomes.
 
@@ -197,6 +233,12 @@ Adapter tests validate:
   inline styles/colors/alignment, lists, quote/code, row-safe tables, real link
   annotations, contextual media fallbacks, weighted columns, and offline
   project-local resolution without a hosted proxy,
+- long-image export-surface readiness, bounded segmented DOM capture, adaptive
+  JPEG/PNG encoding, browser single-download and typed multipart behavior, and
+  native atomic multipart saves,
+- exact production composition of the shared long-image exporter with the
+  Tauri batch saver, and browser/Midscene composition with the one-download /
+  typed multipart browser saver,
 - production exporter composition from preflight through mapping and
   browser-compatible Blob bytes, including A4 output, immutable plan input,
   contextual failures, no silent legacy fallback, and unchanged save bytes and
@@ -221,6 +263,9 @@ Adapter tests validate:
 - least-privilege Tauri CSP coverage for the exact React-PDF WASM allowance,
   self-hosted assets/fonts, Tauri IPC origins, and rejection of broad network
   or general eval sources,
+- `modern-screenshot@4.7.0` version/MIT/license/lockfile coverage, absence of a
+  BlockNote image-export package, same-origin non-inline worker bundling,
+  external capture-fetch rejection, and absence of Node globals,
 - browser test adapters used by memory and Midscene modes,
 - typed PDF save options, Windows verbatim drive/UNC normalization,
   platform-safe `<project>\output.pdf` joining across trailing separators,
@@ -249,7 +294,10 @@ Rust unit tests cover:
   identifiers,
 - native media import/load/remove,
 - settings read/write behavior,
-- PDF atomic writes plus DOCX extension/path validation and atomic writes, and
+- PDF atomic writes, DOCX extension/path validation and atomic writes,
+- long-image full-batch preflight, deterministic numbered sibling writes,
+  Unicode names, serialization, rollback to exact original bytes, removal of
+  only attempt-owned new outputs, and preservation of unrelated extensions, and
 - Windows screen-capture helpers.
 
 ### Playwright
@@ -258,9 +306,49 @@ Rust unit tests cover:
 
 `pnpm test:e2e:blocknote` is the focused browser suite for the current v14 editor surface. Use it when changing BlockNote document behavior, image groups, columns, native media, or PDF/DOCX-adjacent editing flows.
 
+Long-image work should run both the focused production journey in
+`blocknote-v14.spec.ts` and `pnpm test:e2e:capture`. The former verifies
+menu/dialog/download composition; the latter verifies renderer fidelity,
+segmentation primitives, worker isolation, and cleanup without duplicating
+provider or domain-unit coverage.
+
+Unit coverage fixes the memory contract at 32 parts, cumulative retained-byte
+budgets of 24 MiB for WeChat JPEG, 48 MiB for high-quality JPEG, and 64 MiB
+for PNG, plus a separate 64 MiB raw-image desktop IPC ceiling. It exercises
+each exact boundary, one byte over, many tiny parts, rejection before
+base64/Tauri invocation, provider byte-array identity, normal multipart saves,
+actionable error context, and deterministic canvas/context/object-URL cleanup.
+
 Its create/edit/save journey asserts single-click selection, double-click
 viewer opening, drag-safe viewer suppression, side-only image handles,
 current-ratio resizing, group resizing, persistence, reload, and PDF export.
+
+The dedicated live image-drag journey covers keyboard pickup/movement/cancel,
+pointer activation, same- and cross-group source/target placeholders, real-time
+row-major reflow, no preview persistence, one committed autosave, and CSS zoom
+at 55%, 85%, 100%, and 180%. It drives the 48px central-scroller edge when the
+target is below the viewport, verifies the remeasured target, and checks
+recursive visible document order plus focus continuity during keyboard
+projection. Unit/static contracts additionally cover same-frame pointer
+release before the projection RAF, stable hysteresis release, outside-release
+rollback, latest-physical-pointer auto-scroll and cleanup, mutation/reorder
+rebasing, retirement ordering, dnd-kit dependency pins, removal of the legacy
+`startImageDrag`/`data-image-drop-target` path, projection purity,
+export/interactive renderer composition, and committed PDF/DOCX/long-image
+order.
+
+Every run attaches `live image drag preview` and `committed image drag`
+screenshots to the Playwright result. To retain the canonical review set:
+
+```powershell
+$env:PRESHOT_IMAGE_DRAG_REVIEW_ARTIFACTS = "artifacts\image-drag-regressions"
+pnpm exec playwright test --config playwright.blocknote.config.ts --grep "previews and commits a cross-group image drag transaction"
+Remove-Item Env:PRESHOT_IMAGE_DRAG_REVIEW_ARTIFACTS
+```
+
+The retained set is `live-preview.png`, `committed-layout.png`, and
+`browser-summary.json`; the summary records the CSS zoom matrix, confirms that
+preview state was not persisted, and records the committed group order.
 
 The production PDF browser journey performs a real download through the
 memory-browser save target, parses the bytes, checks A4 geometry and image draw
@@ -294,6 +382,56 @@ The reviewed DOCX artifacts are `browser-production.docx`,
 `word-edit-roundtrip.docx`, `browser-production.pdf`,
 `libreoffice-page-1.png`, and `desktop-smoke-summary.json` under
 `artifacts\docx-export-regressions`.
+
+The long-image acceptance has two complementary Playwright layers:
+
+- `pnpm test:e2e:capture` runs three isolated Edge tests against the
+  representative DOM fixture. They verify exact 900px PNG/JPEG bytes, fonts,
+  headings, crops, rounded images, two-/three-column geometry, editor-chrome
+  exclusion, a complete 6000px capture with bottom sentinel, two contiguous
+  3000px segments from one context, same-origin workers, zero external
+  requests, bounded pixels, and worker/iframe cleanup.
+- `pnpm exec playwright test --config playwright.blocknote.config.ts --grep
+  "opts into splitting and downloads one offline 900px JPEG long image"` drives
+  the production export menu and modal, checks the WeChat/JPEG/900px defaults
+  with automatic splitting initially unchecked, verifies PNG, 890/900, and
+  preset changes keep it unchecked, explicitly opts in, observes the disabled
+  progress state, downloads the actual image, parses its JPEG
+  signature/dimensions, enforces the 6000px / 1 MiB targets, and records zero
+  external requests.
+
+Focused TypeScript and Rust filename tests additionally cover NFC-normalized
+project titles, 43-character Chinese bases, astral emoji without surrogate
+splitting, decomposed combining marks, the 120-code-point ASCII boundary and
+its +1 rejection, Windows reserved/trailing/path-traversal cases, numbered
+suffixes, Unicode destinations, dialog-renamed authoritative bases, and the
+separate 120-unit-base / 128-unit-final-component UTF-16 safety budget.
+
+To refresh the complete reviewed set in PowerShell:
+
+```powershell
+$env:PRESHOT_LONG_IMAGE_REVIEW_ARTIFACTS = "artifacts\long-image-export-regressions"
+pnpm exec playwright test --config playwright.blocknote.config.ts --grep "opts into splitting and downloads one offline 900px JPEG long image"
+pnpm test:e2e:capture
+Remove-Item Env:PRESHOT_LONG_IMAGE_REVIEW_ARTIFACTS
+```
+
+The retained acceptance set under
+`artifacts\long-image-export-regressions` is exactly:
+
+- `browser-production-900.jpg`
+- `browser-production-summary.json`
+- `capture-fidelity-900x1600.jpg`
+- `capture-fidelity-900x1600.png`
+- `capture-fidelity-summary.json`
+- `capture-6000.png`
+- `capture-6000-summary.json`
+- `validation-summary.json`
+
+The summaries record signatures, filenames, dimensions, byte counts, probes,
+column/crop/chrome/font evidence, 6000px / 1 MiB targets, bottom sentinels,
+worker/iframe cleanup, external-request lists, and the final limits/naming/test
+matrix. They are generated evidence, not golden-image snapshots.
 
 Native image multiline-caption coverage verifies:
 

@@ -66,8 +66,10 @@ function planDeps(): PlanDependencies {
     logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     exporter: { implementation: "react-pdf", export: vi.fn() },
     docxExporter: { implementation: "blocknote-docx", export: vi.fn() },
+    longImageExporter: { export: vi.fn() },
     saver: { save: vi.fn() },
     docxSaver: { save: vi.fn() },
+    longImageSaver: { save: vi.fn() },
   };
 }
 

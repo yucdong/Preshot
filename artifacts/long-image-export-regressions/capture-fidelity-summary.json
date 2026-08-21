@@ -1,0 +1,232 @@
+{
+  "dimensions": {
+    "width": 900,
+    "height": 1600,
+    "canvasWidth": 900,
+    "canvasHeight": 1600,
+    "pixelRatio": 1
+  },
+  "png": {
+    "type": "image/png",
+    "size": 357294,
+    "first": [
+      137,
+      80,
+      78,
+      71,
+      13,
+      10,
+      26,
+      10
+    ],
+    "last": [
+      96,
+      130
+    ]
+  },
+  "jpeg": {
+    "type": "image/jpeg",
+    "size": 112452,
+    "first": [
+      255,
+      216,
+      255,
+      224,
+      0,
+      16,
+      74,
+      70
+    ],
+    "last": [
+      255,
+      217
+    ]
+  },
+  "probes": [
+    {
+      "box": {
+        "x": 453.5,
+        "y": 237.5,
+        "width": 231,
+        "height": 54
+      },
+      "expected": [
+        254,
+        240,
+        138
+      ],
+      "actual": [
+        254,
+        240,
+        138,
+        255
+      ]
+    },
+    {
+      "box": {
+        "x": 52,
+        "y": 394,
+        "width": 524,
+        "height": 154
+      },
+      "expected": [
+        224,
+        242,
+        254
+      ],
+      "actual": [
+        224,
+        242,
+        254,
+        255
+      ]
+    },
+    {
+      "box": {
+        "x": 594,
+        "y": 394,
+        "width": 262,
+        "height": 154
+      },
+      "expected": [
+        252,
+        231,
+        243
+      ],
+      "actual": [
+        252,
+        231,
+        243,
+        255
+      ]
+    },
+    {
+      "box": {
+        "x": 52,
+        "y": 594,
+        "width": 256,
+        "height": 154
+      },
+      "expected": [
+        220,
+        252,
+        231
+      ],
+      "actual": [
+        220,
+        252,
+        231,
+        255
+      ]
+    },
+    {
+      "box": {
+        "x": 326,
+        "y": 594,
+        "width": 256,
+        "height": 154
+      },
+      "expected": [
+        237,
+        233,
+        254
+      ],
+      "actual": [
+        237,
+        233,
+        254,
+        255
+      ]
+    },
+    {
+      "box": {
+        "x": 600,
+        "y": 594,
+        "width": 256,
+        "height": 154
+      },
+      "expected": [
+        255,
+        237,
+        213
+      ],
+      "actual": [
+        255,
+        237,
+        213,
+        255
+      ]
+    }
+  ],
+  "geometry": {
+    "twoColumns": [
+      {
+        "x": 52,
+        "y": 394,
+        "width": 524,
+        "height": 154
+      },
+      {
+        "x": 594,
+        "y": 394,
+        "width": 262,
+        "height": 154
+      }
+    ],
+    "threeColumns": [
+      {
+        "x": 52,
+        "y": 594,
+        "width": 256,
+        "height": 154
+      },
+      {
+        "x": 326,
+        "y": 594,
+        "width": 256,
+        "height": 154
+      },
+      {
+        "x": 600,
+        "y": 594,
+        "width": 256,
+        "height": 154
+      }
+    ]
+  },
+  "chromePixel": [
+    248,
+    250,
+    252,
+    255
+  ],
+  "croppedImageCenter": [
+    34,
+    197,
+    94,
+    255
+  ],
+  "roundedImageCorner": [
+    229,
+    234,
+    238,
+    255
+  ],
+  "headingInkPixels": 7462,
+  "fonts": {
+    "status": "loaded",
+    "regular": true,
+    "bold": true
+  },
+  "cleanup": {
+    "activeWorkers": 0,
+    "iframeBaseline": 0,
+    "iframeCount": 0
+  },
+  "workerUrls": [
+    "/node_modules/.pnpm/modern-screenshot@4.7.0/node_modules/modern-screenshot/dist/worker.js?no-inline",
+    "/node_modules/.pnpm/modern-screenshot@4.7.0/node_modules/modern-screenshot/dist/worker.js?no-inline",
+    "/node_modules/.pnpm/modern-screenshot@4.7.0/node_modules/modern-screenshot/dist/worker.js?no-inline"
+  ],
+  "externalRequests": []
+}

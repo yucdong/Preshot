@@ -154,6 +154,111 @@ button:disabled {
   padding: 0;
 }
 
+.preshot-long-image-export-surface {
+  overflow: visible;
+  background: #fff;
+  color: var(--paper-ink);
+  pointer-events: none;
+}
+
+.preshot-long-image-export-document {
+  min-height: 1px;
+  overflow: visible;
+  background: #fff;
+  color: var(--paper-ink);
+  font-family:
+    "Noto Sans SC", "Nunito Sans Variable", "Microsoft YaHei UI",
+    "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  transform-origin: top left;
+}
+
+.preshot-long-image-export-surface .bn-editor {
+  padding: 0;
+  caret-color: transparent;
+}
+
+.preshot-long-image-export-surface
+  :is(
+    .bn-side-menu,
+    .bn-toolbar,
+    .bn-resize-handle,
+    [data-table-handle],
+    [data-test="drag-handle"]
+  ) {
+  display: none !important;
+}
+
+.preshot-long-image-export-surface
+  :is(
+    .ProseMirror-selectednode,
+    [data-selected="true"],
+    [data-node-type="blockOuter"]
+  ) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.preshot-long-image-export-surface
+  [data-preshot-export-native-media]
+  > * {
+  display: none !important;
+}
+
+.preshot-long-image-export-surface
+  [data-preshot-export-native-media]::before {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--paper-border);
+  border-radius: 4px;
+  background: #f4f5f6;
+  color: var(--paper-muted);
+  content: attr(data-preshot-export-native-media-label);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.preshot-long-image-export-group-shell {
+  width: 100%;
+  min-width: 0;
+  outline: none;
+}
+
+.preshot-long-image-export-group {
+  position: relative;
+  max-width: 100%;
+  padding: 8px;
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: 4px;
+  background: var(--app-panel);
+}
+
+.preshot-long-image-export-group-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.preshot-long-image-export-image-frame {
+  position: absolute;
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: 4px;
+  background: #e7e8ea;
+}
+
+.preshot-long-image-export-image-frame img {
+  position: absolute;
+  display: block;
+  max-width: none;
+  margin: 0;
+  user-select: none;
+}
+
 .preshot-blocknote-document .bn-block-group .bn-block-group {
   border-left: 1px solid color-mix(in srgb, var(--app-border) 76%, transparent);
 }
@@ -710,6 +815,107 @@ button:disabled {
 
 .preshot-blocknote-image-group {
   cursor: grab;
+}
+
+.preshot-image-drag-tile {
+  will-change: transform, opacity;
+}
+
+.preshot-image-drag-overlay {
+  position: relative;
+  z-index: 220;
+  overflow: hidden;
+  border: 1px solid var(--app-functional);
+  border-radius: 7px;
+  background: var(--app-panel-strong);
+  box-shadow: 0 16px 36px rgb(24 24 27 / 24%);
+  opacity: 0.96;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.preshot-image-drag-overlay-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #e7e8ea;
+}
+
+.preshot-image-drag-overlay-image {
+  position: absolute;
+  display: block;
+  max-width: none;
+  user-select: none;
+}
+
+.preshot-image-drag-overlay-fallback {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: var(--app-ink-muted);
+  font-size: 11px;
+}
+
+.preshot-image-drag-source-placeholder,
+.preshot-image-drag-target-insertion {
+  border: 2px dashed var(--app-functional);
+  border-radius: 5px;
+  background: color-mix(
+    in srgb,
+    var(--app-functional-soft) 58%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.preshot-image-drag-source-placeholder {
+  opacity: 0.58;
+}
+
+.preshot-image-drag-target-insertion {
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--app-functional) 22%, transparent);
+}
+
+.preshot-image-drag-target-group {
+  border-color: transparent;
+  transition:
+    border-color 200ms ease-out,
+    background-color 200ms ease-out,
+    box-shadow 200ms ease-out;
+}
+
+.preshot-image-drag-target-group-active {
+  border-color: var(--app-functional);
+  background: var(--app-functional-soft);
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--app-functional) 18%, transparent);
+}
+
+.preshot-image-drag-empty-slot {
+  min-height: 72px;
+  border: 1px dashed var(--app-border);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--app-panel-strong) 70%, transparent);
+  pointer-events: none;
+}
+
+.preshot-image-drag-empty-slot-active {
+  border: 2px dashed var(--app-functional);
+  background: var(--app-functional-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preshot-image-drag-overlay,
+  .preshot-image-drag-source-placeholder,
+  .preshot-image-drag-target-insertion,
+  .preshot-image-drag-target-group,
+  .preshot-image-drag-empty-slot {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
 }
 
 .bn-block-column .preshot-blocknote-image-group-toolbar {

@@ -1,0 +1,15 @@
+{
+  "bytes": 2617,
+  "dimensions": {
+    "height": 85,
+    "width": 900
+  },
+  "externalRequests": [],
+  "filename": "编辑大片示例.jpg",
+  "signature": [
+    255,
+    216
+  ],
+  "targetBytes": 1048576,
+  "targetHeight": 6000
+}

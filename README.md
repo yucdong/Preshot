@@ -1,6 +1,6 @@
 # Preshot
 
-Preshot is a Windows-first desktop application for photography planning. The current application is not just a shell: it opens local projects, edits plans in a BlockNote 0.53 document, manages image groups and native media, and exports PDF and DOCX files.
+Preshot is a Windows-first desktop application for photography planning. The current application is not just a shell: it opens local projects, edits plans in a BlockNote 0.53 document, manages image groups and native media, and exports PDF, DOCX, and long-image files.
 
 > The application UI is currently localized in Simplified Chinese. This documentation is written in English on purpose; do not treat Chinese UI copy as missing translation work unless the task is explicitly about localization.
 
@@ -11,6 +11,9 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - Slash menu, block drag, undo/redo, headings, lists, checklists, toggles, quotes, code blocks, tables, and dividers
 - Multi-column blocks via `@blocknote/xl-multi-column@0.53.0`
 - Custom image-group blocks with resize, reorder, lightbox, native import, and Windows screen capture
+- Transactional live image-drag preview with pointer and keyboard sensors,
+  same-/cross-/empty-group reflow, source and insertion placeholders, and
+  zoom-safe edge auto-scroll
 - Native BlockNote image, video, and audio blocks backed by project-local `media/`
 - Auto-save, explicit save shortcut, theme settings, resizable shell panels, and focus mode
 - A4 PDF export through `@blocknote/xl-pdf-exporter@0.53.0` and
@@ -19,6 +22,56 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - Editable DOCX export through `@blocknote/xl-docx-exporter@0.53.0` and
   `docx@9.6.1`, including offline native images, weighted columns, and
   composited image groups
+- Offline long-image export through an export-only 900px BlockNote DOM surface
+  and `modern-screenshot@4.7.0`, with JPEG/PNG presets, 890px compatibility,
+  opt-in block/row-aware automatic splitting, adaptive JPEG quality, native batch
+  save, and no effect on PDF or DOCX output
+
+## Long-image export contract
+
+BlockNote 0.53 does not provide a long-image exporter. Preshot therefore
+mounts the shared schema-14 document on a control-free export-only DOM surface,
+scales the 1080px editor geometry to 900px by default (or the explicit 890px
+compatibility width), and captures bounded segments with
+`modern-screenshot@4.7.0`.
+
+The default **WeChat compatible** preset emits JPEG, targets at most 6000px and
+1 MiB per part, starts at quality 0.84, and searches no lower than 0.68 before
+splitting earlier. **High quality** JPEG targets 8000px / 3 MiB, while
+**Lossless PNG** targets 4000px / 8 MiB. These are conservative empirical
+compatibility targets, not official WeChat acceptance limits; client-side
+recompression and platform behavior can change independently.
+
+Every preset stops at 32 parts. The exporter may retain at most 24 MiB for
+WeChat JPEG, 48 MiB for high-quality JPEG, or 64 MiB for lossless PNG. Desktop
+saving preflights a separate 64 MiB raw-image ceiling before creating base64
+or sending the single rollback-safe Tauri IPC batch; Rust repeats the count and
+byte checks before allocation and after decode.
+
+By default, the entire document remains one image. If that output would exceed
+the safe single-image limits, export fails actionably instead of silently
+splitting; the user can enable automatic splitting, shorten the plan, or export
+PDF/DOCX. When enabled, automatic splitting prefers complete top-level block
+boundaries and splits an oversized image group only between complete wrapped
+rows. Parts are contiguous, captured sequentially, and named `<project>.jpg` or
+`<project>-01.jpg`, `<project>-02.jpg`, and so on (with matching PNG names).
+Generated project-title bases are normalized to Unicode NFC and capped at 120
+code points and 120 UTF-16 code units. Final generated or dialog-selected file
+components are capped at 128 UTF-16 code units, leaving room for `-01` through
+`-32`, the extension, and the atomic writer's temporary suffix. A valid
+dialog rename becomes the authoritative output base.
+The exporter rejects external assets and hosted proxies, bounds canvas and
+decoded memory, releases canvases/workers/offscreen roots after every outcome,
+and surfaces failures rather than silently reducing width or quality.
+
+The top-right **Export** menu opens a settings dialog for preset, JPEG/PNG,
+900/890px width, and automatic splitting. Splitting starts unchecked on every
+dialog open and changing preset, format, or width does not enable it. Desktop
+saving uses one native dialog to choose the destination/base, commits all
+numbered siblings as a rollback-safe batch, and opens the project directory
+only after success. Browser and Midscene download one-part output; their
+multi-part path is an explicit typed no-op test adapter because the application
+does not ship an archive dependency.
 
 ## Repository layout
 
@@ -53,9 +106,50 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - `@blocknote/xl-pdf-exporter@0.53.0` + `@react-pdf/renderer@4.3.0`
 - `@blocknote/xl-docx-exporter@0.53.0` + `docx@9.6.1` for the production DOCX
   exporter, offline resolver, custom image-group compositor, and ZIP packing
+- `modern-screenshot@4.7.0` for the production offline long-image DOM capture
+  adapter and same-origin worker
 - `pdf-lib` + `@pdf-lib/fontkit` retained only by the explicit rollback adapter
 - Vitest, React Testing Library, Playwright
+- dnd-kit 6/10 for the production image-tile drag context and sensors
 - pnpm 10.15.0
+
+## Live image drag contract
+
+Reference-image reordering is a preview transaction, not a sequence of plan
+writes. dnd-kit owns one pointer/keyboard context around the active BlockNote
+surface. A drag snapshots the ordered groups and decoded active image, then
+projects same-group, cross-group, end-position, or empty-group layouts from
+that immutable snapshot. The source keeps a dashed placeholder, the body-level
+overlay preserves the image crop and frame ratio, and the target reflows with
+authoritative frame sizes, wrap-before-overflow geometry, and no implicit
+shrinking.
+
+The preview never mutates `plan.imageGroups`, marks the project dirty, reaches
+autosave, or feeds PDF, DOCX, or long-image export. Escape, invalid/outside
+release, pointer cancellation, focus/visibility loss, project or plan revision
+change, group/image deletion, and decoded-asset change restore the snapshot.
+A valid release applies exactly one normalized move, creates one undo boundary,
+marks the plan unsaved, and lets the normal 5-second autosave, Ctrl/Cmd+S, and
+project-retirement flush persist the committed order. All three exporters read
+that committed order only.
+
+Mouse activation requires 6px movement; touch/pen uses a 180ms delay with 6px
+tolerance. Keyboard users press Space to pick up, use arrows or Home/End within
+a group, Ctrl/Cmd+Arrow to change groups, Space/Enter to drop, and Escape to
+cancel. Group movement follows visible recursive document order, not metadata
+array order; a hidden focus anchor keeps keyboard input stable while the active
+tile becomes a placeholder, then focus returns to the image after cancel/drop.
+A Simplified-Chinese polite live region announces selection, pickup, projected
+position, boundaries, commit, and rollback. Pointer dragging uses the latest
+physical pointer in a single 48px edge band around the central scroller and
+remeasures drop geometry after scrolling; keyboard dragging never auto-scrolls.
+CSS zoom from 55%-180%, `prefers-reduced-motion`, decoded-image gating, and
+stale transaction cancellation are covered explicitly.
+
+Non-goals are multi-image dragging, image swapping, freeform placement,
+persisting preview geometry, exporting a preview, or reviving the removed
+component-local pointer implementation and its `data-image-drop-target`
+marker.
 
 ## Windows prerequisites
 
@@ -168,6 +262,7 @@ Install, upgrade, repair, and uninstall preserve `%USERPROFILE%\.preshot`.
 | `pnpm test:production-scripts` | Run isolated production/release script fixtures. |
 | `pnpm test:e2e` | Run the main Playwright browser-shell smoke suite. |
 | `pnpm test:e2e:blocknote` | Run the focused BlockNote v14 Playwright suite. |
+| `pnpm test:e2e:capture` | Run the isolated long-image DOM-capture acceptance suite. |
 | `cargo test --manifest-path src-tauri\Cargo.toml` | Run the Rust unit tests. |
 
 ### Midscene and AI-assisted workflows
@@ -247,6 +342,8 @@ Distributed application builds that include `@blocknote/xl-multi-column`,
 dependencies through their GPL-3.0 option, so shipped Preshot application
 distributions must be provided under GPL-3.0 with the corresponding source and
 license notices. The `docx@9.6.1` dependency is MIT-licensed.
+The production long-image renderer, `modern-screenshot@4.7.0`, is also
+MIT-licensed and does not add another BlockNote XL/GPL dependency.
 
 See [Licensing and distribution](docs/LICENSING.md),
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and

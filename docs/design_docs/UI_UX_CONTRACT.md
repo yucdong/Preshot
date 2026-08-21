@@ -31,6 +31,32 @@
   non-interactive gray surface.
 - A group can move before or after other blocks or into a column layout.
 - Images can move within a group or between groups.
+- Dragging previews the complete post-drop row-major layout for same-group,
+  cross-group, end-position, and empty-group targets. The committed source slot
+  and projected insertion slot remain visible while a crop-aware overlay
+  follows the pointer outside the CSS-zoomed document.
+- Preview rows wrap before overflow and never shrink authoritative image
+  frames. Preview state is reversible and never appears in autosave or export;
+  release commits one move, while Escape or invalid/stale state restores the
+  original layout. The latest committed move is one Ctrl/Cmd+Z boundary.
+- Mouse dragging activates after 6px. Touch and pen require a 180ms hold with
+  6px tolerance. The workspace auto-scroll zone is 48px from each edge and
+  works from 55%-180% CSS zoom.
+- Keyboard users use Space, arrows, Home/End, Ctrl/Cmd+Arrow, Enter, and Escape.
+  Group traversal follows visible recursive document order. Focus remains on a
+  hidden keyboard anchor while the active image is a placeholder and returns
+  to the image after cancel/drop. Simplified-Chinese polite announcements
+  identify the group and human position and explain boundaries, commits, and
+  cancellations.
+- Motion uses transform/opacity only and is removed under
+  `prefers-reduced-motion`; the final order and focus behavior stay unchanged.
+- Drag cannot start before the local image decodes. Project/revision changes,
+  deletion, asset/frame changes, blur, hidden-document state, pointer cancel,
+  and unmount cancel stale work.
+- Release uses the latest pointer position even before the next animation
+  frame: valid stable targets commit once, while outside release rolls back
+  instead of committing the last visible preview. Pointer auto-scroll tracks
+  physical pointer movement only and stops in the viewport center.
 - A single click selects an image and may begin dragging after the movement
   threshold. A pointer opens the full viewer only by double-clicking the image
   body; Enter is the keyboard equivalent.
@@ -62,6 +88,8 @@
 - Deleting a group follows the same tombstone, notification, and undo behavior
   as deleting it from the block menu.
 - There is no automatic size-reset command; frame size is user-controlled.
+- Multi-image drag, swapping, freeform placement, preview persistence/export,
+  and interactive drag controls in export-only surfaces are non-goals.
 
 ## Full-image viewer and crop
 
@@ -126,6 +154,56 @@
 - Export preflight resolves and optimizes only project-local assets. Missing or
   corrupt assets produce an actionable error; the app does not use a hosted
   proxy or silently emit degraded fallback output.
+
+## Long-image export
+
+- Long-image output is a continuous JPEG or PNG at exactly 900px by default;
+  890px is the only compatibility width. The app never silently reduces width.
+- The default WeChat preset prefers 6000px JPEG parts at 0.84 quality and
+  adapts no lower than 0.68 before splitting at an earlier block boundary.
+  Lossless PNG prefers 4000px parts. No part may exceed the absolute 8000px
+  safety cap.
+- WeChat height/byte/quality values are conservative empirical compatibility
+  targets, not official upload limits. The dialog must not promise guaranteed
+  acceptance or absence of platform-side recompression.
+- Every preset stops at 32 parts. Total retained encoded-image limits are
+  24 MiB for WeChat JPEG, 48 MiB for high-quality JPEG, and 64 MiB for
+  lossless PNG. The desktop save boundary separately accepts at most 64 MiB of
+  raw image bytes in its single rollback-safe IPC batch.
+- Long documents remain one image by default. Automatic splitting requires the
+  user to check **Automatic splitting**; it preserves atomic blocks, uses
+  image-group row boundaries only for oversized groups, and emits contiguous
+  multipart files with project-safe zero-padded names.
+- Project-title output bases normalize to Unicode NFC and are capped at 120
+  code points and 120 UTF-16 units. Final generated or dialog-selected
+  filename components are capped at 128 UTF-16 units. Valid dialog renames are
+  authoritative; invalid reserved, trailing, traversal, or over-limit names
+  fail before native invocation.
+- If automatic splitting is disabled and safety or encoded-size limits require
+  more than one image, export fails with an actionable error instead of
+  reducing dimensions or silently degrading output.
+- The top-right export menu remains ordered PDF, DOCX, long image. Choosing
+  long image opens a modal settings dialog for preset, JPEG/PNG, 900/890px,
+  and automatic splitting; it does not start work until **Start export**.
+- Automatic splitting starts unchecked on every new dialog. Preset, format,
+  and width changes never enable it, and its prior value is not retained after
+  the dialog closes.
+- The dialog is labelled/described, traps focus, starts on the first preset,
+  closes on Escape or backdrop/cancel, and restores focus to the export trigger.
+  If the shared export lock is busy, it remains open instead of pretending the
+  export started.
+- During generation the export trigger shows long-image-specific disabled
+  progress, the live region reports phase and N/M part progress, and
+  cancellation is available until save begins. Errors remain visible and do
+  not produce success-shaped files.
+- Desktop save cancellation and any generation/write failure do not reveal
+  Explorer. A successful native batch reveals the project directory; a reveal
+  failure is a separate non-fatal notice. One-part browser output downloads
+  directly, while browser/Midscene multipart uses the documented typed no-op
+  test adapter and never claims to create a ZIP.
+- Long-image export is an additional output path only. PDF and DOCX menu
+  behavior, mappings, pagination, filenames, and save/reveal semantics remain
+  unchanged.
 
 ## Feedback and accessibility
 

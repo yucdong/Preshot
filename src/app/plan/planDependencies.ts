@@ -18,6 +18,9 @@ import { createBlockNoteDocxExporter } from "../../infrastructure/docx/blockNote
 import { composePreshotDocxImageGroupInBrowser } from "../../infrastructure/docx/browserDocxImageGroupCompositor";
 import { tauriDocxSaveTarget } from "../../infrastructure/docx/tauriDocxSave";
 import { browserDocxSaveTarget } from "../../infrastructure/docx/browserDocxSave";
+import { blockNoteLongImageExporter } from "../../infrastructure/longImage/BlockNoteLongImageExporter";
+import { browserLongImageSaveTarget } from "../../infrastructure/longImage/browserLongImageSave";
+import { tauriLongImageSaveTarget } from "../../infrastructure/longImage/tauriLongImageSave";
 
 const blockNotePdfExporter = createReactPdfBlockNoteExporter();
 const blockNoteDocxExporter = createBlockNoteDocxExporter({
@@ -39,11 +42,13 @@ function createProductionPlanDependencies(): PlanDependencies {
     }),
     exporter: blockNotePdfExporter,
     docxExporter: blockNoteDocxExporter,
+    longImageExporter: blockNoteLongImageExporter,
     picker: planImagePicker,
     screenCapture: tauriScreenCapture,
     logger: planLogger,
     saver: tauriPdfSaveTarget,
     docxSaver: tauriDocxSaveTarget,
+    longImageSaver: tauriLongImageSaveTarget,
   };
 }
 
@@ -65,11 +70,13 @@ export function createPlanDependencies(): PlanDependencies {
       }),
       exporter: blockNotePdfExporter,
       docxExporter: blockNoteDocxExporter,
+      longImageExporter: blockNoteLongImageExporter,
       picker: browserBlockNoteImagePicker,
       logger: planLogger,
       screenCapture: createBrowserScreenCapture(),
       saver: browserPdfSaveTarget,
       docxSaver: browserDocxSaveTarget,
+      longImageSaver: browserLongImageSaveTarget,
     };
   }
   if (import.meta.env.VITE_WORKSPACE_ADAPTER === "memory") {
@@ -89,11 +96,13 @@ export function createPlanDependencies(): PlanDependencies {
       }),
       exporter: blockNotePdfExporter,
       docxExporter: blockNoteDocxExporter,
+      longImageExporter: blockNoteLongImageExporter,
       picker: browserBlockNoteImagePicker,
       logger: planLogger,
       screenCapture: createBrowserScreenCapture(),
       saver: browserPdfSaveTarget,
       docxSaver: browserDocxSaveTarget,
+      longImageSaver: browserLongImageSaveTarget,
     };
   }
   return createProductionPlanDependencies();

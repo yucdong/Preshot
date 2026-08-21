@@ -47,6 +47,20 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
 - Every image-group ID must appear exactly once in the BlockNote document and exactly once in `plan.imageGroups`.
 - Native BlockNote media persists as relative `media/<file>` paths; runtime data URLs must not be written back to the manifest.
 - Reference image imports copy project-local JPG/PNG files into `references/####.<ext>` and leave the original user-selected files untouched.
+- Live image drag is an immutable dnd-kit preview transaction. Never write
+  preview order into `plan.imageGroups`, autosave, undo history, PDF, DOCX, or
+  long-image input; only one validated drop may call the provider move command.
+- Preserve same-/cross-/empty-group row-major projection, source/target
+  placeholders, wrap-before-overflow and no-shrink geometry, decoded-asset and
+  stale-revision cancellation, the 48px zoom-safe scroller edge, reduced-motion
+  behavior, visible recursive document order, stable keyboard focus, and
+  Simplified-Chinese announcements. Pointer release must synchronously resolve
+  the latest physical target: a same-frame valid target commits once and a
+  same-frame outside target cancels instead of reusing the last preview.
+- Do not restore the removed component-local `startImageDrag` Pointer Events
+  implementation or its `data-image-drop-target` marker. Image-tile dragging
+  belongs in `ImageDragPreviewContext`; block dragging and resize gestures keep
+  their separate Pointer Events paths.
 - PDF export paginates during export through the official
   `@blocknote/xl-pdf-exporter@0.53.0` and `@react-pdf/renderer@4.3.0`
   production path; the editor itself is a continuous document, not an A4 page
@@ -58,6 +72,30 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   shared BlockNote schema, offline project assets, and the composited
   `imageGroup` mapping. Desktop saves default to `output.docx`; browser and
   Midscene modes download the same name.
+- Long-image export has no BlockNote image exporter. It renders the shared
+  schema on an export-only DOM surface at exactly 900px by default (890px
+  compatibility only) and captures it with the pinned MIT-licensed
+  `modern-screenshot@4.7.0` same-origin worker.
+- The default WeChat/JPEG targets (6000px, 1 MiB, quality 0.84 down to 0.68)
+  are conservative empirical compatibility values, not official platform
+  limits. PNG is lossless and targets 4000px / 8 MiB.
+- All long-image presets stop at 32 parts. Cumulative retained-byte limits are
+  24 MiB for WeChat JPEG, 48 MiB for high-quality JPEG, and 64 MiB for PNG;
+  the desktop/native IPC boundary independently caps the raw image batch at
+  64 MiB before base64 allocation and native decode.
+- Generated long-image bases normalize project titles to NFC and allow at most
+  120 Unicode code points and 120 UTF-16 units. Every final filename component,
+  including numbering and extension, is capped at 128 UTF-16 units; dialog
+  renames remain authoritative only when they pass the same Windows-safe caps.
+- Long-image splitting must remain block-aware and image-group-row-aware,
+  adaptive to encoded bytes, bounded by canvas/decoded-memory limits, offline,
+  and cleanup-safe. Desktop multipart saves are rollback-safe native batches;
+  browser multipart remains an explicit typed no-op test adapter.
+- Automatic long-image splitting is explicit opt-in. Every new dialog starts
+  unchecked, preset/format/width changes do not enable it, and omitted exporter
+  options must preserve one-image behavior or fail actionably at safety limits.
+- Long-image changes must not replace or alter the independent PDF and DOCX
+  production pipelines.
 - New editor work should go through the BlockNote v14 path unless the task explicitly targets compatibility code.
 - The MSI owns only application files, shortcuts, and HKCU registration under
   `%LOCALAPPDATA%\Programs\Preshot`; application startup exclusively owns
@@ -97,6 +135,7 @@ pnpm test:init
 pnpm test:production-scripts
 pnpm test:e2e
 pnpm test:e2e:blocknote
+pnpm test:e2e:capture
 cargo test --manifest-path src-tauri\Cargo.toml
 ```
 
@@ -147,6 +186,12 @@ pnpm migrate:project
 - React-PDF requires the least-privilege Tauri CSP to keep
   `script-src 'self' 'wasm-unsafe-eval'`; bundled PDF fonts are covered by
   `default-src 'self'`, and no broad network origin is allowed.
+- The same CSP must keep the bundled long-image worker same-origin without
+  adding `worker-src`, hosted capture proxies, or broad HTTP(S) origins.
+- The export menu order is PDF, DOCX, then long image. Long-image settings use
+  a modal focus trap with Escape/backdrop cancellation and focus restoration;
+  desktop success reveals the project directory, while cancellation, failure,
+  and browser/Midscene output do not.
 - The app shell supports focus mode, persisted theme choice, and persisted project/assistant panel widths.
 - The assistant panel is currently a preview surface; do not document it as a working chat backend.
 - Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v14.
@@ -155,6 +200,9 @@ pnpm migrate:project
 
 - Domain tests cover pure behavior without browser or native mocks.
 - Component tests assert accessible, user-visible behavior.
+- Image-drag changes must retain pure projection coverage, dnd-kit
+  pointer/keyboard composition, preview non-persistence, single commit plus
+  undo/save boundaries, and committed PDF/DOCX/long-image ordering.
 - Mock only platform boundaries such as Tauri `invoke`, file pickers, or browser storage.
 - Playwright stays a smoke/integration layer and should not duplicate unit coverage.
 - Avoid snapshots for dynamic editor, image-layout, or PDF output.

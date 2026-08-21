@@ -62,6 +62,15 @@ describe("workspaceLogger", () => {
   );
 
   it("redacts sensitive fields and error stacks recursively", () => {
+    const contextualError = Object.assign(new Error("cannot split block"), {
+      code: "NO_EARLIER_BOUNDARY",
+      context: {
+        partIndex: 2,
+        blockId: "block-7",
+        blockType: "table",
+        rollbackToken: "context-secret-token",
+      },
+    });
     workspaceLogger.error("Workspace failure", {
       rollbackToken: "secret-token",
       coverDataUrl: "data:image/png;base64,secret",
@@ -77,6 +86,7 @@ describe("workspaceLogger", () => {
           failure: new Error("array-boom"),
         },
       ],
+      contextualError,
     });
 
     const entry = parseLoggedEntry(console.error as ReturnType<typeof vi.spyOn>);
@@ -98,6 +108,16 @@ describe("workspaceLogger", () => {
           },
         },
       ],
+      contextualError: {
+        name: "Error",
+        message: "cannot split block",
+        code: "NO_EARLIER_BOUNDARY",
+        context: {
+          partIndex: 2,
+          blockId: "block-7",
+          blockType: "table",
+        },
+      },
     });
     expect(
       JSON.stringify(entry),

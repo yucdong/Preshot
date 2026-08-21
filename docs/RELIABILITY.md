@@ -27,8 +27,44 @@ The main exceptions are intentional and narrow:
 - A 5-second auto-save timer persists only when the serialized JSON changed.
 - Ctrl/Cmd+S triggers an immediate save.
 - No-op saves are skipped by comparing the current serialized plan with the last persisted snapshot.
+- Manual saves, autosaves, and project-retirement flushes wait for the active
+  image-mutation tail before they snapshot the plan. A save requested while an
+  import, capture, crop, removal, or committed reorder is pending therefore
+  persists the completed mutation rather than an older in-memory snapshot.
 
 This means save status stays honest: the UI can show unsaved or saving state without pretending data is already durable.
+
+### Live image-drag transaction boundary
+
+Image-tile dragging snapshots the current plan revision, ordered groups, and
+decoded active image into immutable domain data. Same-group, cross-group, and
+empty-group reflow is derived only for rendering; preview order and temporary
+group height never enter `planRef`, `savedRef`, the five-second autosave timer,
+or PDF/DOCX/long-image export. The source placeholder and body overlay are
+presentation state, not persisted schema fields.
+
+Release first revalidates the snapshot revision and target. A valid drop calls
+the provider move operation once, marks the plan unsaved, and records one
+undo boundary; Ctrl/Cmd+Z restores the exact pre-move plan while that move is
+still the latest plan mutation. Manual save, autosave, project retirement, and
+all exporters therefore see either the fully committed order or the fully
+restored order, never a projected intermediate state.
+
+Release uses the latest synchronous pointer collision rather than waiting for
+a scheduled preview frame. A same-frame valid release commits its stable
+hysteresis target once; a same-frame outside release cancels and never falls
+back to the preceding valid preview. Queued import, crop, removal, and capture
+results merge into the latest plan revision so older completions cannot erase a
+newer reorder, while retirement waits for all queued mutations and the reorder.
+
+Escape, outside or invalid release, pointer cancellation, window blur,
+document hiding, project replacement, plan revision change, group/image
+deletion, decoded-source or frame change, and unmount all cancel without a
+write. Drag start is rejected until the project-local image has decoded.
+Scheduled projection frames, landing timers, and auto-scroll animation frames
+are cancelled during teardown so stale work cannot commit later. Auto-scroll
+tracks the latest physical pointer only, stops in the viewport center, and is
+disabled for keyboard drags and after unmount.
 
 The compatibility pass is idempotent. A changed loaded plan is compared with
 the persisted snapshot, marked unsaved, shown with a one-time non-blocking
@@ -114,7 +150,22 @@ a disposable user profile, never a developer workstation. See
 
 ## Serialized plan mutations
 
-`BlockNotePlanService` serializes mutating image/media work through an internal promise queue.
+`BlockNoteProjectCanvasProvider` is the authoritative image-group mutation
+coordinator. Each import, screen-capture import, crop, removal, and committed
+reorder records the plan revision at intent creation and enters one promise
+tail. When its turn starts, it resolves the current plan instead of retaining
+the plan object that existed when a picker, native capture, crop transaction,
+or confirmation began.
+
+`BlockNotePlanService` independently serializes filesystem and manifest work.
+Its image APIs accept operation intent plus a latest-plan provider. The service
+calls that provider inside its queue immediately before deriving the manifest
+mutation, so a delayed file copy or crop overwrite is applied to the current
+group order. Crop reads the latest plan again after the transactional image
+overwrite and rejects with rollback if the target identity or file changed.
+Batch import removes every newly copied, still-unreferenced file if a later
+copy or manifest write fails; rollback failures are included in the surfaced
+error rather than hidden.
 
 That queue protects operations such as:
 
@@ -126,6 +177,21 @@ That queue protects operations such as:
 - purging detached media files.
 
 Mutations are therefore applied in-order instead of racing each other across the same project manifest and file tree.
+
+Late provider results are revision-checked before application. If unrelated
+synchronous editing advanced the revision during service persistence or image
+measurement, imports are merged by their new image IDs, crop metadata is
+merged by stable image identity and file, and removals are re-applied by
+identity. Existing image order is retained. Reorder intent itself executes
+against the latest plan in the same tail, so an older import, capture, crop, or
+removal result cannot restore its pre-drag ordering.
+
+Image-drag projection remains outside this queue because it is presentation
+state only. A committed async mutation increments the plan revision and
+cancels any preview created from the previous revision before that preview can
+commit. On unmount or project replacement, retirement waits for capture
+cleanup and the complete image-mutation tail, then reads `planRef` and
+tombstones at that time for its final save and purge pass.
 
 ## Manifest, settings, and PDF write safety
 
@@ -168,6 +234,116 @@ notification instead of retrying or reclassifying the write.
 
 Browser-memory and Midscene export targets keep the `output.pdf` download
 filename and do not request a native directory reveal.
+
+### Long-image save batches
+
+`BlockNoteLongImageExporter` validates and snapshots the schema-14 plan and
+resolved local asset map before mounting a control-free offscreen surface. It
+waits for fonts, images, and two stable layout frames, then measures top-level,
+atomic, column, and image-row boundaries. Parts are captured sequentially from
+one reusable `modern-screenshot` context at exactly 890px or 900px wide.
+Canvas and decoded-memory limits are checked before each allocation; every
+canvas, worker, offscreen root, and capture context is released after success,
+failure, or cancellation. JPEG quality search and JPEG/PNG byte-driven
+re-splitting remain bounded and preserve contiguous integer pixel ranges.
+External capture resources are rejected, and the exporter returns bytes and a
+manifest without opening dialogs or writing files.
+
+The WeChat-compatible 6000px / 1 MiB JPEG target and its 0.84-to-0.68 quality
+window are conservative empirical defaults, not an official WeChat upload
+specification. Platform clients may recompress or change acceptance behavior,
+so the contract guarantees Preshot's deterministic target and fallback
+behavior rather than acceptance by every current or future WeChat client.
+
+Every preset also has a cumulative retention budget and a 32-part ceiling.
+WeChat JPEG retains at most 24 MiB, high-quality JPEG 48 MiB, and lossless PNG
+64 MiB to account for its larger parts. Before converting and retaining the
+next Blob, the exporter checks its projected total. JPEG quality search keeps
+only the best accepted trial Blob, and the provider passes the ordered final
+`Uint8Array` references to persistence without copying them. Limit failures
+tell the user to shorten the plan, export sections separately, choose a smaller
+JPEG preset, or use PDF/DOCX.
+
+Automatic splitting requires explicit consent. The checkbox starts unchecked
+for every dialog instance, and changing preset, format, or width does not
+enable it. Exporter calls that omit `allowSplit` also default to one-image
+output. If height, decoded-memory, canvas, or encoded-byte safety requires more
+than one image, the operation fails and tells the user to enable automatic
+splitting, shorten the plan, or use PDF/DOCX.
+
+When explicit automatic splitting reaches one complete block or image-group
+row that still exceeds a height or encoded-size limit, it does not claim that
+another automatic split can solve the indivisible content. The runtime instead
+tells the user to shorten or divide that block or image group, export smaller
+sections separately, use the smaller WeChat JPEG preset or reduce image detail
+when applicable, or switch to PDF/DOCX. Typed boundary and part context remains
+available for diagnostics without becoming the user-facing explanation.
+
+Long-image encoding and rendering are separate from persistence. The domain
+save port accepts an explicit JPEG/PNG format, safe base name, default
+directory, and ordered byte parts with deterministic expected filenames. One
+part uses `<base>.<ext>`; multiple parts use `<base>-01.<ext>`,
+`<base>-02.<ext>`, and so on. JPG and JPEG are treated as the same image
+format, while every part in one batch must use one consistent extension.
+Project-title base names are normalized to Unicode NFC, sanitized for Windows,
+and truncated to 120 Unicode code points with `Array.from`, never by UTF-8
+bytes or UTF-16 code units. Rust validates selected output bases with
+`chars().count()` against the same 120-code-point limit. Combining marks remain
+valid (and project-title input is NFC-composed where possible), while reserved
+device names, control/path characters, traversal names, and trailing dots or
+spaces remain invalid. The 120-code-point limit leaves room for numbering and
+the extension. Generated and dialog-selected bases also use a 120 UTF-16-unit
+cap, and every final component uses a 128-unit cap. This conservative budget
+keeps both the destination and the atomic writer's UUID-suffixed temporary
+sibling below Windows' 255-unit component limit.
+
+The desktop adapter normalizes ordinary, verbatim drive, and verbatim UNC
+paths before opening the existing save dialog. Cancelling returns `null` and
+does not invoke Rust. A one-part dialog selects the exact destination; a
+multi-part dialog selects a base or first destination and derives the complete
+numbered sibling set. Selecting an unrelated extension is rejected rather
+than rewritten, so a JPEG save never replaces a similarly named PNG (or vice
+versa).
+
+Before opening that dialog or allocating any base64 string, the adapter
+preflights the same 32-part limit and a 64 MiB total encoded-byte ceiling. The
+desktop bridge intentionally keeps one bounded JSON IPC request so the native
+batch can preserve all-or-rollback behavior without a crash-sensitive stateful
+transaction. Rust checks the estimated decoded total before allocating part
+buffers and checks the exact total again after each decode. Browser download
+object URLs are revoked in a `finally` path.
+
+The save-dialog destination is authoritative. For a multi-part save, the
+desktop adapter derives numbered siblings from that selected base and sends
+only those actual paths and bytes to Rust; the original project-derived base
+name is not revalidated natively because it cannot affect the destination.
+The narrow `save_long_images` command preflights the complete batch before
+writing: format, count, selected base safety, numbered output names, unique
+sibling destinations, existing parent directories, regular-file targets, and
+all base64 payloads. It serializes long-image batches within the process, then
+writes each part through the shared UUID-scoped sibling temporary writer. If
+any sequential commit fails, already replaced files are atomically restored
+from their exact original bytes and only outputs created by that attempt are
+removed. A newly created path is removed only when its current bytes still
+match that attempt, and each atomic writer removes its own temporary file on
+write, flush, sync, or finalize failure.
+
+Rust returns the actual committed paths. The adapter marks desktop saves for
+the existing higher-layer project-directory reveal; cancellation and write
+failure remain no-reveal outcomes. Browser saves directly download one
+unchanged byte part. Because the repository has no general ZIP utility,
+multi-part browser/Midscene behavior is exposed only through an explicitly
+typed no-op test adapter rather than adding a capture or archive dependency or
+pretending that a ZIP was produced.
+
+The worker is emitted as a same-origin build asset. No hosted capture service
+or proxy is used: resolved document assets are local, the capture fetch hook
+rejects external HTTP(S) origins, and the existing self-only CSP fallback
+covers the worker without adding a broad `worker-src`.
+
+Long-image generation and `save_long_images` are separate from the PDF and
+DOCX exporters and their native save commands. A long-image failure cannot
+trigger either page-oriented exporter as a fallback or alter their outputs.
 
 Preflight and rendering are offline and deterministic: the shared schema,
 bundled Noto Sans SC fonts, normalized crop/cache keys, and local optimized

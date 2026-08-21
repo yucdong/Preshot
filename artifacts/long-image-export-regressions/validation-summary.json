@@ -1,0 +1,128 @@
+{
+  "generatedAt": "2026-08-20T19:07:00+08:00",
+  "status": "passed",
+  "prerequisites": {
+    "long-image-memory-budget-fix": "done",
+    "long-image-unicode-name-fix": "done",
+    "documentationChecks": "passed",
+    "reviewBlockers": []
+  },
+  "matrix": {
+    "focusedExportSaveUiPdfDocx": {
+      "status": "passed",
+      "testFiles": 12,
+      "tests": 143
+    },
+    "docsCheck": "passed",
+    "lint": "passed",
+    "typecheck": "passed",
+    "vitestFull": {
+      "status": "passed",
+      "testFiles": 127,
+      "tests": 842
+    },
+    "rustLockedAllFeaturesAllTargets": {
+      "status": "passed",
+      "tests": 96
+    },
+    "initializerPowerShell": {
+      "status": "passed",
+      "tests": 4
+    },
+    "productionToolsPowerShell": "passed",
+    "playwrightMain": {
+      "status": "passed",
+      "tests": 22
+    },
+    "playwrightBlockNote": {
+      "status": "passed",
+      "tests": 12
+    },
+    "playwrightCapture": {
+      "status": "passed",
+      "tests": 3
+    },
+    "webBuild": "passed",
+    "tauriBuild": {
+      "status": "passed",
+      "executable": {
+        "path": "src-tauri\\target\\release\\preshot.exe",
+        "bytes": 23919104
+      },
+      "msi": {
+        "path": "src-tauri\\target\\release\\bundle\\msi\\Preshot_0.0.1_x64_en-US.msi",
+        "bytes": 16629760
+      }
+    }
+  },
+  "acceptanceCases": {
+    "short900Jpeg": {
+      "status": "passed",
+      "bytes": 2617,
+      "dimensions": {
+        "width": 900,
+        "height": 85
+      },
+      "signature": [
+        255,
+        216
+      ],
+      "targetBytes": 1048576,
+      "targetHeight": 6000,
+      "externalRequests": []
+    },
+    "photographyAdaptiveJpegAndByteResplit": "passed",
+    "multipart6000BoundaryContinuity": "passed",
+    "pngModeAndLimits": "passed",
+    "oversizedImageGroupRowBoundary": "passed",
+    "width890": "passed",
+    "chineseTextTableTwoAndThreeColumnsNativeMediaImageGroupNoChrome": "passed",
+    "offlineNoProxyCancellationFailureCleanup": "passed",
+    "cumulativeMemoryAndIpcBudgets": "passed",
+    "unicodeFilenameConsistency": "passed",
+    "nativeBatchRollbackPreexistingPreservationConcurrencyDefaultPathReveal": "passed",
+    "uiDialogMenuFocusConcurrencyProgress": "passed",
+    "pdfUnchanged": "passed",
+    "docxUnchanged": "passed"
+  },
+  "artifacts": [
+    {
+      "path": "browser-production-900.jpg",
+      "bytes": 2617,
+      "sha256": "0db00ea9fe006c8af69171b25a71b43025044ac6ea3b83e9776b48aac2eead16"
+    },
+    {
+      "path": "browser-production-summary.json",
+      "bytes": 232,
+      "sha256": "45b65313f3c77b6fa53ebac124fe277071436f6f45974f0da3c29a22e53ea45b"
+    },
+    {
+      "path": "capture-6000.png",
+      "bytes": 142408,
+      "sha256": "431f1b869a5fd266706763a907d1e7442d89aa07d892781aab3523cb2528d389"
+    },
+    {
+      "path": "capture-6000-summary.json",
+      "bytes": 644,
+      "sha256": "a2d75431932db145c707083c9ce38bea6b4e5b944571b3b8e6d8348ffa1ff652"
+    },
+    {
+      "path": "capture-fidelity-900x1600.jpg",
+      "bytes": 112452,
+      "sha256": "f49e43ebe7da0ea10c239d58073f54c3c462d245af43d310e53b51a24c0c3399"
+    },
+    {
+      "path": "capture-fidelity-900x1600.png",
+      "bytes": 357294,
+      "sha256": "d76a4acc1c196f90d9e9665b01f4a9055ea0da11ea6c0e16817647b668f2a614"
+    },
+    {
+      "path": "capture-fidelity-summary.json",
+      "bytes": 3442,
+      "sha256": "5b5b0d2d5507ea87800045c6263ca83a4ea6f0b224bbc562773acce8025235e4"
+    }
+  ],
+  "advisories": [
+    "Vite reports its existing large-chunk warning; the production and Tauri builds complete successfully."
+  ]
+}

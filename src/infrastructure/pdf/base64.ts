@@ -1,4 +1,4 @@
-export function bytesToBase64(bytes: Uint8Array): string {
+export function bytesToBase64(bytes: Readonly<Uint8Array>): string {
   let binary = "";
   const chunk = 0x8000;
 

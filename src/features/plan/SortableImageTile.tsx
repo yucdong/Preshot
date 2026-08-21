@@ -185,7 +185,11 @@ export function SortableImageTile({
         : CSS.Transform.toString(transform),
     transition: placeholderVisible
       ? undefined
-      : createMotionStyleTransition(prefersReducedMotion, draggable ? transition : undefined),
+      : createMotionStyleTransition(
+          prefersReducedMotion,
+          draggable ? transition : undefined,
+          isDragging,
+        ),
   };
 
   const nextFrameForPointer = (

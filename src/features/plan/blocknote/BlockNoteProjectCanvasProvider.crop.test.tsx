@@ -149,6 +149,8 @@ function renderProvider(service: BlockNotePlanService) {
           warn: vi.fn(),
           error: vi.fn(),
         }}
+        longImageExporter={{ export: vi.fn() }}
+        longImageSaver={{ save: vi.fn() }}
         projectDirectoryRevealer={{
           revealProjectDirectory: vi.fn().mockResolvedValue(undefined),
         }}
@@ -191,7 +193,7 @@ describe("BlockNoteProjectCanvasProvider crop wiring", () => {
       await waitFor(() => {
         expect(commitImageCrop).toHaveBeenCalledWith(
           "C:\\Editorial",
-          plan,
+          expect.any(Function),
           "group-1",
           "image-1",
           { x: 0.166667, y: 0, width: 0.666667, height: 1 },

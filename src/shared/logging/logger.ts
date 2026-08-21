@@ -51,6 +51,13 @@ function sanitizeError(error: Error, depth: number): JsonObject {
     }
   }
 
+  if (isObjectRecord(error) && hasOwn(error, "context")) {
+    const context = sanitizeValue(Reflect.get(error, "context"), depth + 1);
+    if (context !== undefined) {
+      sanitized.context = context;
+    }
+  }
+
   if ("cause" in error) {
     const cause = sanitizeValue(error.cause, depth + 1);
     if (cause !== undefined) {

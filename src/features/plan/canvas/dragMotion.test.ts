@@ -13,4 +13,16 @@ describe("dragMotion", () => {
     expect(createMotionStyleTransition(false)).toContain("200ms ease-out");
     expect(createMotionStyleTransition(true)).toBeUndefined();
   });
+
+  it("uses transform and opacity only while the tile is actively dragging", () => {
+    const transition = createMotionStyleTransition(
+      false,
+      "transform 200ms ease",
+      true,
+    );
+    expect(transition).toBe(
+      "transform 200ms ease-out, opacity 200ms ease-out",
+    );
+    expect(transition).not.toMatch(/\b(?:left|top|width|height)\b/);
+  });
 });

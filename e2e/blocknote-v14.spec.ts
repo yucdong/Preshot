@@ -56,6 +56,40 @@ function pngDimensions(bytes: Uint8Array): {
   };
 }
 
+function jpegDimensions(bytes: Uint8Array): {
+  width: number;
+  height: number;
+} {
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    throw new Error("Expected a JPEG SOI signature");
+  }
+  let offset = 2;
+  while (offset + 8 < bytes.length) {
+    if (bytes[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+    const marker = bytes[offset + 1]!;
+    offset += 2;
+    if (marker === 0xd8 || marker === 0xd9) continue;
+    const length = (bytes[offset]! << 8) | bytes[offset + 1]!;
+    if (length < 2 || offset + length > bytes.length) {
+      throw new Error("Invalid JPEG segment length");
+    }
+    if (
+      marker >= 0xc0 &&
+      marker <= 0xc3
+    ) {
+      return {
+        height: (bytes[offset + 3]! << 8) | bytes[offset + 4]!,
+        width: (bytes[offset + 5]! << 8) | bytes[offset + 6]!,
+      };
+    }
+    offset += length;
+  }
+  throw new Error("JPEG dimensions were not found");
+}
+
 async function openExportMenu(page: Page, format: "PDF" | "DOCX") {
   const trigger = page.getByRole("button", { name: "导出", exact: true });
   await trigger.click();
@@ -94,6 +128,7 @@ test("operates the production export menu by mouse and keyboard", async ({
   await expect(menu.getByRole("menuitem").allTextContents()).resolves.toEqual([
     "导出 PDF",
     "导出 DOCX",
+    "导出长图",
   ]);
   const menuBox = await menu.boundingBox();
   if (!menuBox) throw new Error("Expected export menu geometry");
@@ -117,11 +152,12 @@ test("operates the production export menu by mouse and keyboard", async ({
   await page.keyboard.press("ArrowDown");
   const pdfOption = page.getByRole("menuitem", { name: "导出 PDF" });
   const docxOption = page.getByRole("menuitem", { name: "导出 DOCX" });
+  const longImageOption = page.getByRole("menuitem", { name: "导出长图" });
   await expect(pdfOption).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await expect(docxOption).toBeFocused();
   await page.keyboard.press("ArrowDown");
-  await expect(pdfOption).toBeFocused();
+  await expect(longImageOption).toBeFocused();
   await page.keyboard.press("ArrowUp");
   await expect(docxOption).toBeFocused();
   await page.keyboard.press("Escape");
@@ -129,12 +165,131 @@ test("operates the production export menu by mouse and keyboard", async ({
   await expect(trigger).toBeFocused();
 
   await page.keyboard.press("ArrowUp");
-  await expect(docxOption).toBeFocused();
+  await expect(longImageOption).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(menu).toHaveCount(0);
   await expect(trigger).not.toBeFocused();
   expect(await page.evaluate(() => document.activeElement === document.body))
     .toBe(false);
+});
+
+test("opts into splitting and downloads one offline 900px JPEG long image", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  const editor = page.locator(".bn-editor");
+  await editor.click();
+  await page.keyboard.type("长图浏览器导出验收");
+
+  const externalRequests: string[] = [];
+  const appOrigin = new URL(page.url()).origin;
+  let exporting = false;
+  page.on("request", (request) => {
+    if (!exporting) return;
+    const url = request.url();
+    if (/^https?:\/\//i.test(url) && new URL(url).origin !== appOrigin) {
+      externalRequests.push(url);
+    }
+  });
+
+  const trigger = page.getByRole("button", { name: "导出", exact: true });
+  await trigger.click();
+  await page.getByRole("menuitem", { name: "导出长图" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "导出长图" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("radio", { name: "微信兼容" })).toBeFocused();
+  await expect(dialog.getByRole("radio", { name: "微信兼容" })).toBeChecked();
+  await expect(dialog.getByLabel("图片格式")).toHaveValue("jpeg");
+  await expect(dialog.getByRole("radio", { name: "900 px" })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "自动分图" }))
+    .not.toBeChecked();
+  await expect(dialog.getByText(
+    "默认将整个文档导出为一张长图；勾选“自动分图”后，才会按完整区块边界导出多张连续图片。",
+  )).toBeVisible();
+  await dialog.getByText("无损 PNG", { exact: true }).click();
+  await expect(dialog.getByRole("checkbox", { name: "自动分图" }))
+    .not.toBeChecked();
+  await expect(dialog.getByLabel("JPEG 体积目标")).toBeDisabled();
+  await dialog.getByLabel("图片格式").selectOption("jpeg");
+  await expect(dialog.getByRole("checkbox", { name: "自动分图" }))
+    .not.toBeChecked();
+  await dialog.getByText("890 px", { exact: true }).click();
+  await expect(dialog.getByRole("checkbox", { name: "自动分图" }))
+    .not.toBeChecked();
+  await dialog.getByText("900 px", { exact: true }).click();
+  await dialog.getByRole("checkbox", { name: "自动分图" }).check();
+  await expect(dialog.getByRole("checkbox", { name: "自动分图" }))
+    .toBeChecked();
+
+  await trigger.evaluate((button) => {
+    const target = window as typeof window & {
+      __PRESHOT_LONG_IMAGE_PROGRESS_SEEN__?: boolean;
+    };
+    target.__PRESHOT_LONG_IMAGE_PROGRESS_SEEN__ = false;
+    const observer = new MutationObserver(() => {
+      if (
+        button.textContent?.includes("正在导出长图…") &&
+        button.getAttribute("aria-disabled") === "true"
+      ) {
+        target.__PRESHOT_LONG_IMAGE_PROGRESS_SEEN__ = true;
+        observer.disconnect();
+      }
+    });
+    observer.observe(button, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+  });
+  const downloadPromise = page.waitForEvent("download");
+  exporting = true;
+  await dialog.getByRole("button", { name: "开始导出" }).click();
+  await expect(dialog).toHaveCount(0);
+  const download = await downloadPromise;
+  const imagePath = testInfo.outputPath("production-long-image.jpg");
+  await download.saveAs(imagePath);
+  await expect(trigger).toHaveAccessibleName("导出", { timeout: 30_000 });
+  expect(await page.evaluate(() =>
+    (window as typeof window & {
+      __PRESHOT_LONG_IMAGE_PROGRESS_SEEN__?: boolean;
+    }).__PRESHOT_LONG_IMAGE_PROGRESS_SEEN__
+  )).toBe(true);
+  exporting = false;
+
+  const bytes = new Uint8Array(await readFile(imagePath));
+  expect([...bytes.slice(0, 2)]).toEqual([0xff, 0xd8]);
+  const dimensions = jpegDimensions(bytes);
+  expect(dimensions.width).toBe(900);
+  expect(dimensions.height).toBeGreaterThan(0);
+  expect(dimensions.height).toBeLessThanOrEqual(6_000);
+  expect(bytes.length).toBeLessThanOrEqual(1_048_576);
+  expect(download.suggestedFilename()).toMatch(/\.jpg$/);
+  expect(externalRequests).toEqual([]);
+  await testInfo.attach("production long image", {
+    path: imagePath,
+    contentType: "image/jpeg",
+  });
+
+  const reviewArtifactDirectory =
+    process.env.PRESHOT_LONG_IMAGE_REVIEW_ARTIFACTS;
+  if (reviewArtifactDirectory) {
+    const directory = resolve(reviewArtifactDirectory);
+    await mkdir(directory, { recursive: true });
+    await writeFile(resolve(directory, "browser-production-900.jpg"), bytes);
+    await writeFile(
+      resolve(directory, "browser-production-summary.json"),
+      JSON.stringify({
+        bytes: bytes.length,
+        dimensions,
+        externalRequests,
+        filename: download.suggestedFilename(),
+        signature: [...bytes.slice(0, 2)],
+        targetBytes: 1_048_576,
+        targetHeight: 6_000,
+      }, null, 2),
+    );
+  }
 });
 
 test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page }) => {
@@ -324,20 +479,61 @@ test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page
 
   const sourceIds = await group.locator("[data-image-id]").evaluateAll((frames) =>
     frames.map((frame) => (frame as HTMLElement).dataset.imageId ?? ""));
+  const sourceGroupId = await group.getAttribute("data-image-group-id");
   const firstBox = await group.locator(`[data-image-id="${sourceIds[0]}"]`).boundingBox();
   const secondBox = await group.locator(`[data-image-id="${sourceIds[1]}"]`).boundingBox();
-  if (!firstBox || !secondBox) throw new Error("Expected BlockNote image drag geometry");
+  if (!firstBox || !secondBox || !sourceGroupId) {
+    throw new Error("Expected BlockNote image drag geometry");
+  }
   await page.mouse.move(firstBox.x + firstBox.width / 2, firstBox.y + firstBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(secondBox.x + secondBox.width - 3, secondBox.y + secondBox.height / 2, {
     steps: 8,
   });
   await expect(page.getByRole("dialog", { name: "参考图" })).toHaveCount(0);
+  await expect(page.locator("[data-image-drag-overlay]")).toBeVisible();
+  await expect(group.locator(
+    `[data-image-placeholder-id="${sourceIds[0]}"]`,
+  )).toHaveAttribute("data-image-drag-target-insertion", "true");
+  await expect.poll(async () =>
+    group.locator("[data-image-id]").evaluateAll((frames) =>
+      frames.map((frame) => (frame as HTMLElement).dataset.imageId ?? "")),
+  ).toEqual([sourceIds[1]]);
+  await expect.poll(async () => {
+    const box = await group.locator(
+      `[data-image-id="${sourceIds[1]}"]`,
+    ).boundingBox();
+    return box ? { x: Math.round(box.x), y: Math.round(box.y) } : null;
+  }).toEqual({ x: Math.round(firstBox.x), y: Math.round(firstBox.y) });
+  expect(await page.evaluate(({ groupId, ids }) => {
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const stored = sessionStorage.getItem(
+      `preshot.browser-blocknote-plan-v14:${encodeURIComponent(projectPath)}`,
+    );
+    const plan = stored ? JSON.parse(stored) : null;
+    return plan?.imageGroups
+      ?.find((entry: { id: string }) => entry.id === groupId)
+      ?.images.map((image: { id: string }) => image.id) ?? ids;
+  }, { groupId: sourceGroupId, ids: sourceIds })).toEqual(sourceIds);
   await page.mouse.up();
   await expect.poll(async () =>
     group.locator("[data-image-id]").evaluateAll((frames) =>
       frames.map((frame) => (frame as HTMLElement).dataset.imageId ?? "")),
   ).toEqual([sourceIds[1], sourceIds[0]]);
+  await expect(page.getByTestId("save-status")).toHaveText(
+    "已保存所有更改",
+    { timeout: 10_000 },
+  );
+  await expect.poll(() => page.evaluate((groupId) => {
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const stored = sessionStorage.getItem(
+      `preshot.browser-blocknote-plan-v14:${encodeURIComponent(projectPath)}`,
+    );
+    const plan = stored ? JSON.parse(stored) : null;
+    return plan?.imageGroups
+      ?.find((entry: { id: string }) => entry.id === groupId)
+      ?.images.map((image: { id: string }) => image.id);
+  }, sourceGroupId)).toEqual([sourceIds[1], sourceIds[0]]);
 
   await page.getByRole("button", { name: "适合宽度" }).click();
   const blockOuter = group.locator(
@@ -379,6 +575,583 @@ test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page
   const { option, trigger } = await openExportMenu(page, "PDF");
   await option.click();
   await expect(trigger).toHaveText("导出", { timeout: 10_000 });
+});
+
+test("previews and commits a cross-group image drag transaction", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const image = (id: string) => ({
+      id,
+      file: `references/${id}.png`,
+      aspectRatio: 1.5,
+      sourceWidth: 900,
+      sourceHeight: 600,
+      frameWidth: 135,
+      frameHeight: 90,
+    });
+    sessionStorage.setItem(
+      `preshot.browser-blocknote-plan-v14:${encodeURIComponent(projectPath)}`,
+      JSON.stringify({
+        schemaVersion: 14,
+        title: "Image drag transaction",
+        document: {
+          format: "preshot-blocks",
+          version: 2,
+          blocks: [
+            {
+              id: "source-block",
+              type: "imageGroup",
+              props: { groupId: "source-group" },
+              children: [],
+            },
+            {
+              id: "target-block",
+              type: "imageGroup",
+              props: { groupId: "target-group" },
+              children: [],
+            },
+          ],
+        },
+        imageGroups: [
+          {
+            id: "source-group",
+            name: "Source",
+            type: "reference",
+            x: 0,
+            width: 420,
+            height: 126,
+            description: "",
+            images: [image("source-a"), image("source-b")],
+          },
+          {
+            id: "target-group",
+            name: "Target",
+            type: "reference",
+            x: 0,
+            width: 420,
+            height: 126,
+            description: "",
+            images: [image("target-a")],
+          },
+        ],
+      }),
+    );
+  });
+  await page.goto("/");
+
+  const source = page.locator('[data-image-group-id="source-group"]');
+  const target = page.locator('[data-image-group-id="target-group"]');
+  await expect(source.locator("[data-image-id]")).toHaveCount(2);
+  await expect(target.locator("[data-image-id]")).toHaveCount(1);
+  const canvas = page.getByTestId("plan-document-canvas");
+  const originalZoom = await canvas.evaluate(
+    (element) => (element as HTMLElement).style.zoom,
+  );
+  const originalMinHeight = await canvas.evaluate(
+    (element) => (element as HTMLElement).style.minHeight,
+  );
+  await canvas.evaluate((element) => {
+    (element as HTMLElement).style.minHeight = "2400px";
+  });
+
+  const keyboardImage = source.getByRole("button", {
+    name: "选择参考图 2",
+  });
+  await keyboardImage.focus();
+  await expect(page.getByTestId("image-drag-announcement")).toContainText(
+    "已选择第 1 个图片组",
+  );
+  await page.keyboard.press("Space");
+  await expect(page.locator("[data-image-drag-overlay]")).toBeVisible();
+  await page.keyboard.press("Home");
+  await expect(source.locator(
+    '[data-image-placeholder-id="source-b"]',
+  )).toHaveAttribute("data-image-drag-target-insertion", "true");
+  await page.keyboard.press("Control+ArrowRight");
+  await expect(target.locator(
+    '[data-image-placeholder-id="source-b"]',
+  )).toHaveAttribute("data-image-drag-target-insertion", "true");
+  await page.keyboard.press("End");
+  await expect(page.getByTestId("image-drag-announcement")).toContainText(
+    "第 2 个图片组“Target”的第 2 位",
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-image-drag-overlay]")).toHaveCount(0);
+
+  for (const zoom of [0.55, 0.85, 1, 1.8]) {
+    await canvas.evaluate((element, value) => {
+      (element as HTMLElement).style.zoom = String(value);
+    }, zoom);
+    await target.evaluate((element) => {
+      element.scrollIntoView({ block: "center", inline: "center" });
+    });
+    const sourceFirstBox = await source.locator(
+      '[data-image-id="source-a"]',
+    ).boundingBox();
+    let zoomTargetBox = await target.boundingBox();
+    let zoomTargetImageBox = await target.locator(
+      '[data-image-id="target-a"]',
+    ).boundingBox();
+    const zoomScrollerBox = await page.getByTestId("canvas-scroller")
+      .boundingBox();
+    if (
+      !sourceFirstBox ||
+      !zoomTargetBox ||
+      !zoomTargetImageBox ||
+      !zoomScrollerBox
+    ) {
+      throw new Error(`Expected image drag geometry at zoom ${zoom}`);
+    }
+
+    await keyboardImage.focus();
+    await page.keyboard.press("Space");
+    await expect(page.locator("[data-image-drag-overlay]").last()).toBeVisible();
+    await page.keyboard.press("Home");
+    await expect(source.locator(
+      '[data-image-placeholder-id="source-b"]',
+    )).toHaveAttribute("data-image-drag-target-insertion", "true");
+    await page.keyboard.press("Escape");
+    await expect(page.locator("[data-image-drag-overlay]")).toHaveCount(0);
+
+    const pointerId = 800 + Math.round(zoom * 100);
+    const sourcePoint = {
+      x: sourceFirstBox.x + sourceFirstBox.width / 2,
+      y: sourceFirstBox.y + sourceFirstBox.height / 2,
+    };
+    await source.locator(
+      '[data-image-id="source-a"] [data-image-drag-activator="true"]',
+    ).dispatchEvent("pointerdown", {
+      button: 0,
+      buttons: 1,
+      clientX: sourcePoint.x,
+      clientY: sourcePoint.y,
+      isPrimary: true,
+      pointerId,
+      pointerType: "mouse",
+    });
+    await page.evaluate(({ point, id }) => {
+      document.dispatchEvent(new PointerEvent("pointermove", {
+        bubbles: true,
+        buttons: 1,
+        clientX: point.x + 8,
+        clientY: point.y,
+        isPrimary: true,
+        pointerId: id,
+        pointerType: "mouse",
+      }));
+    }, { point: sourcePoint, id: pointerId });
+    await expect(page.locator("[data-image-drag-overlay]").last()).toBeVisible();
+    if (zoom === 1) {
+      await page.evaluate(() =>
+        new Promise<void>((resolveFrames) =>
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => resolveFrames()))));
+      const scroller = page.getByTestId("canvas-scroller");
+      const initialScrollTop = await scroller.evaluate(
+        (element) => element.scrollTop,
+      );
+      await page.evaluate(({ x, y, id }) => {
+        document.dispatchEvent(new PointerEvent("pointermove", {
+          bubbles: true,
+          buttons: 1,
+          clientX: x,
+          clientY: y,
+          isPrimary: true,
+          pointerId: id,
+          pointerType: "mouse",
+        }));
+      }, {
+        x: zoomScrollerBox.x + zoomScrollerBox.width / 2,
+        y: zoomScrollerBox.y + zoomScrollerBox.height - 8,
+        id: pointerId,
+      });
+      await page.evaluate(() =>
+        new Promise<void>((resolveFrame) =>
+          requestAnimationFrame(() => resolveFrame())));
+      await page.evaluate(({ x, y, id }) => {
+        document.dispatchEvent(new PointerEvent("pointermove", {
+          bubbles: true,
+          buttons: 1,
+          clientX: x,
+          clientY: y,
+          isPrimary: true,
+          pointerId: id,
+          pointerType: "mouse",
+        }));
+      }, {
+        x: zoomScrollerBox.x + zoomScrollerBox.width / 2,
+        y: zoomScrollerBox.y + zoomScrollerBox.height - 8,
+        id: pointerId,
+      });
+      await expect.poll(() =>
+        scroller.evaluate((element) => element.scrollTop)
+      ).toBeGreaterThan(initialScrollTop);
+      const firstScrollTop = await scroller.evaluate(
+        (element) => element.scrollTop,
+      );
+      await page.evaluate(() =>
+        new Promise<void>((resolveFrames) =>
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => resolveFrames()))));
+      await expect.poll(() =>
+        scroller.evaluate((element) => element.scrollTop)
+      ).toBeGreaterThan(firstScrollTop);
+
+      await page.evaluate(({ x, y, id }) => {
+        document.dispatchEvent(new PointerEvent("pointermove", {
+          bubbles: true,
+          buttons: 1,
+          clientX: x,
+          clientY: y,
+          isPrimary: true,
+          pointerId: id,
+          pointerType: "mouse",
+        }));
+      }, {
+        x: zoomScrollerBox.x + zoomScrollerBox.width / 2,
+        y: zoomScrollerBox.y + zoomScrollerBox.height / 2,
+        id: pointerId,
+      });
+      await page.evaluate(() =>
+        new Promise<void>((resolveFrames) =>
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => resolveFrames()))));
+      const stoppedScrollTop = await scroller.evaluate(
+        (element) => element.scrollTop,
+      );
+      await page.evaluate(() =>
+        new Promise<void>((resolveFrames) =>
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => resolveFrames()))));
+      expect(await scroller.evaluate((element) => element.scrollTop)).toBe(
+        stoppedScrollTop,
+      );
+    }
+    await target.evaluate((element) => {
+      element.scrollIntoView({ block: "center", inline: "center" });
+    });
+    await page.evaluate(() =>
+      new Promise<void>((resolveFrames) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => resolveFrames()))));
+    zoomTargetBox = await target.boundingBox();
+    zoomTargetImageBox = await target.locator(
+      '[data-image-id="target-a"]',
+    ).boundingBox();
+    if (!zoomTargetBox || !zoomTargetImageBox) {
+      throw new Error(`Expected remeasured target at zoom ${zoom}`);
+    }
+    await page.evaluate(({ x, y, id }) => {
+      document.dispatchEvent(new PointerEvent("pointermove", {
+        bubbles: true,
+        buttons: 1,
+        clientX: x,
+        clientY: y,
+        isPrimary: true,
+        pointerId: id,
+        pointerType: "mouse",
+      }));
+    }, {
+      x: zoomTargetBox.x + Math.min(48, zoomTargetBox.width / 4),
+      y: zoomTargetImageBox.y + zoomTargetImageBox.height / 2,
+      id: pointerId,
+    });
+    await page.evaluate(() =>
+      new Promise<void>((resolveFrame) =>
+        requestAnimationFrame(() => resolveFrame())));
+    await page.evaluate(({ x, y, id }) => {
+      document.dispatchEvent(new PointerEvent("pointermove", {
+        bubbles: true,
+        buttons: 1,
+        clientX: x,
+        clientY: y,
+        isPrimary: true,
+        pointerId: id,
+        pointerType: "mouse",
+      }));
+    }, {
+      x: zoomTargetBox.x + Math.min(48, zoomTargetBox.width / 4),
+      y: zoomTargetImageBox.y + zoomTargetImageBox.height / 2,
+      id: pointerId,
+    });
+    await page.waitForTimeout(50);
+    await expect(target.locator(
+      '[data-image-placeholder-id="source-a"]',
+    ), `cross-group projection at zoom ${zoom}`).toHaveAttribute(
+      "data-image-drag-target-insertion",
+      "true",
+    );
+    await page.keyboard.press("Escape");
+    await page.evaluate((id) => {
+      document.dispatchEvent(new PointerEvent("pointerup", {
+        bubbles: true,
+        isPrimary: true,
+        pointerId: id,
+        pointerType: "mouse",
+      }));
+    }, pointerId);
+    await expect(page.locator("[data-image-drag-overlay]")).toHaveCount(0);
+    await expect(source.locator("[data-image-id]")).toHaveCount(2);
+    await expect(target.locator("[data-image-id]")).toHaveCount(1);
+  }
+  await canvas.evaluate((element, value) => {
+    (element as HTMLElement).style.zoom = value;
+  }, originalZoom);
+  await canvas.evaluate((element, value) => {
+    (element as HTMLElement).style.minHeight = value;
+  }, originalMinHeight);
+
+  const sourceBoxBefore = await source.boundingBox();
+  const movingActivator = source.locator(
+    '[data-image-id="source-a"] [data-image-drag-activator="true"]',
+  );
+  await movingActivator.hover();
+  const movingBox = await movingActivator.boundingBox();
+  const targetBox = await target.boundingBox();
+  const targetImageBox = await target.locator(
+    '[data-image-id="target-a"]',
+  ).boundingBox();
+  if (!sourceBoxBefore || !movingBox || !targetBox || !targetImageBox) {
+    throw new Error("Expected cross-group drag geometry");
+  }
+
+  await page.mouse.down();
+  await page.mouse.move(
+    movingBox.x + movingBox.width / 2 + 8,
+    movingBox.y + movingBox.height / 2,
+    { steps: 2 },
+  );
+  await expect(page.locator("[data-image-drag-overlay]")).toBeVisible();
+  await page.mouse.move(
+    targetBox.x + targetBox.width - 18,
+    targetImageBox.y + targetImageBox.height / 2,
+    { steps: 12 },
+  );
+
+  await expect(page.locator("[data-image-drag-overlay]")).toBeVisible();
+  await expect(source.locator("[data-image-drag-source-placeholder]"))
+    .toBeVisible();
+  await expect(target).toHaveAttribute("data-image-drag-target", "true");
+  await expect(target.locator(
+    '[data-image-placeholder-id="source-a"]',
+  )).toHaveAttribute("data-image-drag-target-insertion", "true");
+  await expect.poll(async () =>
+    source.locator("[data-image-id]").evaluateAll((frames) =>
+      frames.map((frame) => (frame as HTMLElement).dataset.imageId)),
+  ).toEqual(["source-b"]);
+  await expect.poll(async () =>
+    target.locator(
+      "[data-image-id], [data-image-placeholder-id]",
+    ).evaluateAll((frames) =>
+      frames.map((frame) =>
+        (frame as HTMLElement).dataset.imageId ??
+        (frame as HTMLElement).dataset.imagePlaceholderId)),
+  ).toEqual(["target-a", "source-a"]);
+  expect((await source.boundingBox())?.height ?? 0)
+    .toBeGreaterThanOrEqual(sourceBoxBefore.height);
+  expect(await page.evaluate(() => {
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const stored = sessionStorage.getItem(
+      `preshot.browser-blocknote-plan-v14:${encodeURIComponent(projectPath)}`,
+    );
+    const plan = stored ? JSON.parse(stored) : null;
+    return plan?.imageGroups.map(
+      (group: { id: string; images: Array<{ id: string }> }) => [
+        group.id,
+        group.images.map((image: { id: string }) => image.id),
+      ],
+    );
+  })).toEqual([
+    ["source-group", ["source-a", "source-b"]],
+    ["target-group", ["target-a"]],
+  ]);
+  const previewScreenshot = await page.screenshot({ animations: "disabled" });
+  await testInfo.attach("live image drag preview", {
+    body: previewScreenshot,
+    contentType: "image/png",
+  });
+
+  await page.mouse.up();
+  await expect.poll(async () =>
+    source.locator("[data-image-id]").evaluateAll((frames) =>
+      frames.map((frame) => (frame as HTMLElement).dataset.imageId)),
+  ).toEqual(["source-b"]);
+  await expect.poll(async () =>
+    target.locator("[data-image-id]").evaluateAll((frames) =>
+      frames.map((frame) => (frame as HTMLElement).dataset.imageId)),
+  ).toEqual(["target-a", "source-a"]);
+  await expect(page.getByTestId("save-status")).toHaveText(
+    "已保存所有更改",
+    { timeout: 10_000 },
+  );
+  await expect.poll(() => page.evaluate(() => {
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const stored = sessionStorage.getItem(
+      `preshot.browser-blocknote-plan-v14:${encodeURIComponent(projectPath)}`,
+    );
+    const plan = stored ? JSON.parse(stored) : null;
+    return plan?.imageGroups.map(
+      (group: { id: string; images: Array<{ id: string }> }) => [
+        group.id,
+        group.images.map((image: { id: string }) => image.id),
+      ],
+    );
+  })).toEqual([
+    ["source-group", ["source-b"]],
+    ["target-group", ["target-a", "source-a"]],
+  ]);
+  const committedScreenshot = await page.screenshot({
+    animations: "disabled",
+  });
+  await testInfo.attach("committed image drag", {
+    body: committedScreenshot,
+    contentType: "image/png",
+  });
+  const reviewArtifactDirectory =
+    process.env.PRESHOT_IMAGE_DRAG_REVIEW_ARTIFACTS;
+  if (reviewArtifactDirectory) {
+    const directory = resolve(reviewArtifactDirectory);
+    await mkdir(directory, { recursive: true });
+    await writeFile(resolve(directory, "live-preview.png"), previewScreenshot);
+    await writeFile(
+      resolve(directory, "committed-layout.png"),
+      committedScreenshot,
+    );
+    await writeFile(
+      resolve(directory, "browser-summary.json"),
+      `${JSON.stringify({
+        cssZooms: [0.55, 0.85, 1, 1.8],
+        previewPersisted: false,
+        committedOrder: [
+          ["source-group", ["source-b"]],
+          ["target-group", ["target-a", "source-a"]],
+        ],
+      }, null, 2)}\n`,
+    );
+  }
+});
+
+test("uses recursive column order for keyboard image-group movement and announcements", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const image = (id: string) => ({
+      id,
+      file: `references/${id}.png`,
+      aspectRatio: 1.5,
+      sourceWidth: 900,
+      sourceHeight: 600,
+      frameWidth: 135,
+      frameHeight: 90,
+    });
+    sessionStorage.setItem(
+      `preshot.browser-blocknote-plan-v14:${encodeURIComponent(projectPath)}`,
+      JSON.stringify({
+        schemaVersion: 14,
+        title: "Visible image group order",
+        document: {
+          format: "preshot-blocks",
+          version: 2,
+          blocks: [{
+            id: "column-list",
+            type: "columnList",
+            props: {},
+            children: [
+              {
+                id: "target-column",
+                type: "column",
+                props: { width: 1 },
+                children: [{
+                  id: "target-block",
+                  type: "imageGroup",
+                  props: { groupId: "target-group" },
+                  children: [],
+                }],
+              },
+              {
+                id: "source-column",
+                type: "column",
+                props: { width: 1 },
+                children: [{
+                  id: "source-block",
+                  type: "imageGroup",
+                  props: { groupId: "source-group" },
+                  children: [],
+                }],
+              },
+            ],
+          }],
+        },
+        imageGroups: [
+          {
+            id: "source-group",
+            name: "Source",
+            type: "reference",
+            x: 0,
+            width: 320,
+            height: 126,
+            description: "",
+            images: [image("source-a"), image("source-b")],
+          },
+          {
+            id: "target-group",
+            name: "Target",
+            type: "reference",
+            x: 0,
+            width: 320,
+            height: 126,
+            description: "",
+            images: [image("target-a")],
+          },
+        ],
+      }),
+    );
+  });
+  await page.goto("/");
+
+  const source = page.locator('[data-image-group-id="source-group"]');
+  const target = page.locator('[data-image-group-id="target-group"]');
+  const keyboardImage = source.getByRole("button", {
+    name: "选择参考图 2",
+  });
+  await keyboardImage.focus();
+  await expect(page.getByTestId("image-drag-announcement")).toContainText(
+    "已选择第 2 个图片组“Source”",
+  );
+  await page.keyboard.press("Space");
+  await expect(page.locator("[data-image-drag-overlay]")).toBeVisible();
+  await page.keyboard.press("Control+ArrowLeft");
+  await expect(target.locator(
+    '[data-image-placeholder-id="source-b"]',
+  )).toHaveAttribute("data-image-drag-target-insertion", "true");
+  await expect(page.getByTestId("image-drag-announcement")).toContainText(
+    "第 1 个图片组“Target”的第 2 位",
+  );
+  await expect(page.getByTestId("image-drag-keyboard-focus")).toBeFocused();
+
+  await page.keyboard.press("Control+ArrowLeft");
+  await expect(page.getByTestId("image-drag-announcement")).toContainText(
+    "已经没有相邻的图片组",
+  );
+  await expect(target.locator(
+    '[data-image-placeholder-id="source-b"]',
+  )).toHaveAttribute("data-image-drag-target-insertion", "true");
+
+  await page.keyboard.press("Control+ArrowRight");
+  await expect(source.locator(
+    '[data-image-placeholder-id="source-b"]',
+  )).toHaveAttribute("data-image-drag-target-insertion", "true");
+  await page.keyboard.press("Control+ArrowLeft");
+  await expect(target.locator(
+    '[data-image-placeholder-id="source-b"]',
+  )).toHaveAttribute("data-image-drag-target-insertion", "true");
+  await expect(page.getByTestId("image-drag-keyboard-focus")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-image-drag-overlay]")).toHaveCount(0);
+  await expect(keyboardImage).toBeFocused();
 });
 
 test("downloads and inspects production React-PDF bytes without external export traffic", async ({
@@ -1319,6 +2092,7 @@ test("uploads and persists native image video and audio blocks", async ({
   await expect(page.locator('[data-content-type="image"] img')).toBeVisible();
   await expect(page.locator('[data-content-type="video"] video')).toBeVisible();
   await expect(page.locator('[data-content-type="audio"] audio')).toBeVisible();
+  await page.keyboard.press("Control+s");
   await expect(page.getByTestId("save-status")).toHaveText(
     "已保存所有更改",
     { timeout: 10_000 },

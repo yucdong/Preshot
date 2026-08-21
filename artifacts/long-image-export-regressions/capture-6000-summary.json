@@ -1,0 +1,49 @@
+{
+  "dimensions": {
+    "width": 900,
+    "height": 6000,
+    "canvasWidth": 900,
+    "canvasHeight": 6000
+  },
+  "bottomSentinel": [
+    190,
+    18,
+    60,
+    255
+  ],
+  "segment": {
+    "width": 900,
+    "height": 500,
+    "bottomSentinel": [
+      190,
+      18,
+      60,
+      255
+    ]
+  },
+  "png": {
+    "type": "image/png",
+    "size": 142408,
+    "first": [
+      137,
+      80,
+      78,
+      71,
+      13,
+      10,
+      26,
+      10
+    ],
+    "last": [
+      96,
+      130
+    ]
+  },
+  "cleanup": {
+    "activeWorkers": 0,
+    "iframeBaseline": 0,
+    "iframeCount": 0
+  },
+  "boundedPixels": true,
+  "externalRequests": []
+}

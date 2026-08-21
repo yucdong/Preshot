@@ -28,6 +28,9 @@
 - Individual-image resize reflows the complete group live, preserves image
   order and stable gaps, prevents overlap, and derives the group height from
   the wrapped rows.
+- Individual-image drag uses one dnd-kit pointer/keyboard context and an
+  immutable preview transaction. Preview state never reaches plan persistence
+  or export; one valid drop creates one move/undo/save boundary.
 - Confirmed crops physically replace only the Preshot-owned project copy.
   External import sources are never modified.
 
@@ -47,7 +50,8 @@
   - top-level constraints, duplicate reconciliation, runtime tombstones;
   - one continuous white canvas growing naturally from top to bottom;
   - image import, selection, double-click viewing, deletion, within-group and
-    cross-group dragging, side-only ratio-locked image resize, eight-direction
+    cross-/empty-group transactional dragging, source/insertion placeholders,
+    crop-aware overlay, side-only ratio-locked image resize, eight-direction
     group resize, live wrapping, Smart Guides, and crop editing.
   - Enter-to-create-block does not use `onBeforeChange(getChanges)`; image-group hierarchy constraints are normalized after the change so a brand-new block without an ID does not interrupt the ProseMirror transaction.
 - `src/infrastructure/pdf/reactPdfBlockNoteExporter.ts`
@@ -60,6 +64,15 @@
   - retains the previous `pdf-lib` implementation as
     `createLegacyBlockNotePdfExporter` for explicit rollback and acceptance
     comparison only.
+- `src/infrastructure/longImage`
+  - renders the shared schema-14 document and resolved local assets on an
+    isolated export surface, captures bounded 890/900px segments, and encodes
+    adaptive JPEG or lossless PNG parts without network access;
+  - saves one or more numbered files through browser or native adapters.
+- BlockNote 0.53 supplies no image exporter. Long-image output therefore uses
+  the exact shared schema in a read-only export-only DOM view plus the
+  MIT-licensed `modern-screenshot@4.7.0`; it does not route through the PDF or
+  DOCX exporters.
 - `src-tauri/src/plan.rs`
   - validates integer crop bounds against project-local JPG/PNG bitmaps;
   - backs up the original bytes, re-encodes the cropped bitmap to a sibling
@@ -82,6 +95,9 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
 - PDF export paginates separately through the production React-PDF adapter; the
   screen does not promise matching page-break positions, but exported block and
   image-group geometry follows the documented visual contract.
+- Long-image export separately scales the logical 1080px document to an exact
+  900px default or 890px compatibility surface. Viewport zoom never
+  participates, and PDF/DOCX mappings remain unchanged.
 - Image groups read actual `.bn-block-content` width, fill it by default, and stay left/right aligned. Persisted width/x is clamped to that range and cannot cross the white canvas.
 - After image import, original pixel width/height are measured. Batch images keep the same `frameHeight`, and `frameWidth = frameHeight × sourceWidth / sourceHeight`, with full original crop persisted so landscape and portrait images are never stretched.
 - New and batch-imported images use exactly 240 logical units of frame height.
@@ -112,6 +128,52 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
 - Duplicating a regular block strips the original ID so BlockNote generates unique IDs for the whole subtree; duplicating an image group still creates new group/image IDs while reusing the underlying image files.
 
 ## Production image interaction
+
+### Live drag preview
+
+- `ImageDragPreviewProvider` owns the production dnd-kit `DndContext`,
+  `PointerSensor`, `KeyboardSensor`, collision projection, `DragOverlay`,
+  accessibility instructions, and auto-scroller. The old component-local
+  `startImageDrag` Pointer Events path and `data-image-drop-target` marker are
+  intentionally absent; Pointer Events remain valid for block dragging and
+  resize gestures.
+- Drag start requires a decoded project-local source and snapshots every
+  ordered group, image metadata/crop/frame, and current plan revision. The pure
+  domain projector performs same-group normalization, cross-group movement,
+  insertion at start/middle/end, and empty-group insertion without mutating the
+  snapshot.
+- Preview removes the active image from projected source flow, retains a
+  source-slot placeholder, inserts an equal-geometry target placeholder, and
+  ports a crop-aware, pointer-transparent overlay to `document.body`. Other
+  tiles use transform/opacity FLIP motion. Rows wrap before overflow with the
+  stable gap; authoritative frames never shrink to fit.
+- Pointer collision resolves the containing group before row/image midpoint
+  order and applies an 8px/two-sample dead band. Mouse activation is 6px;
+  touch/pen activation is 180ms with 6px tolerance. A dedicated auto-scroller
+  uses the latest physical pointer in the central viewport's fixed 48px edge
+  band, stops at center, never runs for keyboard dragging, and remeasures
+  droppables after movement, independent of 55%-180% CSS zoom. Pointer release
+  resolves collision synchronously and cancels pending projection frames:
+  same-frame valid targets commit once, while outside targets cancel.
+- Keyboard interaction uses Space to pick up, arrows/Home/End within a group,
+  Ctrl/Cmd+Arrow between groups, Space/Enter to commit, and Escape to cancel.
+  Groups follow recursively collected visible document order. A hidden focus
+  anchor preserves keyboard input while the active tile is represented by a
+  placeholder, then focus returns to the image after cancel/drop. One
+  Simplified-Chinese polite live region announces selection, pickup, projected
+  group/position, boundaries, commit, and rollback. Reduced-motion preference
+  disables reflow and landing transitions without changing order.
+- Escape, outside/invalid release, pointer cancel, blur/hidden document,
+  project/revision change, deleted group/image, decoded asset or frame change,
+  and unmount restore the exact snapshot and cancel queued frames/timers. A
+  valid release calls `moveImage` exactly once; Ctrl/Cmd+Z can restore the
+  pre-move plan, while autosave/manual save/retirement and PDF/DOCX/long-image
+  export observe committed state only. Older queued import/crop/removal/capture
+  completions rebase onto the latest reorder and retirement waits for both
+  mutation paths.
+- Non-goals: multi-selection drag, swapping, freeform coordinates, shrinking
+  frames during drag, saving/exporting preview state, or mounting interactive
+  controls on the export-only BlockNote surface.
 
 - Selection is global across image groups. A single click selects the tile and
   the same pointer press may become a drag after the 6px movement threshold.
@@ -174,6 +236,18 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
 - PDF export receives the current in-memory plan and refreshed image data. It
   renders the cropped bitmap through the normal image-group layout; subsequent
   reloads export the same project-local bitmap from disk.
+- The export menu orders PDF, DOCX, and long-image export. Long-image export
+  opens an accessible settings dialog with WeChat-compatible JPEG defaults
+  (900px, target 1 MB / 6000px), high-quality JPEG, and lossless PNG presets.
+  Automatic splitting is unchecked on every dialog open and remains unchanged
+  by preset, format, and width selection. Without opt-in, long documents remain
+  one image or fail actionably at the safe limit; with opt-in, they become
+  numbered block-boundary parts. The UI reports actual phase and part progress
+  after layout and supports cancellation during generation.
+- PDF, DOCX, and long-image work share one provider-level export lock.
+  Successful native long-image saves reveal the project directory; save-dialog
+  cancellation is quiet, while generation/save and non-fatal reveal failures
+  remain separately actionable.
 - The production React-PDF exporter consumes the platform-independent contract
   in `src/domain/plan/blocknote/pdfVisualContract.ts`. It fixes A4 at
   595.28 × 841.89pt with 24pt
@@ -236,6 +310,50 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
 - Backup deletion after a successful manifest commit is non-fatal housekeeping:
   cleanup is idempotent, failures use the standard warning logger, and the
   service retries asynchronously without changing the successful crop result.
+
+## Long-image export contract
+
+- The platform-independent contract supports JPEG and PNG at exactly 900px or
+  890px wide. It uniformly scales the 1080-unit editor surface and 1008-unit
+  content area; viewport zoom never participates and width is never silently
+  reduced.
+- The default WeChat preset targets 900px × 6000px JPEG parts, 1 MiB, and
+  adaptive quality from 0.84 down to 0.68. High-quality JPEG targets 3 MiB at
+  up to 8000px; lossless PNG targets 8 MiB at up to 4000px. The WeChat values
+  are conservative empirical compatibility targets, not official limits or a
+  guarantee that a client will not recompress the output.
+- All presets stop at 32 parts. Retained encoded bytes are capped at 24 MiB
+  for WeChat JPEG, 48 MiB for high-quality JPEG, and 64 MiB for lossless PNG.
+  The desktop adapter separately rejects raw batches above 64 MiB before the
+  dialog, base64 allocation, or the single all-or-rollback Tauri IPC call;
+  Rust repeats estimated and exact decoded-byte checks.
+- Segmentation chooses the last complete block boundary within the target.
+  Atomic blocks may exceed the preferred height up to the absolute 8000px
+  safety cap. Larger image groups split only at measured row boundaries;
+  other indivisible oversized blocks use explicit emergency pixel tiles with
+  warnings. Every part range is contiguous with no overlap or gap.
+- Encoded-size decisions are separate from capture. JPEG uses an injectable,
+  bounded binary quality search and requests an earlier block/row boundary
+  when minimum quality misses the byte target. Oversized PNG requests the same
+  re-split. Automatic splitting is opt-in in both the dialog and exporter API;
+  an omitted or false `allowSplit` that encounters a required split produces a
+  typed error asking the user to enable it, shorten the plan, or use PDF/DOCX.
+- Filename planning emits `.jpg` or `.png`, preserves a single unnumbered
+  output, and uses zero-padded project-safe names for multipart output.
+  Project-title bases normalize to NFC, stop at 120 Unicode code points and
+  120 UTF-16 units, and reserve a 128-UTF-16-unit final component budget for
+  numbering (`-01` through `-32`) and extension. Dialog-selected renames are
+  authoritative only after the same Windows reserved/traversal/length checks.
+- The export-only surface uses the exact production schema with local resolved
+  assets and no BlockNote image exporter or hosted proxy. One reusable
+  `modern-screenshot@4.7.0` context captures parts sequentially; each canvas is
+  zeroed after encode and the same-origin worker, context, and offscreen root
+  are destroyed after success, failure, or cancellation.
+- Desktop save uses one dialog and one serialized native batch. Complete
+  preflight precedes writes; commit failure restores exact prior bytes and
+  removes only new files still owned by that attempt. Browser downloads one
+  part and exposes multipart only through the explicit typed no-op test
+  adapter. PDF and DOCX exporters remain independent and unchanged.
 
 ## Multi-column layout
 

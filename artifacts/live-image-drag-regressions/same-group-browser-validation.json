@@ -1,0 +1,37 @@
+{
+  "passed": true,
+  "selectedAnnouncement": "已选择第 1 个图片组“Source”中的第 2 张图片。",
+  "live": {
+    "sourceOrder": [
+      "source-b",
+      "source-a"
+    ],
+    "targetOrder": [
+      "target-a"
+    ],
+    "overlayVisible": true,
+    "sourceGapVisible": true,
+    "insertionVisible": true,
+    "announcement": "移动预览：将放到第 1 个图片组“Source”的第 1 位。",
+    "storedUnchanged": true
+  },
+  "afterCommit": {
+    "sourceOrder": [
+      "source-b",
+      "source-a"
+    ],
+    "targetOrder": [
+      "target-a"
+    ],
+    "overlayCount": 0
+  },
+  "afterReload": {
+    "sourceOrder": [
+      "source-b",
+      "source-a"
+    ],
+    "targetOrder": [
+      "target-a"
+    ]
+  }
+}

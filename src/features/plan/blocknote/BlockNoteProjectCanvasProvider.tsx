@@ -10,6 +10,7 @@ import type {
   BlockNotePlanLoadResult,
   BlockNotePlanService,
 } from "../../../domain/plan/blocknote/service";
+import { LongImageContractError } from "../../../domain/plan/blocknote/longImageExportContract";
 import {
   migrateLegacyDefaultImageFrames,
 } from "../../../domain/plan/blocknote/plan";
@@ -27,7 +28,10 @@ import {
   MIN_COMPONENT_HEIGHT,
   MIN_COMPONENT_WIDTH,
 } from "../../../domain/plan/canvas/models";
-import { cropForResizedFrame } from "../../../domain/plan/canvas/imageView";
+import {
+  cropForResizedFrame,
+  type NormalizedImageCrop,
+} from "../../../domain/plan/canvas/imageView";
 import type { PlanImagePicker, ScreenCapture } from "../../../domain/plan/ports";
 import type {
   DocxSaveTarget,
@@ -39,11 +43,18 @@ import type {
 } from "../../../domain/workspace/ports";
 import type { BlockNotePdfExporter } from "../../../infrastructure/pdf/blockNotePdfExporter";
 import type { BlockNoteDocxExporter } from "../../../infrastructure/docx/blockNoteDocxExporter";
+import type {
+  LongImageExportProgress,
+  LongImageExporter,
+} from "./dependencies";
+import type { LongImageSaveTarget } from "../../../domain/plan/longImageSave";
+import { useTheme } from "../../../app/theme/ThemeContext";
 import type { SaveState } from "../SaveStatus";
 import { ReferenceImageLightbox } from "../ReferenceImageLightbox";
 import { getProjectRetirementCoordinator } from "../projectRetirementCoordinator";
 import { BlockNoteCanvasToolbar } from "./BlockNoteCanvasToolbar";
 import { BlockNoteDocumentEditor } from "./BlockNoteDocumentEditor";
+import { ImageDragPreviewProvider } from "./ImageDragPreviewContext";
 import {
   BLOCKNOTE_DOCUMENT_CONTENT_WIDTH,
   BLOCKNOTE_DOCUMENT_HORIZONTAL_PADDING,
@@ -56,6 +67,7 @@ import {
 } from "./canvasViewport";
 import type { ImageGroupBlockController } from "./ImageGroupBlockContext";
 import { applyMeasuredImages } from "./imageHydration";
+import type { LongImageExportSettings } from "./LongImageExportDialog";
 
 interface BlockNoteProjectCanvasProviderProps {
   projectName: string;
@@ -63,6 +75,8 @@ interface BlockNoteProjectCanvasProviderProps {
   docxExporter: BlockNoteDocxExporter;
   docxSaver: DocxSaveTarget;
   exporter: BlockNotePdfExporter;
+  longImageExporter: LongImageExporter;
+  longImageSaver: LongImageSaveTarget;
   logger: WorkspaceLogger;
   picker: PlanImagePicker;
   projectDirectoryRevealer: ProjectDirectoryRevealer;
@@ -83,12 +97,152 @@ interface LightboxTarget {
   file: string;
 }
 
+interface ImageMutationContext {
+  getLatestPlan(): ProjectPlanV14;
+  getLatestRevision(): number;
+}
+
+type LongImageUiProgress =
+  | LongImageExportProgress
+  | { readonly phase: "save"; readonly partCount: number };
+
+function longImageFailureMessage(
+  error: unknown,
+  settings: LongImageExportSettings,
+): string {
+  if (
+    settings.allowSplit &&
+    error instanceof LongImageContractError &&
+    (
+      error.code === "NO_EARLIER_BOUNDARY" ||
+      error.code === "UNSAFE_CANVAS"
+    )
+  ) {
+    const format = settings.preset === "lossless-png" ? "PNG" : "JPEG";
+    const formatRecovery = settings.preset === "lossless-png"
+      ? "如可接受 JPEG，也可选择体积更小的“微信兼容” JPEG 预设或降低图片细节；也可改用 PDF/DOCX。"
+      : settings.preset === "high-quality"
+      ? "也可改用体积更小的“微信兼容” JPEG 预设、降低图片细节，或改用 PDF/DOCX。"
+      : "也可降低图片细节，或改用 PDF/DOCX。";
+    return `自动分图无法继续：当前完整区块或图片组单行仍超过 ${format} 的高度或体积限制。请缩短或拆分这个区块/图片组，或将方案分段导出。${formatRecovery}`;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+function longImageProgressLabel(progress: LongImageUiProgress): string {
+  if (progress.phase === "prepare") return "正在准备长图文档…";
+  if (progress.phase === "assets") return "正在检查长图资源…";
+  if (progress.phase === "layout") return "正在计算长图排版…";
+  if (progress.phase === "save") {
+    return `正在保存 ${progress.partCount} 张长图…`;
+  }
+  const action = progress.phase === "render" ? "渲染" : "压缩";
+  return `正在${action}第 ${progress.partNumber}/${progress.partCount} 张…`;
+}
+
+function applyImportedImagesToLatest(
+  latest: ProjectPlanV14,
+  result: Awaited<ReturnType<BlockNotePlanService["importImages"]>>,
+  groupId: string,
+): ProjectPlanV14 {
+  const importedIds = new Set(
+    result.images.map(({ image }) => image.id),
+  );
+  const resultGroup = result.plan.imageGroups.find((group) =>
+    group.id === groupId
+  );
+  if (!resultGroup) return latest;
+  const importedById = new Map(
+    resultGroup.images
+      .filter((image) => importedIds.has(image.id))
+      .map((image) => [image.id, image]),
+  );
+  return {
+    ...latest,
+    imageGroups: latest.imageGroups.map((group) => {
+      if (group.id !== groupId) return group;
+      const existingIds = new Set(group.images.map((image) => image.id));
+      const images = group.images.map((image) =>
+        importedById.get(image.id) ?? image
+      );
+      for (const { image } of result.images) {
+        const measured = importedById.get(image.id);
+        if (measured && !existingIds.has(image.id)) {
+          images.push(measured);
+        }
+      }
+      return {
+        ...group,
+        images,
+        height: Math.max(
+          MIN_COMPONENT_HEIGHT,
+          layoutDocumentImageGroupForWidth(images, group.width).height,
+        ),
+      };
+    }),
+  };
+}
+
+function applyCropToLatest(
+  latest: ProjectPlanV14,
+  result: Awaited<ReturnType<BlockNotePlanService["commitImageCrop"]>>,
+): ProjectPlanV14 {
+  const updatedById = new Map(
+    result.plan.imageGroups.flatMap((group) =>
+      group.images
+        .filter((image) => image.file === result.image.file)
+        .map((image) => [image.id, image] as const)
+    ),
+  );
+  return {
+    ...latest,
+    imageGroups: latest.imageGroups.map((group) => {
+      let changed = false;
+      const images = group.images.map((image) => {
+        const updated = updatedById.get(image.id);
+        if (!updated || updated.file !== image.file) return image;
+        changed = true;
+        return updated;
+      });
+      if (!changed) return group;
+      return {
+        ...group,
+        images,
+        height: Math.max(
+          MIN_COMPONENT_HEIGHT,
+          layoutDocumentImageGroupForWidth(images, group.width).height,
+        ),
+      };
+    }),
+  };
+}
+
+function applyImageRemovalToLatest(
+  latest: ProjectPlanV14,
+  groupId: string,
+  imageId: string,
+): ProjectPlanV14 {
+  return {
+    ...latest,
+    imageGroups: latest.imageGroups.map((group) =>
+      group.id === groupId
+        ? {
+            ...group,
+            images: group.images.filter((image) => image.id !== imageId),
+          }
+        : group
+    ),
+  };
+}
+
 export function BlockNoteProjectCanvasProvider({
   projectName,
   projectPath,
   docxExporter,
   docxSaver,
   exporter,
+  longImageExporter,
+  longImageSaver,
   logger,
   picker,
   projectDirectoryRevealer,
@@ -96,6 +250,7 @@ export function BlockNoteProjectCanvasProvider({
   screenCapture,
   service,
 }: BlockNoteProjectCanvasProviderProps) {
+  const { resolved: resolvedTheme } = useTheme();
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -110,6 +265,10 @@ export function BlockNoteProjectCanvasProvider({
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [exportingDocx, setExportingDocx] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingLongImage, setExportingLongImage] = useState(false);
+  const [longImageProgress, setLongImageProgress] =
+    useState<LongImageUiProgress | null>(null);
+  const [planRevision, setPlanRevision] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -117,15 +276,33 @@ export function BlockNoteProjectCanvasProvider({
   const initializedProjectRef = useRef("");
   const captureTokenRef = useRef<string | null>(null);
   const exportInFlightRef = useRef(false);
+  const longImageAbortRef = useRef<AbortController | null>(null);
   const planRef = useRef<ProjectPlanV14 | null>(null);
+  const planRevisionRef = useRef(0);
+  const imageMutationTailRef = useRef<Promise<void>>(Promise.resolve());
+  const mountedRef = useRef(true);
+  const captureTaskRef = useRef<Promise<void> | null>(null);
   const mediaSrcRef = useRef<Record<string, string>>({});
   const metadataListenersRef = useRef(new Set<() => void>());
   const detachedGroupsRef = useRef(new Map<string, ProjectPlanV14["imageGroups"][number]>());
   const detachedMediaFilesRef = useRef(new Set<string>());
   const savedRef = useRef("");
+  const imageMoveUndoRef = useRef<{
+    readonly before: ProjectPlanV14;
+    readonly after: ProjectPlanV14;
+  } | null>(null);
   const retirementCoordinator = getProjectRetirementCoordinator(service);
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      longImageAbortRef.current?.abort();
+    };
+  }, []);
+
   const save = useCallback(async () => {
+    await imageMutationTailRef.current;
     const plan = planRef.current;
     if (!plan) return;
     const serialized = JSON.stringify(plan);
@@ -186,11 +363,97 @@ export function BlockNoteProjectCanvasProvider({
   }, [zoom]);
 
   const applyPlan = useCallback((plan: ProjectPlanV14) => {
+    if (imageMoveUndoRef.current?.after !== plan) {
+      imageMoveUndoRef.current = null;
+    }
     planRef.current = plan;
+    planRevisionRef.current += 1;
     metadataListenersRef.current.forEach((listener) => listener());
-    setSaveState("unsaved");
-    setLoadState({ status: "ready", plan });
+    if (mountedRef.current) {
+      setPlanRevision(planRevisionRef.current);
+      setSaveState("unsaved");
+      setLoadState({ status: "ready", plan });
+    }
   }, []);
+
+  const enqueueImageMutation = useCallback(<T,>(
+    operation: (context: ImageMutationContext) => Promise<T> | T,
+  ): Promise<T> => {
+    const baseRevision = planRevisionRef.current;
+    const run = imageMutationTailRef.current.then(() =>
+      operation({
+        getLatestPlan() {
+          if (planRevisionRef.current < baseRevision) {
+            throw new Error(
+              "方案版本已失效，请重新执行图片操作",
+            );
+          }
+          const plan = planRef.current;
+          if (!plan) {
+            throw new Error("当前方案不可用，请重新打开项目");
+          }
+          return plan;
+        },
+        getLatestRevision() {
+          return planRevisionRef.current;
+        },
+      })
+    );
+    imageMutationTailRef.current = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }, []);
+
+  const reportImageMutationFailure = useCallback((error: unknown) => {
+    if (!mountedRef.current) return;
+    setCanvasError(error instanceof Error ? error.message : String(error));
+  }, []);
+
+  const commitImageCrop = useCallback(async (
+    groupId: string,
+    imageId: string,
+    crop: NormalizedImageCrop,
+  ) => {
+    await enqueueImageMutation(async (context) => {
+      let serviceRevision = context.getLatestRevision();
+      const result = await service.commitImageCrop(
+        projectPath,
+        () => {
+          serviceRevision = context.getLatestRevision();
+          return context.getLatestPlan();
+        },
+        groupId,
+        imageId,
+        crop,
+      );
+      if (mountedRef.current) {
+        setImageSrc((existing) => ({
+          ...existing,
+          [result.image.file]: result.dataUrl,
+        }));
+      }
+      applyPlan(
+        serviceRevision === context.getLatestRevision()
+          ? result.plan
+          : applyCropToLatest(context.getLatestPlan(), result),
+      );
+    });
+  }, [applyPlan, enqueueImageMutation, projectPath, service]);
+
+  const confirmLightboxCrop = useCallback((crop: NormalizedImageCrop) => {
+    if (!lightboxTarget) {
+      return Promise.reject(
+        new Error("当前裁剪目标不可用，请重新打开参考图"),
+      );
+    }
+    return commitImageCrop(
+      lightboxTarget.groupId,
+      lightboxTarget.imageId,
+      crop,
+    );
+  }, [commitImageCrop, lightboxTarget]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,6 +470,8 @@ export function BlockNoteProjectCanvasProvider({
         const migration = migrateLegacyDefaultImageFrames(persistedPlan);
         const plan = migration.plan;
         planRef.current = plan;
+        planRevisionRef.current += 1;
+        setPlanRevision(planRevisionRef.current);
         savedRef.current = result.status === "missing"
           ? ""
           : JSON.stringify(persistedPlan);
@@ -250,6 +515,8 @@ export function BlockNoteProjectCanvasProvider({
           const measured = await applyMeasuredImages(plan, imageEntries);
           if (cancelled) return;
           planRef.current = measured;
+          planRevisionRef.current += 1;
+          setPlanRevision(planRevisionRef.current);
           setSaveState(
             JSON.stringify(measured) === savedRef.current
               ? "saved"
@@ -284,13 +551,15 @@ export function BlockNoteProjectCanvasProvider({
   ]);
 
   useEffect(() => () => {
-    const activePlan = planRef.current;
-    const detachedGroups = [...detachedGroupsRef.current.values()];
-    const detachedMedia = [...detachedMediaFilesRef.current];
-    if (activePlan) {
-      const serialized = JSON.stringify(activePlan);
-      void retirementCoordinator
-        .queue(projectPath, async () => {
+    void retirementCoordinator
+      .queue(projectPath, async () => {
+        await captureTaskRef.current;
+        await imageMutationTailRef.current;
+        const activePlan = planRef.current;
+        if (activePlan) {
+          const detachedGroups = [...detachedGroupsRef.current.values()];
+          const detachedMedia = [...detachedMediaFilesRef.current];
+          const serialized = JSON.stringify(activePlan);
           if (serialized !== savedRef.current) {
             await service.savePlan(projectPath, activePlan);
             savedRef.current = serialized;
@@ -309,11 +578,11 @@ export function BlockNoteProjectCanvasProvider({
               detachedMedia,
             );
           }
-        })
-        .catch((error: unknown) => {
-          console.error("Unable to retire the BlockNote project:", error);
-        });
-    }
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Unable to retire the BlockNote project:", error);
+      });
     const captureToken = captureTokenRef.current;
     if (captureToken && screenCapture) {
       void screenCapture.cancel(captureToken);
@@ -327,6 +596,26 @@ export function BlockNoteProjectCanvasProvider({
     }, 5_000);
     return () => window.clearTimeout(timer);
   }, [loadState.status, save, saveState]);
+
+  useEffect(() => {
+    const onUndoImageMove = (event: KeyboardEvent) => {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== "z"
+      ) {
+        return;
+      }
+      const undo = imageMoveUndoRef.current;
+      if (!undo || planRef.current !== undo.after) return;
+      event.preventDefault();
+      event.stopPropagation();
+      imageMoveUndoRef.current = null;
+      applyPlan(undo.before);
+    };
+    window.addEventListener("keydown", onUndoImageMove, true);
+    return () => window.removeEventListener("keydown", onUndoImageMove, true);
+  }, [applyPlan]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -484,34 +773,49 @@ export function BlockNoteProjectCanvasProvider({
       return imageSrc[file];
     },
     addImages(groupId) {
-      const current = planRef.current;
-      if (!current) return;
-      void picker.pickImageFiles("选择参考图片").then(async (files) => {
-        if (!files || files.length === 0 || !planRef.current) return;
+      if (!planRef.current) return;
+      void enqueueImageMutation(async (context) => {
+        const files = await picker.pickImageFiles("选择参考图片");
+        if (!files || files.length === 0) return;
+        let serviceRevision = context.getLatestRevision();
         const result = await service.importImages(
           projectPath,
-          planRef.current,
+          () => {
+            serviceRevision = context.getLatestRevision();
+            return context.getLatestPlan();
+          },
           groupId,
           files,
         );
-        setImageSrc((existing) => ({
-          ...existing,
-          ...Object.fromEntries(
-            result.images.map((entry) => [entry.image.file, entry.dataUrl]),
-          ),
-        }));
+        if (mountedRef.current) {
+          setImageSrc((existing) => ({
+            ...existing,
+            ...Object.fromEntries(
+              result.images.map((entry) => [entry.image.file, entry.dataUrl]),
+            ),
+          }));
+        }
         const entries = result.images.map((entry) => [
           entry.image.file,
           entry.dataUrl,
         ] as const);
-        applyPlan(await applyMeasuredImages(result.plan, entries));
-      });
+        const measured = await applyMeasuredImages(result.plan, entries);
+        applyPlan(
+          serviceRevision === context.getLatestRevision()
+            ? measured
+            : applyImportedImagesToLatest(
+                context.getLatestPlan(),
+                { ...result, plan: measured },
+                groupId,
+              ),
+        );
+      }).catch(reportImageMutationFailure);
     },
     captureImage: screenCapture
       ? (groupId) => {
           if (captureTokenRef.current || !planRef.current) return;
           setCanvasError(null);
-          void (async () => {
+          const task = enqueueImageMutation(async (context) => {
             let token: string | null = null;
             let capturedPath: string | null = null;
             try {
@@ -524,57 +828,95 @@ export function BlockNoteProjectCanvasProvider({
                   continue;
                 }
                 capturedPath = result.path;
-                if (!planRef.current) return;
+                let serviceRevision = context.getLatestRevision();
                 const imported = await service.importImages(
                   projectPath,
-                  planRef.current,
+                  () => {
+                    serviceRevision = context.getLatestRevision();
+                    return context.getLatestPlan();
+                  },
                   groupId,
                   [result.path],
                 );
-                setImageSrc((existing) => ({
-                  ...existing,
-                  ...Object.fromEntries(
-                    imported.images.map((entry) => [
-                      entry.image.file,
-                      entry.dataUrl,
-                    ]),
-                  ),
-                }));
+                if (mountedRef.current) {
+                  setImageSrc((existing) => ({
+                    ...existing,
+                    ...Object.fromEntries(
+                      imported.images.map((entry) => [
+                        entry.image.file,
+                        entry.dataUrl,
+                      ]),
+                    ),
+                  }));
+                }
                 const entries = imported.images.map((entry) => [
                   entry.image.file,
                   entry.dataUrl,
                 ] as const);
-                applyPlan(await applyMeasuredImages(imported.plan, entries));
+                const measured = await applyMeasuredImages(
+                  imported.plan,
+                  entries,
+                );
+                applyPlan(
+                  serviceRevision === context.getLatestRevision()
+                    ? measured
+                    : applyImportedImagesToLatest(
+                        context.getLatestPlan(),
+                        { ...imported, plan: measured },
+                        groupId,
+                      ),
+                );
                 return;
               }
-            } catch (error) {
-              setCanvasError(
-                error instanceof Error ? error.message : String(error),
-              );
             } finally {
               captureTokenRef.current = null;
               if (capturedPath) {
                 try {
                   await screenCapture.discard(capturedPath);
                 } catch (error) {
-                  setCanvasError(
-                    error instanceof Error ? error.message : String(error),
-                  );
+                  reportImageMutationFailure(error);
                 }
               }
             }
-          })();
+          });
+          const trackedTask = task.then(
+            () => undefined,
+            () => undefined,
+          );
+          captureTaskRef.current = trackedTask;
+          void task
+            .catch(reportImageMutationFailure)
+            .finally(() => {
+              if (captureTaskRef.current === trackedTask) {
+                captureTaskRef.current = null;
+              }
+            });
         }
       : undefined,
     removeImage(groupId, imageId) {
       if (!planRef.current) return;
       if (selectedImageId === imageId) setSelectedImageId(null);
-      void service.removeImage(
-        projectPath,
-        planRef.current,
-        groupId,
-        imageId,
-      ).then(applyPlan);
+      void enqueueImageMutation(async (context) => {
+        let serviceRevision = context.getLatestRevision();
+        const next = await service.removeImage(
+          projectPath,
+          () => {
+            serviceRevision = context.getLatestRevision();
+            return context.getLatestPlan();
+          },
+          groupId,
+          imageId,
+        );
+        applyPlan(
+          serviceRevision === context.getLatestRevision()
+            ? next
+            : applyImageRemovalToLatest(
+                context.getLatestPlan(),
+                groupId,
+                imageId,
+              ),
+        );
+      }).catch(reportImageMutationFailure);
     },
     selectImage(imageId) {
       setSelectedImageId(imageId);
@@ -649,31 +991,37 @@ export function BlockNoteProjectCanvasProvider({
       });
     },
     moveImage(fromGroupId, imageId, toGroupId, toIndex) {
-      const current = planRef.current;
-      if (!current) return;
-      const source = current.imageGroups.find((group) => group.id === fromGroupId);
-      const image = source?.images.find((entry) => entry.id === imageId);
-      if (!source || !image) return;
-      const imageGroups = current.imageGroups.map((group) => ({
-        ...group,
-        images: group.images.filter((entry) => entry.id !== imageId),
-      }));
-      const target = imageGroups.find((group) => group.id === toGroupId);
-      if (!target) return;
-      const index = Math.max(0, Math.min(toIndex, target.images.length));
-      target.images = [
-        ...target.images.slice(0, index),
-        image,
-        ...target.images.slice(index),
-      ];
-      for (const group of imageGroups) {
-        if (group.id !== fromGroupId && group.id !== toGroupId) continue;
-        group.height = Math.max(
-          MIN_COMPONENT_HEIGHT,
-          layoutDocumentImageGroupForWidth(group.images, group.width).height,
+      void enqueueImageMutation((context) => {
+        const current = context.getLatestPlan();
+        const source = current.imageGroups.find((group) =>
+          group.id === fromGroupId
         );
-      }
-      applyPlan({ ...current, imageGroups });
+        const image = source?.images.find((entry) => entry.id === imageId);
+        if (!source || !image) return;
+        const imageGroups = current.imageGroups.map((group) => ({
+          ...group,
+          images: group.images.filter((entry) => entry.id !== imageId),
+        }));
+        const target = imageGroups.find((group) => group.id === toGroupId);
+        if (!target) return;
+        const index = Math.max(0, Math.min(toIndex, target.images.length));
+        target.images = [
+          ...target.images.slice(0, index),
+          image,
+          ...target.images.slice(index),
+        ];
+        for (const group of imageGroups) {
+          if (group.id !== fromGroupId && group.id !== toGroupId) continue;
+          group.height = Math.max(
+            group.height,
+            MIN_COMPONENT_HEIGHT,
+            layoutDocumentImageGroupForWidth(group.images, group.width).height,
+          );
+        }
+        const next = { ...current, imageGroups };
+        applyPlan(next);
+        imageMoveUndoRef.current = { before: current, after: next };
+      }).catch(reportImageMutationFailure);
     },
   };
 
@@ -760,13 +1108,109 @@ export function BlockNoteProjectCanvasProvider({
       });
   };
 
+  const runLongImageExport = (
+    settings: LongImageExportSettings,
+  ): boolean => {
+    if (exportInFlightRef.current) return false;
+    const plan = planRef.current;
+    if (!plan) return false;
+
+    const abortController = new AbortController();
+    exportInFlightRef.current = true;
+    longImageAbortRef.current = abortController;
+    flushSync(() => {
+      setCanvasError(null);
+      setExportNotice(null);
+      setExportingLongImage(true);
+      setLongImageProgress({ phase: "prepare" });
+    });
+
+    void longImageExporter.export({
+      plan,
+      resolvedAssets: { ...imageSrc, ...mediaSrc },
+      preset: settings.preset,
+      options: {
+        allowSplit: settings.allowSplit,
+        theme: resolvedTheme,
+        width: settings.width,
+      },
+      signal: abortController.signal,
+      onProgress(progress) {
+        if (longImageAbortRef.current === abortController) {
+          setLongImageProgress(progress);
+        }
+      },
+    })
+      .then(async (result) => {
+        setLongImageProgress({
+          phase: "save",
+          partCount: result.parts.length,
+        });
+        const savedPaths = await longImageSaver.save({
+          format: result.manifest.format,
+          baseName: result.manifest.baseName,
+          defaultDirectory: projectPath,
+          parts: result.parts.map((part) => ({
+            fileName: part.fileName,
+            bytes: part.bytes,
+          })),
+        });
+        if (
+          savedPaths === null ||
+          longImageSaver.revealProjectDirectoryAfterSave === false
+        ) {
+          return;
+        }
+        try {
+          await projectDirectoryRevealer.revealProjectDirectory(projectPath);
+        } catch (error) {
+          logger.warn(
+            "Long image saved but unable to open project directory",
+            { error, projectPath },
+          );
+          setExportNotice(
+            `长图已保存，但无法打开项目文件夹：${
+              error instanceof Error ? error.message : String(error)
+            }。请从文件资源管理器手动打开项目文件夹。`,
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+        logger.error("Long image export failed", {
+          error,
+          preset: settings.preset,
+          allowSplit: settings.allowSplit,
+          width: settings.width,
+        });
+        setCanvasError(
+          `无法导出长图：${longImageFailureMessage(error, settings)}`,
+        );
+      })
+      .finally(() => {
+        if (longImageAbortRef.current !== abortController) return;
+        longImageAbortRef.current = null;
+        exportInFlightRef.current = false;
+        setExportingLongImage(false);
+        setLongImageProgress(null);
+      });
+    return true;
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <BlockNoteCanvasToolbar
         exportingDocx={exportingDocx}
+        exportingLongImage={exportingLongImage}
         exportingPdf={exportingPdf}
         onExportDocx={() =>
           runExport("DOCX", docxExporter.export, docxSaver)}
+        onExportLongImage={runLongImageExport}
         onExportPdf={() => runExport("PDF", exporter.export, saver)}
         onFitWidth={() => {
           const next = fitBlockNoteDocumentZoom(viewportSize.width);
@@ -788,6 +1232,25 @@ export function BlockNoteProjectCanvasProvider({
         saveState={saveState}
         zoom={zoom}
       />
+      {exportingLongImage && longImageProgress ? (
+        <div
+          aria-label="长图导出进度"
+          aria-live="polite"
+          className="flex min-h-9 items-center justify-between gap-3 border-b border-sky-200 bg-sky-50 px-4 py-1.5 text-xs text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100"
+          role="status"
+        >
+          <span>{longImageProgressLabel(longImageProgress)}</span>
+          {longImageProgress.phase !== "save" ? (
+            <button
+              className="rounded px-2 py-1 font-semibold hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional dark:hover:bg-sky-900"
+              onClick={() => longImageAbortRef.current?.abort()}
+              type="button"
+            >
+              取消长图导出
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {saveError ? (
         <div
           className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700"
@@ -851,23 +1314,36 @@ export function BlockNoteProjectCanvasProvider({
             zoom,
           }}
         >
-          <BlockNoteDocumentEditor
-            ariaLabel="方案正文"
-            document={loadState.plan.document}
-            imageGroupController={imageGroupController}
-            key={`${projectPath}:${loadState.plan.schemaVersion}`}
-            onChange={updateDocument}
-            persistMediaUrl={persistMediaUrl}
-            resolveMediaUrl={resolveMediaUrl}
-            uploadFile={uploadMedia}
-          />
+          <ImageDragPreviewProvider
+            enabled
+            imageGroupOrder={imageGroupIdsInBlockDocument(
+              loadState.plan.document,
+            )}
+            imageGroups={loadState.plan.imageGroups}
+            imageSources={imageSrc}
+            onMoveImage={imageGroupController.moveImage}
+            planRevision={planRevision}
+            projectKey={projectPath}
+            scrollContainerRef={scrollerRef}
+          >
+            <BlockNoteDocumentEditor
+              ariaLabel="方案正文"
+              document={loadState.plan.document}
+              imageGroupController={imageGroupController}
+              key={`${projectPath}:${loadState.plan.schemaVersion}`}
+              onChange={updateDocument}
+              persistMediaUrl={persistMediaUrl}
+              resolveMediaUrl={resolveMediaUrl}
+              uploadFile={uploadMedia}
+            />
+          </ImageDragPreviewProvider>
         </div>
       </div>
       {lightboxTarget && imageSrc[lightboxTarget.file] ? (
         <ReferenceImageLightbox
           alt="参考图"
           cropAction={(() => {
-            const image = planRef.current?.imageGroups
+            const image = loadState.plan.imageGroups
               .find((group) => group.id === lightboxTarget.groupId)
               ?.images.find((entry) => entry.id === lightboxTarget.imageId);
             if (
@@ -882,24 +1358,9 @@ export function BlockNoteProjectCanvasProvider({
             return {
               sourceWidth: image.sourceWidth!,
               sourceHeight: image.sourceHeight!,
-              confirm: async (crop) => {
-                const current = planRef.current;
-                if (!current) {
-                  throw new Error("当前方案不可用，请重新打开项目");
-                }
-                const result = await service.commitImageCrop(
-                  projectPath,
-                  current,
-                  lightboxTarget.groupId,
-                  lightboxTarget.imageId,
-                  crop,
-                );
-                setImageSrc((existing) => ({
-                  ...existing,
-                  [result.image.file]: result.dataUrl,
-                }));
-                applyPlan(result.plan);
-              },
+              // Invoked by the crop dialog after user confirmation, not during render.
+              // eslint-disable-next-line react-hooks/refs
+              confirm: confirmLightboxCrop,
             };
           })()}
           onClose={() => setLightboxTarget(null)}

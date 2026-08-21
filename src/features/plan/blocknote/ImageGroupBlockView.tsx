@@ -1,9 +1,11 @@
 import { Camera, Images, Plus, Trash2 } from "lucide-react";
 import {
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -12,10 +14,30 @@ import {
   type DocumentImageGroupSlot,
 } from "../../../domain/plan/canvas/documentImageGroupLayout";
 import { imageCropForView, imageViewCss } from "../../../domain/plan/canvas/imageView";
-import type { ReferenceImage } from "../../../domain/plan/canvas/models";
+import {
+  MIN_COMPONENT_HEIGHT,
+  type ReferenceImage,
+} from "../../../domain/plan/canvas/models";
+import { usePrefersReducedMotion } from "../../../shared/hooks/usePrefersReducedMotion";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
 import { useBlockNoteEditor } from "@blocknote/react";
+import {
+  createImageDragMotionStyle,
+  IMAGE_DRAG_TOKENS,
+} from "../imageDragMotion";
 import { useImageGroupBlockController } from "./ImageGroupBlockContext";
+import {
+  useImageDragActivator,
+  useImageDragPreview,
+  useImageGroupDroppable,
+  useImageTileDroppable,
+} from "./ImageDragPreviewContext";
+import {
+  EmptyImageGroupDropSlot,
+  ImageDragSourcePlaceholder,
+  ImageDragTargetGroup,
+  ImageDragTargetInsertion,
+} from "./ImageDragPresentation";
 import { isLegacyDefaultImageGroup } from "./canvasViewport";
 import { startBlockPointerDrag } from "./blockPointerDrag";
 import type {
@@ -37,6 +59,204 @@ import {
   type ResizeDirection,
 } from "./imageGroupInteraction";
 
+function imageSlotRows(
+  slots: readonly DocumentImageGroupSlot[],
+): ReadonlyMap<string, number> {
+  const rowByY = new Map<number, number>();
+  const rows = new Map<string, number>();
+  for (const slot of slots) {
+    let row = rowByY.get(slot.y);
+    if (row === undefined) {
+      row = rowByY.size;
+      rowByY.set(slot.y, row);
+    }
+    rows.set(slot.id, row);
+  }
+  return rows;
+}
+
+function InteractiveImageTile({
+  groupId,
+  image,
+  index,
+  row,
+  slot,
+  selected,
+  src,
+  onDelete,
+  onOpen,
+  onResize,
+  onSelect,
+}: {
+  groupId: string;
+  image: ReferenceImage;
+  index: number;
+  row: number;
+  slot: DocumentImageGroupSlot;
+  selected: boolean;
+  src: string | undefined;
+  onDelete(): void;
+  onOpen(): void;
+  onResize(
+    direction: ResizeDirection,
+    event: ReactPointerEvent<HTMLSpanElement>,
+  ): void;
+  onSelect(): void;
+}) {
+  const drag = useImageDragPreview();
+  const {
+    attributes,
+    isDragging,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef: setDraggableNodeRef,
+  } = useImageDragActivator(groupId, image.id, index, image.file);
+  const {
+    setNodeRef: setDroppableNodeRef,
+  } = useImageTileDroppable(groupId, image.id, index, row);
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const previousRectRef = useRef<DOMRect | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const dragging = drag.state.status === "dragging";
+
+  const setFrameNode = useCallback((node: HTMLDivElement | null) => {
+    frameRef.current = node;
+    setDraggableNodeRef(node);
+    setDroppableNodeRef(node);
+  }, [setDraggableNodeRef, setDroppableNodeRef]);
+
+  useLayoutEffect(() => {
+    const element = frameRef.current;
+    if (!element) return;
+    const current = element.getBoundingClientRect();
+    const previous = previousRectRef.current;
+    previousRectRef.current = current;
+    if (
+      !dragging ||
+      prefersReducedMotion ||
+      !previous ||
+      current.width <= 0 ||
+      current.height <= 0
+    ) {
+      return;
+    }
+    const deltaX = previous.left - current.left;
+    const deltaY = previous.top - current.top;
+    if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
+    element.style.transition = "none";
+    element.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0)`;
+    animationFrameRef.current = window.requestAnimationFrame(() => {
+      animationFrameRef.current = null;
+      element.style.transition =
+        `transform ${IMAGE_DRAG_TOKENS.reflowDurationMs}ms ${IMAGE_DRAG_TOKENS.easing}, opacity ${IMAGE_DRAG_TOKENS.reflowDurationMs}ms ${IMAGE_DRAG_TOKENS.easing}`;
+      element.style.transform = "translate3d(0, 0, 0)";
+    });
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [dragging, prefersReducedMotion, slot.x, slot.y]);
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    listeners?.onKeyDown?.(event);
+    if (drag.state.status === "dragging") return;
+    if (event.defaultPrevented || event.key !== "Enter") return;
+    event.preventDefault();
+    onOpen();
+  };
+
+  return (
+    <div
+      className={`group preshot-image-drag-tile absolute overflow-visible rounded border bg-[#e7e8ea] ${
+        selected
+          ? "border-app-accent ring-2 ring-app-accent/40"
+          : "border-app-border"
+      }`}
+      data-image-id={image.id}
+      data-image-index={index}
+      data-image-row={row}
+      data-selected={selected ? "true" : "false"}
+      ref={setFrameNode}
+      style={{
+        height: slot.height,
+        left: slot.x,
+        top: slot.y,
+        width: slot.width,
+        ...createImageDragMotionStyle({
+          isDragging: true,
+          prefersReducedMotion,
+          opacity: isDragging ? 0 : 1,
+        }),
+      }}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        aria-label={`选择参考图 ${index + 1}`}
+        aria-pressed={selected}
+        className={`absolute inset-0 h-full w-full overflow-hidden ${
+          src ? "cursor-grab active:cursor-grabbing" : "cursor-default"
+        }`}
+        data-image-drag-activator="true"
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect();
+        }}
+        onDoubleClick={(event) => {
+          event.stopPropagation();
+          if (drag.isViewerSuppressed()) return;
+          onOpen();
+        }}
+        onFocus={() => drag.announceSelection(groupId, image.id, index)}
+        onKeyDown={handleKeyDown}
+        ref={setActivatorNodeRef}
+        type="button"
+      >
+        {src ? (
+          <img
+            alt="参考图"
+            className="absolute max-w-none"
+            draggable={false}
+            src={src}
+            style={imageViewCss(imageCropForView(image))}
+          />
+        ) : (
+          <span className="grid h-full place-items-center text-xs text-app-muted">
+            加载中…
+          </span>
+        )}
+      </button>
+      <button
+        aria-label={`删除参考图 ${index + 1}`}
+        className="absolute right-1 top-1 z-[60] grid h-[18px] w-[18px] place-items-center rounded bg-[#202329]/85 text-white opacity-0 group-hover:opacity-100 focus:opacity-100"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete();
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        type="button"
+      >
+        <Trash2 aria-hidden size={10} />
+      </button>
+      {IMAGE_RESIZE_DIRECTIONS.map((direction) => (
+        <span
+          aria-label={`从${direction}调整参考图 ${index + 1}`}
+          aria-orientation="vertical"
+          data-image-resize-edge={direction}
+          key={direction}
+          onPointerDown={(event) => onResize(direction, event)}
+          role="separator"
+          style={resizeHandleStyle(direction)}
+          tabIndex={0}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function ImageGroupBlockView({
   blockId,
   groupId,
@@ -45,6 +265,8 @@ export function ImageGroupBlockView({
   groupId: string;
 }) {
   const controller = useImageGroupBlockController();
+  const drag = useImageDragPreview();
+  const groupDroppable = useImageGroupDroppable(groupId);
   const editor = useBlockNoteEditor();
   const group = useSyncExternalStore(
     controller.subscribe,
@@ -57,7 +279,10 @@ export function ImageGroupBlockView({
   const [groupPreview, setGroupPreview] = useState<GroupPreview | null>(null);
   const [guide, setGuide] = useState<GuideState>({});
   const [availableWidth, setAvailableWidth] = useState(group?.width ?? 0);
-  const suppressViewerUntilRef = useRef(0);
+  const setRootNode = useCallback((node: HTMLDivElement | null) => {
+    rootRef.current = node;
+    groupDroppable.setNodeRef(node);
+  }, [groupDroppable]);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -86,8 +311,15 @@ export function ImageGroupBlockView({
     );
   }
 
-  const displayImages = group.images.map((image) =>
-    imageWithPreview(image, framePreview),
+  const dragPreview = drag.state.status === "dragging"
+    ? drag.getPreviewGroup(groupId)
+    : null;
+  const previewItems = dragPreview?.items ?? group.images.map((image) => ({
+    kind: "image" as const,
+    image,
+  }));
+  const displayImages = previewItems.map((item) =>
+    imageWithPreview(item.image, framePreview),
   );
   const displayedGroup = groupPreview ?? group;
   const requestedWidth =
@@ -107,8 +339,25 @@ export function ImageGroupBlockView({
     constrainedWidth,
   );
   const displayedHeight = framePreview?.groupHeight ??
-    Math.max(displayedGroup.height, layout.height);
+    Math.max(MIN_COMPONENT_HEIGHT, displayedGroup.height, layout.height);
   const imagesById = new Map(displayImages.map((image) => [image.id, image]));
+  const itemById = new Map(previewItems.map((item) => [item.image.id, item]));
+  const rowByImageId = imageSlotRows(layout.slots);
+  const committedLayout = layoutDocumentImageGroupForWidth(
+    group.images,
+    constrainedWidth,
+  );
+  const sourcePlaceholderSlot =
+    drag.state.status === "dragging" &&
+    drag.state.sourceGroupId === groupId &&
+    drag.state.active
+      ? committedLayout.slots.find(
+          (slot) => slot.id === drag.state.active?.image.id,
+        )
+      : undefined;
+  const targetActive =
+    (drag.state.status === "dragging" || drag.state.status === "landing") &&
+    drag.state.target?.groupId === groupId;
 
   const startImageResize = (
     image: ReferenceImage,
@@ -230,70 +479,6 @@ export function ImageGroupBlockView({
     document.addEventListener("pointercancel", cancel);
   };
 
-  const startImageDrag = (
-    image: ReferenceImage,
-    event: ReactPointerEvent<HTMLButtonElement>,
-  ) => {
-    if (event.button !== 0) return;
-    event.stopPropagation();
-    controller.selectImage?.(image.id);
-    const startX = event.clientX;
-    const startY = event.clientY;
-    let dragging = false;
-    let targetGroupId = groupId;
-    let targetIndex = group.images.findIndex((entry) => entry.id === image.id);
-    const button = event.currentTarget;
-    const move = (moveEvent: PointerEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
-      if (!dragging && Math.hypot(dx, dy) < 6) return;
-      dragging = true;
-      button.style.translate = `${dx}px ${dy}px`;
-      button.style.zIndex = "1000";
-      const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
-      const targetGroup = target?.closest<HTMLElement>("[data-image-group-id]");
-      if (!targetGroup) return;
-      targetGroupId = targetGroup.dataset.imageGroupId ?? groupId;
-      const frames = Array.from(
-        targetGroup.querySelectorAll<HTMLElement>("[data-image-id]"),
-      ).filter((frame) => frame.dataset.imageId !== image.id);
-      const before = frames.find((frame) => {
-        const rect = frame.getBoundingClientRect();
-        return moveEvent.clientY < rect.top + rect.height / 2 ||
-          (
-            moveEvent.clientY <= rect.bottom &&
-            moveEvent.clientX < rect.left + rect.width / 2
-          );
-      });
-      targetIndex = before ? frames.indexOf(before) : frames.length;
-      document.querySelectorAll<HTMLElement>("[data-image-drop-target]")
-        .forEach((entry) => delete entry.dataset.imageDropTarget);
-      targetGroup.dataset.imageDropTarget = "true";
-    };
-    const cleanup = () => {
-      document.removeEventListener("pointermove", move);
-      document.removeEventListener("pointerup", finish);
-      document.removeEventListener("pointercancel", cancel);
-      button.style.removeProperty("translate");
-      button.style.removeProperty("z-index");
-      document.querySelectorAll<HTMLElement>("[data-image-drop-target]")
-        .forEach((target) => delete target.dataset.imageDropTarget);
-    };
-    const finish = () => {
-      cleanup();
-      if (dragging) {
-        suppressViewerUntilRef.current = Date.now() + 500;
-        controller.moveImage(groupId, image.id, targetGroupId, targetIndex);
-      }
-    };
-    const cancel = () => {
-      cleanup();
-    };
-    document.addEventListener("pointermove", move);
-    document.addEventListener("pointerup", finish);
-    document.addEventListener("pointercancel", cancel);
-  };
-
   const startGroupResize = (
     direction: ResizeDirection,
     event: ReactPointerEvent<HTMLSpanElement>,
@@ -368,11 +553,12 @@ export function ImageGroupBlockView({
       className="preshot-blocknote-image-group-shell relative w-full min-w-0"
       contentEditable={false}
     >
-      <div
+      <ImageDragTargetGroup
+        active={targetActive}
         className="preshot-blocknote-image-group bn-drag-exclude relative rounded border border-app-border bg-app-panel p-2"
         data-image-group-id={groupId}
         onPointerDown={startGroupBlockDrag}
-        ref={rootRef}
+        ref={setRootNode}
         style={{
           height: `${displayedHeight}px`,
           marginLeft: `${constrainedX}px`,
@@ -414,72 +600,72 @@ export function ImageGroupBlockView({
         </div>
         <div className="relative h-full overflow-hidden">
           {group.images.length === 0 ? (
+            <EmptyImageGroupDropSlot
+              active={targetActive}
+              className="absolute inset-0"
+            />
+          ) : null}
+          {group.images.length === 0 && drag.state.status === "idle" ? (
             <button className="grid h-full w-full place-items-center rounded border border-dashed border-app-border bg-white text-xs text-app-muted" onClick={() => controller.addImages(groupId)} type="button">
               添加图片
             </button>
           ) : null}
-          {layout.slots.map((slot, index) => {
+          {sourcePlaceholderSlot ? (
+            <ImageDragSourcePlaceholder
+              className="absolute z-10"
+              height={sourcePlaceholderSlot.height}
+              style={{
+                left: sourcePlaceholderSlot.x,
+                top: sourcePlaceholderSlot.y,
+              }}
+              width={sourcePlaceholderSlot.width}
+            />
+          ) : null}
+          {layout.slots.map((slot) => {
             const image = imagesById.get(slot.id);
             if (!image) return null;
+            const item = itemById.get(slot.id);
+            const committedIndex = group.images.findIndex(
+              (entry) => entry.id === image.id,
+            );
+            const landingSuppressed =
+              drag.isDestinationDuplicateSuppressed(groupId, image.id);
+            if (item?.kind === "placeholder" || landingSuppressed) {
+              const Placeholder =
+                targetActive
+                  ? ImageDragTargetInsertion
+                  : ImageDragSourcePlaceholder;
+              return (
+                <Placeholder
+                  className="absolute z-20"
+                  data-image-placeholder-id={image.id}
+                  height={slot.height}
+                  key={`placeholder:${image.id}`}
+                  style={{ left: slot.x, top: slot.y }}
+                  width={slot.width}
+                />
+              );
+            }
+            if (committedIndex < 0) return null;
             const src = controller.getImageSrc(image.file);
             const selected = controller.selectedImageId === image.id;
             return (
-              <div
-                className={`group absolute overflow-visible rounded border bg-[#e7e8ea] ${
-                  selected
-                    ? "border-app-accent ring-2 ring-app-accent/40"
-                    : "border-app-border"
-                }`}
-                data-image-id={image.id}
-                data-selected={selected ? "true" : "false"}
+              <InteractiveImageTile
+                groupId={groupId}
+                image={image}
+                index={committedIndex}
                 key={image.id}
-                style={{ height: slot.height, left: slot.x, top: slot.y, width: slot.width }}
-              >
-                <button
-                  aria-label={`选择参考图 ${index + 1}`}
-                  aria-pressed={selected}
-                  className="absolute inset-0 h-full w-full cursor-pointer overflow-hidden"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    controller.selectImage?.(image.id);
-                  }}
-                  onDoubleClick={(event) => {
-                    event.stopPropagation();
-                    if (Date.now() < suppressViewerUntilRef.current) return;
-                    controller.openImage(groupId, image.id, image.file);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter") return;
-                    event.preventDefault();
-                    controller.openImage(groupId, image.id, image.file);
-                  }}
-                  onPointerDown={(event) => startImageDrag(image, event)}
-                  type="button"
-                >
-                  {src ? <img alt="参考图" className="absolute max-w-none" draggable={false} src={src} style={imageViewCss(imageCropForView(image))} /> : <span className="grid h-full place-items-center text-xs text-app-muted">加载中…</span>}
-                </button>
-                <button
-                  aria-label={`删除参考图 ${index + 1}`}
-                  className="absolute right-1 top-1 z-[60] grid h-[18px] w-[18px] place-items-center rounded bg-[#202329]/85 text-white opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  onClick={(event) => { event.stopPropagation(); setPendingDelete(image.id); }}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  type="button"
-                >
-                  <Trash2 aria-hidden size={10} />
-                </button>
-                {IMAGE_RESIZE_DIRECTIONS.map((direction) => (
-                  <span
-                    aria-label={`从${direction}调整参考图 ${index + 1}`}
-                    aria-orientation="vertical"
-                    data-image-resize-edge={direction}
-                    key={direction}
-                    onPointerDown={(event) => startImageResize(image, slot, direction, event)}
-                    role="separator"
-                    style={resizeHandleStyle(direction)}
-                    tabIndex={0}
-                  />
-                ))}
-              </div>
+                onDelete={() => setPendingDelete(image.id)}
+                onOpen={() =>
+                  controller.openImage(groupId, image.id, image.file)}
+                onResize={(direction, event) =>
+                  startImageResize(image, slot, direction, event)}
+                onSelect={() => controller.selectImage?.(image.id)}
+                row={rowByImageId.get(image.id) ?? 0}
+                selected={selected}
+                slot={slot}
+                src={src}
+              />
             );
           })}
           {guide.vertical ? <div className="pointer-events-none absolute inset-y-1 z-[70] border-l border-dashed border-app-accent" style={{ left: guide.vertical.x }}><span className="absolute left-1 top-1 whitespace-nowrap rounded bg-app-accent px-1.5 py-1 text-[8px] font-bold text-white">{guide.vertical.label}</span></div> : null}
@@ -497,7 +683,7 @@ export function ImageGroupBlockView({
             tabIndex={0}
           />
         ))}
-      </div>
+      </ImageDragTargetGroup>
       <ConfirmDialog
         cancelLabel="取消"
         confirmLabel="删除"

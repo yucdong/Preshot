@@ -2,6 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 import type { ProjectPlanV14 } from "../canvas/blockDocument";
 import { createBlockNotePlanService } from "./service";
 
+function referenceImage(id: string) {
+  return {
+    id,
+    file: `references/${id}.png`,
+    aspectRatio: 1.5,
+    sourceWidth: 900,
+    sourceHeight: 600,
+    frameWidth: 135,
+    frameHeight: 90,
+  };
+}
+
 describe("BlockNote plan service", () => {
   it("creates schema v14, migrates v13, and blocks older schemas", async () => {
     const repository = {
@@ -134,7 +146,7 @@ describe("BlockNote plan service", () => {
 
     const result = await service.importImages(
       "C:\\project",
-      plan,
+      () => plan,
       "group",
       ["C:\\one.png", "C:\\two.png"],
     );
@@ -297,7 +309,7 @@ describe("BlockNote plan service", () => {
 
     const result = await service.commitImageCrop(
       "C:\\project",
-      plan,
+      () => plan,
       "group",
       "image",
       image.crop,
@@ -422,7 +434,7 @@ describe("BlockNote plan service", () => {
 
     const cropPromise = service.commitImageCrop(
       "C:\\project",
-      plan,
+      () => plan,
       "group",
       "image",
       { x: 0, y: 0, width: 0.5, height: 0.5 },
@@ -532,7 +544,7 @@ describe("BlockNote plan service", () => {
 
     const cropPromise = service.commitImageCrop(
       "C:\\project",
-      plan,
+      () => plan,
       "group",
       "image",
       plan.imageGroups[0].images[0].crop,
@@ -638,7 +650,7 @@ describe("BlockNote plan service", () => {
 
     await expect(service.commitImageCrop(
       "C:\\project",
-      plan,
+      () => plan,
       "group",
       "image",
       { x: 0, y: 1 / 6, width: 1, height: 2 / 3 },
@@ -686,7 +698,7 @@ describe("BlockNote plan service", () => {
 
     await expect(failedRollbackService.commitImageCrop(
       "C:\\project",
-      plan,
+      () => plan,
       "group",
       "image",
       { x: 0, y: 1 / 6, width: 1, height: 2 / 3 },
@@ -757,7 +769,7 @@ describe("BlockNote plan service", () => {
 
     await service.commitImageCrop(
       "C:\\project",
-      plan,
+      () => plan,
       "group",
       "image",
       { x: 0, y: 1 / 6, width: 1, height: 2 / 3 },
@@ -770,7 +782,7 @@ describe("BlockNote plan service", () => {
 
     await service.commitImageCrop(
       "C:\\project",
-      plan,
+      () => plan,
       "group",
       "image",
       { x: 0.1, y: 0.1, width: 0.01, height: 0.01 },
@@ -841,11 +853,156 @@ describe("BlockNote plan service", () => {
 
     await expect(service.commitImageCrop(
       "C:\\project",
-      plan,
+      () => plan,
       "group",
       "image",
       { x: 0.75, y: 0, width: 0.5, height: 1 },
     )).rejects.toThrow(/crop bounds are invalid/);
     expect(beginImageCrop).not.toHaveBeenCalled();
+  });
+
+  it("rebases imported images onto the latest group order before persistence", async () => {
+    let releaseImport!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseImport = resolve;
+    });
+    const saveRawPlan = vi.fn();
+    const service = createBlockNotePlanService({
+      repository: { loadRawPlan: vi.fn(), saveRawPlan },
+      imageStore: {
+        importImage: vi.fn(async () => {
+          await gate;
+          return {
+            file: "references/imported.png",
+            dataUrl: "data:image/png;base64,imported",
+          };
+        }),
+        loadImage: vi.fn(),
+        removeImage: vi.fn(),
+      },
+      imageCropStore: { beginImageCrop: vi.fn() },
+      mediaStore: {
+        importMedia: vi.fn(),
+        loadMedia: vi.fn(),
+        removeMedia: vi.fn(),
+      },
+      createId: () => "imported",
+      logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+    });
+    const original: ProjectPlanV14 = {
+      schemaVersion: 14,
+      title: "Latest",
+      document: {
+        format: "preshot-blocks",
+        version: 2,
+        blocks: [],
+      },
+      imageGroups: [{
+        id: "group",
+        name: "Group",
+        type: "reference",
+        x: 0,
+        width: 500,
+        height: 300,
+        description: "",
+        images: [referenceImage("first"), referenceImage("second")],
+      }],
+    };
+    let latest = original;
+    const operation = service.importImages(
+      "C:\\project",
+      () => latest,
+      "group",
+      ["C:\\source.png"],
+    );
+    latest = {
+      ...original,
+      imageGroups: [{
+        ...original.imageGroups[0]!,
+        images: [
+          original.imageGroups[0]!.images[1]!,
+          original.imageGroups[0]!.images[0]!,
+        ],
+      }],
+    };
+
+    releaseImport();
+    const result = await operation;
+
+    expect(result.plan.imageGroups[0]!.images.map(({ id }) => id)).toEqual([
+      "second",
+      "first",
+      "imported",
+    ]);
+    expect(saveRawPlan).toHaveBeenCalledWith("C:\\project", result.plan);
+  });
+
+  it("rolls back every copied image when a later import fails", async () => {
+    const removeImage = vi.fn().mockResolvedValue(undefined);
+    const saveRawPlan = vi.fn();
+    const service = createBlockNotePlanService({
+      repository: { loadRawPlan: vi.fn(), saveRawPlan },
+      imageStore: {
+        importImage: vi.fn()
+          .mockResolvedValueOnce({
+            file: "references/first.png",
+            dataUrl: "data:image/png;base64,first",
+          })
+          .mockRejectedValueOnce(new Error("second copy failed")),
+        loadImage: vi.fn(),
+        removeImage,
+      },
+      imageCropStore: { beginImageCrop: vi.fn() },
+      mediaStore: {
+        importMedia: vi.fn(),
+        loadMedia: vi.fn(),
+        removeMedia: vi.fn(),
+      },
+      createId: () => "imported",
+      logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+    });
+    const plan: ProjectPlanV14 = {
+      schemaVersion: 14,
+      title: "Rollback",
+      document: {
+        format: "preshot-blocks",
+        version: 2,
+        blocks: [],
+      },
+      imageGroups: [{
+        id: "group",
+        name: "Group",
+        type: "reference",
+        x: 0,
+        width: 500,
+        height: 300,
+        description: "",
+        images: [],
+      }],
+    };
+
+    await expect(service.importImages(
+      "C:\\project",
+      () => plan,
+      "group",
+      ["C:\\first.png", "C:\\second.png"],
+    )).rejects.toThrow("Unable to import reference images: second copy failed");
+
+    expect(removeImage).toHaveBeenCalledOnce();
+    expect(removeImage).toHaveBeenCalledWith(
+      "C:\\project",
+      "references/first.png",
+    );
+    expect(saveRawPlan).not.toHaveBeenCalled();
   });
 });
