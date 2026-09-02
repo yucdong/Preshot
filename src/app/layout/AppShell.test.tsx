@@ -185,7 +185,7 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    expect(screen.getByTitle(project.path)).toHaveTextContent(project.path);
+    expect(screen.queryByText(project.path)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "打开项目目录 Editorial" }));
     expect(h.onRevealProject).toHaveBeenCalledWith(project);
 
