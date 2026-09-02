@@ -74,6 +74,9 @@ describe("workspaceLogger", () => {
     workspaceLogger.error("Workspace failure", {
       rollbackToken: "secret-token",
       coverDataUrl: "data:image/png;base64,secret",
+      thumbnailDataUrl: "data:image/png;base64,thumbnail",
+      absolutePath: "C:\\Private\\reference.png",
+      detail: "Unable to open C:\\Private\\reference.png",
       nested: {
         rollbackToken: "nested-secret-token",
         coverDataUrl: "data:image/png;base64,nested",
@@ -93,6 +96,9 @@ describe("workspaceLogger", () => {
 
     expect(entry.data).not.toHaveProperty("rollbackToken");
     expect(entry.data).not.toHaveProperty("coverDataUrl");
+    expect(entry.data).not.toHaveProperty("thumbnailDataUrl");
+    expect(entry.data).not.toHaveProperty("absolutePath");
+    expect(entry.data.detail).toBe("Unable to open [path omitted]");
     expect(entry.data).toMatchObject({
       nested: {
         failure: {
@@ -123,6 +129,7 @@ describe("workspaceLogger", () => {
       JSON.stringify(entry),
     ).not.toContain("data:image/png;base64");
     expect(JSON.stringify(entry)).not.toContain("secret-token");
+    expect(JSON.stringify(entry)).not.toContain("C:\\\\Private");
     expect(JSON.stringify(entry)).not.toContain("stack");
   });
 });

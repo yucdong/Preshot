@@ -1,0 +1,2 @@
+[env]
+BUNDLED_CLI_CACHE_DIR = { value = ".preshot-build-cache/copilot-cli", relative = true }

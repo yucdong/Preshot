@@ -1,8 +1,14 @@
 import { Image, View } from "@react-pdf/renderer";
-import { isValidElement, type ReactElement, type ReactNode } from "react";
+import {
+  Fragment,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildPreshotPdfLayoutManifest,
+  PDF_IMAGE_GROUP_MIN_EMERGENCY_ROW_SCALE,
   type PreshotPdfExportContext,
 } from "../../domain/plan/blocknote/pdfExportPreflight";
 import { PDF_VISUAL_CONTRACT } from "../../domain/plan/blocknote/pdfVisualContract";
@@ -102,6 +108,22 @@ function exportContext(
       assets.map((asset) => [asset.assetId, asset]),
     ),
   };
+}
+
+function emergencyRowGroup(id: string, requiredScale: number) {
+  const pdfScale = PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale;
+  const availableRowHeight =
+    PDF_VISUAL_CONTRACT.page.contentHeight -
+    PDF_VISUAL_CONTRACT.imageGroup.inset * 2 -
+    0.1;
+  const frameHeight = Number(
+    (availableRowHeight / requiredScale).toFixed(4),
+  ) / pdfScale;
+  return group(id, {
+    width: 1_008,
+    height: frameHeight + 18,
+    images: [image(`${id}-image`, 900, frameHeight)],
+  });
 }
 
 function childrenOf(element: ReactElement): ReactNode[] {
@@ -212,19 +234,25 @@ describe("image-group React-PDF render model", () => {
     }
   });
 
-  it("uniformly applies only the export group physical scale", () => {
+  it("builds page-safe row fragments without whole-group height scaling", () => {
     const source = group("oversized", {
-      x: 30,
-      width: 400,
-      height: 2_000,
-      frameOffsetY: 12,
-      images: [image("tall", 200, 1_900)],
+      width: 1_008,
+      height: 1_832,
+      images: [
+        image(
+          "row-1",
+          900,
+          600,
+          { x: 0.2, y: 0.1, width: 0.6, height: 0.8 },
+        ),
+        image("row-2", 900, 600),
+        image("row-3", 900, 600),
+      ],
     });
     const context = exportContext(plan(
       [imageGroupBlock("block", source.id)],
       [source],
     ));
-    const groupContext = context.groupsByBlockId.block;
     const model = buildPreshotImageGroupPdfRenderModel(
       imageGroupBlock("block", source.id),
       context,
@@ -232,32 +260,32 @@ describe("image-group React-PDF render model", () => {
 
     expect(model.kind).toBe("content");
     if (model.kind !== "content") return;
-    const finalScale =
-      groupContext.parent.logicalToPdfScale *
-      groupContext.pdf.exportOnlyGroupPhysicalScale;
-    expect(groupContext.pdf.exportOnlyGroupPhysicalScale).toBeLessThan(1);
-    expect(model.container.x).toBeCloseTo(source.x * finalScale, 4);
-    expect(model.flow.topPadding).toBeCloseTo(
-      (source.frameOffsetY ?? 0) * finalScale,
+    expect(model.pagination.mode).toBe("row-fragments");
+    if (model.pagination.mode !== "row-fragments") return;
+    expect(model.pagination.fragments.map((fragment) =>
+      fragment.images.map((entry) => entry.imageId)
+    )).toEqual([["row-1", "row-2"], ["row-3"]]);
+    expect(model.pagination.fragments[1].images[0].y).toBeCloseTo(
+      PDF_VISUAL_CONTRACT.imageGroup.inset,
       4,
     );
-    expect(model.container.y).toBe(0);
-    expect(model.flow.height).toBeCloseTo(
-      PDF_VISUAL_CONTRACT.page.contentHeight,
-      4,
-    );
-    expect(model.container.height + model.flow.topPadding).toBeCloseTo(
-      model.flow.height,
-      3,
-    );
-    expect(model.images[0].x).toBeCloseTo(
-      groupContext.slots[0].logical.x * finalScale,
-      4,
-    );
-    expect(model.images[0].height).toBeCloseTo(
-      groupContext.slots[0].logical.height * finalScale,
-      4,
-    );
+    expect(model.pagination.fragments[0].images[0].crop).toEqual({
+      x: 0.2,
+      y: 0.1,
+      width: 0.6,
+      height: 0.8,
+    });
+    expect(model.pagination.fragments.every((fragment) =>
+      fragment.container.backgroundColor ===
+        PDF_VISUAL_CONTRACT.imageGroup.surface &&
+      fragment.container.borderColor ===
+        PDF_VISUAL_CONTRACT.imageGroup.border &&
+      fragment.container.borderWidth ===
+        PDF_VISUAL_CONTRACT.imageGroup.borderWidth
+    )).toBe(true);
+    expect(model.pagination.fragments.every((fragment) =>
+      fragment.flow.height <= PDF_VISUAL_CONTRACT.page.contentHeight
+    )).toBe(true);
   });
 
   it("uses the actual weighted two-thirds column conversion", () => {
@@ -499,6 +527,218 @@ describe("image-group React-PDF mapping", () => {
       });
       expect(renderedImage.props).not.toHaveProperty("crop");
     }
+  });
+
+  it("uses one root presence sentinel with atomic fragments for oversized groups", () => {
+    const source = group("oversized", {
+      width: 1_008,
+      height: 1_832,
+      images: [
+        image("row-1", 900, 600),
+        image("row-2", 900, 600),
+        image("row-3", 900, 600),
+      ],
+    });
+    const context = exportContext(plan([
+      {
+        id: "lead",
+        type: "paragraph",
+        props: {},
+        content: [],
+        children: [],
+      },
+      imageGroupBlock("block", source.id),
+    ], [source]));
+
+    const element = createPreshotImageGroupPdfBlockMapping(context)(
+      imageGroupBlock("block", source.id),
+    );
+
+    expect(isValidElement(element)).toBe(true);
+    if (!isValidElement(element)) return;
+    expect(element.type).toBe(Fragment);
+    const rootChildren = childrenOf(element).filter(isValidElement);
+    expect(rootChildren[0]).toMatchObject({
+      type: View,
+      props: {
+        minPresenceAhead: PDF_VISUAL_CONTRACT.page.contentHeight,
+      },
+    });
+    expect(rootChildren[0].props).not.toHaveProperty("break");
+    expect(rootChildren[1]).toMatchObject({
+      type: View,
+      props: { wrap: true },
+    });
+    const fragments = childrenOf(rootChildren[1]).filter(isValidElement);
+    expect(fragments).toHaveLength(2);
+    expect(fragments.map((fragment) =>
+      (fragment.props as { wrap?: boolean }).wrap
+    )).toEqual([
+      false,
+      false,
+    ]);
+    expect(fragments[0].props).not.toHaveProperty("minPresenceAhead");
+    expect((fragments[1].props as { break?: boolean }).break).toBe(true);
+  });
+
+  it("does not request another fresh page after an authored page break", () => {
+    const source = group("after-break", {
+      width: 1_008,
+      height: 1_832,
+      images: [
+        image("row-1", 900, 600),
+        image("row-2", 900, 600),
+        image("row-3", 900, 600),
+      ],
+    });
+    const context = exportContext(plan([
+      {
+        id: "page-break",
+        type: "pageBreak",
+        props: {},
+        content: undefined,
+        children: [],
+      },
+      imageGroupBlock("block", source.id),
+    ], [source]));
+
+    const element = createPreshotImageGroupPdfBlockMapping(context)(
+      imageGroupBlock("block", source.id),
+    );
+
+    expect(isValidElement(element)).toBe(true);
+    if (!isValidElement(element)) return;
+    expect(element.type).toBe(View);
+    expect(element.props).not.toHaveProperty("break");
+    expect(
+      (element.props as { minPresenceAhead?: number }).minPresenceAhead,
+    ).toBeUndefined();
+  });
+
+  it("leaves fragmented column groups free of local presence sentinels", () => {
+    const source = group("column-oversized", {
+      width: 1_008,
+      height: 1_832,
+      images: [
+        image("row-1", 600, 600),
+        image("row-2", 600, 600),
+        image("row-3", 600, 600),
+      ],
+    });
+    const context = exportContext(plan([{
+      id: "columns",
+      type: "columnList",
+      props: {},
+      content: undefined,
+      children: [
+        {
+          id: "wide",
+          type: "column",
+          props: { width: 2 },
+          content: undefined,
+          children: [imageGroupBlock("block", source.id)],
+        },
+        {
+          id: "narrow",
+          type: "column",
+          props: { width: 1 },
+          content: undefined,
+          children: [{
+            id: "copy",
+            type: "paragraph",
+            props: {},
+            content: [],
+            children: [],
+          }],
+        },
+      ],
+    }], [source]));
+
+    const element = createPreshotImageGroupPdfBlockMapping(context)(
+      imageGroupBlock("block", source.id),
+    );
+
+    expect(isValidElement(element)).toBe(true);
+    if (!isValidElement(element)) return;
+    expect(element.type).toBe(View);
+    const elementProps = element.props as {
+      minPresenceAhead?: number;
+      wrap?: boolean;
+    };
+    expect(elementProps.wrap).toBe(true);
+    expect(elementProps.minPresenceAhead).toBeUndefined();
+    expect(
+      childrenOf(element)
+        .filter(isValidElement)
+        .some((child) =>
+          (child.props as { minPresenceAhead?: number }).minPresenceAhead !==
+            undefined
+        ),
+    ).toBe(false);
+  });
+
+  it.each([0.25, 0.250001])(
+    "renders an emergency row accepted at scale %s within page bounds",
+    (requiredScale) => {
+      const source = emergencyRowGroup("boundary", requiredScale);
+      const context = exportContext(plan(
+        [imageGroupBlock("block", source.id)],
+        [source],
+      ));
+      const model = buildPreshotImageGroupPdfRenderModel(
+        imageGroupBlock("block", source.id),
+        context,
+      );
+
+      expect(model.kind).toBe("content");
+      if (model.kind !== "content") return;
+      expect(model.pagination.mode).toBe("row-fragments");
+      if (model.pagination.mode !== "row-fragments") return;
+      expect(context.groups[0].pagination.rows[0].emergencyScale)
+        .toBeCloseTo(requiredScale, 7);
+      expect(context.groups[0].pagination.rows[0].emergencyScale)
+        .toBeGreaterThanOrEqual(PDF_IMAGE_GROUP_MIN_EMERGENCY_ROW_SCALE);
+      expect(model.pagination.fragments[0].flow.height).toBeLessThanOrEqual(
+        PDF_VISUAL_CONTRACT.page.contentHeight,
+      );
+      expect(model.pagination.fragments[0].images[0].height).toBeCloseTo(
+        context.groups[0].slots[0].pdf.height * requiredScale,
+        3,
+      );
+    },
+  );
+
+  it("keeps normal group render geometry unchanged", () => {
+    const source = group("normal", {
+      x: 24,
+      width: 500,
+      height: 260,
+      images: [
+        image("first", 120, 80),
+        image("second", 120, 80),
+      ],
+    });
+    const context = exportContext(plan(
+      [imageGroupBlock("block", source.id)],
+      [source],
+    ));
+    const model = buildPreshotImageGroupPdfRenderModel(
+      imageGroupBlock("block", source.id),
+      context,
+    );
+
+    expect(model.kind).toBe("content");
+    if (model.kind !== "content") return;
+    expect(model.pagination.mode).toBe("keep-together");
+    expect(model.container).toMatchObject({
+      x: context.groupsByBlockId.block.pdf.x,
+      width: context.groupsByBlockId.block.pdf.width,
+      height: context.groupsByBlockId.block.pdf.displayedHeight,
+    });
+    expect(model.images.map((entry) => entry.imageId)).toEqual([
+      "first",
+      "second",
+    ]);
   });
 
   it("gives standalone and column groups the same keep-together structure", () => {

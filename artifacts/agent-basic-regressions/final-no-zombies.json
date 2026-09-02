@@ -1,0 +1,11 @@
+{
+  "observedAt": "2026-08-22T15:15:23.9464011+08:00",
+  "preshotManagedProcesses": [],
+  "preexistingOrHostProcesses": [
+    {
+      "processName": "copilot",
+      "startedAt": "2026-08-20T17:10:00.0870847+08:00",
+      "underPreshotRoot": false
+    }
+  ]
+}

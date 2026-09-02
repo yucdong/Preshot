@@ -260,7 +260,7 @@ pub(crate) fn dedupe_project_name(parent: &Path, name: &str) -> String {
 }
 
 /// Resolves the `~/.preshot` home directory for the current OS.
-fn preshot_home() -> Result<PathBuf, CommandError> {
+pub(crate) fn preshot_home() -> Result<PathBuf, CommandError> {
     #[cfg(windows)]
     let home_var = "USERPROFILE";
     #[cfg(not(windows))]
@@ -314,7 +314,7 @@ fn ensure_user_data_roots_in(user_root: &Path) -> Result<UserDataRoots, CommandE
     })
 }
 
-fn ensure_user_data_roots_for_current_user() -> Result<UserDataRoots, CommandError> {
+pub(crate) fn ensure_user_data_roots_for_current_user() -> Result<UserDataRoots, CommandError> {
     ensure_user_data_roots_in(&preshot_home()?)
 }
 

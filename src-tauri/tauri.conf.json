@@ -28,6 +28,11 @@
     "targets": ["msi"],
     "publisher": "yucdong",
     "homepage": "https://github.com/yucdong/Preshot",
+    "resources": {
+      "../THIRD_PARTY_NOTICES.md": "licenses/THIRD_PARTY_NOTICES.md",
+      "../LICENSES/GITHUB-COPILOT-SDK-MIT.txt": "licenses/GITHUB-COPILOT-SDK-MIT.txt",
+      "../LICENSES/GITHUB-COPILOT-CLI-LICENSE.md": "licenses/GITHUB-COPILOT-CLI-LICENSE.md"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

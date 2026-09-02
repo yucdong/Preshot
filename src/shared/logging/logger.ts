@@ -26,6 +26,9 @@ function isSensitiveKey(key: string): boolean {
     normalized === "rollbacktoken" ||
     normalized === "stack" ||
     normalized.endsWith("token") ||
+    normalized.endsWith("path") ||
+    normalized.endsWith("dataurl") ||
+    normalized === "relativefile" ||
     normalized.includes("password") ||
     normalized.includes("secret") ||
     normalized.includes("authorization")
@@ -33,9 +36,18 @@ function isSensitiveKey(key: string): boolean {
 }
 
 function sanitizeString(value: string): string {
-  return value.length <= MAX_STRING_LENGTH
-    ? value
-    : `${value.slice(0, MAX_STRING_LENGTH)}…`;
+  const sanitized = value
+    .replace(
+      /data:(?:image|audio|video|application)\/[^\s"'<>]+/gi,
+      "[media omitted]",
+    )
+    .replace(
+      /(?:[a-zA-Z]:\\|\\\\[^\\\s]+\\)[^\s"'<>]+/g,
+      "[path omitted]",
+    );
+  return sanitized.length <= MAX_STRING_LENGTH
+    ? sanitized
+    : `${sanitized.slice(0, MAX_STRING_LENGTH)}…`;
 }
 
 function sanitizeError(error: Error, depth: number): JsonObject {

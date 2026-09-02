@@ -23,7 +23,7 @@ import {
   View,
   type TextProps,
 } from "@react-pdf/renderer";
-import type { ReactElement, ReactNode } from "react";
+import { Fragment, type ReactElement, type ReactNode } from "react";
 import boldFontUrl from "./fonts/NotoSansSC-Bold.ttf?url";
 import regularFontUrl from "./fonts/NotoSansSC-Regular.ttf?url";
 import type { PreshotPdfExportContext } from "../../domain/plan/blocknote/pdfExportPreflight";
@@ -35,9 +35,12 @@ import {
   type PreshotInlineContentSchema,
   type PreshotStyleSchema,
 } from "../../features/plan/blocknote/preshotBlockNoteSchema";
+import { freshPagePresenceAhead } from "./reactPdfPagination";
 
 export const PRESHOT_PDF_FONT_FAMILY = "Preshot Noto Sans SC";
 export const PRESHOT_PDF_DICTIONARY = zh;
+// Yoga compares rounded node heights, so retain a sub-point page-edge reserve.
+const REACT_PDF_PAGE_ROUNDING_TOLERANCE = 0.1;
 
 type PreshotContext = PreshotPdfExportContext<PreshotBlockNoteSchema>;
 type PdfTextStyle = NonNullable<TextProps["style"]>;
@@ -251,6 +254,20 @@ function assetBlob(context: PreshotContext, source: string): Blob {
     );
   }
   return new Blob([Uint8Array.from(asset.bytes)], { type: asset.mime });
+}
+
+function columnListPresenceAhead(
+  context: PreshotContext,
+  blockId: string,
+): number | undefined {
+  const hasFragmentedGroup = context.groups.some(
+    (group) =>
+      group.parent.columnListBlockId === blockId &&
+      group.pagination.mode === "row-fragments",
+  );
+  return hasFragmentedGroup
+    ? freshPagePresenceAhead(context, blockId)
+    : undefined;
 }
 
 export function createPreshotPdfAssetResolver(
@@ -521,20 +538,31 @@ export function createPreshotReactPdfMappings(
       _nestingLevel,
       _index,
       children,
-    ) => (
-      <View
-        key={`column-list-${block.id}`}
-        wrap
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          gap: contract.columns.gap,
-          marginBottom: contract.spacing.paragraph.after,
-        }}
-      >
-        {children}
-      </View>
-    ),
+    ) => {
+      const row = (
+        <View
+          key={`column-list-${block.id}`}
+          wrap
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            gap: contract.columns.gap,
+            marginBottom: contract.spacing.paragraph.after,
+          }}
+        >
+          {children}
+        </View>
+      );
+      const presenceAhead = columnListPresenceAhead(context, block.id);
+      return presenceAhead === undefined
+        ? row
+        : (
+            <Fragment key={`column-list-${block.id}-fresh-page`}>
+              <View minPresenceAhead={presenceAhead} />
+              {row}
+            </Fragment>
+          ) as PdfBlockResult;
+    },
     imageGroup: options.imageGroup,
   });
 
@@ -642,7 +670,8 @@ export class PreshotReactPdfExporter extends PDFExporter<
     };
     Object.assign(this.styles.page, {
       paddingTop: contract.page.margin,
-      paddingBottom: contract.page.margin,
+      paddingBottom:
+        contract.page.margin - REACT_PDF_PAGE_ROUNDING_TOLERANCE,
       paddingHorizontal: contract.page.margin,
       fontFamily: PRESHOT_PDF_FONT_FAMILY,
       fontSize: contract.typography.body.fontSize,
@@ -655,6 +684,74 @@ export class PreshotReactPdfExporter extends PDFExporter<
     this.styles.blockChildren = {
       marginLeft: contract.spacing.list.indent,
     };
+  }
+
+  override async transformBlocks(
+    blocks: Block<
+      PreshotBlockSchema,
+      PreshotInlineContentSchema,
+      PreshotStyleSchema
+    >[],
+    nestingLevel = 0,
+  ): Promise<ReactElement<Text>[]> {
+    const transformed: ReactElement<Text>[] = [];
+    let numberedListIndex = 0;
+    for (const block of blocks) {
+      numberedListIndex = block.type === "numberedListItem"
+        ? numberedListIndex + 1
+        : 0;
+      const children = await this.transformBlocks(
+        block.children,
+        nestingLevel + 1,
+      );
+      const mapped = await this.mapBlock(
+        block as Parameters<PreshotReactPdfExporter["mapBlock"]>[0],
+        nestingLevel,
+        numberedListIndex,
+        children,
+      );
+      if (
+        block.type === "pageBreak" ||
+        block.type === "columnList" ||
+        block.type === "column" ||
+        block.type === "imageGroup"
+      ) {
+        transformed.push(mapped);
+        continue;
+      }
+      const defaultStyle = this.blocknoteDefaultPropsToReactPDFStyle(
+        block.props as Parameters<
+          PreshotReactPdfExporter["blocknoteDefaultPropsToReactPDFStyle"]
+        >[0],
+      );
+      transformed.push((
+        <Fragment key={block.id}>
+          <View
+            style={{
+              paddingVertical: 2.25,
+              ...this.styles.block,
+              ...defaultStyle,
+            }}
+          >
+            {mapped}
+          </View>
+          {children.length > 0
+            ? (
+                <View
+                  key={`${block.id}${nestingLevel}children`}
+                  style={{
+                    marginLeft: 12,
+                    ...this.styles.blockChildren,
+                  }}
+                >
+                  {children}
+                </View>
+              )
+            : null}
+        </Fragment>
+      ) as ReactElement<Text>);
+    }
+    return transformed;
   }
 
   protected override async registerFonts(): Promise<void> {

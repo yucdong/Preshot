@@ -295,12 +295,12 @@ export function buildPreshotDocxImageGroupCompositeRequest(
       ? fittedHeight / group.pdf.unscaledFlowHeight
       : 1;
   const docxExportOnlyGroupPhysicalScale = Math.min(
-    group.pdf.exportOnlyGroupPhysicalScale,
+    group.docx.exportOnlyGroupPhysicalScale,
     docxPageHeightScale,
   );
   const geometryScale =
     docxExportOnlyGroupPhysicalScale /
-    group.pdf.exportOnlyGroupPhysicalScale;
+    group.pdf.horizontalFitScale;
   const displayWidth = rounded(group.pdf.width * geometryScale);
   const displayHeight = rounded(group.pdf.flowHeight * geometryScale);
   const indent = rounded(group.pdf.x * geometryScale);

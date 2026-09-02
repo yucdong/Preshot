@@ -1,41 +1,37 @@
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { SettingsButton } from "./SettingsButton";
 import { ThemeProvider } from "../../app/theme/ThemeProvider";
-import type { SettingsRepository } from "../../domain/settings/ports";
+import { AgentModelSettingsController } from "../../domain/agent";
+import { createBrowserAgentModelProbe } from "../../infrastructure/agent/browserAgentModelProbe";
+import { createSettingsAgentModelStore } from "../../infrastructure/agent/settingsAgentModelStore";
+import { createBrowserSettingsRepository } from "../../infrastructure/settings/browserSettings";
+import { AgentModelSettingsProvider } from "../agent/AgentModelSettingsContext";
+import { SettingsButton } from "./SettingsButton";
 
-// Minimal fake repository for tests
-const fakeRepository: SettingsRepository = {
-  read: async () => ({ theme: "system" }),
-  write: async () => {},
-};
+function renderButton() {
+  const repository = createBrowserSettingsRepository();
+  const controller = new AgentModelSettingsController({
+    store: createSettingsAgentModelStore(repository),
+    probe: createBrowserAgentModelProbe(),
+  });
+  return render(
+    <AgentModelSettingsProvider controller={controller}>
+      <ThemeProvider repository={repository}>
+        <SettingsButton />
+      </ThemeProvider>
+    </AgentModelSettingsProvider>,
+  );
+}
 
 describe("SettingsButton", () => {
-  it("renders the gear button with accessible name", () => {
-    render(
-      <ThemeProvider repository={fakeRepository}>
-        <SettingsButton />
-      </ThemeProvider>,
-    );
-
-    const button = screen.getByRole("button", { name: "设置" });
-    expect(button).toBeInTheDocument();
-  });
-
-  it("opens the settings panel when clicked", async () => {
+  it("has an accessible name and opens the shared settings dialog", async () => {
     const user = userEvent.setup();
-    render(
-      <ThemeProvider repository={fakeRepository}>
-        <SettingsButton />
-      </ThemeProvider>,
-    );
+    renderButton();
 
     const button = screen.getByRole("button", { name: "设置" });
+    expect(button).toBeVisible();
     await user.click(button);
-
-    // Panel should appear with role="dialog" and title
-    const dialog = screen.getByRole("dialog", { name: "设置" });
-    expect(dialog).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "设置" })).toHaveFocus();
   });
 });

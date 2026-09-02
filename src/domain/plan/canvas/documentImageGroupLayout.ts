@@ -5,15 +5,24 @@ export const DOCUMENT_IMAGE_GROUP_INSET = 9;
 
 export interface DocumentImageGroupSlot {
   id: string;
+  rowIndex: number;
   x: number;
   y: number;
   width: number;
   height: number;
 }
 
+export interface DocumentImageGroupRow {
+  index: number;
+  y: number;
+  height: number;
+  imageIds: string[];
+}
+
 export interface DocumentImageGroupLayout {
   scale: number;
   slots: DocumentImageGroupSlot[];
+  rows: DocumentImageGroupRow[];
   height: number;
 }
 
@@ -34,11 +43,13 @@ function slotsAtScale(
   images: readonly ReferenceImage[],
   availableWidth: number,
   scale: number,
-): DocumentImageGroupSlot[] {
+): Pick<DocumentImageGroupLayout, "rows" | "slots"> {
   const slots: DocumentImageGroupSlot[] = [];
+  const rows: DocumentImageGroupRow[] = [];
   let x = 0;
   let y = 0;
   let rowHeight = 0;
+  let rowIndex = 0;
   for (const image of images) {
     const width = positiveFinite(image.frameWidth) * scale;
     const height = positiveFinite(image.frameHeight) * scale;
@@ -55,10 +66,12 @@ function slotsAtScale(
       x = 0;
       y += rowHeight + DOCUMENT_IMAGE_GROUP_GAP;
       rowHeight = 0;
+      rowIndex += 1;
     }
     if (x > 0) x += DOCUMENT_IMAGE_GROUP_GAP;
     slots.push({
       id: image.id,
+      rowIndex,
       x: x + offsetX - minimumX,
       y: y + offsetY - minimumY,
       width,
@@ -66,8 +79,20 @@ function slotsAtScale(
     });
     x += footprintWidth;
     rowHeight = Math.max(rowHeight, footprintHeight);
+    const row = rows[rowIndex];
+    if (row) {
+      row.height = Math.max(row.height, footprintHeight);
+      row.imageIds.push(image.id);
+    } else {
+      rows.push({
+        index: rowIndex,
+        y,
+        height: footprintHeight,
+        imageIds: [image.id],
+      });
+    }
   }
-  return slots;
+  return { rows, slots };
 }
 
 function contentHeight(slots: readonly DocumentImageGroupSlot[]): number {
@@ -82,10 +107,11 @@ function layoutAtScale(
   availableWidth: number,
   scale: number,
 ): DocumentImageGroupLayout {
-  const slots = slotsAtScale(images, availableWidth, scale);
+  const { rows, slots } = slotsAtScale(images, availableWidth, scale);
   return {
     scale,
     slots,
+    rows,
     height: contentHeight(slots) + DOCUMENT_IMAGE_GROUP_INSET * 2,
   };
 }

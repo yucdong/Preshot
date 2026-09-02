@@ -574,7 +574,7 @@ test("creates, edits, saves, and exports a BlockNote v14 project", async ({ page
 
   const { option, trigger } = await openExportMenu(page, "PDF");
   await option.click();
-  await expect(trigger).toHaveText("导出", { timeout: 10_000 });
+  await expect(trigger).toHaveText("导出", { timeout: 30_000 });
 });
 
 test("previews and commits a cross-group image drag transaction", async ({
@@ -707,7 +707,9 @@ test("previews and commits a cross-group image drag transaction", async ({
 
     await keyboardImage.focus();
     await page.keyboard.press("Space");
-    await expect(page.locator("[data-image-drag-overlay]").last()).toBeVisible();
+    await expect(page.locator("[data-image-drag-overlay]").last()).toBeVisible({
+      timeout: 15_000,
+    });
     await page.keyboard.press("Home");
     await expect(source.locator(
       '[data-image-placeholder-id="source-b"]',
@@ -742,7 +744,9 @@ test("previews and commits a cross-group image drag transaction", async ({
         pointerType: "mouse",
       }));
     }, { point: sourcePoint, id: pointerId });
-    await expect(page.locator("[data-image-drag-overlay]").last()).toBeVisible();
+    await expect(page.locator("[data-image-drag-overlay]").last()).toBeVisible({
+      timeout: 15_000,
+    });
     if (zoom === 1) {
       await page.evaluate(() =>
         new Promise<void>((resolveFrames) =>

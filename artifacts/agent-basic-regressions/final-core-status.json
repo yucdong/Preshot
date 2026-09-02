@@ -1,0 +1,9 @@
+{
+  "docs-check": 0,
+  "lint": 0,
+  "typecheck": 0,
+  "init": 0,
+  "production-scripts": 0,
+  "agent-evals": 0,
+  "web-build": 0
+}

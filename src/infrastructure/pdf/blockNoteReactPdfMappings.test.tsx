@@ -61,7 +61,7 @@ function context(
   overrides: Partial<Context> = {},
 ): Context {
   return {
-    version: 1,
+    version: 2,
     schema: preshotBlockNoteSchema,
     blocks: [],
     blocksById: {},

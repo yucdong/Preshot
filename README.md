@@ -7,6 +7,9 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 ## Current product surface
 
 - Recent-project launcher and in-app project rail
+- Production project-scoped assistant with managed Copilot CLI sessions,
+  deterministic capability probes, immutable disclosed context, and
+  proposal-first text edits
 - BlockNote v14 editor (`schemaVersion: 14`, `document.format: "preshot-blocks"`, `document.version: 2`)
 - Slash menu, block drag, undo/redo, headings, lists, checklists, toggles, quotes, code blocks, tables, and dividers
 - Multi-column blocks via `@blocknote/xl-multi-column@0.53.0`
@@ -92,6 +95,10 @@ does not ship an archive dependency.
 - Reference image files live under `references/`.
 - Native BlockNote media files live under `media/`.
 - Theme and shell settings are stored in `%USERPROFILE%\.preshot\settings.json`.
+- Agent session metadata, drafts, proposal receipts/checkpoints, bounded
+  Apply/Undo recovery journals, and usage summaries live in
+  `%USERPROFILE%\.preshot\agent.db`; full transcripts remain in the managed
+  Copilot runtime under `%USERPROFILE%\.preshot\copilot`.
 - New-project picking defaults to `%USERPROFILE%\.preshot\projects`.
 - On startup, the application creates those user-owned roots when absent,
   adopts an existing valid default-root project when possible, or creates and
@@ -101,6 +108,8 @@ does not ship an archive dependency.
 
 - React 19, TypeScript, Vite
 - Tauri 2, Rust
+- `github-copilot-sdk@1.0.11` with its reviewed bundled CLI artifact
+  (`1.0.79`, self-reporting `1.0.81-7`) and bundled SQLite metadata storage
 - BlockNote 0.53, Mantine 8
 - Tailwind CSS 4
 - `@blocknote/xl-pdf-exporter@0.53.0` + `@react-pdf/renderer@4.3.0`
@@ -260,6 +269,7 @@ Install, upgrade, repair, and uninstall preserve `%USERPROFILE%\.preshot`.
 | `pnpm test:watch` | Run Vitest in watch mode. |
 | `pnpm test:init` | Run the PowerShell initializer regression harness. |
 | `pnpm test:production-scripts` | Run isolated production/release script fixtures. |
+| `pnpm test:agent-evals` | Run deterministic offline agent security/capability/proposal fixtures and refresh their report. |
 | `pnpm test:e2e` | Run the main Playwright browser-shell smoke suite. |
 | `pnpm test:e2e:blocknote` | Run the focused BlockNote v14 Playwright suite. |
 | `pnpm test:e2e:capture` | Run the isolated long-image DOM-capture acceptance suite. |
@@ -302,6 +312,11 @@ Local unsigned or partially signed builds are labeled non-publishable. Set
 `pnpm production:verify -- --Publish` to require valid Authenticode signatures
 on both the executable and MSI.
 
+The current local `0.0.1` executable and MSI are unsigned. They are valid only
+as development evidence and are not publishable. Publication also requires a
+version newer than the historical machine-wide `0.0.1`, so the first eligible
+per-user release is `0.0.2` or later.
+
 Tauri's documented `bundle.windows.signCommand` can sign during bundling.
 Alternatively, post-build `signtool.exe` signing supports
 `PRESHOT_SIGNTOOL_PATH` plus either `PRESHOT_SIGN_CERT_SHA1` or
@@ -331,6 +346,7 @@ verification.
 - [Licensing and distribution](docs/LICENSING.md)
 - [BlockNote v14 design](docs/design_docs/blocknote_v14_design.md)
 - [UI/UX contract](docs/design_docs/UI_UX_CONTRACT.md)
+- [Basic agent design and security contract](docs/design_docs/agent/agent_basic_design.md)
 - [Feature status tracker](docs/design_docs/featurelist.json)
 
 ## License

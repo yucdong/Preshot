@@ -4,6 +4,7 @@ import {
   validateProjectPlanV14,
 } from "../canvas/blockDocument";
 import {
+  DOCUMENT_IMAGE_GROUP_GAP,
   DOCUMENT_IMAGE_GROUP_INSET,
   layoutDocumentImageGroupForWidth,
 } from "../canvas/documentImageGroupLayout";
@@ -30,6 +31,20 @@ const NUMBER_PRECISION = 4;
 const CROP_PRECISION = 6;
 const REFERENCE_SOURCE = /^references\/[^/\\]+$/i;
 const NATIVE_IMAGE_SOURCE = /^media\/[^/\\]+$/i;
+const PDF_PAGINATION_EPSILON = 0.01;
+const PDF_EMERGENCY_ROW_SAFETY = 0.1;
+
+export const PDF_IMAGE_GROUP_MIN_EMERGENCY_ROW_SCALE = 0.25;
+export const PDF_IMAGE_GROUP_EMERGENCY_ROW_SCALE_EPSILON =
+  Number.EPSILON * 8;
+
+export function acceptsPdfImageGroupEmergencyRowScale(
+  requiredScale: number,
+): boolean {
+  return requiredScale >=
+    PDF_IMAGE_GROUP_MIN_EMERGENCY_ROW_SCALE -
+      PDF_IMAGE_GROUP_EMERGENCY_ROW_SCALE_EPSILON;
+}
 
 const round = (value: number, precision = NUMBER_PRECISION): number => {
   const rounded = Number(value.toFixed(precision));
@@ -45,6 +60,7 @@ export type PreshotPdfPreflightIssueCode =
   | "CORRUPT_IMAGE_ASSET"
   | "DUPLICATE_IMAGE_GROUP"
   | "EMPTY_IMAGE_GROUP_SKIPPED"
+  | "IMAGE_GROUP_ROW_SCALE_BELOW_MINIMUM"
   | "INVALID_BLOCKNOTE_SCHEMA"
   | "INVALID_DOCUMENT"
   | "INVALID_IMAGE_GROUP"
@@ -60,6 +76,9 @@ export interface PreshotPdfPreflightIssue {
   readonly blockId?: string;
   readonly groupId?: string;
   readonly imageId?: string;
+  readonly rowIndex?: number;
+  readonly requiredScale?: number;
+  readonly minimumScale?: number;
   readonly source?: string;
 }
 
@@ -133,6 +152,7 @@ export interface PreshotPdfAssetRequest {
 
 export interface PreshotPdfImageSlotContext {
   readonly imageId: string;
+  readonly rowIndex: number;
   readonly source: string;
   readonly assetId: string;
   readonly crop: PreshotPdfNormalizedCrop;
@@ -148,6 +168,39 @@ export interface PreshotPdfImageSlotContext {
     readonly width: PdfPoints;
     readonly height: PdfPoints;
   };
+}
+
+export interface PreshotPdfImageGroupRowContext {
+  readonly index: number;
+  readonly imageIds: readonly string[];
+  readonly logical: {
+    readonly y: EditorLogicalUnits;
+    readonly height: EditorLogicalUnits;
+  };
+  readonly pdf: {
+    readonly y: PdfPoints;
+    readonly height: PdfPoints;
+    readonly renderedHeight: PdfPoints;
+  };
+  readonly emergencyScale: PdfScale;
+}
+
+export interface PreshotPdfImageGroupFragmentContext {
+  readonly index: number;
+  readonly rowIndexes: readonly number[];
+  readonly imageIds: readonly string[];
+  readonly flowTopPadding: PdfPoints;
+  readonly surfaceHeight: PdfPoints;
+  readonly flowHeight: PdfPoints;
+}
+
+export interface PreshotPdfImageGroupPaginationContext {
+  readonly mode: "keep-together" | "row-fragments";
+  readonly usableContentHeight: PdfPoints;
+  readonly startsOnFreshPage: boolean;
+  readonly minimumEmergencyRowScale: number;
+  readonly rows: readonly PreshotPdfImageGroupRowContext[];
+  readonly fragments: readonly PreshotPdfImageGroupFragmentContext[];
 }
 
 export interface PreshotPdfImageGroupContext {
@@ -186,14 +239,19 @@ export interface PreshotPdfImageGroupContext {
     readonly offsetY: PdfPoints;
     readonly flowTopPadding: PdfPoints;
     readonly flowHeight: PdfPoints;
+    readonly horizontalFitScale: PdfScale;
+    readonly inset: PdfPoints;
+    readonly gap: PdfPoints;
+  };
+  readonly docx: {
     readonly exportOnlyGroupPhysicalScale: PdfScale;
   };
   readonly keepTogether: {
     readonly enabled: boolean;
     readonly scope: "block" | "column-row";
     readonly moveToNextPageIfNeeded: boolean;
-    readonly oversizedPageScale: PdfScale;
   };
+  readonly pagination: PreshotPdfImageGroupPaginationContext;
   readonly slots: readonly PreshotPdfImageSlotContext[];
 }
 
@@ -218,7 +276,7 @@ export interface PreshotPdfNativeImageContext {
 }
 
 export interface PreshotPdfLayoutManifest {
-  readonly version: 1;
+  readonly version: 2;
   readonly blocks: readonly PreshotPdfBlockContext[];
   readonly blocksById: Readonly<Record<string, PreshotPdfBlockContext>>;
   readonly columnLists: readonly PreshotPdfColumnListContext[];
@@ -326,6 +384,204 @@ function fatal(
     message,
     ...context,
   }]);
+}
+
+function buildImageGroupPagination(input: {
+  blockId: string;
+  groupId: string;
+  displayedHeight: number;
+  layoutHeight: number;
+  finalScale: number;
+  flowTopPadding: PdfPoints;
+  pageHeight: PdfPoints;
+  rows: readonly {
+    index: number;
+    y: number;
+    height: number;
+    imageIds: readonly string[];
+  }[];
+}): PreshotPdfImageGroupPaginationContext {
+  interface MutablePaginationRow {
+    index: number;
+    imageIds: string[];
+    logical: {
+      y: EditorLogicalUnits;
+      height: EditorLogicalUnits;
+    };
+    pdf: {
+      y: PdfPoints;
+      height: PdfPoints;
+      renderedHeight: PdfPoints;
+    };
+    emergencyScale: PdfScale;
+  }
+  const inset = points(DOCUMENT_IMAGE_GROUP_INSET * input.finalScale);
+  const gap = points(DOCUMENT_IMAGE_GROUP_GAP * input.finalScale);
+  const naturalSurfaceHeight = points(
+    input.displayedHeight * input.finalScale,
+  );
+  const naturalFlowHeight = points(
+    naturalSurfaceHeight + input.flowTopPadding,
+  );
+  const rows: MutablePaginationRow[] = input.rows.map((row) => ({
+    index: row.index,
+    imageIds: [...row.imageIds],
+    logical: {
+      y: logicalUnits(row.y),
+      height: logicalUnits(row.height),
+    },
+    pdf: {
+      y: points(row.y * input.finalScale),
+      height: points(row.height * input.finalScale),
+      renderedHeight: points(row.height * input.finalScale),
+    },
+    emergencyScale: scale(1),
+  }));
+  const common = {
+    usableContentHeight: input.pageHeight,
+    minimumEmergencyRowScale: PDF_IMAGE_GROUP_MIN_EMERGENCY_ROW_SCALE,
+    rows,
+  } as const;
+
+  if (
+    naturalFlowHeight <= input.pageHeight + PDF_PAGINATION_EPSILON
+  ) {
+    return {
+      ...common,
+      mode: "keep-together",
+      startsOnFreshPage: false,
+      fragments: [{
+        index: 0,
+        rowIndexes: rows.map((row) => row.index),
+        imageIds: rows.flatMap((row) => row.imageIds),
+        flowTopPadding: input.flowTopPadding,
+        surfaceHeight: naturalSurfaceHeight,
+        flowHeight: naturalFlowHeight,
+      }],
+    };
+  }
+
+  for (const row of rows) {
+    const rowTopPadding = row.index === 0 ? input.flowTopPadding : 0;
+    const availableRowHeight =
+      input.pageHeight -
+      rowTopPadding -
+      inset * 2 -
+      PDF_EMERGENCY_ROW_SAFETY;
+    if (availableRowHeight <= 0) {
+      fatal(
+        "INVALID_IMAGE_GROUP",
+        `PDF preflight cannot paginate block "${input.blockId}", group "${input.groupId}": positive top padding leaves no usable height for row ${row.index + 1}.`,
+        { blockId: input.blockId, groupId: input.groupId },
+      );
+    }
+    if (row.pdf.height > availableRowHeight + PDF_PAGINATION_EPSILON) {
+      const emergencyScale = availableRowHeight / row.pdf.height;
+      if (!acceptsPdfImageGroupEmergencyRowScale(emergencyScale)) {
+        fatal(
+          "IMAGE_GROUP_ROW_SCALE_BELOW_MINIMUM",
+          `PDF preflight cannot paginate block "${input.blockId}", group "${input.groupId}", row ${row.index + 1}: fitting the indivisible row requires scale ${round(emergencyScale, CROP_PRECISION)}, below the minimum emergency scale ${PDF_IMAGE_GROUP_MIN_EMERGENCY_ROW_SCALE}.`,
+          {
+            blockId: input.blockId,
+            groupId: input.groupId,
+            rowIndex: row.index,
+            requiredScale: emergencyScale,
+            minimumScale: PDF_IMAGE_GROUP_MIN_EMERGENCY_ROW_SCALE,
+          },
+        );
+      }
+      row.emergencyScale = scale(emergencyScale);
+      row.pdf.renderedHeight = points(row.pdf.height * emergencyScale);
+    }
+  }
+
+  interface MutableFragment {
+    rowIndexes: number[];
+    imageIds: string[];
+    flowTopPadding: PdfPoints;
+    surfaceHeight: number;
+  }
+  const fragments: MutableFragment[] = [];
+  let current: MutableFragment | undefined;
+  for (const row of rows) {
+    const flowTopPadding = fragments.length === 0
+      ? input.flowTopPadding
+      : points(0);
+    const nextSurfaceHeight = current
+      ? current.surfaceHeight + gap + row.pdf.renderedHeight
+      : inset * 2 + row.pdf.renderedHeight;
+    const nextFlowHeight = nextSurfaceHeight + (
+      current?.flowTopPadding ?? flowTopPadding
+    );
+    if (
+      current &&
+      nextFlowHeight > input.pageHeight + PDF_PAGINATION_EPSILON
+    ) {
+      fragments.push(current);
+      current = undefined;
+    }
+    if (!current) {
+      const fragmentTopPadding = fragments.length === 0
+        ? input.flowTopPadding
+        : points(0);
+      current = {
+        rowIndexes: [row.index],
+        imageIds: [...row.imageIds],
+        flowTopPadding: fragmentTopPadding,
+        surfaceHeight: inset * 2 + row.pdf.renderedHeight,
+      };
+    } else {
+      current.rowIndexes.push(row.index);
+      current.imageIds.push(...row.imageIds);
+      current.surfaceHeight += gap + row.pdf.renderedHeight;
+    }
+  }
+  if (current) fragments.push(current);
+
+  const hasEmergencyRow = rows.some((row) => row.emergencyScale < 1);
+  let trailingSurfaceHeight = Math.max(
+    0,
+    naturalSurfaceHeight - points(input.layoutHeight * input.finalScale),
+  );
+  for (
+    let index = fragments.length - 1;
+    index >= 0 && trailingSurfaceHeight > PDF_PAGINATION_EPSILON;
+    index -= 1
+  ) {
+    const fragment = fragments[index];
+    const available =
+      input.pageHeight -
+      fragment.flowTopPadding -
+      fragment.surfaceHeight;
+    const addition = Math.min(trailingSurfaceHeight, Math.max(0, available));
+    fragment.surfaceHeight += addition;
+    trailingSurfaceHeight -= addition;
+  }
+  if (trailingSurfaceHeight > PDF_PAGINATION_EPSILON) {
+    if (!hasEmergencyRow) {
+      fatal(
+        "INVALID_IMAGE_GROUP",
+        `PDF preflight cannot paginate block "${input.blockId}", group "${input.groupId}": trailing group surface exceeds page-safe row-fragment capacity by ${round(trailingSurfaceHeight)} points.`,
+        { blockId: input.blockId, groupId: input.groupId },
+      );
+    }
+  }
+
+  return {
+    ...common,
+    mode: "row-fragments",
+    startsOnFreshPage: true,
+    fragments: fragments.map((fragment, index) => ({
+      index,
+      rowIndexes: fragment.rowIndexes,
+      imageIds: fragment.imageIds,
+      flowTopPadding: fragment.flowTopPadding,
+      surfaceHeight: points(fragment.surfaceHeight),
+      flowHeight: points(
+        fragment.flowTopPadding + fragment.surfaceHeight,
+      ),
+    })),
+  };
 }
 
 export function validatePreshotPdfPlan(
@@ -696,7 +952,7 @@ export function buildPreshotPdfLayoutManifest(
           Math.min(group.x, Math.max(0, parent.logicalWidth - displayedWidth)),
         );
         const layout = empty
-          ? { scale: 1, height: 0, slots: [] }
+          ? { scale: 1, height: 0, rows: [], slots: [] }
           : layoutDocumentImageGroupForWidth(group.images, displayedWidth);
         const displayedHeight = empty
           ? group.height
@@ -724,7 +980,11 @@ export function buildPreshotPdfLayoutManifest(
         const unscaledRightEdge = points(
           (displayedX + contentWidth) * parent.logicalToPdfScale,
         );
-        const exportOnlyGroupPhysicalScale = !empty &&
+        const horizontalFitScale = !empty &&
+            unscaledRightEdge > parent.pdfWidth
+          ? scale(parent.pdfWidth / unscaledRightEdge)
+          : scale(1);
+        const docxExportOnlyGroupPhysicalScale = !empty &&
             (
               unscaledRightEdge > parent.pdfWidth ||
               rawUnscaledFlowHeight > visualContract.page.contentHeight
@@ -741,16 +1001,36 @@ export function buildPreshotPdfLayoutManifest(
             )
           : scale(1);
         const finalScale =
-          parent.logicalToPdfScale * exportOnlyGroupPhysicalScale;
+          parent.logicalToPdfScale * horizontalFitScale;
         const displayedFlowHeight = points(
-          unscaledFlowHeight * exportOnlyGroupPhysicalScale,
+          unscaledFlowHeight * horizontalFitScale,
         );
         const flowTopPadding = points(
-          rawUnscaledFlowTopPadding * exportOnlyGroupPhysicalScale,
+          rawUnscaledFlowTopPadding * horizontalFitScale,
         );
         const displayedPdfHeight = points(
           displayedFlowHeight - flowTopPadding,
         );
+        const pagination = empty
+          ? {
+              mode: "keep-together" as const,
+              usableContentHeight: visualContract.page.contentHeight,
+              startsOnFreshPage: false,
+              minimumEmergencyRowScale:
+                PDF_IMAGE_GROUP_MIN_EMERGENCY_ROW_SCALE,
+              rows: [],
+              fragments: [],
+            }
+          : buildImageGroupPagination({
+              blockId: block.id,
+              groupId: group.id,
+              displayedHeight,
+              layoutHeight: layout.height,
+              finalScale,
+              flowTopPadding,
+              pageHeight: visualContract.page.contentHeight,
+              rows: layout.rows,
+            });
         const imagesById = new Map(
           group.images.map((image) => [image.id, image]),
         );
@@ -784,7 +1064,7 @@ export function buildPreshotPdfLayoutManifest(
           pdf: {
             x: points(displayedX * finalScale),
             width: points(
-              unscaledPdfWidth * exportOnlyGroupPhysicalScale,
+              unscaledPdfWidth * horizontalFitScale,
             ),
             unscaledHeight: unscaledPdfHeight,
             unscaledFlowHeight,
@@ -792,14 +1072,20 @@ export function buildPreshotPdfLayoutManifest(
             offsetY: points((group.frameOffsetY ?? 0) * finalScale),
             flowTopPadding,
             flowHeight: displayedFlowHeight,
-            exportOnlyGroupPhysicalScale,
+            horizontalFitScale,
+            inset: points(DOCUMENT_IMAGE_GROUP_INSET * finalScale),
+            gap: points(DOCUMENT_IMAGE_GROUP_GAP * finalScale),
+          },
+          docx: {
+            exportOnlyGroupPhysicalScale:
+              docxExportOnlyGroupPhysicalScale,
           },
           keepTogether: {
             enabled: !empty,
             scope: parent.columnListBlockId ? "column-row" : "block",
             moveToNextPageIfNeeded: !empty,
-            oversizedPageScale: exportOnlyGroupPhysicalScale,
           },
+          pagination,
           slots: layout.slots.map((slot) => {
             const image = imagesById.get(slot.id);
             if (!image) {
@@ -818,9 +1104,11 @@ export function buildPreshotPdfLayoutManifest(
               groupId: group.id,
               imageId: image.id,
             });
+            const emergencyScale =
+              pagination.rows[slot.rowIndex]?.emergencyScale ?? 1;
             const drawBox = {
-              width: points(slot.width * finalScale),
-              height: points(slot.height * finalScale),
+              width: points(slot.width * finalScale * emergencyScale),
+              height: points(slot.height * finalScale * emergencyScale),
             };
             const key = addAssetUse(image.file, crop, {
               blockId: block.id,
@@ -831,6 +1119,7 @@ export function buildPreshotPdfLayoutManifest(
             });
             return {
               imageId: image.id,
+              rowIndex: slot.rowIndex,
               source: image.file,
               assetKey: key,
               crop,
@@ -843,8 +1132,8 @@ export function buildPreshotPdfLayoutManifest(
               pdf: {
                 x: points((DOCUMENT_IMAGE_GROUP_INSET + slot.x) * finalScale),
                 y: points((DOCUMENT_IMAGE_GROUP_INSET + slot.y) * finalScale),
-                width: drawBox.width,
-                height: drawBox.height,
+                width: points(slot.width * finalScale),
+                height: points(slot.height * finalScale),
               },
             };
           }),
@@ -1006,7 +1295,7 @@ export function buildPreshotPdfLayoutManifest(
   );
 
   return freezePreshotPdfExportContext({
-    version: 1,
+    version: 2,
     blocks,
     blocksById,
     columnLists,

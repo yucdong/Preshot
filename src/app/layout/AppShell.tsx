@@ -28,6 +28,7 @@ interface AppShellProps extends PropsWithChildren {
   onOpenProject(): void;
   onRevealProject(project: WorkspaceProjectView): void;
   onRemoveProject(project: WorkspaceProjectView): void;
+  getProjectSessionCount?(projectId: string): Promise<number>;
 }
 
 const railButtonClassName =
@@ -56,10 +57,27 @@ export function AppShell({
   onOpenProject,
   onRevealProject,
   onRemoveProject,
+  getProjectSessionCount,
 }: AppShellProps) {
   const { t } = useTranslation();
   const settings = useTheme();
+  const assistantOpen = settings.assistantOpen;
   const [projectToRemove, setProjectToRemove] = useState<WorkspaceProjectView | null>(null);
+  const [projectSessionCount, setProjectSessionCount] = useState<
+    number | "loading" | "error" | null
+  >(null);
+  const requestProjectRemoval = (project: WorkspaceProjectView) => {
+    setProjectToRemove(project);
+    if (!getProjectSessionCount) {
+      setProjectSessionCount(0);
+      return;
+    }
+    setProjectSessionCount("loading");
+    void getProjectSessionCount(project.projectId).then(
+      (count) => setProjectSessionCount(count),
+      () => setProjectSessionCount("error"),
+    );
+  };
   const [workspaceView, setWorkspaceView] = useState<{
     projectId: string;
     focusMode: boolean;
@@ -165,7 +183,9 @@ export function AppShell({
         const direction = event.key === "ArrowRight" ? 1 : -1;
         const delta = direction * 8 * (isProject ? 1 : -1);
         const workspaceWidth = event.currentTarget.parentElement?.getBoundingClientRect().width ?? Number.POSITIVE_INFINITY;
-        const other = isProject ? panelWidths.assistantWidth : panelWidths.projectRailWidth;
+        const other = isProject
+          ? (assistantOpen ? panelWidths.assistantWidth : 0)
+          : panelWidths.projectRailWidth;
         const nextValue = constrainedPanelWidth(value + delta, range, other, workspaceWidth);
         const next = {
           ...panelWidths,
@@ -184,7 +204,9 @@ export function AppShell({
         const move = (moveEvent: PointerEvent) => {
           const delta = moveEvent.clientX - startX;
           const requested = startWidth + delta * (isProject ? 1 : -1);
-          const other = isProject ? latest.assistantWidth : latest.projectRailWidth;
+          const other = isProject
+            ? (assistantOpen ? latest.assistantWidth : 0)
+            : latest.projectRailWidth;
           const nextValue = constrainedPanelWidth(requested, range, other, workspaceWidth);
           latest = {
             ...latest,
@@ -230,6 +252,25 @@ export function AppShell({
             {focusMode ? <Minimize2 aria-hidden className="h-4 w-4" /> : <Focus aria-hidden className="h-4 w-4" />}
             <span>{focusMode ? "退出专注" : "专注模式"}</span>
           </button>
+          <button
+            aria-label={assistantOpen ? "隐藏助手面板" : "显示助手面板"}
+            aria-pressed={focusMode
+              ? overlayPanel === "assistant"
+              : assistantOpen}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
+            onClick={() => {
+              if (focusMode) {
+                setOverlayPanel((current) =>
+                  current === "assistant" ? null : "assistant");
+                return;
+              }
+              settings.setAssistantOpen(!assistantOpen);
+            }}
+            type="button"
+          >
+            <PanelRightOpen aria-hidden className="h-4 w-4" />
+            <span>助手</span>
+          </button>
           <SettingsButton />
         </div>
       </header>
@@ -238,7 +279,9 @@ export function AppShell({
         data-testid="resizable-workspace"
         data-focus-mode={focusMode ? "true" : "false"}
         style={focusMode ? undefined : {
-          gridTemplateColumns: `${panelWidths.projectRailWidth}px ${SPLITTER_WIDTH}px minmax(0, 1fr) ${SPLITTER_WIDTH}px ${panelWidths.assistantWidth}px`,
+          gridTemplateColumns: assistantOpen
+            ? `${panelWidths.projectRailWidth}px ${SPLITTER_WIDTH}px minmax(0, 1fr) ${SPLITTER_WIDTH}px ${panelWidths.assistantWidth}px`
+            : `${panelWidths.projectRailWidth}px ${SPLITTER_WIDTH}px minmax(0, 1fr)`,
         }}
       >
         {focusMode ? (
@@ -324,7 +367,7 @@ export function AppShell({
                     <div className="absolute inset-x-1 bottom-1 flex items-center gap-1 rounded bg-app-panel-strong/95 px-1 py-0.5 opacity-0 shadow-sm transition-opacity group-hover/project:opacity-100 group-focus-within/project:opacity-100">
                       <span className="min-w-0 flex-1 truncate text-[8px] text-app-muted" title={project.path}>{project.path}</span>
                       <button aria-label={`打开项目目录 ${project.name}`} className="grid h-5 w-5 place-items-center rounded text-app-muted hover:bg-app-primary-soft hover:text-app-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional" onClick={() => onRevealProject(project)} type="button"><FolderOpen aria-hidden className="h-3 w-3" /></button>
-                      <button aria-label={`移除项目 ${project.name}`} className="grid h-5 w-5 place-items-center rounded text-app-danger hover:bg-app-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger" onClick={() => setProjectToRemove(project)} type="button"><Trash2 aria-hidden className="h-3 w-3" /></button>
+                      <button aria-label={`移除项目 ${project.name}`} className="grid h-5 w-5 place-items-center rounded text-app-danger hover:bg-app-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger" onClick={() => requestProjectRemoval(project)} type="button"><Trash2 aria-hidden className="h-3 w-3" /></button>
                     </div>
                   </article>
                 </li>
@@ -373,7 +416,7 @@ export function AppShell({
           ) : null}
           {children}
         </div>
-        {!focusMode ? (
+        {!focusMode && assistantOpen ? (
           <div
             {...splitterProps("assistant")}
             className="group relative z-30 cursor-col-resize bg-[#d5d6da] transition-colors duration-200 hover:bg-app-accent focus-visible:bg-app-accent focus-visible:outline-none"
@@ -382,7 +425,7 @@ export function AppShell({
             <span className="absolute left-1/2 top-1/2 h-10 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-app-muted/50 group-hover:bg-white" />
           </div>
         ) : null}
-        {!focusMode || overlayPanel === "assistant" ? (
+        {(!focusMode && assistantOpen) || overlayPanel === "assistant" ? (
           <div
             className={focusMode
               ? "absolute inset-y-3 right-3 z-50 flex min-h-0 overflow-hidden rounded-xl border border-app-border bg-app-panel shadow-[0_16px_42px_rgb(24_24_27_/_20%)] [&>aside]:h-full [&>aside]:w-full"
@@ -406,13 +449,24 @@ export function AppShell({
       <ConfirmDialog
         cancelLabel="取消"
         confirmLabel="从列表移除"
-        onCancel={() => setProjectToRemove(null)}
+        confirmDisabled={projectSessionCount === "loading"}
+        onCancel={() => {
+          setProjectToRemove(null);
+          setProjectSessionCount(null);
+        }}
         onConfirm={() => {
           if (projectToRemove) onRemoveProject(projectToRemove);
           setProjectToRemove(null);
+          setProjectSessionCount(null);
         }}
         open={projectToRemove !== null}
-        title="仅从最近项目移除，磁盘文件不会被删除"
+        title={projectSessionCount === "loading"
+          ? "正在检查关联的助手会话…"
+          : projectSessionCount === "error"
+          ? "无法统计助手会话；移除项目仍会执行安全清理"
+          : `仅从最近项目移除，磁盘文件不会被删除；将删除 ${
+            projectSessionCount ?? 0
+          } 个助手会话`}
       />
     </div>
   );

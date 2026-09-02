@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const port = process.env.PRESHOT_E2E_PORT ?? "1420";
+
 export default defineConfig({
   testDir: "./e2e",
   expect: {
@@ -12,7 +14,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:1420",
+    baseURL: `http://127.0.0.1:${port}`,
     navigationTimeout: 60_000,
     trace: "on-first-retry",
   },
@@ -26,8 +28,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev --mode e2e --host 127.0.0.1",
-    url: "http://127.0.0.1:1420",
+    command: `pnpm dev --mode e2e --host 127.0.0.1 --port ${port}`,
+    url: `http://127.0.0.1:${port}`,
     reuseExistingServer: !process.env.CI,
   },
 });

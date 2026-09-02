@@ -7,11 +7,51 @@
 ## Workspace
 
 - Opening a project maximizes the window.
-- The project panel and assistant panel remain visible by default.
+- The project panel remains visible by default. The assistant panel is closed
+  by default once the basic agent feature is enabled, and can be opened from
+  the persistent assistant toggle.
 - The center workspace uses the available viewport with restrained gray margins.
 - The white document has a fixed logical width of 1080px and can extend vertically.
 - Mouse-wheel zoom uses 15% steps and remains anchored near the pointer.
 - Fit-width keeps the document readable without creating a large gray gutter.
+
+## Assistant context seam
+
+- Assistant visibility is a persisted app setting and defaults to closed. The
+  production `AgentPanel` uses the completed native runtime, project-scoped
+  sessions, proposal application, and workspace bridge.
+- Request composition shows immutable project and document chips plus
+  removable block, cursor, and selected-image chips. Removing a chip affects
+  the draft request only, not the editor selection.
+- A selected image contributes at most one automatic attachment. Selecting a
+  different image replaces an unpinned automatic attachment. Pinning preserves
+  it across selection changes; removing it suppresses that automatic image
+  until selection changes. Image-group selection never bulk-attaches a group.
+- Sending captures an immutable snapshot and a per-turn receipt. The receipt
+  records project/document revision, block/cursor selection, and attachment
+  identity without tokens, project paths, thumbnails, or raw media bytes.
+- Immediately before Send, the workspace bridge revalidates the active
+  project, revision, image identity, and current relative file, then issues a
+  fresh single-use opaque token. React never retains that token or constructs
+  an absolute attachment path. If validation fails, the draft and visible chip
+  remain available for correction and the message is not sent.
+- Block citations focus, center-scroll, and briefly highlight the source.
+  Image citations select and scroll to the image and may open the full viewer.
+  If a cited block or image was deleted, the source is shown as unavailable
+  rather than navigating to a replacement.
+- The transcript is a non-live log: streaming is animation-frame batched and
+  screen readers are not asked to announce individual token deltas. Scrolling
+  away pauses auto-follow and exposes an explicit new-response control.
+- Tool permission, disclosed context, and proposal application are visually
+  and semantically separate decisions. Destructive proposal operations always
+  require a fresh confirmation and are never remembered.
+- Session history is newest-first within the current project. The 240-420px
+  panel uses one-column stacked review/actions, supports light/dark and forced
+  colors, preserves focus through dialogs, and removes nonessential motion
+  under `prefers-reduced-motion`.
+- Composer Enter/Shift+Enter remains IME-safe. Forced-colors and
+  reduced-motion modes are independent, and 240-420px panel widths plus 200%
+  text scaling must not introduce panel-level horizontal scrolling.
 
 ## Document editing
 

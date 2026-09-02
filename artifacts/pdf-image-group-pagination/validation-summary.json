@@ -1,0 +1,110 @@
+{
+  "todoId": "pdf-group-pagination-validation",
+  "validatedAt": "2026-08-23T00:27:30+08:00",
+  "result": "passed",
+  "postLandingAcceptance": {
+    "conditionalFreshPageSentinel": "passed",
+    "exactEmergencyScaleFloor": "passed",
+    "filesPassed": 6,
+    "testsPassed": 86,
+    "testsFailed": 0,
+    "productionReactPdfAcceptanceTestsPassed": 21
+  },
+  "productionPdf": {
+    "file": "browser-production.pdf",
+    "bytes": 9476,
+    "sha256": "9AC19B381365284C3C1A87F2A4649505C546C144678DDCB9C48F78B4773EE4F3",
+    "pages": 1,
+    "pageSizePoints": {
+      "width": 595.280029,
+      "height": 841.890015
+    },
+    "embeddedImages": 2,
+    "imagePpi": 144,
+    "externalRequests": 0,
+    "textOrderVerified": true
+  },
+  "renderedPng": {
+    "file": "browser-production-page-1.png",
+    "bytes": 23261,
+    "sha256": "B176089A0AFFF6DB0274B3963C2BF006AEE716CF8268B7D277EDD3B983A07B6C",
+    "width": 1241,
+    "height": 1754
+  },
+  "requiredCases": {
+    "normalNearBottomMovesWhole": "passed",
+    "normalExactPageFit": "passed",
+    "oversizedFirstBlockTwoAndThreePagesNoBlankFirstPage": "passed",
+    "oversizedAfterTextFreshPageThenRowFragments": "passed",
+    "imageOrderExactlyOnceAndRowAtomic": "passed",
+    "cropAspectGapRelativeSizeBorderBackground": "passed",
+    "positiveAndNegativeOffsets": "passed",
+    "rowLocalEmergencyScale": "passed",
+    "belowMinimumScaleActionableFailure": "passed",
+    "standaloneAndWeightedColumns": "passed",
+    "longSiblingTextPolicy": "passed",
+    "noCantWrapWarnings": "passed",
+    "a4AndCoordinateBounds": "passed",
+    "ordinaryImageTableTextUnchanged": "passed",
+    "docxAndLongImageUnaffected": "passed"
+  },
+  "validationCounts": {
+    "focusedPdfUnitAndAcceptance": {
+      "filesPassed": 6,
+      "testsPassed": 86,
+      "testsFailed": 0
+    },
+    "fullUnit": {
+      "filesPassed": 160,
+      "testsPassed": 1102,
+      "testsFailed": 0
+    },
+    "focusedProductionExportE2e": {
+      "testsPassed": 4,
+      "testsFailed": 0
+    },
+    "mainE2e": {
+      "testsPassed": 29,
+      "testsFailed": 0,
+      "finalRerunClean": true
+    },
+    "blockNoteE2e": {
+      "testsPassed": 14,
+      "testsFailed": 0,
+      "finalRerunClean": true
+    },
+    "rust": {
+      "testsPassed": 144,
+      "testsFailed": 0,
+      "testsIgnored": 2
+    }
+  },
+  "otherChecks": {
+    "docs": "passed",
+    "lint": "passed",
+    "typecheck": "passed",
+    "webBuild": "passed",
+    "initializer": "4 passed",
+    "productionScripts": "passed",
+    "diffCheck": "passed",
+    "tauriBuild": "passed",
+    "msiBuild": "passed",
+    "productionBuild": "passed",
+    "productionVerify": "passed"
+  },
+  "nativeArtifacts": {
+    "exe": {
+      "path": "src-tauri/target/release/preshot.exe",
+      "bytes": 135400960,
+      "sha256": "3AE4DE51918A59F1319E04F64D9946AA4F79E5084827590EBD859165B5957CA5"
+    },
+    "msi": {
+      "path": "src-tauri/target/release/bundle/msi/Preshot_0.0.1_x64_en-US.msi",
+      "bytes": 121122816,
+      "sha256": "512FCBCD334C3568527559330462DA06C1F697267DE94F4383C0B58570912C1E"
+    }
+  },
+  "limitations": [
+    "The destructive clean-VM MSI install, upgrade, repair, and uninstall matrix was not run on this developer workstation."
+  ]
+}

@@ -94,11 +94,11 @@ The final acceptance reran the production browser export while retaining only
 the three reviewed files under `artifacts\pdf-export-regressions`. It confirmed
 non-empty UI-downloaded React-PDF bytes, A4/page/text/link/image structure,
 CJK-first content, cropped/resized/wrapped and weighted-column image groups,
-near-bottom and positive-offset pagination, oversized uniform scaling, a tall
-native image with long Latin/CJK captions, atomic image groups, no editor
-chrome or oversize warning, contextual asset failures, and no silent legacy
-fallback. The production CSP permits self-hosted fonts and Yoga WASM while
-rejecting remote proxy/network sources.
+near-bottom and positive-offset pagination, row-boundary oversized-group
+pagination, a tall native image with long Latin/CJK captions, atomic image
+rows, no editor chrome or wrap warning, contextual asset failures, and no
+silent legacy fallback. The production CSP permits self-hosted fonts and Yoga
+WASM while rejecting remote proxy/network sources.
 
 The production DOCX acceptance retains seven small files under
 `artifacts\docx-export-regressions`: the downloaded DOCX, browser summary,
@@ -114,6 +114,38 @@ first page renders at 1241 x 1754 pixels.
 
 Vite still reports its advisory large-chunk warning for the production bundle.
 This is a known advisory, not a build failure.
+
+## Agent panel acceptance (2026-08-22)
+
+The completed production assistant-panel review passed:
+
+- documentation, ESLint, TypeScript, and the production web build;
+- 159 Vitest files / 1,070 tests, including controller context controls,
+  setup/history/composer/IME/streaming/tool/permission/input/usage/error/
+  citation behavior, all proposal review paths, dialog focus, forced-color,
+  reduced-motion, and 240-420px contracts;
+- all 29 main Playwright journeys;
+- all 14 focused BlockNote journeys and all 3 isolated capture journeys;
+- 144 passed Rust tests with only the 2 explicitly ignored local live-proxy
+  probes; and
+- both focused mocked agent journeys covering configure, chat, tool proposal,
+  apply, session-resume receipt reload, undo, verified image attachment,
+  abort, queued-switch cancellation, and Stop/switch.
+
+The Vite large-chunk advisory remains unchanged and is not an agent-panel
+failure.
+
+The standalone deterministic agent eval is `pnpm test:agent-evals`. It uses no
+live model, proxy, network, user document, or user image and refreshes
+[`tests/artifacts/agent-mvp-eval-report.md`](../tests/artifacts/agent-mvp-eval-report.md).
+Its fixture inventory covers all 18 normalized event variants, all 24 typed
+errors, text/vision/no-model capability gates, eight adversarial
+shell/network/path/media/schema proposal payloads, every allowed text block
+type and nesting, source identity, no mutation before Apply, stale revision,
+hash conflict, Apply, and restart-safe Undo. Rust fixtures separately map every
+supported SDK event class, native error class, and ephemeral non-replay event.
+The final runner report records 54/54 deterministic checks, including five
+send-time attachment token/receipt/lifetime cases.
 
 ## Long-image acceptance (2026-08-20)
 
@@ -144,6 +176,7 @@ eight exact files are listed in the Playwright acceptance section below.
 | `pnpm test:e2e:capture` | Bounded `modern-screenshot` adapter fixture on `http://127.0.0.1:1440`, including offline fonts/assets, PNG/JPEG bytes, a 6000px capture, contiguous segments from one reused context, worker/CSP compatibility, and cleanup. |
 | `pnpm test:init` | PowerShell harness for `init.ps1` error handling and Node version boundaries. |
 | `pnpm test:production-scripts` | Isolated PowerShell production/release tooling contracts. |
+| `pnpm test:agent-evals` | Offline agent event/error/capability/security/proposal fixtures; no live model in CI. |
 
 ### Midscene and AI-assisted checks
 
@@ -177,10 +210,10 @@ Domain tests cover pure behavior such as:
 - stable-gap non-overlap wrapping, derived group height, side-only
   current-ratio resize, and prioritized Smart Guide snapping,
 - PDF layout primitives and typed BlockNote PDF visual-contract boundaries
-  (root/column scaling, stable rounding, and oversized keep-together fitting),
+  (root/column scaling, stable rounding, and page-safe row fragments),
 - deterministic React-PDF preflight traversal for root groups, weighted
   columns, empty groups, page-limit groups, positive-offset flow footprints,
-  zero/negative offset safety, and oversized uniform scaling,
+  zero/negative offset safety, row partitioning, and emergency row scaling,
 - pure React-PDF image-group render models for root and weighted-column
   geometry, persisted-height wrapping, crop/asset identity, deterministic
   empty output, and actionable missing-context/asset failures,
@@ -196,6 +229,14 @@ Component tests cover user-visible behavior for:
 - the workspace launcher, project rail, and project cards,
 - app-shell resizing and focus mode,
 - settings interactions,
+- the production assistant setup states, project-scoped create/resume/rename/
+  delete history, RAF-batched transcript auto-follow, reasoning/tool/
+  permission/input rendering, usage and typed errors, IME-safe drafts,
+  removable context and selected-image attachment behavior, send-time token
+  refresh after expiry, bounded token pruning, deleted/moved/revised image
+  rejection, and path/thumbnail-free receipts, citations,
+  stacked proposal review/apply/discard/revision/stale/undo-conflict paths,
+  and focus-safe project-switch/destructive dialogs,
 - save-state UI,
 - the BlockNote editor wrapper,
 - image-group selection, drag-safe double-click viewing, within/cross-group
@@ -216,6 +257,12 @@ Component tests cover user-visible behavior for:
   AbortController cancellation, multipart saves, and contextual failures.
 
 Use React Testing Library and assert via roles, labels, visible text, and interaction outcomes.
+
+The main Playwright suite also runs a deterministic assistant journey through
+the production panel: configure the browser model, chat, stage a tool proposal,
+review/apply, resume the session to reload proposal receipts, undo, verify a
+vision attachment including pin/remove/reselect, abort streaming, and exercise
+Wait/Cancel and Stop/switch project behavior.
 
 ### Infrastructure adapters
 
@@ -246,8 +293,11 @@ Adapter tests validate:
 - production renderer acceptance for complete CJK/H1-H6/list/style/link
   documents, native and fallback media, image-heavy wrapped groups,
   positive-offset next-page keep-together behavior, oversized one-page
-  scaling, weighted columns, mixed long-text/image rows, real annotations,
-  image draws, page dimensions, and absence of editor chrome,
+  scaling, first-block and preceded oversized groups, authored page breaks
+  before root and fragmented-column groups, exact full-page predecessors,
+  weighted columns, mixed long-text/image rows, exact page/image counts,
+  blank-page rejection, real annotations, image draws, page dimensions, and
+  absence of editor chrome,
 - packed DOCX XML coverage for the exact shared schema, editable text and
   H1-H6 styles, top-level lists, list-only nesting depth, level-0 lists inside
   two- and three-column rows, true nested lists within columns, column-context

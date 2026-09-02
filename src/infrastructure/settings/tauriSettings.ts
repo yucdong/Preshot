@@ -35,7 +35,9 @@ export function createTauriSettingsRepository({
     },
     async write(settings: AppSettings) {
       try {
-        await invokeCommand("write_settings", { value: settings });
+        await invokeCommand("write_settings", {
+          value: normalizeSettings(settings),
+        });
       } catch (error) {
         throw new Error(`Unable to write settings: ${detail(error)}`, {
           cause: error,

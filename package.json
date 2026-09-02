@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:init": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/init.Tests.ps1",
     "test:production-scripts": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/production-tools.Tests.ps1",
+    "test:agent-evals": "tsx scripts/run-agent-evals.ts",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:blocknote": "playwright test --config playwright.blocknote.config.ts",

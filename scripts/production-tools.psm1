@@ -318,6 +318,7 @@ function Invoke-ProductionValidation {
             @{ File = "pnpm"; Args = @("lint"); Description = "ESLint" },
             @{ File = "pnpm"; Args = @("typecheck"); Description = "TypeScript typecheck" },
             @{ File = "pnpm"; Args = @("test"); Description = "Vitest unit tests" },
+            @{ File = "pnpm"; Args = @("test:agent-evals"); Description = "Offline agent evaluations" },
             @{ File = "pnpm"; Args = @("test:init"); Description = "Initializer tests" },
             @{ File = "pnpm"; Args = @("test:production-scripts"); Description = "Production tooling tests" },
             @{ File = "cargo"; Args = @("test", "--manifest-path", "src-tauri\Cargo.toml", "--target", $Configuration.Target, "--all-features", "--all-targets", "--locked"); Description = "Full Rust tests" }

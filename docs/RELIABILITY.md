@@ -9,6 +9,214 @@ The main exceptions are intentional and narrow:
 - settings reads recover from absent or corrupt `settings.json` by returning `{}` and letting the TypeScript layer normalize defaults;
 - browser-only adapters exist for tests and Midscene, but production persistence uses Tauri commands.
 
+## Agent metadata database
+
+`%USERPROFILE%\.preshot\agent.db` is opened through the same user-root
+bootstrap used by workspace startup. Project adoption first inspects and
+canonicalizes the real project directory and reads its manifest identity; a
+move or directory rename updates only that project ID's path. A canonical path
+already owned by another project is rejected rather than merged.
+
+SQLite is bundled through `rusqlite`. Every connection enables WAL, foreign
+keys, a five-second busy timeout, and normal synchronous WAL behavior before
+running prepared statements. Busy/locked operations receive a short bounded
+retry, which allows two Preshot instances to create or update independent
+records without sharing an in-process lock.
+
+Schema creation and each numbered migration use immediate transactions.
+Migration rows are written in the same transaction as their schema changes,
+so a crash or invalid statement cannot report a partially applied version.
+Migrations are idempotent, and a database newer than the application is
+rejected instead of being downgraded.
+
+All mutating APIs use crash-safe transactions. Updates and deletes target exact
+project, session, proposal, or tombstone keys; unknown keys fail rather than
+deleting related rows broadly. Project deletion relies on foreign-key cascade
+for that project's sessions, drafts, and proposals only. A failed external
+Copilot session cleanup is recorded separately as a retry tombstone, so it
+survives the metadata cascade and never blocks project deletion.
+
+Timestamps are generated in Rust and stored as UTC RFC 3339 milliseconds.
+Drafts, errors, identifiers, titles, operation counts, inserted blocks,
+nesting, text, and serialized proposal operations have explicit bounds.
+Operation JSON is checked against the text-only proposal schema before it is
+stored and may be omitted after retaining the operation count and receipt.
+Proposal checkpoints are capped at 4 MiB, reject absolute paths/raw media, and
+are linked to the exact project, session, and staged proposal. Only an applied
+proposal checkpoint is eligible for restart-safe Undo.
+Schema v4 adds `agent_proposal_recovery`, a durable transaction journal with
+one pending row per project. Each bounded row contains only operation/project/
+session/proposal IDs, apply-or-undo kind, before/after document hashes and
+revisions, the already-bounded exact checkpoint, a small exact finalization
+receipt, timestamps, status, and an optional bounded error. It contains no
+project path, prompt, credential, transcript, attachment, absolute path, data
+URL, or image bytes. Conflict rows deliberately have no project foreign key so
+project deletion cannot erase recovery evidence.
+Usage/context/cost values use typed columns and reject negative, non-finite, or
+unreliable values.
+
+The metadata schema intentionally has no columns for full transcripts,
+messages, prompts, image bytes, attachment data, credentials, or secrets.
+Permission, path, disk, migration, constraint, and contention failures surface
+as contextual `agent_store_*` errors; no failed write is converted into a
+success-shaped response.
+
+## Agent runtime and session lifecycle
+
+The TypeScript `AgentSessionController` and Rust `AgentRuntimeService` both
+enforce a single active generation. Session creation and resume use the current
+project identity and path only inside the infrastructure/native boundary,
+re-supply validated provider settings, and verify the exact closed Preshot
+tool allowlist. The Rust SDK configuration remains Empty mode with discovery,
+built-ins, MCP, skills, memory, Git, remote/cloud behavior, external HTTP, and
+session continuation disabled.
+
+The closed runtime also clears command, plugin, instruction, skill, custom
+agent, canvas, additional-directory, MCP-server, and host-Git surfaces on both
+create and resume. It removes inherited GitHub/Copilot token variables,
+disables logged-in-user auth and remote sessions, and permits only the four
+source-qualified Preshot custom tools. The WebView CSP contains no model-proxy
+origin, so it cannot bypass the native provider boundary.
+
+Replay and live subscription can overlap by design. One reducer sorts by SDK
+sequence/event ID and deduplicates event IDs, so replay races cannot duplicate
+messages or tool receipts. Delta bursts are queued outside React and flushed
+once per animation frame. Transcript item counts, text, replay, seen-ID, and
+tool-output memory are bounded. Unsubscribe and pending animation frames are
+cancelled on disconnect/dispose.
+
+Resume does not revive ephemeral SDK interactions. Any pending permission or
+user-input receipt is marked interrupted and metadata records interruption
+when the preceding state was active. A new user Send is required.
+
+Managed resume is serialized with Send, abort, disconnect, delete, replay, and
+subscription setup. The pinned SDK routes only one handle for a session ID, so
+Preshot first prepares the complete replacement configuration, retains the map
+entry and recovery configuration, then quiesces and disconnects the old handle
+before SDK resume. Success atomically replaces the entry while reusing its
+event bus. Failure restores the prior configuration; cleanup or restoration
+failure leaves a detached, recoverable entry that can be retried, aborted,
+disconnected, or deleted. A failed old-handle disconnect keeps the original
+entry and listener instead of silently orphaning it. A detected CLI epoch
+change marks the stale handle detached without sending cleanup to the crashed
+process.
+
+Project switching has one queued target. Wait switches automatically after
+idle or error while retaining the turn's error receipt. Stop always attempts
+bounded abort followed by bounded disconnect; timeout is surfaced, stale
+listeners are detached, and the target activation callback runs at most once.
+WorkspaceProvider does not update the mounted project until that callback,
+which prevents overlapping project loads.
+
+Each Send freezes document revision/hash, disclosed block IDs, cursor, and
+selected-image identity plus bounded reference-image metadata. The native
+request bridge accepts only those blocks, one matching attachment token/path
+registration, and bounded text. Every tool must present the matching
+request-scoped context ID. Tool responses never contain an absolute path or
+raw media. Proposal targets must be disclosed text blocks whose expected
+hashes match the immutable request; inserted IDs are generated only by trusted
+application code.
+
+Bounds are enforced independently across the bridge: 64 disclosed blocks,
+64 reference-image metadata entries, 4,000 characters per disclosed block,
+64 KiB total disclosed text, 16 MiB selected-image attachments, 64 KiB tool
+arguments/results, 100,000-character sends, 2,000 replay events, 50 proposal
+operations, 100 inserted blocks, nesting depth 8, 100,000 proposal text
+characters, 256 KiB serialized operations, and 4 MiB checkpoints.
+
+Selected-image chips retain stable identity and thumbnail metadata only.
+Immediately before Send, the workspace bridge revalidates the active project,
+document revision, image index, and current project-relative file, then issues
+a fresh opaque token. The in-memory resolver stores no thumbnail, data URL, or
+raw bytes; it consumes tokens on resolution, prunes expiry on publication and
+issuance, supersedes automatic tokens, bounds pinned tokens, and revokes by
+image, revision, or project. Rust then canonicalizes the current file and
+validates containment, signature, MIME, and the 16 MiB limit. An unavailable
+image leaves the composer draft and visible chip intact and surfaces a typed,
+actionable error instead of sending without the requested attachment.
+
+Preparing a proposal is pure: no editor transaction, plan save, or mutation
+occurs before Apply. Apply revalidates revision/hash immediately, validates the
+complete projected schema-v14 plan, and enters the provider's serialized plan
+transaction. The provider snapshots the plan, document, revision, load/save
+state, and persisted-plan receipt; writes the projected plan through the normal
+save queue; revalidates the active project and revision; and only then publishes
+one BlockNote transaction. A failed save therefore never becomes visible in
+the editor. If editor publication fails after persistence, the editor and all
+provider refs/state are restored synchronously and the pre-operation plan is
+written back before the error returns. Deletes require a separate confirmation
+intent. Stale proposals are marked stale and must be regenerated.
+
+Before the manifest save, SQLite writes the pending journal row in an immediate
+transaction that also validates proposal status and exact project/session
+identity. A partial unique index permits only one pending proposal operation
+per project across application instances. The projected or restored plan then
+uses the provider's existing serialized mutation/save queue. After that save,
+one immediate SQLite transaction writes the exact checkpoint/final receipt and
+removes the journal row. Apply finalizes only a staged proposal; Undo finalizes
+only the matching applied proposal and checkpoint. Finalization is idempotent,
+so concurrent or repeated recovery cannot duplicate checkpoints or receipts.
+
+Ordinary runtime failures still compensate when SQLite can prove the journal
+remains pending: Apply restores the pre-apply plan, Undo restores the applied
+plan, and the pending row is removed only after that compensation succeeds.
+If SQLite becomes unavailable after the project save, Preshot does not perform
+an unsafe speculative rollback because finalization may already have
+committed. It leaves the durable row for startup recovery and surfaces the
+store failure. Failed compensation retains the row and its error for the same
+reason.
+
+Project activation scans recovery rows before history, staged proposals, or
+Apply/Undo actions become available. Finding a pending row moves the assistant
+into `recovering` without reading or hashing the plan. The BlockNote provider
+registers an `AgentProposalApplicationPort` bridge and publishes readiness only
+after the active schema-v14 plan is loaded, its document revision is published,
+and the editor transaction bridge is mounted. Recovery then reads that exact
+active plan and compares canonical document hashes, not revision equality:
+
+- current hash equals `before`: the manifest mutation did not persist; remove
+  the pending row and retain the original proposal/checkpoint status;
+- current hash equals `after`: the manifest mutation persisted; idempotently
+  finalize the exact stored apply/undo metadata and remove the row;
+- neither hash matches: mark the row `conflict`, retain all evidence, do not
+  mutate the project, block proposal actions, and show an actionable assistant
+  error.
+
+Revision-only changes with an identical document hash therefore recover
+without overwriting the project. Typed `PLAN_LOADING` and
+`PLAN_BRIDGE_NOT_READY` failures are temporary: the row stays pending, its
+bounded diagnostic may be updated, and it is never relabeled as a conflict.
+The controller coalesces duplicate ready signals and recovery calls, retries
+temporary bridge races with bounded backoff, and cancels timers and stale
+completions when the provider unmounts, the project switches, or the controller
+is disposed. SQLite finalization remains idempotent across application
+instances.
+
+A missing/deleted project, invalid plan/schema, or a hash that matches neither
+journal boundary is a real conflict and retains the evidence. Project deletion
+marks pending rows conflicted before the metadata cascade. Browser/Midscene
+memory storage implements the same state machine for deterministic reload and
+crash-boundary tests.
+
+Undo compares only affected block/subtree hashes from the checkpoint. Unrelated
+later edits remain intact; touched-block changes, reintroduced deletions, or
+missing inserted blocks produce an affected-block conflict and never trigger a
+whole-document overwrite.
+
+Project removal first counts associated sessions. Active work is aborted and
+disconnected, SDK session files are deleted with bounded waits, and SQLite
+then cascades local metadata. An SDK deletion failure creates a tombstone
+before the cascade; retry is attempted on later project activation. The
+external cleanup failure is visible in the returned cleanup count but does not
+strand the user's normal workspace removal.
+
+Agent runtime logs are lifecycle metadata only: redacted project/session/request
+identifiers, event names, health/restart status, timing, usage, and proposal
+status. They never include prompts, document text, tool arguments/results,
+proxy bodies, image bytes, attachment paths, or absolute project paths. The
+SQLite schema independently excludes transcript, prompt, response, credential,
+and raw-media columns.
+
 ## Save lifecycle
 
 `BlockNoteProjectCanvasProvider` is the active save coordinator for the mounted editor.
@@ -31,6 +239,11 @@ The main exceptions are intentional and narrow:
   image-mutation tail before they snapshot the plan. A save requested while an
   import, capture, crop, removal, or committed reorder is pending therefore
   persists the completed mutation rather than an older in-memory snapshot.
+- Proposal Apply, Undo, and metadata-compensation writes occupy that same tail.
+  Retirement waits for the whole transaction. If unmount wins while a proposal
+  save is in flight, the just-written proposal plan is reconciled back to the
+  captured plan before retirement finishes, so reopening the project never
+  reveals an edit that the prior UI reported as failed.
 
 This means save status stays honest: the UI can show unsaved or saving state without pretending data is already durable.
 
@@ -348,9 +561,22 @@ trigger either page-oriented exporter as a fallback or alter their outputs.
 Preflight and rendering are offline and deterministic: the shared schema,
 bundled Noto Sans SC fonts, normalized crop/cache keys, and local optimized
 assets are fixed before mapping. Root and weighted-column image groups keep
-their complete flow footprint together, move to the next page when the
-remaining space is insufficient, and scale uniformly only when that footprint
-exceeds one usable A4 page.
+their complete flow footprint together when it fits one content page and move
+intact when the current page has insufficient space. Taller groups start on a
+fresh page after prior content through a React-PDF presence sentinel and split
+only between existing wrap-first rows. The sentinel is omitted immediately
+after an authored page break so authored and natural transitions produce
+exactly one page change. A fragmented group inside columns does not receive a
+column-local sentinel: one sentinel is promoted to the containing column-list
+row because React-PDF 4.3/layout 4.7 cannot evaluate page freshness for one
+column child independently. The deterministic limitation is that freshness
+applies to the complete column row rather than to an individual column; this
+preserves aligned columns and covers authored page breaks and naturally full
+predecessor pages without blank output. Fragments greedily pack complete rows
+and preserve order, crops, relative geometry, surfaces, and borders. An
+indivisible over-height row alone may scale uniformly down to the documented
+0.25 minimum; lower required scales fail with block/group/row context instead
+of clipping or warning.
 
 Native image multiline-caption fitting uses the same bundled Noto Sans SC
 regular-face metrics as the production renderer. Preflight wraps CJK and Latin
@@ -520,12 +746,15 @@ Infrastructure adapters wrap native failures with clear operation context such a
 `src/shared/logging/logger.ts` emits structured JSON and intentionally removes sensitive keys such as:
 
 - `coverDataUrl`,
+- keys ending in `dataUrl` or `path`,
 - `rollbackToken`,
 - `stack`,
 - keys ending in `token`, and
 - keys containing `password`, `secret`, or `authorization`.
 
 Strings, arrays, and nested objects are also truncated to keep logs bounded.
+Absolute Windows/UNC paths and inline media data URLs are removed from string
+values before emission.
 
 ## What reliability docs must track
 

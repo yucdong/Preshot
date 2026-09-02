@@ -30,6 +30,12 @@ import type {
   BlockNoteLongImageExportRequest,
 } from "../../../infrastructure/longImage/BlockNoteLongImageExporter";
 import { BlockNoteProjectCanvasProvider } from "./BlockNoteProjectCanvasProvider";
+import {
+  createAgentWorkspaceStore,
+  hashPreshotDocument,
+  type AgentWorkspaceStore,
+} from "../../../domain/agent";
+import { MemoryAttachmentTokenResolver } from "../../../infrastructure/agent/memoryAttachmentTokenResolver";
 
 const settings: SettingsRepository = {
   read: vi.fn().mockResolvedValue({ theme: "light" }),
@@ -37,7 +43,9 @@ const settings: SettingsRepository = {
 };
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 function renderProvider(
@@ -51,11 +59,13 @@ function renderProvider(
     longImageSaver?: LongImageSaveTarget;
     projectDirectoryRevealer?: ProjectDirectoryRevealer;
     saver?: PdfSaveTarget;
+    agentWorkspace?: AgentWorkspaceStore;
   } = {},
 ) {
   return render(
     <ThemeProvider repository={settings}>
       <BlockNoteProjectCanvasProvider
+        agentWorkspace={dependencies.agentWorkspace}
         docxExporter={dependencies.docxExporter ?? {
           implementation: "blocknote-docx",
           export: vi.fn(),
@@ -70,6 +80,7 @@ function renderProvider(
           pickImageFiles: vi.fn().mockResolvedValue(null),
         }}
         projectName="Editorial"
+        projectId="project-1"
         projectPath={"C:\\Editorial"}
         logger={dependencies.logger ?? {
           debug: vi.fn(),
@@ -108,6 +119,14 @@ function serviceWith(
     purgeDetachedMedia: vi.fn(),
     ...overrides,
   };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 function selectExport(format: "PDF" | "DOCX") {
@@ -176,6 +195,292 @@ function longImageResult(partCount = 1): LongImageExportResult {
 }
 
 describe("BlockNoteProjectCanvasProvider", () => {
+  it("applies and restores proposal documents through one editor transaction and one immediate save", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "paragraph",
+    });
+    const savePlan = vi.fn().mockResolvedValue(undefined);
+    const service = serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
+      savePlan,
+    });
+    const agentWorkspace = createAgentWorkspaceStore(
+      new MemoryAttachmentTokenResolver(),
+    );
+    agentWorkspace.activateProject({
+      projectId: "project-1",
+      projectName: "Editorial",
+      projectPath: "C:\\Editorial",
+    });
+    renderProvider(service, { agentWorkspace });
+    await screen.findByLabelText("方案正文");
+    await waitFor(() =>
+      expect(agentWorkspace.captureSnapshot().documentHash)
+        .toBe(hashPreshotDocument(plan.document))
+    );
+    const current = await agentWorkspace.getCurrentPlan("project-1");
+    const projected = structuredClone(current.plan);
+    projected.document.blocks[0].content = [{
+      type: "text",
+      text: "Applied proposal",
+      styles: {},
+    }];
+
+    await act(() => agentWorkspace.applyAtomically({
+      projectId: "project-1",
+      expectedRevision: current.revision,
+      expectedDocumentHash: hashPreshotDocument(current.plan.document),
+      projectedPlan: projected,
+    }));
+
+    expect(savePlan).toHaveBeenCalledTimes(1);
+    expect(savePlan).toHaveBeenLastCalledWith("C:\\Editorial", projected);
+    const applied = await agentWorkspace.getCurrentPlan("project-1");
+    expect(applied.revision).toBe(current.revision + 1);
+    expect(screen.getByText("Applied proposal")).toBeInTheDocument();
+
+    await act(() => agentWorkspace.restoreCheckpointAtomically({
+      projectId: "project-1",
+      expectedRevision: applied.revision,
+      expectedDocumentHash: hashPreshotDocument(applied.plan.document),
+      restoredPlan: current.plan,
+    }));
+    expect(savePlan).toHaveBeenCalledTimes(2);
+    expect(await agentWorkspace.getCurrentPlan("project-1")).toMatchObject({
+      revision: applied.revision + 1,
+      plan: current.plan,
+    });
+    vi.useFakeTimers();
+    await act(() => vi.advanceTimersByTimeAsync(5_000));
+    expect(savePlan).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps apply failure-atomic and retries from the exact saved editor state", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "paragraph",
+    });
+    const savePlan = vi.fn()
+      .mockRejectedValueOnce(new Error("manifest unavailable"))
+      .mockResolvedValue(undefined);
+    const agentWorkspace = createAgentWorkspaceStore(
+      new MemoryAttachmentTokenResolver(),
+    );
+    agentWorkspace.activateProject({
+      projectId: "project-1",
+      projectName: "Editorial",
+      projectPath: "C:\\Editorial",
+    });
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
+      savePlan,
+    }), { agentWorkspace });
+    await screen.findByLabelText("方案正文");
+    const before = await agentWorkspace.getCurrentPlan("project-1");
+    const projected = structuredClone(before.plan);
+    projected.document.blocks[0].content = [{
+      type: "text",
+      text: "Retryable proposal",
+      styles: {},
+    }];
+    const input = {
+      projectId: "project-1",
+      expectedRevision: before.revision,
+      expectedDocumentHash: hashPreshotDocument(before.plan.document),
+      projectedPlan: projected,
+    };
+
+    await expect(act(() => agentWorkspace.applyAtomically(input)))
+      .rejects.toThrow("manifest unavailable");
+    expect(await agentWorkspace.getCurrentPlan("project-1")).toEqual(before);
+    expect(screen.queryByText("Retryable proposal")).not.toBeInTheDocument();
+    expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
+
+    await act(() => agentWorkspace.applyAtomically(input));
+    expect(savePlan).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Retryable proposal")).toBeInTheDocument();
+    expect(await agentWorkspace.getCurrentPlan("project-1")).toMatchObject({
+      plan: projected,
+      revision: before.revision + 1,
+    });
+  });
+
+  it("rolls back a failed undo save without changing the applied editor state", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "paragraph",
+    });
+    const savePlan = vi.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("undo write failed"))
+      .mockResolvedValue(undefined);
+    const agentWorkspace = createAgentWorkspaceStore(
+      new MemoryAttachmentTokenResolver(),
+    );
+    agentWorkspace.activateProject({
+      projectId: "project-1",
+      projectName: "Editorial",
+      projectPath: "C:\\Editorial",
+    });
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
+      savePlan,
+    }), { agentWorkspace });
+    await screen.findByLabelText("方案正文");
+    const before = await agentWorkspace.getCurrentPlan("project-1");
+    const projected = structuredClone(before.plan);
+    projected.document.blocks[0].content = [{
+      type: "text",
+      text: "Applied state",
+      styles: {},
+    }];
+    await act(() => agentWorkspace.applyAtomically({
+      projectId: "project-1",
+      expectedRevision: before.revision,
+      expectedDocumentHash: hashPreshotDocument(before.plan.document),
+      projectedPlan: projected,
+    }));
+    const applied = await agentWorkspace.getCurrentPlan("project-1");
+    const undoInput = {
+      projectId: "project-1",
+      expectedRevision: applied.revision,
+      expectedDocumentHash: hashPreshotDocument(applied.plan.document),
+      restoredPlan: before.plan,
+    };
+
+    await expect(act(() =>
+      agentWorkspace.restoreCheckpointAtomically(undoInput)
+    )).rejects.toThrow("undo write failed");
+    expect(await agentWorkspace.getCurrentPlan("project-1")).toEqual(applied);
+    expect(screen.getByText("Applied state")).toBeInTheDocument();
+    expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
+
+    await act(() => agentWorkspace.restoreCheckpointAtomically(undoInput));
+    expect(savePlan).toHaveBeenCalledTimes(3);
+    expect(screen.queryByText("Applied state")).not.toBeInTheDocument();
+    expect(await agentWorkspace.getCurrentPlan("project-1")).toMatchObject({
+      plan: before.plan,
+      revision: applied.revision + 1,
+    });
+  });
+
+  it("reconciles an apply that races project retirement before reload", async () => {
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "paragraph",
+    });
+    let persisted = structuredClone(plan);
+    const gate = deferred<void>();
+    const savePlan = vi.fn()
+      .mockImplementationOnce(async (
+        _projectPath: string,
+        next: typeof plan,
+      ) => {
+        await gate.promise;
+        persisted = structuredClone(next);
+      })
+      .mockImplementation(async (
+        _projectPath: string,
+        next: typeof plan,
+      ) => {
+        persisted = structuredClone(next);
+      });
+    const loadPlan = vi.fn().mockImplementation(async () => ({
+      status: "loaded" as const,
+      plan: structuredClone(persisted),
+    }));
+    const service = serviceWith({ loadPlan, savePlan });
+    const agentWorkspace = createAgentWorkspaceStore(
+      new MemoryAttachmentTokenResolver(),
+    );
+    agentWorkspace.activateProject({
+      projectId: "project-1",
+      projectName: "Editorial",
+      projectPath: "C:\\Editorial",
+    });
+    const first = renderProvider(service, { agentWorkspace });
+    await screen.findByLabelText("方案正文");
+    const before = await agentWorkspace.getCurrentPlan("project-1");
+    const projected = structuredClone(before.plan);
+    projected.document.blocks[0].content = [{
+      type: "text",
+      text: "Must not survive retirement",
+      styles: {},
+    }];
+    const applying = agentWorkspace.applyAtomically({
+      projectId: "project-1",
+      expectedRevision: before.revision,
+      expectedDocumentHash: hashPreshotDocument(before.plan.document),
+      projectedPlan: projected,
+    });
+    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
+
+    first.unmount();
+    gate.resolve();
+    await expect(applying).rejects.toMatchObject({
+      code: "project_deleted",
+    });
+    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(2));
+    expect(persisted).toEqual(plan);
+
+    renderProvider(service);
+    await screen.findByLabelText("方案正文");
+    expect(screen.queryByText("Must not survive retirement"))
+      .not.toBeInTheDocument();
+    expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
+  });
+
+  it("restores the persisted plan and editor when the publish transaction throws", async () => {
+    vi.stubEnv("VITE_WORKSPACE_ADAPTER", "memory");
+    const plan = createEmptyProjectPlanV14("Editorial", {
+      makeId: () => "paragraph",
+    });
+    const savePlan = vi.fn().mockResolvedValue(undefined);
+    const agentWorkspace = createAgentWorkspaceStore(
+      new MemoryAttachmentTokenResolver(),
+    );
+    agentWorkspace.activateProject({
+      projectId: "project-1",
+      projectName: "Editorial",
+      projectPath: "C:\\Editorial",
+    });
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
+      savePlan,
+    }), { agentWorkspace });
+    await screen.findByLabelText("方案正文");
+    const before = await agentWorkspace.getCurrentPlan("project-1");
+    const projected = structuredClone(before.plan);
+    projected.document.blocks[0].content = [{
+      type: "text",
+      text: "Editor publish must roll back",
+      styles: {},
+    }];
+    const editor = (
+      window as typeof window & {
+        __PRESHOT_BLOCKNOTE_EDITOR__?: {
+          replaceBlocks: (...args: unknown[]) => unknown;
+        };
+      }
+    ).__PRESHOT_BLOCKNOTE_EDITOR__;
+    expect(editor).toBeDefined();
+    vi.spyOn(editor!, "replaceBlocks").mockImplementationOnce(() => {
+      throw new Error("editor publish failed");
+    });
+
+    await expect(agentWorkspace.applyAtomically({
+      projectId: "project-1",
+      expectedRevision: before.revision,
+      expectedDocumentHash: hashPreshotDocument(before.plan.document),
+      projectedPlan: projected,
+    })).rejects.toThrow("editor publish failed");
+
+    expect(savePlan).toHaveBeenCalledTimes(2);
+    expect(savePlan).toHaveBeenNthCalledWith(1, "C:\\Editorial", projected);
+    expect(savePlan).toHaveBeenNthCalledWith(2, "C:\\Editorial", before.plan);
+    expect(await agentWorkspace.getCurrentPlan("project-1")).toEqual(before);
+    expect(screen.queryByText("Editor publish must roll back"))
+      .not.toBeInTheDocument();
+    expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
+  });
+
   it("renders a new schema-v14 BlockNote canvas", async () => {
     const plan = createEmptyProjectPlanV14("Editorial", {
       makeId: () => "block-1",

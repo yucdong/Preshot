@@ -10,7 +10,7 @@ describe("TauriSettingsRepository", () => {
     const result = await repo.read();
 
     expect(mockInvoke).toHaveBeenCalledWith("read_settings");
-    expect(result).toEqual({ theme: "dark", projectRailWidth: 192, assistantWidth: 272 });
+    expect(result).toEqual({ theme: "dark", projectRailWidth: 192, assistantWidth: 272, assistantOpen: false });
   });
 
   it("should normalize invalid settings from backend", async () => {
@@ -19,7 +19,7 @@ describe("TauriSettingsRepository", () => {
 
     const result = await repo.read();
 
-    expect(result).toEqual({ theme: "system", projectRailWidth: 192, assistantWidth: 272 });
+    expect(result).toEqual({ theme: "system", projectRailWidth: 192, assistantWidth: 272, assistantOpen: false });
   });
 
   it("should normalize null from backend", async () => {
@@ -28,7 +28,7 @@ describe("TauriSettingsRepository", () => {
 
     const result = await repo.read();
 
-    expect(result).toEqual({ theme: "system", projectRailWidth: 192, assistantWidth: 272 });
+    expect(result).toEqual({ theme: "system", projectRailWidth: 192, assistantWidth: 272, assistantOpen: false });
   });
 
   it("should write settings", async () => {
@@ -38,7 +38,14 @@ describe("TauriSettingsRepository", () => {
 
     await repo.write(settings);
 
-    expect(mockInvoke).toHaveBeenCalledWith("write_settings", { value: { theme: "light" } });
+    expect(mockInvoke).toHaveBeenCalledWith("write_settings", {
+      value: {
+        theme: "light",
+        projectRailWidth: 192,
+        assistantWidth: 272,
+        assistantOpen: false,
+      },
+    });
   });
 
   it("should throw on write error with context", async () => {

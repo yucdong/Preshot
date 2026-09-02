@@ -14,6 +14,7 @@ This directory contains the English maintenance documentation for the current Pr
 - [Reliability](RELIABILITY.md)
 - [Windows installer operator guide](WINDOWS_INSTALLER.md)
 - [Licensing and distribution](LICENSING.md)
+- [Copilot Rust SDK spike](COPILOT_SDK_SPIKE.md)
 
 ## Active v14 specifications
 
@@ -22,6 +23,8 @@ These canonical files define the current BlockNote v14 behavior:
 - [BlockNote v14 design](design_docs/blocknote_v14_design.md)
 - [UI/UX contract](design_docs/UI_UX_CONTRACT.md)
 - [Feature status tracker](design_docs/featurelist.json)
+- [Basic agent design](design_docs/agent/agent_basic_design.md)
+- [Deterministic agent eval report](../tests/artifacts/agent-mvp-eval-report.md)
 
 ## Historical design and reference material
 

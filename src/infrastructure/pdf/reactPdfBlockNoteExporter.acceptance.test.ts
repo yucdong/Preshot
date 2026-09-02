@@ -9,6 +9,7 @@ import {
 } from "pdf-lib";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
+import { PreshotPdfPreflightError } from "../../domain/plan/blocknote/pdfExportPreflight";
 import { PDF_VISUAL_CONTRACT } from "../../domain/plan/blocknote/pdfVisualContract";
 import { createReactPdfBlockNoteExporter } from "./reactPdfBlockNoteExporter";
 import { imageDataFromDataUrl } from "./pdfImageOptimizer";
@@ -130,6 +131,24 @@ function exporter(
   });
 }
 
+function emergencyRowGroup(id: string, requiredScale: number) {
+  const pdfScale = PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale;
+  const availableRowHeight =
+    PDF_VISUAL_CONTRACT.page.contentHeight -
+    PDF_VISUAL_CONTRACT.imageGroup.inset * 2 -
+    0.1;
+  const frameHeight = Number(
+    (availableRowHeight / requiredScale).toFixed(4),
+  ) / pdfScale;
+  return imageGroup(id, {
+    width: 1_008,
+    height: frameHeight + 18,
+    images: [
+      image(`${id}-row`, `references/${id}.png`, 900, frameHeight),
+    ],
+  });
+}
+
 function pageContent(pdf: PDFDocument, pageIndex: number): string {
   const contents = pdf.getPages()[pageIndex].node.normalizedEntries().Contents;
   if (!(contents instanceof PDFArray)) return "";
@@ -148,11 +167,96 @@ function imageDrawCount(pdf: PDFDocument, pageIndex: number): number {
   return pageContent(pdf, pageIndex).match(/\/I\d+\s+Do/g)?.length ?? 0;
 }
 
+interface PdfImageDraw {
+  readonly resource: string;
+  readonly minX: number;
+  readonly minY: number;
+  readonly maxX: number;
+  readonly maxY: number;
+}
+
+type Matrix = readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
+
+function multiply(first: Matrix, second: Matrix): Matrix {
+  const [a, b, c, d, e, f] = first;
+  const [g, h, i, j, k, l] = second;
+  return [
+    a * g + c * h,
+    b * g + d * h,
+    a * i + c * j,
+    b * i + d * j,
+    a * k + c * l + e,
+    b * k + d * l + f,
+  ];
+}
+
+function imageDraws(pdf: PDFDocument, pageIndex: number): PdfImageDraw[] {
+  const identity: Matrix = [1, 0, 0, 1, 0, 0];
+  let matrix = identity;
+  const stack: Matrix[] = [];
+  const draws: PdfImageDraw[] = [];
+  for (const rawLine of pageContent(pdf, pageIndex).split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line === "q") {
+      stack.push(matrix);
+      continue;
+    }
+    if (line === "Q") {
+      matrix = stack.pop() ?? identity;
+      continue;
+    }
+    const concat = /^(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+cm$/.exec(
+      line,
+    );
+    if (concat) {
+      matrix = multiply(
+        matrix,
+        concat.slice(1).map(Number) as unknown as Matrix,
+      );
+      continue;
+    }
+    const draw = /^\/(I\d+)\s+Do$/.exec(line);
+    if (!draw) continue;
+    const [a, b, c, d, e, f] = matrix;
+    const corners = [
+      [e, f],
+      [a + e, b + f],
+      [c + e, d + f],
+      [a + c + e, b + d + f],
+    ];
+    draws.push({
+      resource: draw[1],
+      minX: Math.min(...corners.map(([x]) => x)),
+      minY: Math.min(...corners.map(([, y]) => y)),
+      maxX: Math.max(...corners.map(([x]) => x)),
+      maxY: Math.max(...corners.map(([, y]) => y)),
+    });
+  }
+  return draws;
+}
+
 function renderedImageCount(pdf: PDFDocument): number {
   return pdf.getPages().reduce(
     (total, _page, index) => total + imageDrawCount(pdf, index),
     0,
   );
+}
+
+function expectNoBlankPages(pdf: PDFDocument): void {
+  for (let pageIndex = 0; pageIndex < pdf.getPageCount(); pageIndex += 1) {
+    const content = pageContent(pdf, pageIndex);
+    expect(
+      imageDrawCount(pdf, pageIndex) > 0 || /\bT[Jj]\b/.test(content),
+      `page ${pageIndex + 1} should contain text or an image`,
+    ).toBe(true);
+  }
 }
 
 function annotationCount(pdf: PDFDocument): number {
@@ -353,14 +457,15 @@ describe("production React-PDF acceptance", () => {
     expect(imageDrawCount(positive, 1)).toBe(1);
   }, 30_000);
 
-  it("uniformly fits a group taller than the usable page onto one page", async () => {
-    const group = imageGroup("oversized", {
-      x: 30,
-      width: 400,
-      height: 2_000,
-      frameOffsetY: 12,
+  it("renders an exact full-content-page group without clipping or an extra page", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const scale = PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale;
+    const frameHeight = PDF_VISUAL_CONTRACT.page.contentHeight / scale - 18;
+    const group = imageGroup("exact-page", {
+      width: 1_008,
+      height: frameHeight + 18,
       images: [
-        image("tall", "references/tall.png", 200, 1_900),
+        image("exact", "references/exact.png", 100, frameHeight),
       ],
     });
     const value = plan([
@@ -372,6 +477,498 @@ describe("production React-PDF acceptance", () => {
 
     expect(pdf.getPageCount()).toBe(1);
     expect(imageDrawCount(pdf, 0)).toBe(1);
+    const draw = imageDraws(pdf, 0)[0];
+    expect(draw.minX).toBeGreaterThanOrEqual(
+      PDF_VISUAL_CONTRACT.page.margin - 0.01,
+    );
+    expect(draw.maxX).toBeLessThanOrEqual(
+      PDF_VISUAL_CONTRACT.page.width -
+        PDF_VISUAL_CONTRACT.page.margin +
+        0.01,
+    );
+    expect(draw.minY).toBeGreaterThanOrEqual(
+      PDF_VISUAL_CONTRACT.page.margin - 0.01,
+    );
+    expect(draw.maxY).toBeLessThanOrEqual(
+      PDF_VISUAL_CONTRACT.page.height -
+        PDF_VISUAL_CONTRACT.page.margin +
+        0.01,
+    );
+    expect(warning.mock.calls.flat().join(" ")).not.toContain(
+      "can't wrap between pages",
+    );
+  }, 30_000);
+
+  it.each([
+    { rowCount: 3, expectedPages: 2, expectedDraws: [2, 1] },
+    { rowCount: 5, expectedPages: 3, expectedDraws: [2, 2, 1] },
+  ])("starts a first-block $rowCount-row group on page 1 and splits it across $expectedPages pages", async ({
+    rowCount,
+    expectedPages,
+    expectedDraws,
+  }) => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const images = Array.from({ length: rowCount }, (_, index) =>
+      image(
+        `row-${index + 1}`,
+        `references/row-${index + 1}.png`,
+        900,
+        600,
+        index === 0
+          ? { x: 0.2, y: 0.1, width: 0.6, height: 0.8 }
+          : undefined,
+      )
+    );
+    const group = imageGroup(`oversized-${rowCount}`, {
+      width: 1_008,
+      height: 18 + rowCount * 600 + (rowCount - 1) * 7,
+      images,
+    });
+    const value = plan([
+      block("group-block", "imageGroup", { groupId: group.id }, undefined),
+    ], [group]);
+    const pdf = await PDFDocument.load(
+      await exporter().export(value, assetsFor(value)),
+    );
+
+    expect(pdf.getPageCount()).toBe(expectedPages);
+    expect(pdf.getPages().map((_, index) => imageDrawCount(pdf, index))).toEqual(
+      expectedDraws,
+    );
+    expect(renderedImageCount(pdf)).toBe(rowCount);
+    expectNoBlankPages(pdf);
+    for (let pageIndex = 0; pageIndex < pdf.getPageCount(); pageIndex += 1) {
+      for (const draw of imageDraws(pdf, pageIndex)) {
+        expect(draw.minX).toBeGreaterThanOrEqual(
+          PDF_VISUAL_CONTRACT.page.margin - 0.01,
+        );
+        expect(draw.maxX).toBeLessThanOrEqual(
+          PDF_VISUAL_CONTRACT.page.width -
+            PDF_VISUAL_CONTRACT.page.margin +
+            0.01,
+        );
+        expect(draw.minY).toBeGreaterThanOrEqual(
+          PDF_VISUAL_CONTRACT.page.margin - 0.01,
+        );
+        expect(draw.maxY).toBeLessThanOrEqual(
+          PDF_VISUAL_CONTRACT.page.height -
+            PDF_VISUAL_CONTRACT.page.margin +
+            0.01,
+        );
+      }
+    }
+    expect(warning.mock.calls.flat().join(" ")).not.toContain(
+      "can't wrap between pages",
+    );
+  }, 30_000);
+
+  it("preserves paired-row image order exactly once across page fragments", async () => {
+    const scale = PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale;
+    const widths = [300, 500, 320, 480, 340, 460];
+    const images = widths.map((width, index) =>
+      image(
+        `paired-${index + 1}`,
+        `references/paired-${index + 1}.png`,
+        width,
+        600,
+        index === 0
+          ? { x: 0.2, y: 0.1, width: 0.6, height: 0.8 }
+          : undefined,
+      )
+    );
+    const group = imageGroup("paired-rows", {
+      width: 1_008,
+      height: 1_832,
+      images,
+    });
+    const value = plan([
+      block("group-block", "imageGroup", { groupId: group.id }, undefined),
+    ], [group]);
+    const pdf = await PDFDocument.load(
+      await exporter().export(value, assetsFor(value)),
+    );
+    const draws = pdf.getPages().map((_, index) => imageDraws(pdf, index));
+
+    expect(draws.map((pageDraws) => pageDraws.length)).toEqual([4, 2]);
+    expect(draws.flat()).toHaveLength(images.length);
+    expect(draws.flat().map((draw) => draw.maxX - draw.minX)).toEqual(
+      widths.map((width) => expect.closeTo(width * scale, 1)),
+    );
+  }, 30_000);
+
+  it("starts an oversized group on a fresh page after preceding text", async () => {
+    const group = imageGroup("preceded", {
+      width: 1_008,
+      height: 1_832,
+      images: [
+        image("row-1", "references/preceded-1.png", 900, 600),
+        image("row-2", "references/preceded-2.png", 900, 600),
+        image("row-3", "references/preceded-3.png", 900, 600),
+      ],
+    });
+    const value = plan([
+      paragraph("lead", "前置正文"),
+      block("group-block", "imageGroup", { groupId: group.id }, undefined),
+    ], [group]);
+    const pdf = await PDFDocument.load(
+      await exporter().export(value, assetsFor(value)),
+    );
+
+    expect(pdf.getPageCount()).toBe(3);
+    expect(pdf.getPages().map((_, index) => imageDrawCount(pdf, index))).toEqual(
+      [0, 2, 1],
+    );
+    expectNoBlankPages(pdf);
+  }, 30_000);
+
+  it("uses one transition for paragraph, authored page break, and an oversized group", async () => {
+    const group = imageGroup("after-page-break", {
+      width: 1_008,
+      height: 1_832,
+      images: [
+        image("break-row-1", "references/break-row-1.png", 900, 600),
+        image("break-row-2", "references/break-row-2.png", 900, 600),
+        image("break-row-3", "references/break-row-3.png", 900, 600),
+      ],
+    });
+    const value = plan([
+      paragraph("lead", "分页前正文"),
+      block("page-break", "pageBreak", {}, undefined),
+      block("group-block", "imageGroup", { groupId: group.id }, undefined),
+    ], [group]);
+    const pdf = await PDFDocument.load(
+      await exporter().export(value, assetsFor(value)),
+    );
+
+    expect(pdf.getPageCount()).toBe(3);
+    expect(pdf.getPages().map((_, index) => imageDrawCount(pdf, index))).toEqual(
+      [0, 2, 1],
+    );
+    expect(renderedImageCount(pdf)).toBe(3);
+    expectNoBlankPages(pdf);
+  }, 30_000);
+
+  it("does not add a blank page after an exact full-page predecessor", async () => {
+    const scale = PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale;
+    const exactFrameHeight =
+      PDF_VISUAL_CONTRACT.page.contentHeight / scale - 18;
+    const exact = imageGroup("exact-predecessor", {
+      width: 1_008,
+      height: exactFrameHeight + 18,
+      images: [
+        image(
+          "exact-predecessor-image",
+          "references/exact-predecessor.png",
+          100,
+          exactFrameHeight,
+        ),
+      ],
+    });
+    const oversized = imageGroup("after-exact-page", {
+      width: 1_008,
+      height: 1_832,
+      images: [
+        image("exact-row-1", "references/exact-row-1.png", 900, 600),
+        image("exact-row-2", "references/exact-row-2.png", 900, 600),
+        image("exact-row-3", "references/exact-row-3.png", 900, 600),
+      ],
+    });
+    const value = plan([
+      block(
+        "exact-group-block",
+        "imageGroup",
+        { groupId: exact.id },
+        undefined,
+      ),
+      block(
+        "oversized-group-block",
+        "imageGroup",
+        { groupId: oversized.id },
+        undefined,
+      ),
+    ], [exact, oversized]);
+    const pdf = await PDFDocument.load(
+      await exporter().export(value, assetsFor(value)),
+    );
+
+    expect(pdf.getPageCount()).toBe(3);
+    expect(pdf.getPages().map((_, index) => imageDrawCount(pdf, index))).toEqual(
+      [1, 2, 1],
+    );
+    expect(renderedImageCount(pdf)).toBe(4);
+    expectNoBlankPages(pdf);
+  }, 30_000);
+
+  it("applies positive group offset only before the first oversized fragment", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const group = imageGroup("offset-fragments", {
+      width: 1_008,
+      height: 1_832,
+      frameOffsetY: 250,
+      images: [
+        image("offset-row-1", "references/offset-row-1.png", 900, 600),
+        image("offset-row-2", "references/offset-row-2.png", 900, 600),
+        image("offset-row-3", "references/offset-row-3.png", 900, 600),
+      ],
+    });
+    const value = plan([
+      block("group-block", "imageGroup", { groupId: group.id }, undefined),
+    ], [group]);
+    const pdf = await PDFDocument.load(
+      await exporter().export(value, assetsFor(value)),
+    );
+
+    expect(pdf.getPageCount()).toBe(2);
+    expect(pdf.getPages().map((_, index) => imageDrawCount(pdf, index))).toEqual(
+      [1, 2],
+    );
+    expect(imageDraws(pdf, 0)[0].maxY).toBeLessThan(
+      imageDraws(pdf, 1)[0].maxY,
+    );
+    expect(warning.mock.calls.flat().join(" ")).not.toContain(
+      "can't wrap between pages",
+    );
+  }, 30_000);
+
+  it("preserves a negative offset without changing flow or leaving page bounds", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const makePlan = (frameOffsetY: number) => {
+      const group = imageGroup(`negative-${frameOffsetY}`, {
+        width: 300,
+        height: 180,
+        frameOffsetY,
+        images: [
+          image(
+            `negative-image-${frameOffsetY}`,
+            `references/negative-${frameOffsetY}.png`,
+            120,
+            80,
+          ),
+        ],
+      });
+      return plan([
+        paragraph(`lead-${frameOffsetY}`, "前置正文"),
+        block(
+          `group-block-${frameOffsetY}`,
+          "imageGroup",
+          { groupId: group.id },
+          undefined,
+        ),
+      ], [group]);
+    };
+    const zeroPlan = makePlan(0);
+    const negativePlan = makePlan(-24);
+    const zero = await PDFDocument.load(
+      await exporter().export(zeroPlan, assetsFor(zeroPlan)),
+    );
+    const negative = await PDFDocument.load(
+      await exporter().export(negativePlan, assetsFor(negativePlan)),
+    );
+    const zeroDraw = imageDraws(zero, 0)[0];
+    const negativeDraw = imageDraws(negative, 0)[0];
+
+    expect(zero.getPageCount()).toBe(1);
+    expect(negative.getPageCount()).toBe(1);
+    expect(renderedImageCount(negative)).toBe(1);
+    expect(negativeDraw.maxY).toBeGreaterThan(zeroDraw.maxY);
+    expect(negativeDraw.maxY - negativeDraw.minY).toBeCloseTo(
+      zeroDraw.maxY - zeroDraw.minY,
+      2,
+    );
+    expect(negativeDraw.minX).toBeGreaterThanOrEqual(0);
+    expect(negativeDraw.minY).toBeGreaterThanOrEqual(0);
+    expect(negativeDraw.maxX).toBeLessThanOrEqual(
+      PDF_VISUAL_CONTRACT.page.width,
+    );
+    expect(negativeDraw.maxY).toBeLessThanOrEqual(
+      PDF_VISUAL_CONTRACT.page.height,
+    );
+    expect(warning.mock.calls.flat().join(" ")).not.toContain(
+      "can't wrap between pages",
+    );
+  }, 30_000);
+
+  it("applies emergency scaling to one overheight row only", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const group = imageGroup("emergency", {
+      width: 1_008,
+      height: 2_325,
+      images: [
+        image("overheight", "references/overheight.png", 900, 1_800),
+        image("normal", "references/normal.png", 900, 500),
+      ],
+    });
+    const value = plan([
+      block("group-block", "imageGroup", { groupId: group.id }, undefined),
+    ], [group]);
+    const pdf = await PDFDocument.load(
+      await exporter().export(value, assetsFor(value)),
+    );
+
+    expect(pdf.getPageCount()).toBe(2);
+    expect(pdf.getPages().map((_, index) => imageDrawCount(pdf, index))).toEqual(
+      [1, 1],
+    );
+    const first = imageDraws(pdf, 0)[0];
+    const second = imageDraws(pdf, 1)[0];
+    expect(first.maxY - first.minY).toBeLessThan(
+      PDF_VISUAL_CONTRACT.page.contentHeight,
+    );
+    expect(second.maxY - second.minY).toBeCloseTo(
+      500 * PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale,
+      1,
+    );
+    expect(warning.mock.calls.flat().join(" ")).not.toContain(
+      "can't wrap between pages",
+    );
+  }, 30_000);
+
+  it.each([0.25, 0.250001])(
+    "renders an indivisible row accepted at emergency scale %s",
+    async (requiredScale) => {
+      const group = emergencyRowGroup("boundary", requiredScale);
+      const value = plan([
+        block("group-block", "imageGroup", { groupId: group.id }, undefined),
+      ], [group]);
+      const pdf = await PDFDocument.load(
+        await exporter().export(value, assetsFor(value)),
+      );
+
+      expect(pdf.getPageCount()).toBe(1);
+      expect(renderedImageCount(pdf)).toBe(1);
+      const draw = imageDraws(pdf, 0)[0];
+      expect(draw.minY).toBeGreaterThanOrEqual(
+        PDF_VISUAL_CONTRACT.page.margin - 0.01,
+      );
+      expect(draw.maxY).toBeLessThanOrEqual(
+        PDF_VISUAL_CONTRACT.page.height -
+          PDF_VISUAL_CONTRACT.page.margin +
+          0.01,
+      );
+    },
+    30_000,
+  );
+
+  it.each([0.24475, 0.24])(
+    "rejects emergency scale %s before rendering any PDF bytes",
+    async (requiredScale) => {
+      const group = emergencyRowGroup("below-floor", requiredScale);
+      const value = plan([
+        block(
+          "below-floor-block",
+          "imageGroup",
+          { groupId: group.id },
+          undefined,
+        ),
+      ], [group]);
+      const renderDocument = vi.fn();
+      const boundaryExporter = createReactPdfBlockNoteExporter({
+        fontSources: FONT_SOURCES,
+        optimizeImage: async (dataUrl) => imageDataFromDataUrl(dataUrl),
+        measureImage: async () => ({ width: 1200, height: 800 }),
+        renderDocument,
+      });
+
+      await expect(boundaryExporter.export(value, assetsFor(value))).rejects
+        .toSatisfy((error) => {
+          expect(error).toBeInstanceOf(PreshotPdfPreflightError);
+          const issue = (error as PreshotPdfPreflightError).fatalErrors[0];
+          expect(issue).toMatchObject({
+            code: "IMAGE_GROUP_ROW_SCALE_BELOW_MINIMUM",
+            blockId: "below-floor-block",
+            groupId: "below-floor",
+            rowIndex: 0,
+            minimumScale: 0.25,
+          });
+          expect(issue.requiredScale).toBeCloseTo(requiredScale, 7);
+          return true;
+        });
+      expect(renderDocument).not.toHaveBeenCalled();
+    });
+
+  it("keeps oversized fragments row-atomic in a preceded weighted two-thirds column row", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const group = imageGroup("column-oversized", {
+      width: 1_008,
+      height: 1_832,
+      images: [
+        image("column-row-1", "references/column-row-1.png", 600, 600),
+        image("column-row-2", "references/column-row-2.png", 600, 600),
+        image("column-row-3", "references/column-row-3.png", 600, 600),
+      ],
+    });
+    const value = plan([
+      paragraph("lead", "列布局前置正文"),
+      block("columns", "columnList", {}, undefined, [
+        block("wide", "column", { width: 2 }, undefined, [
+          block(
+            "group-block",
+            "imageGroup",
+            { groupId: group.id },
+            undefined,
+          ),
+        ]),
+        block("narrow", "column", { width: 1 }, undefined, [
+          ...Array.from({ length: 50 }, (_, index) =>
+            paragraph(`copy-${index}`, `混排正文 ${index + 1}`)
+          ),
+        ]),
+      ]),
+    ], [group]);
+    const pdf = await PDFDocument.load(
+      await exporter().export(value, assetsFor(value)),
+    );
+    const draws = pdf.getPages().map((_, index) => imageDrawCount(pdf, index));
+
+    expect(draws[0]).toBe(0);
+    expect(draws.filter((count) => count > 0)).toEqual([2, 1]);
+    expect(draws.reduce((total, count) => total + count, 0)).toBe(3);
+    expect(warning.mock.calls.flat().join(" ")).not.toContain(
+      "can't wrap between pages",
+    );
+  }, 30_000);
+
+  it("uses one transition for an authored page break before a fragmented column row", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const group = imageGroup("column-after-page-break", {
+      width: 1_008,
+      height: 1_832,
+      images: [
+        image("column-break-1", "references/column-break-1.png", 600, 600),
+        image("column-break-2", "references/column-break-2.png", 600, 600),
+        image("column-break-3", "references/column-break-3.png", 600, 600),
+      ],
+    });
+    const value = plan([
+      paragraph("lead", "列分页前正文"),
+      block("page-break", "pageBreak", {}, undefined),
+      block("columns", "columnList", {}, undefined, [
+        block("wide", "column", { width: 2 }, undefined, [
+          block(
+            "group-block",
+            "imageGroup",
+            { groupId: group.id },
+            undefined,
+          ),
+        ]),
+        block("narrow", "column", { width: 1 }, undefined, [
+          paragraph("copy", "同页列正文"),
+        ]),
+      ]),
+    ], [group]);
+    const pdf = await PDFDocument.load(
+      await exporter().export(value, assetsFor(value)),
+    );
+
+    expect(pdf.getPageCount()).toBe(3);
+    expect(pdf.getPages().map((_, index) => imageDrawCount(pdf, index))).toEqual(
+      [0, 2, 1],
+    );
+    expect(renderedImageCount(pdf)).toBe(3);
+    expectNoBlankPages(pdf);
+    expect(warning.mock.calls.flat().join(" ")).not.toContain(
+      "can't wrap between pages",
+    );
   }, 30_000);
 
   it("fits a true 100x1000 image with an 80-word caption without rejection or oversize warning", async () => {
@@ -403,6 +1000,7 @@ describe("production React-PDF acceptance", () => {
   }, 30_000);
 
   it("keeps a weighted-column image group atomic while long sibling text paginates", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     const group = imageGroup("column-group", {
       width: 500,
       height: 220,
@@ -436,5 +1034,8 @@ describe("production React-PDF acceptance", () => {
     expect(pdf.getPageCount()).toBeGreaterThan(1);
     expect(draws.filter((count) => count > 0)).toHaveLength(1);
     expect(draws.reduce((sum, count) => sum + count, 0)).toBe(2);
+    expect(warning.mock.calls.flat().join(" ")).not.toContain(
+      "can't wrap between pages",
+    );
   }, 30_000);
 });

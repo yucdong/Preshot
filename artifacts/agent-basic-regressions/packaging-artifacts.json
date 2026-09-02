@@ -1,0 +1,14 @@
+[
+  {
+    "FullName": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\bundle\\msi\\Preshot_0.0.1_x64_en-US.msi",
+    "Length": 122032128,
+    "LastWriteTime": "2026-08-22T13:15:41.9250000+08:00",
+    "SHA256": "B2D3E01A4A4A2A2AF227C0628C528F33924CA6D8975B3FD9A1514B485F29D3BD"
+  },
+  {
+    "FullName": "C:\\projects\\Preshot\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\preshot.exe",
+    "Length": 135205888,
+    "LastWriteTime": "2026-08-22T13:16:07.0301238+08:00",
+    "SHA256": "31AF5C136177631276BB3FF89697A815805CB075E071205EA4DC191E3432C0FB"
+  }
+]

@@ -1,127 +1,172 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { SettingsPanel } from "./SettingsPanel";
 import { ThemeProvider } from "../../app/theme/ThemeProvider";
+import { AgentModelSettingsController } from "../../domain/agent";
+import { AgentModelSettingsProvider } from "../agent/AgentModelSettingsContext";
+import { createBrowserAgentModelProbe } from "../../infrastructure/agent/browserAgentModelProbe";
+import { createSettingsAgentModelStore } from "../../infrastructure/agent/settingsAgentModelStore";
+import {
+  createBrowserSettingsRepository,
+} from "../../infrastructure/settings/browserSettings";
 import type { SettingsRepository } from "../../domain/settings/ports";
+import { SettingsPanel } from "./SettingsPanel";
 
-// Minimal fake repository for tests
-const fakeRepository: SettingsRepository = {
-  read: async () => ({ theme: "system" }),
-  write: async () => {},
-};
+function renderPanel(options: {
+  readonly open?: boolean;
+  readonly onClose?: () => void;
+  readonly repository?: SettingsRepository;
+} = {}) {
+  const repository = options.repository ?? createBrowserSettingsRepository();
+  const controller = new AgentModelSettingsController({
+    store: createSettingsAgentModelStore(repository),
+    probe: createBrowserAgentModelProbe(),
+  });
+  const onClose = options.onClose ?? vi.fn();
+  const result = render(
+    <AgentModelSettingsProvider controller={controller}>
+      <ThemeProvider repository={repository}>
+        <SettingsPanel open={options.open ?? true} onClose={onClose} />
+      </ThemeProvider>
+    </AgentModelSettingsProvider>,
+  );
+  return { ...result, controller, onClose, repository };
+}
 
 describe("SettingsPanel", () => {
-  it("renders nothing when open is false", () => {
-    render(
-      <ThemeProvider repository={fakeRepository}>
-        <SettingsPanel open={false} onClose={() => {}} />
-      </ThemeProvider>,
-    );
-
+  it("renders nothing when closed", () => {
+    renderPanel({ open: false });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("renders the dialog with three theme options when open", () => {
-    render(
-      <ThemeProvider repository={fakeRepository}>
-        <SettingsPanel open={true} onClose={() => {}} />
-      </ThemeProvider>,
-    );
-
+  it("renders accessible appearance and assistant controls with safe defaults", async () => {
+    renderPanel();
     const dialog = screen.getByRole("dialog", { name: "设置" });
-    expect(dialog).toBeInTheDocument();
 
-    // Check for theme label and three options
-    expect(screen.getByText("主题")).toBeInTheDocument();
-    expect(screen.getByText("浅色")).toBeInTheDocument();
-    expect(screen.getByText("深色")).toBeInTheDocument();
-    expect(screen.getByText("跟随系统")).toBeInTheDocument();
+    expect(dialog).toHaveFocus();
+    expect(screen.getByText("外观")).toBeVisible();
+    expect(screen.getByText("浅色")).toBeVisible();
+    expect(screen.getByText("深色")).toBeVisible();
+    expect(screen.getByText("跟随系统")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "助手模型" })).toBeVisible();
+    expect(screen.getByLabelText("代理显示地址"))
+      .toHaveValue("http://localhost:4141");
+    expect(screen.getByLabelText("接口模式")).toHaveValue("Responses API");
+    expect(screen.queryByLabelText(/API key/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("模型")).toBeDisabled();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "测试连接" })).toBeEnabled()
+    );
   });
 
-  it("highlights the current theme option", async () => {
-    const customRepository: SettingsRepository = {
-      read: async () => ({ theme: "dark" }),
-      write: async () => {},
-    };
-
-    const { rerender } = render(
-      <ThemeProvider repository={customRepository}>
-        <SettingsPanel open={true} onClose={() => {}} />
-      </ThemeProvider>,
-    );
-
-    // Wait for theme to be loaded from repository
-    await screen.findByText("深色");
-
-    // Force a re-render to ensure theme state is applied
-    rerender(
-      <ThemeProvider repository={customRepository}>
-        <SettingsPanel open={true} onClose={() => {}} />
-      </ThemeProvider>,
-    );
-
-    // The "深色" button should have aria-pressed="true" or similar selected state
-    const darkButton = screen.getByText("深色").closest("button");
-    expect(darkButton).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("calls setTheme when an option is clicked", async () => {
+  it("discovers models, verifies capabilities, gates reasoning, and verifies vision separately", async () => {
     const user = userEvent.setup();
-    const writeSpy = vi.fn().mockResolvedValue(undefined);
-    const customRepository: SettingsRepository = {
-      read: async () => ({ theme: "system" }),
-      write: writeSpy,
-    };
+    renderPanel();
 
-    render(
-      <ThemeProvider repository={customRepository}>
-        <SettingsPanel open={true} onClose={() => {}} />
-      </ThemeProvider>,
+    await user.click(await screen.findByRole("button", { name: "测试连接" }));
+    await screen.findByText("Preshot Text (deterministic)");
+
+    expect(screen.getByLabelText("模型")).toHaveValue("preshot-text");
+    expect(screen.getByLabelText("模型")).toBeEnabled();
+    expect(screen.getAllByText("已验证", { selector: "strong" })).toHaveLength(3);
+    expect(screen.getByLabelText("推理强度")).toBeVisible();
+    expect(screen.getByLabelText("推理摘要")).toBeVisible();
+    expect(screen.getByText(/可靠上下文上限：128.?000 令牌/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "验证图片支持" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "验证图片支持" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "验证图片支持" }))
+        .not.toBeInTheDocument()
     );
-
-    const darkButton = screen.getByText("深色").closest("button");
-    if (!darkButton) throw new Error("Dark button not found");
-    await user.click(darkButton);
-
-    // setTheme should have been called, which triggers repository.write
-    expect(writeSpy).toHaveBeenCalledWith({
-      theme: "dark",
-      projectRailWidth: 192,
-      assistantWidth: 272,
-    });
+    expect(screen.getAllByText("已验证", { selector: "strong" })).toHaveLength(4);
   });
 
-  it("calls onClose when Escape is pressed", async () => {
+  it("marks proxy and model changes for retest and can remove configuration", async () => {
     const user = userEvent.setup();
-    const onCloseSpy = vi.fn();
+    renderPanel();
+    await user.click(await screen.findByRole("button", { name: "测试连接" }));
+    await screen.findByText("Preshot Text (deterministic)");
 
-    render(
-      <ThemeProvider repository={fakeRepository}>
-        <SettingsPanel open={true} onClose={onCloseSpy} />
-      </ThemeProvider>,
+    await user.selectOptions(screen.getByLabelText("模型"), "preshot-vision");
+    expect(await screen.findByText("需要重新测试")).toBeVisible();
+
+    const proxy = screen.getByLabelText("代理显示地址");
+    await user.clear(proxy);
+    await user.type(proxy, "http://127.0.0.1:4141/");
+    await user.tab();
+    expect(await screen.findByText("需要重新测试")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "移除模型配置" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("代理显示地址"))
+        .toHaveValue("http://localhost:4141")
     );
+    expect(screen.getByLabelText("模型")).toBeDisabled();
+  });
 
+  it("keeps verified settings ready and focused controls stable on equivalent blur", async () => {
+    const user = userEvent.setup();
+    const repository = createBrowserSettingsRepository();
+    const write = vi.spyOn(repository, "write");
+    renderPanel({ repository });
+    await user.click(await screen.findByRole("button", {
+      name: "测试连接",
+    }));
+    await screen.findByText("Preshot Text (deterministic)");
+    write.mockClear();
+
+    const proxy = screen.getByLabelText("代理显示地址");
+    await user.click(proxy);
+    await user.tab();
+    expect(screen.getByLabelText("模型")).toHaveFocus();
+    expect(screen.getByText("已验证", { selector: "span" })).toBeVisible();
+    expect(write).not.toHaveBeenCalled();
+
+    await user.click(proxy);
+    await user.clear(proxy);
+    await user.type(proxy, "  http://localhost:4141/  ");
+    await user.tab();
+    expect(proxy).toHaveValue("http://localhost:4141");
+    expect(screen.getByLabelText("模型")).toHaveFocus();
+    expect(screen.getByText("已验证", { selector: "span" })).toBeVisible();
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("shows invalid proxy errors without renderer network access", async () => {
+    const user = userEvent.setup();
+    const rendererFetch = vi.spyOn(globalThis, "fetch");
+    renderPanel();
+    const proxy = screen.getByLabelText("代理显示地址");
+    await user.clear(proxy);
+    await user.type(proxy, "http://models.example.com");
+    await user.click(screen.getByRole("button", { name: "测试连接" }));
+
+    expect(await screen.findByRole("alert"))
+      .toHaveTextContent("代理地址无效");
+    expect(proxy).toHaveFocus();
+    expect(proxy).toHaveAttribute("aria-invalid", "true");
+    expect(rendererFetch).not.toHaveBeenCalled();
+    rendererFetch.mockRestore();
+  });
+
+  it("persists theme changes and closes with Escape or the backdrop", async () => {
+    const user = userEvent.setup();
+    const repository = createBrowserSettingsRepository();
+    const first = renderPanel({ repository });
+
+    await user.click(screen.getByRole("button", { name: "深色" }));
+    await waitFor(async () =>
+      expect((await repository.read()).theme).toBe("dark")
+    );
     await user.keyboard("{Escape}");
+    expect(first.onClose).toHaveBeenCalled();
 
-    expect(onCloseSpy).toHaveBeenCalled();
-  });
-
-  it("calls onClose when backdrop is clicked", async () => {
-    const user = userEvent.setup();
-    const onCloseSpy = vi.fn();
-
-    render(
-      <ThemeProvider repository={fakeRepository}>
-        <SettingsPanel open={true} onClose={onCloseSpy} />
-      </ThemeProvider>,
-    );
-
-    // Find the backdrop (the outer div with fixed positioning)
+    first.unmount();
+    const second = renderPanel();
     const backdrop = screen.getByRole("dialog").parentElement;
-    if (!backdrop) throw new Error("Backdrop not found");
-    
+    if (!backdrop) throw new Error("Settings backdrop not found");
     await user.click(backdrop);
-    expect(onCloseSpy).toHaveBeenCalled();
+    expect(second.onClose).toHaveBeenCalled();
   });
 });

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ProjectPlanV14 } from "../canvas/blockDocument";
 import { PDF_VISUAL_CONTRACT } from "./pdfVisualContract";
 import {
+  acceptsPdfImageGroupEmergencyRowScale,
+  PDF_IMAGE_GROUP_MIN_EMERGENCY_ROW_SCALE,
   PreshotPdfPreflightError,
   buildPreshotPdfLayoutManifest,
 } from "./pdfExportPreflight";
@@ -32,6 +34,52 @@ function group(
       crop: { x: 0, y: 0, width: 1, height: 1 },
     }],
   };
+}
+
+function rowGroup(
+  id: string,
+  rowHeights: readonly number[],
+  frameOffsetY = 0,
+) {
+  const width = 1_008;
+  const height =
+    18 +
+    rowHeights.reduce((total, rowHeight) => total + rowHeight, 0) +
+    Math.max(0, rowHeights.length - 1) * 7;
+  return {
+    id,
+    name: id,
+    type: "reference" as const,
+    x: 0,
+    width,
+    height,
+    frameOffsetY,
+    description: "",
+    images: rowHeights.map((rowHeight, index) => ({
+      id: `${id}-row-${index + 1}`,
+      file: `references/${id}-${index + 1}.png`,
+      aspectRatio: 900 / rowHeight,
+      sourceWidth: 1_800,
+      sourceHeight: Math.max(1, rowHeight * 2),
+      frameWidth: 900,
+      frameHeight: rowHeight,
+      crop: index === 0
+        ? { x: 0.2, y: 0.1, width: 0.6, height: 0.8 }
+        : { x: 0, y: 0, width: 1, height: 1 },
+    })),
+  };
+}
+
+function emergencyRowGroup(id: string, requiredScale: number) {
+  const pdfScale = PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale;
+  const availableRowHeight =
+    PDF_VISUAL_CONTRACT.page.contentHeight -
+    PDF_VISUAL_CONTRACT.imageGroup.inset * 2 -
+    0.1;
+  const pdfRowHeight = Number(
+    (availableRowHeight / requiredScale).toFixed(4),
+  );
+  return rowGroup(id, [pdfRowHeight / pdfScale]);
 }
 
 function plan(
@@ -173,18 +221,31 @@ describe("buildPreshotPdfLayoutManifest", () => {
       }], [nearLimit]),
     });
 
-    expect(
-      manifest.groups[0].keepTogether.oversizedPageScale,
-    ).toBe(1);
+    expect(manifest.groups[0].pdf.horizontalFitScale).toBe(1);
+    expect(manifest.groups[0].pagination.mode).toBe("keep-together");
     expect(manifest.groups[0].pdf.unscaledHeight).toBeLessThanOrEqual(
       PDF_VISUAL_CONTRACT.page.contentHeight,
     );
   });
 
-  it("uniformly scales only a group taller than the usable page", () => {
-    const oversized = group("group-1", 300, 2_000);
-    oversized.images[0].frameHeight = 2_000;
-    oversized.images[0].frameWidth = 100;
+  it("partitions a two-page group at authoritative image-row boundaries", () => {
+    const oversized = rowGroup("group-1", [600, 600, 600]);
+    oversized.images = oversized.images.flatMap((image, rowIndex) => [
+      {
+        ...image,
+        id: `group-1-row-${rowIndex + 1}-left`,
+        frameWidth: 400,
+        aspectRatio: 2 / 3,
+      },
+      {
+        ...image,
+        id: `group-1-row-${rowIndex + 1}-right`,
+        file: `references/group-1-${rowIndex + 1}-right.png`,
+        frameWidth: 400,
+        aspectRatio: 2 / 3,
+        crop: { x: 0, y: 0, width: 1, height: 1 },
+      },
+    ]);
 
     const manifest = buildPreshotPdfLayoutManifest({
       plan: plan([{
@@ -197,26 +258,126 @@ describe("buildPreshotPdfLayoutManifest", () => {
     });
     const context = manifest.groups[0];
 
-    expect(context.keepTogether.oversizedPageScale).toBeLessThan(1);
-    expect(context.pdf.exportOnlyGroupPhysicalScale).toBe(
-      context.keepTogether.oversizedPageScale,
-    );
+    expect(context.pagination.mode).toBe("row-fragments");
     expect(context.logical.layoutScale).toBe(1);
-    expect(context.slots[0].logical).toMatchObject({
-      width: 100,
-      height: 2_000,
-    });
-    expect(context.pdf.displayedHeight).toBeCloseTo(
-      PDF_VISUAL_CONTRACT.page.contentHeight,
-      4,
-    );
-    expect(context.slots[0].pdf.width / context.slots[0].pdf.height).toBeCloseTo(
-      context.slots[0].logical.width / context.slots[0].logical.height,
-      5,
+    expect(context.pagination.rows.map((row) => row.imageIds)).toEqual([
+      ["group-1-row-1-left", "group-1-row-1-right"],
+      ["group-1-row-2-left", "group-1-row-2-right"],
+      ["group-1-row-3-left", "group-1-row-3-right"],
+    ]);
+    expect(context.pagination.fragments.map((fragment) =>
+      fragment.imageIds
+    )).toEqual([
+      [
+        "group-1-row-1-left",
+        "group-1-row-1-right",
+        "group-1-row-2-left",
+        "group-1-row-2-right",
+      ],
+      ["group-1-row-3-left", "group-1-row-3-right"],
+    ]);
+    expect(context.pagination.fragments.every((fragment) =>
+      fragment.flowHeight <= PDF_VISUAL_CONTRACT.page.contentHeight
+    )).toBe(true);
+    expect(context.pagination.fragments.flatMap((fragment) =>
+      fragment.imageIds
+    )).toEqual(oversized.images.map((image) => image.id));
+    const firstRowSlots = context.slots.filter((slot) => slot.rowIndex === 0);
+    expect(firstRowSlots[1].pdf.x - (
+      firstRowSlots[0].pdf.x + firstRowSlots[0].pdf.width
+    )).toBeCloseTo(context.pdf.gap, 4);
+    expect(context.slots.map((slot) => slot.pdf.height)).toEqual(
+      oversized.images.map((image) =>
+        expect.closeTo(
+          image.frameHeight * context.parent.logicalToPdfScale,
+          4,
+        )
+      ),
     );
   });
 
-  it("keeps a narrow-column image authoritative and scales only the whole export group", () => {
+  it("packs a three-page group without row duplication or trailing fragments", () => {
+    const oversized = rowGroup("group-1", [600, 600, 600, 600, 600]);
+    const manifest = buildPreshotPdfLayoutManifest({
+      plan: plan([{
+        id: "group-block",
+        type: "imageGroup",
+        props: { groupId: "group-1" },
+        content: undefined,
+        children: [],
+      }], [oversized]),
+    });
+    const pagination = manifest.groups[0].pagination;
+
+    expect(pagination.mode).toBe("row-fragments");
+    expect(pagination.fragments.map((fragment) => fragment.rowIndexes)).toEqual(
+      [[0, 1], [2, 3], [4]],
+    );
+    expect(pagination.fragments.flatMap((fragment) =>
+      fragment.imageIds
+    )).toEqual(oversized.images.map((image) => image.id));
+    expect(pagination.fragments.at(-1)?.imageIds).toEqual([
+      "group-1-row-5",
+    ]);
+  });
+
+  it("partitions authoritative rows inside a weighted two-thirds column", () => {
+    const source = rowGroup("group-1", [600, 600, 600]);
+    source.images = source.images.map((image) => ({
+      ...image,
+      frameWidth: 600,
+      aspectRatio: 1,
+    }));
+    const manifest = buildPreshotPdfLayoutManifest({
+      plan: plan([{
+        id: "columns",
+        type: "columnList",
+        props: {},
+        content: undefined,
+        children: [
+          {
+            id: "wide",
+            type: "column",
+            props: { width: 2 },
+            content: undefined,
+            children: [{
+              id: "group-block",
+              type: "imageGroup",
+              props: { groupId: "group-1" },
+              content: undefined,
+              children: [],
+            }],
+          },
+          {
+            id: "narrow",
+            type: "column",
+            props: { width: 1 },
+            content: undefined,
+            children: [{
+              id: "copy",
+              type: "paragraph",
+              props: {},
+              content: [],
+              children: [],
+            }],
+          },
+        ],
+      }], [source]),
+    });
+    const context = manifest.groupsByBlockId["group-block"];
+
+    expect(context.parent.columnBlockId).toBe("wide");
+    expect(context.keepTogether.scope).toBe("column-row");
+    expect(context.pagination.mode).toBe("row-fragments");
+    expect(context.pagination.fragments.map((fragment) =>
+      fragment.rowIndexes
+    )).toEqual([[0, 1], [2]]);
+    expect(context.slots.every((slot) =>
+      slot.pdf.x + slot.pdf.width <= context.parent.pdfWidth + 0.01
+    )).toBe(true);
+  });
+
+  it("keeps a narrow-column image authoritative and uses width-only fitting", () => {
     const source = group("group-1", 1_000, 240);
     source.images[0].frameWidth = 480;
     source.images[0].frameHeight = 240;
@@ -261,7 +422,8 @@ describe("buildPreshotPdfLayoutManifest", () => {
     expect(context.logical.layoutScale).toBe(1);
     expect(context.slots[0].logical.width).toBe(480);
     expect(context.slots[0].logical.height).toBe(240);
-    expect(context.pdf.exportOnlyGroupPhysicalScale).toBeLessThan(1);
+    expect(context.pdf.horizontalFitScale).toBeLessThan(1);
+    expect(context.pagination.mode).toBe("keep-together");
     expect(context.slots[0].pdf.width / context.slots[0].pdf.height)
       .toBeCloseTo(2, 5);
     expect(context.pdf.x + context.pdf.width).toBeLessThanOrEqual(
@@ -269,11 +431,9 @@ describe("buildPreshotPdfLayoutManifest", () => {
     );
   });
 
-  it("includes positive root offsets in flow height and oversized scaling", () => {
-    const offset = 120;
-    const oversized = group("group-1", 300, 1_400, offset);
-    oversized.images[0].frameHeight = 1_300;
-    oversized.images[0].frameWidth = 100;
+  it("keeps positive root offset as first-fragment padding only", () => {
+    const offset = 250;
+    const oversized = rowGroup("group-1", [600, 600, 600], offset);
 
     const manifest = buildPreshotPdfLayoutManifest({
       plan: plan([{
@@ -288,16 +448,108 @@ describe("buildPreshotPdfLayoutManifest", () => {
 
     expect(context.logical.flowTopPadding).toBe(offset);
     expect(context.logical.flowHeight).toBe(oversized.height + offset);
-    expect(context.keepTogether.oversizedPageScale).toBeLessThan(1);
-    expect(context.pdf.flowHeight).toBeCloseTo(
-      PDF_VISUAL_CONTRACT.page.contentHeight,
+    expect(context.pagination.mode).toBe("row-fragments");
+    expect(context.pagination.fragments[0].flowTopPadding).toBeCloseTo(
+      offset * context.parent.logicalToPdfScale,
       4,
     );
-    expect(context.pdf.displayedHeight / context.pdf.unscaledHeight).toBeCloseTo(
-      context.pdf.flowTopPadding /
-        (offset * context.parent.logicalToPdfScale),
-      5,
+    expect(context.pagination.fragments.slice(1).map((fragment) =>
+      fragment.flowTopPadding
+    )).toEqual([0]);
+    expect(context.pagination.fragments.map((fragment) =>
+      fragment.rowIndexes
+    )).toEqual([[0], [1, 2]]);
+  });
+
+  it("uses a scale-only tolerance for the emergency row minimum", () => {
+    expect(acceptsPdfImageGroupEmergencyRowScale(0.25)).toBe(true);
+    expect(acceptsPdfImageGroupEmergencyRowScale(0.7 - 0.45)).toBe(true);
+    expect(acceptsPdfImageGroupEmergencyRowScale(0.250001)).toBe(true);
+    expect(acceptsPdfImageGroupEmergencyRowScale(0.249999)).toBe(false);
+    expect(acceptsPdfImageGroupEmergencyRowScale(0.24475)).toBe(false);
+    expect(acceptsPdfImageGroupEmergencyRowScale(0.24)).toBe(false);
+  });
+
+  it.each([
+    { label: "exactly at", requiredScale: 0.25 },
+    { label: "just above", requiredScale: 0.250001 },
+  ])("accepts an emergency row $label the 0.25 minimum", ({
+    requiredScale,
+  }) => {
+    const source = emergencyRowGroup("boundary", requiredScale);
+    const manifest = buildPreshotPdfLayoutManifest({
+      plan: plan([{
+        id: "boundary-block",
+        type: "imageGroup",
+        props: { groupId: source.id },
+        content: undefined,
+        children: [],
+      }], [source]),
+    });
+
+    expect(manifest.groups[0].pagination.mode).toBe("row-fragments");
+    expect(manifest.groups[0].pagination.rows[0].emergencyScale)
+      .toBeCloseTo(requiredScale, 7);
+    expect(manifest.groups[0].pagination.rows[0].emergencyScale)
+      .toBeGreaterThanOrEqual(PDF_IMAGE_GROUP_MIN_EMERGENCY_ROW_SCALE);
+  });
+
+  it.each([0.249999, 0.24475, 0.24])(
+    "rejects a required emergency row scale of %s with typed context",
+    (requiredScale) => {
+      const source = emergencyRowGroup("below-floor", requiredScale);
+
+      try {
+        buildPreshotPdfLayoutManifest({
+          plan: plan([{
+            id: "below-floor-block",
+            type: "imageGroup",
+            props: { groupId: source.id },
+            content: undefined,
+            children: [],
+          }], [source]),
+        });
+        expect.fail("Expected emergency row scale rejection");
+      } catch (error) {
+        expect(error).toBeInstanceOf(PreshotPdfPreflightError);
+        const issue = (error as PreshotPdfPreflightError).fatalErrors[0];
+        expect(issue).toMatchObject({
+          code: "IMAGE_GROUP_ROW_SCALE_BELOW_MINIMUM",
+          blockId: "below-floor-block",
+          groupId: "below-floor",
+          rowIndex: 0,
+          minimumScale: 0.25,
+        });
+        expect(issue.requiredScale).toBeCloseTo(requiredScale, 7);
+        expect(issue.message).toMatch(
+          /row 1.*below the minimum emergency scale 0\.25/i,
+        );
+      }
+    },
+  );
+
+  it("scales only one overheight row", () => {
+    const emergency = rowGroup("group-1", [1_800, 500]);
+    const manifest = buildPreshotPdfLayoutManifest({
+      plan: plan([{
+        id: "group-block",
+        type: "imageGroup",
+        props: { groupId: "group-1" },
+        content: undefined,
+        children: [],
+      }], [emergency]),
+    });
+    const context = manifest.groups[0];
+
+    expect(context.pagination.mode).toBe("row-fragments");
+    expect(context.pagination.rows[0].emergencyScale).toBeLessThan(1);
+    expect(context.pagination.rows[0].emergencyScale).toBeGreaterThanOrEqual(
+      context.pagination.minimumEmergencyRowScale,
     );
+    expect(context.pagination.rows[1].emergencyScale).toBe(1);
+    expect(context.pagination.fragments.map((fragment) =>
+      fragment.rowIndexes
+    )).toEqual([[0], [1]]);
   });
 
   it("uses the column conversion for positive flow padding", () => {

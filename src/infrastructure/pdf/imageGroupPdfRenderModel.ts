@@ -66,6 +66,13 @@ export interface PreshotImageGroupPdfImageModel {
   readonly asset: Pick<PreshotPdfOptimizedAsset, "mime" | "bytes">;
 }
 
+export interface PreshotImageGroupPdfFragmentModel {
+  readonly index: number;
+  readonly flow: PreshotImageGroupPdfFlowModel;
+  readonly container: PreshotImageGroupPdfContainerModel;
+  readonly images: readonly PreshotImageGroupPdfImageModel[];
+}
+
 export type PreshotImageGroupPdfRenderModel =
   | {
       readonly kind: "empty";
@@ -77,6 +84,13 @@ export type PreshotImageGroupPdfRenderModel =
       readonly blockId: string;
       readonly groupId: string;
       readonly keepTogether: true;
+      readonly pagination: {
+        readonly mode: "keep-together";
+      } | {
+        readonly mode: "row-fragments";
+        readonly startsOnFreshPage: true;
+        readonly fragments: readonly PreshotImageGroupPdfFragmentModel[];
+      };
       readonly flow: PreshotImageGroupPdfFlowModel;
       readonly container: PreshotImageGroupPdfContainerModel;
       readonly images: readonly PreshotImageGroupPdfImageModel[];
@@ -170,26 +184,76 @@ export function buildPreshotImageGroupPdfRenderModel(
       },
     };
   });
+  const container = {
+    x: group.pdf.x,
+    y: Math.min(0, group.pdf.offsetY),
+    width: group.pdf.width,
+    height: group.pdf.displayedHeight,
+    backgroundColor: exportContext.colors.softSurface,
+    borderColor: exportContext.colors.border,
+    borderWidth: exportContext.borders.hairline,
+    borderRadius: exportContext.borders.radius,
+  };
+  const flow = {
+    topPadding: group.pdf.flowTopPadding,
+    height: group.pdf.flowHeight,
+  };
+  const pagination = group.pagination.mode === "keep-together"
+    ? { mode: "keep-together" as const }
+    : {
+        mode: "row-fragments" as const,
+        startsOnFreshPage: true as const,
+        fragments: group.pagination.fragments.map((fragment) => {
+          const rowY = new Map<number, number>();
+          let nextY: number = group.pdf.inset;
+          for (const rowIndex of fragment.rowIndexes) {
+            const row = group.pagination.rows[rowIndex];
+            rowY.set(rowIndex, nextY);
+            nextY += row.pdf.renderedHeight + group.pdf.gap;
+          }
+          const fragmentImages = group.slots
+            .filter((slot) => fragment.rowIndexes.includes(slot.rowIndex))
+            .map((slot): PreshotImageGroupPdfImageModel => {
+              const image = images.find(
+                (entry) => entry.imageId === slot.imageId,
+              )!;
+              const row = group.pagination.rows[slot.rowIndex];
+              const emergencyScale = row.emergencyScale;
+              const sourceRowY = group.pdf.inset + row.pdf.y;
+              return {
+                ...image,
+                x: group.pdf.inset +
+                  (image.x - group.pdf.inset) * emergencyScale,
+                y: rowY.get(slot.rowIndex)! +
+                  (image.y - sourceRowY) * emergencyScale,
+                width: image.width * emergencyScale,
+                height: image.height * emergencyScale,
+              };
+            });
+          return {
+            index: fragment.index,
+            flow: {
+              topPadding: fragment.flowTopPadding,
+              height: fragment.flowHeight,
+            },
+            container: {
+              ...container,
+              y: fragment.index === 0 ? container.y : 0,
+              height: fragment.surfaceHeight,
+            },
+            images: fragmentImages,
+          };
+        }),
+      };
 
   return {
     kind: "content",
     blockId,
     groupId,
     keepTogether: true,
-    flow: {
-      topPadding: group.pdf.flowTopPadding,
-      height: group.pdf.flowHeight,
-    },
-    container: {
-      x: group.pdf.x,
-      y: Math.min(0, group.pdf.offsetY),
-      width: group.pdf.width,
-      height: group.pdf.displayedHeight,
-      backgroundColor: exportContext.colors.softSurface,
-      borderColor: exportContext.colors.border,
-      borderWidth: exportContext.borders.hairline,
-      borderRadius: exportContext.borders.radius,
-    },
+    pagination,
+    flow,
+    container,
     images,
   };
 }

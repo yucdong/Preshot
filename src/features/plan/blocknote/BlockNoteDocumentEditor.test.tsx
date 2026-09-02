@@ -10,6 +10,8 @@ import {
   preshotBlockNoteSchema,
   type PreshotBlockNoteEditor,
 } from "./preshotBlockNoteSchema";
+import { createAgentWorkspaceStore } from "../../../domain/agent/workspaceBridge";
+import { MemoryAttachmentTokenResolver } from "../../../infrastructure/agent/memoryAttachmentTokenResolver";
 
 const settings: SettingsRepository = {
   read: vi.fn().mockResolvedValue({ theme: "light" }),
@@ -40,6 +42,10 @@ const document: PreshotBlockDocument = {
 describe("BlockNoteDocumentEditor", () => {
   it("renders portable JSON blocks and the custom image-group block", async () => {
     let editor: PreshotBlockNoteEditor | undefined;
+    let applyDocument:
+      | ((document: PreshotBlockDocument) => void)
+      | undefined;
+    const onChange = vi.fn();
     const cloneGroup = vi.fn().mockReturnValue("group-copy");
     const imageGroup = {
       id: "group-1",
@@ -66,6 +72,19 @@ describe("BlockNoteDocumentEditor", () => {
       resizeGroup: vi.fn(),
       moveImage: vi.fn(),
     };
+    const agentWorkspace = createAgentWorkspaceStore(
+      new MemoryAttachmentTokenResolver({ makeId: () => "editor-test" }),
+    );
+    agentWorkspace.activateProject({
+      projectId: "project-1",
+      projectName: "Editorial",
+      projectPath: "C:\\shoots\\Editorial",
+    });
+    agentWorkspace.publishDocument({
+      document,
+      revision: 1,
+      saveState: "saved",
+    });
     render(
       <ThemeProvider repository={settings}>
         <ImageDragPreviewProvider
@@ -76,10 +95,17 @@ describe("BlockNoteDocumentEditor", () => {
           projectKey="document-editor-test"
         >
           <BlockNoteDocumentEditor
+            agentWorkspace={agentWorkspace}
             ariaLabel="BlockNote 方案正文"
             document={document}
             imageGroupController={imageGroupController}
-            onChange={vi.fn()}
+            onChange={onChange}
+            onDocumentTransactionReady={(transaction) => {
+              applyDocument = transaction;
+              return () => {
+                applyDocument = undefined;
+              };
+            }}
             onEditorReady={(instance) => {
               editor = instance;
             }}
@@ -98,7 +124,20 @@ describe("BlockNoteDocumentEditor", () => {
 
     await waitFor(() => expect(editor).toBeDefined());
     expect(editor!.schema).toBe(preshotBlockNoteSchema);
+    await waitFor(() =>
+      expect(agentWorkspace.captureSnapshot().cursorBlockId).toBe("paragraph")
+    );
+    expect(agentWorkspace.navigateToBlock({
+      kind: "block",
+      projectId: "project-1",
+      blockId: "paragraph",
+    })).toEqual({ status: "navigated" });
     const imageGroupBlock = editor!.document.find((block) => block.type === "imageGroup")!;
+    editor!.setTextCursorPosition(imageGroupBlock);
+    await waitFor(() =>
+      expect(agentWorkspace.captureSnapshot().cursorBlockId)
+        .toBe("image-group-block")
+    );
     editor!.insertBlocks(
       [{ type: "imageGroup", props: { groupId: "group-1" } }],
       imageGroupBlock,
@@ -135,5 +174,17 @@ describe("BlockNoteDocumentEditor", () => {
         ),
       ).toBe(false);
     });
+
+    await waitFor(() => expect(applyDocument).toBeDefined());
+    const beforeTransaction = structuredClone(editor!.document);
+    const changeCount = onChange.mock.calls.length;
+    vi.spyOn(editor!, "replaceBlocks").mockImplementationOnce(() => {
+      throw new Error("editor transaction failed");
+    });
+    expect(() => applyDocument!(document)).toThrow(
+      "editor transaction failed",
+    );
+    expect(editor!.document).toEqual(beforeTransaction);
+    expect(onChange).toHaveBeenCalledTimes(changeCount);
   });
 });

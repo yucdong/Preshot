@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useTranslation } from "react-i18next";
 import type {
   WorkspaceProjectRecord,
@@ -7,6 +14,12 @@ import type {
 import { sortProjectsByRecentEdit, upsertProject } from "../../domain/workspace/registry";
 import type { WorkspaceMenuAction } from "../../domain/workspace/ports";
 import type { PlanDependencies } from "../../features/plan/blocknote/dependencies";
+import { AgentWorkspaceProvider } from "../../features/agent/AgentWorkspaceContext";
+import { AgentProjectSwitchDialog } from "../../features/agent/AgentProjectSwitchDialog";
+import { useOptionalAgentController } from "../../features/agent/AgentContext";
+import { createAgentWorkspaceStore } from "../../domain/agent/workspaceBridge";
+import type { AgentWorkspaceStore } from "../../domain/agent/workspaceBridge";
+import { MemoryAttachmentTokenResolver } from "../../infrastructure/agent/memoryAttachmentTokenResolver";
 import { WorkspaceLauncher } from "../../features/workspace/WorkspaceLauncher";
 import { AppShell } from "../layout/AppShell";
 import { Workspace } from "../layout/Workspace";
@@ -20,6 +33,7 @@ type AppView =
 interface WorkspaceProviderProps {
   dependencies: WorkspaceDependencies;
   planDependencies?: PlanDependencies;
+  agentWorkspace?: AgentWorkspaceStore;
 }
 
 const defaultPlanDependencies = createPlanDependencies();
@@ -44,6 +58,7 @@ function toRecord(project: WorkspaceProjectView): WorkspaceProjectRecord {
 export function WorkspaceProvider({
   dependencies,
   planDependencies = defaultPlanDependencies,
+  agentWorkspace: providedAgentWorkspace,
 }: WorkspaceProviderProps) {
   const { t } = useTranslation();
   const [view, setView] = useState<AppView>({ kind: "launcher" });
@@ -55,6 +70,17 @@ export function WorkspaceProvider({
   const isBusyRef = useRef(false);
   const unlistenRef = useRef<(() => void) | null>(null);
   const activeProjectRef = useRef<WorkspaceProjectView | null>(null);
+  const fallbackAgentWorkspace = useMemo(
+    () => createAgentWorkspaceStore(new MemoryAttachmentTokenResolver()),
+    [],
+  );
+  const agentWorkspace = providedAgentWorkspace ?? fallbackAgentWorkspace;
+  const agentController = useOptionalAgentController();
+  const agentControllerState = useSyncExternalStore(
+    agentController?.subscribe ?? (() => () => {}),
+    agentController?.getSnapshot ?? (() => null),
+    agentController?.getSnapshot ?? (() => null),
+  );
 
   const setMountedState = useCallback((update: () => void) => {
     if (isMountedRef.current) {
@@ -99,20 +125,38 @@ export function WorkspaceProvider({
   );
 
   const showProject = useCallback(
-    (project: WorkspaceProjectView) => {
-      void dependencies.native.maximizeWindow().catch((error) => {
-        dependencies.logger.warn("Unable to maximize the project window", {
-          error,
+    async (project: WorkspaceProjectView) => {
+      const activate = () => {
+        void dependencies.native.maximizeWindow().catch((error) => {
+          dependencies.logger.warn("Unable to maximize the project window", {
+            error,
+          });
         });
-      });
-      setMountedState(() => {
-        activeProjectRef.current = project;
-        setProjects((currentProjects) => upsertProject(currentProjects, project));
-        setAlert(null);
-        setView({ kind: "project", project });
-      });
+        setMountedState(() => {
+          agentWorkspace.activateProject({
+            projectId: project.projectId,
+            projectName: project.name,
+            projectPath: project.path,
+          });
+          activeProjectRef.current = project;
+          setProjects((currentProjects) =>
+            upsertProject(currentProjects, project)
+          );
+          setAlert(null);
+          setView({ kind: "project", project });
+        });
+      };
+      if (agentController) {
+        await agentController.activateProject({
+          projectId: project.projectId,
+          projectName: project.name,
+          projectPath: project.path,
+        }, activate);
+      } else {
+        activate();
+      }
     },
-    [dependencies, setMountedState],
+    [agentController, agentWorkspace, dependencies, setMountedState],
   );
 
   const requestCreate = useCallback(async () => {
@@ -163,8 +207,14 @@ export function WorkspaceProvider({
 
           setMountedState(() => {
             setCreateParentPath(null);
+            if (activeProjectRef.current) {
+              setView({
+                kind: "project",
+                project: activeProjectRef.current,
+              });
+            }
           });
-          showProject(project);
+          await showProject(project);
         },
       );
 
@@ -188,7 +238,7 @@ export function WorkspaceProvider({
     async (path: string) => {
       await runGuardedAction("Unable to open workspace project", async () => {
         const project = await dependencies.service.openProject(path);
-        showProject(project);
+        await showProject(project);
       });
     },
     [dependencies, runGuardedAction, showProject],
@@ -205,6 +255,7 @@ export function WorkspaceProvider({
     (project: WorkspaceProjectView) => {
       if (project.status === "unavailable") {
         setMountedState(() => {
+          agentWorkspace.clearProject();
           setAlert(null);
           setView({ kind: "launcher" });
         });
@@ -217,7 +268,7 @@ export function WorkspaceProvider({
 
       void openProject(project.path);
     },
-    [openProject, setMountedState],
+    [agentWorkspace, openProject, setMountedState],
   );
 
   const openExistingProject = useCallback(async () => {
@@ -231,7 +282,7 @@ export function WorkspaceProvider({
       }
 
       const project = await dependencies.service.openProject(projectPath);
-      showProject(project);
+      await showProject(project);
     });
   }, [dependencies, runGuardedAction, showProject, t]);
 
@@ -270,25 +321,46 @@ export function WorkspaceProvider({
       await runGuardedAction(
         "Unable to remove workspace project from recents",
         async () => {
+          if (agentController) {
+            await agentController.deleteProject(project.projectId);
+          }
           const nextProjects = await dependencies.service.removeRecord(
             project.projectId,
           );
+          const removedActiveProject =
+            activeProjectRef.current?.projectId === project.projectId;
+          const [nextProject] = removedActiveProject
+            ? sortProjectsByRecentEdit(
+              nextProjects.filter(
+                (candidate) => candidate.status === "available",
+              ),
+            )
+            : [];
 
           setMountedState(() => {
             setAlert(null);
             setProjects(nextProjects);
-            if (activeProjectRef.current?.projectId === project.projectId) {
-              const [nextProject] = sortProjectsByRecentEdit(
-                nextProjects.filter((candidate) => candidate.status === "available"),
-              );
-              activeProjectRef.current = nextProject ?? null;
-              setView(nextProject ? { kind: "project", project: nextProject } : { kind: "launcher" });
-            }
           });
+          if (removedActiveProject && nextProject) {
+            await showProject(nextProject);
+          } else if (removedActiveProject) {
+            setMountedState(() => {
+              activeProjectRef.current = null;
+              agentWorkspace.clearProject();
+              setView({ kind: "launcher" });
+            });
+          }
         },
       );
     },
-    [dependencies, runGuardedAction, setMountedState],
+    [
+      agentController,
+      agentWorkspace,
+      dependencies,
+      runGuardedAction,
+      setMountedState,
+      showProject,
+    ],
   );
 
   const revealProjectDirectory = useCallback(
@@ -330,7 +402,7 @@ export function WorkspaceProvider({
         );
 
         if (mostRecentlyEdited) {
-          showProject(mostRecentlyEdited);
+          await showProject(mostRecentlyEdited);
         }
       } catch (error) {
         reportStartupError("Unable to load workspace projects", error);
@@ -395,31 +467,50 @@ export function WorkspaceProvider({
 
   if (view.kind === "project") {
     return (
-      <AppShell
-        currentProjectId={view.project.projectId}
-        error={alert}
-        onNewProject={() => {
-          void requestCreate();
-        }}
-        onOpenProject={() => {
-          void openExistingProject();
-        }}
-        onRemoveProject={(project) => {
-          void removeProject(project);
-        }}
-        onRevealProject={(project) => {
-          void revealProjectDirectory(project);
-        }}
-        onSelectProject={selectProject}
-        projects={orderedProjects}
-      >
-        <Workspace
-          dependencies={planDependencies}
-          projectDirectoryRevealer={dependencies.projectDirectoryRevealer}
-          projectName={view.project.name}
-          projectPath={view.project.path}
-        />
-      </AppShell>
+      <>
+        <AgentWorkspaceProvider store={agentWorkspace}>
+          <AppShell
+            currentProjectId={view.project.projectId}
+            error={alert}
+            getProjectSessionCount={agentController
+              ? (projectId) =>
+                agentController.countProjectSessions(projectId)
+              : undefined}
+            onNewProject={() => {
+              void requestCreate();
+            }}
+            onOpenProject={() => {
+              void openExistingProject();
+            }}
+            onRemoveProject={(project) => {
+              void removeProject(project);
+            }}
+            onRevealProject={(project) => {
+              void revealProjectDirectory(project);
+            }}
+            onSelectProject={selectProject}
+            projects={orderedProjects}
+          >
+            <Workspace
+              agentWorkspace={agentWorkspace}
+              dependencies={planDependencies}
+              projectDirectoryRevealer={dependencies.projectDirectoryRevealer}
+              projectName={view.project.name}
+              projectId={view.project.projectId}
+              projectPath={view.project.path}
+            />
+          </AppShell>
+        </AgentWorkspaceProvider>
+        {agentController && agentControllerState ? (
+          <AgentProjectSwitchDialog
+            onCancelWait={() => agentController.cancelWaitingProjectSwitch()}
+            onChoose={(choice) => {
+              void agentController.chooseProjectSwitch(choice);
+            }}
+            state={agentControllerState.switchProject}
+          />
+        ) : null}
+      </>
     );
   }
 

@@ -44,13 +44,20 @@ import {
   type PreshotEditorBlock,
 } from "./blockOperations";
 import { PreshotBlockSideMenu } from "./PreshotBlockSideMenu";
+import type {
+  AgentWorkspacePublisher,
+} from "../../../domain/agent/workspaceBridge";
 
 interface BlockNoteDocumentEditorProps {
+  agentWorkspace?: AgentWorkspacePublisher;
   ariaLabel: string;
   document: PreshotBlockDocument;
   imageGroupController: ImageGroupBlockController;
   onChange(document: PreshotBlockDocument): void;
   onEditorReady?(editor: PreshotBlockNoteEditor): void;
+  onDocumentTransactionReady?(
+    applyDocument: (document: PreshotBlockDocument) => void,
+  ): () => void;
   persistMediaUrl(url: string): string;
   resolveMediaUrl(url: string): string;
   uploadFile(file: File): Promise<string>;
@@ -117,11 +124,13 @@ function serializeEditorDocument(
 }
 
 export function BlockNoteDocumentEditor({
+  agentWorkspace,
   ariaLabel,
   document,
   imageGroupController,
   onChange,
   onEditorReady,
+  onDocumentTransactionReady,
   persistMediaUrl,
   resolveMediaUrl,
   uploadFile,
@@ -130,6 +139,8 @@ export function BlockNoteDocumentEditor({
   const onChangeRef = useRef(onChange);
   const lastEmitRef = useRef(JSON.stringify(document));
   const reconcilingRef = useRef(false);
+  const proposalTransactionRef = useRef(false);
+  const proposalTransactionTimerRef = useRef<number | null>(null);
   const operationToastTimerRef = useRef<number | null>(null);
   const [operationToast, setOperationToast] = useState<string | null>(null);
   const editor = useCreateBlockNote({
@@ -143,15 +154,82 @@ export function BlockNoteDocumentEditor({
     onChangeRef.current = onChange;
   }, [onChange]);
 
+  useEffect(() => {
+    if (!agentWorkspace) return;
+    const publishSelection = () => {
+      const selection = editor.getSelection();
+      const cursorBlockId = editor.getTextCursorPosition().block.id;
+      agentWorkspace.publishSelection({
+        selectedBlockIds: selection?.blocks.map((block) => block.id) ?? [],
+        cursorBlockId,
+      });
+    };
+    publishSelection();
+    return editor.onSelectionChange(publishSelection);
+  }, [agentWorkspace, editor]);
+
+  useEffect(() => {
+    if (!agentWorkspace) return;
+    return agentWorkspace.registerBlockNavigator({
+      focusBlock(blockId) {
+        const block = editor.getBlock(blockId);
+        if (!block) return false;
+        editor.setTextCursorPosition(block, "start");
+        editor.focus();
+        const escapedId = typeof CSS !== "undefined" && CSS.escape
+          ? CSS.escape(blockId)
+          : blockId.replaceAll('"', '\\"');
+        const target = editor.domElement?.querySelector<HTMLElement>(
+          `[data-id="${escapedId}"]`,
+        );
+        target?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+        target?.setAttribute("data-agent-citation-highlight", "true");
+        if (target) {
+          window.setTimeout(() => {
+            target.removeAttribute("data-agent-citation-highlight");
+          }, 2_000);
+        }
+        return true;
+      },
+    });
+  }, [agentWorkspace, editor]);
+
   useEffect(() => () => {
     if (operationToastTimerRef.current !== null) {
       window.clearTimeout(operationToastTimerRef.current);
+    }
+    if (proposalTransactionTimerRef.current !== null) {
+      window.clearTimeout(proposalTransactionTimerRef.current);
     }
   }, []);
 
   useEffect(() => {
     onEditorReady?.(editor);
   }, [editor, onEditorReady]);
+
+  useEffect(() => {
+    if (!onDocumentTransactionReady) return;
+    const applyDocument = (next: PreshotBlockDocument) => {
+      const serialized = JSON.stringify(next);
+      lastEmitRef.current = serialized;
+      proposalTransactionRef.current = true;
+      if (proposalTransactionTimerRef.current !== null) {
+        window.clearTimeout(proposalTransactionTimerRef.current);
+      }
+      const replacement = resolveBlockNoteDocumentAssets(
+        next,
+        resolveMediaUrl,
+      );
+      editor.transact(() => {
+        editor.replaceBlocks(editor.document, replacement);
+      });
+      proposalTransactionTimerRef.current = window.setTimeout(() => {
+        proposalTransactionTimerRef.current = null;
+        proposalTransactionRef.current = false;
+      }, 0);
+    };
+    return onDocumentTransactionReady(applyDocument);
+  }, [editor, onDocumentTransactionReady, resolveMediaUrl]);
 
   useEffect(() => {
     if (import.meta.env.VITE_WORKSPACE_ADAPTER !== "memory") return;
@@ -165,6 +243,7 @@ export function BlockNoteDocumentEditor({
   }, [editor]);
 
   const handleChange = useCallback(() => {
+    if (proposalTransactionRef.current) return;
     if (!reconcilingRef.current) {
       const nestedImageGroup = invalidNestedImageGroup(editor.document);
       if (nestedImageGroup) {

@@ -47,6 +47,20 @@ All notable changes to Preshot are documented in this file.
   pointer/keyboard sensors, Chinese announcements, 48px zoom-safe auto-scroll,
   reduced-motion handling, stale/decode cancellation, one-step commit undo,
   and preview isolation from autosave and every export format.
+- Production project-scoped assistant sessions through
+  `github-copilot-sdk@1.0.11` and the reviewed bundled Copilot CLI, with
+  Empty-mode capability isolation, no-key proxy/model probes, metadata-only
+  SQLite, immutable disclosed context, selected-image gating, bounded event
+  streaming, and proposal-first atomic text edits with persistent Undo.
+- Hardened agent review boundaries with fresh single-use attachment tokens
+  issued only at Send, typed unavailable-image recovery without text-only
+  fallback, serialized recoverable native session replacement, and a
+  schema-v4 durable Apply/Undo journal reconciled by exact document hashes.
+- Deterministic offline agent eval fixtures and report covering every
+  normalized event and typed error, capability/retest/vision gates,
+  adversarial tool/proposal inputs, all allowed text blocks and nesting,
+  no-mutation-before-Apply, stale/conflict/undo, and static privacy/tool
+  boundaries without a live model in CI.
 
 ### Licensing
 
@@ -56,6 +70,9 @@ All notable changes to Preshot are documented in this file.
 - Long-image export does not use a BlockNote image exporter.
   `modern-screenshot@4.7.0` is MIT-licensed and introduces no additional
   BlockNote XL licensing obligation.
+- Added the MIT-licensed `github-copilot-sdk@1.0.11`, public-domain bundled
+  SQLite through MIT-licensed `rusqlite@0.37.0`, and the separately licensed
+  unmodified bundled GitHub Copilot CLI with exact provenance and checksums.
 
 ## [0.0.1] - 2026-08-17
 

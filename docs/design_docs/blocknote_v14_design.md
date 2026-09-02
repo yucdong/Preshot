@@ -257,31 +257,36 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
 - The contract fixes 11pt body type, derives H1-H6 from the editor's
   32/24/20/18/16/14px hierarchy, and owns line heights, block spacing, column
   gaps and weights, colors, borders, image-group surfaces, width-conserving
-  column rounding, and one-page fitting for oversized keep-together groups.
+  column rounding, one-page normal-group fitting, and row-safe oversized-group
+  pagination.
 - The React-PDF preflight validates exact image-group marker/data
   integrity, traverses root and weighted-column content in stable order, and
   creates an immutable `PreshotPdfExportContext` with logical/PDF parent
   widths, editor-equivalent no-shrink group slots, keep-together metadata,
   visual tokens, and indexed groups/assets. Persisted frame width/height stays
   authoritative; parent width selects row breaks and logical-to-output
-  conversion only. A positive persisted group Y offset is represented as
-  flow-top padding, so pagination and oversized fitting use
-  `padding + derived displayed group height`; zero and negative offsets add no
-  flow height.
-- The image-group mapping uses that padding inside one `wrap={false}` outer
-  footprint and removes the positive value from relative positioning. Negative
-  values remain relative positioning, preserving the editor-visible offset
-  without double application or a negative Yoga height.
+  conversion only. Preflight stores explicit row IDs, natural and rendered row
+  heights, fragment membership, first-fragment padding, and emergency scale.
+  A positive persisted group Y offset is represented as first-fragment
+  flow-top padding; zero and negative offsets add no flow height.
+- A normal image-group mapping uses that padding inside one `wrap={false}`
+  outer footprint and removes the positive value from relative positioning.
+  An over-height group uses a breakable wrapper of page-safe `wrap={false}`
+  fragments. Negative values remain relative positioning on the first
+  fragment, preserving the editor-visible offset without double application
+  or a negative Yoga height.
 - Root image groups use the 1008-unit editor content width and root scale.
   Column children use their weighted, gap-adjusted parent width with
   width-conserving rounding. In either scope, the complete group moves to the
-  next page when the remaining space is insufficient. A frame wider than its
-  logical parent remains one overflow row; PDF and DOCX preserve that relative
-  user size until the complete physical group would exceed its page/column
-  width or usable page height, then apply one uniform
-  `exportOnlyGroupPhysicalScale` to the surface, frames, gaps, offsets, and
-  borders. No individual frame is fitted to a row, and DOCX retains its
-  additional maximum-page-height safety scale.
+  next page when the remaining space is insufficient. Groups taller than one
+  content page start fresh after prior content and split only at existing
+  wrap-first row boundaries; consecutive rows pack greedily into fragments,
+  with the positive group offset present only before the first fragment. A
+  frame wider than its logical parent retains width-only physical fitting.
+  A single row taller than the usable page receives a row-local uniform scale
+  only when the result remains at least 0.25; otherwise export fails
+  actionably. DOCX retains its independent complete-group page-height safety
+  scale and long-image behavior is unchanged.
 - Reference and native images are resolved only from project-local data maps
   and optimized through the injectable browser canvas optimizer at 144 DPI.
   Normalized source/crop uses share the largest required draw box; missing or

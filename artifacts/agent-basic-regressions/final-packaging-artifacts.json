@@ -1,0 +1,20 @@
+[
+  {
+    "path": "src-tauri/target/x86_64-pc-windows-msvc/release/preshot.exe",
+    "bytes": 135394816,
+    "modified": "2026-08-22T15:05:27.3374382+08:00",
+    "sha256": "61F7CE2A85966DF7B9DFD28DD4D10920D615815853053225E043B36135F891DB"
+  },
+  {
+    "path": "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/Preshot_0.0.1_x64_en-US.msi",
+    "bytes": 122089472,
+    "modified": "2026-08-22T15:05:25.8750000+08:00",
+    "sha256": "74590B432B1FBF2CEA124B5F8A46C2CB38A9981ED6D1C32ED4748263664F85BC"
+  },
+  {
+    "path": "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/Preshot-0.0.1-release.json",
+    "bytes": 2167,
+    "modified": "2026-08-22T15:05:30.1381188+08:00",
+    "sha256": "08C3D5D35623AC6FF251C0E34284F10048D3FDEF7BA00339E41BDE7A14EAE604"
+  }
+]

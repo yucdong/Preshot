@@ -4,6 +4,7 @@ import { tauriSettingsRepository } from "../infrastructure/settings/tauriSetting
 
 export function createSettingsRepository(): SettingsRepository {
   if (
+    import.meta.env.MODE === "test" ||
     import.meta.env.VITE_WORKSPACE_ADAPTER === "memory" ||
     import.meta.env.VITE_WORKSPACE_ADAPTER === "midscene"
   ) {

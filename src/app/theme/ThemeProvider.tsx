@@ -73,20 +73,34 @@ export function ThemeProvider({ repository, children }: ThemeProviderProps) {
     document.documentElement.classList.toggle("dark", resolved === "dark");
   }, [resolved]);
 
+  const persistSettings = (next: AppSettings, failureMessage: string) => {
+    repository.read()
+      .then((latest) => repository.write(normalizeSettings({
+        ...latest,
+        ...next,
+        agentModel: latest.agentModel ?? next.agentModel,
+      })))
+      .catch((error) => {
+        console.error(failureMessage, error);
+      });
+  };
+
   const setTheme = (newTheme: Theme) => {
     const next = normalizeSettings({ ...settings, theme: newTheme });
     setSettings(next);
-    repository.write(next).catch((error) => {
-      console.error("Failed to save theme setting:", error);
-    });
+    persistSettings(next, "Failed to save theme setting:");
   };
 
   const setPanelWidths = (widths: { projectRailWidth: number; assistantWidth: number }) => {
     const next = normalizeSettings({ ...settings, ...widths });
     setSettings(next);
-    repository.write(next).catch((error) => {
-      console.error("Failed to save panel settings:", error);
-    });
+    persistSettings(next, "Failed to save panel settings:");
+  };
+
+  const setAssistantOpen = (assistantOpen: boolean) => {
+    const next = normalizeSettings({ ...settings, assistantOpen });
+    setSettings(next);
+    persistSettings(next, "Failed to save assistant visibility:");
   };
 
   return (
@@ -96,6 +110,8 @@ export function ThemeProvider({ repository, children }: ThemeProviderProps) {
       resolved,
       projectRailWidth: settings.projectRailWidth ?? PROJECT_RAIL_WIDTH.default,
       assistantWidth: settings.assistantWidth ?? ASSISTANT_WIDTH.default,
+      assistantOpen: settings.assistantOpen ?? false,
+      setAssistantOpen,
       setPanelWidths,
     }}>
       {children}

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "validatedAt": "2026-08-22T14:27:37.9964147+08:00",
+  "status": "blocked",
+  "finalizationAllowed": false,
+  "fixes": {
+    "resumeHandleSwap": {
+      "status": "pass",
+      "evidence": "resume-handle-rust.log",
+      "counts": {
+        "passed": 10,
+        "failed": 0
+      }
+    },
+    "proposalApplyUndoPersistenceAtomicity": {
+      "status": "focused-pass-integration-blocked",
+      "evidence": [
+        "four-fixes-unit.log",
+        "agent-unit-post-live-edits.log",
+        "four-fixes-proposal-e2e.log"
+      ],
+      "counts": {
+        "proposalServiceTestsPassed": 8,
+        "isolatedProposalE2EPassed": 1
+      }
+    },
+    "attachmentTokenRefreshAndEviction": {
+      "status": "focused-pass-integration-blocked",
+      "evidence": [
+        "four-fixes-unit.log",
+        "agent-unit-post-live-edits.log"
+      ],
+      "counts": {
+        "resolverTestsPassed": 3,
+        "workspaceBridgeTestsPassed": 9
+      }
+    },
+    "unchangedUrlReadiness": {
+      "status": "pass",
+      "evidence": [
+        "four-fixes-unit.log",
+        "agent-e2e-post-live-edits.log"
+      ],
+      "counts": {
+        "modelControllerTestsPassed": 9,
+        "settingsPanelTestsPassed": 7,
+        "modelSettingsE2EPassed": 2
+      }
+    }
+  },
+  "currentBlocker": {
+    "id": "AGENT-RENDER-004",
+    "severity": "high",
+    "title": "Starting an agent session triggers a React maximum-update-depth loop",
+    "status": "reproducible",
+    "impact": "The complete workspace renders the global ErrorBoundary immediately after starting a conversation. The E2E bridge is then removed, so proposal recovery, selected-image, cancellation, and project-switch journeys cannot continue.",
+    "stack": [
+      "AgentSessionController.replace at src/domain/agent/controller.ts",
+      "workspace notification at src/domain/agent/workspaceBridge.ts",
+      "BlockNoteDocumentEditor render subscription"
+    ],
+    "evidence": [
+      "agent-render-diagnostic.log",
+      "agent-render-failure.png",
+      "agent-e2e-post-live-edits.log",
+      "e2e-main-revalidated.log"
+    ]
+  },
+  "revalidation": {
+    "focusedFourFixUnits": {
+      "passed": 35,
+      "failed": 0
+    },
+    "agentAndAppUnitsAfterLastEdits": {
+      "testFilesPassed": 24,
+      "testsPassed": 114,
+      "testsFailed": 0
+    },
+    "agentEvals": {
+      "passed": 54,
+      "failed": 0
+    },
+    "fullUnitBeforeLastAppEdits": {
+      "testFilesPassed": 159,
+      "testsPassed": 1065,
+      "testsFailed": 0
+    },
+    "fullRust": {
+      "passed": 144,
+      "failed": 0,
+      "ignored": 2
+    },
+    "coreGatesBeforeLastAppEdits": {
+      "docs": "pass",
+      "lint": "pass",
+      "typecheck": "pass",
+      "initializer": "pass",
+      "productionScripts": "pass",
+      "webBuild": "pass"
+    },
+    "typecheckAfterLastAppEdits": "pass",
+    "agentE2EAfterLastEdits": {
+      "passed": 2,
+      "failed": 3
+    },
+    "diagnosticReproduction": {
+      "passed": 0,
+      "failed": 1
+    }
+  },
+  "pendingAfterFix": [
+    "Rerun all five focused agent E2Es.",
+    "Rerun full unit, main E2E, BlockNote E2E, Rust, docs, lint, typecheck, build, Tauri, and MSI gates from one settled tree.",
+    "Refresh summary.json and artifact-manifest.json only after every gate is green.",
+    "Keep SQL/todo finalization pending until parent review and documentation are complete."
+  ]
+}

@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "validatedAt": "2026-08-22T15:20:11.4995311+08:00",
+  "repository": "yucdong/Preshot",
+  "branch": "main",
+  "baseCommit": "c22c28e",
+  "status": "passed-awaiting-external-signoff",
+  "finalSqlPending": true,
+  "finalSqlPendingReason": "Wait for external documentation and reviewer signoff.",
+  "defects": {
+    "current": 0,
+    "resolvedDuringReview": [
+      "Managed resume now swaps or restores session handles without losing control of detached sessions.",
+      "Proposal Apply and Undo now preserve persistence atomicity and durable retry/recovery evidence.",
+      "Selected-image attachment tokens refresh safely, evict expired or stale entries, and retain a non-null immutable turn receipt.",
+      "Equivalent proxy URL blur preserves verified model readiness while real changes invalidate it.",
+      "The workspace notification loop that previously caused React maximum-update-depth failures is resolved."
+    ]
+  },
+  "counts": {
+    "unit": {
+      "testFilesPassed": 159,
+      "testsPassed": 1070,
+      "testsFailed": 0
+    },
+    "rust": {
+      "testsPassed": 144,
+      "testsFailed": 0,
+      "testsIgnored": 2
+    },
+    "localhostOptional": {
+      "testsPassed": 2,
+      "testsFailed": 0,
+      "model": "gpt-5.4-mini"
+    },
+    "agentEvals": {
+      "checksPassed": 54,
+      "checksFailed": 0
+    },
+    "initializer": {
+      "checksPassed": 4,
+      "checksFailed": 0
+    },
+    "mainE2E": {
+      "testsPassed": 29,
+      "testsFailed": 0
+    },
+    "agentE2EWithinMain": {
+      "testsPassed": 5,
+      "testsFailed": 0
+    },
+    "blockNoteE2E": {
+      "testsPassed": 14,
+      "testsFailed": 0
+    },
+    "responsiveAccessibility": {
+      "testsPassed": 2,
+      "testsFailed": 0,
+      "screenshots": 7
+    },
+    "focusedRecoveryUnit": {
+      "testFilesPassed": 4,
+      "testsPassed": 38,
+      "testsFailed": 0
+    },
+    "focusedRecoveryRust": {
+      "testsPassed": 2,
+      "testsFailed": 0
+    },
+    "focusedRecoveryAgentE2E": {
+      "testsPassed": 5,
+      "testsFailed": 0
+    },
+    "focusedColdStartReadinessUnit": {
+      "testFilesPassed": 3,
+      "testsPassed": 30,
+      "testsFailed": 0
+    },
+    "focusedColdStartReadinessE2E": {
+      "testsPassed": 5,
+      "testsFailed": 0
+    },
+    "productionVerificationRepeat": {
+      "mainE2EPassed": 29,
+      "blockNoteE2EPassed": 14
+    }
+  },
+  "acceptance": {
+    "defaultClosedSetupModelProbeCapabilityGatesNoRendererNetworkOrKey": "pass",
+    "createResumeHistoryRenameDeleteProjectCascadeDrafts": "pass",
+    "projectSwitchWaitStopCancel": "pass",
+    "crashReconnectResumeHandleSwapNoManagedZombies": "pass",
+    "streamingAllEventsReasoningSummaryUsageContextCancellation": "pass",
+    "selectedImageTokenPathSafetyRefreshEvictionVisionGateTurnReceipt": "pass",
+    "exactFourToolsNoAmbientToolsPermissions": "pass",
+    "proposalNoMutationDiffAtomicApplyReloadStaleDeleteConfirmReviseDiscardPersistentUndoConflict": "pass",
+    "proposalApplyUndoPersistenceRecovery": "pass",
+    "restartRecoveryApplyBeforeAfterConflictAndUndo": "pass",
+    "coldStartAfterBeforeConflictRetryUiGating": "pass",
+    "promptInjectionAndMaliciousToolArguments": "pass",
+    "logsAndSqlitePrivacy": "pass",
+    "panelWidths240_272_320_420ThemesFocusKeyboardImeReducedMotionHighContrast": "pass",
+    "existingPlanImagePdfDocxLongImageBehavior": "pass",
+    "initializerAndProductionScripts": "pass",
+    "webBuild": "pass",
+    "tauriHostBuild": "pass",
+    "explicitX64MsiBuild": "pass",
+    "nonDestructiveProductionVerification": "pass"
+  },
+  "gates": {
+    "docsCheck": "pass",
+    "lint": "pass",
+    "typecheck": "pass",
+    "unit": "pass",
+    "agentEvals": "pass",
+    "initializer": "pass",
+    "productionScripts": "pass",
+    "rust": "pass",
+    "localhostSmoke": "pass",
+    "mainE2E": "pass",
+    "blockNoteE2E": "pass",
+    "responsiveAccessibility": "pass",
+    "webBuild": "pass",
+    "tauriBuild": "pass",
+    "productionBuild": "pass",
+    "productionVerify": "pass"
+  },
+  "package": {
+    "version": "0.0.1",
+    "publishable": false,
+    "publishBlockers": [
+      "version-must-exceed-historical-per-machine-0.0.1",
+      "authenticode-signatures-required"
+    ],
+    "executable": {
+      "path": "src-tauri/target/x86_64-pc-windows-msvc/release/preshot.exe",
+      "bytes": 135394816,
+      "sha256": "61F7CE2A85966DF7B9DFD28DD4D10920D615815853053225E043B36135F891DB"
+    },
+    "msi": {
+      "path": "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/Preshot_0.0.1_x64_en-US.msi",
+      "bytes": 122089472,
+      "sha256": "74590B432B1FBF2CEA124B5F8A46C2CB38A9981ED6D1C32ED4748263664F85BC"
+    },
+    "releaseManifest": {
+      "path": "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/Preshot-0.0.1-release.json",
+      "bytes": 2167,
+      "sha256": "08C3D5D35623AC6FF251C0E34284F10048D3FDEF7BA00339E41BDE7A14EAE604"
+    }
+  },
+  "environment": {
+    "localhost4141Available": true,
+    "preshotManagedProcessesAfterValidation": 0,
+    "preexistingOrHostCopilotProcessesObserved": 1
+  },
+  "notes": [
+    "Heavy suites were run serially to avoid resource-contention timeouts.",
+    "The attachment E2E explicitly removes and reselects the image, then requires turnAttachments.at(-1) to equal the selected display name.",
+    "The production wrapper repeated unit, agent eval, initializer, production-script, Rust, main E2E, and BlockNote E2E gates successfully.",
+    "The production artifacts are intentionally non-publishable until the version lineage advances and Authenticode signatures are configured.",
+    "No destructive clean-VM MSI install/upgrade/repair/uninstall matrix was run on this developer workstation."
+  ],
+  "primaryArtifacts": [
+    "summary.json",
+    "artifact-manifest.json",
+    "final-unit.log",
+    "final-rust.log",
+    "final-localhost-smoke.log",
+    "final-agent-evals.log",
+    "agent-e2e-current.log",
+    "final-e2e-main.log",
+    "final-e2e-blocknote.log",
+    "final-responsive-accessibility.log",
+    "final-recovery-unit.log",
+    "final-recovery-rust.log",
+    "final-recovery-agent-e2e.log",
+    "final-readiness-unit.log",
+    "final-readiness-agent-e2e.log",
+    "final-web-build.log",
+    "final-tauri-build.log",
+    "final-production-build.log",
+    "final-production-verify.log",
+    "final-packaging-artifacts.json",
+    "final-no-zombies.json",
+    "final-agent-mvp-eval-report.md"
+  ]
+}

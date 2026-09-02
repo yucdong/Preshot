@@ -1,0 +1,115 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: P
+    - heading "PRESHOT" [level=1] [ref=e6]
+    - strong [ref=e8]: 编辑大片示例
+    - generic [ref=e9]: 摄影计划
+    - generic [ref=e10]:
+      - button "进入专注模式" [ref=e11] [cursor=pointer]:
+        - img [ref=e12] [cursor=pointer]
+        - generic [ref=e18] [cursor=pointer]: 专注模式
+      - button "隐藏助手面板" [pressed] [ref=e19] [cursor=pointer]:
+        - img [ref=e20] [cursor=pointer]
+        - generic [ref=e23] [cursor=pointer]: 助手
+      - button "设置" [ref=e24] [cursor=pointer]:
+        - img [ref=e25] [cursor=pointer]
+  - generic [ref=e28]:
+    - navigation "项目" [ref=e29]:
+      - paragraph [ref=e31]: 最近项目
+      - list [ref=e32]:
+        - listitem [ref=e33]:
+          - article [ref=e34]:
+            - button "打开项目 编辑大片示例" [ref=e35] [cursor=pointer]:
+              - generic [ref=e36] [cursor=pointer]: 编辑
+              - generic [ref=e37] [cursor=pointer]:
+                - generic [ref=e38] [cursor=pointer]: 编辑大片示例
+                - generic [ref=e39] [cursor=pointer]: 2026/7/2
+            - generic [ref=e40]:
+              - button "打开项目目录 编辑大片示例" [ref=e42] [cursor=pointer]:
+                - img [ref=e43] [cursor=pointer]
+              - button "移除项目 编辑大片示例" [ref=e45] [cursor=pointer]:
+                - img [ref=e46] [cursor=pointer]
+      - generic [ref=e50]:
+        - button "新建项目" [ref=e51] [cursor=pointer]
+        - button "打开项目" [ref=e52] [cursor=pointer]
+    - separator "调整项目栏宽度" [ref=e53]
+    - main [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]: BlockNote Canvas v14
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - button "缩小画布" [ref=e62] [cursor=pointer]:
+                - img [ref=e63] [cursor=pointer]
+              - button "恢复 100% 缩放" [ref=e64] [cursor=pointer]: 70%
+              - button "放大画布" [ref=e65] [cursor=pointer]:
+                - img [ref=e66] [cursor=pointer]
+              - button "适合宽度" [ref=e67] [cursor=pointer]: 适宽
+            - status [ref=e68]: 已保存所有更改
+            - button "导出" [ref=e71] [cursor=pointer]:
+              - generic [ref=e72] [cursor=pointer]: 导出
+              - img [ref=e73] [cursor=pointer]
+        - generic [ref=e76]:
+          - button "键盘图片移动焦点" [ref=e77] [cursor=pointer]
+          - group "方案正文" [ref=e78]:
+            - textbox [ref=e80]:
+              - generic [ref=e84]:
+                - paragraph [ref=e85]
+                - text: 输入 '/' 以使用命令
+          - status [ref=e86]
+          - status [ref=e87]
+    - separator "调整助手栏宽度" [ref=e88]
+    - complementary "助手" [ref=e91]:
+      - generic [ref=e93]:
+        - generic [ref=e94]:
+          - generic [ref=e95]:
+            - heading "助手" [level=2] [ref=e96]
+            - strong [ref=e98]: 端到端对话
+          - paragraph [ref=e99]: 就绪
+        - button "新对话" [ref=e101] [cursor=pointer]:
+          - img [ref=e102] [cursor=pointer]
+        - button "历史记录" [ref=e104] [cursor=pointer]:
+          - img [ref=e105] [cursor=pointer]
+        - button "更多助手操作" [ref=e109] [cursor=pointer]:
+          - img [ref=e110] [cursor=pointer]
+      - log "助手对话记录" [ref=e116]:
+        - generic [ref=e117]:
+          - article [ref=e118]:
+            - img [ref=e120]
+            - generic [ref=e123]:
+              - generic [ref=e124]:
+                - strong [ref=e125]: 你
+                - time [ref=e126]: 08:00
+              - paragraph [ref=e128]: 规划一场人像拍摄
+              - group [ref=e129]
+          - article [ref=e131]:
+            - img [ref=e133]
+            - generic [ref=e136]:
+              - generic [ref=e137]:
+                - strong [ref=e138]: 助手
+                - time [ref=e139]: 08:00
+              - paragraph [ref=e141]: Deterministic fake response
+      - group [ref=e142]
+      - generic [ref=e144]:
+        - generic "发送上下文" [ref=e145]:
+          - generic [ref=e146]:
+            - img [ref=e147]
+            - generic [ref=e150]: 项目：编辑大片示例
+          - generic [ref=e151]:
+            - img [ref=e152]
+            - generic [ref=e155]: 文档版本 2
+          - generic [ref=e156]:
+            - img [ref=e157]
+            - generic [ref=e160]: 光标区块
+            - button "移除上下文“光标区块”" [ref=e161] [cursor=pointer]:
+              - img [ref=e162] [cursor=pointer]
+        - generic [ref=e165]: 向助手发送消息
+        - generic [ref=e166]:
+          - textbox "向助手发送消息" [active] [ref=e167]
+          - button "发送" [disabled] [ref=e169]:
+            - img [ref=e170]
+            - text: 发送
+```

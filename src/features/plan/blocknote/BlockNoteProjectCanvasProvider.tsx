@@ -47,6 +47,16 @@ import type {
   LongImageExportProgress,
   LongImageExporter,
 } from "./dependencies";
+import type {
+  AgentProposalApplicationRegistration,
+  AgentWorkspacePublisher,
+} from "../../../domain/agent/workspaceBridge";
+import {
+  AgentDomainError,
+  AgentProposalTemporaryError,
+  hashPreshotDocument,
+  type AgentProposalMutationPort,
+} from "../../../domain/agent";
 import type { LongImageSaveTarget } from "../../../domain/plan/longImageSave";
 import { useTheme } from "../../../app/theme/ThemeContext";
 import type { SaveState } from "../SaveStatus";
@@ -70,6 +80,8 @@ import { applyMeasuredImages } from "./imageHydration";
 import type { LongImageExportSettings } from "./LongImageExportDialog";
 
 interface BlockNoteProjectCanvasProviderProps {
+  agentWorkspace?: AgentWorkspacePublisher;
+  projectId?: string;
   projectName: string;
   projectPath: string;
   docxExporter: BlockNoteDocxExporter;
@@ -83,6 +95,26 @@ interface BlockNoteProjectCanvasProviderProps {
   saver: PdfSaveTarget;
   screenCapture?: ScreenCapture;
   service: BlockNotePlanService;
+}
+
+const AGENT_THUMBNAIL_EDGE = 256;
+
+async function createAgentThumbnail(dataUrl: string): Promise<string> {
+  if (dataUrl.length <= 128_000) return dataUrl;
+  const image = new Image();
+  image.src = dataUrl;
+  await image.decode();
+  const scale = Math.min(
+    1,
+    AGENT_THUMBNAIL_EDGE / Math.max(image.naturalWidth, image.naturalHeight),
+  );
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("无法创建助手图片缩略图");
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.76);
 }
 
 type LoadState =
@@ -236,6 +268,8 @@ function applyImageRemovalToLatest(
 }
 
 export function BlockNoteProjectCanvasProvider({
+  agentWorkspace,
+  projectId,
   projectName,
   projectPath,
   docxExporter,
@@ -250,6 +284,7 @@ export function BlockNoteProjectCanvasProvider({
   screenCapture,
   service,
 }: BlockNoteProjectCanvasProviderProps) {
+  const proposalProjectId = projectId ?? projectPath;
   const { resolved: resolvedTheme } = useTheme();
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [saveState, setSaveState] = useState<SaveState>("saved");
@@ -279,10 +314,15 @@ export function BlockNoteProjectCanvasProvider({
   const longImageAbortRef = useRef<AbortController | null>(null);
   const planRef = useRef<ProjectPlanV14 | null>(null);
   const planRevisionRef = useRef(0);
+  const loadStateRef = useRef<LoadState>({ status: "loading" });
+  const saveStateRef = useRef<SaveState>("saved");
+  const saveErrorRef = useRef<string | null>(null);
+  const selectedImageIdRef = useRef<string | null>(null);
   const imageMutationTailRef = useRef<Promise<void>>(Promise.resolve());
   const mountedRef = useRef(true);
   const captureTaskRef = useRef<Promise<void> | null>(null);
   const mediaSrcRef = useRef<Record<string, string>>({});
+  const imageSrcRef = useRef<Record<string, string>>({});
   const metadataListenersRef = useRef(new Set<() => void>());
   const detachedGroupsRef = useRef(new Map<string, ProjectPlanV14["imageGroups"][number]>());
   const detachedMediaFilesRef = useRef(new Set<string>());
@@ -291,7 +331,16 @@ export function BlockNoteProjectCanvasProvider({
     readonly before: ProjectPlanV14;
     readonly after: ProjectPlanV14;
   } | null>(null);
+  const proposalDocumentTransactionRef = useRef<
+    ((document: PreshotBlockDocument) => void) | null
+  >(null);
+  const proposalApplicationRegistrationRef =
+    useRef<AgentProposalApplicationRegistration | null>(null);
   const retirementCoordinator = getProjectRetirementCoordinator(service);
+
+  useEffect(() => {
+    imageSrcRef.current = imageSrc;
+  }, [imageSrc]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -301,25 +350,40 @@ export function BlockNoteProjectCanvasProvider({
     };
   }, []);
 
+  const updateLoadState = useCallback((next: LoadState) => {
+    loadStateRef.current = next;
+    if (mountedRef.current) setLoadState(next);
+  }, []);
+
+  const updateSaveState = useCallback((next: SaveState) => {
+    saveStateRef.current = next;
+    if (mountedRef.current) setSaveState(next);
+  }, []);
+
+  const updateSaveError = useCallback((next: string | null) => {
+    saveErrorRef.current = next;
+    if (mountedRef.current) setSaveError(next);
+  }, []);
+
   const save = useCallback(async () => {
     await imageMutationTailRef.current;
     const plan = planRef.current;
     if (!plan) return;
     const serialized = JSON.stringify(plan);
     if (serialized === savedRef.current) {
-      setSaveState("saved");
+      updateSaveState("saved");
       return;
     }
-    setSaveState("saving");
-    setSaveError(null);
+    updateSaveState("saving");
+    updateSaveError(null);
     try {
       await retirementCoordinator.queue(
         projectPath,
         () => service.savePlan(projectPath, plan),
       );
     } catch (error) {
-      setSaveState("unsaved");
-      setSaveError(error instanceof Error ? error.message : String(error));
+      updateSaveState("unsaved");
+      updateSaveError(error instanceof Error ? error.message : String(error));
       throw error;
     }
     savedRef.current = serialized;
@@ -327,11 +391,17 @@ export function BlockNoteProjectCanvasProvider({
       planRef.current === plan &&
       JSON.stringify(planRef.current) === serialized
     ) {
-      setSaveState("saved");
+      updateSaveState("saved");
     } else {
-      setSaveState("unsaved");
+      updateSaveState("unsaved");
     }
-  }, [projectPath, retirementCoordinator, service]);
+  }, [
+    projectPath,
+    retirementCoordinator,
+    service,
+    updateSaveError,
+    updateSaveState,
+  ]);
 
   const changeZoom = useCallback((
     requested: number,
@@ -362,19 +432,50 @@ export function BlockNoteProjectCanvasProvider({
     });
   }, [zoom]);
 
+  const publishAgentPlan = useCallback((
+    plan: ProjectPlanV14,
+    revision: number,
+    nextSaveState: SaveState,
+  ) => {
+    if (!agentWorkspace) return;
+    agentWorkspace.publishImageIndex(
+      plan.imageGroups.flatMap((group) =>
+        group.images.map((image) => ({
+          groupId: group.id,
+          imageId: image.id,
+          displayName: image.file.split(/[\\/]/).at(-1) ?? "image",
+          groupLabel: group.name,
+          relativeFile: image.file,
+          width: image.sourceWidth ?? null,
+          height: image.sourceHeight ?? null,
+        }))
+      ),
+    );
+    agentWorkspace.publishDocument({
+      document: plan.document,
+      revision,
+      saveState: nextSaveState,
+    });
+  }, [agentWorkspace]);
+
   const applyPlan = useCallback((plan: ProjectPlanV14) => {
     if (imageMoveUndoRef.current?.after !== plan) {
       imageMoveUndoRef.current = null;
     }
     planRef.current = plan;
     planRevisionRef.current += 1;
+    publishAgentPlan(plan, planRevisionRef.current, "unsaved");
     metadataListenersRef.current.forEach((listener) => listener());
     if (mountedRef.current) {
       setPlanRevision(planRevisionRef.current);
-      setSaveState("unsaved");
-      setLoadState({ status: "ready", plan });
+      updateSaveState("unsaved");
+      updateLoadState({ status: "ready", plan });
     }
-  }, []);
+  }, [publishAgentPlan, updateLoadState, updateSaveState]);
+
+  useEffect(() => {
+    agentWorkspace?.publishSaveState(saveState);
+  }, [agentWorkspace, saveState]);
 
   const enqueueImageMutation = useCallback(<T,>(
     operation: (context: ImageMutationContext) => Promise<T> | T,
@@ -406,10 +507,351 @@ export function BlockNoteProjectCanvasProvider({
     return run;
   }, []);
 
+  const runAgentPlanTransaction = useCallback(async (input: {
+    readonly projectId: string;
+    readonly expectedRevision: number;
+    readonly expectedDocumentHash: string;
+    readonly targetPlan: ProjectPlanV14;
+    readonly committedRevision: number;
+    readonly conflictCode: "proposal_stale" | "proposal_apply_conflict";
+    readonly conflictMessage: string;
+  }) => {
+    await enqueueImageMutation(async (context) => {
+      const current = context.getLatestPlan();
+      if (
+        input.projectId !== proposalProjectId ||
+        context.getLatestRevision() !== input.expectedRevision ||
+        hashPreshotDocument(current.document) !== input.expectedDocumentHash
+      ) {
+        throw new AgentDomainError(
+          input.conflictCode,
+          "proposal",
+          input.conflictMessage,
+        );
+      }
+      const transact = proposalDocumentTransactionRef.current;
+      if (!transact || !mountedRef.current) {
+        throw new AgentProposalTemporaryError(
+          "PLAN_BRIDGE_NOT_READY",
+          "The BlockNote editor proposal bridge is not ready",
+        );
+      }
+
+      const snapshot = {
+        plan: structuredClone(current),
+        revision: input.expectedRevision,
+        saved: savedRef.current,
+        saveState: saveStateRef.current,
+        saveError: saveErrorRef.current,
+        loadState: loadStateRef.current,
+      };
+      let targetPersisted = false;
+      let manifestReconciled = false;
+      let editorPublishAttempted = false;
+
+      const restoreSnapshot = (): unknown => {
+        let editorError: unknown;
+        if (editorPublishAttempted) {
+          try {
+            proposalDocumentTransactionRef.current?.(snapshot.plan.document);
+          } catch (error) {
+            editorError = error;
+          }
+        }
+        planRef.current = snapshot.plan;
+        planRevisionRef.current = snapshot.revision;
+        savedRef.current = snapshot.saved;
+        publishAgentPlan(
+          snapshot.plan,
+          snapshot.revision,
+          snapshot.saveState,
+        );
+        metadataListenersRef.current.forEach((listener) => listener());
+        updateSaveState(snapshot.saveState);
+        updateSaveError(snapshot.saveError);
+        const restoredLoadState = snapshot.loadState.status === "ready"
+          ? { status: "ready" as const, plan: snapshot.plan }
+          : snapshot.loadState;
+        updateLoadState(restoredLoadState);
+        if (mountedRef.current) setPlanRevision(snapshot.revision);
+        return editorError;
+      };
+
+      updateSaveState("saving");
+      updateSaveError(null);
+      try {
+        await retirementCoordinator.queue(projectPath, async () => {
+          const latestBeforeSave = planRef.current;
+          if (
+            !mountedRef.current ||
+            !latestBeforeSave ||
+            planRevisionRef.current !== snapshot.revision ||
+            hashPreshotDocument(latestBeforeSave.document) !==
+              input.expectedDocumentHash
+          ) {
+            throw new AgentDomainError(
+              "proposal_stale",
+              "proposal",
+              "The document changed before proposal persistence started",
+            );
+          }
+          await service.savePlan(projectPath, input.targetPlan);
+          targetPersisted = true;
+
+          const latestAfterSave = planRef.current;
+          if (!mountedRef.current) {
+            await service.savePlan(projectPath, snapshot.plan);
+            manifestReconciled = true;
+            throw new AgentDomainError(
+              "project_deleted",
+              "workspace",
+              "The project retired while the proposal was being saved",
+            );
+          }
+          if (
+            !latestAfterSave ||
+            planRevisionRef.current !== snapshot.revision ||
+            hashPreshotDocument(latestAfterSave.document) !==
+              input.expectedDocumentHash
+          ) {
+            if (!latestAfterSave) {
+              await service.savePlan(projectPath, snapshot.plan);
+            } else {
+              await service.savePlan(projectPath, latestAfterSave);
+              savedRef.current = JSON.stringify(latestAfterSave);
+              updateSaveState("saved");
+              updateSaveError(null);
+              publishAgentPlan(
+                latestAfterSave,
+                planRevisionRef.current,
+                "saved",
+              );
+            }
+            manifestReconciled = true;
+            throw new AgentDomainError(
+              "proposal_stale",
+              "proposal",
+              "The document changed while the proposal was being saved",
+            );
+          }
+        });
+
+        editorPublishAttempted = true;
+        transact(input.targetPlan.document);
+        planRef.current = input.targetPlan;
+        planRevisionRef.current = input.committedRevision;
+        savedRef.current = JSON.stringify(input.targetPlan);
+        publishAgentPlan(
+          input.targetPlan,
+          input.committedRevision,
+          "saved",
+        );
+        metadataListenersRef.current.forEach((listener) => listener());
+        updateSaveState("saved");
+        updateSaveError(null);
+        updateLoadState({ status: "ready", plan: input.targetPlan });
+        if (mountedRef.current) setPlanRevision(input.committedRevision);
+      } catch (error) {
+        if (manifestReconciled && !editorPublishAttempted) throw error;
+
+        const editorRollbackError = restoreSnapshot();
+        let persistenceRollbackError: unknown;
+        if (targetPersisted && !manifestReconciled) {
+          try {
+            await retirementCoordinator.queue(
+              projectPath,
+              () => service.savePlan(projectPath, snapshot.plan),
+            );
+          } catch (rollbackError) {
+            persistenceRollbackError = rollbackError;
+          }
+        }
+        if (editorRollbackError || persistenceRollbackError) {
+          const rollbackMessages = [
+            editorRollbackError instanceof Error
+              ? editorRollbackError.message
+              : editorRollbackError
+                ? String(editorRollbackError)
+                : "",
+            persistenceRollbackError instanceof Error
+              ? persistenceRollbackError.message
+              : persistenceRollbackError
+                ? String(persistenceRollbackError)
+                : "",
+          ].filter(Boolean).join("; ");
+          throw new AgentDomainError(
+            "proposal_apply_conflict",
+            "proposal",
+            `Proposal transaction failed and rollback was incomplete: ${rollbackMessages}`,
+            { cause: error },
+          );
+        }
+        throw error;
+      }
+    });
+  }, [
+    enqueueImageMutation,
+    projectPath,
+    proposalProjectId,
+    publishAgentPlan,
+    retirementCoordinator,
+    service,
+    updateLoadState,
+    updateSaveError,
+    updateSaveState,
+  ]);
+
+  useEffect(() => {
+    if (!agentWorkspace) return;
+    const application: AgentProposalMutationPort = {
+      async getCurrentPlan(requestedProjectId) {
+        await imageMutationTailRef.current;
+        const plan = planRef.current;
+        if (requestedProjectId !== proposalProjectId) {
+          throw new AgentDomainError(
+            "project_deleted",
+            "workspace",
+            "The requested proposal project is not active",
+          );
+        }
+        if (!plan || loadStateRef.current.status === "loading") {
+          throw new AgentProposalTemporaryError(
+            "PLAN_LOADING",
+            "The requested proposal plan is still loading",
+          );
+        }
+        if (!proposalDocumentTransactionRef.current) {
+          throw new AgentProposalTemporaryError(
+            "PLAN_BRIDGE_NOT_READY",
+            "The BlockNote editor proposal bridge is not ready",
+          );
+        }
+        return {
+          plan: structuredClone(plan),
+          revision: planRevisionRef.current,
+        };
+      },
+      async applyAtomically(input) {
+        await runAgentPlanTransaction({
+          ...input,
+          targetPlan: input.projectedPlan,
+          committedRevision: input.expectedRevision + 1,
+          conflictCode: "proposal_stale",
+          conflictMessage:
+            "The document changed before the proposal could be applied",
+        });
+      },
+      async restoreCheckpointAtomically(input) {
+        await runAgentPlanTransaction({
+          ...input,
+          targetPlan: input.restoredPlan,
+          committedRevision: input.expectedRevision + 1,
+          conflictCode: "proposal_apply_conflict",
+          conflictMessage: "Affected blocks changed before Undo this apply",
+        });
+      },
+      async rollbackAtomically(input) {
+        await runAgentPlanTransaction({
+          ...input,
+          targetPlan: input.snapshotPlan,
+          committedRevision: input.snapshotRevision,
+          conflictCode: "proposal_apply_conflict",
+          conflictMessage:
+            "The document changed before proposal reconciliation",
+        });
+      },
+    };
+    const registration = agentWorkspace.registerProposalApplication(
+      proposalProjectId,
+      application,
+    );
+    proposalApplicationRegistrationRef.current = registration;
+    registration.setReady(
+      loadStateRef.current.status === "ready" &&
+        proposalDocumentTransactionRef.current !== null,
+    );
+    return () => {
+      if (proposalApplicationRegistrationRef.current === registration) {
+        proposalApplicationRegistrationRef.current = null;
+      }
+      registration.unregister();
+    };
+  }, [
+    agentWorkspace,
+    proposalProjectId,
+    runAgentPlanTransaction,
+  ]);
+
+  const registerProposalDocumentTransaction = useCallback(
+    (applyDocument: (document: PreshotBlockDocument) => void) => {
+      proposalDocumentTransactionRef.current = applyDocument;
+      proposalApplicationRegistrationRef.current?.setReady(true);
+      return () => {
+        if (proposalDocumentTransactionRef.current === applyDocument) {
+          proposalDocumentTransactionRef.current = null;
+          proposalApplicationRegistrationRef.current?.setReady(false);
+        }
+      };
+    },
+    [],
+  );
+
   const reportImageMutationFailure = useCallback((error: unknown) => {
     if (!mountedRef.current) return;
     setCanvasError(error instanceof Error ? error.message : String(error));
   }, []);
+
+  const selectImageForAgent = useCallback((
+    groupId: string,
+    imageId: string,
+    open: boolean,
+  ): boolean => {
+    const group = planRef.current?.imageGroups.find((entry) =>
+      entry.id === groupId
+    );
+    const image = group?.images.find((entry) => entry.id === imageId);
+    const source = image ? imageSrcRef.current[image.file] : undefined;
+    if (!group || !image || !source) return false;
+    selectedImageIdRef.current = imageId;
+    setSelectedImageId(imageId);
+    if (open) {
+      setLightboxTarget({ groupId, imageId, file: image.file });
+    }
+    if (agentWorkspace) {
+      void createAgentThumbnail(source)
+        .then((thumbnailDataUrl) => {
+          if (selectedImageIdRef.current !== imageId) return;
+          agentWorkspace.publishSelectedImage({
+            groupId,
+            imageId,
+            displayName: image.file.split(/[\\/]/).at(-1) ?? "image",
+            relativeFile: image.file,
+            thumbnailDataUrl,
+          });
+        })
+        .catch(reportImageMutationFailure);
+    }
+    window.requestAnimationFrame(() => {
+      const escapedId = typeof CSS !== "undefined" && CSS.escape
+        ? CSS.escape(imageId)
+        : imageId.replaceAll('"', '\\"');
+      const target = document.querySelector<HTMLElement>(
+        `[data-image-id="${escapedId}"]`,
+      );
+      target?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+      target?.setAttribute("data-agent-citation-highlight", "true");
+      if (target) {
+        window.setTimeout(() => {
+          target.removeAttribute("data-agent-citation-highlight");
+        }, 2_000);
+      }
+    });
+    return true;
+  }, [agentWorkspace, reportImageMutationFailure]);
+
+  useEffect(() => agentWorkspace?.registerImageNavigator({
+    selectImage: selectImageForAgent,
+  }), [agentWorkspace, selectImageForAgent]);
 
   const commitImageCrop = useCallback(async (
     groupId: string,
@@ -434,13 +876,32 @@ export function BlockNoteProjectCanvasProvider({
           [result.image.file]: result.dataUrl,
         }));
       }
+      if (agentWorkspace && selectedImageIdRef.current === imageId) {
+        const thumbnailDataUrl = await createAgentThumbnail(result.dataUrl);
+        if (selectedImageIdRef.current === imageId) {
+          agentWorkspace.publishSelectedImage({
+            groupId,
+            imageId,
+            displayName:
+              result.image.file.split(/[\\/]/).at(-1) ?? "image",
+            relativeFile: result.image.file,
+            thumbnailDataUrl,
+          });
+        }
+      }
       applyPlan(
         serviceRevision === context.getLatestRevision()
           ? result.plan
           : applyCropToLatest(context.getLatestPlan(), result),
       );
     });
-  }, [applyPlan, enqueueImageMutation, projectPath, service]);
+  }, [
+    agentWorkspace,
+    applyPlan,
+    enqueueImageMutation,
+    projectPath,
+    service,
+  ]);
 
   const confirmLightboxCrop = useCallback((crop: NormalizedImageCrop) => {
     if (!lightboxTarget) {
@@ -463,7 +924,7 @@ export function BlockNoteProjectCanvasProvider({
       (result) => {
         if (cancelled) return;
         if (result.status === "incompatible") {
-          setLoadState(result);
+          updateLoadState(result);
           return;
         }
         const persistedPlan = result.plan;
@@ -475,9 +936,11 @@ export function BlockNoteProjectCanvasProvider({
         savedRef.current = result.status === "missing"
           ? ""
           : JSON.stringify(persistedPlan);
-        setSaveState(
-          JSON.stringify(plan) === savedRef.current ? "saved" : "unsaved",
-        );
+        const initialSaveState = JSON.stringify(plan) === savedRef.current
+          ? "saved"
+          : "unsaved";
+        updateSaveState(initialSaveState);
+        publishAgentPlan(plan, planRevisionRef.current, initialSaveState);
         setMigrationNotice(
           migration.migratedImageCount > 0
             ? `已升级 ${migration.migratedImageCount} 张旧版默认尺寸图片；自定义尺寸未更改。请确认排版，系统将自动保存。`
@@ -516,16 +979,20 @@ export function BlockNoteProjectCanvasProvider({
           if (cancelled) return;
           planRef.current = measured;
           planRevisionRef.current += 1;
-          setPlanRevision(planRevisionRef.current);
-          setSaveState(
-            JSON.stringify(measured) === savedRef.current
-              ? "saved"
-              : "unsaved",
+          const measuredSaveState = JSON.stringify(measured) === savedRef.current
+            ? "saved"
+            : "unsaved";
+          publishAgentPlan(
+            measured,
+            planRevisionRef.current,
+            measuredSaveState,
           );
-          setLoadState({ status: "ready", plan: measured });
+          setPlanRevision(planRevisionRef.current);
+          updateSaveState(measuredSaveState);
+          updateLoadState({ status: "ready", plan: measured });
         }).catch((error: unknown) => {
           if (cancelled) return;
-          setLoadState({
+          updateLoadState({
             status: "failed",
             message: error instanceof Error ? error.message : String(error),
           });
@@ -533,7 +1000,7 @@ export function BlockNoteProjectCanvasProvider({
       },
       (error: unknown) => {
         if (cancelled) return;
-        setLoadState({
+        updateLoadState({
           status: "failed",
           message: error instanceof Error ? error.message : String(error),
         });
@@ -548,6 +1015,9 @@ export function BlockNoteProjectCanvasProvider({
     projectPath,
     retirementCoordinator,
     service,
+    publishAgentPlan,
+    updateLoadState,
+    updateSaveState,
   ]);
 
   useEffect(() => () => {
@@ -665,6 +1135,18 @@ export function BlockNoteProjectCanvasProvider({
       });
     }
   }, [loadState.status, projectPath, viewportSize.width]);
+
+  const resolveMediaUrl = useCallback(
+    (url: string): string => mediaSrcRef.current[url] ?? url,
+    [],
+  );
+
+  const persistMediaUrl = useCallback((url: string): string => {
+    for (const [file, dataUrl] of Object.entries(mediaSrcRef.current)) {
+      if (dataUrl === url) return file;
+    }
+    return url;
+  }, []);
 
   if (loadState.status === "loading") {
     return <div className="p-6 text-sm text-app-muted">正在加载 BlockNote 方案…</div>;
@@ -895,7 +1377,11 @@ export function BlockNoteProjectCanvasProvider({
       : undefined,
     removeImage(groupId, imageId) {
       if (!planRef.current) return;
-      if (selectedImageId === imageId) setSelectedImageId(null);
+      if (selectedImageId === imageId) {
+        selectedImageIdRef.current = null;
+        setSelectedImageId(null);
+        agentWorkspace?.publishSelectedImage(null);
+      }
       void enqueueImageMutation(async (context) => {
         let serviceRevision = context.getLatestRevision();
         const next = await service.removeImage(
@@ -919,7 +1405,10 @@ export function BlockNoteProjectCanvasProvider({
       }).catch(reportImageMutationFailure);
     },
     selectImage(imageId) {
-      setSelectedImageId(imageId);
+      const group = planRef.current?.imageGroups.find((entry) =>
+        entry.images.some((image) => image.id === imageId)
+      );
+      if (group) selectImageForAgent(group.id, imageId, false);
     },
     openImage(groupId, imageId, file) {
       setLightboxTarget({ groupId, imageId, file });
@@ -1037,16 +1526,6 @@ export function BlockNoteProjectCanvasProvider({
     };
     setMediaSrc(mediaSrcRef.current);
     return imported.dataUrl;
-  };
-
-  const resolveMediaUrl = (url: string): string =>
-    mediaSrcRef.current[url] ?? url;
-
-  const persistMediaUrl = (url: string): string => {
-    for (const [file, dataUrl] of Object.entries(mediaSrcRef.current)) {
-      if (dataUrl === url) return file;
-    }
-    return url;
   };
 
   const runExport = (
@@ -1327,11 +1806,13 @@ export function BlockNoteProjectCanvasProvider({
             scrollContainerRef={scrollerRef}
           >
             <BlockNoteDocumentEditor
+              agentWorkspace={agentWorkspace}
               ariaLabel="方案正文"
               document={loadState.plan.document}
               imageGroupController={imageGroupController}
               key={`${projectPath}:${loadState.plan.schemaVersion}`}
               onChange={updateDocument}
+              onDocumentTransactionReady={registerProposalDocumentTransaction}
               persistMediaUrl={persistMediaUrl}
               resolveMediaUrl={resolveMediaUrl}
               uploadFile={uploadMedia}

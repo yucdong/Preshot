@@ -6,6 +6,10 @@ import type { PlanDependencies } from "../../features/plan/blocknote/dependencie
 import { ThemeProvider } from "../theme/ThemeProvider";
 import type { WorkspaceDependencies } from "./dependencies";
 import { WorkspaceProvider } from "./WorkspaceProvider";
+import { AgentModelSettingsController } from "../../domain/agent";
+import { AgentModelSettingsProvider } from "../../features/agent/AgentModelSettingsContext";
+import { createBrowserAgentModelProbe } from "../../infrastructure/agent/browserAgentModelProbe";
+import { createSettingsAgentModelStore } from "../../infrastructure/agent/settingsAgentModelStore";
 
 vi.mock("../layout/Workspace", () => ({
   Workspace: ({
@@ -58,13 +62,19 @@ describe("WorkspaceProvider startup", () => {
       write: vi.fn().mockResolvedValue(undefined),
     };
 
+    const controller = new AgentModelSettingsController({
+      store: createSettingsAgentModelStore(settings),
+      probe: createBrowserAgentModelProbe(),
+    });
     render(
-      <ThemeProvider repository={settings}>
-        <WorkspaceProvider
-          dependencies={dependencies}
-          planDependencies={{} as PlanDependencies}
-        />
-      </ThemeProvider>,
+      <AgentModelSettingsProvider controller={controller}>
+        <ThemeProvider repository={settings}>
+          <WorkspaceProvider
+            dependencies={dependencies}
+            planDependencies={{} as PlanDependencies}
+          />
+        </ThemeProvider>
+      </AgentModelSettingsProvider>,
     );
 
     expect(await screen.findByText(

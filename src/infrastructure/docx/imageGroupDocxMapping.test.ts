@@ -333,7 +333,7 @@ describe("DOCX image-group composite request", () => {
 
       if (weights.length === 3) {
         expect(groupContext.slots[0].logical.width).toBe(320);
-        expect(groupContext.pdf.exportOnlyGroupPhysicalScale).toBeLessThan(1);
+        expect(groupContext.docx.exportOnlyGroupPhysicalScale).toBeLessThan(1);
       }
     },
   );
@@ -737,8 +737,10 @@ describe("DOCX image-group mapping", () => {
         unscaledFlowHeight: 5_000 as typeof original.pdf.unscaledFlowHeight,
         displayedHeight: 5_000 as typeof original.pdf.displayedHeight,
         flowHeight: 5_000 as typeof original.pdf.flowHeight,
+      },
+      docx: {
         exportOnlyGroupPhysicalScale:
-          1 as typeof original.pdf.exportOnlyGroupPhysicalScale,
+          1 as typeof original.docx.exportOnlyGroupPhysicalScale,
       },
     };
     const warningContext: PreshotPdfExportContext = {

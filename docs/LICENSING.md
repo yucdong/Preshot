@@ -43,3 +43,30 @@ schema and read-only render surface but no image exporter; no additional
 BlockNote XL package or GPL option is introduced by long-image export.
 Attribution is maintained in
 [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
+
+## SQLite metadata dependency
+
+The global agent metadata store uses `rusqlite@0.37.0` under the MIT license
+with its `bundled` feature. The bundled SQLite source is public domain. Version
+and source attribution are maintained in
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
+
+## GitHub Copilot SDK and managed CLI
+
+The Rust dependency is pinned exactly to
+`github-copilot-sdk@1.0.11` with only its `bundled-cli` feature enabled. The
+SDK is MIT-licensed. It embeds the unmodified GitHub Copilot CLI release
+artifact `1.0.79`; that signed artifact self-reports runtime version
+`1.0.81-7`. Preshot does not enable the optional in-process transport.
+The reviewed Windows x64 archive is 100,644,089 bytes and its unmodified
+`copilot.exe` payload is 159,403,296 bytes. The archive SHA-256 is recorded in
+the third-party notice and enforced by the native packaging contract.
+
+The CLI has its own redistribution license. Preshot's distribution fits that
+license's application-bundling conditions: the CLI remains unmodified, is not
+offered standalone or as the primary product, and Preshot provides material
+photography-planning functionality independently. The exact SDK and CLI
+license texts and checksums are recorded in
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) and [`LICENSES`](../LICENSES).
+Access to GitHub services is governed separately by the applicable GitHub and
+GitHub Copilot terms.

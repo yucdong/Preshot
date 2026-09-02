@@ -11,14 +11,18 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - Active UI language: Simplified Chinese (`src/shared/i18n/locales/zh.ts`)
 - Project manifest: `.preshotproj` with manifest `schemaVersion: 1`
 - Legacy `.preshot` and schema v13 plans are compatibility input only
+- Agent runtime: `github-copilot-sdk@1.0.11`, Empty mode, bundled CLI release
+  `1.0.79` (self-reporting `1.0.81-7`), and one global SQLite metadata store
 
 ## Repository map
 
 - `src/app`: dependency composition, theme, workspace provider, and application shell
-- `src/features`: workspace launcher, BlockNote editor UI, settings panel, and assistant preview UI
+- `src/features`: workspace launcher, BlockNote editor UI, settings panel, and production assistant UI
 - `src/domain`: pure workspace/settings/plan models, services, ports, schema validation, and shared geometry
 - `src/infrastructure`: Tauri/browser adapters, dialogs, PDF exporter, and persistence wiring
 - `src-tauri`: native project, media, PDF, reveal, settings, and screen-capture commands
+- `src/domain/agent`, `src/infrastructure/agent`, and `src-tauri/src/agent`:
+  pure agent contracts, adapters, managed runtime, closed tools, and sessions
 - `e2e`: Playwright browser-shell smoke suites
 - `tests`: PowerShell initializer regression harness
 - `scripts`: the Windows Tauri wrapper, Midscene helpers, and maintenance scripts
@@ -104,6 +108,22 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   Program Files installation, or installer-authored project/profile data.
 - Keep the fixed MSI UpgradeCode stable, increment `x.y.z` before publishing,
   and let WiX generate ProductCode and PackageCode.
+- Keep agent sessions in SDK Empty mode. Creation and resume must expose only
+  the four source-qualified Preshot tools; never add shell, arbitrary
+  filesystem, network, Git/GitHub, MCP, skills, sub-agent, or ambient tools.
+- Agent tools may read only immutable disclosed context. Text edits remain
+  closed-schema proposals and must not mutate the plan before explicit Apply.
+- Selected-image chips and turn receipts remain token/path-free. Issue a fresh
+  single-use attachment token only at Send after revalidating project,
+  revision, image identity, and the current project-relative file.
+- Proposal Apply/Undo must keep the schema-v4 durable recovery journal and
+  atomic provider/save boundary. Retained recovery conflicts block later
+  proposal actions; never guess or silently overwrite the plan.
+- Keep API keys absent. The renderer never contacts the proxy; model discovery,
+  text/vision probes, and inference stay behind narrow Tauri/Rust commands.
+- Keep `%USERPROFILE%\.preshot\agent.db` metadata-only. Never store or log
+  prompts, transcript bodies, document text, image bytes, attachment payloads,
+  secrets, or absolute paths.
 
 ## Commands
 
@@ -133,6 +153,7 @@ pnpm test
 pnpm test:watch
 pnpm test:init
 pnpm test:production-scripts
+pnpm test:agent-evals
 pnpm test:e2e
 pnpm test:e2e:blocknote
 pnpm test:e2e:capture
@@ -193,7 +214,9 @@ pnpm migrate:project
   desktop success reveals the project directory, while cancellation, failure,
   and browser/Midscene output do not.
 - The app shell supports focus mode, persisted theme choice, and persisted project/assistant panel widths.
-- The assistant panel is currently a preview surface; do not document it as a working chat backend.
+- The assistant panel is a production project-scoped surface, but its MVP
+  remains proposal-first and text-only. Do not describe it as autonomous,
+  ambient, or able to edit files/media directly.
 - Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v14.
 
 ## Testing expectations

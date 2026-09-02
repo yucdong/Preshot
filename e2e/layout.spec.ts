@@ -60,6 +60,7 @@ test("resizes side panels and restores defaults by double click", async ({ page 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await expect(page.getByTestId("plan-document-canvas")).toBeVisible();
+  await page.getByRole("button", { name: "显示助手面板" }).click();
 
   const projectSplitter = page.getByRole("separator", { name: "调整项目栏宽度" });
   const assistantSplitter = page.getByRole("separator", { name: "调整助手栏宽度" });
