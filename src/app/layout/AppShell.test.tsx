@@ -186,7 +186,11 @@ describe("AppShell", () => {
     );
 
     expect(screen.queryByText(project.path)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "打开项目目录 Editorial" }));
+    expect(screen.queryByTitle(project.path)).not.toBeInTheDocument();
+    const revealButton = screen.getByRole("button", { name: "打开项目目录 Editorial" });
+    revealButton.focus();
+    expect(revealButton).toHaveFocus();
+    await user.keyboard("{Enter}");
     expect(h.onRevealProject).toHaveBeenCalledWith(project);
 
     await user.click(screen.getByRole("button", { name: "移除项目 Editorial" }));
