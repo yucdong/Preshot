@@ -79,7 +79,7 @@ describe("BlockNoteCanvasToolbar", () => {
     const { handlers } = renderToolbar();
     const trigger = screen.getByRole("button", { name: "导出" });
 
-    expect(screen.getByText("BlockNote Canvas v14")).toBeVisible();
+    expect(screen.getByText("BlockNote Canvas v15")).toBeVisible();
     expect(screen.getByRole("button", { name: "恢复 100% 缩放" }))
       .toHaveTextContent("85%");
     expect(trigger).toHaveAttribute("aria-haspopup", "menu");

@@ -126,7 +126,7 @@ async function activate(
 
 const recoveryDocument = (text: string): PreshotBlockDocument => ({
   format: "preshot-blocks",
-  version: 2,
+  version: 3,
   blocks: [{
     id: "recovery-block",
     type: "paragraph",
@@ -140,10 +140,11 @@ async function seedProposalRecovery(
   metadata: ReturnType<typeof createMemoryAgentMetadataStore>,
 ) {
   const before: ProjectPlanV14 = {
-    schemaVersion: 14,
+    schemaVersion: 15,
     title: PROJECT_ONE.projectName,
     document: recoveryDocument("Before recovery"),
     imageGroups: [],
+    artifacts: [],
   };
   const after: ProjectPlanV14 = {
     ...before,

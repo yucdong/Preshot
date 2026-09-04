@@ -450,7 +450,7 @@ filename and do not request a native directory reveal.
 
 ### Long-image save batches
 
-`BlockNoteLongImageExporter` validates and snapshots the schema-14 plan and
+`BlockNoteLongImageExporter` validates and snapshots the schema-15 plan and
 resolved local asset map before mounting a control-free offscreen surface. It
 waits for fonts, images, and two stable layout frames, then measures top-level,
 atomic, column, and image-row boundaries. Parts are captured sequentially from
@@ -593,9 +593,10 @@ broad HTTP/HTTPS origins.
 
 ## Schema compatibility and validation
 
-Only schema v14 / document v2 is editable.
+Only schema v15 / document v3 is editable.
 
-- Schema v13 / document v1 is migrated during load and then treated as v14.
+- Schema v14 / document v2 is migrated during load to v15.
+- Schema v13 / document v1 migrates through v14 compatibility input.
 - Older schemas are surfaced as incompatible and are not autosaved, exported, or modified by the editor flow.
 - Malformed stored documents are rejected before persistence.
 
@@ -606,6 +607,11 @@ Validation enforces:
 - supported native media path shapes,
 - valid `imageGroup` placement, and
 - exact one-to-one mapping between `imageGroup` blocks and `plan.imageGroups`.
+- exact one-to-one mapping between artifact blocks and `plan.artifacts`.
+- globally unique image IDs across image groups and artifact collections.
+- artifact crops allocate a new project-local reference file, save the updated
+  placement before returning success, and remove only the new file if plan
+  persistence fails.
 
 ## Reference-image and native-media handling
 

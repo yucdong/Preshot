@@ -68,6 +68,7 @@ pub fn run() {
             plan::read_project_plan,
             plan::import_reference_image,
             plan::crop_reference_image,
+            plan::copy_reference_image_crop,
             plan::commit_reference_image_crop,
             plan::rollback_reference_image_crop,
             plan::load_reference_image,

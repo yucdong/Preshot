@@ -12,6 +12,8 @@ import type { ProjectPlanV14 } from "../../../../domain/plan/canvas/blockDocumen
 import { resolveBlockNoteDocumentAssets } from "../blockNoteDocumentAssets";
 import { preshotBlockNoteSchema } from "../preshotBlockNoteSchema";
 import { ImageGroupExportContext } from "./ImageGroupExportContext";
+import { ArtifactBlockContext } from "../ArtifactBlockContext";
+import { artifactCollectionGroups } from "../artifactCollections";
 import {
   annotateLongImageExportBlocks,
   assertLongImageExportOuterWidth,
@@ -51,11 +53,22 @@ export function LongImageExportSurface({
       (url) => resolvedAssets[url] ?? url,
     ),
   });
-  const imageGroupController = useMemo(() => ({
-    getGroup: (groupId: string) =>
-      plan.imageGroups.find((group) => group.id === groupId),
-    getImageSrc: (file: string) => resolvedAssets[file],
-  }), [plan.imageGroups, resolvedAssets]);
+  const imageGroupController = useMemo(() => {
+    const groups = [
+      ...plan.imageGroups,
+      ...artifactCollectionGroups(plan),
+    ];
+    return {
+      getGroup: (groupId: string) =>
+        groups.find((group) => group.id === groupId),
+      getImageSrc: (file: string) => resolvedAssets[file],
+    };
+  }, [plan, resolvedAssets]);
+  const artifactReader = useMemo(() => ({
+    getArtifact: (artifactId: string) =>
+      plan.artifacts.find((artifact) => artifact.id === artifactId),
+    subscribe: () => () => undefined,
+  }), [plan.artifacts]);
 
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
@@ -86,7 +99,8 @@ export function LongImageExportSurface({
       >
         <div data-preshot-export-content="">
           <ImageGroupExportContext.Provider value={imageGroupController}>
-            <BlockNoteView
+            <ArtifactBlockContext.Provider value={artifactReader}>
+              <BlockNoteView
               autoFocus={false}
               editable={false}
               editor={editor}
@@ -98,7 +112,8 @@ export function LongImageExportSurface({
               slashMenu={false}
               tableHandles={false}
               theme={theme}
-            />
+              />
+            </ArtifactBlockContext.Provider>
           </ImageGroupExportContext.Provider>
         </div>
       </div>

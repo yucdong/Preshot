@@ -11,13 +11,67 @@ afterEach(() => {
 });
 
 describe("applyMeasuredImages", () => {
+  it("hydrates a captured location image with its measured aspect ratio", async () => {
+    const plan: ProjectPlanV14 = {
+      schemaVersion: 15,
+      title: "Captured location",
+      document: {
+        format: "preshot-blocks",
+        version: 3,
+        blocks: [{
+          id: "location-block",
+          type: "shootingLocation",
+          props: { artifactId: "location" },
+          content: undefined,
+          children: [],
+        }],
+      },
+      imageGroups: [],
+      artifacts: [{
+        id: "location",
+        kind: "shootingLocation",
+        revision: 0,
+        venueName: "Location",
+        address: "",
+        description: "",
+        gallery: {
+          id: "location-gallery",
+          images: [{
+            id: "capture",
+            file: "references/capture.png",
+            aspectRatio: 1,
+            frameWidth: 240,
+            frameHeight: 240,
+          }],
+        },
+      }],
+    };
+
+    const result = await applyMeasuredImages(
+      plan,
+      [["references/capture.png", "capture"]],
+      async () => ({ sourceWidth: 1_200, sourceHeight: 800 }),
+    );
+    const artifact = result.artifacts[0];
+    expect(artifact.kind).toBe("shootingLocation");
+    if (artifact.kind !== "shootingLocation") return;
+    expect(artifact.gallery.images[0]).toMatchObject({
+      aspectRatio: 1.5,
+      sourceWidth: 1_200,
+      sourceHeight: 800,
+      frameWidth: 360,
+      frameHeight: 240,
+    });
+  });
+
   it("hydrates matching image records through an injected decoder", async () => {
     const plan: ProjectPlanV14 = {
-      schemaVersion: 14,
+      schemaVersion: 15,
+      artifacts: [],
       title: "Hydration",
       document: {
         format: "preshot-blocks",
-        version: 2,
+        version: 3,
         blocks: [{
           id: "group-block",
           type: "imageGroup",
@@ -66,11 +120,12 @@ describe("applyMeasuredImages", () => {
 
   it("hydrates a batch at one 240-unit height with aspect-derived widths", async () => {
     const plan: ProjectPlanV14 = {
-      schemaVersion: 14,
+      schemaVersion: 15,
+      artifacts: [],
       title: "Batch",
       document: {
         format: "preshot-blocks",
-        version: 2,
+        version: 3,
         blocks: [{
           id: "group-block",
           type: "imageGroup",

@@ -5,6 +5,12 @@ import {
 } from "@blocknote/core";
 import { withMultiColumn } from "@blocknote/xl-multi-column";
 import { imageGroupBlockSpec } from "./imageGroupBlockSpec";
+import {
+  clothingBlockSpec,
+  modelCardBlockSpec,
+  propBlockSpec,
+  shootingLocationBlockSpec,
+} from "./artifactBlockSpec";
 
 const preshotBaseBlockNoteSchema = BlockNoteSchema.create({
   blockSpecs: {
@@ -23,6 +29,10 @@ const preshotBaseBlockNoteSchema = BlockNoteSchema.create({
     video: defaultBlockSpecs.video,
     audio: defaultBlockSpecs.audio,
     imageGroup: imageGroupBlockSpec(),
+    shootingLocation: shootingLocationBlockSpec(),
+    modelCard: modelCardBlockSpec(),
+    clothing: clothingBlockSpec(),
+    prop: propBlockSpec(),
   },
 });
 

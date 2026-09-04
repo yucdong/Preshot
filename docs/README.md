@@ -20,10 +20,11 @@ This directory contains the English maintenance documentation for the current Pr
 
 These canonical files define the current BlockNote v14 behavior:
 
-- [BlockNote v14 design](design_docs/blocknote_v14_design.md)
+- [BlockNote v14 interaction history](design_docs/blocknote_v14_design.md)
 - [UI/UX contract](design_docs/UI_UX_CONTRACT.md)
 - [Feature status tracker](design_docs/featurelist.json)
 - [Basic agent design](design_docs/agent/agent_basic_design.md)
+- [Artifact document blocks](design_docs/artifacts/artifacts.md)
 - [Deterministic agent eval report](../tests/artifacts/agent-mvp-eval-report.md)
 
 ## Historical design and reference material

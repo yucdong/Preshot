@@ -5,7 +5,7 @@ import { createAgentWorkspaceStore } from "./workspaceBridge";
 
 const document = (text = "Shot list"): PreshotBlockDocument => ({
   format: "preshot-blocks",
-  version: 2,
+  version: 3,
   blocks: [{
     id: "block-1",
     type: "paragraph",
@@ -59,10 +59,11 @@ describe("agent workspace external store", () => {
     });
 
     const plan = {
-      schemaVersion: 14 as const,
+      schemaVersion: 15 as const,
       title: "Editorial",
       document: document(),
       imageGroups: [],
+      artifacts: [],
     };
     store.publishDocument({
       document: plan.document,
@@ -157,10 +158,11 @@ describe("agent workspace external store", () => {
   it("keeps the proposal application registered across identical activation", async () => {
     const { store } = setup();
     const plan = {
-      schemaVersion: 14 as const,
+      schemaVersion: 15 as const,
       title: "Editorial",
       document: document(),
       imageGroups: [],
+      artifacts: [],
     };
     const getCurrentPlan = vi.fn(async () => ({ plan, revision: 4 }));
     const registration = store.registerProposalApplication("project-1", {

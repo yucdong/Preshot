@@ -7,11 +7,11 @@ import {
 } from "./longImageExportSurface";
 
 const plan: ProjectPlanV14 = {
-  schemaVersion: 14,
+  schemaVersion: 15,
   title: "Mount test",
   document: {
     format: "preshot-blocks",
-    version: 2,
+    version: 3,
     blocks: [{
       id: "paragraph",
       type: "paragraph",
@@ -21,6 +21,7 @@ const plan: ProjectPlanV14 = {
     }],
   },
   imageGroups: [],
+  artifacts: [],
 };
 
 const originalFonts = Object.getOwnPropertyDescriptor(document, "fonts");

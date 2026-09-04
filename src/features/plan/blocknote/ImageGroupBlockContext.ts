@@ -1,5 +1,8 @@
 import { createContext, useContext } from "react";
-import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
+import type {
+  ImageFitMode,
+  ReferenceComponent,
+} from "../../../domain/plan/canvas/models";
 
 export interface ImageGroupBlockController {
   selectedImageId?: string | null;
@@ -24,6 +27,11 @@ export interface ImageGroupBlockController {
       frameOffsetY: number;
       groupHeight?: number;
     },
+  ): void;
+  setImageFitMode?(
+    groupId: string,
+    imageId: string,
+    fitMode: ImageFitMode,
   ): void;
   resizeGroup(
     groupId: string,

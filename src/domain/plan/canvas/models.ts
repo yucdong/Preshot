@@ -63,6 +63,8 @@ export function clampContentScale(scale: number): number {
   return Math.min(MAX_CONTENT_SCALE, Math.max(MIN_CONTENT_SCALE, scale));
 }
 
+export type ImageFitMode = "cover" | "stretch";
+
 export interface ReferenceImage {
   id: string;
   file: string;
@@ -77,6 +79,8 @@ export interface ReferenceImage {
   /** Signed frame offsets preserve the opposite edge when resizing from the left or top. */
   frameOffsetX?: number;
   frameOffsetY?: number;
+  /** Defaults to cover; stretch is an explicit non-uniform content transform. */
+  fitMode?: ImageFitMode;
   crop?: {
     x: number;
     y: number;

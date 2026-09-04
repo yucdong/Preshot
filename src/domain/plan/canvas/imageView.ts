@@ -161,3 +161,20 @@ export function imageViewCss(crop: NormalizedImageCrop) {
     top: `${(-normalized.y / normalized.height) * 100}%`,
   };
 }
+
+export function imageFrameContentCss(image: {
+  aspectRatio: number;
+  frameWidth: number;
+  frameHeight: number;
+  fitMode?: "cover" | "stretch";
+  crop?: NormalizedImageCrop;
+}) {
+  return image.fitMode === "stretch"
+    ? {
+        width: "100%",
+        height: "100%",
+        left: "0%",
+        top: "0%",
+      }
+    : imageViewCss(imageCropForView(image));
+}

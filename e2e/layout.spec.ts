@@ -93,3 +93,54 @@ test("resizes side panels and restores defaults by double click", async ({ page 
   await expect(projectSplitter).toHaveAttribute("aria-valuenow", "192");
   await expect(assistantSplitter).toHaveAttribute("aria-valuenow", "272");
 });
+
+test("uses a viewport-safe project overflow menu with confirmed removal", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1000, height: 720 });
+  await page.goto("/");
+
+  const overflow = page.getByRole("button", {
+    name: /^更多项目操作 /,
+  }).first();
+  await expect(overflow).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "删除项目" }))
+    .toHaveCount(0);
+  await overflow.click();
+
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  expect(await menu.getByRole("menuitem").allTextContents()).toEqual([
+    "打开项目目录",
+    "删除项目",
+  ]);
+  const box = await menu.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(1000);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(720);
+
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.getByRole("button", {
+    name: "新建项目",
+    exact: true,
+  })).toBeFocused();
+  await overflow.click();
+  await menu.getByRole("menuitem", { name: "删除项目" }).click();
+  await expect(page.getByRole("dialog")).toContainText("磁盘文件不会被删除");
+  await page.getByRole("button", { name: "取消" }).click();
+  await expect(overflow).toBeFocused();
+
+  await page.getByRole("button", { name: "进入专注模式" }).click();
+  await page.getByRole("button", { name: "打开项目面板" }).click();
+  const focusOverflow = page.getByRole("button", {
+    name: /^更多项目操作 /,
+  }).first();
+  await focusOverflow.click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "项目" })).toBeVisible();
+  await expect(focusOverflow).toBeFocused();
+});

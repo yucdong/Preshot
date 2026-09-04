@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProjectPlanV14 } from "../canvas/blockDocument";
+import type { ReferenceImage } from "../canvas/models";
 import { PDF_VISUAL_CONTRACT } from "./pdfVisualContract";
 import {
   acceptsPdfImageGroupEmergencyRowScale,
@@ -87,9 +88,10 @@ function plan(
   imageGroups: ProjectPlanV14["imageGroups"],
 ): ProjectPlanV14 {
   return {
-    schemaVersion: 14,
+    schemaVersion: 15,
+    artifacts: [],
     title: "Preflight",
-    document: { format: "preshot-blocks", version: 2, blocks },
+    document: { format: "preshot-blocks", version: 3, blocks },
     imageGroups,
   };
 }
@@ -137,6 +139,52 @@ describe("buildPreshotPdfLayoutManifest", () => {
         PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale,
       4,
     );
+  });
+
+  it("uses the full source crop only for explicit stretch mode", () => {
+    const cover = group("cover");
+    cover.images[0].crop = {
+      x: 0.2,
+      y: 0.1,
+      width: 0.6,
+      height: 0.8,
+    };
+    const stretch = group("stretch");
+    stretch.images[0].crop = {
+      x: 0.2,
+      y: 0.1,
+      width: 0.6,
+      height: 0.8,
+    };
+    (stretch.images[0] as ReferenceImage).fitMode = "stretch";
+    const manifest = buildPreshotPdfLayoutManifest({
+      plan: plan([
+        {
+          id: "cover-block",
+          type: "imageGroup",
+          props: { groupId: "cover" },
+          content: undefined,
+          children: [],
+        },
+        {
+          id: "stretch-block",
+          type: "imageGroup",
+          props: { groupId: "stretch" },
+          content: undefined,
+          children: [],
+        },
+      ], [cover, stretch]),
+    });
+
+    expect(manifest.groupsByBlockId["cover-block"].slots[0].crop).toEqual(
+      cover.images[0].crop,
+    );
+    expect(manifest.groupsByBlockId["stretch-block"].slots[0].crop).toEqual({
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    });
   });
 
   it("preserves order and computes weighted two-thirds column widths", () => {

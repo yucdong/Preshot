@@ -87,6 +87,32 @@ describe("createTauriPlan", () => {
     });
   });
 
+  it("shapes copy-on-write crop arguments and validates the new image", async () => {
+    const invokeCommand = vi.fn().mockResolvedValue({
+      file: "references/0002.png",
+      dataUrl: "data:image/png;base64,BB",
+      width: 320,
+      height: 240,
+    });
+    const plan = createTauriPlan({ invokeCommand });
+    if (!plan.copyImageCrop) throw new Error("Copy crop store is unavailable");
+
+    await expect(plan.copyImageCrop("C:\\p", {
+      file: "references/0001.png",
+      bounds: { x: 10, y: 20, width: 320, height: 240 },
+    })).resolves.toEqual({
+      file: "references/0002.png",
+      dataUrl: "data:image/png;base64,BB",
+      width: 320,
+      height: 240,
+    });
+    expect(invokeCommand).toHaveBeenCalledWith("copy_reference_image_crop", {
+      projectPath: "C:\\p",
+      file: "references/0001.png",
+      bounds: { x: 10, y: 20, width: 320, height: 240 },
+    });
+  });
+
   it("reads a raw canvas plan", async () => {
     const invokeCommand = vi.fn().mockResolvedValue({
       schemaVersion: 2,

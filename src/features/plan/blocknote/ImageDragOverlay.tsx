@@ -2,8 +2,7 @@ import { type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { ReferenceImage } from "../../../domain/plan/canvas/models";
 import {
-  imageCropForView,
-  imageViewCss,
+  imageFrameContentCss,
 } from "../../../domain/plan/canvas/imageView";
 import { usePrefersReducedMotion } from "../../../shared/hooks/usePrefersReducedMotion";
 import {
@@ -77,7 +76,7 @@ export function ImageDragOverlay({
             className="preshot-image-drag-overlay-image"
             draggable={false}
             src={resolvedSource}
-            style={imageViewCss(imageCropForView(image))}
+            style={imageFrameContentCss(image)}
           />
         ) : (
           <span className="preshot-image-drag-overlay-fallback">加载中…</span>

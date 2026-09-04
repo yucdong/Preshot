@@ -27,7 +27,7 @@ export const RESIZE_DIRECTIONS: readonly ResizeDirection[] = [
   "bottom-right",
 ];
 
-export const IMAGE_RESIZE_DIRECTIONS = ["left", "right"] as const;
+export const IMAGE_RESIZE_DIRECTIONS = RESIZE_DIRECTIONS;
 
 export interface FramePreview {
   imageId: string;
@@ -148,32 +148,41 @@ export function resizeHandleStyle(
   const corner = direction.includes("-");
   if (corner) {
     return {
-      [direction.includes("top") ? "top" : "bottom"]: 0,
-      [direction.includes("left") ? "left" : "right"]: 0,
+      [direction.includes("top") ? "top" : "bottom"]: -10,
+      [direction.includes("left") ? "left" : "right"]: -10,
+      background: "transparent",
+      border: 0,
       cursor: resizeCursor(direction),
-      height: 24,
+      height: 28,
       position: "absolute",
-      width: 24,
+      touchAction: "none",
+      width: 28,
       zIndex: 50,
     };
   }
   return direction === "left" || direction === "right"
     ? {
         [direction]: 0,
-        bottom: 24,
+        background: "transparent",
+        border: 0,
+        bottom: 20,
         cursor: resizeCursor(direction),
         position: "absolute",
-        top: 24,
-        width: 20,
+        top: 20,
+        touchAction: "none",
+        width: 16,
         zIndex: 50,
       }
     : {
         [direction]: 0,
+        background: "transparent",
+        border: 0,
         cursor: resizeCursor(direction),
-        height: 20,
-        left: 24,
+        height: 16,
+        left: 20,
         position: "absolute",
-        right: 24,
+        right: 20,
+        touchAction: "none",
         zIndex: 50,
       };
 }
@@ -183,6 +192,7 @@ export function frameResizePreview({
   startRect,
   direction,
   deltaX,
+  deltaY,
   candidates,
   snapState,
   groupRect,
@@ -196,21 +206,146 @@ export function frameResizePreview({
   snapState: ImageResizeSnapState;
   groupRect: ResizeRect | null;
 }): FrameResizeResult {
-  const side = direction === "left" || direction === "right"
-    ? direction
-    : "right";
+  const horizontalEdge = direction === "left" || direction === "right";
+  const verticalEdge = direction === "top" || direction === "bottom";
+  const corner = !horizontalEdge && !verticalEdge;
   const aspectRatio = Math.max(0.001, start.frameWidth / start.frameHeight);
-  const minimumWidth = Math.max(32, 32 * aspectRatio);
+  const minimumWidth = corner ? Math.max(32, 32 * aspectRatio) : 32;
   const maximumWidth = groupRect
     ? Math.max(minimumWidth, groupRect.right - groupRect.left)
     : Number.POSITIVE_INFINITY;
-  const rawWidth = Math.min(
-    maximumWidth,
-    Math.max(
-      minimumWidth,
-      start.frameWidth + (side === "right" ? deltaX : -deltaX),
-    ),
-  );
+  if (verticalEdge) {
+    const side = direction;
+    const rawHeight = Math.min(
+      4_096,
+      Math.max(
+        32,
+        start.frameHeight + (side === "bottom" ? deltaY : -deltaY),
+      ),
+    );
+    const fixedY = startRect
+      ? side === "top" ? startRect.bottom : startRect.top
+      : 0;
+    const heightCandidates: SnapCandidate<{
+      kind: "height" | "edge";
+      label: string;
+      guideY?: number;
+    }>[] = candidates.map((candidate) => ({
+      key: `height:${candidate.id}`,
+      value: candidate.frameHeight,
+      priority: 0,
+      data: {
+        kind: "height" as const,
+        label: `同高 ${Math.round(candidate.frameHeight)}`,
+      },
+    }));
+    const edgeTargets = [
+      ...(groupRect
+        ? [
+            {
+              key: "group:top",
+              y: groupRect.top,
+              label: "图片组上边缘",
+            },
+            {
+              key: "group:bottom",
+              y: groupRect.bottom,
+              label: "图片组下边缘",
+            },
+          ]
+        : []),
+      ...candidates.flatMap((candidate) => [
+        {
+          key: `image:${candidate.id}:top`,
+          y: candidate.rect.top,
+          label: "图片上边缘",
+        },
+        {
+          key: `image:${candidate.id}:bottom`,
+          y: candidate.rect.bottom,
+          label: "图片下边缘",
+        },
+      ]),
+    ];
+    for (const target of edgeTargets) {
+      const targetHeight = side === "top"
+        ? fixedY - target.y
+        : target.y - fixedY;
+      if (targetHeight < 32 || targetHeight > 4_096) continue;
+      heightCandidates.push({
+        key: target.key,
+        value: targetHeight,
+        priority: 1,
+        data: {
+          kind: "edge",
+          label: target.label,
+          guideY: target.y,
+        },
+      });
+    }
+    const activeKey = snapState.heightKey ?? snapState.horizontalKey;
+    const match = nearestSnap(rawHeight, heightCandidates, activeKey);
+    const frameHeight = match?.value ?? rawHeight;
+    const edgeMatch = match?.data.kind === "edge" ? match : null;
+    const dimensionMatch = match?.data.kind === "height" ? match : null;
+    return {
+      preview: {
+        imageId: start.imageId,
+        frameWidth: start.frameWidth,
+        frameHeight,
+        frameOffsetX: start.frameOffsetX,
+        frameOffsetY: side === "top"
+          ? start.frameOffsetY + start.frameHeight - frameHeight
+          : start.frameOffsetY,
+      },
+      guide: {
+        ...(edgeMatch?.data.guideY !== undefined && groupRect
+          ? {
+              horizontal: {
+                y: edgeMatch.data.guideY - groupRect.top,
+                label: edgeMatch.data.label,
+              },
+            }
+          : {}),
+        ...(dimensionMatch
+          ? { dimension: dimensionMatch.data.label }
+          : {}),
+      },
+      snapState: {
+        widthKey: null,
+        heightKey: match?.data.kind === "height" ? match.key : null,
+        verticalKey: null,
+        horizontalKey: match?.data.kind === "edge" ? match.key : null,
+      },
+    };
+  }
+
+  const side = affects(direction, "left") ? "left" : "right";
+  let rawWidth: number;
+  if (corner) {
+    const requestedWidth =
+      start.frameWidth + (side === "right" ? deltaX : -deltaX);
+    const verticalSide = affects(direction, "top") ? "top" : "bottom";
+    const requestedHeight =
+      start.frameHeight +
+      (verticalSide === "bottom" ? deltaY : -deltaY);
+    const scaleX = requestedWidth / start.frameWidth;
+    const scaleY = requestedHeight / start.frameHeight;
+    const requestedScale =
+      Math.abs(scaleX - 1) >= Math.abs(scaleY - 1) ? scaleX : scaleY;
+    const minimumScale = minimumWidth / start.frameWidth;
+    const maximumScale = maximumWidth / start.frameWidth;
+    rawWidth = start.frameWidth *
+      Math.min(maximumScale, Math.max(minimumScale, requestedScale));
+  } else {
+    rawWidth = Math.min(
+      maximumWidth,
+      Math.max(
+        minimumWidth,
+        start.frameWidth + (side === "right" ? deltaX : -deltaX),
+      ),
+    );
+  }
   const fixedX = startRect
     ? side === "left" ? startRect.right : startRect.left
     : 0;
@@ -228,15 +363,17 @@ export function frameResizePreview({
         label: `同宽 ${Math.round(candidate.frameWidth)}`,
       },
     })),
-    ...candidates.map((candidate) => ({
-      key: `height:${candidate.id}`,
-      value: candidate.frameHeight * aspectRatio,
-      priority: 1,
-      data: {
-        kind: "height" as const,
-        label: `同高 ${Math.round(candidate.frameHeight)}`,
-      },
-    })),
+    ...(corner
+      ? candidates.map((candidate) => ({
+          key: `height:${candidate.id}`,
+          value: candidate.frameHeight * aspectRatio,
+          priority: 1,
+          data: {
+            kind: "height" as const,
+            label: `同高 ${Math.round(candidate.frameHeight)}`,
+          },
+        }))
+      : []),
   ];
   const edgeTargets = [
     ...(groupRect
@@ -286,7 +423,9 @@ export function frameResizePreview({
     snapState.widthKey ?? snapState.heightKey ?? snapState.verticalKey;
   const match = nearestSnap(rawWidth, widthCandidates, activeKey);
   const frameWidth = match?.value ?? rawWidth;
-  const frameHeight = frameWidth / aspectRatio;
+  const frameHeight = corner
+    ? frameWidth / aspectRatio
+    : start.frameHeight;
   const dimensionMatch =
     match?.data.kind === "width" || match?.data.kind === "height"
       ? match
@@ -301,7 +440,9 @@ export function frameResizePreview({
       frameOffsetX: affects(direction, "left")
         ? start.frameOffsetX + start.frameWidth - frameWidth
         : start.frameOffsetX,
-      frameOffsetY: start.frameOffsetY,
+      frameOffsetY: affects(direction, "top")
+        ? start.frameOffsetY + start.frameHeight - frameHeight
+        : start.frameOffsetY,
     },
     guide: {
       ...(edgeMatch?.data.guideX !== undefined && groupRect

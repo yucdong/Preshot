@@ -48,6 +48,15 @@ pub struct CroppedReferenceImage {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CopiedReferenceImage {
+    pub file: String,
+    pub data_url: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImportedPlanMedia {
     pub file: String,
     pub data_url: String,
@@ -161,7 +170,7 @@ fn reference_path_error() -> CommandError {
     )
 }
 
-fn next_reference_number(references_dir: &Path) -> u32 {
+fn next_reference_number(references_dir: &Path) -> Result<u32, CommandError> {
     let mut max = 0u32;
     if let Ok(entries) = fs::read_dir(references_dir) {
         for entry in entries.flatten() {
@@ -172,7 +181,12 @@ fn next_reference_number(references_dir: &Path) -> u32 {
             }
         }
     }
-    max + 1
+    max.checked_add(1).ok_or_else(|| {
+        CommandError::new(
+            "references_full",
+            "Unable to allocate another project reference filename",
+        )
+    })
 }
 
 fn resolve_reference_path(project_path: &Path, file: &str) -> Result<PathBuf, CommandError> {
@@ -299,6 +313,44 @@ fn write_reference_atomically(destination: &Path, bytes: &[u8]) -> Result<(), Co
     Ok(())
 }
 
+fn write_new_reference(
+    references_dir: &Path,
+    extension: &str,
+    bytes: &[u8],
+) -> Result<String, CommandError> {
+    let mut number = next_reference_number(references_dir)?;
+    loop {
+        let file_name = format!("{number:04}.{extension}");
+        let destination = references_dir.join(&file_name);
+        let write_result = (|| {
+            let mut file = fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(&destination)?;
+            file.write_all(bytes)?;
+            file.sync_all()
+        })();
+        match write_result {
+            Ok(()) => return Ok(file_name),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                number = number.checked_add(1).ok_or_else(|| {
+                    CommandError::new(
+                        "references_full",
+                        "Unable to allocate another project reference filename",
+                    )
+                })?;
+            }
+            Err(error) => {
+                let _ = fs::remove_file(destination);
+                return Err(CommandError::new(
+                    "reference_crop_write_failed",
+                    format!("Unable to write the cropped reference image copy: {error}"),
+                ));
+            }
+        }
+    }
+}
+
 fn reference_crop_backup_path(
     destination: &Path,
     transaction_id: Uuid,
@@ -385,7 +437,7 @@ pub fn import_reference_image_into(
         )
     })?;
 
-    let file_name = format!("{:04}.{extension}", next_reference_number(&references_dir));
+    let file_name = format!("{:04}.{extension}", next_reference_number(&references_dir)?);
     let destination = references_dir.join(&file_name);
     copy_file(&source, &destination)?;
 
@@ -405,21 +457,24 @@ pub fn import_reference_image_into(
     })
 }
 
-pub fn crop_reference_image_in(
-    project_path: &Path,
-    file: &str,
+struct EncodedReferenceCrop {
+    original: Vec<u8>,
+    encoded: Vec<u8>,
+    width: u32,
+    height: u32,
+}
+
+fn encode_reference_crop(
+    absolute: &Path,
     bounds: ReferenceCropBounds,
-) -> Result<CroppedReferenceImage, CommandError> {
-    let project_path =
-        canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
-    let absolute = resolve_reference_path(&project_path, file)?;
-    let format = format_for_reference(&absolute).ok_or_else(|| {
+) -> Result<EncodedReferenceCrop, CommandError> {
+    let format = format_for_reference(absolute).ok_or_else(|| {
         CommandError::new(
             "reference_crop_unsupported_type",
             "Only project JPG and PNG reference images can be cropped",
         )
     })?;
-    let original = fs::read(&absolute).map_err(|error| {
+    let original = fs::read(absolute).map_err(|error| {
         CommandError::new(
             "reference_crop_read_failed",
             format!("Unable to read the reference image for cropping: {error}"),
@@ -483,9 +538,27 @@ pub fn crop_reference_image_in(
             "The cropped reference image exceeds the 16 MiB limit",
         ));
     }
+
+    Ok(EncodedReferenceCrop {
+        original,
+        encoded,
+        width,
+        height,
+    })
+}
+
+pub fn crop_reference_image_in(
+    project_path: &Path,
+    file: &str,
+    bounds: ReferenceCropBounds,
+) -> Result<CroppedReferenceImage, CommandError> {
+    let project_path =
+        canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let absolute = resolve_reference_path(&project_path, file)?;
+    let crop = encode_reference_crop(&absolute, bounds)?;
     let transaction_id = Uuid::new_v4();
-    let backup = write_reference_crop_backup(&absolute, &original, transaction_id)?;
-    if let Err(error) = write_reference_atomically(&absolute, &encoded) {
+    let backup = write_reference_crop_backup(&absolute, &crop.original, transaction_id)?;
+    if let Err(error) = write_reference_atomically(&absolute, &crop.encoded) {
         let _ = fs::remove_file(backup);
         return Err(error);
     }
@@ -495,11 +568,42 @@ pub fn crop_reference_image_in(
         data_url: format!(
             "data:{};base64,{}",
             mime_for_reference(file),
-            STANDARD.encode(encoded)
+            STANDARD.encode(crop.encoded)
         ),
-        width,
-        height,
+        width: crop.width,
+        height: crop.height,
         transaction_id: transaction_id.to_string(),
+    })
+}
+
+pub fn copy_reference_image_crop_in(
+    project_path: &Path,
+    file: &str,
+    bounds: ReferenceCropBounds,
+) -> Result<CopiedReferenceImage, CommandError> {
+    let project_path =
+        canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let absolute = resolve_reference_path(&project_path, file)?;
+    let extension = reference_extension(&absolute).ok_or_else(|| {
+        CommandError::new(
+            "reference_crop_unsupported_type",
+            "Only project JPG and PNG reference images can be cropped",
+        )
+    })?;
+    let crop = encode_reference_crop(&absolute, bounds)?;
+    let references_dir = absolute.parent().ok_or_else(reference_path_error)?;
+    let file_name = write_new_reference(references_dir, extension, &crop.encoded)?;
+    let copied_file = format!("{REFERENCES_DIR}/{file_name}");
+
+    Ok(CopiedReferenceImage {
+        file: copied_file.clone(),
+        data_url: format!(
+            "data:{};base64,{}",
+            mime_for_reference(&copied_file),
+            STANDARD.encode(crop.encoded)
+        ),
+        width: crop.width,
+        height: crop.height,
     })
 }
 
@@ -625,7 +729,7 @@ pub fn import_plan_media_into(
     })?;
     let file_name = format!(
         "{:04}.{}",
-        next_reference_number(&media_dir),
+        next_reference_number(&media_dir)?,
         kind.extension
     );
     fs::write(media_dir.join(&file_name), bytes).map_err(|error| {
@@ -720,6 +824,15 @@ pub fn crop_reference_image(
     bounds: ReferenceCropBounds,
 ) -> Result<CroppedReferenceImage, CommandError> {
     crop_reference_image_in(Path::new(&project_path), &file, bounds)
+}
+
+#[tauri::command]
+pub fn copy_reference_image_crop(
+    project_path: String,
+    file: String,
+    bounds: ReferenceCropBounds,
+) -> Result<CopiedReferenceImage, CommandError> {
+    copy_reference_image_crop_in(Path::new(&project_path), &file, bounds)
 }
 
 #[tauri::command]
@@ -885,6 +998,55 @@ mod tests {
             commit_reference_image_crop_in(&project_path, &cropped.file, &cropped.transaction_id)
                 .unwrap();
             assert!(fs::read_dir(project_path.join("references"))
+                .unwrap()
+                .flatten()
+                .all(|entry| !entry.file_name().to_string_lossy().contains(".crop-")));
+        }
+    }
+
+    #[test]
+    fn crop_copy_writes_the_next_safe_file_and_preserves_source_bytes() {
+        for (extension, format) in [("png", ImageFormat::Png), ("jpg", ImageFormat::Jpeg)] {
+            let parent = project();
+            let project_path = parent.path().join("Shoot");
+            let src_dir = tempfile::tempdir().unwrap();
+            let source_bytes = image_bytes(format);
+            let source = write_source(src_dir.path(), &format!("photo.{extension}"), &source_bytes);
+            let imported = import_reference_image_into(&project_path, &source).unwrap();
+            let imported_path = project_path.join(&imported.file);
+            let before = fs::read(&imported_path).unwrap();
+            fs::write(
+                project_path
+                    .join(REFERENCES_DIR)
+                    .join(format!("0003.{extension}")),
+                &source_bytes,
+            )
+            .unwrap();
+
+            let copied = copy_reference_image_crop_in(
+                &project_path,
+                &imported.file,
+                ReferenceCropBounds {
+                    x: 1,
+                    y: 1,
+                    width: 2,
+                    height: 2,
+                },
+            )
+            .unwrap();
+
+            assert_eq!(copied.file, format!("references/0004.{extension}"));
+            assert_eq!((copied.width, copied.height), (2, 2));
+            assert_eq!(fs::read(&imported_path).unwrap(), before);
+            assert_eq!(fs::read(&source).unwrap(), source_bytes);
+            let copied_bytes = fs::read(project_path.join(&copied.file)).unwrap();
+            assert_eq!(
+                image::load_from_memory_with_format(&copied_bytes, format)
+                    .unwrap()
+                    .dimensions(),
+                (2, 2)
+            );
+            assert!(fs::read_dir(project_path.join(REFERENCES_DIR))
                 .unwrap()
                 .flatten()
                 .all(|entry| !entry.file_name().to_string_lossy().contains(".crop-")));

@@ -1,5 +1,13 @@
-import { useEffect, useState, type PropsWithChildren } from "react";
 import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from "react";
+import { createPortal } from "react-dom";
+import {
+  Ellipsis,
   Focus,
   FolderOpen,
   Minimize2,
@@ -62,6 +70,15 @@ export function AppShell({
   const { t } = useTranslation();
   const settings = useTheme();
   const assistantOpen = settings.assistantOpen;
+  const [projectMenuId, setProjectMenuId] = useState<string | null>(null);
+  const [projectMenuPosition, setProjectMenuPosition] = useState({
+    left: 0,
+    top: 0,
+  });
+  const projectMenuRef = useRef<HTMLDivElement>(null);
+  const projectMenuTriggerRefs = useRef(
+    new Map<string, HTMLButtonElement>(),
+  );
   const [projectToRemove, setProjectToRemove] = useState<WorkspaceProjectView | null>(null);
   const [projectSessionCount, setProjectSessionCount] = useState<
     number | "loading" | "error" | null
@@ -142,7 +159,7 @@ export function AppShell({
   useEffect(() => {
     if (!focusMode || overlayPanel === null) return;
     const closeOverlay = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
       setWorkspaceView((current) =>
         current.projectId === currentProjectId
           ? { ...current, overlayPanel: null }
@@ -151,6 +168,89 @@ export function AppShell({
     window.addEventListener("keydown", closeOverlay);
     return () => window.removeEventListener("keydown", closeOverlay);
   }, [currentProjectId, focusMode, overlayPanel]);
+
+  const positionProjectMenu = useCallback((projectId: string) => {
+    const trigger = projectMenuTriggerRefs.current.get(projectId);
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 144;
+    const menuHeight = 84;
+    const viewportGutter = 8;
+    const preferredTop = rect.bottom + 4;
+    setProjectMenuPosition({
+      left: Math.min(
+        window.innerWidth - menuWidth - viewportGutter,
+        Math.max(viewportGutter, rect.right - menuWidth),
+      ),
+      top: preferredTop + menuHeight <= window.innerHeight - viewportGutter
+        ? preferredTop
+        : Math.max(viewportGutter, rect.top - menuHeight - 4),
+    });
+  }, []);
+  const focusProjectMenuTrigger = useCallback((projectId: string) => {
+    document
+      .getElementById(`project-overflow-trigger-${projectId}`)
+      ?.focus();
+  }, []);
+  const moveFocusFromProjectMenu = useCallback((
+    projectId: string,
+    backwards: boolean,
+  ) => {
+    const trigger = document.getElementById(
+      `project-overflow-trigger-${projectId}`,
+    );
+    if (!trigger) return;
+    const focusable = Array.from(document.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )).filter((element) => !element.closest('[role="menu"]'));
+    const triggerIndex = focusable.indexOf(trigger);
+    if (triggerIndex < 0) return;
+    const nextIndex = triggerIndex + (backwards ? -1 : 1);
+    focusable[nextIndex]?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!projectMenuId) return;
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest("[data-project-overflow-menu]")?.getAttribute(
+          "data-project-overflow-menu",
+        ) === projectMenuId
+      ) {
+        return;
+      }
+      setProjectMenuId(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setProjectMenuId(null);
+      focusProjectMenuTrigger(projectMenuId);
+    };
+    const updatePosition = () => positionProjectMenu(projectMenuId);
+    const focusFirstItem = window.requestAnimationFrame(() => {
+      projectMenuRef.current
+        ?.querySelector<HTMLElement>('[role="menuitem"]')
+        ?.focus();
+    });
+
+    updatePosition();
+    document.addEventListener("pointerdown", closeOnOutsidePointer, true);
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.cancelAnimationFrame(focusFirstItem);
+      document.removeEventListener("pointerdown", closeOnOutsidePointer, true);
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [focusProjectMenuTrigger, positionProjectMenu, projectMenuId]);
 
   const commitWidths = (next = panelWidths) => {
     settings.setPanelWidths(next);
@@ -338,7 +438,14 @@ export function AppShell({
 
               return (
                 <li key={project.projectId}>
-                  <article className={`group/project relative overflow-hidden rounded-lg border ${isCurrent ? "border-app-border bg-app-panel-strong shadow-[0_3px_12px_rgb(24_24_27_/_7%)]" : "border-transparent hover:bg-app-panel-strong focus-within:bg-app-panel-strong"}`}>
+                  <article
+                    className={`group/project relative rounded-lg border ${
+                      isCurrent
+                        ? "border-app-border bg-app-panel-strong shadow-[0_3px_12px_rgb(24_24_27_/_7%)]"
+                        : "border-transparent hover:bg-app-panel-strong focus-within:bg-app-panel-strong"
+                    }`}
+                    data-project-overflow-menu={project.projectId}
+                  >
                     <button
                       aria-current={isCurrent ? "page" : undefined}
                       aria-label={
@@ -346,8 +453,11 @@ export function AppShell({
                           ? t("shell.openProjectNamed", { name: project.name })
                           : t("shell.projectUnavailableNamed", { name: project.name })
                       }
-                      className={`${railButtonClassName} flex items-center gap-2.5 text-left text-app-muted hover:text-app-ink`}
-                      onClick={() => onSelectProject(project)}
+                      className={`${railButtonClassName} flex items-center gap-2.5 pr-10 text-left text-app-muted hover:text-app-ink`}
+                      onClick={() => {
+                        setProjectMenuId(null);
+                        onSelectProject(project);
+                      }}
                       type="button"
                     >
                       {project.coverDataUrl ? (
@@ -364,10 +474,39 @@ export function AppShell({
                         </span>
                       </span>
                     </button>
-                    <div className="absolute inset-x-1 bottom-1 flex items-center justify-end gap-1 rounded bg-app-panel-strong/95 px-1 py-0.5 opacity-0 shadow-sm transition-opacity group-hover/project:opacity-100 group-focus-within/project:opacity-100">
-                      <button aria-label={`打开项目目录 ${project.name}`} className="grid h-5 w-5 place-items-center rounded text-app-muted hover:bg-app-primary-soft hover:text-app-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional" onClick={() => onRevealProject(project)} type="button"><FolderOpen aria-hidden className="h-3 w-3" /></button>
-                      <button aria-label={`移除项目 ${project.name}`} className="grid h-5 w-5 place-items-center rounded text-app-danger hover:bg-app-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger" onClick={() => requestProjectRemoval(project)} type="button"><Trash2 aria-hidden className="h-3 w-3" /></button>
-                    </div>
+                    <button
+                      aria-expanded={projectMenuId === project.projectId}
+                      aria-haspopup="menu"
+                      aria-label={`更多项目操作 ${project.name}`}
+                      className={`absolute right-2 top-1/2 z-10 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-app-muted transition-[opacity,color,background-color] hover:bg-app-primary-soft hover:text-app-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional ${
+                        isCurrent || projectMenuId === project.projectId
+                          ? "opacity-100"
+                          : "opacity-0 group-hover/project:opacity-100 group-focus-within/project:opacity-100"
+                      }`}
+                      onClick={() =>
+                        setProjectMenuId((current) => {
+                          if (current === project.projectId) return null;
+                          positionProjectMenu(project.projectId);
+                          return project.projectId;
+                        })}
+                      id={`project-overflow-trigger-${project.projectId}`}
+                      ref={(element) => {
+                        if (element) {
+                          projectMenuTriggerRefs.current.set(
+                            project.projectId,
+                            element,
+                          );
+                        } else {
+                          projectMenuTriggerRefs.current.delete(
+                            project.projectId,
+                          );
+                        }
+                      }}
+                      title="更多项目操作"
+                      type="button"
+                    >
+                      <Ellipsis aria-hidden className="h-4 w-4" />
+                    </button>
                   </article>
                 </li>
               );
@@ -445,6 +584,91 @@ export function AppShell({
           </div>
         ) : null}
       </div>
+      {projectMenuId
+        ? (() => {
+            const project = projects.find(
+              (candidate) => candidate.projectId === projectMenuId,
+            );
+            if (!project) return null;
+            return createPortal(
+              <div
+                aria-label={`${project.name} 项目操作`}
+                className="fixed z-[90] min-w-36 rounded-lg border border-app-border bg-app-panel-strong p-1 shadow-[0_10px_28px_rgb(24_24_27_/_18%)]"
+                data-project-overflow-menu={project.projectId}
+                onBlur={(event) => {
+                  const next = event.relatedTarget;
+                  if (
+                    next instanceof Node &&
+                    event.currentTarget.contains(next)
+                  ) {
+                    return;
+                  }
+                  setProjectMenuId(null);
+                }}
+                onKeyDown={(event) => {
+                  const items = Array.from(
+                    event.currentTarget.querySelectorAll<HTMLElement>(
+                      '[role="menuitem"]',
+                    ),
+                  );
+                  const currentIndex = items.indexOf(
+                    document.activeElement as HTMLElement,
+                  );
+                  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                    event.preventDefault();
+                    const delta = event.key === "ArrowDown" ? 1 : -1;
+                    items[
+                      (currentIndex + delta + items.length) % items.length
+                    ]?.focus();
+                  } else if (event.key === "Home") {
+                    event.preventDefault();
+                    items[0]?.focus();
+                  } else if (event.key === "End") {
+                    event.preventDefault();
+                    items.at(-1)?.focus();
+                  } else if (event.key === "Tab") {
+                    event.preventDefault();
+                    moveFocusFromProjectMenu(
+                      project.projectId,
+                      event.shiftKey,
+                    );
+                    setProjectMenuId(null);
+                  }
+                }}
+                ref={projectMenuRef}
+                role="menu"
+                style={projectMenuPosition}
+              >
+                <button
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium text-app-ink hover:bg-app-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
+                  onClick={() => {
+                    setProjectMenuId(null);
+                    onRevealProject(project);
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  <FolderOpen aria-hidden className="h-3.5 w-3.5" />
+                  打开项目目录
+                </button>
+                <button
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium text-app-danger hover:bg-app-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger"
+                  onClick={() => {
+                    focusProjectMenuTrigger(project.projectId);
+                    setProjectMenuId(null);
+                    requestProjectRemoval(project);
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  <Trash2 aria-hidden className="h-3.5 w-3.5" />
+                  删除项目
+                </button>
+              </div>,
+              document.body,
+            );
+          })()
+        : null}
       <ConfirmDialog
         cancelLabel="取消"
         confirmLabel="从列表移除"

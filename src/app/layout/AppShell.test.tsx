@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
@@ -187,16 +187,104 @@ describe("AppShell", () => {
 
     expect(screen.queryByText(project.path)).not.toBeInTheDocument();
     expect(screen.queryByTitle(project.path)).not.toBeInTheDocument();
-    const revealButton = screen.getByRole("button", { name: "打开项目目录 Editorial" });
-    revealButton.focus();
-    expect(revealButton).toHaveFocus();
-    await user.keyboard("{Enter}");
+
+    expect(
+      screen.queryByRole("button", { name: "打开项目目录" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "删除项目" }),
+    ).not.toBeInTheDocument();
+
+    const menuButton = screen.getByRole("button", {
+      name: "更多项目操作 Editorial",
+    });
+    expect(menuButton).toHaveAttribute("aria-expanded", "false");
+    await user.click(menuButton);
+    expect(menuButton).toHaveAttribute("aria-expanded", "true");
+    const menu = screen.getByRole("menu", {
+      name: "Editorial 项目操作",
+    });
+    expect(within(menu).getAllByRole("menuitem").map((item) =>
+      item.textContent
+    )).toEqual(["打开项目目录", "删除项目"]);
+
+    await user.click(within(menu).getByRole("menuitem", {
+      name: "打开项目目录",
+    }));
     expect(h.onRevealProject).toHaveBeenCalledWith(project);
 
-    await user.click(screen.getByRole("button", { name: "移除项目 Editorial" }));
+    await user.click(menuButton);
+    const deleteItem = screen.getByRole("menuitem", { name: "删除项目" });
+    await user.click(deleteItem);
     expect(screen.getByRole("dialog")).toHaveTextContent("磁盘文件不会被删除");
+    await user.click(screen.getByRole("button", { name: "取消" }));
+    expect(menuButton).toHaveFocus();
+
+    await user.click(menuButton);
+    await user.click(screen.getByRole("menuitem", { name: "删除项目" }));
     await user.click(screen.getByRole("button", { name: "从列表移除" }));
     expect(h.onRemoveProject).toHaveBeenCalledWith(project);
+  });
+
+  it("closes the project menu with Escape and outside pointer input", async () => {
+    const user = userEvent.setup();
+    renderShell(
+      <AppShell
+        currentProjectId="editorial"
+        projects={[makeProject()]}
+        {...handlers()}
+      >
+        <button type="button">Canvas action</button>
+      </AppShell>,
+    );
+
+    const trigger = screen.getByRole("button", {
+      name: "更多项目操作 Editorial",
+    });
+    await user.click(trigger);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("menuitem", { name: "打开项目目录" }),
+      ).toHaveFocus()
+    );
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "删除项目" })).toHaveFocus();
+    await user.keyboard("{ArrowUp}");
+    expect(
+      screen.getByRole("menuitem", { name: "打开项目目录" }),
+    ).toHaveFocus();
+    await user.keyboard("{Tab}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新建项目" })).toHaveFocus();
+
+    await user.click(trigger);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("menuitem", { name: "打开项目目录" }),
+      ).toHaveFocus()
+    );
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "打开项目 Editorial" }),
+    ).toHaveFocus();
+
+    await user.click(trigger);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("menuitem", { name: "打开项目目录" }),
+      ).toHaveFocus()
+    );
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+
+    await user.click(trigger);
+    await user.pointer({
+      keys: "[MouseLeft]",
+      target: screen.getByRole("button", { name: "Canvas action" }),
+    });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
   it("marks unavailable projects and surfaces a workspace error", () => {

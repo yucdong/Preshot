@@ -6,7 +6,7 @@ describe("blockDocumentToPdfBlocks", () => {
   it("maps native BlockNote JSON and image groups without HTML", () => {
     const document: PreshotBlockDocument = {
       format: "preshot-blocks",
-      version: 2,
+      version: 3,
       blocks: [
         {
           id: "heading",
@@ -38,7 +38,7 @@ describe("blockDocumentToPdfBlocks", () => {
   it("preserves column weights and side-by-side child blocks", () => {
     const document: PreshotBlockDocument = {
       format: "preshot-blocks",
-      version: 2,
+      version: 3,
       blocks: [{
         id: "columns",
         type: "columnList",
@@ -93,7 +93,7 @@ describe("blockDocumentToPdfBlocks", () => {
   it("maps native media blocks to PDF images and fallback labels", () => {
     const document: PreshotBlockDocument = {
       format: "preshot-blocks",
-      version: 2,
+      version: 3,
       blocks: [
         {
           id: "image",

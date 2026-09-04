@@ -164,11 +164,13 @@ export function createReactPdfBlockNoteExporter(
       let document: PdfDocumentElement;
       try {
         const exporter = createPreshotReactPdfExporter(context, {
+          artifacts: exportPlan.artifacts,
           imageGroup: contextualImageGroupMapping(
             context,
             createImageGroupMapping,
           ),
           fontSources: options.fontSources,
+          resolvedAssets: exportAssets,
         });
         document = await exporter.toReactPDFDocument(
           exportPlan.document.blocks as Block<

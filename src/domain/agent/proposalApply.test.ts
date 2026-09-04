@@ -27,11 +27,12 @@ function textBlock(id: string, text: string): PreshotBlock {
 
 function plan(): ProjectPlanV14 {
   return {
-    schemaVersion: 14,
+    schemaVersion: 15,
+    artifacts: [],
     title: "Editorial",
     document: {
       format: "preshot-blocks",
-      version: 2,
+      version: 3,
       blocks: [
         textBlock("intro", "Before"),
         {
@@ -207,7 +208,7 @@ describe("agent proposal projection, apply, discard, and undo", () => {
       ...plan(),
       document: {
         format: "preshot-blocks",
-        version: 2,
+        version: 3,
         blocks: [{
           id: "columns",
           type: "columnList",

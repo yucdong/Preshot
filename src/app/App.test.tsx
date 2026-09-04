@@ -32,11 +32,11 @@ function planDeps(): PlanDependencies {
       loadPlan: vi.fn().mockResolvedValue({
         status: "missing",
         plan: {
-          schemaVersion: 14,
+          schemaVersion: 15,
           title: "Demo",
           document: {
             format: "preshot-blocks",
-            version: 2,
+            version: 3,
             blocks: [{
               id: "block",
               type: "paragraph",
@@ -46,6 +46,7 @@ function planDeps(): PlanDependencies {
             }],
           },
           imageGroups: [],
+          artifacts: [],
         },
       }),
       loadImage: vi.fn().mockResolvedValue(""),
@@ -112,7 +113,7 @@ describe("App", () => {
 
     render(<App dependencies={dependencies} planDependencies={planDeps()} />);
 
-    expect(await screen.findByText("BlockNote Canvas v14")).toBeVisible();
+    expect(await screen.findByText("BlockNote Canvas v15")).toBeVisible();
     expect(dependencies.native.maximizeWindow).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("group", { name: "方案正文" })).toHaveAttribute(
       "data-editor-engine",
@@ -140,7 +141,7 @@ describe("App", () => {
 
     render(<App dependencies={dependencies} planDependencies={planDeps()} />);
 
-    expect(await screen.findByText("BlockNote Canvas v14")).toBeVisible();
+    expect(await screen.findByText("BlockNote Canvas v15")).toBeVisible();
     expect(
       screen.getByRole("button", { name: "打开项目 Preshot 入门示例" }),
     ).toHaveAttribute("aria-current", "page");

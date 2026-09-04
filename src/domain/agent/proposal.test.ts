@@ -29,7 +29,7 @@ function textBlock(
 function document(): PreshotBlockDocument {
   return {
     format: "preshot-blocks",
-    version: 2,
+    version: 3,
     blocks: [textBlock("block-1", "Before")],
   };
 }
@@ -105,7 +105,7 @@ describe("closed agent text proposal schema and hashing", () => {
     const forbiddenDrafts = [
       { type: "paragraph", text: "Text", id: "model-id" },
       { type: "image", text: "Text", url: "media/file.png" },
-      { type: "paragraph", text: "Text", schemaVersion: 14 },
+      { type: "paragraph", text: "Text", schemaVersion: 15 },
       { type: "paragraph", text: "Text", path: "C:\\secret" },
       { type: "paragraph", text: "Text", props: { groupId: "group-1" } },
     ];

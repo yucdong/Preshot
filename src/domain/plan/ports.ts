@@ -21,6 +21,11 @@ export interface OverwrittenReferenceImage extends ImportedImage {
   height: number;
 }
 
+export interface CopiedReferenceImage extends ImportedImage {
+  width: number;
+  height: number;
+}
+
 export interface ReferenceImageCropTransaction {
   image: OverwrittenReferenceImage;
   commit(): Promise<void>;
@@ -35,6 +40,13 @@ export interface ReferenceImageCropStore {
       bounds: ReferenceImageCropBounds;
     },
   ): Promise<ReferenceImageCropTransaction>;
+  copyImageCrop?(
+    projectPath: string,
+    input: {
+      file: string;
+      bounds: ReferenceImageCropBounds;
+    },
+  ): Promise<CopiedReferenceImage>;
 }
 
 export interface ImportedPlanMedia {

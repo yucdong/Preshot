@@ -6,6 +6,7 @@ import {
   createLongImageGeometry,
   type LongImageWidth,
 } from "../../../../domain/plan/blocknote/longImageExportContract";
+import { artifactCollectionGroups } from "../artifactCollections";
 
 const defaultGeometry = createLongImageGeometry(900);
 
@@ -25,6 +26,10 @@ const ATOMIC_BLOCK_TYPES = new Set([
   "file",
   "image",
   "imageGroup",
+  "shootingLocation",
+  "modelCard",
+  "clothing",
+  "prop",
   "pageBreak",
   "table",
   "video",
@@ -103,7 +108,11 @@ export function validateLongImageExportAssets(
   plan: ProjectPlanV14,
   resolvedAssets: Readonly<Record<string, string>>,
 ): void {
-  const groupsById = new Map(plan.imageGroups.map((group) => [group.id, group]));
+  const groupsById = new Map(
+    [...plan.imageGroups, ...artifactCollectionGroups(plan)].map(
+      (group) => [group.id, group],
+    ),
+  );
   visitBlocks(plan.document.blocks, (block) => {
     if (block.type === "imageGroup") {
       const groupId = block.props.groupId;
@@ -122,6 +131,31 @@ export function validateLongImageExportAssets(
             `Long-image export requires local image data for "${image.file}".`,
           );
         }
+      });
+      return;
+    }
+    if (
+      block.type === "shootingLocation" ||
+      block.type === "modelCard" ||
+      block.type === "clothing" ||
+      block.type === "prop"
+    ) {
+      const artifactId = String(block.props.artifactId ?? "");
+      const artifact = plan.artifacts.find((entry) => entry.id === artifactId);
+      if (!artifact) {
+        throw new Error(
+          `Long-image export cannot resolve artifact "${artifactId}".`,
+        );
+      }
+      artifactCollectionGroups({ artifacts: [artifact] }).forEach((group) => {
+        group.images.forEach((image) => {
+          const source = resolvedAssets[image.file];
+          if (!source || !isLocalLongImageAsset(source)) {
+            throw new Error(
+              `Long-image export requires local image data for "${image.file}".`,
+            );
+          }
+        });
       });
       return;
     }

@@ -15,10 +15,15 @@ import {
   migrateLegacyDefaultImageFrames,
 } from "../../../domain/plan/blocknote/plan";
 import type {
+  ArtifactKind,
+  ArtifactRecord,
+  ImageCollection,
   PreshotBlockDocument,
+  ProjectPlanV15,
   ProjectPlanV14,
 } from "../../../domain/plan/canvas/blockDocument";
 import {
+  artifactIdsInBlockDocument,
   imageGroupIdsInBlockDocument,
   mediaFilesInBlockDocument,
 } from "../../../domain/plan/canvas/blockDocument";
@@ -27,6 +32,8 @@ import { DEFAULT_REFERENCE_HEIGHT } from "../../../domain/plan/canvas/models";
 import {
   MIN_COMPONENT_HEIGHT,
   MIN_COMPONENT_WIDTH,
+  type ReferenceComponent,
+  type ReferenceImage,
 } from "../../../domain/plan/canvas/models";
 import {
   cropForResizedFrame,
@@ -78,6 +85,13 @@ import {
 import type { ImageGroupBlockController } from "./ImageGroupBlockContext";
 import { applyMeasuredImages } from "./imageHydration";
 import type { LongImageExportSettings } from "./LongImageExportDialog";
+import type { ArtifactBlockController } from "./ArtifactBlockContext";
+import {
+  artifactCollectionGroups,
+  allCollectionIdsInDocumentOrder,
+  findArtifactCollection,
+  replaceArtifactCollection,
+} from "./artifactCollections";
 
 interface BlockNoteProjectCanvasProviderProps {
   agentWorkspace?: AgentWorkspacePublisher;
@@ -121,7 +135,7 @@ type LoadState =
   | { status: "loading" }
   | { status: "failed"; message: string }
   | Extract<BlockNotePlanLoadResult, { status: "incompatible" }>
-  | { status: "ready"; plan: ProjectPlanV14 };
+  | { status: "ready"; plan: ProjectPlanV15 };
 
 interface LightboxTarget {
   groupId: string;
@@ -130,8 +144,119 @@ interface LightboxTarget {
 }
 
 interface ImageMutationContext {
-  getLatestPlan(): ProjectPlanV14;
+  getLatestPlan(): ProjectPlanV15;
   getLatestRevision(): number;
+}
+
+const collectionGroupCache = new WeakMap<
+  ProjectPlanV15,
+  ReferenceComponent[]
+>();
+
+function allCollectionGroups(plan: ProjectPlanV15): ReferenceComponent[] {
+  const cached = collectionGroupCache.get(plan);
+  if (cached) return cached;
+  const groups = [...plan.imageGroups, ...artifactCollectionGroups(plan)];
+  collectionGroupCache.set(plan, groups);
+  return groups;
+}
+
+function createArtifactRecord(kind: ArtifactKind): ArtifactRecord {
+  const id = crypto.randomUUID();
+  const collection = () => ({
+    id: crypto.randomUUID(),
+    images: [],
+  });
+  const base = { id, kind, revision: 0 };
+  if (kind === "shootingLocation") {
+    return {
+      ...base,
+      kind,
+      venueName: "未命名场地",
+      address: "",
+      description: "",
+      gallery: collection(),
+    };
+  }
+  if (kind === "modelCard") {
+    return {
+      ...base,
+      kind,
+      modelId: "未命名模特",
+      heightCm: null,
+      weightKg: null,
+      shoeSize: "",
+      samples: collection(),
+    };
+  }
+  if (kind === "clothing") {
+    return {
+      ...base,
+      kind,
+      title: "未命名服装",
+      mainGallery: collection(),
+      tryOn: {
+        expanded: false,
+        gallery: collection(),
+      },
+      source: "",
+    };
+  }
+  return {
+    ...base,
+    kind,
+    title: "未命名道具",
+    gallery: collection(),
+    source: "",
+  };
+}
+
+function cloneArtifactRecord(artifact: ArtifactRecord): ArtifactRecord {
+  const cloneCollection = <T extends { id: string; images: ReferenceImage[] }>(
+    collection: T,
+  ): T => ({
+    ...structuredClone(collection),
+    id: crypto.randomUUID(),
+    images: collection.images.map((image) => ({
+      ...structuredClone(image),
+      id: crypto.randomUUID(),
+    })),
+  });
+  const base = {
+    ...structuredClone(artifact),
+    id: crypto.randomUUID(),
+    revision: 0,
+  };
+  if (base.kind === "shootingLocation") {
+    return {
+      ...base,
+      venueName: `${base.venueName} 副本`,
+      gallery: cloneCollection(base.gallery),
+    };
+  }
+  if (base.kind === "modelCard") {
+    return {
+      ...base,
+      modelId: `${base.modelId} 副本`,
+      samples: cloneCollection(base.samples),
+    };
+  }
+  if (base.kind === "clothing") {
+    return {
+      ...base,
+      title: `${base.title} 副本`,
+      mainGallery: cloneCollection(base.mainGallery),
+      tryOn: {
+        ...base.tryOn,
+        gallery: cloneCollection(base.tryOn.gallery),
+      },
+    };
+  }
+  return {
+    ...base,
+    title: `${base.title} 副本`,
+    gallery: cloneCollection(base.gallery),
+  };
 }
 
 type LongImageUiProgress =
@@ -173,14 +298,16 @@ function longImageProgressLabel(progress: LongImageUiProgress): string {
 }
 
 function applyImportedImagesToLatest(
-  latest: ProjectPlanV14,
+  latest: ProjectPlanV15,
   result: Awaited<ReturnType<BlockNotePlanService["importImages"]>>,
   groupId: string,
-): ProjectPlanV14 {
+): ProjectPlanV15 {
   const importedIds = new Set(
     result.images.map(({ image }) => image.id),
   );
   const resultGroup = result.plan.imageGroups.find((group) =>
+    group.id === groupId
+  ) ?? artifactCollectionGroups(result.plan).find((group) =>
     group.id === groupId
   );
   if (!resultGroup) return latest;
@@ -189,7 +316,7 @@ function applyImportedImagesToLatest(
       .filter((image) => importedIds.has(image.id))
       .map((image) => [image.id, image]),
   );
-  return {
+  const next = {
     ...latest,
     imageGroups: latest.imageGroups.map((group) => {
       if (group.id !== groupId) return group;
@@ -213,26 +340,45 @@ function applyImportedImagesToLatest(
       };
     }),
   };
+  if (next.imageGroups.some((group) => group.id === groupId)) return next;
+  return replaceArtifactCollection(next, groupId, (collection) => {
+    const existingIds = new Set(collection.images.map((image) => image.id));
+    const images = collection.images.map((image) =>
+      importedById.get(image.id) ?? image
+    );
+    for (const { image } of result.images) {
+      const measured = importedById.get(image.id);
+      if (measured && !existingIds.has(image.id)) images.push(measured);
+    }
+    return { ...collection, images };
+  });
 }
 
 function applyCropToLatest(
-  latest: ProjectPlanV14,
+  latest: ProjectPlanV15,
   result: Awaited<ReturnType<BlockNotePlanService["commitImageCrop"]>>,
-): ProjectPlanV14 {
+  expectedSourceFile?: string,
+): ProjectPlanV15 {
   const updatedById = new Map(
-    result.plan.imageGroups.flatMap((group) =>
+    allCollectionGroups(result.plan).flatMap((group) =>
       group.images
         .filter((image) => image.file === result.image.file)
         .map((image) => [image.id, image] as const)
     ),
   );
-  return {
+  const next = {
     ...latest,
     imageGroups: latest.imageGroups.map((group) => {
       let changed = false;
       const images = group.images.map((image) => {
         const updated = updatedById.get(image.id);
-        if (!updated || updated.file !== image.file) return image;
+        if (
+          !updated ||
+          (expectedSourceFile !== undefined &&
+            image.file !== expectedSourceFile)
+        ) {
+          return image;
+        }
         changed = true;
         return updated;
       });
@@ -247,14 +393,49 @@ function applyCropToLatest(
       };
     }),
   };
+  return {
+    ...next,
+    artifacts: next.artifacts.map((artifact) => {
+      const replace = (collection: ImageCollection): ImageCollection => ({
+          ...collection,
+          images: collection.images.map((image) => {
+            const updated = updatedById.get(image.id);
+            return updated &&
+                (
+                  expectedSourceFile === undefined ||
+                  image.file === expectedSourceFile
+                )
+              ? updated
+              : image;
+          }),
+        });
+      if (artifact.kind === "shootingLocation") {
+        return { ...artifact, gallery: replace(artifact.gallery) };
+      }
+      if (artifact.kind === "modelCard") {
+        return { ...artifact, samples: replace(artifact.samples) };
+      }
+      if (artifact.kind === "clothing") {
+        return {
+          ...artifact,
+          mainGallery: replace(artifact.mainGallery),
+          tryOn: {
+            ...artifact.tryOn,
+            gallery: replace(artifact.tryOn.gallery),
+          },
+        };
+      }
+      return { ...artifact, gallery: replace(artifact.gallery) };
+    }),
+  };
 }
 
 function applyImageRemovalToLatest(
-  latest: ProjectPlanV14,
+  latest: ProjectPlanV15,
   groupId: string,
   imageId: string,
-): ProjectPlanV14 {
-  return {
+): ProjectPlanV15 {
+  const next = {
     ...latest,
     imageGroups: latest.imageGroups.map((group) =>
       group.id === groupId
@@ -265,6 +446,10 @@ function applyImageRemovalToLatest(
         : group
     ),
   };
+  return replaceArtifactCollection(next, groupId, (collection) => ({
+    ...collection,
+    images: collection.images.filter((image) => image.id !== imageId),
+  }));
 }
 
 export function BlockNoteProjectCanvasProvider({
@@ -312,7 +497,7 @@ export function BlockNoteProjectCanvasProvider({
   const captureTokenRef = useRef<string | null>(null);
   const exportInFlightRef = useRef(false);
   const longImageAbortRef = useRef<AbortController | null>(null);
-  const planRef = useRef<ProjectPlanV14 | null>(null);
+  const planRef = useRef<ProjectPlanV15 | null>(null);
   const planRevisionRef = useRef(0);
   const loadStateRef = useRef<LoadState>({ status: "loading" });
   const saveStateRef = useRef<SaveState>("saved");
@@ -325,11 +510,13 @@ export function BlockNoteProjectCanvasProvider({
   const imageSrcRef = useRef<Record<string, string>>({});
   const metadataListenersRef = useRef(new Set<() => void>());
   const detachedGroupsRef = useRef(new Map<string, ProjectPlanV14["imageGroups"][number]>());
+  const detachedArtifactsRef = useRef(new Map<string, ArtifactRecord>());
+  const pendingArtifactsRef = useRef(new Map<string, ArtifactRecord>());
   const detachedMediaFilesRef = useRef(new Set<string>());
   const savedRef = useRef("");
   const imageMoveUndoRef = useRef<{
-    readonly before: ProjectPlanV14;
-    readonly after: ProjectPlanV14;
+    readonly before: ProjectPlanV15;
+    readonly after: ProjectPlanV15;
   } | null>(null);
   const proposalDocumentTransactionRef = useRef<
     ((document: PreshotBlockDocument) => void) | null
@@ -433,13 +620,13 @@ export function BlockNoteProjectCanvasProvider({
   }, [zoom]);
 
   const publishAgentPlan = useCallback((
-    plan: ProjectPlanV14,
+    plan: ProjectPlanV15,
     revision: number,
     nextSaveState: SaveState,
   ) => {
     if (!agentWorkspace) return;
     agentWorkspace.publishImageIndex(
-      plan.imageGroups.flatMap((group) =>
+      allCollectionGroups(plan).flatMap((group) =>
         group.images.map((image) => ({
           groupId: group.id,
           imageId: image.id,
@@ -458,7 +645,7 @@ export function BlockNoteProjectCanvasProvider({
     });
   }, [agentWorkspace]);
 
-  const applyPlan = useCallback((plan: ProjectPlanV14) => {
+  const applyPlan = useCallback((plan: ProjectPlanV15) => {
     if (imageMoveUndoRef.current?.after !== plan) {
       imageMoveUndoRef.current = null;
     }
@@ -806,7 +993,8 @@ export function BlockNoteProjectCanvasProvider({
     imageId: string,
     open: boolean,
   ): boolean => {
-    const group = planRef.current?.imageGroups.find((entry) =>
+    const current = planRef.current;
+    const group = current && allCollectionGroups(current).find((entry) =>
       entry.id === groupId
     );
     const image = group?.images.find((entry) => entry.id === imageId);
@@ -859,6 +1047,10 @@ export function BlockNoteProjectCanvasProvider({
     crop: NormalizedImageCrop,
   ) => {
     await enqueueImageMutation(async (context) => {
+      const before = context.getLatestPlan();
+      const beforeImage = allCollectionGroups(before)
+        .find((group) => group.id === groupId)
+        ?.images.find((image) => image.id === imageId);
       let serviceRevision = context.getLatestRevision();
       const result = await service.commitImageCrop(
         projectPath,
@@ -870,11 +1062,20 @@ export function BlockNoteProjectCanvasProvider({
         imageId,
         crop,
       );
+      const copyOnWrite =
+        beforeImage !== undefined && result.image.file !== beforeImage.file;
       if (mountedRef.current) {
         setImageSrc((existing) => ({
           ...existing,
           [result.image.file]: result.dataUrl,
         }));
+        if (copyOnWrite) {
+          setLightboxTarget((current) =>
+            current?.groupId === groupId && current.imageId === imageId
+              ? { ...current, file: result.image.file }
+              : current
+          );
+        }
       }
       if (agentWorkspace && selectedImageIdRef.current === imageId) {
         const thumbnailDataUrl = await createAgentThumbnail(result.dataUrl);
@@ -889,11 +1090,18 @@ export function BlockNoteProjectCanvasProvider({
           });
         }
       }
-      applyPlan(
+      const next =
         serviceRevision === context.getLatestRevision()
           ? result.plan
-          : applyCropToLatest(context.getLatestPlan(), result),
-      );
+          : applyCropToLatest(
+              context.getLatestPlan(),
+              result,
+              beforeImage?.file,
+            );
+      applyPlan(next);
+      if (copyOnWrite) {
+        imageMoveUndoRef.current = { before, after: next };
+      }
     });
   }, [
     agentWorkspace,
@@ -944,10 +1152,12 @@ export function BlockNoteProjectCanvasProvider({
         setMigrationNotice(
           migration.migratedImageCount > 0
             ? `已升级 ${migration.migratedImageCount} 张旧版默认尺寸图片；自定义尺寸未更改。请确认排版，系统将自动保存。`
-            : null,
+            : result.status === "migrated"
+              ? "项目已安全升级为素材组件格式；原有内容和图片组未更改。"
+              : null,
         );
         const files = new Set(
-          plan.imageGroups.flatMap((group) =>
+          allCollectionGroups(plan).flatMap((group) =>
             group.images.map((image) => image.file),
           ),
         );
@@ -1028,19 +1238,22 @@ export function BlockNoteProjectCanvasProvider({
         const activePlan = planRef.current;
         if (activePlan) {
           const detachedGroups = [...detachedGroupsRef.current.values()];
+          const detachedArtifactGroups = [
+            ...detachedArtifactsRef.current.values(),
+          ].flatMap((artifact) =>
+            artifactCollectionGroups({ artifacts: [artifact] })
+          );
           const detachedMedia = [...detachedMediaFilesRef.current];
           const serialized = JSON.stringify(activePlan);
           if (serialized !== savedRef.current) {
             await service.savePlan(projectPath, activePlan);
             savedRef.current = serialized;
           }
-          if (detachedGroups.length > 0) {
-            await service.purgeDetachedGroups(
-              projectPath,
-              activePlan,
-              detachedGroups,
-            );
-          }
+          await service.purgeDetachedGroups(
+            projectPath,
+            activePlan,
+            [...detachedGroups, ...detachedArtifactGroups],
+          );
           if (detachedMedia.length > 0) {
             await service.purgeDetachedMedia(
               projectPath,
@@ -1082,6 +1295,13 @@ export function BlockNoteProjectCanvasProvider({
       event.stopPropagation();
       imageMoveUndoRef.current = null;
       applyPlan(undo.before);
+      setLightboxTarget((current) => {
+        if (!current) return current;
+        const restored = allCollectionGroups(undo.before)
+          .find((group) => group.id === current.groupId)
+          ?.images.find((image) => image.id === current.imageId);
+        return restored ? { ...current, file: restored.file } : null;
+      });
     };
     window.addEventListener("keydown", onUndoImageMove, true);
     return () => window.removeEventListener("keydown", onUndoImageMove, true);
@@ -1198,11 +1418,98 @@ export function BlockNoteProjectCanvasProvider({
         detachedGroupsRef.current.delete(groupId);
       }
     }
+    const referencedArtifactIds = new Set(
+      artifactIdsInBlockDocument(document),
+    );
+    for (const artifact of current.artifacts) {
+      if (!referencedArtifactIds.has(artifact.id)) {
+        detachedArtifactsRef.current.set(artifact.id, artifact);
+      }
+    }
+    const activeArtifactsById = new Map(
+      current.artifacts
+        .filter((artifact) => referencedArtifactIds.has(artifact.id))
+        .map((artifact) => [artifact.id, artifact]),
+    );
+    for (const artifactId of referencedArtifactIds) {
+      const pending = pendingArtifactsRef.current.get(artifactId);
+      const detached = detachedArtifactsRef.current.get(artifactId);
+      const artifact = pending ?? detached;
+      if (!activeArtifactsById.has(artifactId) && artifact) {
+        activeArtifactsById.set(artifactId, artifact);
+      }
+      if (pending) pendingArtifactsRef.current.delete(artifactId);
+      if (detached) detachedArtifactsRef.current.delete(artifactId);
+    }
     applyPlan({
       ...current,
       document,
       imageGroups: [...activeById.values()],
+      artifacts: [...activeArtifactsById.values()],
     });
+  };
+  const artifactController: ArtifactBlockController = {
+    subscribe(listener) {
+      metadataListenersRef.current.add(listener);
+      return () => metadataListenersRef.current.delete(listener);
+    },
+    createArtifact(kind) {
+      const artifact = createArtifactRecord(kind);
+      pendingArtifactsRef.current.set(artifact.id, artifact);
+      metadataListenersRef.current.forEach((listener) => listener());
+      return artifact.id;
+    },
+    discardPendingArtifact(artifactId) {
+      pendingArtifactsRef.current.delete(artifactId);
+      metadataListenersRef.current.forEach((listener) => listener());
+    },
+    cloneArtifact(artifactId) {
+      const source = planRef.current?.artifacts.find(
+        (artifact) => artifact.id === artifactId,
+      ) ?? pendingArtifactsRef.current.get(artifactId) ??
+        detachedArtifactsRef.current.get(artifactId);
+      if (!source) return null;
+      const clone = cloneArtifactRecord(source);
+      pendingArtifactsRef.current.set(clone.id, clone);
+      metadataListenersRef.current.forEach((listener) => listener());
+      return clone.id;
+    },
+    getArtifact(artifactId) {
+      return planRef.current?.artifacts.find(
+        (artifact) => artifact.id === artifactId,
+      ) ?? pendingArtifactsRef.current.get(artifactId) ??
+        detachedArtifactsRef.current.get(artifactId);
+    },
+    updateArtifact(artifactId, update) {
+      const pending = pendingArtifactsRef.current.get(artifactId);
+      if (pending) {
+        const next = update(structuredClone(pending));
+        if (next.id !== pending.id || next.kind !== pending.kind) {
+          throw new Error("素材更新不能改变 artifactId 或类型");
+        }
+        pendingArtifactsRef.current.set(artifactId, {
+          ...next,
+          revision: pending.revision + 1,
+        });
+        metadataListenersRef.current.forEach((listener) => listener());
+        return;
+      }
+      const current = planRef.current;
+      if (!current) return;
+      let changed = false;
+      const artifacts = current.artifacts.map((artifact) => {
+        if (artifact.id !== artifactId) return artifact;
+        const next = update(structuredClone(artifact));
+        if (next.id !== artifact.id || next.kind !== artifact.kind) {
+          throw new Error("素材更新不能改变 artifactId 或类型");
+        }
+        changed = JSON.stringify(next) !== JSON.stringify(artifact);
+        return changed
+          ? { ...next, revision: artifact.revision + 1 }
+          : artifact;
+      });
+      if (changed) applyPlan({ ...current, artifacts });
+    },
   };
   const imageGroupController: ImageGroupBlockController = {
     selectedImageId,
@@ -1249,7 +1556,9 @@ export function BlockNoteProjectCanvasProvider({
       return groupId;
     },
     getGroup(groupId) {
-      return planRef.current?.imageGroups.find((group) => group.id === groupId);
+      const current = planRef.current;
+      if (!current) return undefined;
+      return allCollectionGroups(current).find((group) => group.id === groupId);
     },
     getImageSrc(file) {
       return imageSrc[file];
@@ -1405,7 +1714,8 @@ export function BlockNoteProjectCanvasProvider({
       }).catch(reportImageMutationFailure);
     },
     selectImage(imageId) {
-      const group = planRef.current?.imageGroups.find((entry) =>
+      const current = planRef.current;
+      const group = current && allCollectionGroups(current).find((entry) =>
         entry.images.some((image) => image.id === imageId)
       );
       if (group) selectImageForAgent(group.id, imageId, false);
@@ -1429,7 +1739,7 @@ export function BlockNoteProjectCanvasProvider({
         frameOffsetX,
         frameOffsetY,
       };
-      applyPlan({
+      const next = {
         ...current,
         imageGroups: current.imageGroups.map((group) =>
           group.id !== groupId
@@ -1442,7 +1752,9 @@ export function BlockNoteProjectCanvasProvider({
                     : {
                         ...image,
                         ...imageFrame,
-                        crop: cropForResizedFrame(image, imageFrame),
+                        crop: image.fitMode === "stretch"
+                          ? image.crop
+                          : cropForResizedFrame(image, imageFrame),
                       },
                 ),
                 ...(groupHeight === undefined
@@ -1450,7 +1762,53 @@ export function BlockNoteProjectCanvasProvider({
                   : { height: Math.max(MIN_COMPONENT_HEIGHT, groupHeight) }),
               },
         ),
-      });
+      };
+      applyPlan(replaceArtifactCollection(
+        next,
+        groupId,
+        (collection) => ({
+          ...collection,
+          images: collection.images.map((image) =>
+            image.id !== imageId
+              ? image
+              : {
+                  ...image,
+                  ...imageFrame,
+                  crop: image.fitMode === "stretch"
+                    ? image.crop
+                    : cropForResizedFrame(image, imageFrame),
+                }
+          ),
+        }),
+      ));
+    },
+    setImageFitMode(groupId, imageId, fitMode) {
+      const current = planRef.current;
+      if (!current) return;
+      const imageGroups = current.imageGroups.map((group) =>
+        group.id !== groupId
+          ? group
+          : {
+              ...group,
+              images: group.images.map((image) =>
+                image.id === imageId
+                  ? { ...image, fitMode }
+                  : image
+              ),
+            }
+      );
+      applyPlan(replaceArtifactCollection(
+        { ...current, imageGroups },
+        groupId,
+        (collection) => ({
+          ...collection,
+          images: collection.images.map((image) =>
+            image.id === imageId
+              ? { ...image, fitMode }
+              : image
+          ),
+        }),
+      ));
     },
     resizeGroup(groupId, frame) {
       const current = planRef.current;
@@ -1482,32 +1840,70 @@ export function BlockNoteProjectCanvasProvider({
     moveImage(fromGroupId, imageId, toGroupId, toIndex) {
       void enqueueImageMutation((context) => {
         const current = context.getLatestPlan();
-        const source = current.imageGroups.find((group) =>
+        const source = allCollectionGroups(current).find((group) =>
           group.id === fromGroupId
         );
         const image = source?.images.find((entry) => entry.id === imageId);
         if (!source || !image) return;
-        const imageGroups = current.imageGroups.map((group) => ({
-          ...group,
-          images: group.images.filter((entry) => entry.id !== imageId),
+        let next: ProjectPlanV15 = {
+          ...current,
+          imageGroups: current.imageGroups.map((group) => ({
+            ...group,
+            images: group.images.filter((entry) => entry.id !== imageId),
+          })),
+        };
+        next = replaceArtifactCollection(next, fromGroupId, (collection) => ({
+          ...collection,
+          images: collection.images.filter((entry) => entry.id !== imageId),
         }));
-        const target = imageGroups.find((group) => group.id === toGroupId);
-        if (!target) return;
-        const index = Math.max(0, Math.min(toIndex, target.images.length));
-        target.images = [
-          ...target.images.slice(0, index),
-          image,
-          ...target.images.slice(index),
-        ];
-        for (const group of imageGroups) {
-          if (group.id !== fromGroupId && group.id !== toGroupId) continue;
-          group.height = Math.max(
-            group.height,
-            MIN_COMPONENT_HEIGHT,
-            layoutDocumentImageGroupForWidth(group.images, group.width).height,
+        const legacyTarget = next.imageGroups.find((group) =>
+          group.id === toGroupId
+        );
+        if (legacyTarget) {
+          const index = Math.max(
+            0,
+            Math.min(toIndex, legacyTarget.images.length),
           );
+          legacyTarget.images = [
+            ...legacyTarget.images.slice(0, index),
+            image,
+            ...legacyTarget.images.slice(index),
+          ];
+        } else if (findArtifactCollection(next, toGroupId)) {
+          next = replaceArtifactCollection(next, toGroupId, (collection) => {
+            const index = Math.max(
+              0,
+              Math.min(toIndex, collection.images.length),
+            );
+            return {
+              ...collection,
+              images: [
+                ...collection.images.slice(0, index),
+                image,
+                ...collection.images.slice(index),
+              ],
+            };
+          });
+        } else {
+          return;
         }
-        const next = { ...current, imageGroups };
+        next = {
+          ...next,
+          imageGroups: next.imageGroups.map((group) => ({
+          ...group,
+            height:
+              group.id === fromGroupId || group.id === toGroupId
+                ? Math.max(
+                    group.height,
+                    MIN_COMPONENT_HEIGHT,
+                    layoutDocumentImageGroupForWidth(
+                      group.images,
+                      group.width,
+                    ).height,
+                  )
+                : group.height,
+          })),
+        };
         applyPlan(next);
         imageMoveUndoRef.current = { before: current, after: next };
       }).catch(reportImageMutationFailure);
@@ -1795,10 +2191,8 @@ export function BlockNoteProjectCanvasProvider({
         >
           <ImageDragPreviewProvider
             enabled
-            imageGroupOrder={imageGroupIdsInBlockDocument(
-              loadState.plan.document,
-            )}
-            imageGroups={loadState.plan.imageGroups}
+            imageGroupOrder={allCollectionIdsInDocumentOrder(loadState.plan)}
+            imageGroups={allCollectionGroups(loadState.plan)}
             imageSources={imageSrc}
             onMoveImage={imageGroupController.moveImage}
             planRevision={planRevision}
@@ -1808,6 +2202,7 @@ export function BlockNoteProjectCanvasProvider({
             <BlockNoteDocumentEditor
               agentWorkspace={agentWorkspace}
               ariaLabel="方案正文"
+              artifactController={artifactController}
               document={loadState.plan.document}
               imageGroupController={imageGroupController}
               key={`${projectPath}:${loadState.plan.schemaVersion}`}
@@ -1824,7 +2219,7 @@ export function BlockNoteProjectCanvasProvider({
         <ReferenceImageLightbox
           alt="参考图"
           cropAction={(() => {
-            const image = loadState.plan.imageGroups
+            const image = allCollectionGroups(loadState.plan)
               .find((group) => group.id === lightboxTarget.groupId)
               ?.images.find((entry) => entry.id === lightboxTarget.imageId);
             if (

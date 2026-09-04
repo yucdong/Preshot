@@ -10,7 +10,7 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - Production project-scoped assistant with managed Copilot CLI sessions,
   deterministic capability probes, immutable disclosed context, and
   proposal-first text edits
-- BlockNote v14 editor (`schemaVersion: 14`, `document.format: "preshot-blocks"`, `document.version: 2`)
+- BlockNote v15 editor (`schemaVersion: 15`, `document.format: "preshot-blocks"`, `document.version: 3`) with structured location, model, clothing, and prop blocks
 - Slash menu, block drag, undo/redo, headings, lists, checklists, toggles, quotes, code blocks, tables, and dividers
 - Multi-column blocks via `@blocknote/xl-multi-column@0.53.0`
 - Custom image-group blocks with resize, reorder, lightbox, native import, and Windows screen capture
@@ -33,7 +33,7 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 ## Long-image export contract
 
 BlockNote 0.53 does not provide a long-image exporter. Preshot therefore
-mounts the shared schema-14 document on a control-free export-only DOM surface,
+mounts the shared schema-15 document on a control-free export-only DOM surface,
 scales the 1080px editor geometry to 900px by default (or the explicit 890px
 compatibility width), and captures bounded segments with
 `modern-screenshot@4.7.0`.
@@ -91,7 +91,7 @@ does not ship an archive dependency.
 
 - Each project directory contains `.preshotproj` (legacy `.preshot` is still read and migrated).
 - The project manifest has `schemaVersion: 1` and stores the plan JSON in `manifest.plan`.
-- The active plan format is schema v14 / document v2.
+- The active plan format is schema v15 / document v3; schema v14 is migrated on read.
 - Reference image files live under `references/`.
 - Native BlockNote media files live under `media/`.
 - Theme and shell settings are stored in `%USERPROFILE%\.preshot\settings.json`.
@@ -271,7 +271,7 @@ Install, upgrade, repair, and uninstall preserve `%USERPROFILE%\.preshot`.
 | `pnpm test:production-scripts` | Run isolated production/release script fixtures. |
 | `pnpm test:agent-evals` | Run deterministic offline agent security/capability/proposal fixtures and refresh their report. |
 | `pnpm test:e2e` | Run the main Playwright browser-shell smoke suite. |
-| `pnpm test:e2e:blocknote` | Run the focused BlockNote v14 Playwright suite. |
+| `pnpm test:e2e:blocknote` | Run the focused BlockNote v15 Playwright suite. |
 | `pnpm test:e2e:capture` | Run the isolated long-image DOM-capture acceptance suite. |
 | `cargo test --manifest-path src-tauri\Cargo.toml` | Run the Rust unit tests. |
 
@@ -344,7 +344,8 @@ verification.
 - [Reliability](docs/RELIABILITY.md)
 - [Windows installer operator guide](docs/WINDOWS_INSTALLER.md)
 - [Licensing and distribution](docs/LICENSING.md)
-- [BlockNote v14 design](docs/design_docs/blocknote_v14_design.md)
+- [BlockNote v14 interaction history](docs/design_docs/blocknote_v14_design.md)
+- [Artifact document blocks](docs/design_docs/artifacts/artifacts.md)
 - [UI/UX contract](docs/design_docs/UI_UX_CONTRACT.md)
 - [Basic agent design and security contract](docs/design_docs/agent/agent_basic_design.md)
 - [Feature status tracker](docs/design_docs/featurelist.json)

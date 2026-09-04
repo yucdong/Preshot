@@ -9,7 +9,7 @@ const HASH_A = `sha256:${"a".repeat(64)}`;
 const HASH_B = `sha256:${"b".repeat(64)}`;
 const EMPTY_DOCUMENT = {
   format: "preshot-blocks" as const,
-  version: 2 as const,
+  version: 3 as const,
   blocks: [],
 };
 const EMPTY_HASH = hashPreshotDocument(EMPTY_DOCUMENT);
@@ -171,10 +171,11 @@ describe("memory agent metadata store", () => {
         appliedRevision: 2,
         appliedDocumentHash: HASH_B,
         beforePlan: {
-          schemaVersion: 14,
+          schemaVersion: 15,
           title: "Project",
           document: EMPTY_DOCUMENT,
           imageGroups: [],
+          artifacts: [],
         },
         changes: [],
       },

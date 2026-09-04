@@ -1,4 +1,4 @@
-import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
+import type { ProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
 import type { BlockNotePlanRepository } from "../../domain/plan/blocknote/ports";
 import type {
   ReferenceImageCropBounds,
@@ -8,8 +8,11 @@ import type {
 import type { PlanImagePicker } from "../../domain/plan/ports";
 import type { PlanMediaStore } from "../../domain/plan/ports";
 
-const STORAGE_KEY = "preshot.browser-blocknote-plan-v14";
-const LEGACY_STORAGE_KEY = "preshot.browser-blocknote-plan-v13";
+const STORAGE_KEY = "preshot.browser-blocknote-plan-v15";
+const LEGACY_STORAGE_KEYS = [
+  "preshot.browser-blocknote-plan-v14",
+  "preshot.browser-blocknote-plan-v13",
+] as const;
 const MEDIA_STORAGE_PREFIX = "preshot.browser-blocknote-media:";
 const TINY_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -87,15 +90,27 @@ function dataUrlFromBytes(bytes: number[], mimeType: string): Promise<string> {
   });
 }
 
+function nextBrowserReferenceFile(extension: "jpg" | "png"): string {
+  let file: string;
+  do {
+    imageCounter += 1;
+    file =
+      `references/blocknote-${String(imageCounter).padStart(4, "0")}.${extension}`;
+  } while (browserImages.has(file));
+  return file;
+}
+
 export const browserBlockNotePlanRepository: BlockNotePlanRepository = {
   async loadRawPlan(projectPath) {
     const encodedPath = encodeURIComponent(projectPath);
     const stored = window.sessionStorage.getItem(
       `${STORAGE_KEY}:${encodedPath}`,
-    ) ?? window.sessionStorage.getItem(`${LEGACY_STORAGE_KEY}:${encodedPath}`);
+    ) ?? LEGACY_STORAGE_KEYS
+      .map((key) => window.sessionStorage.getItem(`${key}:${encodedPath}`))
+      .find((value) => value !== null);
     return stored ? JSON.parse(stored) : null;
   },
-  async saveRawPlan(projectPath: string, plan: ProjectPlanV14) {
+  async saveRawPlan(projectPath: string, plan: ProjectPlanV15) {
     window.sessionStorage.setItem(
       `${STORAGE_KEY}:${encodeURIComponent(projectPath)}`,
       JSON.stringify(plan),
@@ -108,9 +123,7 @@ export function createBrowserBlockNoteImageStore(
 ): ReferenceImageStore & ReferenceImageCropStore {
   return {
     async importImage() {
-      imageCounter += 1;
-      const file =
-        `references/blocknote-${String(imageCounter).padStart(4, "0")}.png`;
+      const file = nextBrowserReferenceFile("png");
       const dataUrl = imageCounter % 2 === 1 ? LANDSCAPE_PNG : PORTRAIT_PNG;
       browserImages.set(file, dataUrl);
       return {
@@ -142,6 +155,22 @@ export function createBrowserBlockNoteImageStore(
         async rollback() {
           browserImages.set(input.file, source);
         },
+      };
+    },
+    async copyImageCrop(_projectPath, input) {
+      const source = browserImages.get(input.file);
+      if (!source) {
+        throw new Error(`Unknown browser reference image: ${input.file}`);
+      }
+      const dataUrl = await cropper(source, input.bounds);
+      const extension = /\.jpe?g$/i.test(input.file) ? "jpg" : "png";
+      const file = nextBrowserReferenceFile(extension);
+      browserImages.set(file, dataUrl);
+      return {
+        file,
+        dataUrl,
+        width: input.bounds.width,
+        height: input.bounds.height,
       };
     },
   };
@@ -202,9 +231,14 @@ export function clearBrowserBlockNotePlan(): void {
   for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
     const key = window.sessionStorage.key(index);
     if (
-      key?.startsWith(`${STORAGE_KEY}:`) ||
-      key?.startsWith(`${LEGACY_STORAGE_KEY}:`) ||
-      key?.startsWith(MEDIA_STORAGE_PREFIX)
+      key !== null &&
+      (
+        key.startsWith(`${STORAGE_KEY}:`) ||
+        LEGACY_STORAGE_KEYS.some((prefix) =>
+          key.startsWith(`${prefix}:`)
+        ) ||
+        key.startsWith(MEDIA_STORAGE_PREFIX)
+      )
     ) {
       window.sessionStorage.removeItem(key);
     }

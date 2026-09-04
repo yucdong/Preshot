@@ -34,11 +34,11 @@ function block(
 
 function plan(): ProjectPlanV14 {
   return {
-    schemaVersion: 14,
+    schemaVersion: 15,
     title: "Proposal",
     document: {
       format: "preshot-blocks",
-      version: 2,
+      version: 3,
       blocks: [
         block("intro", "Before"),
         block("parent", "Parent", [block("nested", "Nested")]),
@@ -47,6 +47,7 @@ function plan(): ProjectPlanV14 {
       ],
     },
     imageGroups: [],
+    artifacts: [],
   };
 }
 

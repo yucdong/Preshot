@@ -300,43 +300,84 @@ Each project directory contains `.preshotproj`. The manifest has `schemaVersion:
 
 Legacy `.preshot` manifests are still accepted on read. When one is found, Rust rewrites it as `.preshotproj` and removes the old filename on a best-effort basis.
 
-The first-run starter is a normal user-owned project, not an installed asset. Its manifest contains a schema-14/document-v2 plan with editable Chinese paragraph blocks and no external media references.
+The first-run starter is a normal user-owned project, not an installed asset. Its manifest contains a schema-15/document-v3 plan with editable Chinese paragraph blocks, an empty artifact sidecar, and no external media references.
 
 ### Plan schema
 
-The active editable plan is schema v14:
+The active editable plan is schema v15:
 
 ```json
 {
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "title": "...",
   "document": {
     "format": "preshot-blocks",
-    "version": 2,
+    "version": 3,
     "blocks": []
   },
-  "imageGroups": []
+  "imageGroups": [],
+  "artifacts": []
 }
 ```
 
-The v14 document is validated in TypeScript before persistence. Key invariants:
+The v15 document is validated in TypeScript before persistence. Key invariants:
 
 - block IDs must be unique,
 - `columnList` blocks are top-level only,
 - `column` blocks may only exist under `columnList`,
 - `imageGroup` blocks may be top-level or direct children of a `column`, and
-- every image-group ID must appear exactly once in `document.blocks` and exactly once in `plan.imageGroups`.
+- every image-group ID must appear exactly once in `document.blocks` and exactly once in `plan.imageGroups`,
+- every artifact ID must appear exactly once in `document.blocks` and exactly once in `plan.artifacts`, and
+- image IDs are globally unique across image groups and artifact collections.
 
-Schema v13 plans are migrated in the load path to schema v14 / document v2. Older schemas are treated as incompatible and are not opened for editing.
+Schema v14/document v2 plans migrate to v15/document v3 with an empty artifact
+sidecar. Schema v13 migrates through that compatibility step. Duplicate legacy
+image IDs after their first stable occurrence receive deterministic replacement
+IDs. Older schemas are treated as incompatible and are not opened for editing.
 
 ### File layout inside a project
 
 - `references/` stores imported reference JPG/PNG files.
 - `media/` stores native BlockNote image/audio/video files.
 - The manifest remains the source of truth for plan JSON; media and reference files are loaded lazily when the editor opens.
-- Confirmed reference-image crops retain the same `references/<file>` identity
+- Confirmed legacy image-group crops retain the same `references/<file>` identity
   and physically replace only that project-owned bitmap. The external import
   source is not part of the project model and is never written after import.
+- Artifact-collection crops instead create a new immutable project-local
+  reference file and update only the edited placement. The old file remains
+  available to the plan-level Undo boundary.
+
+### Artifact document blocks
+
+`shootingLocation`, `modelCard`, `clothing`, and `prop` are content-none
+BlockNote blocks carrying only `artifactId`. `plan.artifacts` owns their
+validated metadata and image collections. The provider holds newly created or
+cloned records as pending sidecars until the corresponding marker appears in
+the serialized document; deletion moves records to a detached map so BlockNote
+Undo can restore marker and sidecar together.
+
+Artifact galleries are projected as collection-scoped reference groups for the
+existing dnd-kit preview engine. This preserves immutable drag previews,
+row-major placeholders, keyboard movement, and one validated drop commit
+without adding a second pointer-drag implementation. Clothing exposes one
+optional multiline source note. Empty notes produce no read-only or export node;
+prop source text is part of its combined information field.
+
+Location, clothing, and prop keep their required names as independently
+editable header titles. Their multiline information editors map to existing
+schema-v15 detail fields and share responsive 40/60 CSS Grid rows with their
+main galleries. The row height follows the larger natural content; textareas
+have no internal scrollbar and grow when text or image rows grow. All three
+galleries directly reuse persisted image-group frame/crop geometry, manual
+resizing, dnd-kit reorder, keyboard movement, and no-shrink wrapping in editor
+and export surfaces. Clothing keeps its try-on disclosure below the main row.
+Stored frame dimensions remain authoritative.
+
+Reference-image hydration traverses both `plan.imageGroups` and every
+`plan.artifacts` image collection. Imports and screen captures begin with a
+temporary square placeholder, then decoded source dimensions replace the
+placeholder aspect and derive the default 240-unit frame width before the plan
+is published or saved.
 
 ### App-level settings
 
@@ -402,6 +443,7 @@ Preshot uses BlockNote 0.53 with Mantine styling and the built-in Chinese dictio
 - `divider`
 - native `image`, `video`, and `audio`
 - custom `imageGroup`
+- custom `shootingLocation`, `modelCard`, `clothing`, and `prop` artifact blocks
 - `columnList` and `column` through `@blocknote/xl-multi-column@0.53.0`
 
 ### Custom image groups
@@ -414,7 +456,8 @@ Each group record contains the image-group frame plus its images, including pers
 - importing images,
 - Windows screen capture import,
 - global image selection and double-click viewing,
-- side-only current-ratio image resizing with live non-overlap wrapping,
+- eight transparent continuous resize zones: corner ratio lock plus
+  single-axis edge resizing with live non-overlap wrapping,
 - eight-direction group resizing and prioritized equal-size/edge guides,
 - preset/free crop editing and project-copy overwrite,
 - within-group and cross-group reordering, and
@@ -424,6 +467,13 @@ The width-led layout computes ordered rows with a stable gap and returns the
 derived content height. During an image resize, the same layout is used for the
 live preview and pointer-up commit so wrapped positions and group height remain
 coherent.
+
+Resize zones cover each full edge except the four 28px corner ownership areas;
+they do not render visible handles. Hover changes only the resize cursor, while
+keyboard focus adds a functional highlight. `fitMode` is optional persisted
+image metadata: absent/`cover` preserves the source and updates normalized crop
+when an edge changes frame ratio; explicit `stretch` fills the frame
+non-uniformly and is shown with a persistent warning control.
 
 ### Transactional live image drag
 
@@ -509,7 +559,8 @@ Implemented editor behaviors include:
   same-/cross-/empty-group reflow, source/target placeholders, polite
   Simplified-Chinese live-region feedback, reduced-motion handling, and one
   zoom-independent 48px edge auto-scroller,
-- side-only ratio-locked image resize with live wrapping and dynamic height,
+- eight-zone image resize with ratio-locked corners, single-axis edges,
+  keyboard adjustment, live wrapping, and dynamic height,
 - edge/equal-size Smart Guide feedback, and
 - crop presets, pan, zoom, reset/cancel/confirm, and project-local overwrite.
 
@@ -673,7 +724,7 @@ read-only, control-free BlockNote view. The 1080px logical document, including
 waits for local fonts/images and stable layout, and annotates top-level blocks,
 atomic blocks, column rows, and wrapped image-group rows for measurement.
 
-`BlockNoteLongImageExporter` snapshots schema-14 plan/assets, creates one
+`BlockNoteLongImageExporter` snapshots schema-15 plan/assets, creates one
 reusable `modern-screenshot` context, and captures sequential integer-pixel
 viewports. Segmentation prefers the last complete block within the target;
 oversized image groups may split only between complete rows; an indivisible

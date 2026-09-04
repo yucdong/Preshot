@@ -98,9 +98,10 @@ function plan(
   imageGroups: ProjectPlanV14["imageGroups"],
 ): ProjectPlanV14 {
   return {
-    schemaVersion: 14,
+    schemaVersion: 15,
+    artifacts: [],
     title: "DOCX composite",
-    document: { format: "preshot-blocks", version: 2, blocks },
+    document: { format: "preshot-blocks", version: 3, blocks },
     imageGroups,
   };
 }

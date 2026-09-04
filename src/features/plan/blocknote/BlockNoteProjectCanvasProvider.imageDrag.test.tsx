@@ -70,11 +70,31 @@ const settings: SettingsRepository = {
 };
 
 const plan: ProjectPlanV14 = {
-  schemaVersion: 14,
+  schemaVersion: 15,
+  artifacts: [{
+    id: "target-artifact",
+    kind: "shootingLocation",
+    revision: 0,
+    venueName: "Target location",
+    address: "",
+    description: "",
+    gallery: {
+      id: "target",
+      images: [{
+        id: "after",
+        file: "references/after.png",
+        aspectRatio: 1.5,
+        sourceWidth: 900,
+        sourceHeight: 600,
+        frameWidth: 135,
+        frameHeight: 90,
+      }],
+    },
+  }],
   title: "Editorial",
   document: {
     format: "preshot-blocks",
-    version: 2,
+    version: 3,
     blocks: [{
       id: "columns",
       type: "columnList",
@@ -88,8 +108,8 @@ const plan: ProjectPlanV14 = {
           content: undefined,
           children: [{
             id: "target-block",
-            type: "imageGroup",
-            props: { groupId: "target" },
+            type: "shootingLocation",
+            props: { artifactId: "target-artifact" },
             content: undefined,
             children: [],
           }],
@@ -141,24 +161,6 @@ const plan: ProjectPlanV14 = {
         },
       ],
     },
-    {
-      id: "target",
-      name: "Target",
-      type: "reference",
-      x: 0,
-      width: 300,
-      height: 120,
-      description: "",
-      images: [{
-        id: "after",
-        file: "references/after.png",
-        aspectRatio: 1.5,
-        sourceWidth: 900,
-        sourceHeight: 600,
-        frameWidth: 135,
-        frameHeight: 90,
-      }],
-    },
   ],
 };
 
@@ -186,7 +188,7 @@ afterEach(() => {
 });
 
 describe("BlockNoteProjectCanvasProvider image drag transaction", () => {
-  it("does not save previews and becomes dirty only after one committed move", async () => {
+  it("moves from an image group into a location gallery without saving the preview", async () => {
     class MeasuredImage {
       naturalWidth = 900;
       naturalHeight = 600;
@@ -310,12 +312,15 @@ describe("BlockNoteProjectCanvasProvider image drag transaction", () => {
     expect(savePlan).toHaveBeenCalledWith(
       "C:\\Editorial",
       expect.objectContaining({
-        imageGroups: expect.arrayContaining([
+        artifacts: expect.arrayContaining([
           expect.objectContaining({
-            id: "target",
-            images: expect.arrayContaining([
-              expect.objectContaining({ id: "moving" }),
-            ]),
+            id: "target-artifact",
+            gallery: expect.objectContaining({
+              id: "target",
+              images: expect.arrayContaining([
+                expect.objectContaining({ id: "moving" }),
+              ]),
+            }),
           }),
         ]),
       }),
@@ -325,11 +330,20 @@ describe("BlockNoteProjectCanvasProvider image drag transaction", () => {
       ["source", ["before"]],
       ["target", ["moving", "after"]],
     ];
-    const planOrder = (value: ProjectPlanV14) =>
-      value.imageGroups.map((group) => [
+    const planOrder = (value: ProjectPlanV14) => [
+      ...value.imageGroups.map((group) => [
         group.id,
         group.images.map((image) => image.id),
-      ]);
+      ]),
+      ...value.artifacts.flatMap((artifact) =>
+        artifact.kind === "shootingLocation"
+          ? [[
+              artifact.gallery.id,
+              artifact.gallery.images.map((image) => image.id),
+            ]]
+          : []
+      ),
+    ];
 
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "导出 PDF" }));

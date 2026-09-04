@@ -61,7 +61,7 @@ function context(
   overrides: Partial<Context> = {},
 ): Context {
   return {
-    version: 2,
+    version: 3,
     schema: preshotBlockNoteSchema,
     blocks: [],
     blocksById: {},
@@ -90,14 +90,36 @@ function props(element: ReactElement): ElementProps {
 
 function childElements(element: ReactElement): ReactElement[] {
   const value = props(element).children;
-  return (Array.isArray(value) ? value : [value]).filter(
-    (entry): entry is ReactElement =>
-      typeof entry === "object" && entry !== null && "props" in entry,
-  );
+  const flatten = (entry: unknown): ReactElement[] => {
+    if (Array.isArray(entry)) return entry.flatMap(flatten);
+    return typeof entry === "object" && entry !== null && "props" in entry
+      ? [entry as ReactElement]
+      : [];
+  };
+  return flatten(value);
 }
 
 function style(element: ReactElement): Record<string, unknown> {
   return props(element).style ?? {};
+}
+
+function renderedText(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) return value.map(renderedText).join("");
+  if (typeof value !== "object" || value === null || !("props" in value)) {
+    return "";
+  }
+  return renderedText(props(value as ReactElement).children);
+}
+
+function allDescendants(element: ReactElement): ReactElement[] {
+  return [
+    element,
+    ...childElements(element).flatMap(allDescendants),
+  ];
 }
 
 function exporter(currentContext = context()) {
@@ -166,6 +188,99 @@ describe("BlockNote React-PDF mappings", () => {
         (heading) => heading.fontSize,
       ),
     );
+  });
+
+  it("maps artifact metadata and omits an empty source note", async () => {
+    const base = {
+      id: "prop-1",
+      kind: "prop" as const,
+      revision: 0,
+      title: "磨砂铝反光板",
+      gallery: { id: "prop-gallery", images: [] },
+    };
+    const emptySource = createPreshotReactPdfExporter(context(), {
+      artifacts: [{ ...base, source: "" }],
+      imageGroup: imageGroupMapping,
+      resolvedAssets: {},
+    });
+
+    const emptyElement = await mapBlock(
+      emptySource,
+      block("prop", { artifactId: base.id }, undefined),
+    );
+    expect(renderedText(emptyElement)).toContain("磨砂铝反光板");
+    expect(renderedText(emptyElement)).not.toContain("来源说明");
+
+    const withSource = createPreshotReactPdfExporter(context(), {
+      artifacts: [{ ...base, source: "Studio Supply / 徐汇仓" }],
+      imageGroup: imageGroupMapping,
+      resolvedAssets: {},
+    });
+    const sourceElement = await mapBlock(
+      withSource,
+      block("prop", { artifactId: base.id }, undefined),
+    );
+    expect(renderedText(sourceElement)).toContain("Studio Supply / 徐汇仓");
+    expect(renderedText(sourceElement)).not.toContain("来源说明：");
+  });
+
+  it("uses persisted crop and manual frame geometry", async () => {
+    const artifact = {
+      id: "prop-crop",
+      kind: "prop" as const,
+      revision: 0,
+      title: "Cropped prop",
+      source: "",
+      gallery: {
+        id: "prop-gallery",
+        images: [{
+          id: "image-1",
+          file: "references/prop.png",
+          aspectRatio: 1.5,
+          sourceWidth: 900,
+          sourceHeight: 600,
+          frameWidth: 300,
+          frameHeight: 240,
+          frameOffsetX: 20,
+          frameOffsetY: 12,
+          crop: { x: 0.2, y: 0.1, width: 0.5, height: 0.5 },
+        }],
+      },
+    };
+    const pdf = createPreshotReactPdfExporter(context(), {
+      artifacts: [artifact],
+      imageGroup: imageGroupMapping,
+      resolvedAssets: {
+        "references/prop.png": "data:image/png;base64,AA==",
+      },
+    });
+    const element = await mapBlock(
+      pdf,
+      block("prop", { artifactId: artifact.id }, undefined),
+    );
+    const styles = allDescendants(element).map(style);
+    expect(styles).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        position: "absolute",
+        width: "200%",
+        height: "200%",
+        left: "-40%",
+        top: "-20%",
+      }),
+      expect.objectContaining({
+        position: "absolute",
+        overflow: "hidden",
+      }),
+    ]));
+    const cropFrame = styles.find((entry) => entry.overflow === "hidden");
+    expect(Number(cropFrame?.left)).toBeGreaterThanOrEqual(0);
+    expect(Number(cropFrame?.top)).toBeGreaterThanOrEqual(0);
+    expect(Number(cropFrame?.width) / Number(cropFrame?.height))
+      .toBeCloseTo(
+        artifact.gallery.images[0].frameWidth /
+          artifact.gallery.images[0].frameHeight,
+        5,
+      );
   });
 
   it("preserves inline emphasis, combined decoration, colors, code, and alignment", async () => {

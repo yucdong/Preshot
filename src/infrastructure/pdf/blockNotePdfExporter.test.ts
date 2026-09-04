@@ -28,11 +28,12 @@ describe("createLegacyBlockNotePdfExporter", () => {
       preshotBlockNoteSchema,
     );
     const bytes = await exporter.export({
-      schemaVersion: 14,
+      schemaVersion: 15,
+      artifacts: [],
       title: "Editorial",
       document: {
         format: "preshot-blocks",
-        version: 2,
+        version: 3,
         blocks: [{
           id: "paragraph",
           type: "paragraph",
@@ -62,11 +63,12 @@ describe("createLegacyBlockNotePdfExporter", () => {
     );
 
     await exporter.export({
-      schemaVersion: 14,
+      schemaVersion: 15,
+      artifacts: [],
       title: "Cropped",
       document: {
         format: "preshot-blocks",
-        version: 2,
+        version: 3,
         blocks: [{
           id: "group-block",
           type: "imageGroup",

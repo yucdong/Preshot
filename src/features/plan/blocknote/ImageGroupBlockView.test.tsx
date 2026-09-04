@@ -60,6 +60,7 @@ function controllerFor(
     selectImage: vi.fn(),
     openImage: vi.fn(),
     setImageFrame: vi.fn(),
+    setImageFitMode: vi.fn(),
     resizeGroup: vi.fn(),
     moveImage: vi.fn(),
     ...overrides,
@@ -128,7 +129,7 @@ describe("ImageGroupBlockView image tile interactions", () => {
     );
   });
 
-  it("renders only left/right image handles and isolates handle interaction", () => {
+  it("renders eight invisible image resize zones and isolates their interaction", () => {
     const groups = [group("group-1", "image-1")];
     const controller = controllerFor(groups);
     renderGroups(groups, controller);
@@ -136,7 +137,16 @@ describe("ImageGroupBlockView image tile interactions", () => {
     expect(
       Array.from(document.querySelectorAll("[data-image-resize-edge]"))
         .map((element) => element.getAttribute("data-image-resize-edge")),
-    ).toEqual(["left", "right"]);
+    ).toEqual([
+      "left",
+      "right",
+      "top",
+      "bottom",
+      "top-left",
+      "top-right",
+      "bottom-left",
+      "bottom-right",
+    ]);
     expect(
       Array.from(document.querySelectorAll("[data-group-resize-edge]"))
         .map((element) => element.getAttribute("data-group-resize-edge")),
@@ -161,6 +171,12 @@ describe("ImageGroupBlockView image tile interactions", () => {
     expect(controller.selectImage).not.toHaveBeenCalled();
     expect(controller.moveImage).not.toHaveBeenCalled();
     expect(controller.openImage).not.toHaveBeenCalled();
+    const topZone = screen.getByLabelText("从top调整参考图 1");
+    expect(topZone).toHaveStyle({
+      background: "transparent",
+      cursor: "ns-resize",
+    });
+    expect(getComputedStyle(topZone).borderTopWidth).toBe("0px");
   });
 
   it("keeps resize, delete, toolbar, and whole-group drag outside image drag", async () => {
@@ -196,6 +212,53 @@ describe("ImageGroupBlockView image tile interactions", () => {
       .not.toHaveAttribute("data-image-drag-activator");
     expect(screen.getByLabelText("从right调整参考图 1"))
       .not.toHaveAttribute("data-image-drag-activator");
+  });
+
+  it("explicitly toggles between crop and stretch rendering", () => {
+    const groups = [group("group-1", "image-1")];
+    const controller = controllerFor(groups);
+    renderGroups(groups, controller);
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "切换参考图 1 为自由变形",
+    }));
+    expect(controller.setImageFitMode).toHaveBeenCalledWith(
+      "group-1",
+      "image-1",
+      "stretch",
+    );
+  });
+
+  it("resizes transparent zones with keyboard axis rules", () => {
+    const groups = [group("group-1", "image-1")];
+    const controller = controllerFor(groups);
+    renderGroups(groups, controller);
+
+    fireEvent.keyDown(screen.getByLabelText("从bottom调整参考图 1"), {
+      key: "ArrowDown",
+    });
+    expect(controller.setImageFrame).toHaveBeenCalledWith(
+      "group-1",
+      "image-1",
+      expect.objectContaining({
+        frameWidth: 120,
+        frameHeight: 84,
+      }),
+    );
+
+    vi.mocked(controller.setImageFrame).mockClear();
+    fireEvent.keyDown(screen.getByLabelText("从bottom-right调整参考图 1"), {
+      key: "ArrowRight",
+      shiftKey: true,
+    });
+    expect(controller.setImageFrame).toHaveBeenCalledWith(
+      "group-1",
+      "image-1",
+      expect.objectContaining({
+        frameWidth: 136,
+        frameHeight: 136 / 1.5,
+      }),
+    );
   });
 
   it("keeps an undecoded image selected and geometrically stable while disabling drag", async () => {
@@ -249,7 +312,7 @@ describe("ImageGroupBlockView image tile interactions", () => {
     fireEvent.pointerMove(document, { clientX: 40, clientY: 0 });
 
     expect(Number.parseFloat(groupElement.style.height)).toBeCloseTo(
-      80 / 120 * 160 + 18,
+      98,
     );
 
     fireEvent.pointerUp(document, { clientX: 40, clientY: 0 });
@@ -261,8 +324,8 @@ describe("ImageGroupBlockView image tile interactions", () => {
       }),
     );
     const committed = vi.mocked(controller.setImageFrame).mock.calls[0]?.[2];
-    expect(committed?.frameHeight).toBeCloseTo(80 / 120 * 160);
-    expect(committed?.groupHeight).toBeCloseTo(80 / 120 * 160 + 18);
+    expect(committed?.frameHeight).toBe(80);
+    expect(committed?.groupHeight).toBe(98);
   });
 
   it("restores the persisted layout when resize is cancelled", () => {

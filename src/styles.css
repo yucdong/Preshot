@@ -45,6 +45,7 @@
   --paper-border: #dadbdd;
   --paper-primary: #0891b2;
   --paper-primary-soft: #e1f4f7;
+  --paper-subtle: #f7f7f6;
   --paper-danger: #a43f52;
   --paper-danger-hover: #8f3345;
   --paper-danger-soft: #fae9ed;
@@ -107,10 +108,108 @@ html.dark {
   --color-paper-border: var(--paper-border);
   --color-paper-primary: var(--paper-primary);
   --color-paper-primary-soft: var(--paper-primary-soft);
+  --color-paper-subtle: var(--paper-subtle);
   --color-paper-danger: var(--paper-danger);
   --color-paper-danger-hover: var(--paper-danger-hover);
   --color-paper-danger-soft: var(--paper-danger-soft);
   --font-editorial: "Outfit Variable", "Noto Sans SC", sans-serif;
+}
+
+.preshot-artifact-block {
+  container-type: inline-size;
+}
+
+.bn-block-content[data-content-type="shootingLocation"],
+.bn-block-content[data-content-type="modelCard"],
+.bn-block-content[data-content-type="clothing"],
+.bn-block-content[data-content-type="prop"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.preshot-artifact-split-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.preshot-artifact-balanced-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.4fr) minmax(0, 0.6fr);
+  align-items: stretch;
+  gap: 16px;
+}
+
+.preshot-balanced-info-field {
+  height: 100%;
+  grid-template-rows: 32px minmax(134px, 1fr);
+  gap: 8px;
+}
+
+.preshot-balanced-info-textarea {
+  field-sizing: content;
+  min-height: 134px;
+  height: auto;
+  overflow: hidden;
+  resize: none;
+}
+
+.preshot-balanced-gallery {
+  height: 100%;
+  grid-template-rows: 32px minmax(134px, 1fr);
+}
+
+.preshot-balanced-gallery > :first-child {
+  min-height: 32px;
+  align-items: start;
+}
+
+.preshot-balanced-gallery .preshot-blocknote-image-group-shell {
+  height: 100%;
+}
+
+.preshot-balanced-gallery .preshot-blocknote-image-group {
+  min-height: 100%;
+}
+
+.preshot-balanced-info-readonly {
+  min-height: 134px;
+  height: 100%;
+}
+
+.preshot-image-resize-zone:focus-visible {
+  background: rgb(8 145 178 / 14%) !important;
+}
+
+@container (min-width: 600px) {
+  .preshot-artifact-split-layout {
+    grid-template-columns: minmax(180px, 0.4fr) minmax(0, 0.6fr);
+    align-items: start;
+  }
+
+  .preshot-artifact-info-column textarea {
+    margin-top: 20px;
+  }
+}
+
+@container (max-width: 679px) {
+  .preshot-artifact-balanced-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .preshot-balanced-info-field {
+    height: auto;
+    grid-template-rows: 32px auto;
+  }
+
+  .preshot-balanced-info-textarea {
+    min-height: 96px;
+  }
+
+  .preshot-balanced-gallery,
+  .preshot-balanced-gallery .preshot-blocknote-image-group-shell {
+    height: auto;
+  }
 }
 
 * {

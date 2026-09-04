@@ -124,6 +124,7 @@ export function createBlockNoteDocxExporter(
         },
       );
       const exporter = createPreshotDocxExporter({
+        artifacts: exportPlan.artifacts,
         imageGroupMapping: async (block) => {
           try {
             return await imageGroupMapping(block);

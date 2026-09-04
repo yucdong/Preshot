@@ -7,7 +7,7 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 ## Runtime snapshot
 
 - Active editor path: `src/features/plan/blocknote/BlockNoteProjectCanvasProvider.tsx`
-- Active plan schema: v14 with BlockNote document v2 (`format: "preshot-blocks"`)
+- Active plan schema: v15 with BlockNote document v3 (`format: "preshot-blocks"`)
 - Active UI language: Simplified Chinese (`src/shared/i18n/locales/zh.ts`)
 - Project manifest: `.preshotproj` with manifest `schemaVersion: 1`
 - Legacy `.preshot` and schema v13 plans are compatibility input only
@@ -46,7 +46,13 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
 
 ## Data and persistence rules
 
-- The active editable plan is `schemaVersion: 14` with `document.version: 2`.
+- The active editable plan is `schemaVersion: 15` with `document.version: 3`.
+- Artifact blocks store only `artifactId`; normalized location, model,
+  clothing, and prop records live in `plan.artifacts`.
+- Image frames use eight transparent continuous resize zones. Corners preserve
+  the pointerdown frame ratio; left/right edges change width only and top/bottom
+  edges change height only. `fitMode` defaults to crop/cover; stretch is
+  explicit and exporters must preserve it.
 - `imageGroup` blocks store only `groupId`; the actual group metadata lives in `plan.imageGroups`.
 - Every image-group ID must appear exactly once in the BlockNote document and exactly once in `plan.imageGroups`.
 - Native BlockNote media persists as relative `media/<file>` paths; runtime data URLs must not be written back to the manifest.
@@ -100,7 +106,7 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   options must preserve one-image behavior or fail actionably at safety limits.
 - Long-image changes must not replace or alter the independent PDF and DOCX
   production pipelines.
-- New editor work should go through the BlockNote v14 path unless the task explicitly targets compatibility code.
+- New editor work should go through the BlockNote v15 path unless the task explicitly targets compatibility code.
 - The MSI owns only application files, shortcuts, and HKCU registration under
   `%LOCALAPPDATA%\Programs\Preshot`; application startup exclusively owns
   `%USERPROFILE%\.preshot`, project bootstrap, and the starter project.
@@ -217,7 +223,7 @@ pnpm migrate:project
 - The assistant panel is a production project-scoped surface, but its MVP
   remains proposal-first and text-only. Do not describe it as autonomous,
   ambient, or able to edit files/media directly.
-- Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v14.
+- Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v15.
 
 ## Testing expectations
 

@@ -9,8 +9,7 @@ import {
   type DocumentImageGroupSlot,
 } from "../../../../domain/plan/canvas/documentImageGroupLayout";
 import {
-  imageCropForView,
-  imageViewCss,
+  imageFrameContentCss,
 } from "../../../../domain/plan/canvas/imageView";
 import type { ReferenceImage } from "../../../../domain/plan/canvas/models";
 import {
@@ -18,6 +17,7 @@ import {
   isLegacyDefaultImageGroup,
 } from "../canvasViewport";
 import type { ImageGroupExportController } from "./ImageGroupExportContext";
+import { compactArtifactGalleryImages } from "../artifactGallerySizing";
 
 interface ExportImageGroupRow {
   index: number;
@@ -64,13 +64,17 @@ function imageGroupRows(
 }
 
 export function ExportImageGroupBlockView({
+  autoCompact = false,
   blockId,
   controller,
   groupId,
+  variant = "block",
 }: {
+  autoCompact?: boolean;
   blockId: string;
   controller: ImageGroupExportController;
   groupId: string;
+  variant?: "block" | "embedded";
 }) {
   const group = controller.getGroup(groupId);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -79,7 +83,9 @@ export function ExportImageGroupBlockView({
   );
 
   useLayoutEffect(() => {
-    const content = shellRef.current?.closest<HTMLElement>(".bn-block-content");
+    const content = variant === "embedded"
+      ? shellRef.current?.parentElement
+      : shellRef.current?.closest<HTMLElement>(".bn-block-content");
     if (!content || typeof ResizeObserver === "undefined") return;
     const update = () => {
       if (content.clientWidth > 0) setAvailableWidth(content.clientWidth);
@@ -88,7 +94,7 @@ export function ExportImageGroupBlockView({
     observer.observe(content);
     update();
     return () => observer.disconnect();
-  }, [groupId]);
+  }, [groupId, variant]);
 
   if (!group) {
     throw new Error(`Long-image export cannot resolve image group "${groupId}".`);
@@ -99,10 +105,15 @@ export function ExportImageGroupBlockView({
     : group.width;
   const width = Math.max(1, Math.min(requestedWidth, availableWidth));
   const x = Math.max(0, Math.min(group.x, Math.max(0, availableWidth - width)));
-  const layout = layoutDocumentImageGroupForWidth(group.images, width);
-  const height = Math.max(group.height, layout.height);
-  const imagesById = new Map(group.images.map((image) => [image.id, image]));
-  const rows = imageGroupRows(group.images, layout.slots);
+  const displayImages = compactArtifactGalleryImages(
+    group.images,
+    width,
+    autoCompact,
+  );
+  const layout = layoutDocumentImageGroupForWidth(displayImages, width);
+  const height = autoCompact ? layout.height : Math.max(group.height, layout.height);
+  const imagesById = new Map(displayImages.map((image) => [image.id, image]));
+  const rows = imageGroupRows(displayImages, layout.slots);
 
   return (
     <div
@@ -166,7 +177,7 @@ export function ExportImageGroupBlockView({
                   data-preshot-export-asset="image-group"
                   draggable={false}
                   src={src}
-                  style={imageViewCss(imageCropForView(image))}
+                  style={imageFrameContentCss(image)}
                 />
               </div>
             );

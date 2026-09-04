@@ -171,7 +171,7 @@ export function BlockNoteCanvasToolbar({
 
   return (
     <div className="flex h-11 items-center justify-between bg-[#202329] px-4 text-white">
-      <span className="text-xs font-semibold">BlockNote Canvas v14</span>
+      <span className="text-xs font-semibold">BlockNote Canvas v15</span>
       <div className="flex items-center gap-3">
         <div className="flex h-8 items-center rounded-md border border-white/10 bg-white/[0.06] p-0.5">
           <button

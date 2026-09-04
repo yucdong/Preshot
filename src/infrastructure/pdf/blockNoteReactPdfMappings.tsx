@@ -36,6 +36,15 @@ import {
   type PreshotStyleSchema,
 } from "../../features/plan/blocknote/preshotBlockNoteSchema";
 import { freshPagePresenceAhead } from "./reactPdfPagination";
+import type {
+  ArtifactRecord,
+  ImageCollection,
+} from "../../domain/plan/canvas/blockDocument";
+import { layoutDocumentImageGroupForWidth } from "../../domain/plan/canvas/documentImageGroupLayout";
+import {
+  imageFrameContentCss,
+} from "../../domain/plan/canvas/imageView";
+import { compactArtifactGalleryImages } from "../../features/plan/blocknote/artifactGallerySizing";
 
 export const PRESHOT_PDF_FONT_FAMILY = "Preshot Noto Sans SC";
 export const PRESHOT_PDF_DICTIONARY = zh;
@@ -73,10 +82,232 @@ export interface PreshotReactPdfMappings {
 
 export interface PreshotReactPdfMappingOptions {
   readonly imageGroup: PreshotImageGroupPdfMapping;
+  readonly artifacts?: readonly ArtifactRecord[];
+  readonly resolvedAssets?: Readonly<Record<string, string>>;
   readonly fontSources?: {
     readonly regular: string;
     readonly bold: string;
   };
+}
+
+function artifactTitle(artifact: ArtifactRecord): string {
+  if (artifact.kind === "shootingLocation") return artifact.venueName;
+  if (artifact.kind === "modelCard") return artifact.modelId;
+  return artifact.title;
+}
+
+function artifactMetadata(artifact: ArtifactRecord): string[] {
+  if (artifact.kind === "shootingLocation") {
+    return [
+      ...(artifact.address ? [`地址：${artifact.address}`] : []),
+      ...(artifact.description ? [artifact.description] : []),
+    ];
+  }
+  if (artifact.kind === "modelCard") {
+    return [
+      ...(artifact.heightCm === null ? [] : [`身高：${artifact.heightCm} cm`]),
+      ...(artifact.weightKg === null ? [] : [`体重：${artifact.weightKg} kg`]),
+      ...(artifact.shoeSize ? [`鞋码：${artifact.shoeSize}`] : []),
+    ];
+  }
+  if (artifact.kind === "clothing") {
+    return artifact.source.trim() ? [artifact.source] : [];
+  }
+  return artifact.source.trim() ? [artifact.source] : [];
+}
+
+function artifactCollections(artifact: ArtifactRecord): Array<{
+  label: string;
+  collection: ImageCollection;
+  compact: boolean;
+}> {
+  if (artifact.kind === "shootingLocation") {
+    return [{
+      label: "场地图片",
+      collection: artifact.gallery,
+      compact: false,
+    }];
+  }
+  if (artifact.kind === "modelCard") {
+    return [{
+      label: "样片",
+      collection: artifact.samples,
+      compact: false,
+    }];
+  }
+  if (artifact.kind === "clothing") {
+    return [
+      {
+        label: "服装主图",
+        collection: artifact.mainGallery,
+        compact: false,
+      },
+      ...(artifact.tryOn.gallery.images.length > 0
+        ? [{
+            label: "试穿参考",
+            collection: artifact.tryOn.gallery,
+            compact: false,
+          }]
+        : []),
+    ];
+  }
+  return [{
+    label: "道具图片",
+    collection: artifact.gallery,
+    compact: false,
+  }];
+}
+
+function artifactPdfBlock(
+  artifact: ArtifactRecord,
+  resolvedAssets: Readonly<Record<string, string>>,
+  blockId: string,
+): PdfBlockResult {
+  const metadata = artifactMetadata(artifact).map((text, index) => (
+    <Text
+      key={`artifact-${blockId}-metadata-${index}`}
+      style={{
+        ...bodyTextStyle({}),
+        marginBottom: contract.spacing.paragraph.after / 2,
+      }}
+    >
+      {text}
+    </Text>
+  ));
+  const horizontal =
+    artifact.kind === "shootingLocation" ||
+    artifact.kind === "modelCard" ||
+    artifact.kind === "clothing" ||
+    artifact.kind === "prop";
+  const galleryWidth = horizontal
+    ? contract.editor.contentWidth * 0.6
+    : contract.editor.contentWidth;
+  const galleries = artifactCollections(artifact).map(
+    ({ label, collection, compact }) =>
+      collection.images.length > 0 ? (
+        <View
+          key={`artifact-${blockId}-${collection.id}`}
+          style={{ marginTop: contract.spacing.paragraph.after / 2 }}
+        >
+          <Text
+            style={{
+              ...bodyTextStyle({}),
+              fontWeight: 700,
+              marginBottom: contract.spacing.paragraph.after / 2,
+            }}
+          >
+            {label}
+          </Text>
+          {artifactPdfGallery(
+            collection,
+            resolvedAssets,
+            compact,
+            galleryWidth,
+          )}
+        </View>
+      ) : null,
+  );
+  return (
+    <View
+      key={`artifact-${blockId}`}
+      style={{
+        borderColor: contract.colors.border,
+        borderWidth: contract.borders.hairline,
+        borderRadius: contract.borders.radius,
+        marginBottom: contract.spacing.paragraph.after,
+        padding: contract.spacing.table.cellPaddingHorizontal,
+      }}
+    >
+      <Text
+        style={{
+          ...bodyTextStyle({}),
+          fontSize: contract.typography.body.fontSize * 1.2,
+          fontWeight: 700,
+          marginBottom: contract.spacing.paragraph.after,
+        }}
+      >
+        {artifactTitle(artifact)}
+      </Text>
+      {horizontal ? (
+        <View
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            gap: contract.columns.gap,
+          }}
+        >
+          <View style={{ width: "40%" }}>{metadata}</View>
+          <View style={{ width: "60%" }}>{galleries}</View>
+        </View>
+      ) : (
+        <>
+          {metadata}
+          {galleries}
+        </>
+      )}
+    </View>
+  ) as PdfBlockResult;
+}
+
+function artifactPdfGallery(
+  collection: ImageCollection,
+  resolvedAssets: Readonly<Record<string, string>>,
+  compact: boolean,
+  logicalWidth: number,
+): ReactElement {
+  const displayImages = compactArtifactGalleryImages(
+    collection.images,
+    logicalWidth,
+    compact,
+  );
+  const layout = layoutDocumentImageGroupForWidth(
+    displayImages,
+    logicalWidth,
+  );
+  const scale =
+    contract.page.contentWidth / contract.editor.contentWidth;
+  const images = new Map(displayImages.map((image) => [image.id, image]));
+  return (
+    <View
+      style={{
+        position: "relative",
+        width: logicalWidth * scale,
+        height: layout.height * scale,
+      }}
+    >
+      {layout.slots.map((slot) => {
+        const image = images.get(slot.id);
+        if (!image) return null;
+        const source = resolvedAssets[image.file];
+        if (!source) {
+          throw new Error(
+            `PDF artifact image "${image.file}" is unresolved`,
+          );
+        }
+        return (
+          <View
+            key={image.id}
+            style={{
+              position: "absolute",
+              overflow: "hidden",
+              left: slot.x * scale,
+              top: slot.y * scale,
+              width: slot.width * scale,
+              height: slot.height * scale,
+            }}
+          >
+            <Image
+              src={source}
+              style={{
+                position: "absolute",
+                ...imageFrameContentCss(image),
+              }}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
 }
 
 const mapping = mappingFactory(preshotBlockNoteSchema);
@@ -564,6 +795,58 @@ export function createPreshotReactPdfMappings(
           ) as PdfBlockResult;
     },
     imageGroup: options.imageGroup,
+    shootingLocation: (block) => {
+      const artifact = options.artifacts?.find(
+        (entry) => entry.id === block.props.artifactId,
+      );
+      if (!artifact || artifact.kind !== "shootingLocation") {
+        throw new Error(`PDF artifact "${block.props.artifactId}" is missing`);
+      }
+      return artifactPdfBlock(
+        artifact,
+        options.resolvedAssets ?? {},
+        block.id,
+      );
+    },
+    modelCard: (block) => {
+      const artifact = options.artifacts?.find(
+        (entry) => entry.id === block.props.artifactId,
+      );
+      if (!artifact || artifact.kind !== "modelCard") {
+        throw new Error(`PDF artifact "${block.props.artifactId}" is missing`);
+      }
+      return artifactPdfBlock(
+        artifact,
+        options.resolvedAssets ?? {},
+        block.id,
+      );
+    },
+    clothing: (block) => {
+      const artifact = options.artifacts?.find(
+        (entry) => entry.id === block.props.artifactId,
+      );
+      if (!artifact || artifact.kind !== "clothing") {
+        throw new Error(`PDF artifact "${block.props.artifactId}" is missing`);
+      }
+      return artifactPdfBlock(
+        artifact,
+        options.resolvedAssets ?? {},
+        block.id,
+      );
+    },
+    prop: (block) => {
+      const artifact = options.artifacts?.find(
+        (entry) => entry.id === block.props.artifactId,
+      );
+      if (!artifact || artifact.kind !== "prop") {
+        throw new Error(`PDF artifact "${block.props.artifactId}" is missing`);
+      }
+      return artifactPdfBlock(
+        artifact,
+        options.resolvedAssets ?? {},
+        block.id,
+      );
+    },
   });
 
   type TextInlineParameters = Parameters<

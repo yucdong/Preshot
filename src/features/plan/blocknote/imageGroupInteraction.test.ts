@@ -108,8 +108,17 @@ describe("image-group interaction utilities", () => {
     ], null)?.key).toBe("first");
   });
 
-  it("keeps image handles side-only while preserving group resize directions", () => {
-    expect(IMAGE_RESIZE_DIRECTIONS).toEqual(["left", "right"]);
+  it("provides eight image resize hit zones", () => {
+    expect(IMAGE_RESIZE_DIRECTIONS).toEqual([
+      "left",
+      "right",
+      "top",
+      "bottom",
+      "top-left",
+      "top-right",
+      "bottom-left",
+      "bottom-right",
+    ]);
     expect(affects("top-left", "top")).toBe(true);
     expect(affects("top-left", "right")).toBe(false);
     expect(resizeCursor("left")).toBe("ew-resize");
@@ -118,24 +127,34 @@ describe("image-group interaction utilities", () => {
     expect(resizeCursor("top-right")).toBe("nesw-resize");
   });
 
-  it("builds stable edge and corner hit-area geometry", () => {
+  it("builds invisible continuous edge and corner hit-area geometry", () => {
     expect(resizeHandleStyle("left")).toMatchObject({
       left: 0,
-      top: 24,
-      bottom: 24,
-      width: 20,
+      top: 20,
+      bottom: 20,
+      width: 16,
       cursor: "ew-resize",
+      background: "transparent",
+      border: 0,
+    });
+    expect(resizeHandleStyle("top")).toMatchObject({
+      top: 0,
+      height: 16,
+      left: 20,
+      right: 20,
     });
     expect(resizeHandleStyle("bottom-right")).toMatchObject({
-      right: 0,
-      bottom: 0,
-      width: 24,
-      height: 24,
+      right: -10,
+      bottom: -10,
+      width: 28,
+      height: 28,
       cursor: "nwse-resize",
+      background: "transparent",
+      border: 0,
     });
   });
 
-  it("locks side resize to the image's current displayed ratio", () => {
+  it("changes only one dimension for edge resize", () => {
     const result = frameResizePreview({
       start: {
         imageId: "image",
@@ -161,7 +180,7 @@ describe("image-group interaction utilities", () => {
     expect(result.preview).toEqual({
       imageId: "image",
       frameWidth: 150,
-      frameHeight: 100,
+      frameHeight: 80,
       frameOffsetX: 2,
       frameOffsetY: 3,
     });
@@ -183,6 +202,64 @@ describe("image-group interaction utilities", () => {
       frameWidth: 120,
       frameHeight: 80,
       frameOffsetX: 32,
+      frameOffsetY: 3,
+    });
+
+    const bottom = frameResizePreview({
+      start: {
+        imageId: "image",
+        frameWidth: 120,
+        frameHeight: 80,
+        frameOffsetX: 2,
+        frameOffsetY: 3,
+      },
+      startRect: { left: 100, right: 220, top: 100, bottom: 180 },
+      direction: "bottom",
+      deltaX: 100,
+      deltaY: 40,
+      candidates: [],
+      snapState: {
+        widthKey: null,
+        heightKey: null,
+        verticalKey: null,
+        horizontalKey: null,
+      },
+      groupRect: { left: 0, right: 300, top: 0, bottom: 260 },
+    });
+    expect(bottom.preview).toMatchObject({
+      frameWidth: 120,
+      frameHeight: 120,
+      frameOffsetX: 2,
+      frameOffsetY: 3,
+    });
+  });
+
+  it("locks corner resize to the frame ratio captured at pointerdown", () => {
+    const result = frameResizePreview({
+      start: {
+        imageId: "image",
+        frameWidth: 120,
+        frameHeight: 80,
+        frameOffsetX: 2,
+        frameOffsetY: 3,
+      },
+      startRect: { left: 100, right: 220, top: 100, bottom: 180 },
+      direction: "bottom-right",
+      deltaX: 30,
+      deltaY: 10,
+      candidates: [],
+      snapState: {
+        widthKey: null,
+        heightKey: null,
+        verticalKey: null,
+        horizontalKey: null,
+      },
+      groupRect: { left: 0, right: 300, top: 0, bottom: 260 },
+    });
+    expect(result.preview).toMatchObject({
+      frameWidth: 150,
+      frameHeight: 100,
+      frameOffsetX: 2,
       frameOffsetY: 3,
     });
   });
@@ -216,7 +293,7 @@ describe("image-group interaction utilities", () => {
     });
 
     expect(result.preview.frameWidth).toBe(100);
-    expect(result.preview.frameHeight).toBeCloseTo(80 / 90 * 100);
+    expect(result.preview.frameHeight).toBe(80);
     expect(result.guide).toEqual({ dimension: "同宽 100" });
     expect(result.snapState).toMatchObject({
       widthKey: "width:other",
@@ -232,9 +309,9 @@ describe("image-group interaction utilities", () => {
         frameOffsetY: 0,
       },
       startRect: { left: 0, right: 100, top: 0, bottom: 50 },
-      direction: "right",
-      deltaX: 18,
-      deltaY: 0,
+      direction: "bottom",
+      deltaX: 0,
+      deltaY: 8,
       candidates: [{
         id: "other",
         frameWidth: 200,
@@ -250,7 +327,7 @@ describe("image-group interaction utilities", () => {
       groupRect: { left: 0, right: 400, top: 0, bottom: 200 },
     });
     expect(equalHeight.preview).toMatchObject({
-      frameWidth: 120,
+      frameWidth: 100,
       frameHeight: 60,
     });
     expect(equalHeight.guide).toEqual({ dimension: "同高 60" });
@@ -477,11 +554,11 @@ describe("image-group interaction utilities", () => {
 
     expect(result.preview).toMatchObject({
       frameWidth: 282,
-      frameHeight: 282,
+      frameHeight: 80,
     });
     expect(result.layout.slots).toMatchObject([
-      { id: "first", x: 0, y: 0, width: 282, height: 282 },
-      { id: "second", x: 0, y: 289, width: 80, height: 80 },
+      { id: "first", x: 0, y: 0, width: 282, height: 80 },
+      { id: "second", x: 0, y: 87, width: 80, height: 80 },
     ]);
   });
 

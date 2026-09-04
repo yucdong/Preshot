@@ -161,7 +161,7 @@ describe("Tauri agent metadata store", () => {
     const store = createTauriAgentMetadataStore({ invokeCommand });
     const beforeDocument = {
       format: "preshot-blocks" as const,
-      version: 2 as const,
+      version: 3 as const,
       blocks: [],
     };
     const beforeDocumentHash = hashPreshotDocument(beforeDocument);
@@ -175,10 +175,11 @@ describe("Tauri agent metadata store", () => {
       appliedRevision: 2,
       appliedDocumentHash: HASH,
       beforePlan: {
-        schemaVersion: 14,
+        schemaVersion: 15,
         title: "Project",
         document: beforeDocument,
         imageGroups: [],
+        artifacts: [],
       },
       changes: [],
     };
@@ -206,7 +207,7 @@ describe("Tauri agent metadata store", () => {
   it("maps and validates durable proposal recovery commands", async () => {
     const beforeDocument = {
       format: "preshot-blocks" as const,
-      version: 2 as const,
+      version: 3 as const,
       blocks: [],
     };
     const beforeDocumentHash = hashPreshotDocument(beforeDocument);
@@ -220,10 +221,11 @@ describe("Tauri agent metadata store", () => {
       appliedRevision: 2,
       appliedDocumentHash: HASH,
       beforePlan: {
-        schemaVersion: 14,
+        schemaVersion: 15,
         title: "Project",
         document: beforeDocument,
         imageGroups: [],
+        artifacts: [],
       },
       changes: [],
     };

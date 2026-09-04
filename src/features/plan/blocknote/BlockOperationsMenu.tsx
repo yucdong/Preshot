@@ -34,9 +34,9 @@ import {
   nestSpecificBlock,
   unnestSpecificBlock,
   type ConvertibleBlockType,
+  type BlockGroupCloner,
   type PreshotEditorBlock,
 } from "./blockOperations";
-import type { ImageGroupBlockController } from "./ImageGroupBlockContext";
 import type {
   PreshotBlockSchema,
   PreshotInlineContentSchema,
@@ -44,7 +44,7 @@ import type {
 } from "./preshotBlockNoteSchema";
 
 interface BlockOperationsMenuProps {
-  controller: ImageGroupBlockController;
+  controller: BlockGroupCloner;
   notify(message: string): void;
 }
 
@@ -68,6 +68,10 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   table: "表格",
   divider: "分隔线",
   imageGroup: "图片组",
+  shootingLocation: "拍摄场地",
+  modelCard: "模特信息",
+  clothing: "服装",
+  prop: "道具",
 };
 
 const CONVERT_OPTIONS: Array<{
@@ -156,9 +160,18 @@ export function BlockOperationsMenu({
   const canUnnest = canUnnestSpecificBlock(editor, block);
   const canConvert =
     block.type !== "imageGroup" &&
+    block.type !== "shootingLocation" &&
+    block.type !== "modelCard" &&
+    block.type !== "clothing" &&
+    block.type !== "prop" &&
     block.type !== "table" &&
     block.type !== "divider" &&
     Array.isArray(block.content);
+  const isArtifact =
+    block.type === "shootingLocation" ||
+    block.type === "modelCard" ||
+    block.type === "clothing" ||
+    block.type === "prop";
 
   const insert = (placement: "before" | "after") => {
     const [inserted] = insertParagraphRelativeToBlock(
@@ -211,8 +224,12 @@ export function BlockOperationsMenu({
         <QuickAction
           disabled={!canNest}
           disabledReason={
-            block.type === "imageGroup"
-              ? "图片组必须保持顶层"
+            block.type === "imageGroup" ||
+            block.type === "shootingLocation" ||
+            block.type === "modelCard" ||
+            block.type === "clothing" ||
+            block.type === "prop"
+              ? "素材组件必须保持顶层或位于分栏中"
               : "前方没有可作为父级的同级 block"
           }
           icon={<IndentIncrease size={15} />}
@@ -296,22 +313,29 @@ export function BlockOperationsMenu({
         </DisabledMenuItem>
       )}
       <Components.Generic.Menu.Divider className="preshot-block-operation-divider" />
-      <Components.Generic.Menu.Item
-        className="preshot-block-operation-item preshot-block-operation-danger"
-        icon={<Trash2 size={15} />}
-        onClick={() => {
-          deleteBlockOrSelection(editor, block);
-          notify(
-            childCount > 0
-              ? `已删除 block 与 ${childCount} 个子 block`
-              : "已删除 block",
-          );
-        }}
-      >
-        {childCount > 0
-          ? `删除 block 与 ${childCount} 个子 block`
-          : "删除 block"}
-      </Components.Generic.Menu.Item>
+      {isArtifact ? (
+        <DisabledMenuItem reason="请使用素材组件右上角菜单删除并确认">
+          <Trash2 size={15} />
+          <span>删除组件（需要确认）</span>
+        </DisabledMenuItem>
+      ) : (
+        <Components.Generic.Menu.Item
+          className="preshot-block-operation-item preshot-block-operation-danger"
+          icon={<Trash2 size={15} />}
+          onClick={() => {
+            deleteBlockOrSelection(editor, block);
+            notify(
+              childCount > 0
+                ? `已删除 block 与 ${childCount} 个子 block`
+                : "已删除 block",
+            );
+          }}
+        >
+          {childCount > 0
+            ? `删除 block 与 ${childCount} 个子 block`
+            : "删除 block"}
+        </Components.Generic.Menu.Item>
+      )}
     </Components.Generic.Menu.Dropdown>
   );
 }

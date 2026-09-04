@@ -45,7 +45,7 @@ describe("AgentWorkspaceProvider", () => {
       saveState: "saved",
       document: {
         format: "preshot-blocks",
-        version: 2,
+        version: 3,
         blocks: [{
           id: "block-1",
           type: "paragraph",

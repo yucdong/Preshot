@@ -489,7 +489,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
     }));
 
-    expect(await screen.findByText("BlockNote Canvas v14")).toBeVisible();
+    expect(await screen.findByText("BlockNote Canvas v15")).toBeVisible();
     expect(screen.getByRole("group", { name: "方案正文" })).toHaveAttribute(
       "data-editor-engine",
       "blocknote",
@@ -519,11 +519,11 @@ describe("BlockNoteProjectCanvasProvider", () => {
     vi.stubGlobal("Image", MeasuredImage);
 
     let persisted = {
-      schemaVersion: 14 as const,
+      schemaVersion: 15 as const,
       title: "Editorial",
       document: {
         format: "preshot-blocks" as const,
-        version: 2 as const,
+        version: 3 as const,
         blocks: [{
           id: "group-block",
           type: "imageGroup" as const,
@@ -550,6 +550,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
           frameHeight: 135,
         }],
       }],
+      artifacts: [],
     };
     const savePlan = vi.fn().mockImplementation(async (
       _projectPath: string,
@@ -568,7 +569,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
 
     const first = renderProvider(service);
 
-    expect(await screen.findByText("BlockNote Canvas v14")).toBeVisible();
+    expect(await screen.findByText("BlockNote Canvas v15")).toBeVisible();
     expect(screen.getByTestId("save-status")).toHaveTextContent("未保存");
     expect(screen.getByText(
       /已升级 1 张旧版默认尺寸图片/,
@@ -593,7 +594,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
 
     renderProvider(service);
 
-    expect(await screen.findByText("BlockNote Canvas v14")).toBeVisible();
+    expect(await screen.findByText("BlockNote Canvas v15")).toBeVisible();
     expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
     expect(screen.queryByText(/已升级 1 张旧版默认尺寸图片/))
       .not.toBeInTheDocument();
@@ -625,7 +626,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
       savePlan,
     }));
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     view.unmount();
 
@@ -645,7 +646,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
       savePlan,
     }));
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
 
@@ -670,7 +671,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
       savePlan,
     }));
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
@@ -703,7 +704,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       projectDirectoryRevealer: { revealProjectDirectory },
       saver: { save: savePdf },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     selectExport("PDF");
 
@@ -752,7 +753,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       projectDirectoryRevealer: { revealProjectDirectory },
       saver: { save: savePdf },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     selectExport("PDF");
 
@@ -783,7 +784,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       projectDirectoryRevealer: { revealProjectDirectory },
       saver: { save: savePdf },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     selectExport("PDF");
 
@@ -815,7 +816,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
         save: savePdf,
       },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     selectExport("PDF");
 
@@ -847,7 +848,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
         save: vi.fn().mockRejectedValue(new Error("Disk is full")),
       },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     selectExport("PDF");
 
@@ -881,7 +882,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       projectDirectoryRevealer: { revealProjectDirectory },
       saver: { save: savePdf },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     selectExport("PDF");
 
@@ -934,7 +935,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       docxSaver: { save: saveDocx },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     selectExport("DOCX");
 
@@ -973,7 +974,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       docxSaver: { save: saveDocx },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     selectExport("DOCX");
 
@@ -1015,7 +1016,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
         docxSaver: { save: saveDocx },
         projectDirectoryRevealer: { revealProjectDirectory },
       });
-      await screen.findByText("BlockNote Canvas v14");
+      await screen.findByText("BlockNote Canvas v15");
 
       selectExport("DOCX");
 
@@ -1049,7 +1050,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       logger,
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     selectExport("DOCX");
 
@@ -1085,7 +1086,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     selectExport("DOCX");
 
@@ -1119,7 +1120,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
         export: exportDocx,
       },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
     const pdfOption = screen.getByRole("menuitem", { name: "导出 PDF" });
@@ -1171,7 +1172,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     openLongImageDialog();
     fireEvent.click(screen.getByRole("checkbox", { name: "自动分图" }));
@@ -1261,7 +1262,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       longImageExporter: { export: exportLongImage },
       longImageSaver: { save: saveLongImage },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     openLongImageDialog();
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
@@ -1291,7 +1292,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       longImageSaver: { save: vi.fn().mockResolvedValue(null) },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     openLongImageDialog();
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
@@ -1337,7 +1338,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
         longImageSaver: { save: saveLongImage },
         projectDirectoryRevealer: { revealProjectDirectory },
       });
-      await screen.findByText("BlockNote Canvas v14");
+      await screen.findByText("BlockNote Canvas v15");
 
       openLongImageDialog();
       fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
@@ -1398,7 +1399,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
           ),
         },
       });
-      await screen.findByText("BlockNote Canvas v14");
+      await screen.findByText("BlockNote Canvas v15");
 
       openLongImageDialog();
       configure();
@@ -1435,7 +1436,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v14");
+    await screen.findByText("BlockNote Canvas v15");
 
     openLongImageDialog();
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));

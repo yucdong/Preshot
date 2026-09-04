@@ -55,4 +55,31 @@ describe("browser BlockNote image crop store", () => {
       imported.dataUrl,
     );
   });
+
+  it("writes a cropped copy without changing the source image", async () => {
+    const cropper = vi.fn().mockResolvedValue(
+      "data:image/png;base64,copied-crop",
+    );
+    const store = createBrowserBlockNoteImageStore(cropper);
+    const imported = await store.importImage("C:\\project", "C:\\source.png");
+    if (!store.copyImageCrop) throw new Error("Copy crop store is unavailable");
+
+    const copied = await store.copyImageCrop("C:\\project", {
+      file: imported.file,
+      bounds: { x: 1, y: 1, width: 4, height: 3 },
+    });
+
+    expect(copied).toEqual({
+      file: "references/blocknote-0002.png",
+      dataUrl: "data:image/png;base64,copied-crop",
+      width: 4,
+      height: 3,
+    });
+    await expect(store.loadImage("C:\\project", imported.file)).resolves.toBe(
+      imported.dataUrl,
+    );
+    await expect(store.loadImage("C:\\project", copied.file)).resolves.toBe(
+      "data:image/png;base64,copied-crop",
+    );
+  });
 });

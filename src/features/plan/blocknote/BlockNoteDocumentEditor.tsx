@@ -13,7 +13,15 @@ import {
   SuggestionMenuController,
   useCreateBlockNote,
 } from "@blocknote/react";
-import { Columns2, Columns3, Images } from "lucide-react";
+import {
+  Columns2,
+  Columns3,
+  ContactRound,
+  Images,
+  MapPin,
+  PackageOpen,
+  Shirt,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -31,6 +39,7 @@ import {
 import {
   preshotBlockNoteSchema,
   type PreshotBlockNoteEditor,
+  type PreshotEditorPartialBlock,
 } from "./preshotBlockNoteSchema";
 import { resolveBlockNoteDocumentAssets } from "./blockNoteDocumentAssets";
 import {
@@ -47,11 +56,17 @@ import { PreshotBlockSideMenu } from "./PreshotBlockSideMenu";
 import type {
   AgentWorkspacePublisher,
 } from "../../../domain/agent/workspaceBridge";
+import {
+  ArtifactBlockContext,
+  type ArtifactBlockController,
+} from "./ArtifactBlockContext";
+import type { ArtifactKind } from "../../../domain/plan/canvas/blockDocument";
 
 interface BlockNoteDocumentEditorProps {
   agentWorkspace?: AgentWorkspacePublisher;
   ariaLabel: string;
   document: PreshotBlockDocument;
+  artifactController: ArtifactBlockController;
   imageGroupController: ImageGroupBlockController;
   onChange(document: PreshotBlockDocument): void;
   onEditorReady?(editor: PreshotBlockNoteEditor): void;
@@ -63,7 +78,29 @@ interface BlockNoteDocumentEditorProps {
   uploadFile(file: File): Promise<string>;
 }
 
-function invalidNestedImageGroup(
+type PreshotSidecarBlock = Extract<
+  PreshotEditorBlock,
+  {
+    type:
+      | "imageGroup"
+      | "shootingLocation"
+      | "modelCard"
+      | "clothing"
+      | "prop";
+  }
+>;
+
+function isSidecarBlock(
+  block: PreshotEditorBlock,
+): block is PreshotSidecarBlock {
+  return block.type === "imageGroup" ||
+    block.type === "shootingLocation" ||
+    block.type === "modelCard" ||
+    block.type === "clothing" ||
+    block.type === "prop";
+}
+
+function invalidNestedSidecarBlock(
   blocks: readonly PreshotEditorBlock[],
   topLevelAncestor?: PreshotEditorBlock,
   parent?: PreshotEditorBlock,
@@ -71,13 +108,13 @@ function invalidNestedImageGroup(
   for (const block of blocks) {
     const topLevel = topLevelAncestor ?? block;
     if (
-      block.type === "imageGroup" &&
+      isSidecarBlock(block) &&
       parent !== undefined &&
       parent.type !== "column"
     ) {
       return { block, topLevel };
     }
-    const nested = invalidNestedImageGroup(
+    const nested = invalidNestedSidecarBlock(
       block.children,
       topLevel,
       block,
@@ -126,6 +163,7 @@ function serializeEditorDocument(
 export function BlockNoteDocumentEditor({
   agentWorkspace,
   ariaLabel,
+  artifactController,
   document,
   imageGroupController,
   onChange,
@@ -245,14 +283,14 @@ export function BlockNoteDocumentEditor({
   const handleChange = useCallback(() => {
     if (proposalTransactionRef.current) return;
     if (!reconcilingRef.current) {
-      const nestedImageGroup = invalidNestedImageGroup(editor.document);
-      if (nestedImageGroup) {
+      const nestedSidecarBlock = invalidNestedSidecarBlock(editor.document);
+      if (nestedSidecarBlock) {
         reconcilingRef.current = true;
         editor.transact(() => {
-          editor.removeBlocks([nestedImageGroup.block]);
+          editor.removeBlocks([nestedSidecarBlock.block]);
           editor.insertBlocks(
-            [nestedImageGroup.block],
-            nestedImageGroup.topLevel,
+            [nestedSidecarBlock.block],
+            nestedSidecarBlock.topLevel,
             "after",
           );
         });
@@ -288,6 +326,35 @@ export function BlockNoteDocumentEditor({
           return;
         }
       }
+      const seenArtifacts = new Set<string>();
+      let duplicateArtifact:
+        | { block: PreshotSidecarBlock; artifactId: string }
+        | undefined;
+      editor.forEachBlock((entry) => {
+        const block = entry as PreshotEditorBlock;
+        if (!isSidecarBlock(block) || block.type === "imageGroup") return true;
+        const artifactId = block.props.artifactId;
+        if (!seenArtifacts.has(artifactId)) {
+          seenArtifacts.add(artifactId);
+          return true;
+        }
+        duplicateArtifact = { block, artifactId };
+        return false;
+      });
+      if (duplicateArtifact) {
+        const artifactId = artifactController.cloneArtifact(
+          duplicateArtifact.artifactId,
+        );
+        if (artifactId) {
+          reconcilingRef.current = true;
+          editor.updateBlock(duplicateArtifact.block, {
+            type: duplicateArtifact.block.type,
+            props: { artifactId },
+          } as PreshotEditorPartialBlock);
+          reconcilingRef.current = false;
+          return;
+        }
+      }
     }
     const next = serializeEditorDocument(
       editor.document,
@@ -297,7 +364,7 @@ export function BlockNoteDocumentEditor({
     if (serialized === lastEmitRef.current) return;
     lastEmitRef.current = serialized;
     onChangeRef.current(next);
-  }, [editor, imageGroupController, persistMediaUrl]);
+  }, [artifactController, editor, imageGroupController, persistMediaUrl]);
 
   const notifyBlockOperation = useCallback((message: string) => {
     if (operationToastTimerRef.current !== null) {
@@ -322,6 +389,49 @@ export function BlockNoteDocumentEditor({
     },
   }), [editor, imageGroupController, notifyBlockOperation]);
 
+  const contextualArtifactController = useMemo<ArtifactBlockController>(
+    () => ({
+      ...artifactController,
+      duplicateArtifactBlock(blockId) {
+        const block = editor.getBlock(blockId) as
+          | PreshotEditorBlock
+          | undefined;
+        if (!block || !isSidecarBlock(block) || block.type === "imageGroup") {
+          return;
+        }
+        const artifactId = artifactController.cloneArtifact(
+          block.props.artifactId,
+        );
+        if (!artifactId) return;
+        editor.insertBlocks(
+          [{
+            type: block.type,
+            props: { artifactId },
+          } as PreshotEditorPartialBlock],
+          block,
+          "after",
+        );
+        notifyBlockOperation("已复制素材组件");
+      },
+      removeArtifactBlock(blockId) {
+        const block = editor.getBlock(blockId) as
+          | PreshotEditorBlock
+          | undefined;
+        if (!block || !isSidecarBlock(block) || block.type === "imageGroup") {
+          return;
+        }
+        deleteBlockOrSelection(editor, block);
+        notifyBlockOperation("已删除素材组件");
+      },
+    }),
+    [artifactController, editor, notifyBlockOperation],
+  );
+
+  const sidecarCloner = useMemo(() => ({
+    cloneGroup: imageGroupController.cloneGroup,
+    cloneArtifact: artifactController.cloneArtifact,
+  }), [artifactController.cloneArtifact, imageGroupController.cloneGroup]);
+
   const handleBlockShortcut = useCallback((
     event: ReactKeyboardEvent<HTMLDivElement>,
   ) => {
@@ -338,7 +448,7 @@ export function BlockNoteDocumentEditor({
       const inserted = duplicateBlockTree(
         editor,
         block,
-        imageGroupController,
+        sidecarCloner,
       );
       if (inserted.length > 0) notifyBlockOperation("已复制 block");
       return;
@@ -356,7 +466,7 @@ export function BlockNoteDocumentEditor({
         notifyBlockOperation("Block 已下移");
       }
     }
-  }, [editor, imageGroupController, notifyBlockOperation]);
+  }, [editor, notifyBlockOperation, sidecarCloner]);
 
   return (
     <div
@@ -367,6 +477,7 @@ export function BlockNoteDocumentEditor({
       role="group"
     >
       <ImageGroupBlockContext.Provider value={contextualImageGroupController}>
+        <ArtifactBlockContext.Provider value={contextualArtifactController}>
         <BlockNoteView
           editor={editor}
           onChange={handleChange}
@@ -377,29 +488,36 @@ export function BlockNoteDocumentEditor({
           <SuggestionMenuController
             getItems={async (query) => {
               const defaults = getDefaultReactSlashMenuItems(editor);
+              const insertArtifact = (
+                kind: ArtifactKind,
+              ) => {
+                const artifactId = artifactController.createArtifact(kind);
+                try {
+                  insertOrUpdateBlockForSlashMenu(editor, {
+                    type: kind,
+                    props: { artifactId },
+                  } as PreshotEditorPartialBlock);
+                  window.requestAnimationFrame(() => {
+                    const escaped = typeof CSS !== "undefined" && CSS.escape
+                      ? CSS.escape(artifactId)
+                      : artifactId.replaceAll('"', '\\"');
+                    const input = editor.domElement?.querySelector<
+                      HTMLInputElement
+                    >(`[data-artifact-id="${escaped}"] input`);
+                    input?.focus();
+                    input?.select();
+                  });
+                } catch (error) {
+                  artifactController.discardPendingArtifact?.(artifactId);
+                  throw error;
+                }
+              };
               const items = [
-                ...defaults,
-                {
-                  title: "两列",
-                  subtext: "插入可调整宽度的双列布局",
-                  aliases: ["两栏", "双列", "columns", "2 columns"],
-                  group: "基础块",
-                  icon: <Columns2 size={18} />,
-                  onItemClick: () => insertColumnList(editor, 2),
-                },
-                {
-                  title: "三列",
-                  subtext: "插入可调整宽度的三列布局",
-                  aliases: ["三栏", "columns", "3 columns"],
-                  group: "基础块",
-                  icon: <Columns3 size={18} />,
-                  onItemClick: () => insertColumnList(editor, 3),
-                },
                 {
                   title: "图片组",
                   subtext: "插入可拖拽、可缩放的参考图片组",
                   aliases: ["图片", "参考图", "image", "gallery"],
-                  group: "基础块",
+                  group: "素材组件",
                   icon: <Images size={18} />,
                   onItemClick: () => {
                     const groupId = imageGroupController.createGroup();
@@ -409,6 +527,55 @@ export function BlockNoteDocumentEditor({
                     });
                   },
                 },
+                {
+                  title: "拍摄场地",
+                  subtext: "整理场地信息和参考图片",
+                  aliases: ["场地", "地址", "venue", "location"],
+                  group: "素材组件",
+                  icon: <MapPin size={18} />,
+                  onItemClick: () => insertArtifact("shootingLocation"),
+                },
+                {
+                  title: "模特信息",
+                  subtext: "记录模特资料和样片",
+                  aliases: ["模特", "model", "talent"],
+                  group: "素材组件",
+                  icon: <ContactRound size={18} />,
+                  onItemClick: () => insertArtifact("modelCard"),
+                },
+                {
+                  title: "服装",
+                  subtext: "整理服装主图、试穿和来源",
+                  aliases: ["衣服", "造型", "garment", "clothing"],
+                  group: "素材组件",
+                  icon: <Shirt size={18} />,
+                  onItemClick: () => insertArtifact("clothing"),
+                },
+                {
+                  title: "道具",
+                  subtext: "整理道具图片和来源",
+                  aliases: ["物件", "props", "prop"],
+                  group: "素材组件",
+                  icon: <PackageOpen size={18} />,
+                  onItemClick: () => insertArtifact("prop"),
+                },
+                {
+                  title: "两列",
+                  subtext: "插入可调整宽度的双列布局",
+                  aliases: ["两栏", "双列", "columns", "2 columns"],
+                  group: "布局",
+                  icon: <Columns2 size={18} />,
+                  onItemClick: () => insertColumnList(editor, 2),
+                },
+                {
+                  title: "三列",
+                  subtext: "插入可调整宽度的三列布局",
+                  aliases: ["三栏", "columns", "3 columns"],
+                  group: "布局",
+                  icon: <Columns3 size={18} />,
+                  onItemClick: () => insertColumnList(editor, 3),
+                },
+                ...defaults,
               ];
               return filterSuggestionItems(items, query);
             }}
@@ -417,7 +584,7 @@ export function BlockNoteDocumentEditor({
           <SideMenuController
             sideMenu={() => (
               <PreshotBlockSideMenu
-                controller={imageGroupController}
+                controller={sidecarCloner}
                 notify={notifyBlockOperation}
               />
             )}
@@ -440,6 +607,7 @@ export function BlockNoteDocumentEditor({
             </button>
           </div>
         ) : null}
+        </ArtifactBlockContext.Provider>
       </ImageGroupBlockContext.Provider>
     </div>
   );

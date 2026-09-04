@@ -20,6 +20,7 @@ export interface BlockTreeContext {
 
 export interface BlockGroupCloner {
   cloneGroup(groupId: string): string | null;
+  cloneArtifact?(artifactId: string): string | null;
 }
 
 export type ConvertibleBlockType =
@@ -87,6 +88,23 @@ export function duplicateBlockTree(
       "after",
     ) as PreshotEditorBlock[];
   }
+  if (
+    block.type === "shootingLocation" ||
+    block.type === "modelCard" ||
+    block.type === "clothing" ||
+    block.type === "prop"
+  ) {
+    const artifactId = groupCloner.cloneArtifact?.(block.props.artifactId);
+    if (!artifactId) return [];
+    return editor.insertBlocks(
+      [{
+        type: block.type,
+        props: { artifactId },
+      } as PreshotEditorPartialBlock],
+      block,
+      "after",
+    ) as PreshotEditorBlock[];
+  }
   return editor.insertBlocks(
     [cloneForInsertion(block)],
     block,
@@ -110,7 +128,13 @@ export function canNestSpecificBlock(
   editor: PreshotBlockNoteEditor,
   block: PreshotEditorBlock,
 ): boolean {
-  if (block.type === "imageGroup") return false;
+  if (
+    block.type === "imageGroup" ||
+    block.type === "shootingLocation" ||
+    block.type === "modelCard" ||
+    block.type === "clothing" ||
+    block.type === "prop"
+  ) return false;
   const context = blockContext(editor.document, block.id);
   if (!context || context.index === 0) return false;
   return context.siblings[context.index - 1].type !== "imageGroup";
@@ -132,6 +156,10 @@ export function canUnnestSpecificBlock(
   block: PreshotEditorBlock,
 ): boolean {
   return block.type !== "imageGroup" &&
+    block.type !== "shootingLocation" &&
+    block.type !== "modelCard" &&
+    block.type !== "clothing" &&
+    block.type !== "prop" &&
     blockContext(editor.document, block.id)?.parent !== undefined;
 }
 
@@ -235,7 +263,13 @@ export function moveBlockRelative(
   placement: BlockDropPlacement,
 ): boolean {
   let target = requestedTarget;
-  if (source.type === "imageGroup") {
+  if (
+    source.type === "imageGroup" ||
+    source.type === "shootingLocation" ||
+    source.type === "modelCard" ||
+    source.type === "clothing" ||
+    source.type === "prop"
+  ) {
     if (placement === "inside") return false;
     target = columnAncestors(editor, requestedTarget)?.directChild ??
       topLevelAncestor(editor, requestedTarget);
@@ -245,7 +279,14 @@ export function moveBlockRelative(
     containsBlock(source, target.id) ||
     (
       placement === "inside" &&
-      (target.type === "imageGroup" || target.type === "divider")
+      (
+        target.type === "imageGroup" ||
+        target.type === "shootingLocation" ||
+        target.type === "modelCard" ||
+        target.type === "clothing" ||
+        target.type === "prop" ||
+        target.type === "divider"
+      )
     )
   ) {
     return false;
@@ -255,8 +296,13 @@ export function moveBlockRelative(
     if (!targetColumns) {
       const orderedBlocks =
         placement === "left" ? [source, target] : [target, source];
-      const hasImageGroup = orderedBlocks.some(
-        (block) => block.type === "imageGroup",
+      const hasWideAtomicBlock = orderedBlocks.some(
+        (block) =>
+          block.type === "imageGroup" ||
+          block.type === "shootingLocation" ||
+          block.type === "modelCard" ||
+          block.type === "clothing" ||
+          block.type === "prop",
       );
       editor.transact(() => {
         editor.removeBlocks([source]);
@@ -267,8 +313,14 @@ export function moveBlockRelative(
             children: orderedBlocks.map((entry) => ({
               type: "column",
               props: {
-                width: hasImageGroup
-                  ? entry.type === "imageGroup" ? 1.25 : 0.75
+                width: hasWideAtomicBlock
+                  ? (
+                      entry.type === "imageGroup" ||
+                      entry.type === "shootingLocation" ||
+                      entry.type === "modelCard" ||
+                      entry.type === "clothing" ||
+                      entry.type === "prop"
+                    ) ? 1.25 : 0.75
                   : 1,
               },
               children: [entry],

@@ -11,7 +11,7 @@ import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { BlockOperationsMenu } from "./BlockOperationsMenu";
 import type { PreshotEditorBlock } from "./blockOperations";
 import { startBlockPointerDrag } from "./blockPointerDrag";
-import type { ImageGroupBlockController } from "./ImageGroupBlockContext";
+import type { BlockGroupCloner } from "./blockOperations";
 import type {
   PreshotBlockSchema,
   PreshotInlineContentSchema,
@@ -19,7 +19,7 @@ import type {
 } from "./preshotBlockNoteSchema";
 
 interface PreshotBlockSideMenuProps {
-  controller: ImageGroupBlockController;
+  controller: BlockGroupCloner;
   notify(message: string): void;
 }
 

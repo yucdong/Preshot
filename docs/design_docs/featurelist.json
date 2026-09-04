@@ -1271,6 +1271,66 @@
           "Complete Midscene visual validation for standard BlockNote block dragging"
         ]
       }
+    },
+    {
+      "name": "Artifact Document Blocks v15",
+      "description": "Adds normalized shooting-location, model, clothing, and prop blocks to the active BlockNote document with shared image interactions and export support.",
+      "status": "completed",
+      "feature_descriptions": [
+        "The insertion menu pins Image Group, Shooting Location, Model Information, Clothing, and Prop before ordinary BlockNote entries",
+        "Artifact marker blocks store only artifactId while normalized records live in plan.artifacts",
+        "Location, clothing, and prop use responsive 40/60 information/gallery rows with independently editable header names",
+        "Their information fields and main galleries share content-driven height with a compact 134px empty baseline, no textarea scrollbar, and synchronized growth from text or wrapped image rows",
+        "Location, model, clothing, and prop gallery images use exact image-group behavior: persisted aspect/crop/frame geometry, eight-zone manual resize, within/cross-group reorder, keyboard movement, and no-shrink wrapping",
+        "Clothing persists an optional collapsed try-on collection",
+        "Clothing and prop share one optional multiline source note; empty notes are omitted from reading and export output",
+        "Artifact galleries reuse image-group import, capture, selection, viewer, resize, wrapping, mouse drag, keyboard drag, and confirmation behavior",
+        "Each image has eight visually transparent continuous resize zones: left/right change width only, top/bottom change height only, and corners preserve the pointerdown frame ratio",
+        "Image fit defaults to undistorted crop/cover; explicit persisted stretch mode fills a changed-ratio frame and remains visibly marked",
+        "Artifact crop is immutable copy-on-write and preserves source bytes for Undo",
+        "PDF, DOCX, and long-image exports render artifact content in document order and honor committed cover/stretch fit mode",
+        "Schema v14/document v2 projects migrate automatically to schema v15/document v3"
+      ],
+      "keyDecisions": [
+        "Keep artifacts as document blocks rather than adding a separate reusable asset-library panel",
+        "Coordinate pending marker and sidecar creation so an artifact record enters the plan only after its BlockNote marker exists",
+        "Require one marker and one record per artifact ID and globally unique image IDs across every collection",
+        "Grandfather legacy image-group counts and apply new image caps only to artifact collections",
+        "Keep the schema-v15 location/prop fields but project them through one multiline editor for backward compatibility",
+        "Use one freeform clothing source note rather than separate source-name, URL, and description fields",
+        "Keep source-note contents escaped plain text and do not automatically execute URL-looking text",
+        "Use a new project-local file for every artifact crop while retaining legacy image-group overwrite behavior",
+        "Keep resize edge zones inside the frame so image gutters remain available for block dragging; corner zones may extend outward for reliable acquisition",
+        "Never enable distortion implicitly: absent fitMode means cover and only an explicit user action stores stretch"
+      ],
+      "progress": {
+        "designSpec": "docs/design_docs/artifacts/artifacts.md",
+        "implemented": [
+          "Added strict v15 domain validation, deterministic v14 migration, artifact caps, and global image identity",
+          "Added collection-aware plan services and browser/Tauri/Rust copy-on-write crop storage",
+          "Added four accessible React BlockNote custom blocks and pinned insertion items",
+          "Generalized the existing image drag and image-group rendering paths for embedded artifact collections",
+          "Added eight transparent continuous resize zones with single-axis edges, ratio-locked corners, keyboard adjustment, and two-axis Smart Guides",
+          "Added optional cover/stretch persistence plus editor, drag-overlay, PDF, DOCX, and long-image rendering parity",
+          "Added artifact-aware PDF, DOCX, and long-image rendering",
+          "Added domain, service, component, mapping, provider, native, and Playwright regression coverage"
+        ],
+        "lastVerified": {
+          "typecheck": "passed",
+          "lint": "passed",
+          "unitTests": "163 files / 1,133 tests passed",
+          "focusedResizeTests": "10 files / 128 tests passed; the final inset-zone regression rerun passed 2 files / 28 tests",
+          "rustTests": "144 passed, 2 ignored; one environment-sensitive bundled CLI self-report check excluded because the local binary reports a different version",
+          "rustCropTests": "6 passed",
+          "focusedArtifactE2E": "location edge, vertical, corner, explicit stretch, keyboard reorder, balanced growth, save, and persisted fitMode passed",
+          "blockNoteE2E": "32 unified browser journeys passed serially, including image-group gutter block drag and artifact resize persistence",
+          "productionBuild": "passed with the existing large-chunk warning",
+          "compactLayoutReview": "The location information field and gallery share content-driven height; location images preserve distinct persisted manual heights and aspect ratios, expose resize controls, and reorder through the existing image-group transaction",
+          "artifactCaptureHydration": "A 1200x800 captured location image now replaces its temporary 1:1 placeholder with sourceWidth 1200, sourceHeight 800, aspectRatio 1.5, and a 360x240 default frame before publish/save",
+          "documentation": "Active resize documentation and JSON parse checks passed; repository-wide docs:check remains blocked only by two pre-existing Chinese plan files outside this feature"
+        },
+        "remaining": []
+      }
     }
   ]
 }

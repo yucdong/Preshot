@@ -2,6 +2,7 @@
 import { BlockNoteEditor, type PartialBlock } from "@blocknote/core";
 import { Paragraph } from "docx";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ArtifactRecord } from "../../domain/plan/canvas/blockDocument";
 import {
   preshotBlockNoteSchema,
   type PreshotBlockSchema,
@@ -54,8 +55,10 @@ function imageGroupFallback() {
 async function exportArchive(
   content: PreshotPartialBlock[],
   assets: Readonly<Record<string, Blob | string>> = {},
+  artifacts: readonly ArtifactRecord[] = [],
 ) {
   const exporter = createPreshotDocxExporter({
+    artifacts,
     imageGroupMapping: imageGroupFallback,
   });
   const blob = await exporter.export(editorBlocks(content), { assets });
@@ -96,6 +99,31 @@ function listLevels(document: XMLDocument): ReadonlyMap<string, number> {
 }
 
 describe("Preshot DOCX exporter", () => {
+  it("exports artifact text while omitting an empty source note", async () => {
+    const base = {
+      id: "prop-1",
+      kind: "prop" as const,
+      revision: 0,
+      title: "磨砂铝反光板",
+      gallery: { id: "prop-gallery", images: [] },
+    };
+    const empty = await exportArchive(
+      [{ type: "prop", props: { artifactId: base.id } }],
+      {},
+      [{ ...base, source: "" }],
+    );
+    expect(empty.document.text).toContain("磨砂铝反光板");
+    expect(empty.document.text).not.toContain("来源说明");
+
+    const populated = await exportArchive(
+      [{ type: "prop", props: { artifactId: base.id } }],
+      {},
+      [{ ...base, source: "Studio Supply / 徐汇仓" }],
+    );
+    expect(populated.document.text).toContain("Studio Supply / 徐汇仓");
+    expect(populated.document.text).not.toContain("来源说明：");
+  });
+
   it("uses the exact shared schema and preserves editable text plus H1-H6", async () => {
     const exporter = createPreshotDocxExporter({
       imageGroupMapping: imageGroupFallback,

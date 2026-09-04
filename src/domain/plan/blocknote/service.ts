@@ -1,10 +1,16 @@
 import {
+  ARTIFACT_COLLECTION_IMAGE_LIMIT,
+  ARTIFACT_IMAGE_LIMIT,
   BLOCKNOTE_PLAN_SCHEMA_VERSION,
-  createEmptyProjectPlanV14,
+  artifactCollectionsInPlan,
+  createEmptyProjectPlanV15,
   mediaFilesInBlockDocument,
   migrateProjectPlanV13ToV14,
-  type ProjectPlanV14,
-  validateProjectPlanV14,
+  migrateProjectPlanV14ToV15,
+  type ArtifactRecord,
+  type ImageCollection,
+  type ProjectPlanV15,
+  validateProjectPlanV15,
 } from "../canvas/blockDocument";
 import {
   DEFAULT_IMAGE_HEIGHT,
@@ -33,20 +39,20 @@ interface Dependencies {
 }
 
 export type BlockNotePlanLoadResult =
-  | { status: "missing"; plan: ProjectPlanV14 }
-  | { status: "loaded"; plan: ProjectPlanV14 }
-  | { status: "migrated"; plan: ProjectPlanV14 }
+  | { status: "missing"; plan: ProjectPlanV15 }
+  | { status: "loaded"; plan: ProjectPlanV15 }
+  | { status: "migrated"; plan: ProjectPlanV15 }
   | {
       status: "incompatible";
       foundSchemaVersion: number | null;
       requiredSchemaVersion: typeof BLOCKNOTE_PLAN_SCHEMA_VERSION;
     };
 
-export type BlockNotePlanProvider = () => ProjectPlanV14;
+export type BlockNotePlanProvider = () => ProjectPlanV15;
 
 export interface BlockNotePlanService {
   loadPlan(projectPath: string, projectName: string): Promise<BlockNotePlanLoadResult>;
-  savePlan(projectPath: string, plan: ProjectPlanV14): Promise<void>;
+  savePlan(projectPath: string, plan: ProjectPlanV15): Promise<void>;
   loadImage(projectPath: string, file: string): Promise<string>;
   importMedia(
     projectPath: string,
@@ -63,7 +69,7 @@ export interface BlockNotePlanService {
     groupId: string,
     sourcePaths: string[],
   ): Promise<{
-    plan: ProjectPlanV14;
+    plan: ProjectPlanV15;
     images: Array<{ image: ReferenceImage; dataUrl: string }>;
   }>;
   commitImageCrop(
@@ -73,7 +79,7 @@ export interface BlockNotePlanService {
     imageId: string,
     crop: NormalizedImageCrop,
   ): Promise<{
-    plan: ProjectPlanV14;
+    plan: ProjectPlanV15;
     image: ReferenceImage;
     dataUrl: string;
   }>;
@@ -82,20 +88,20 @@ export interface BlockNotePlanService {
     getLatestPlan: BlockNotePlanProvider,
     groupId: string,
     imageId: string,
-  ): Promise<ProjectPlanV14>;
+  ): Promise<ProjectPlanV15>;
   removeGroup(
     projectPath: string,
     getLatestPlan: BlockNotePlanProvider,
     groupId: string,
-  ): Promise<ProjectPlanV14>;
+  ): Promise<ProjectPlanV15>;
   purgeDetachedGroups(
     projectPath: string,
-    activePlan: ProjectPlanV14,
+    activePlan: ProjectPlanV15,
     detachedGroups: ReferenceComponent[],
   ): Promise<void>;
   purgeDetachedMedia(
     projectPath: string,
-    activePlan: ProjectPlanV14,
+    activePlan: ProjectPlanV15,
     detachedFiles: string[],
   ): Promise<void>;
 }
@@ -113,6 +119,37 @@ function schemaVersionOf(raw: unknown): number | null {
   return null;
 }
 
+function mapArtifactCollections(
+  artifact: ArtifactRecord,
+  update: (collection: ImageCollection) => ImageCollection,
+): ArtifactRecord {
+  if (artifact.kind === "shootingLocation") {
+    const gallery = update(artifact.gallery);
+    return gallery === artifact.gallery ? artifact : { ...artifact, gallery };
+  }
+  if (artifact.kind === "modelCard") {
+    const samples = update(artifact.samples);
+    return samples === artifact.samples ? artifact : { ...artifact, samples };
+  }
+  if (artifact.kind === "clothing") {
+    const mainGallery = update(artifact.mainGallery);
+    const gallery = update(artifact.tryOn.gallery);
+    if (
+      mainGallery === artifact.mainGallery &&
+      gallery === artifact.tryOn.gallery
+    ) {
+      return artifact;
+    }
+    return {
+      ...artifact,
+      mainGallery,
+      tryOn: { ...artifact.tryOn, gallery },
+    };
+  }
+  const gallery = update(artifact.gallery);
+  return gallery === artifact.gallery ? artifact : { ...artifact, gallery };
+}
+
 export function createBlockNotePlanService({
   repository,
   imageStore,
@@ -127,6 +164,11 @@ export function createBlockNotePlanService({
     revision: number;
     width: number;
     height: number;
+  }>>();
+  const committedArtifactCrops = new Map<string, Map<string, {
+    revision: number;
+    replacedFiles: Set<string>;
+    image: ReferenceImage;
   }>>();
 
   function enqueue<T>(operation: () => Promise<T>): Promise<T> {
@@ -194,29 +236,163 @@ export function createBlockNotePlanService({
 
   function coalesceCommittedCrops(
     projectPath: string,
-    plan: ProjectPlanV14,
+    plan: ProjectPlanV15,
     requestedRevision: number,
-  ): ProjectPlanV14 {
+  ): ProjectPlanV15 {
     const crops = committedCrops.get(projectPath);
-    if (!crops) return plan;
+    const artifactCrops = committedArtifactCrops.get(projectPath);
+    if (!crops && !artifactCrops) return plan;
     let changed = false;
-    const imageGroups = plan.imageGroups.map((group) => {
-      let groupChanged = false;
-      const images = group.images.map((image) => {
-        const crop = crops.get(image.file);
-        if (!crop || crop.revision <= requestedRevision) return image;
+    const applyCrop = (image: ReferenceImage) => {
+      let next = image;
+      const crop = crops?.get(next.file);
+      if (crop && crop.revision > requestedRevision) {
         changed = true;
-        groupChanged = true;
-        return withCropMetadata(image, crop.width, crop.height);
-      });
+        next = withCropMetadata(next, crop.width, crop.height);
+      }
+      const artifactCrop = artifactCrops?.get(next.id);
+      if (
+        artifactCrop &&
+        artifactCrop.revision > requestedRevision &&
+        artifactCrop.replacedFiles.has(next.file)
+      ) {
+        changed = true;
+        next = artifactCrop.image;
+      }
+      return next;
+    };
+    const imageGroups = plan.imageGroups.map((group) => {
+      const images = group.images.map(applyCrop);
+      const groupChanged = images.some((image, index) =>
+        image !== group.images[index]
+      );
       return groupChanged ? fitGroupToRows({ ...group, images }) : group;
     });
-    return changed ? { ...plan, imageGroups } : plan;
+    const artifacts = plan.artifacts.map((artifact) =>
+      mapArtifactCollections(artifact, (collection) => {
+        const images = collection.images.map(applyCrop);
+        return images.some((image, index) =>
+            image !== collection.images[index])
+          ? { ...collection, images }
+          : collection;
+      })
+    );
+    return changed ? { ...plan, imageGroups, artifacts } : plan;
   }
 
-  function referencesFile(plan: ProjectPlanV14, file: string): boolean {
-    return plan.imageGroups.some((group) =>
-      group.images.some((image) => image.file === file),
+  function referencesFile(plan: ProjectPlanV15, file: string): boolean {
+    return (
+      plan.imageGroups.some((group) =>
+        group.images.some((image) => image.file === file)
+      ) ||
+      artifactReferencesFile(plan, file)
+    );
+  }
+
+  function artifactReferencesFile(
+    plan: ProjectPlanV15,
+    file: string,
+  ): boolean {
+    return artifactCollectionsInPlan(plan).some((collection) =>
+      collection.images.some((image) => image.file === file)
+    );
+  }
+
+  function imagesInCollection(
+    plan: ProjectPlanV15,
+    collectionId: string,
+  ): ReferenceImage[] | undefined {
+    return plan.imageGroups.find((group) => group.id === collectionId)?.images ??
+      artifactCollectionsInPlan(plan).find((collection) =>
+        collection.id === collectionId
+      )?.images;
+  }
+
+  function replaceCollectionImages(
+    plan: ProjectPlanV15,
+    collectionId: string,
+    update: (images: ReferenceImage[]) => ReferenceImage[],
+  ): ProjectPlanV15 {
+    let found = false;
+    let changed = false;
+    const imageGroups = plan.imageGroups.map((group) => {
+      if (group.id !== collectionId) return group;
+      found = true;
+      const images = update(group.images);
+      if (images === group.images) return group;
+      changed = true;
+      return fitGroupToRows({ ...group, images });
+    });
+    const artifacts = plan.artifacts.map((artifact) =>
+      mapArtifactCollections(artifact, (collection) => {
+        if (collection.id !== collectionId) return collection;
+        found = true;
+        const images = update(collection.images);
+        if (images === collection.images) return collection;
+        changed = true;
+        return { ...collection, images };
+      })
+    );
+    if (!found) {
+      throw new Error(`image collection "${collectionId}" was not found`);
+    }
+    return changed ? { ...plan, imageGroups, artifacts } : plan;
+  }
+
+  function mapPlanImages(
+    plan: ProjectPlanV15,
+    update: (image: ReferenceImage) => ReferenceImage,
+  ): ProjectPlanV15 {
+    let changed = false;
+    const imageGroups = plan.imageGroups.map((group) => {
+      const images = group.images.map(update);
+      if (!images.some((image, index) => image !== group.images[index])) {
+        return group;
+      }
+      changed = true;
+      return fitGroupToRows({ ...group, images });
+    });
+    const artifacts = plan.artifacts.map((artifact) =>
+      mapArtifactCollections(artifact, (collection) => {
+        const images = collection.images.map(update);
+        if (!images.some((image, index) =>
+          image !== collection.images[index]
+        )) {
+          return collection;
+        }
+        changed = true;
+        return { ...collection, images };
+      })
+    );
+    return changed ? { ...plan, imageGroups, artifacts } : plan;
+  }
+
+  function saveValidatedPlan(
+    projectPath: string,
+    plan: ProjectPlanV15,
+  ): Promise<void> {
+    return repository.saveRawPlan(projectPath, validateProjectPlanV15(plan));
+  }
+
+  async function rollbackCopiedCrop(
+    projectPath: string,
+    file: string,
+    cause: unknown,
+  ): Promise<never> {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    let rollbackContext = "";
+    try {
+      await imageStore.removeImage(projectPath, file);
+    } catch (rollbackError) {
+      rollbackContext = `; copied-image rollback also failed: ${
+        rollbackError instanceof Error
+          ? rollbackError.message
+          : String(rollbackError)
+      }`;
+    }
+    throw new Error(
+      `Artifact image copy-on-write crop could not be committed: ${message}${rollbackContext}`,
+      { cause },
     );
   }
 
@@ -245,21 +421,6 @@ export function createBlockNotePlanService({
       `Unable to import reference images: ${message}${rollbackContext}`,
       { cause },
     );
-  }
-
-  function replaceGroup(
-    plan: ProjectPlanV14,
-    groupId: string,
-    update: (group: ReferenceComponent) => ReferenceComponent,
-  ): ProjectPlanV14 {
-    let changed = false;
-    const imageGroups = plan.imageGroups.map((group) => {
-      if (group.id !== groupId) return group;
-      const next = update(group);
-      changed ||= next !== group;
-      return next;
-    });
-    return changed ? { ...plan, imageGroups } : plan;
   }
 
   function cropBounds(
@@ -309,13 +470,20 @@ export function createBlockNotePlanService({
       if (raw === null) {
         return {
           status: "missing",
-          plan: createEmptyProjectPlanV14(projectName, { makeId: createId }),
+          plan: createEmptyProjectPlanV15(projectName, { makeId: createId }),
         };
       }
       const foundSchemaVersion = schemaVersionOf(raw);
       if (foundSchemaVersion === 13) {
-        const plan = migrateProjectPlanV13ToV14(raw);
-        await repository.saveRawPlan(projectPath, plan);
+        const plan = migrateProjectPlanV14ToV15(
+          migrateProjectPlanV13ToV14(raw),
+        );
+        await saveValidatedPlan(projectPath, plan);
+        return { status: "migrated", plan };
+      }
+      if (foundSchemaVersion === 14) {
+        const plan = migrateProjectPlanV14ToV15(raw);
+        await saveValidatedPlan(projectPath, plan);
         return { status: "migrated", plan };
       }
       if (foundSchemaVersion !== BLOCKNOTE_PLAN_SCHEMA_VERSION) {
@@ -325,16 +493,14 @@ export function createBlockNotePlanService({
           requiredSchemaVersion: BLOCKNOTE_PLAN_SCHEMA_VERSION,
         };
       }
-      return { status: "loaded", plan: validateProjectPlanV14(raw) };
+      return { status: "loaded", plan: validateProjectPlanV15(raw) };
     },
     savePlan(projectPath, plan) {
       const requestedRevision = revisionOf(projectPath);
       return enqueue(() =>
-        repository.saveRawPlan(
+        saveValidatedPlan(
           projectPath,
-          validateProjectPlanV14(
-            coalesceCommittedCrops(projectPath, plan, requestedRevision),
-          ),
+          coalesceCommittedCrops(projectPath, plan, requestedRevision),
         )
       );
     },
@@ -350,32 +516,71 @@ export function createBlockNotePlanService({
     importImages(projectPath, getLatestPlan, groupId, sourcePaths) {
       return enqueue(async () => {
         const imported: Array<{ image: ReferenceImage; dataUrl: string }> = [];
-        let next: ProjectPlanV14;
+        let next: ProjectPlanV15;
         try {
+          const initialPlan = getLatestPlan();
+          const initialImages = imagesInCollection(initialPlan, groupId);
+          if (!initialImages) {
+            throw new Error(`image collection "${groupId}" was not found`);
+          }
+          const isArtifactCollection = artifactCollectionsInPlan(initialPlan).some(
+            (collection) => collection.id === groupId,
+          );
+          if (
+            isArtifactCollection &&
+            initialImages.length + sourcePaths.length >
+              ARTIFACT_COLLECTION_IMAGE_LIMIT
+          ) {
+            throw new Error(
+              `image collection "${groupId}" exceeds the ${ARTIFACT_COLLECTION_IMAGE_LIMIT}-image limit`,
+            );
+          }
+          const artifactImageCount = artifactCollectionsInPlan(initialPlan).reduce(
+            (count, collection) => count + collection.images.length,
+            0,
+          );
+          if (
+            isArtifactCollection &&
+            artifactImageCount + sourcePaths.length > ARTIFACT_IMAGE_LIMIT
+          ) {
+            throw new Error(
+              `artifact images exceed the ${ARTIFACT_IMAGE_LIMIT}-image limit`,
+            );
+          }
+          const existingImageIds = new Set([
+            ...initialPlan.imageGroups.flatMap((group) =>
+              group.images.map((image) => image.id)
+            ),
+            ...artifactCollectionsInPlan(initialPlan).flatMap((collection) =>
+              collection.images.map((image) => image.id)
+            ),
+          ]);
           for (const sourcePath of sourcePaths) {
             const asset = await imageStore.importImage(projectPath, sourcePath);
-            imported.push({
+            const imageId = createId();
+            const entry = {
               dataUrl: asset.dataUrl,
               image: {
-                id: createId(),
+                id: imageId,
                 file: asset.file,
                 aspectRatio: 1,
                 frameWidth: DEFAULT_IMAGE_HEIGHT,
                 frameHeight: DEFAULT_IMAGE_HEIGHT,
               },
-            });
+            };
+            imported.push(entry);
+            if (!imageId || existingImageIds.has(imageId)) {
+              throw new Error(
+                `generated image id "${imageId}" must be globally unique`,
+              );
+            }
+            existingImageIds.add(imageId);
           }
           const plan = getLatestPlan();
-          if (!plan.imageGroups.some((group) => group.id === groupId)) {
-            throw new Error(`image group "${groupId}" was not found`);
-          }
-          next = replaceGroup(plan, groupId, (group) =>
-            fitGroupToRows({
-              ...group,
-              images: [...group.images, ...imported.map((entry) => entry.image)],
-            })
+          next = replaceCollectionImages(plan, groupId, (images) =>
+            [...images, ...imported.map((entry) => entry.image)]
           );
-          await repository.saveRawPlan(projectPath, next);
+          await saveValidatedPlan(projectPath, next);
         } catch (error) {
           return rollbackImportedImages(
             projectPath,
@@ -399,13 +604,127 @@ export function createBlockNotePlanService({
           getLatestPlan(),
           requestedRevision,
         );
-        const target = currentPlan.imageGroups
-          .find((group) => group.id === groupId)
-          ?.images.find((image) => image.id === imageId);
+        const target = imagesInCollection(currentPlan, groupId)
+          ?.find((image) => image.id === imageId);
         if (!target) {
           throw new Error(`Unable to commit crop for reference image "${imageId}": image was not found`);
         }
         const bounds = cropBounds(target, crop);
+        const requiresCopyOnWrite =
+          artifactCollectionsInPlan(currentPlan).some(
+            (collection) => collection.id === groupId,
+          ) ||
+          artifactReferencesFile(currentPlan, target.file);
+        if (requiresCopyOnWrite) {
+          const copyImageCrop = imageCropStore.copyImageCrop;
+          if (!copyImageCrop) {
+            throw new Error(
+              `Unable to commit crop for shared image "${imageId}": copy-on-write crop storage is unavailable`,
+            );
+          }
+          let copied;
+          try {
+            copied = await copyImageCrop(projectPath, {
+              file: target.file,
+              bounds,
+            });
+          } catch (error) {
+            const message = error instanceof Error
+              ? error.message
+              : String(error);
+            throw new Error(
+              `Unable to commit crop for shared image "${target.file}": ${message}`,
+              { cause: error },
+            );
+          }
+          const copiedFileCanBeRemoved = (
+            typeof copied.file === "string" &&
+            copied.file !== target.file &&
+            /^references\/[^/\\]+$/i.test(copied.file)
+          );
+          if (
+            !copiedFileCanBeRemoved ||
+            typeof copied.dataUrl !== "string" ||
+            !copied.dataUrl ||
+            !Number.isInteger(copied.width) ||
+            !Number.isInteger(copied.height) ||
+            copied.width <= 0 ||
+            copied.height <= 0
+          ) {
+            const error = new Error(
+              `Unable to commit crop for shared image "${target.file}": malformed copy result`,
+            );
+            if (copiedFileCanBeRemoved) {
+              return rollbackCopiedCrop(projectPath, copied.file, error);
+            }
+            throw error;
+          }
+
+          const latestPlan = coalesceCommittedCrops(
+            projectPath,
+            getLatestPlan(),
+            requestedRevision,
+          );
+          const latestTarget = imagesInCollection(latestPlan, groupId)
+            ?.find((image) => image.id === imageId);
+          if (!latestTarget || latestTarget.file !== target.file) {
+            return rollbackCopiedCrop(
+              projectPath,
+              copied.file,
+              new Error(
+                `shared image "${imageId}" changed before copy-on-write commit`,
+              ),
+            );
+          }
+          const updatedTarget = {
+            ...withCropMetadata(
+              latestTarget,
+              copied.width,
+              copied.height,
+            ),
+            file: copied.file,
+          };
+          const next = replaceCollectionImages(
+            latestPlan,
+            groupId,
+            (images) => images.map((image) =>
+              image.id === imageId ? updatedTarget : image
+            ),
+          );
+          try {
+            await saveValidatedPlan(projectPath, next);
+          } catch (error) {
+            return rollbackCopiedCrop(projectPath, copied.file, error);
+          }
+
+          const revision = revisionOf(projectPath) + 1;
+          projectRevisions.set(projectPath, revision);
+          const artifactCrops = committedArtifactCrops.get(projectPath) ??
+            new Map();
+          const previous = artifactCrops.get(imageId);
+          const replacedFiles = new Set(previous?.replacedFiles);
+          replacedFiles.add(latestTarget.file);
+          artifactCrops.set(imageId, {
+            revision,
+            replacedFiles,
+            image: updatedTarget,
+          });
+          committedArtifactCrops.set(projectPath, artifactCrops);
+          logger.info("BlockNote artifact image crop copied", {
+            groupId,
+            imageId,
+            sourceFile: target.file,
+            file: copied.file,
+            width: copied.width,
+            height: copied.height,
+          });
+          return {
+            plan: next,
+            image: updatedTarget,
+            dataUrl: copied.dataUrl,
+          };
+        }
+
         let transaction;
         try {
           transaction = await imageCropStore.beginImageCrop(projectPath, {
@@ -442,9 +761,8 @@ export function createBlockNotePlanService({
           getLatestPlan(),
           requestedRevision,
         );
-        const latestTarget = latestPlan.imageGroups
-          .find((group) => group.id === groupId)
-          ?.images.find((image) => image.id === imageId);
+        const latestTarget = imagesInCollection(latestPlan, groupId)
+          ?.find((image) => image.id === imageId);
         if (!latestTarget || latestTarget.file !== target.file) {
           try {
             await transaction.rollback();
@@ -463,28 +781,20 @@ export function createBlockNotePlanService({
           );
         }
         let updatedTarget: ReferenceImage | undefined;
-        const imageGroups = latestPlan.imageGroups.map((group) => {
-          let groupChanged = false;
-          const images = group.images.map((image) => {
-            if (image.file !== target.file) return image;
-            groupChanged = true;
-            const updated = withCropMetadata(
-              image,
-              overwritten.width,
-              overwritten.height,
-            );
-            if (image.id === imageId && group.id === groupId) {
-              updatedTarget = updated;
-            }
-            return updated;
-          });
-          return groupChanged
-            ? fitGroupToRows({ ...group, images })
-            : group;
+        const next = mapPlanImages(latestPlan, (image) => {
+          if (image.file !== target.file) return image;
+          const updated = withCropMetadata(
+            image,
+            overwritten.width,
+            overwritten.height,
+          );
+          if (image.id === imageId) {
+            updatedTarget = updated;
+          }
+          return updated;
         });
-        const next = { ...latestPlan, imageGroups };
         try {
-          await repository.saveRawPlan(projectPath, next);
+          await saveValidatedPlan(projectPath, next);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           let rollbackContext = "";
@@ -529,14 +839,14 @@ export function createBlockNotePlanService({
     removeImage(projectPath, getLatestPlan, groupId, imageId) {
       return enqueue(async () => {
         const plan = getLatestPlan();
-        const target = plan.imageGroups
-          .find((group) => group.id === groupId)
-          ?.images.find((image) => image.id === imageId);
-        const next = replaceGroup(plan, groupId, (group) => ({
-          ...group,
-          images: group.images.filter((image) => image.id !== imageId),
-        }));
-        await repository.saveRawPlan(projectPath, next);
+        const target = imagesInCollection(plan, groupId)
+          ?.find((image) => image.id === imageId);
+        const next = replaceCollectionImages(
+          plan,
+          groupId,
+          (images) => images.filter((image) => image.id !== imageId),
+        );
+        await saveValidatedPlan(projectPath, next);
         if (target && !referencesFile(next, target.file)) {
           await imageStore.removeImage(projectPath, target.file);
         }
@@ -551,7 +861,7 @@ export function createBlockNotePlanService({
           ...plan,
           imageGroups: plan.imageGroups.filter((group) => group.id !== groupId),
         };
-        await repository.saveRawPlan(projectPath, next);
+        await saveValidatedPlan(projectPath, next);
         if (target) {
           for (const file of new Set(target.images.map((image) => image.file))) {
             if (!referencesFile(next, file)) {
@@ -569,11 +879,17 @@ export function createBlockNotePlanService({
             group.images.map((image) => image.file),
           ),
         );
+        const copyCrops = committedArtifactCrops.get(projectPath);
+        for (const crop of copyCrops?.values() ?? []) {
+          files.add(crop.image.file);
+          crop.replacedFiles.forEach((file) => files.add(file));
+        }
         for (const file of files) {
           if (!referencesFile(activePlan, file)) {
             await imageStore.removeImage(projectPath, file);
           }
         }
+        committedArtifactCrops.delete(projectPath);
       });
     },
     purgeDetachedMedia(projectPath, activePlan, detachedFiles) {

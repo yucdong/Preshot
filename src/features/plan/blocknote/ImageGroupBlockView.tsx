@@ -1,4 +1,11 @@
-import { Camera, Images, Plus, Trash2 } from "lucide-react";
+import {
+  Camera,
+  Images,
+  Scaling,
+  Scan,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import {
   useCallback,
   useLayoutEffect,
@@ -13,7 +20,7 @@ import {
   layoutDocumentImageGroupForWidth,
   type DocumentImageGroupSlot,
 } from "../../../domain/plan/canvas/documentImageGroupLayout";
-import { imageCropForView, imageViewCss } from "../../../domain/plan/canvas/imageView";
+import { imageFrameContentCss } from "../../../domain/plan/canvas/imageView";
 import {
   MIN_COMPONENT_HEIGHT,
   type ReferenceImage,
@@ -58,6 +65,7 @@ import {
   type ImageResizeSnapState,
   type ResizeDirection,
 } from "./imageGroupInteraction";
+import { compactArtifactGalleryImages } from "./artifactGallerySizing";
 
 function imageSlotRows(
   slots: readonly DocumentImageGroupSlot[],
@@ -84,8 +92,10 @@ function InteractiveImageTile({
   selected,
   src,
   onDelete,
+  onFitModeChange,
   onOpen,
   onResize,
+  onResizeKeyDown,
   onSelect,
 }: {
   groupId: string;
@@ -96,10 +106,15 @@ function InteractiveImageTile({
   selected: boolean;
   src: string | undefined;
   onDelete(): void;
+  onFitModeChange?(): void;
   onOpen(): void;
   onResize(
     direction: ResizeDirection,
     event: ReactPointerEvent<HTMLSpanElement>,
+  ): void;
+  onResizeKeyDown(
+    direction: ResizeDirection,
+    event: ReactKeyboardEvent<HTMLSpanElement>,
   ): void;
   onSelect(): void;
 }) {
@@ -221,7 +236,7 @@ function InteractiveImageTile({
             className="absolute max-w-none"
             draggable={false}
             src={src}
-            style={imageViewCss(imageCropForView(image))}
+            style={imageFrameContentCss(image)}
           />
         ) : (
           <span className="grid h-full place-items-center text-xs text-app-muted">
@@ -229,6 +244,35 @@ function InteractiveImageTile({
           </span>
         )}
       </button>
+      {onFitModeChange ? (
+        <button
+          aria-label={
+            image.fitMode === "stretch"
+              ? `切换参考图 ${index + 1} 为裁切适配`
+              : `切换参考图 ${index + 1} 为自由变形`
+          }
+          className={`absolute left-1 top-1 z-[60] grid h-[22px] w-[22px] place-items-center rounded text-white transition-opacity ${
+            image.fitMode === "stretch"
+              ? "bg-amber-600 opacity-100"
+              : "bg-[#202329]/85 opacity-0 group-hover:opacity-100 focus:opacity-100"
+          }`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onFitModeChange();
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          title={
+            image.fitMode === "stretch"
+              ? "自由变形已开启；点击恢复裁切适配"
+              : "切换为自由变形"
+          }
+          type="button"
+        >
+          {image.fitMode === "stretch"
+            ? <Scaling aria-hidden size={12} />
+            : <Scan aria-hidden size={12} />}
+        </button>
+      ) : null}
       <button
         aria-label={`删除参考图 ${index + 1}`}
         className="absolute right-1 top-1 z-[60] grid h-[18px] w-[18px] place-items-center rounded bg-[#202329]/85 text-white opacity-0 group-hover:opacity-100 focus:opacity-100"
@@ -244,9 +288,17 @@ function InteractiveImageTile({
       {IMAGE_RESIZE_DIRECTIONS.map((direction) => (
         <span
           aria-label={`从${direction}调整参考图 ${index + 1}`}
-          aria-orientation="vertical"
+          aria-orientation={
+            direction === "left" || direction === "right"
+              ? "vertical"
+              : direction === "top" || direction === "bottom"
+                ? "horizontal"
+                : undefined
+          }
+          className="preshot-image-resize-zone"
           data-image-resize-edge={direction}
           key={direction}
+          onKeyDown={(event) => onResizeKeyDown(direction, event)}
           onPointerDown={(event) => onResize(direction, event)}
           role="separator"
           style={resizeHandleStyle(direction)}
@@ -258,11 +310,17 @@ function InteractiveImageTile({
 }
 
 export function ImageGroupBlockView({
+  autoCompact = false,
   blockId,
   groupId,
+  label = "图片组",
+  variant = "block",
 }: {
+  autoCompact?: boolean;
   blockId: string;
   groupId: string;
+  label?: string;
+  variant?: "block" | "embedded";
 }) {
   const controller = useImageGroupBlockController();
   const drag = useImageDragPreview();
@@ -286,7 +344,9 @@ export function ImageGroupBlockView({
 
   useLayoutEffect(() => {
     const root = rootRef.current;
-    const container = root?.closest<HTMLElement>(".bn-block-content");
+    const container = variant === "embedded"
+      ? root?.parentElement
+      : root?.closest<HTMLElement>(".bn-block-content");
     if (!container || typeof ResizeObserver === "undefined") return;
     const update = () => {
       const width = container.clientWidth;
@@ -298,7 +358,7 @@ export function ImageGroupBlockView({
     observer.observe(container);
     update();
     return () => observer.disconnect();
-  }, [groupId]);
+  }, [groupId, variant]);
 
   if (!group) {
     return (
@@ -318,7 +378,7 @@ export function ImageGroupBlockView({
     kind: "image" as const,
     image,
   }));
-  const displayImages = previewItems.map((item) =>
+  const rawDisplayImages = previewItems.map((item) =>
     imageWithPreview(item.image, framePreview),
   );
   const displayedGroup = groupPreview ?? group;
@@ -334,17 +394,30 @@ export function ImageGroupBlockView({
     0,
     Math.min(displayedGroup.x, Math.max(0, availableWidth - constrainedWidth)),
   );
+  const displayImages = compactArtifactGalleryImages(
+    rawDisplayImages,
+    constrainedWidth,
+    autoCompact,
+  );
   const layout = layoutDocumentImageGroupForWidth(
     displayImages,
     constrainedWidth,
   );
   const displayedHeight = framePreview?.groupHeight ??
-    Math.max(MIN_COMPONENT_HEIGHT, displayedGroup.height, layout.height);
+    (
+      autoCompact
+        ? Math.max(MIN_COMPONENT_HEIGHT, layout.height)
+        : Math.max(MIN_COMPONENT_HEIGHT, displayedGroup.height, layout.height)
+    );
   const imagesById = new Map(displayImages.map((image) => [image.id, image]));
   const itemById = new Map(previewItems.map((item) => [item.image.id, item]));
   const rowByImageId = imageSlotRows(layout.slots);
   const committedLayout = layoutDocumentImageGroupForWidth(
-    group.images,
+    compactArtifactGalleryImages(
+      group.images,
+      constrainedWidth,
+      autoCompact,
+    ),
     constrainedWidth,
   );
   const sourcePlaceholderSlot =
@@ -368,6 +441,7 @@ export function ImageGroupBlockView({
     event.preventDefault();
     event.stopPropagation();
     const startX = event.clientX;
+    const startY = event.clientY;
     const startWidth = image.frameWidth;
     const startHeight = image.frameHeight;
     const startOffsetX = image.frameOffsetX ?? 0;
@@ -418,6 +492,7 @@ export function ImageGroupBlockView({
       verticalKey: null,
       horizontalKey: null,
     };
+
     let next: FramePreview = {
       imageId: image.id,
       frameWidth: startWidth,
@@ -428,6 +503,7 @@ export function ImageGroupBlockView({
 
     const move = (moveEvent: PointerEvent) => {
       const dx = (moveEvent.clientX - startX) / pointerScale;
+      const dy = (moveEvent.clientY - startY) / pointerScale;
       const result = imageGroupFrameResizePreview({
         images: group.images,
         groupWidth: constrainedWidth,
@@ -441,7 +517,7 @@ export function ImageGroupBlockView({
         startRect: startRect ?? null,
         direction,
         deltaX: dx,
-        deltaY: 0,
+        deltaY: dy,
         candidates,
         snapState,
         groupRect: {
@@ -477,6 +553,73 @@ export function ImageGroupBlockView({
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", finish);
     document.addEventListener("pointercancel", cancel);
+  };
+
+  const resizeImageWithKeyboard = (
+    image: ReferenceImage,
+    direction: ResizeDirection,
+    event: ReactKeyboardEvent<HTMLSpanElement>,
+  ) => {
+    const amount = event.shiftKey ? 16 : 4;
+    const deltaX = event.key === "ArrowRight"
+      ? amount
+      : event.key === "ArrowLeft" ? -amount : 0;
+    const deltaY = event.key === "ArrowDown"
+      ? amount
+      : event.key === "ArrowUp" ? -amount : 0;
+    const horizontal =
+      direction === "left" || direction === "right";
+    const vertical =
+      direction === "top" || direction === "bottom";
+    if (
+      (horizontal && deltaX === 0) ||
+      (vertical && deltaY === 0) ||
+      (!horizontal && !vertical && deltaX === 0 && deltaY === 0)
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const slot = committedLayout.slots.find((entry) => entry.id === image.id);
+    const result = imageGroupFrameResizePreview({
+      images: group.images,
+      groupWidth: constrainedWidth,
+      start: {
+        imageId: image.id,
+        frameWidth: image.frameWidth,
+        frameHeight: image.frameHeight,
+        frameOffsetX: image.frameOffsetX ?? 0,
+        frameOffsetY: image.frameOffsetY ?? 0,
+      },
+      startRect: slot
+        ? {
+            left: slot.x,
+            right: slot.x + slot.width,
+            top: slot.y,
+            bottom: slot.y + slot.height,
+          }
+        : null,
+      direction,
+      deltaX,
+      deltaY,
+      candidates: [],
+      snapState: {
+        widthKey: null,
+        heightKey: null,
+        verticalKey: null,
+        horizontalKey: null,
+      },
+      groupRect: {
+        left: 0,
+        right: Math.max(
+          1,
+          constrainedWidth - DOCUMENT_IMAGE_GROUP_INSET * 2,
+        ),
+        top: 0,
+        bottom: committedLayout.height,
+      },
+    });
+    controller.setImageFrame(groupId, image.id, result.preview);
   };
 
   const startGroupResize = (
@@ -527,7 +670,7 @@ export function ImageGroupBlockView({
   const startGroupBlockDrag = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
-    if (event.button !== 0) return;
+    if (variant === "embedded" || event.button !== 0) return;
     const target = event.target as HTMLElement;
     if (
       target.closest(
@@ -555,15 +698,17 @@ export function ImageGroupBlockView({
     >
       <ImageDragTargetGroup
         active={targetActive}
-        className="preshot-blocknote-image-group bn-drag-exclude relative rounded border border-app-border bg-app-panel p-2"
+        className={`preshot-blocknote-image-group bn-drag-exclude relative rounded border border-app-border p-2 ${
+          variant === "embedded" ? "bg-paper-subtle/35" : "bg-app-panel"
+        }`}
         data-image-group-id={groupId}
         onPointerDown={startGroupBlockDrag}
         ref={setRootNode}
         style={{
           height: `${displayedHeight}px`,
-          marginLeft: `${constrainedX}px`,
+          marginLeft: variant === "embedded" ? 0 : `${constrainedX}px`,
           translate: `0 ${displayedGroup.frameOffsetY ?? 0}px`,
-          width: `${constrainedWidth}px`,
+          width: variant === "embedded" ? "100%" : `${constrainedWidth}px`,
           maxWidth: "100%",
         }}
       >
@@ -572,7 +717,7 @@ export function ImageGroupBlockView({
             className="flex h-6 items-center gap-1 rounded bg-app-functional/20 px-2 text-[10px] font-bold text-cyan-100"
             title="拖动图片组"
           >
-            <Images aria-hidden size={14} />图片组
+            <Images aria-hidden size={14} />{label}
           </span>
           <button aria-label="添加图片" className="grid h-6 w-6 place-items-center rounded hover:bg-white/10" onClick={() => controller.addImages(groupId)} title="插入图片" type="button">
             <Plus aria-hidden size={14} />
@@ -588,7 +733,7 @@ export function ImageGroupBlockView({
               <Camera aria-hidden size={14} />
             </button>
           ) : null}
-          <button
+          {variant === "block" ? <button
             aria-label="删除图片组"
             className="grid h-6 w-6 place-items-center rounded text-rose-200 hover:bg-app-danger hover:text-white"
             onClick={() => controller.removeBlock?.(blockId)}
@@ -596,7 +741,7 @@ export function ImageGroupBlockView({
             type="button"
           >
             <Trash2 aria-hidden size={14} />
-          </button>
+          </button> : null}
         </div>
         <div className="relative h-full overflow-hidden">
           {group.images.length === 0 ? (
@@ -656,10 +801,19 @@ export function ImageGroupBlockView({
                 index={committedIndex}
                 key={image.id}
                 onDelete={() => setPendingDelete(image.id)}
+                onFitModeChange={controller.setImageFitMode
+                  ? () => controller.setImageFitMode?.(
+                      groupId,
+                      image.id,
+                      image.fitMode === "stretch" ? "cover" : "stretch",
+                    )
+                  : undefined}
                 onOpen={() =>
                   controller.openImage(groupId, image.id, image.file)}
                 onResize={(direction, event) =>
                   startImageResize(image, slot, direction, event)}
+                onResizeKeyDown={(direction, event) =>
+                  resizeImageWithKeyboard(image, direction, event)}
                 onSelect={() => controller.selectImage?.(image.id)}
                 row={rowByImageId.get(image.id) ?? 0}
                 selected={selected}
@@ -672,7 +826,7 @@ export function ImageGroupBlockView({
           {guide.horizontal ? <div className="pointer-events-none absolute inset-x-1 z-[70] border-t border-dashed border-app-accent" style={{ top: guide.horizontal.y }}><span className="absolute left-1 top-1 whitespace-nowrap rounded bg-app-accent px-1.5 py-1 text-[8px] font-bold text-white">{guide.horizontal.label}</span></div> : null}
           {guide.dimension ? <span className="pointer-events-none absolute bottom-2 left-1/2 z-[80] -translate-x-1/2 rounded border border-app-accent bg-white px-2 py-1 text-[8px] font-bold text-app-accent">{guide.dimension}</span> : null}
         </div>
-        {RESIZE_DIRECTIONS.map((direction) => (
+        {variant === "block" ? RESIZE_DIRECTIONS.map((direction) => (
           <span
             aria-label={`调整图片组${direction}`}
             data-group-resize-edge={direction}
@@ -682,7 +836,7 @@ export function ImageGroupBlockView({
             style={resizeHandleStyle(direction)}
             tabIndex={0}
           />
-        ))}
+        )) : null}
       </ImageDragTargetGroup>
       <ConfirmDialog
         cancelLabel="取消"

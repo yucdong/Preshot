@@ -20,7 +20,7 @@ const settings: SettingsRepository = {
 
 const document: PreshotBlockDocument = {
   format: "preshot-blocks",
-  version: 2,
+  version: 3,
   blocks: [
     {
       id: "paragraph",
@@ -72,6 +72,14 @@ describe("BlockNoteDocumentEditor", () => {
       resizeGroup: vi.fn(),
       moveImage: vi.fn(),
     };
+    const cloneArtifact = vi.fn().mockReturnValue("artifact-copy");
+    const artifactController = {
+      createArtifact: vi.fn().mockReturnValue("artifact-new"),
+      cloneArtifact,
+      getArtifact: vi.fn(),
+      subscribe: () => () => undefined,
+      updateArtifact: vi.fn(),
+    };
     const agentWorkspace = createAgentWorkspaceStore(
       new MemoryAttachmentTokenResolver({ makeId: () => "editor-test" }),
     );
@@ -97,6 +105,7 @@ describe("BlockNoteDocumentEditor", () => {
           <BlockNoteDocumentEditor
             agentWorkspace={agentWorkspace}
             ariaLabel="BlockNote 方案正文"
+            artifactController={artifactController}
             document={document}
             imageGroupController={imageGroupController}
             onChange={onChange}
@@ -161,6 +170,25 @@ describe("BlockNoteDocumentEditor", () => {
     expect(editor!.undo()).toBe(true);
     expect(editor!.document.filter((block) => block.type === "imageGroup"))
       .toHaveLength(2);
+
+    const [artifactBlock] = editor!.insertBlocks(
+      [{ type: "prop", props: { artifactId: "artifact-1" } }],
+      imageGroupBlock,
+      "after",
+    );
+    editor!.insertBlocks(
+      [{ type: "prop", props: { artifactId: "artifact-1" } }],
+      artifactBlock,
+      "after",
+    );
+    await waitFor(() => {
+      expect(cloneArtifact).toHaveBeenCalledWith("artifact-1");
+      expect(
+        editor!.document
+          .filter((block) => block.type === "prop")
+          .map((block) => block.props.artifactId),
+      ).toEqual(["artifact-1", "artifact-copy"]);
+    });
 
     const originalGroup = editor!.document.find(
       (block) => block.type === "imageGroup" && block.props.groupId === "group-1",

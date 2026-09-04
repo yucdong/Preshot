@@ -1,4 +1,8 @@
-import type { ProjectPlanV14 } from "../canvas/blockDocument";
+import type {
+  ArtifactRecord,
+  ImageCollection,
+  ProjectPlanV14,
+} from "../canvas/blockDocument";
 import {
   DEFAULT_IMAGE_HEIGHT,
   LEGACY_DEFAULT_IMAGE_HEIGHT,
@@ -226,33 +230,35 @@ export function setBlockNoteImageNaturalDimensions(
   }
   const aspectRatio = input.sourceWidth / input.sourceHeight;
   let changed = false;
-  const imageGroups = plan.imageGroups.map((group) => {
-    let groupChanged = false;
-    let defaultFrameHydrated = false;
-    const images = group.images.map((image) => {
-      if (image.file !== input.file) return image;
-      const defaultFrame = hasHydratableDefaultFrame(image);
-      defaultFrameHydrated ||= defaultFrame;
-      const frameHeight = defaultFrame
-        ? DEFAULT_IMAGE_HEIGHT
-        : image.frameHeight;
-      const frameWidth = defaultFrame
-        ? frameHeight * displayedRatio(image, aspectRatio)
-        : image.frameWidth;
-      const crop = image.crop ??
-        (defaultFrame ? { x: 0, y: 0, width: 1, height: 1 } : undefined);
-      if (
-        image.aspectRatio === aspectRatio &&
-        image.sourceWidth === input.sourceWidth &&
-        image.sourceHeight === input.sourceHeight &&
-        image.frameWidth === frameWidth &&
-        image.frameHeight === frameHeight &&
-        image.crop === crop
-      ) {
-        return image;
-      }
-      groupChanged = true;
-      return {
+  const hydrateImage = (image: ReferenceImage): {
+    image: ReferenceImage;
+    changed: boolean;
+    defaultFrameHydrated: boolean;
+  } => {
+    if (image.file !== input.file) {
+      return { image, changed: false, defaultFrameHydrated: false };
+    }
+    const defaultFrame = hasHydratableDefaultFrame(image);
+    const frameHeight = defaultFrame
+      ? DEFAULT_IMAGE_HEIGHT
+      : image.frameHeight;
+    const frameWidth = defaultFrame
+      ? frameHeight * displayedRatio(image, aspectRatio)
+      : image.frameWidth;
+    const crop = image.crop ??
+      (defaultFrame ? { x: 0, y: 0, width: 1, height: 1 } : undefined);
+    if (
+      image.aspectRatio === aspectRatio &&
+      image.sourceWidth === input.sourceWidth &&
+      image.sourceHeight === input.sourceHeight &&
+      image.frameWidth === frameWidth &&
+      image.frameHeight === frameHeight &&
+      image.crop === crop
+    ) {
+      return { image, changed: false, defaultFrameHydrated: defaultFrame };
+    }
+    return {
+      image: {
         ...image,
         aspectRatio,
         sourceWidth: input.sourceWidth,
@@ -260,7 +266,19 @@ export function setBlockNoteImageNaturalDimensions(
         frameWidth,
         frameHeight,
         ...(crop ? { crop } : {}),
-      };
+      },
+      changed: true,
+      defaultFrameHydrated: defaultFrame,
+    };
+  };
+  const imageGroups = plan.imageGroups.map((group) => {
+    let groupChanged = false;
+    let defaultFrameHydrated = false;
+    const images = group.images.map((image) => {
+      const result = hydrateImage(image);
+      groupChanged ||= result.changed;
+      defaultFrameHydrated ||= result.defaultFrameHydrated;
+      return result.image;
     });
     if (!groupChanged) return group;
     changed = true;
@@ -275,5 +293,46 @@ export function setBlockNoteImageNaturalDimensions(
         : group.height,
     };
   });
-  return changed ? { ...plan, imageGroups } : plan;
+  const mapCollection = (collection: ImageCollection): ImageCollection => {
+    let collectionChanged = false;
+    const images = collection.images.map((image) => {
+        const result = hydrateImage(image);
+        collectionChanged ||= result.changed;
+        return result.image;
+    });
+    if (!collectionChanged) return collection;
+    changed = true;
+    return { ...collection, images };
+  };
+  const artifacts = plan.artifacts.map((artifact): ArtifactRecord => {
+    if (artifact.kind === "shootingLocation") {
+        const gallery = mapCollection(artifact.gallery);
+        return gallery === artifact.gallery
+          ? artifact
+          : { ...artifact, gallery };
+    }
+    if (artifact.kind === "modelCard") {
+        const samples = mapCollection(artifact.samples);
+        return samples === artifact.samples
+          ? artifact
+          : { ...artifact, samples };
+    }
+    if (artifact.kind === "clothing") {
+        const mainGallery = mapCollection(artifact.mainGallery);
+        const gallery = mapCollection(artifact.tryOn.gallery);
+        return mainGallery === artifact.mainGallery &&
+            gallery === artifact.tryOn.gallery
+          ? artifact
+          : {
+              ...artifact,
+              mainGallery,
+              tryOn: { ...artifact.tryOn, gallery },
+            };
+    }
+    const gallery = mapCollection(artifact.gallery);
+    return gallery === artifact.gallery
+        ? artifact
+        : { ...artifact, gallery };
+  });
+  return changed ? { ...plan, imageGroups, artifacts } : plan;
 }

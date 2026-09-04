@@ -1099,11 +1099,14 @@ export function buildPreshotPdfLayoutManifest(
                 },
               );
             }
-            const crop = normalizePdfCrop(image.crop, {
+            const crop = normalizePdfCrop(
+              image.fitMode === "stretch" ? undefined : image.crop,
+              {
               blockId: block.id,
               groupId: group.id,
               imageId: image.id,
-            });
+              },
+            );
             const emergencyScale =
               pagination.rows[slot.rowIndex]?.emergencyScale ?? 1;
             const drawBox = {

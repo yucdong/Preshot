@@ -8,7 +8,7 @@ import type {
 } from "../../domain/plan/ports";
 import type { CanvasPlanRepository } from "../../domain/plan/canvas/ports";
 import type { ProjectPlan as CanvasPlan } from "../../domain/plan/canvas/models";
-import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
+import type { ProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
 import type { BlockNotePlanRepository } from "../../domain/plan/blocknote/ports";
 
 type InvokeCommand = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
@@ -142,6 +142,29 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         });
       }
     },
+    async copyImageCrop(projectPath, input) {
+      try {
+        const value = await invokeCommand("copy_reference_image_crop", {
+          projectPath,
+          file: input.file,
+          bounds: input.bounds,
+        });
+        if (!isRecord(value)) {
+          throw new Error("Malformed native response");
+        }
+        return {
+          file: requireString(value.file),
+          dataUrl: requireString(value.dataUrl),
+          width: requirePositiveInteger(value.width),
+          height: requirePositiveInteger(value.height),
+        };
+      } catch (error) {
+        throw new Error(
+          `Unable to crop the project reference image to a copy: ${detail(error)}`,
+          { cause: error },
+        );
+      }
+    },
     async importMedia(projectPath, input) {
       try {
         return validateImportedMedia(await invokeCommand("import_plan_media", {
@@ -184,7 +207,7 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         throw new Error(`Unable to read the project plan: ${detail(error)}`, { cause: error });
       }
     },
-    async saveRawPlan(projectPath, plan: CanvasPlan | ProjectPlanV14) {
+    async saveRawPlan(projectPath, plan: CanvasPlan | ProjectPlanV15) {
       try {
         await invokeCommand("save_project_plan", { projectPath, plan });
       } catch (error) {

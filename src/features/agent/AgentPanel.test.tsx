@@ -41,7 +41,7 @@ const PROJECT = {
 
 const DOCUMENT = {
   format: "preshot-blocks" as const,
-  version: 2 as const,
+  version: 3 as const,
   blocks: [{
     id: "block-1",
     type: "paragraph" as const,
@@ -196,10 +196,11 @@ describe("AgentPanel", () => {
         appliedRevision: 2,
         appliedDocumentHash: hashPreshotDocument(afterDocument),
         beforePlan: {
-          schemaVersion: 14,
+          schemaVersion: 15,
           title: PROJECT.projectName,
           document: DOCUMENT,
           imageGroups: [],
+          artifacts: [],
         },
         changes: [{
           kind: "restore",
@@ -227,10 +228,11 @@ describe("AgentPanel", () => {
       }],
     };
     const currentPlan = {
-      schemaVersion: 14 as const,
+      schemaVersion: 15 as const,
       title: PROJECT.projectName,
       document: conflictDocument,
       imageGroups: [],
+      artifacts: [],
     };
     const readinessListeners = new Set<
       Parameters<AgentProposalApplicationPort["subscribeReadiness"]>[0]

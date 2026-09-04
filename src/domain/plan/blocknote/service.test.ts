@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ProjectPlanV14 } from "../canvas/blockDocument";
+import type { ProjectPlanV15 } from "../canvas/blockDocument";
 import { createBlockNotePlanService } from "./service";
 
 function referenceImage(id: string) {
@@ -15,24 +15,38 @@ function referenceImage(id: string) {
 }
 
 describe("BlockNote plan service", () => {
-  it("creates schema v14, migrates v13, and blocks older schemas", async () => {
+  it("creates and loads v15, migrates v14 and v13, and blocks older schemas", async () => {
+    const paragraph = (version: 1 | 2 | 3) => ({
+      format: "preshot-blocks",
+      version,
+      blocks: [{
+        id: "block-1",
+        type: "paragraph",
+        props: {},
+        content: [],
+        children: [],
+      }],
+    });
     const repository = {
       loadRawPlan: vi.fn()
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({
+          schemaVersion: 15,
+          title: "Active",
+          document: paragraph(3),
+          imageGroups: [],
+          artifacts: [],
+        })
+        .mockResolvedValueOnce({
+          schemaVersion: 14,
+          title: "Version 14",
+          document: paragraph(2),
+          imageGroups: [],
+        })
+        .mockResolvedValueOnce({
           schemaVersion: 13,
-          title: "Current",
-          document: {
-            format: "preshot-blocks",
-            version: 1,
-            blocks: [{
-              id: "block-1",
-              type: "paragraph",
-              props: {},
-              content: [],
-              children: [],
-            }],
-          },
+          title: "Version 13",
+          document: paragraph(1),
           imageGroups: [],
         })
         .mockResolvedValueOnce({ schemaVersion: 12 }),
@@ -64,24 +78,54 @@ describe("BlockNote plan service", () => {
 
     await expect(service.loadPlan("C:\\new", "New")).resolves.toMatchObject({
       status: "missing",
-      plan: { schemaVersion: 14, title: "New" },
+      plan: {
+        schemaVersion: 15,
+        title: "New",
+        document: { version: 3 },
+        artifacts: [],
+      },
     });
-    await expect(service.loadPlan("C:\\current", "Current")).resolves
+    await expect(service.loadPlan("C:\\active", "Active")).resolves
+      .toMatchObject({
+        status: "loaded",
+        plan: {
+          schemaVersion: 15,
+          document: { version: 3 },
+          artifacts: [],
+        },
+      });
+    await expect(service.loadPlan("C:\\v14", "Version 14")).resolves
       .toMatchObject({
         status: "migrated",
         plan: {
-          schemaVersion: 14,
-          document: { version: 2 },
+          schemaVersion: 15,
+          document: { version: 3 },
+          artifacts: [],
         },
       });
-    expect(repository.saveRawPlan).toHaveBeenCalledWith(
-      "C:\\current",
-      expect.objectContaining({ schemaVersion: 14 }),
+    await expect(service.loadPlan("C:\\v13", "Version 13")).resolves
+      .toMatchObject({
+        status: "migrated",
+        plan: {
+          schemaVersion: 15,
+          document: { version: 3 },
+          artifacts: [],
+        },
+      });
+    expect(repository.saveRawPlan).toHaveBeenNthCalledWith(
+      1,
+      "C:\\v14",
+      expect.objectContaining({ schemaVersion: 15 }),
+    );
+    expect(repository.saveRawPlan).toHaveBeenNthCalledWith(
+      2,
+      "C:\\v13",
+      expect.objectContaining({ schemaVersion: 15 }),
     );
     await expect(service.loadPlan("C:\\old", "Old")).resolves.toEqual({
       status: "incompatible",
       foundSchemaVersion: 12,
-      requiredSchemaVersion: 14,
+      requiredSchemaVersion: 15,
     });
   });
 
@@ -118,12 +162,12 @@ describe("BlockNote plan service", () => {
         error: vi.fn(),
       },
     });
-    const plan: ProjectPlanV14 = {
-      schemaVersion: 14,
+    const plan: ProjectPlanV15 = {
+      schemaVersion: 15,
       title: "Import",
       document: {
         format: "preshot-blocks",
-        version: 2,
+        version: 3,
         blocks: [{
           id: "block",
           type: "imageGroup",
@@ -142,6 +186,7 @@ describe("BlockNote plan service", () => {
         description: "",
         images: [],
       }],
+      artifacts: [],
     };
 
     const result = await service.importImages(
@@ -188,11 +233,11 @@ describe("BlockNote plan service", () => {
         },
       });
       const activePlan = {
-        schemaVersion: 14 as const,
+        schemaVersion: 15 as const,
         title: "Media",
         document: {
           format: "preshot-blocks" as const,
-          version: 2 as const,
+          version: 3 as const,
           blocks: [{
             id: "audio",
             type: "audio" as const,
@@ -207,6 +252,7 @@ describe("BlockNote plan service", () => {
           }],
         },
         imageGroups: [],
+        artifacts: [],
       };
 
       await service.purgeDetachedMedia("C:\\project", activePlan, [
@@ -223,7 +269,7 @@ describe("BlockNote plan service", () => {
   });
 
   it("keeps a committed crop successful when backup cleanup needs a retry", async () => {
-    let persisted: ProjectPlanV14 | null = null;
+    let persisted: ProjectPlanV15 | null = null;
     const commit = vi.fn()
       .mockRejectedValueOnce(new Error("backup locked"))
       .mockResolvedValue(undefined);
@@ -231,7 +277,7 @@ describe("BlockNote plan service", () => {
     const warn = vi.fn();
     const saveRawPlan = vi.fn(async (
       _projectPath: string,
-      plan: ProjectPlanV14,
+      plan: ProjectPlanV15,
     ) => {
       persisted = structuredClone(plan);
     });
@@ -282,11 +328,11 @@ describe("BlockNote plan service", () => {
       crop: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 },
     };
     const plan = {
-      schemaVersion: 14 as const,
+      schemaVersion: 15 as const,
       title: "Crop",
       document: {
         format: "preshot-blocks" as const,
-        version: 2 as const,
+        version: 3 as const,
         blocks: [{
           id: "block",
           type: "imageGroup" as const,
@@ -305,6 +351,7 @@ describe("BlockNote plan service", () => {
         description: "",
         images: [image, { ...image, id: "alias", frameHeight: 100 }],
       }],
+      artifacts: [],
     };
 
     const result = await service.commitImageCrop(
@@ -416,11 +463,11 @@ describe("BlockNote plan service", () => {
       images: [image],
     };
     const plan = {
-      schemaVersion: 14 as const,
+      schemaVersion: 15 as const,
       title: "Queue",
       document: {
         format: "preshot-blocks" as const,
-        version: 2 as const,
+        version: 3 as const,
         blocks: [{
           id: "block",
           type: "imageGroup" as const,
@@ -430,6 +477,7 @@ describe("BlockNote plan service", () => {
         }],
       },
       imageGroups: [group],
+      artifacts: [],
     };
 
     const cropPromise = service.commitImageCrop(
@@ -462,7 +510,7 @@ describe("BlockNote plan service", () => {
 
   it("coalesces a stale queued save with crop metadata committed after it queued", async () => {
     let finishCrop!: () => void;
-    const persisted: ProjectPlanV14[] = [];
+    const persisted: ProjectPlanV15[] = [];
     const beginImageCrop = vi.fn().mockImplementation(() =>
       new Promise((resolve) => {
         finishCrop = () => resolve({
@@ -504,11 +552,11 @@ describe("BlockNote plan service", () => {
       },
     });
     const plan = {
-      schemaVersion: 14 as const,
+      schemaVersion: 15 as const,
       title: "Before queued save",
       document: {
         format: "preshot-blocks" as const,
-        version: 2 as const,
+        version: 3 as const,
         blocks: [{
           id: "block",
           type: "imageGroup" as const,
@@ -536,6 +584,7 @@ describe("BlockNote plan service", () => {
           crop: { x: 0, y: 1 / 6, width: 1, height: 2 / 3 },
         }],
       }],
+      artifacts: [],
     };
     const staleSave = {
       ...plan,
@@ -621,12 +670,18 @@ describe("BlockNote plan service", () => {
       },
     });
     const plan = {
-      schemaVersion: 14 as const,
+      schemaVersion: 15 as const,
       title: "Rollback",
       document: {
         format: "preshot-blocks" as const,
-        version: 2 as const,
-        blocks: [],
+        version: 3 as const,
+        blocks: [{
+          id: "block",
+          type: "imageGroup" as const,
+          props: { groupId: "group" },
+          content: undefined,
+          children: [],
+        }],
       },
       imageGroups: [{
         id: "group",
@@ -646,6 +701,7 @@ describe("BlockNote plan service", () => {
           frameHeight: 120,
         }],
       }],
+      artifacts: [],
     };
 
     await expect(service.commitImageCrop(
@@ -740,12 +796,18 @@ describe("BlockNote plan service", () => {
       },
     });
     const plan = {
-      schemaVersion: 14 as const,
+      schemaVersion: 15 as const,
       title: "Small",
       document: {
         format: "preshot-blocks" as const,
-        version: 2 as const,
-        blocks: [],
+        version: 3 as const,
+        blocks: [{
+          id: "block",
+          type: "imageGroup" as const,
+          props: { groupId: "group" },
+          content: undefined,
+          children: [],
+        }],
       },
       imageGroups: [{
         id: "group",
@@ -765,6 +827,7 @@ describe("BlockNote plan service", () => {
           frameHeight: 120,
         }],
       }],
+      artifacts: [],
     };
 
     await service.commitImageCrop(
@@ -818,11 +881,11 @@ describe("BlockNote plan service", () => {
       },
     });
     const plan = {
-      schemaVersion: 14 as const,
+      schemaVersion: 15 as const,
       title: "Bounds",
       document: {
         format: "preshot-blocks" as const,
-        version: 2 as const,
+        version: 3 as const,
         blocks: [{
           id: "block",
           type: "imageGroup" as const,
@@ -849,6 +912,7 @@ describe("BlockNote plan service", () => {
           frameHeight: 100,
         }],
       }],
+      artifacts: [],
     };
 
     await expect(service.commitImageCrop(
@@ -894,13 +958,19 @@ describe("BlockNote plan service", () => {
         error: vi.fn(),
       },
     });
-    const original: ProjectPlanV14 = {
-      schemaVersion: 14,
+    const original: ProjectPlanV15 = {
+      schemaVersion: 15,
       title: "Latest",
       document: {
         format: "preshot-blocks",
-        version: 2,
-        blocks: [],
+        version: 3,
+        blocks: [{
+          id: "block",
+          type: "imageGroup",
+          props: { groupId: "group" },
+          content: undefined,
+          children: [],
+        }],
       },
       imageGroups: [{
         id: "group",
@@ -912,6 +982,7 @@ describe("BlockNote plan service", () => {
         description: "",
         images: [referenceImage("first"), referenceImage("second")],
       }],
+      artifacts: [],
     };
     let latest = original;
     const operation = service.importImages(
@@ -940,6 +1011,444 @@ describe("BlockNote plan service", () => {
       "imported",
     ]);
     expect(saveRawPlan).toHaveBeenCalledWith("C:\\project", result.plan);
+  });
+
+  it("persists artifact imports and copy-on-write crops without removing source files", async () => {
+    const saveRawPlan = vi.fn();
+    const removeImage = vi.fn();
+    const beginImageCrop = vi.fn();
+    const copyImageCrop = vi.fn().mockResolvedValue({
+      file: "references/retained-crop.png",
+      dataUrl: "data:image/png;base64,copied-crop",
+      width: 900,
+      height: 600,
+    });
+    const service = createBlockNotePlanService({
+      repository: { loadRawPlan: vi.fn(), saveRawPlan },
+      imageStore: {
+        importImage: vi.fn().mockResolvedValue({
+          file: "references/imported.png",
+          dataUrl: "data:image/png;base64,imported",
+        }),
+        loadImage: vi.fn(),
+        removeImage,
+      },
+      imageCropStore: { beginImageCrop, copyImageCrop },
+      mediaStore: {
+        importMedia: vi.fn(),
+        loadMedia: vi.fn(),
+        removeMedia: vi.fn(),
+      },
+      createId: () => "imported-image",
+      logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+    });
+    const retained = referenceImage("retained");
+    const plan: ProjectPlanV15 = {
+      schemaVersion: 15,
+      title: "Artifact import",
+      document: {
+        format: "preshot-blocks",
+        version: 3,
+        blocks: [{
+          id: "prop-block",
+          type: "prop",
+          props: { artifactId: "prop" },
+          content: undefined,
+          children: [],
+        }],
+      },
+      imageGroups: [],
+      artifacts: [{
+        id: "prop",
+        kind: "prop",
+        revision: 0,
+        title: "Reflector",
+        gallery: {
+          id: "prop-gallery",
+          images: [retained],
+        },
+        source: "",
+      }],
+    };
+
+    const result = await service.importImages(
+      "C:\\project",
+      () => plan,
+      "prop-gallery",
+      ["C:\\source.png"],
+    );
+
+    expect(result.plan.artifacts[0]).toMatchObject({
+      gallery: {
+        images: [
+          { id: "retained" },
+          { id: "imported-image", file: "references/imported.png" },
+        ],
+      },
+    });
+    expect(saveRawPlan).toHaveBeenCalledWith("C:\\project", result.plan);
+
+    await service.purgeDetachedGroups(
+      "C:\\project",
+      result.plan,
+      [{
+        id: "detached",
+        name: "Detached",
+        type: "reference",
+        x: 0,
+        width: 400,
+        height: 300,
+        description: "",
+        images: [retained],
+      }],
+    );
+    expect(removeImage).not.toHaveBeenCalled();
+
+    const cropped = await service.commitImageCrop(
+      "C:\\project",
+      () => result.plan,
+      "prop-gallery",
+      retained.id,
+      { x: 0, y: 0, width: 1, height: 1 },
+    );
+    expect(copyImageCrop).toHaveBeenCalledWith("C:\\project", {
+      file: "references/retained.png",
+      bounds: { x: 0, y: 0, width: 900, height: 600 },
+    });
+    expect(beginImageCrop).not.toHaveBeenCalled();
+    expect(cropped.image).toMatchObject({
+      id: "retained",
+      file: "references/retained-crop.png",
+      sourceWidth: 900,
+      sourceHeight: 600,
+    });
+    expect(cropped.plan.artifacts[0]).toMatchObject({
+      gallery: {
+        images: [
+          { id: "retained", file: "references/retained-crop.png" },
+          { id: "imported-image", file: "references/imported.png" },
+        ],
+      },
+    });
+    expect(removeImage).not.toHaveBeenCalled();
+
+    await service.purgeDetachedGroups("C:\\project", cropped.plan, []);
+    expect(removeImage).toHaveBeenCalledWith(
+      "C:\\project",
+      "references/retained.png",
+    );
+    expect(removeImage).not.toHaveBeenCalledWith(
+      "C:\\project",
+      "references/retained-crop.png",
+    );
+
+    const removed = await service.removeImage(
+      "C:\\project",
+      () => cropped.plan,
+      "prop-gallery",
+      retained.id,
+    );
+    expect(removed.artifacts[0]).toMatchObject({
+      gallery: {
+        images: [{ id: "imported-image" }],
+      },
+    });
+    expect(removeImage).toHaveBeenCalledTimes(2);
+    expect(removeImage).toHaveBeenCalledWith(
+      "C:\\project",
+      "references/retained-crop.png",
+    );
+  });
+
+  it("copy-crops a shared file even when the edited placement is in an image group", async () => {
+      const copyImageCrop = vi.fn().mockResolvedValue({
+        file: "references/group-crop.png",
+        dataUrl: "data:image/png;base64,group-crop",
+        width: 600,
+        height: 400,
+      });
+      const beginImageCrop = vi.fn();
+      const shared = referenceImage("group-image");
+      const plan: ProjectPlanV15 = {
+        schemaVersion: 15,
+        title: "Shared crop",
+        document: {
+          format: "preshot-blocks",
+          version: 3,
+          blocks: [
+            {
+              id: "group-block",
+              type: "imageGroup",
+              props: { groupId: "group" },
+              content: undefined,
+              children: [],
+            },
+            {
+              id: "prop-block",
+              type: "prop",
+              props: { artifactId: "prop" },
+              content: undefined,
+              children: [],
+            },
+          ],
+        },
+        imageGroups: [{
+          id: "group",
+          name: "Group",
+          type: "reference",
+          x: 0,
+          width: 400,
+          height: 300,
+          description: "",
+          images: [shared],
+        }],
+        artifacts: [{
+          id: "prop",
+          kind: "prop",
+          revision: 0,
+          title: "Prop",
+          source: "",
+          gallery: {
+            id: "prop-gallery",
+            images: [{ ...shared, id: "artifact-image" }],
+          },
+        }],
+      };
+      const service = createBlockNotePlanService({
+        repository: {
+          loadRawPlan: vi.fn(),
+          saveRawPlan: vi.fn(),
+        },
+        imageStore: {
+          importImage: vi.fn(),
+          loadImage: vi.fn(),
+          removeImage: vi.fn(),
+        },
+        imageCropStore: { beginImageCrop, copyImageCrop },
+        mediaStore: {
+          importMedia: vi.fn(),
+          loadMedia: vi.fn(),
+          removeMedia: vi.fn(),
+        },
+        createId: () => "unused",
+        logger: {
+          debug: vi.fn(),
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+        },
+      });
+
+      const result = await service.commitImageCrop(
+        "C:\\project",
+        () => plan,
+        "group",
+        "group-image",
+        { x: 0, y: 0, width: 1, height: 1 },
+      );
+
+      expect(beginImageCrop).not.toHaveBeenCalled();
+      expect(copyImageCrop).toHaveBeenCalledOnce();
+      expect(result.plan.imageGroups[0].images[0].file)
+        .toBe("references/group-crop.png");
+      expect(
+        result.plan.artifacts[0].kind === "prop"
+          ? result.plan.artifacts[0].gallery.images[0].file
+          : "",
+      ).toBe(shared.file);
+  });
+
+  it("removes a copied artifact crop when plan persistence fails", async () => {
+    const saveRawPlan = vi.fn().mockRejectedValue(new Error("manifest locked"));
+    const removeImage = vi.fn();
+    const target = referenceImage("shared");
+    const plan: ProjectPlanV15 = {
+      schemaVersion: 15,
+      title: "Artifact crop rollback",
+      document: {
+        format: "preshot-blocks",
+        version: 3,
+        blocks: [{
+          id: "prop-block",
+          type: "prop",
+          props: { artifactId: "prop" },
+          content: undefined,
+          children: [],
+        }],
+      },
+      imageGroups: [],
+      artifacts: [{
+        id: "prop",
+        kind: "prop",
+        revision: 0,
+        title: "Reflector",
+        gallery: {
+          id: "prop-gallery",
+          images: [target],
+        },
+        source: "",
+      }],
+    };
+    const beginImageCrop = vi.fn();
+    const copyImageCrop = vi.fn().mockResolvedValue({
+      file: "references/shared-crop.png",
+      dataUrl: "data:image/png;base64,copied-crop",
+      width: 600,
+      height: 400,
+    });
+    const service = createBlockNotePlanService({
+      repository: { loadRawPlan: vi.fn(), saveRawPlan },
+      imageStore: {
+        importImage: vi.fn(),
+        loadImage: vi.fn(),
+        removeImage,
+      },
+      imageCropStore: { beginImageCrop, copyImageCrop },
+      mediaStore: {
+        importMedia: vi.fn(),
+        loadMedia: vi.fn(),
+        removeMedia: vi.fn(),
+      },
+      createId: () => "unused",
+      logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+    });
+
+    await expect(service.commitImageCrop(
+      "C:\\project",
+      () => plan,
+      "prop-gallery",
+      target.id,
+      { x: 0, y: 0, width: 1, height: 1 },
+    )).rejects.toThrow(
+      /copy-on-write crop could not be committed: manifest locked/i,
+    );
+
+    expect(copyImageCrop).toHaveBeenCalledOnce();
+    expect(beginImageCrop).not.toHaveBeenCalled();
+    expect(removeImage).toHaveBeenCalledOnce();
+    expect(removeImage).toHaveBeenCalledWith(
+      "C:\\project",
+      "references/shared-crop.png",
+    );
+  });
+
+  it("coalesces a stale queued save with an artifact copy-on-write crop", async () => {
+    let finishCopy!: () => void;
+    const copied = new Promise<{
+      file: string;
+      dataUrl: string;
+      width: number;
+      height: number;
+    }>((resolve) => {
+      finishCopy = () => resolve({
+        file: "references/shared-crop.png",
+        dataUrl: "data:image/png;base64,copied-crop",
+        width: 600,
+        height: 400,
+      });
+    });
+    const persisted: ProjectPlanV15[] = [];
+    const target = referenceImage("shared");
+    const plan: ProjectPlanV15 = {
+      schemaVersion: 15,
+      title: "Before artifact crop",
+      document: {
+        format: "preshot-blocks",
+        version: 3,
+        blocks: [{
+          id: "prop-block",
+          type: "prop",
+          props: { artifactId: "prop" },
+          content: undefined,
+          children: [],
+        }],
+      },
+      imageGroups: [],
+      artifacts: [{
+        id: "prop",
+        kind: "prop",
+        revision: 0,
+        title: "Reflector",
+        gallery: {
+          id: "prop-gallery",
+          images: [target],
+        },
+        source: "",
+      }],
+    };
+    const service = createBlockNotePlanService({
+      repository: {
+        loadRawPlan: vi.fn(),
+        saveRawPlan: vi.fn(async (_projectPath, saved) => {
+          persisted.push(structuredClone(saved));
+        }),
+      },
+      imageStore: {
+        importImage: vi.fn(),
+        loadImage: vi.fn(),
+        removeImage: vi.fn(),
+      },
+      imageCropStore: {
+        beginImageCrop: vi.fn(),
+        copyImageCrop: vi.fn(() => copied),
+      },
+      mediaStore: {
+        importMedia: vi.fn(),
+        loadMedia: vi.fn(),
+        removeMedia: vi.fn(),
+      },
+      createId: () => "unused",
+      logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+    });
+
+    const cropPromise = service.commitImageCrop(
+      "C:\\project",
+      () => plan,
+      "prop-gallery",
+      target.id,
+      { x: 0, y: 0, width: 1, height: 1 },
+    );
+    const savePromise = service.savePlan("C:\\project", {
+      ...plan,
+      title: "Queued document edit",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(persisted).toEqual([]);
+
+    finishCopy();
+    await cropPromise;
+    await savePromise;
+
+    expect(persisted).toHaveLength(2);
+    expect(persisted.at(-1)).toMatchObject({
+      title: "Queued document edit",
+      artifacts: [{
+        gallery: {
+          images: [{
+            id: "shared",
+            file: "references/shared-crop.png",
+            sourceWidth: 600,
+            sourceHeight: 400,
+          }],
+        },
+      }],
+    });
   });
 
   it("rolls back every copied image when a later import fails", async () => {
@@ -971,13 +1480,19 @@ describe("BlockNote plan service", () => {
         error: vi.fn(),
       },
     });
-    const plan: ProjectPlanV14 = {
-      schemaVersion: 14,
+    const plan: ProjectPlanV15 = {
+      schemaVersion: 15,
       title: "Rollback",
       document: {
         format: "preshot-blocks",
-        version: 2,
-        blocks: [],
+        version: 3,
+        blocks: [{
+          id: "block",
+          type: "imageGroup",
+          props: { groupId: "group" },
+          content: undefined,
+          children: [],
+        }],
       },
       imageGroups: [{
         id: "group",
@@ -989,6 +1504,7 @@ describe("BlockNote plan service", () => {
         description: "",
         images: [],
       }],
+      artifacts: [],
     };
 
     await expect(service.importImages(

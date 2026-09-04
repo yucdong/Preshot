@@ -30,6 +30,13 @@ import {
   type PreshotStyleSchema,
 } from "../../features/plan/blocknote/preshotBlockNoteSchema";
 import { prepareDocxImage } from "./browserDocxImage";
+import type {
+  ArtifactRecord,
+  ImageCollection,
+} from "../../domain/plan/canvas/blockDocument";
+import { layoutDocumentImageGroupForWidth } from "../../domain/plan/canvas/documentImageGroupLayout";
+import { imageCropForView } from "../../domain/plan/canvas/imageView";
+import { compactArtifactGalleryImages } from "../../features/plan/blocknote/artifactGallerySizing";
 
 export const PRESHOT_DOCX_COLUMN_GAP_TWIPS = 200;
 
@@ -65,6 +72,7 @@ export interface PreshotDocxMappingOptions {
   readonly imageGroupMapping: PreshotImageGroupDocxMapping;
   readonly contentWidthTwips: number;
   readonly contentHeightTwips: number;
+  readonly artifacts?: readonly ArtifactRecord[];
   readonly nativeImageContainerWidthTwipsByBlockId?: Readonly<
     Record<string, number>
   >;
@@ -75,6 +83,211 @@ export interface PreshotDocxMappingOptions {
       readonly heightPoints: number;
     }
   >>;
+}
+
+function artifactTitle(artifact: ArtifactRecord): string {
+  if (artifact.kind === "shootingLocation") return artifact.venueName;
+  if (artifact.kind === "modelCard") return artifact.modelId;
+  return artifact.title;
+}
+
+function artifactCollections(artifact: ArtifactRecord): Array<{
+  label: string;
+  collection: ImageCollection;
+  compact: boolean;
+}> {
+  if (artifact.kind === "shootingLocation") {
+    return [{
+      label: "场地图片",
+      collection: artifact.gallery,
+      compact: false,
+    }];
+  }
+  if (artifact.kind === "modelCard") {
+    return [{
+      label: "样片",
+      collection: artifact.samples,
+      compact: false,
+    }];
+  }
+  if (artifact.kind === "clothing") {
+    return [
+      {
+        label: "服装主图",
+        collection: artifact.mainGallery,
+        compact: false,
+      },
+      ...(artifact.tryOn.gallery.images.length > 0
+        ? [{
+            label: "试穿参考",
+            collection: artifact.tryOn.gallery,
+            compact: false,
+          }]
+        : []),
+    ];
+  }
+  return [{
+    label: "道具图片",
+    collection: artifact.gallery,
+    compact: false,
+  }];
+}
+
+function artifactMetadata(artifact: ArtifactRecord): string[] {
+  if (artifact.kind === "shootingLocation") {
+    return [
+      ...(artifact.address ? [`地址：${artifact.address}`] : []),
+      ...(artifact.description ? [artifact.description] : []),
+    ];
+  }
+  if (artifact.kind === "modelCard") {
+    return [
+      ...(artifact.heightCm === null ? [] : [`身高：${artifact.heightCm} cm`]),
+      ...(artifact.weightKg === null ? [] : [`体重：${artifact.weightKg} kg`]),
+      ...(artifact.shoeSize ? [`鞋码：${artifact.shoeSize}`] : []),
+    ];
+  }
+  if (artifact.kind === "clothing") {
+    return artifact.source.trim() ? [artifact.source] : [];
+  }
+  return artifact.source.trim() ? [artifact.source] : [];
+}
+
+async function artifactDocxBlocks(
+  artifact: ArtifactRecord,
+  resolveFile: (source: string) => Promise<Blob>,
+): Promise<Paragraph[] | Table> {
+  const heading = new Paragraph({
+    text: artifactTitle(artifact),
+    heading: "Heading2",
+    keepNext: true,
+  });
+  const metadata = artifactMetadata(artifact).map((text) =>
+    new Paragraph({
+      children: [new TextRun(text)],
+      keepNext: true,
+    })
+  );
+  const galleries: Paragraph[] = [];
+  for (
+    const {
+      label,
+      collection,
+      compact,
+    } of artifactCollections(artifact)
+  ) {
+    if (collection.images.length === 0) continue;
+    galleries.push(new Paragraph({
+      children: [new TextRun({ text: label, bold: true })],
+      keepNext: true,
+    }));
+    const prepared = await prepareArtifactCollectionImage(
+      collection,
+      resolveFile,
+      compact,
+    );
+    const width = Math.min(520, prepared.width);
+    const height = width / prepared.width * prepared.height;
+    galleries.push(new Paragraph({
+      children: [new ImageRun({
+        data: prepared.bytes,
+        type: prepared.type,
+        transformation: { width, height },
+      })],
+    }));
+  }
+  const horizontal =
+    artifact.kind === "shootingLocation" ||
+    artifact.kind === "modelCard" ||
+    artifact.kind === "clothing" ||
+    artifact.kind === "prop";
+  if (!horizontal) return [heading, ...metadata, ...galleries];
+
+  const left = [heading, ...metadata];
+  const right = galleries.length > 0 ? galleries : [new Paragraph("")];
+  return new Table({
+    borders: BORDERLESS,
+    layout: TableLayoutType.FIXED,
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [new TableRow({
+      children: [
+        new TableCell({
+          borders: BORDERLESS,
+          children: left,
+          width: { size: 40, type: WidthType.PERCENTAGE },
+        }),
+        new TableCell({
+          borders: BORDERLESS,
+          children: right,
+          width: { size: 60, type: WidthType.PERCENTAGE },
+        }),
+      ],
+    })],
+  });
+}
+
+function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Unable to encode artifact gallery for DOCX"));
+    }, "image/png");
+  });
+}
+
+async function prepareArtifactCollectionImage(
+  collection: ImageCollection,
+  resolveFile: (source: string) => Promise<Blob>,
+  compact: boolean,
+) {
+  const logicalWidth = 1008;
+  const displayImages = compactArtifactGalleryImages(
+    collection.images,
+    logicalWidth,
+    compact,
+  );
+  const layout = layoutDocumentImageGroupForWidth(
+    displayImages,
+    logicalWidth,
+  );
+  const scale = Math.min(1.5, 8192 / Math.max(logicalWidth, layout.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.ceil(logicalWidth * scale));
+  canvas.height = Math.max(1, Math.ceil(layout.height * scale));
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) throw new Error("Unable to compose artifact gallery for DOCX");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  const images = new Map(displayImages.map((image) => [image.id, image]));
+  const bitmaps: ImageBitmap[] = [];
+  try {
+    for (const slot of layout.slots) {
+      const image = images.get(slot.id);
+      if (!image) continue;
+      const bitmap = await createImageBitmap(await resolveFile(image.file));
+      bitmaps.push(bitmap);
+      const crop = image.fitMode === "stretch"
+        ? { x: 0, y: 0, width: 1, height: 1 }
+        : imageCropForView(image);
+      context.drawImage(
+        bitmap,
+        crop.x * bitmap.width,
+        crop.y * bitmap.height,
+        crop.width * bitmap.width,
+        crop.height * bitmap.height,
+        slot.x * scale,
+        slot.y * scale,
+        slot.width * scale,
+        slot.height * scale,
+      );
+    }
+    return prepareDocxImage(await canvasPng(canvas));
+  } finally {
+    bitmaps.forEach((bitmap) => bitmap.close());
+    canvas.width = 1;
+    canvas.height = 1;
+    canvas.remove();
+  }
 }
 
 const mapping = mappingFactory(preshotBlockNoteSchema);
@@ -432,6 +645,42 @@ export function createPreshotDocxMappings(
       });
     },
     imageGroup: options.imageGroupMapping,
+    shootingLocation: (block, exporter) => {
+      const artifact = options.artifacts?.find(
+        (entry) => entry.id === block.props.artifactId,
+      );
+      if (!artifact || artifact.kind !== "shootingLocation") {
+        throw new Error(`DOCX artifact "${block.props.artifactId}" is missing`);
+      }
+      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source));
+    },
+    modelCard: (block, exporter) => {
+      const artifact = options.artifacts?.find(
+        (entry) => entry.id === block.props.artifactId,
+      );
+      if (!artifact || artifact.kind !== "modelCard") {
+        throw new Error(`DOCX artifact "${block.props.artifactId}" is missing`);
+      }
+      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source));
+    },
+    clothing: (block, exporter) => {
+      const artifact = options.artifacts?.find(
+        (entry) => entry.id === block.props.artifactId,
+      );
+      if (!artifact || artifact.kind !== "clothing") {
+        throw new Error(`DOCX artifact "${block.props.artifactId}" is missing`);
+      }
+      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source));
+    },
+    prop: (block, exporter) => {
+      const artifact = options.artifacts?.find(
+        (entry) => entry.id === block.props.artifactId,
+      );
+      if (!artifact || artifact.kind !== "prop") {
+        throw new Error(`DOCX artifact "${block.props.artifactId}" is missing`);
+      }
+      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source));
+    },
   });
 
   return {

@@ -15,6 +15,7 @@ import {
   type PreshotInlineContentSchema,
   type PreshotStyleSchema,
 } from "../../features/plan/blocknote/preshotBlockNoteSchema";
+import type { ArtifactRecord } from "../../domain/plan/canvas/blockDocument";
 import {
   PRESHOT_DOCX_COLUMN_GAP_TWIPS,
   allocateWeightedWidths,
@@ -55,6 +56,7 @@ export interface PreshotDocxExportOptions {
 }
 
 export interface PreshotDocxExporterFactoryOptions {
+  readonly artifacts?: readonly ArtifactRecord[];
   readonly imageGroupMapping?: PreshotImageGroupDocxMapping;
   readonly nativeImageLayoutByBlockId?: Readonly<Record<
     string,
@@ -277,6 +279,7 @@ export function createPreshotDocxExporter(
     async export(blocks, options = {}) {
       assertSupportedListNesting(blocks);
       const mappings = createPreshotDocxMappings({
+        artifacts: factoryOptions.artifacts,
         imageGroupMapping,
         contentWidthTwips: PRESHOT_DOCX_A4.contentWidthTwips,
         contentHeightTwips: PRESHOT_DOCX_A4.contentHeightTwips,

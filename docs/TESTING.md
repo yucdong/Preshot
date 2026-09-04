@@ -195,9 +195,9 @@ eight exact files are listed in the Playwright acceptance section below.
 
 Domain tests cover pure behavior such as:
 
-- BlockNote v14 schema validation,
-- v13-to-v14 migration,
-- block nesting and image-group invariants,
+- BlockNote v15 schema validation,
+- v13-to-v14-to-v15 migration,
+- block nesting, image-group, artifact marker/record, and global image-ID invariants,
 - extraction of referenced `media/` files,
 - image-group geometry and crop helpers,
 - immutable image-drag snapshots, projection purity, same-/cross-/empty-group
@@ -207,8 +207,9 @@ Domain tests cover pure behavior such as:
   block/image-row segmentation, contiguous parts, no-split failures, adaptive
   JPEG quality, PNG byte re-splitting, actionable atomic-block/image-row
   exhaustion failures, safe names, and immutable manifests,
-- stable-gap non-overlap wrapping, derived group height, side-only
-  current-ratio resize, and prioritized Smart Guide snapping,
+- stable-gap non-overlap wrapping, derived group height, eight transparent
+  resize zones, ratio-locked corners, single-axis edges, cover/stretch
+  rendering, and prioritized Smart Guide snapping,
 - PDF layout primitives and typed BlockNote PDF visual-contract boundaries
   (root/column scaling, stable rounding, and page-safe row fragments),
 - deterministic React-PDF preflight traversal for root groups, weighted
@@ -244,7 +245,7 @@ Component tests cover user-visible behavior for:
   overlay/source/insertion placeholders, row-major keyboard projection,
   Chinese announcements, 48px zoom-safe auto-scroll, reduced motion,
   stale/focus/decode cancellation, one-step undo and save boundaries, preview
-  non-persistence, committed exporter ordering, side-only live resize,
+  non-persistence, committed exporter ordering, eight-zone live resize,
   wrapping, cancellation, and guide feedback,
 - reference-image crop presets, Free sizing, pan/nudge, zoom, reset,
   cancel/confirm, progress, focus restoration, and actionable errors, and
@@ -354,7 +355,7 @@ Rust unit tests cover:
 
 `pnpm test:e2e` exercises the browser-shell path used for smoke coverage. It starts Vite in `e2e` mode, uses Microsoft Edge, and validates top-level workflows such as workspace loading, project opening, editor presence, and related UI flows.
 
-`pnpm test:e2e:blocknote` is the focused browser suite for the current v14 editor surface. Use it when changing BlockNote document behavior, image groups, columns, native media, or PDF/DOCX-adjacent editing flows.
+`pnpm test:e2e:blocknote` is the focused browser suite for the current v15 editor surface. Use it when changing BlockNote document behavior, image groups, artifact blocks, columns, native media, or PDF/DOCX-adjacent editing flows.
 
 Long-image work should run both the focused production journey in
 `blocknote-v14.spec.ts` and `pnpm test:e2e:capture`. The former verifies
@@ -370,8 +371,9 @@ base64/Tauri invocation, provider byte-array identity, normal multipart saves,
 actionable error context, and deterministic canvas/context/object-URL cleanup.
 
 Its create/edit/save journey asserts single-click selection, double-click
-viewer opening, drag-safe viewer suppression, side-only image handles,
-current-ratio resizing, group resizing, persistence, reload, and PDF export.
+viewer opening, drag-safe viewer suppression, transparent edge/corner zones,
+single-axis and ratio-locked resizing, group resizing, persistence, reload,
+and PDF export.
 
 The dedicated live image-drag journey covers keyboard pickup/movement/cancel,
 pointer activation, same- and cross-group source/target placeholders, real-time
