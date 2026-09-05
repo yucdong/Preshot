@@ -35,61 +35,6 @@ describe("blockDocumentToPdfBlocks", () => {
     ]);
   });
 
-  it("preserves column weights and side-by-side child blocks", () => {
-    const document: PreshotBlockDocument = {
-      format: "preshot-blocks",
-      version: 3,
-      blocks: [{
-        id: "columns",
-        type: "columnList",
-        props: {},
-        content: undefined,
-        children: [
-          {
-            id: "left",
-            type: "column",
-            props: { width: 0.75 },
-            content: undefined,
-            children: [{
-              id: "copy",
-              type: "paragraph",
-              props: {},
-              content: [{ type: "text", text: "Copy", styles: {} }],
-              children: [],
-            }],
-          },
-          {
-            id: "right",
-            type: "column",
-            props: { width: 1.25 },
-            content: undefined,
-            children: [{
-              id: "group",
-              type: "imageGroup",
-              props: { groupId: "group-1" },
-              content: undefined,
-              children: [],
-            }],
-          },
-        ],
-      }],
-    };
-
-    expect(blockDocumentToPdfBlocks(document)).toEqual([{
-      type: "columns",
-      columns: [
-        {
-          weight: 0.75,
-          blocks: [{ type: "paragraph", runs: [{ text: "Copy" }] }],
-        },
-        {
-          weight: 1.25,
-          blocks: [{ type: "imageGroup", groupId: "group-1" }],
-        },
-      ],
-    }]);
-  });
-
   it("maps native media blocks to PDF images and fallback labels", () => {
     const document: PreshotBlockDocument = {
       format: "preshot-blocks",

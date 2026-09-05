@@ -41,14 +41,7 @@ function showDropIndicator(
   overlay.className = "preshot-block-drop-overlay";
   overlay.style.left = `${rect.left}px`;
   overlay.style.width = `${rect.width}px`;
-  if (placement === "left" || placement === "right") {
-    overlay.style.left = `${
-      placement === "left" ? rect.left - 1 : rect.right - 1
-    }px`;
-    overlay.style.top = `${rect.top}px`;
-    overlay.style.width = "2px";
-    overlay.style.height = `${rect.height}px`;
-  } else if (placement === "inside") {
+  if (placement === "inside") {
     overlay.style.top = `${rect.top}px`;
     overlay.style.height = `${rect.height}px`;
   } else {
@@ -60,7 +53,15 @@ function showDropIndicator(
   document.body.appendChild(overlay);
 }
 
-function validImageGroupTarget(
+function isAtomicLayoutBlock(block: PreshotEditorBlock): boolean {
+  return block.type === "imageGroup" ||
+    block.type === "shootingLocation" ||
+    block.type === "modelCard" ||
+    block.type === "clothing" ||
+    block.type === "prop";
+}
+
+function validAtomicLayoutTarget(
   editor: PreshotBlockNoteEditor,
   block: PreshotEditorBlock,
 ): PreshotEditorBlock {
@@ -70,7 +71,6 @@ function validImageGroupTarget(
       | PreshotEditorBlock
       | undefined;
     if (!parent) return current;
-    if (parent.type === "column") return current;
     current = parent;
   }
 }
@@ -123,8 +123,8 @@ export function startBlockPointerDrag({
       placement = null;
       return;
     }
-    if (source.type === "imageGroup") {
-      target = validImageGroupTarget(editor, target);
+    if (isAtomicLayoutBlock(source)) {
+      target = validAtomicLayoutTarget(editor, target);
     }
     const targetOuter = document.querySelector<HTMLElement>(
       `[data-node-type="blockOuter"][data-id="${CSS.escape(target.id)}"]`,
@@ -133,17 +133,11 @@ export function startBlockPointerDrag({
     const rect = targetOuter.getBoundingClientRect();
     const verticalRatio =
       (moveEvent.clientY - rect.top) / Math.max(1, rect.height);
-    const horizontalRatio =
-      (moveEvent.clientX - rect.left) / Math.max(1, rect.width);
     const canDropInside =
-      source.type !== "imageGroup" &&
-      target.type !== "imageGroup" &&
+      !isAtomicLayoutBlock(source) &&
+      !isAtomicLayoutBlock(target) &&
       target.type !== "divider";
-    if (horizontalRatio <= 0.2) {
-      placement = "left";
-    } else if (horizontalRatio >= 0.8) {
-      placement = "right";
-    } else if (
+    if (
       canDropInside &&
       verticalRatio >= 0.3 &&
       verticalRatio <= 0.7 &&
@@ -172,9 +166,7 @@ export function startBlockPointerDrag({
       notify?.(
         placement === "inside"
           ? "Block 已移动并嵌套"
-          : placement === "left" || placement === "right"
-            ? "Block 已移动到同一行"
-            : "Block 已移动",
+          : "Block 已移动",
       );
     }
     onFinish?.(dragging);

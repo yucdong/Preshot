@@ -17,13 +17,9 @@ import {
 } from "../../features/plan/blocknote/preshotBlockNoteSchema";
 import type { ArtifactRecord } from "../../domain/plan/canvas/blockDocument";
 import {
-  PRESHOT_DOCX_COLUMN_GAP_TWIPS,
-  allocateWeightedWidths,
   createPreshotDocxMappings,
   type PreshotImageGroupDocxMapping,
 } from "./preshotDocxMappings";
-
-export { PRESHOT_DOCX_COLUMN_GAP_TWIPS };
 
 export const PRESHOT_DOCX_A4 = Object.freeze({
   widthTwips: 11_906,
@@ -86,7 +82,6 @@ const LIST_BLOCK_TYPES = new Set([
   "checkListItem",
   "toggleListItem",
 ]);
-const COLUMN_BOUNDARY_TYPES = new Set(["columnList", "column"]);
 const PRIVATE_PROJECT_ASSET = /^(?:media|references)\/[^/\\]+$/i;
 
 class PreshotOfflineDocxExporter extends DOCXExporter<
@@ -105,29 +100,26 @@ class PreshotOfflineDocxExporter extends DOCXExporter<
     const result: Array<Paragraph | Table> = [];
 
     for (const block of blocks) {
-      const childListLevel = COLUMN_BOUNDARY_TYPES.has(block.type)
-        ? 0
-        : listLevel + (LIST_BLOCK_TYPES.has(block.type) ? 1 : 0);
+      const childListLevel =
+        listLevel + (LIST_BLOCK_TYPES.has(block.type) ? 1 : 0);
       let children = await this.transformBlocks(
         block.children,
         childListLevel,
       );
 
-      if (!COLUMN_BOUNDARY_TYPES.has(block.type)) {
-        children = children.map((child) => {
-          if (
-            child instanceof Paragraph &&
-            (child as unknown as {
-              readonly properties: {
-                readonly numberingReferences: readonly unknown[];
-              };
-            }).properties.numberingReferences.length === 0
-          ) {
-            child.addRunToFront(new TextRun({ children: [new Tab()] }));
-          }
-          return child;
-        });
-      }
+      children = children.map((child) => {
+        if (
+          child instanceof Paragraph &&
+          (child as unknown as {
+            readonly properties: {
+              readonly numberingReferences: readonly unknown[];
+            };
+          }).properties.numberingReferences.length === 0
+        ) {
+          child.addRunToFront(new TextRun({ children: [new Tab()] }));
+        }
+        return child;
+      });
 
       const mapped = await this.mapBlock(
         block as Parameters<typeof this.mapBlock>[0],
@@ -135,9 +127,7 @@ class PreshotOfflineDocxExporter extends DOCXExporter<
         0,
         children,
       );
-      if (COLUMN_BOUNDARY_TYPES.has(block.type)) {
-        result.push(mapped as Table);
-      } else if (Array.isArray(mapped)) {
+      if (Array.isArray(mapped)) {
         result.push(...mapped, ...children);
       } else {
         result.push(mapped, ...children);
@@ -175,9 +165,8 @@ function assertSupportedListNesting(
         `Word supports list levels 0-${PRESHOT_DOCX_MAX_LIST_LEVEL}; block "${block.id}" is at level ${listLevel}. Preshot rejects over-depth lists instead of clamping them.`,
       );
     }
-    const childListLevel = COLUMN_BOUNDARY_TYPES.has(block.type)
-      ? 0
-      : listLevel + (LIST_BLOCK_TYPES.has(block.type) ? 1 : 0);
+    const childListLevel =
+      listLevel + (LIST_BLOCK_TYPES.has(block.type) ? 1 : 0);
     assertSupportedListNesting(block.children, childListLevel);
   }
 }
@@ -223,23 +212,7 @@ function nativeImageContainerWidths(
   ) => {
     for (const block of entries) {
       if (block.type === "image") widths[block.id] = parentWidthTwips;
-      if (block.type === "columnList" && block.children.length > 0) {
-        const availableWidth =
-          parentWidthTwips -
-          (block.children.length - 1) * PRESHOT_DOCX_COLUMN_GAP_TWIPS;
-        const weights = block.children.map((column) => {
-          const weight = Number(
-            (column.props as { readonly width?: unknown }).width,
-          );
-          return Number.isFinite(weight) && weight > 0 ? weight : 1;
-        });
-        const columnWidths = allocateWeightedWidths(weights, availableWidth);
-        block.children.forEach((column, index) => {
-          visit(column.children, columnWidths[index]!);
-        });
-      } else {
-        visit(block.children, parentWidthTwips);
-      }
+      visit(block.children, parentWidthTwips);
     }
   };
   visit(blocks, rootWidthTwips);

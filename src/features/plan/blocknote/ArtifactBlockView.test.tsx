@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   ArtifactRecord,
   ClothingArtifact,
+  ModelCardArtifact,
   PropArtifact,
   ShootingLocationArtifact,
 } from "../../../domain/plan/canvas/blockDocument";
@@ -50,7 +51,54 @@ function controllerFor(initial: ArtifactRecord) {
 }
 
 describe("ArtifactBlockView", () => {
-  it("renders separate clothing name and information with retained try-on disclosure", () => {
+  it("uses the shared compact balanced row for model information and samples", () => {
+    const model: ModelCardArtifact = {
+      id: "model-1",
+      kind: "modelCard",
+      revision: 0,
+      modelId: "林夏",
+      heightCm: 168,
+      weightKg: 48,
+      shoeSize: "38",
+      notes: "擅长暗黑风格，需提前确认美瞳",
+      samples: { id: "model-samples", images: [] },
+    };
+    const { controller } = controllerFor(model);
+    const { container } = render(
+      <ArtifactBlockContext.Provider value={controller}>
+        <ArtifactBlockView
+          artifactId={model.id}
+          blockId="model-block"
+          expectedKind="modelCard"
+        />
+      </ArtifactBlockContext.Provider>,
+    );
+
+    expect(
+      container.querySelector(
+        '[data-artifact-kind="modelCard"] .preshot-artifact-balanced-layout',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "模特信息" }))
+      .toHaveClass("preshot-balanced-model-info");
+    expect(screen.queryByRole("button", {
+      name: "拖动模特信息组件",
+    })).not.toBeInTheDocument();
+    expect(
+      container.querySelectorAll("[data-artifact-resize-edge]"),
+    ).toHaveLength(0);
+    const notes = screen.getByRole("textbox", { name: "其他信息" });
+    expect(notes).toHaveValue("擅长暗黑风格，需提前确认美瞳");
+    fireEvent.change(notes, { target: { value: "可自备黑色长靴" } });
+    fireEvent.blur(notes);
+    expect(controller.getArtifact(model.id)).toMatchObject({
+      notes: "可自备黑色长靴",
+    });
+    expect(screen.getByTestId("gallery-model-samples").closest("section"))
+      .toHaveClass("preshot-balanced-gallery");
+  });
+
+  it("renders clothing name, information, and main images without try-on", () => {
     const clothing: ClothingArtifact = {
       id: "clothing-1",
       kind: "clothing",
@@ -79,14 +127,13 @@ describe("ArtifactBlockView", () => {
     expect(screen.getByRole("textbox", { name: "服装信息" }))
       .toHaveValue("");
     expect(screen.queryByTestId("gallery-try-on")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /试穿参考/ }));
-    expect(updateArtifact).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("gallery-try-on")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /试穿参考/ }))
+      .not.toBeInTheDocument();
 
     const source = screen.getByLabelText("服装信息");
     fireEvent.change(source, { target: { value: "Morrow Studio 借样" } });
     fireEvent.blur(source);
-    expect(updateArtifact).toHaveBeenCalledTimes(2);
+    expect(updateArtifact).toHaveBeenCalledOnce();
   });
 
   it("omits an empty prop source note from the readonly render", () => {

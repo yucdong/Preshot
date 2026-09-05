@@ -2,11 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   PDF_VISUAL_CONTRACT,
   PdfVisualContractError,
-  calculatePdfColumnWidths,
-  editorLogicalUnits,
   fitKeepTogetherGroupScaleToPage,
   pdfPoints,
-  scaleColumnEditorLogicalUnits,
   scaleRootEditorLogicalUnits,
 } from "./pdfVisualContract";
 
@@ -17,37 +14,6 @@ describe("BlockNote PDF visual contract", () => {
         PDF_VISUAL_CONTRACT.editor.contentWidth,
       ),
     ).toBe(PDF_VISUAL_CONTRACT.page.contentWidth);
-  });
-
-  it("allocates weighted two-thirds and one-third columns after the gap", () => {
-    const widths = calculatePdfColumnWidths([2, 1]);
-    const usableWidth =
-      PDF_VISUAL_CONTRACT.page.contentWidth -
-      PDF_VISUAL_CONTRACT.columns.gap;
-
-    expect(widths[0]).toBeCloseTo(usableWidth * 2 / 3, 4);
-    expect(widths[1]).toBeCloseTo(usableWidth / 3, 4);
-    expect(
-      widths[0] + PDF_VISUAL_CONTRACT.columns.gap + widths[1],
-    ).toBe(PDF_VISUAL_CONTRACT.page.contentWidth);
-    expect(
-      scaleColumnEditorLogicalUnits(
-        editorLogicalUnits(200),
-        editorLogicalUnits(300),
-        widths[0],
-      ),
-    ).toBeCloseTo(widths[0] * 2 / 3, 4);
-  });
-
-  it("keeps rounded column allocation stable and width-conserving", () => {
-    const first = calculatePdfColumnWidths([1, 1, 1]);
-    const second = calculatePdfColumnWidths([1, 1, 1]);
-    const total =
-      first.reduce((sum, width) => sum + width, 0) +
-      PDF_VISUAL_CONTRACT.columns.gap * 2;
-
-    expect(second).toEqual(first);
-    expect(total).toBe(PDF_VISUAL_CONTRACT.page.contentWidth);
   });
 
   it("does not enlarge a normal keep-together group", () => {

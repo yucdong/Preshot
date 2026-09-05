@@ -33,15 +33,6 @@ export interface ImageGroupBlockController {
     imageId: string,
     fitMode: ImageFitMode,
   ): void;
-  resizeGroup(
-    groupId: string,
-    frame: {
-      x: number;
-      width: number;
-      height: number;
-      frameOffsetY: number;
-    },
-  ): void;
   moveImage(
     fromGroupId: string,
     imageId: string,

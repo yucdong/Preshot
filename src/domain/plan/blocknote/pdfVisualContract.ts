@@ -168,13 +168,8 @@ export const PDF_VISUAL_CONTRACT = {
       captionGap: pdfPoints(3),
       after: pdfPoints(6),
     },
-  },
-  columns: {
-    gap: pdfPoints(10),
-    weights: {
-      equalTwo: [1, 1] as const,
-      equalThree: [1, 1, 1] as const,
-      textImage: [0.75, 1.25] as const,
+    artifact: {
+      regionGap: pdfPoints(10),
     },
   },
   colors: {
@@ -206,9 +201,7 @@ export const PDF_VISUAL_CONTRACT = {
   },
 } as const;
 
-export type PdfVisualContractErrorCode =
-  | "INVALID_COLUMN_WEIGHTS"
-  | "INVALID_DIMENSION";
+export type PdfVisualContractErrorCode = "INVALID_DIMENSION";
 
 export class PdfVisualContractError extends Error {
   constructor(
@@ -226,55 +219,6 @@ export function scaleRootEditorLogicalUnits(
   return roundedPdfPoints(
     value * PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale,
   );
-}
-
-export function calculatePdfColumnWidths(
-  weights: readonly number[],
-  containerWidth: PdfPoints = PDF_VISUAL_CONTRACT.page.contentWidth,
-  gap: PdfPoints = PDF_VISUAL_CONTRACT.columns.gap,
-): PdfPoints[] {
-  if (
-    weights.length === 0 ||
-    weights.some((weight) => !Number.isFinite(weight) || weight <= 0)
-  ) {
-    throw new PdfVisualContractError(
-      "INVALID_COLUMN_WEIGHTS",
-      "Column weights must contain finite positive values.",
-    );
-  }
-  const availableWidth = containerWidth - gap * (weights.length - 1);
-  if (!Number.isFinite(availableWidth) || availableWidth <= 0) {
-    throw new PdfVisualContractError(
-      "INVALID_DIMENSION",
-      "Column container width must exceed its finite non-negative gaps.",
-    );
-  }
-
-  const totalWeight = weights.reduce((total, weight) => total + weight, 0);
-  const widths = weights.slice(0, -1).map((weight) =>
-    roundedPdfPoints(availableWidth * weight / totalWeight));
-  const allocated = widths.reduce((total, width) => total + width, 0);
-  widths.push(roundedPdfPoints(availableWidth - allocated));
-  return widths;
-}
-
-export function scaleColumnEditorLogicalUnits(
-  value: EditorLogicalUnits,
-  editorColumnWidth: EditorLogicalUnits,
-  pdfColumnWidth: PdfPoints,
-): PdfPoints {
-  if (
-    !Number.isFinite(editorColumnWidth) ||
-    editorColumnWidth <= 0 ||
-    !Number.isFinite(pdfColumnWidth) ||
-    pdfColumnWidth <= 0
-  ) {
-    throw new PdfVisualContractError(
-      "INVALID_DIMENSION",
-      "Column widths must be finite positive logical units and PDF points.",
-    );
-  }
-  return roundedPdfPoints(value * pdfColumnWidth / editorColumnWidth);
 }
 
 export function fitKeepTogetherGroupScaleToPage(

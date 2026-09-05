@@ -9,8 +9,6 @@ const expectedBlockSpecs = [
   "checkListItem",
   "clothing",
   "codeBlock",
-  "column",
-  "columnList",
   "divider",
   "file",
   "heading",

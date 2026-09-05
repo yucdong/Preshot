@@ -1,7 +1,6 @@
 import {
   COLORS_DEFAULT,
   mappingFactory,
-  type Block,
   type BlockMapping,
   type InlineContentMapping,
   type StyleMapping,
@@ -37,8 +36,6 @@ import type {
 import { layoutDocumentImageGroupForWidth } from "../../domain/plan/canvas/documentImageGroupLayout";
 import { imageCropForView } from "../../domain/plan/canvas/imageView";
 import { compactArtifactGalleryImages } from "../../features/plan/blocknote/artifactGallerySizing";
-
-export const PRESHOT_DOCX_COLUMN_GAP_TWIPS = 200;
 
 type DocxBlockValue = Paragraph[] | Paragraph | Promise<
   Paragraph[] | Paragraph | Table
@@ -111,20 +108,11 @@ function artifactCollections(artifact: ArtifactRecord): Array<{
     }];
   }
   if (artifact.kind === "clothing") {
-    return [
-      {
-        label: "服装主图",
-        collection: artifact.mainGallery,
-        compact: false,
-      },
-      ...(artifact.tryOn.gallery.images.length > 0
-        ? [{
-            label: "试穿参考",
-            collection: artifact.tryOn.gallery,
-            compact: false,
-          }]
-        : []),
-    ];
+    return [{
+      label: "服装主图",
+      collection: artifact.mainGallery,
+      compact: false,
+    }];
   }
   return [{
     label: "道具图片",
@@ -145,6 +133,9 @@ function artifactMetadata(artifact: ArtifactRecord): string[] {
       ...(artifact.heightCm === null ? [] : [`身高：${artifact.heightCm} cm`]),
       ...(artifact.weightKg === null ? [] : [`体重：${artifact.weightKg} kg`]),
       ...(artifact.shoeSize ? [`鞋码：${artifact.shoeSize}`] : []),
+      ...(artifact.notes?.trim()
+        ? [`其他信息：${artifact.notes.trim()}`]
+        : []),
     ];
   }
   if (artifact.kind === "clothing") {
@@ -300,13 +291,6 @@ const BORDERLESS = {
   insideHorizontal: NIL_BORDER,
   insideVertical: NIL_BORDER,
 } as const;
-const SHORT_ATOMIC_COLUMN_BLOCKS = new Set([
-  "audio",
-  "divider",
-  "file",
-  "video",
-]);
-
 function paragraphOptions(props: {
   readonly textAlignment?: "left" | "center" | "right" | "justify";
   readonly textColor?: string;
@@ -335,53 +319,6 @@ function paragraphOptions(props: {
         }
       : undefined,
   };
-}
-
-function flattenCellChildren(
-  children: readonly Awaited<DocxBlockValue>[],
-): Array<Paragraph | Table> {
-  return children.flatMap((child) =>
-    Array.isArray(child) ? child : [child]
-  );
-}
-
-export function allocateWeightedWidths(
-  weights: readonly number[],
-  totalTwips: number,
-): number[] {
-  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-  const exact = weights.map((weight) => totalTwips * weight / totalWeight);
-  const widths = exact.map(Math.floor);
-  const remainder =
-    totalTwips - widths.reduce((sum, width) => sum + width, 0);
-  const order = exact
-    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
-    .sort((left, right) =>
-      right.fraction - left.fraction || left.index - right.index
-    );
-  for (let index = 0; index < remainder; index += 1) {
-    widths[order[index]!.index] += 1;
-  }
-  return widths;
-}
-
-function isKnownShortAtomicRow(
-  mappedBlock: Block<
-    PreshotBlockSchema,
-    PreshotInlineContentSchema,
-    PreshotStyleSchema
-  >,
-): boolean {
-  return mappedBlock.children.length > 0 && mappedBlock.children.every(
-    (column) =>
-      column.type === "column" &&
-      column.children.length > 0 &&
-      column.children.every(
-        (child) =>
-          SHORT_ATOMIC_COLUMN_BLOCKS.has(child.type) &&
-          child.children.length === 0,
-      ),
-  );
 }
 
 function mediaLabel(kind: "audio" | "file" | "video"): string {
@@ -485,11 +422,16 @@ function fallbackNativeImageSize(
 export function createPreshotDocxMappings(
   options: PreshotDocxMappingOptions,
 ): PreshotDocxMappings {
+  const defaultBlockMapping = {
+    ...docxDefaultSchemaMappings.blockMapping,
+  };
+  Reflect.deleteProperty(defaultBlockMapping, "column");
+  Reflect.deleteProperty(defaultBlockMapping, "columnList");
   const blockMapping = mapping.createBlockMapping<
     DocxBlockValue,
     ParagraphChild
   >({
-    ...docxDefaultSchemaMappings.blockMapping,
+    ...defaultBlockMapping,
     audio: (block) => mediaFallback("audio", block.props),
     video: (block) => mediaFallback("video", block.props),
     file: (block) => mediaFallback("file", block.props),
@@ -537,112 +479,6 @@ export function createPreshotDocxMappings(
             ]
           : []),
       ];
-    },
-    column: (
-      _block,
-      _exporter,
-      _nestingLevel,
-      _numberedListIndex,
-      children,
-    ) =>
-      new TableCell({
-        borders: BORDERLESS,
-        margins: {
-          marginUnitType: WidthType.DXA,
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-        },
-        children: flattenCellChildren(children ?? []),
-      }) as unknown as Table,
-    columnList: (
-      block,
-      _exporter,
-      _nestingLevel,
-      _numberedListIndex,
-      children,
-    ) => {
-      const mappedBlock = block as unknown as Block<
-        PreshotBlockSchema,
-        PreshotInlineContentSchema,
-        PreshotStyleSchema
-      >;
-      const columns = children as unknown as TableCell[];
-      const gapCount = Math.max(0, columns.length - 1);
-      const availableWidth =
-        options.contentWidthTwips -
-        gapCount * PRESHOT_DOCX_COLUMN_GAP_TWIPS;
-      if (availableWidth <= 0) {
-        throw new Error("DOCX column layout has no usable page width.");
-      }
-      const weights = mappedBlock.children.map((column) => {
-        const weight = Number(
-          (column.props as { readonly width?: unknown }).width,
-        );
-        return Number.isFinite(weight) && weight > 0 ? weight : 1;
-      });
-      const widths = allocateWeightedWidths(weights, availableWidth);
-      const cells: TableCell[] = [];
-      const gridWidths: number[] = [];
-      columns.forEach((column, index) => {
-        const width = widths[index]!;
-        cells.push(new TableCell({
-          borders: BORDERLESS,
-          margins: {
-            marginUnitType: WidthType.DXA,
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
-          },
-          width: { size: width, type: WidthType.DXA },
-          children: column.options.children,
-        }));
-        gridWidths.push(width);
-        if (index < columns.length - 1) {
-          cells.push(new TableCell({
-            borders: BORDERLESS,
-            margins: {
-              marginUnitType: WidthType.DXA,
-              top: 0,
-              right: 0,
-              bottom: 0,
-              left: 0,
-            },
-            width: {
-              size: PRESHOT_DOCX_COLUMN_GAP_TWIPS,
-              type: WidthType.DXA,
-            },
-            children: [new Paragraph("")],
-          }));
-          gridWidths.push(PRESHOT_DOCX_COLUMN_GAP_TWIPS);
-        }
-      });
-      return new Table({
-        layout: TableLayoutType.FIXED,
-        width: {
-          size: options.contentWidthTwips,
-          type: WidthType.DXA,
-        },
-        columnWidths: gridWidths,
-        borders: BORDERLESS,
-        margins: {
-          marginUnitType: WidthType.DXA,
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-        },
-        rows: [
-          new TableRow({
-            cantSplit: isKnownShortAtomicRow(mappedBlock)
-              ? true
-              : undefined,
-            children: cells,
-          }),
-        ],
-      });
     },
     imageGroup: options.imageGroupMapping,
     shootingLocation: (block, exporter) => {

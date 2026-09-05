@@ -83,16 +83,6 @@ function imageGroupBlock(id: string, groupId: string) {
   };
 }
 
-function paragraphBlock(id: string) {
-  return {
-    id,
-    type: "paragraph" as const,
-    props: {},
-    content: [],
-    children: [],
-  };
-}
-
 function plan(
   blocks: ProjectPlanV14["document"]["blocks"],
   imageGroups: ProjectPlanV14["imageGroups"],
@@ -249,95 +239,63 @@ async function paragraphXml(paragraph: Paragraph): Promise<{
 }
 
 describe("DOCX image-group composite request", () => {
-  it.each([
-    { label: "root", weights: [] as number[], expectedRows: 1 },
-    { label: "two-column", weights: [1, 1], expectedRows: 3 },
-    { label: "three-column", weights: [1, 1, 1], expectedRows: 3 },
-  ])(
-    "keeps editor, PDF, and DOCX manifests in parity for $label 240-height frames",
-    ({ weights, expectedRows }) => {
-      const source = group("parity", {
-        width: 1_008,
-        height: 240,
-        images: [
-          image("first", 320, 240),
-          image("second", 320, 240),
-          image("third", 320, 240),
-        ],
+  it("keeps editor, PDF, and DOCX root manifests in parity", () => {
+    const source = group("parity", {
+      width: 1_008,
+      height: 240,
+      images: [
+        image("first", 320, 240),
+        image("second", 320, 240),
+        image("third", 320, 240),
+      ],
+    });
+    const block = imageGroupBlock("block", source.id);
+    const context = exportContext(plan([block], [source]));
+    const groupContext = context.groupsByBlockId.block;
+    const editorLayout = layoutDocumentImageGroupForWidth(
+      source.images,
+      groupContext.logical.width,
+    );
+    const pdfModel = buildPreshotImageGroupPdfRenderModel(block, context);
+    const docxRequest = buildPreshotDocxImageGroupCompositeRequest(
+      block,
+      context,
+    )!;
+    const rowCount = (ys: readonly number[]) =>
+      new Set(ys.map((value) => value.toFixed(4))).size;
+
+    expect(groupContext.logical.layoutScale).toBe(1);
+    expect(rowCount(editorLayout.slots.map((slot) => slot.y))).toBe(1);
+    expect(rowCount(groupContext.slots.map((slot) => slot.logical.y))).toBe(1);
+    expect(pdfModel.kind).toBe("content");
+    if (pdfModel.kind !== "content") return;
+    expect(rowCount(pdfModel.images.map((entry) => entry.y))).toBe(1);
+    expect(rowCount(docxRequest.images.map((entry) =>
+      entry.yPoints - docxRequest.surface.yPoints
+    ))).toBe(1);
+
+    editorLayout.slots.forEach((editorSlot, index) => {
+      const manifestSlot = groupContext.slots[index];
+      const pdfSlot = pdfModel.images[index];
+      const docxSlot = docxRequest.images[index];
+      expect(manifestSlot.logical).toMatchObject({
+        x: DOCUMENT_IMAGE_GROUP_INSET + editorSlot.x,
+        y: DOCUMENT_IMAGE_GROUP_INSET + editorSlot.y,
+        width: editorSlot.width,
+        height: editorSlot.height,
       });
-      const block = imageGroupBlock("block", source.id);
-      const blocks = weights.length === 0
-        ? [block]
-        : [{
-            id: "columns",
-            type: "columnList" as const,
-            props: {},
-            content: undefined,
-            children: weights.map((weight, index) => ({
-              id: `column-${index}`,
-              type: "column" as const,
-              props: { width: weight },
-              content: undefined,
-              children: index === 0
-                ? [block]
-                : [paragraphBlock(`copy-${index}`)],
-            })),
-          }];
-      const context = exportContext(plan(blocks, [source]));
-      const groupContext = context.groupsByBlockId.block;
-      const editorLayout = layoutDocumentImageGroupForWidth(
-        source.images,
-        groupContext.logical.width,
-      );
-      const pdfModel = buildPreshotImageGroupPdfRenderModel(block, context);
-      const docxRequest = buildPreshotDocxImageGroupCompositeRequest(
-        block,
-        context,
-      )!;
-      const rowCount = (ys: readonly number[]) =>
-        new Set(ys.map((value) => value.toFixed(4))).size;
-
-      expect(groupContext.logical.layoutScale).toBe(1);
-      expect(rowCount(editorLayout.slots.map((slot) => slot.y)))
-        .toBe(expectedRows);
-      expect(rowCount(groupContext.slots.map((slot) => slot.logical.y)))
-        .toBe(expectedRows);
-      expect(pdfModel.kind).toBe("content");
-      if (pdfModel.kind !== "content") return;
-      expect(rowCount(pdfModel.images.map((entry) => entry.y)))
-        .toBe(expectedRows);
-      expect(rowCount(docxRequest.images.map((entry) =>
-        entry.yPoints - docxRequest.surface.yPoints
-      ))).toBe(expectedRows);
-
-      editorLayout.slots.forEach((editorSlot, index) => {
-        const manifestSlot = groupContext.slots[index];
-        const pdfSlot = pdfModel.images[index];
-        const docxSlot = docxRequest.images[index];
-        expect(manifestSlot.logical).toMatchObject({
-          x: DOCUMENT_IMAGE_GROUP_INSET + editorSlot.x,
-          y: DOCUMENT_IMAGE_GROUP_INSET + editorSlot.y,
-          width: editorSlot.width,
-          height: editorSlot.height,
-        });
-        expect(pdfSlot).toMatchObject({
-          imageId: editorSlot.id,
-          width: manifestSlot.pdf.width,
-          height: manifestSlot.pdf.height,
-        });
-        expect(docxSlot).toMatchObject({
-          imageId: editorSlot.id,
-          widthPoints: manifestSlot.pdf.width,
-          heightPoints: manifestSlot.pdf.height,
-        });
+      expect(pdfSlot).toMatchObject({
+        imageId: editorSlot.id,
+        width: manifestSlot.pdf.width,
+        height: manifestSlot.pdf.height,
       });
-
-      if (weights.length === 3) {
-        expect(groupContext.slots[0].logical.width).toBe(320);
-        expect(groupContext.docx.exportOnlyGroupPhysicalScale).toBeLessThan(1);
-      }
-    },
-  );
+      expect(docxSlot).toMatchObject({
+        imageId: editorSlot.id,
+        widthPoints: manifestSlot.pdf.width,
+        heightPoints: manifestSlot.pdf.height,
+      });
+    });
+  });
 
   it("preserves order, crops, wrapping, offsets, dimensions, gaps, and visual surfaces", () => {
     const firstCrop = { x: 0.2, y: 0.1, width: 0.5, height: 0.7 };
@@ -532,35 +490,14 @@ describe("DOCX image-group composite request", () => {
     );
   });
 
-  it.each([
-    { columns: 0, weights: [] as number[] },
-    { columns: 2, weights: [2, 1] },
-    { columns: 3, weights: [1, 1, 1] },
-  ])("matches root and weighted $columns-column widths", ({ columns, weights }) => {
-    const source = group(`layout-${columns}`, {
+  it("matches the root manifest width", () => {
+    const source = group("layout-root", {
       x: 12,
       width: 900,
       height: 160,
     });
     const block = imageGroupBlock("block", source.id);
-    const blocks = columns === 0
-      ? [block]
-      : [{
-          id: "columns",
-          type: "columnList" as const,
-          props: {},
-          content: undefined,
-          children: weights.map((weight, index) => ({
-            id: `column-${index}`,
-            type: "column" as const,
-            props: { width: weight },
-            content: undefined,
-            children: index === 0
-              ? [block]
-              : [paragraphBlock(`copy-${index}`)],
-          })),
-        }];
-    const context = exportContext(plan(blocks, [source]));
+    const context = exportContext(plan([block], [source]));
     const request = buildPreshotDocxImageGroupCompositeRequest(
       block,
       context,
@@ -574,9 +511,6 @@ describe("DOCX image-group composite request", () => {
     expect(request.display.widthPoints).toBeLessThanOrEqual(
       groupContext.parent.pdfWidth,
     );
-    if (columns > 0) {
-      expect(groupContext.parent.columnBlockId).toBe("column-0");
-    }
   });
 });
 

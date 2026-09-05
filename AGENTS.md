@@ -53,6 +53,14 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   the pointerdown frame ratio; left/right edges change width only and top/bottom
   edges change height only. `fitMode` defaults to crop/cover; stretch is
   explicit and exporters must preserve it.
+- Artifact cards use eight transparent continuous edge/corner resize zones.
+  Persist proportional width/offset plus optional minimum height in the
+  artifact sidecar; never shrink below current content. Every document block
+  remains in the single vertical flow; no left/right BlockNote drops or grouped
+  rows exist. Keep card contents 40/60 above
+  430px and stacked below it.
+- The active BlockNote document is single-column and stores exactly one block
+  per visible row. `columnList` and `column` documents are unsupported.
 - `imageGroup` blocks store only `groupId`; the actual group metadata lives in `plan.imageGroups`.
 - Every image-group ID must appear exactly once in the BlockNote document and exactly once in `plan.imageGroups`.
 - Native BlockNote media persists as relative `media/<file>` paths; runtime data URLs must not be written back to the manifest.
@@ -204,9 +212,9 @@ pnpm migrate:project
 ## UI and platform notes
 
 - BlockNote 0.53 plus Mantine is the active rich-text/block editor stack.
-- The multi-column, PDF export, and DOCX export dependencies use
-  `@blocknote/xl-multi-column`, `@blocknote/xl-pdf-exporter`, and
-  `@blocknote/xl-docx-exporter` under their GPL-3.0 options; distributed builds
+- The PDF export and DOCX export dependencies use
+  `@blocknote/xl-pdf-exporter` and `@blocknote/xl-docx-exporter` under their
+  GPL-3.0 options; distributed builds
   that include any of them follow the existing GPL-3.0 obligations.
 - `docx` bundles the browser shims used by `Packer`. Do not add an app-wide
   Buffer/process/global polyfill unless a verified runtime need appears.

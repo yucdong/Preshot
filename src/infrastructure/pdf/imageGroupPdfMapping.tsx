@@ -98,7 +98,6 @@ export function createPreshotImageGroupPdfBlockMapping(
     if (model.kind === "empty") return null;
 
     if (model.pagination.mode === "row-fragments") {
-      const groupContext = exportContext.groupsByBlockId[model.blockId];
       const wrapper = (
         <View
           key={`imageGroup-${model.blockId}`}
@@ -117,9 +116,10 @@ export function createPreshotImageGroupPdfBlockMapping(
           )}
         </View>
       );
-      const presenceAhead = groupContext.parent.columnListBlockId
-        ? undefined
-        : freshPagePresenceAhead(exportContext, model.blockId);
+      const presenceAhead = freshPagePresenceAhead(
+        exportContext,
+        model.blockId,
+      );
       return presenceAhead === undefined
         ? wrapper
         : (

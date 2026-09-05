@@ -61,7 +61,6 @@ function controllerFor(
     openImage: vi.fn(),
     setImageFrame: vi.fn(),
     setImageFitMode: vi.fn(),
-    resizeGroup: vi.fn(),
     moveImage: vi.fn(),
     ...overrides,
   };
@@ -129,7 +128,7 @@ describe("ImageGroupBlockView image tile interactions", () => {
     );
   });
 
-  it("renders eight invisible image resize zones and isolates their interaction", () => {
+  it("renders only internal image resize zones and isolates their interaction", () => {
     const groups = [group("group-1", "image-1")];
     const controller = controllerFor(groups);
     renderGroups(groups, controller);
@@ -150,16 +149,7 @@ describe("ImageGroupBlockView image tile interactions", () => {
     expect(
       Array.from(document.querySelectorAll("[data-group-resize-edge]"))
         .map((element) => element.getAttribute("data-group-resize-edge")),
-    ).toEqual([
-      "left",
-      "right",
-      "top",
-      "bottom",
-      "top-left",
-      "top-right",
-      "bottom-left",
-      "bottom-right",
-    ]);
+    ).toEqual([]);
 
     fireEvent.pointerDown(screen.getByLabelText("从left调整参考图 1"), {
       button: 0,
@@ -328,7 +318,7 @@ describe("ImageGroupBlockView image tile interactions", () => {
     expect(committed?.groupHeight).toBe(98);
   });
 
-  it("restores the persisted layout when resize is cancelled", () => {
+  it("restores the content-driven layout when image resize is cancelled", () => {
     const groups = [group("group-1", "image-1")];
     const controller = controllerFor(groups);
     renderGroups(groups, controller);
@@ -344,7 +334,7 @@ describe("ImageGroupBlockView image tile interactions", () => {
     fireEvent.pointerMove(document, { clientX: 40, clientY: 0 });
     fireEvent.pointerCancel(document);
 
-    expect(groupElement).toHaveStyle({ height: "120px" });
+    expect(groupElement).toHaveStyle({ height: "98px" });
     expect(controller.setImageFrame).not.toHaveBeenCalled();
   });
 

@@ -14,7 +14,6 @@ import type {
 } from "../canvas/models";
 import {
   PDF_VISUAL_CONTRACT,
-  calculatePdfColumnWidths,
   editorLogicalUnits,
   fitKeepTogetherGroupScaleToPage,
   pdfPoints,
@@ -95,30 +94,9 @@ export interface PreshotPdfBlockContext {
   readonly blockType: PreshotBlock["type"];
   readonly path: readonly number[];
   readonly parentBlockId: string | null;
-  readonly columnListBlockId: string | null;
-  readonly columnBlockId: string | null;
   readonly logicalParentWidth: EditorLogicalUnits;
   readonly pdfParentWidth: PdfPoints;
   readonly logicalToPdfScale: PdfScale;
-}
-
-export interface PreshotPdfColumnContext {
-  readonly columnListBlockId: string;
-  readonly columnBlockId: string;
-  readonly index: number;
-  readonly weight: number;
-  readonly logicalWidth: EditorLogicalUnits;
-  readonly pdfWidth: PdfPoints;
-  readonly logicalToPdfScale: PdfScale;
-}
-
-export interface PreshotPdfColumnListContext {
-  readonly blockId: string;
-  readonly logicalWidth: EditorLogicalUnits;
-  readonly pdfWidth: PdfPoints;
-  readonly logicalGap: EditorLogicalUnits;
-  readonly pdfGap: PdfPoints;
-  readonly columns: readonly PreshotPdfColumnContext[];
 }
 
 export interface PreshotPdfNormalizedCrop {
@@ -214,8 +192,6 @@ export interface PreshotPdfImageGroupContext {
   readonly empty: boolean;
   readonly render: boolean;
   readonly parent: {
-    readonly columnListBlockId: string | null;
-    readonly columnBlockId: string | null;
     readonly logicalWidth: EditorLogicalUnits;
     readonly pdfWidth: PdfPoints;
     readonly logicalToPdfScale: PdfScale;
@@ -248,7 +224,7 @@ export interface PreshotPdfImageGroupContext {
   };
   readonly keepTogether: {
     readonly enabled: boolean;
-    readonly scope: "block" | "column-row";
+    readonly scope: "block";
     readonly moveToNextPageIfNeeded: boolean;
   };
   readonly pagination: PreshotPdfImageGroupPaginationContext;
@@ -279,7 +255,6 @@ export interface PreshotPdfLayoutManifest {
   readonly version: 2;
   readonly blocks: readonly PreshotPdfBlockContext[];
   readonly blocksById: Readonly<Record<string, PreshotPdfBlockContext>>;
-  readonly columnLists: readonly PreshotPdfColumnListContext[];
   readonly groups: readonly PreshotPdfImageGroupContext[];
   readonly groupsByBlockId: Readonly<
     Record<string, PreshotPdfImageGroupContext>
@@ -328,8 +303,6 @@ interface ParentDimensions {
   logicalWidth: EditorLogicalUnits;
   pdfWidth: PdfPoints;
   logicalToPdfScale: PdfScale;
-  columnListBlockId: string | null;
-  columnBlockId: string | null;
 }
 
 interface MutableAssetRequest {
@@ -696,21 +669,6 @@ function largerDrawBox(
   };
 }
 
-function weightedLogicalWidths(
-  weights: readonly number[],
-  containerWidth: EditorLogicalUnits,
-  gap: EditorLogicalUnits,
-): EditorLogicalUnits[] {
-  const availableWidth = containerWidth - gap * (weights.length - 1);
-  const totalWeight = weights.reduce((total, weight) => total + weight, 0);
-  const widths = weights.slice(0, -1).map((weight) =>
-    logicalUnits(availableWidth * weight / totalWeight)
-  );
-  const allocated = widths.reduce<number>((total, width) => total + width, 0);
-  widths.push(logicalUnits(availableWidth - allocated));
-  return widths;
-}
-
 function validateGroup(
   group: ReferenceComponent,
   blockId: string,
@@ -784,7 +742,6 @@ export function buildPreshotPdfLayoutManifest(
   const plan = validatePreshotPdfPlan(input.plan);
   const visualContract = input.visualContract ?? PDF_VISUAL_CONTRACT;
   const blocks: PreshotPdfBlockContext[] = [];
-  const columnLists: PreshotPdfColumnListContext[] = [];
   const groups: MutableGroupContext[] = [];
   const nativeImages: PreshotPdfNativeImageContext[] = [];
   const warnings: PreshotPdfPreflightIssue[] = [];
@@ -822,8 +779,6 @@ export function buildPreshotPdfLayoutManifest(
     logicalWidth: visualContract.editor.contentWidth,
     pdfWidth: visualContract.page.contentWidth,
     logicalToPdfScale: visualContract.editor.rootLogicalToPdfScale,
-    columnListBlockId: null,
-    columnBlockId: null,
   };
 
   const visit = (
@@ -842,84 +797,10 @@ export function buildPreshotPdfLayoutManifest(
         blockType: block.type,
         path: blockPath,
         parentBlockId,
-        columnListBlockId: parent.columnListBlockId,
-        columnBlockId: parent.columnBlockId,
         logicalParentWidth: parent.logicalWidth,
         pdfParentWidth: parent.pdfWidth,
         logicalToPdfScale: parent.logicalToPdfScale,
       });
-
-      if (block.type === "columnList") {
-        const weights = block.children.map((column) =>
-          Number(column.props.width)
-        );
-        const logicalGap = logicalUnits(
-          visualContract.columns.gap / parent.logicalToPdfScale,
-        );
-        const logicalWidths = weightedLogicalWidths(
-          weights,
-          parent.logicalWidth,
-          logicalGap,
-        );
-        const pdfWidths = calculatePdfColumnWidths(
-          weights,
-          parent.pdfWidth,
-          visualContract.columns.gap,
-        );
-        const columns = block.children.map((column, columnIndex) => ({
-          columnListBlockId: block.id,
-          columnBlockId: column.id,
-          index: columnIndex,
-          weight: weights[columnIndex],
-          logicalWidth: logicalWidths[columnIndex],
-          pdfWidth: pdfWidths[columnIndex],
-          logicalToPdfScale: scale(
-            pdfWidths[columnIndex] / logicalWidths[columnIndex],
-          ),
-        }));
-        columnLists.push({
-          blockId: block.id,
-          logicalWidth: parent.logicalWidth,
-          pdfWidth: parent.pdfWidth,
-          logicalGap,
-          pdfGap: visualContract.columns.gap,
-          columns,
-        });
-        block.children.forEach((column, columnIndex) => {
-          const columnContext = columns[columnIndex];
-          const columnOrder = order;
-          order += 1;
-          blocks.push({
-            order: columnOrder,
-            blockId: column.id,
-            blockType: column.type,
-            path: [...blockPath, columnIndex],
-            parentBlockId: block.id,
-            columnListBlockId: block.id,
-            columnBlockId: column.id,
-            logicalParentWidth: columnContext.logicalWidth,
-            pdfParentWidth: columnContext.pdfWidth,
-            logicalToPdfScale: columnContext.logicalToPdfScale,
-          });
-          visit(
-            column.children,
-            {
-              logicalWidth: columnContext.logicalWidth,
-              pdfWidth: columnContext.pdfWidth,
-              logicalToPdfScale: columnContext.logicalToPdfScale,
-              columnListBlockId: block.id,
-              columnBlockId: column.id,
-            },
-            column.id,
-            [...blockPath, columnIndex],
-          );
-        });
-        return;
-      }
-
-      if (block.type === "column") {
-        return;
-      }
 
       if (block.type === "imageGroup") {
         const groupId = String(block.props.groupId);
@@ -1045,8 +926,6 @@ export function buildPreshotPdfLayoutManifest(
           empty,
           render: !empty,
           parent: {
-            columnListBlockId: parent.columnListBlockId,
-            columnBlockId: parent.columnBlockId,
             logicalWidth: parent.logicalWidth,
             pdfWidth: parent.pdfWidth,
             logicalToPdfScale: parent.logicalToPdfScale,
@@ -1082,7 +961,7 @@ export function buildPreshotPdfLayoutManifest(
           },
           keepTogether: {
             enabled: !empty,
-            scope: parent.columnListBlockId ? "column-row" : "block",
+            scope: "block",
             moveToNextPageIfNeeded: !empty,
           },
           pagination,
@@ -1301,7 +1180,6 @@ export function buildPreshotPdfLayoutManifest(
     version: 2,
     blocks,
     blocksById,
-    columnLists,
     groups: finalizedGroups,
     groupsByBlockId,
     groupsByGroupId,

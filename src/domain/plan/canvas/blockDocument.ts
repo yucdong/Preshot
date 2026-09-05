@@ -54,8 +54,6 @@ const LEGACY_PRESHOT_BLOCK_TYPES = [
   "video",
   "audio",
   "file",
-  "column",
-  "columnList",
 ] as const;
 
 export const ARTIFACT_KINDS = [
@@ -102,6 +100,13 @@ interface ArtifactBase {
   id: string;
   kind: ArtifactKind;
   revision: number;
+  layout?: ArtifactLayout;
+}
+
+export interface ArtifactLayout {
+  widthRatio: number;
+  offsetRatio: number;
+  minHeight?: number;
 }
 
 export interface ShootingLocationArtifact extends ArtifactBase {
@@ -118,6 +123,7 @@ export interface ModelCardArtifact extends ArtifactBase {
   heightCm: number | null;
   weightKg: number | null;
   shoeSize: string;
+  notes?: string;
   samples: ImageCollection;
 }
 
@@ -359,43 +365,10 @@ function assertBlock(
   assertPrimitiveRecord(value.props, context);
 
   const blockType = value.type as PreshotBlockType;
-  if (parentType === "columnList" && blockType !== "column") {
-    throw new Error(`${context} column list children must be columns`);
-  }
-  if (
-    parentType === "column" &&
-    (blockType === "column" || blockType === "columnList")
-  ) {
-    throw new Error(`${context} column children must be regular blocks`);
-  }
-
-  if (blockType === "columnList") {
+  if (blockType === "imageGroup") {
     if (parentType !== null) {
-      throw new Error(`${context} column list must be top-level`);
-    }
-    if (
-      value.content !== undefined ||
-      value.children.length < 2 ||
-      value.children.some((child) =>
-        !isRecord(child) || child.type !== "column")
-    ) {
-      throw new Error(`${context} column list is malformed`);
-    }
-  } else if (blockType === "column") {
-    if (
-      parentType !== "columnList" ||
-      value.content !== undefined ||
-      typeof value.props.width !== "number" ||
-      !Number.isFinite(value.props.width) ||
-      value.props.width <= 0 ||
-      value.children.length === 0
-    ) {
-      throw new Error(`${context} column is malformed`);
-    }
-  } else if (blockType === "imageGroup") {
-    if (parentType !== null && parentType !== "column") {
       throw new Error(
-        `Image group block "${value.id}" must be top-level or inside a column`,
+        `Image group block "${value.id}" must be top-level`,
       );
     }
     if (
@@ -408,9 +381,9 @@ function assertBlock(
     }
     imageGroupIds.push(value.props.groupId);
   } else if (isArtifactKind(blockType)) {
-    if (parentType !== null && parentType !== "column") {
+    if (parentType !== null) {
       throw new Error(
-        `Artifact marker block "${value.id}" must be top-level or inside a column`,
+        `Artifact marker block "${value.id}" must be top-level`,
       );
     }
     if (
@@ -816,6 +789,40 @@ function assertArtifactBase(
   ) {
     throw new Error(`${context} revision must be a non-negative integer`);
   }
+  if (value.layout !== undefined) {
+    assertArtifactLayout(value.layout, context);
+  }
+
+  function assertArtifactLayout(value: unknown, context: string): void {
+    if (!isRecord(value)) {
+      throw new Error(`${context} layout is malformed`);
+    }
+    assertExactKeys(
+      value,
+      ["widthRatio", "offsetRatio", "minHeight"],
+      `${context} layout`,
+    );
+    if (
+      typeof value.widthRatio !== "number" ||
+      !Number.isFinite(value.widthRatio) ||
+      value.widthRatio <= 0 ||
+      value.widthRatio > 1 ||
+      typeof value.offsetRatio !== "number" ||
+      !Number.isFinite(value.offsetRatio) ||
+      value.offsetRatio < 0 ||
+      value.offsetRatio + value.widthRatio > 1.000001 ||
+      (
+        value.minHeight !== undefined &&
+        (
+          typeof value.minHeight !== "number" ||
+          !Number.isFinite(value.minHeight) ||
+          value.minHeight <= 0
+        )
+      )
+    ) {
+      throw new Error(`${context} layout is malformed`);
+    }
+  }
 }
 
 function validateArtifacts(
@@ -851,6 +858,7 @@ function validateArtifacts(
         "id",
         "kind",
         "revision",
+        "layout",
         "venueName",
         "address",
         "description",
@@ -875,10 +883,12 @@ function validateArtifacts(
         "id",
         "kind",
         "revision",
+        "layout",
         "modelId",
         "heightCm",
         "weightKg",
         "shoeSize",
+        "notes",
         "samples",
       ], context);
       assertRequiredText(value.modelId, `${context} modelId`);
@@ -886,6 +896,9 @@ function validateArtifacts(
       assertOptionalMeasurement(value.weightKg, `${context} weightKg`);
       if (typeof value.shoeSize !== "string") {
         throw new Error(`${context} shoeSize must be text`);
+      }
+      if (value.notes !== undefined && typeof value.notes !== "string") {
+        throw new Error(`${context} notes must be text`);
       }
       assertImageCollection(
         value.samples,
@@ -899,6 +912,7 @@ function validateArtifacts(
         "id",
         "kind",
         "revision",
+        "layout",
         "title",
         "mainGallery",
         "tryOn",
@@ -931,6 +945,7 @@ function validateArtifacts(
         "id",
         "kind",
         "revision",
+        "layout",
         "title",
         "gallery",
         "source",

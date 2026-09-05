@@ -203,52 +203,6 @@ describe("agent proposal projection, apply, discard, and undo", () => {
     });
   });
 
-  it("validates the complete projected v14 document", () => {
-    const current: ProjectPlanV14 = {
-      ...plan(),
-      document: {
-        format: "preshot-blocks",
-        version: 3,
-        blocks: [{
-          id: "columns",
-          type: "columnList",
-          props: {},
-          content: undefined,
-          children: [
-            {
-              id: "left",
-              type: "column",
-              props: { width: 1 },
-              content: undefined,
-              children: [textBlock("left-text", "Delete me")],
-            },
-            {
-              id: "right",
-              type: "column",
-              props: { width: 1 },
-              content: undefined,
-              children: [textBlock("right-text", "Keep")],
-            },
-          ],
-        }, plan().document.blocks[1]],
-      },
-    };
-    const target = current.document.blocks[0].children[0].children[0];
-    expect(projectAgentTextEditProposal(
-      current,
-      3,
-      proposalFor(current, [{
-        op: "delete",
-        blockId: target.id,
-        expectedBlockHash: hashPreshotBlock(target),
-      }]),
-      () => "id",
-    )).toMatchObject({
-      status: "invalid",
-      message: expect.stringMatching(/column is malformed/i),
-    });
-  });
-
   it("applies one checkpoint, discards atomically, and undoes only without conflicts", () => {
     const current = plan();
     const intro = current.document.blocks[0];

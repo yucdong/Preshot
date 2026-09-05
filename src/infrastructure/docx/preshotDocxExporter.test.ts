@@ -17,7 +17,6 @@ import {
 } from "../../../e2e/docxTestArchive";
 import {
   PRESHOT_DOCX_A4,
-  PRESHOT_DOCX_COLUMN_GAP_TWIPS,
   createPreshotDocxExporter,
 } from "./preshotDocxExporter";
 
@@ -124,6 +123,27 @@ describe("Preshot DOCX exporter", () => {
     expect(populated.document.text).not.toContain("来源说明：");
   });
 
+  it("exports optional model additional information", async () => {
+    const artifact = {
+      id: "model-1",
+      kind: "modelCard" as const,
+      revision: 0,
+      modelId: "林夏",
+      heightCm: 168,
+      weightKg: 48,
+      shoeSize: "38",
+      notes: "可自备黑色长靴",
+      samples: { id: "model-samples", images: [] },
+    };
+    const archive = await exportArchive(
+      [{ type: "modelCard", props: { artifactId: artifact.id } }],
+      {},
+      [artifact],
+    );
+
+    expect(archive.document.text).toContain("其他信息：可自备黑色长靴");
+  });
+
   it("uses the exact shared schema and preserves editable text plus H1-H6", async () => {
     const exporter = createPreshotDocxExporter({
       imageGroupMapping: imageGroupFallback,
@@ -187,116 +207,6 @@ describe("Preshot DOCX exporter", () => {
     await expect(exporter.export(editorBlocks([tooDeep(0)]))).rejects.toThrow(
       /level 9/i,
     );
-  });
-
-  it.each([2, 3])(
-    "keeps top-level lists in %i columns at Word level 0",
-    async (columnCount) => {
-      const { document } = await exportArchive([{
-        type: "columnList",
-        children: Array.from({ length: columnCount }, (_, index) => ({
-          type: "column" as const,
-          props: { width: 1 },
-          children: [{
-            type: index % 2 === 0
-              ? "bulletListItem" as const
-              : "numberedListItem" as const,
-            content: `column-${columnCount}-${index}`,
-          }],
-        })),
-      }]);
-
-      const levels = listLevels(document.document);
-      for (let index = 0; index < columnCount; index += 1) {
-        expect(levels.get(`column-${columnCount}-${index}`)).toBe(0);
-      }
-    },
-  );
-
-  it("preserves true nested lists inside columns and resets each column", async () => {
-    const { document } = await exportArchive([{
-      type: "columnList",
-      children: [
-        {
-          type: "column",
-          props: { width: 1 },
-          children: [{
-            type: "bulletListItem",
-            content: "left-0",
-            children: [{
-              type: "numberedListItem",
-              content: "left-1",
-              children: [{
-                type: "bulletListItem",
-                content: "left-2",
-              }],
-            }],
-          }],
-        },
-        {
-          type: "column",
-          props: { width: 1 },
-          children: [{
-            type: "numberedListItem",
-            content: "right-0",
-          }],
-        },
-      ],
-    }]);
-
-    expect(Object.fromEntries(listLevels(document.document))).toMatchObject({
-      "left-0": 0,
-      "left-1": 1,
-      "left-2": 2,
-      "right-0": 0,
-    });
-  });
-
-  it("ignores non-list structure and resets list context across a column boundary", async () => {
-    const { document } = await exportArchive([{
-      type: "bulletListItem",
-      content: "outer-list",
-      children: [{
-        type: "paragraph",
-        content: "structural-wrapper",
-        children: [{
-          type: "numberedListItem",
-          content: "nested-through-paragraph",
-          children: [{
-            type: "columnList",
-            children: [
-              {
-                type: "column",
-                props: { width: 1 },
-                children: [{
-                  type: "paragraph",
-                  content: "column-wrapper",
-                  children: [{
-                    type: "bulletListItem",
-                    content: "reset-in-column",
-                  }],
-                }],
-              },
-              {
-                type: "column",
-                props: { width: 1 },
-                children: [{
-                  type: "numberedListItem",
-                  content: "reset-in-sibling-column",
-                }],
-              },
-            ],
-          }],
-        }],
-      }],
-    }]);
-
-    expect(Object.fromEntries(listLevels(document.document))).toMatchObject({
-      "outer-list": 0,
-      "nested-through-paragraph": 1,
-      "reset-in-column": 0,
-      "reset-in-sibling-column": 0,
-    });
   });
 
   it("maps quote, code, divider, page break, and editable table content", async () => {
@@ -471,39 +381,6 @@ describe("Preshot DOCX exporter", () => {
       expect(withCaption.document.text).toContain(caption);
     });
 
-    it("fits native images to their weighted column width without overflow", async () => {
-      const source = "media/wide.png";
-      const { document } = await exportArchive([{
-        type: "columnList",
-        children: [
-          {
-            type: "column",
-            props: { width: 1 },
-            children: [{
-              type: "image",
-              props: {
-                url: source,
-                name: "Wide",
-                caption: "",
-                previewWidth: 1_000,
-              },
-            }],
-          },
-          {
-            type: "column",
-            props: { width: 1 },
-            children: [{ type: "paragraph", content: "copy" }],
-          },
-        ],
-      }], { [source]: pngDataUrl(1_000, 100) });
-      const extent = xmlElements(document.document, "extent")[0]!;
-      const widthPixels = Number(extent.getAttribute("cx")) / 9_525;
-      const available =
-        PRESHOT_DOCX_A4.contentWidthTwips - PRESHOT_DOCX_COLUMN_GAP_TWIPS;
-
-      expect(widthPixels).toBeLessThanOrEqual(available / 2 / 15);
-    });
-
   it("uses contextual media hyperlinks and path-free local fallbacks", async () => {
     const { entries, document } = await exportArchive([
       {
@@ -544,78 +421,6 @@ describe("Preshot DOCX exporter", () => {
     expect(document.text + relationships).not.toContain(
       "media/private-video.mp4",
     );
-  });
-
-  it("uses fixed borderless weighted columns with exact A4-body twips", async () => {
-    const { document } = await exportArchive([{
-      type: "columnList",
-      children: [
-        {
-          type: "column",
-          props: { width: 1 },
-          children: [{
-            type: "paragraph",
-            content: "一段很长的文字 ".repeat(200),
-          }],
-        },
-        {
-          type: "column",
-          props: { width: 2 },
-          children: [{ type: "divider" }],
-        },
-      ],
-    }]);
-
-    expect(xmlElements(document.document, "tblLayout").map(
-      (element) => wordAttribute(element, "type"),
-    )).toContain("fixed");
-    const gridWidths = xmlElements(document.document, "gridCol").map(
-      (element) => Number(wordAttribute(element, "w")),
-    );
-    const available =
-      PRESHOT_DOCX_A4.contentWidthTwips - PRESHOT_DOCX_COLUMN_GAP_TWIPS;
-    expect(gridWidths).toEqual([
-      Math.floor(available / 3),
-      PRESHOT_DOCX_COLUMN_GAP_TWIPS,
-      available - Math.floor(available / 3),
-    ]);
-    const borderValues = [
-      "top",
-      "bottom",
-      "left",
-      "right",
-      "insideH",
-      "insideV",
-    ].flatMap((name) =>
-      xmlElements(document.document, name).map(
-        (element) => wordAttribute(element, "val"),
-      )
-    );
-    expect(borderValues).toContain("nil");
-    expect(xmlElements(document.document, "cantSplit")).toHaveLength(0);
-  });
-
-  it("uses cantSplit only for known short all-atomic column rows", async () => {
-    const { document } = await exportArchive([{
-      type: "columnList",
-      children: [
-        {
-          type: "column",
-          props: { width: 1 },
-          children: [{ type: "divider" }],
-        },
-        {
-          type: "column",
-          props: { width: 1 },
-          children: [{
-            type: "file",
-            props: { url: "", name: "清单", caption: "" },
-          }],
-        },
-      ],
-    }]);
-
-    expect(xmlElements(document.document, "cantSplit")).toHaveLength(1);
   });
 
   it("configures A4 portrait, 24pt margins, and Chinese metadata/locale", async () => {

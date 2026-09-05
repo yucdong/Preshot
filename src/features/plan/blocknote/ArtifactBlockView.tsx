@@ -475,22 +475,45 @@ function EditableArtifact({
   if (artifact.kind === "modelCard") {
     const model = artifact as ModelCardArtifact;
     return (
-      <div className="preshot-artifact-split-layout">
-        <div className="grid gap-3">
-          <CommittedTextField label="模特名称 / 编号" onCommit={(modelId) => update({ ...model, modelId })} required value={model.modelId} />
-          <CommittedNumberField label="身高" min={50} max={250} onCommit={(heightCm) => update({ ...model, heightCm })} suffix="cm" value={model.heightCm} />
-          <CommittedNumberField label="体重" min={10} max={300} onCommit={(weightKg) => update({ ...model, weightKg })} suffix="kg" value={model.weightKg} />
-          <CommittedTextField label="鞋码" onCommit={(shoeSize) => update({ ...model, shoeSize })} value={model.shoeSize} />
-        </div>
-        <ArtifactGallery blockId={blockId} collection={model.samples} label="样片" />
+      <div className="preshot-artifact-balanced-layout">
+        <fieldset
+          aria-label="模特信息"
+          className="preshot-balanced-model-info m-0 min-w-0 border-0 p-0"
+        >
+          <div className="flex min-h-8 items-start">
+            <span className="text-xs font-semibold text-paper-muted">
+              模特信息
+            </span>
+          </div>
+          <div className="preshot-balanced-model-fields">
+            <CommittedTextField label="模特名称 / 编号" onCommit={(modelId) => update({ ...model, modelId })} required value={model.modelId} />
+            <CommittedNumberField label="身高" min={50} max={250} onCommit={(heightCm) => update({ ...model, heightCm })} suffix="cm" value={model.heightCm} />
+            <CommittedNumberField label="体重" min={10} max={300} onCommit={(weightKg) => update({ ...model, weightKg })} suffix="kg" value={model.weightKg} />
+            <CommittedTextField label="鞋码" onCommit={(shoeSize) => update({ ...model, shoeSize })} value={model.shoeSize} />
+            <div className="preshot-balanced-model-notes">
+              <CommittedTextField
+                label="其他信息"
+                multiline
+                onCommit={(notes) => update({ ...model, notes })}
+                placeholder="填写风格偏好、档期、妆发或其他说明"
+                value={model.notes ?? ""}
+              />
+            </div>
+          </div>
+        </fieldset>
+        <ArtifactGallery
+          balanced
+          blockId={blockId}
+          collection={model.samples}
+          label="样片"
+        />
       </div>
     );
   }
   if (artifact.kind === "clothing") {
     const clothing = artifact as ClothingArtifact;
     return (
-      <>
-        <div className="preshot-artifact-balanced-layout">
+      <div className="preshot-artifact-balanced-layout">
           <div className="grid min-h-0">
             <CommittedTextField
               balanced
@@ -507,33 +530,7 @@ function EditableArtifact({
             collection={clothing.mainGallery}
             label="服装图片"
           />
-        </div>
-        <section className="rounded border border-paper-border bg-paper-subtle/40">
-          <button
-            aria-expanded={clothing.tryOn.expanded}
-            className="flex min-h-11 w-full items-center justify-between gap-2 px-3 text-left text-sm font-bold text-paper-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-paper-primary"
-            onClick={() => update({
-              ...clothing,
-              tryOn: {
-                ...clothing.tryOn,
-                expanded: !clothing.tryOn.expanded,
-              },
-            })}
-            type="button"
-          >
-            <span>试穿参考</span>
-            <span className="text-[11px] font-semibold text-paper-muted">
-              {clothing.tryOn.gallery.images.length} 张图片 ·
-              {clothing.tryOn.expanded ? " 已展开" : " 已折叠"}
-            </span>
-          </button>
-          {clothing.tryOn.expanded ? (
-            <div className="border-t border-paper-border p-3">
-              <ArtifactGallery blockId={blockId} collection={clothing.tryOn.gallery} label="试穿图片" />
-            </div>
-          ) : null}
-        </section>
-      </>
+      </div>
     );
   }
   const prop = artifact as PropArtifact;
@@ -583,21 +580,36 @@ function ReadonlyArtifact({
   }
   if (artifact.kind === "modelCard") {
     return (
-      <div className="preshot-artifact-split-layout">
-        <dl className="grid gap-3 sm:grid-cols-2">
-          <ReadonlyValue label="模特名称 / 编号" value={artifact.modelId} />
-          <ReadonlyValue label="身高" value={artifact.heightCm === null ? null : `${artifact.heightCm} cm`} />
-          <ReadonlyValue label="体重" value={artifact.weightKg === null ? null : `${artifact.weightKg} kg`} />
-          <ReadonlyValue label="鞋码" value={artifact.shoeSize} />
-        </dl>
-        <ArtifactGallery blockId={blockId} collection={artifact.samples} label="样片" />
+      <div className="preshot-artifact-balanced-layout">
+        <section
+          aria-label="模特信息"
+          className="preshot-balanced-model-info min-w-0"
+        >
+          <div className="flex min-h-8 items-start">
+            <h3 className="m-0 text-sm font-bold text-paper-ink">模特信息</h3>
+          </div>
+          <dl className="preshot-balanced-model-fields m-0">
+            <ReadonlyValue label="模特名称 / 编号" value={artifact.modelId} />
+            <ReadonlyValue label="身高" value={artifact.heightCm === null ? null : `${artifact.heightCm} cm`} />
+            <ReadonlyValue label="体重" value={artifact.weightKg === null ? null : `${artifact.weightKg} kg`} />
+            <ReadonlyValue label="鞋码" value={artifact.shoeSize} />
+            <div className="preshot-balanced-model-notes">
+              <ReadonlyValue label="其他信息" value={artifact.notes ?? ""} />
+            </div>
+          </dl>
+        </section>
+        <ArtifactGallery
+          balanced
+          blockId={blockId}
+          collection={artifact.samples}
+          label="样片"
+        />
       </div>
     );
   }
   if (artifact.kind === "clothing") {
     return (
-      <>
-        <div className="preshot-artifact-balanced-layout">
+      <div className="preshot-artifact-balanced-layout">
           <dl className="preshot-balanced-info-readonly grid content-start gap-3">
             <ReadonlyValue label="服装信息" value={artifact.source} />
           </dl>
@@ -607,12 +619,7 @@ function ReadonlyArtifact({
             collection={artifact.mainGallery}
             label="服装图片"
           />
-        </div>
-        {artifact.tryOn.gallery.images.length > 0 ? (
-          <ArtifactGallery blockId={blockId} collection={artifact.tryOn.gallery} label="试穿参考" />
-        ) : null}
-        <ReadonlyValue label="来源说明" value={artifact.source} />
-      </>
+      </div>
     );
   }
   return (
@@ -681,10 +688,11 @@ export function ArtifactBlockView({
   const titleLabel = artifactTitleLabel(artifact);
   return (
     <section
-      className="preshot-artifact-block bn-drag-exclude my-3 grid w-full min-w-0 gap-4 rounded border border-paper-border bg-white p-4 text-paper-ink shadow-sm"
+      className="preshot-artifact-block bn-drag-exclude relative my-3 grid min-w-0 content-start gap-4 rounded border border-paper-border bg-white p-4 text-paper-ink shadow-sm"
       contentEditable={false}
       data-artifact-id={artifactId}
       data-artifact-kind={artifact.kind}
+      style={{ width: "100%" }}
     >
       <header className="flex min-w-0 items-center gap-3 border-b border-paper-border pb-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded bg-paper-primary-soft text-paper-primary">

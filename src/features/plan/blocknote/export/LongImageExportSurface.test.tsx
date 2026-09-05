@@ -34,28 +34,6 @@ function textBlock(
   };
 }
 
-function columnRow(id: string, count: 2 | 3): PreshotBlock {
-  return {
-    id,
-    type: "columnList",
-    props: {},
-    content: undefined,
-    children: Array.from({ length: count }, (_, index) => ({
-      id: `${id}-column-${index}`,
-      type: "column" as const,
-      props: { width: index + 1 },
-      content: undefined,
-      children: [
-        textBlock(
-          `${id}-paragraph-${index}`,
-          "paragraph",
-          `${count} 列内容 ${index + 1}`,
-        ),
-      ],
-    })),
-  };
-}
-
 function complexPlan(): ProjectPlanV14 {
   const headings = Array.from({ length: 6 }, (_, index) =>
     textBlock(
@@ -98,8 +76,6 @@ function complexPlan(): ProjectPlanV14 {
           },
           children: [],
         },
-        columnRow("two-columns", 2),
-        columnRow("three-columns", 3),
         {
           id: "native-image",
           type: "image",
@@ -228,19 +204,6 @@ describe("LongImageExportSurface", () => {
       ).toHaveLength(plan.document.blocks.length);
     });
     expect(
-      container.querySelectorAll("[data-preshot-export-column-row]"),
-    ).toHaveLength(2);
-    expect(
-      container.querySelectorAll(
-        '[data-preshot-export-column-row="two-columns"] [data-node-type="column"]',
-      ),
-    ).toHaveLength(2);
-    expect(
-      container.querySelectorAll(
-        '[data-preshot-export-column-row="three-columns"] [data-node-type="column"]',
-      ),
-    ).toHaveLength(3);
-    expect(
       container.querySelectorAll("[data-preshot-export-atomic-block]"),
     ).toHaveLength(7);
     expect(
@@ -339,8 +302,7 @@ describe("LongImageExportSurface", () => {
       const element = container.querySelector<HTMLElement>(
         "[data-preshot-export-outer-width='890']",
       );
-      expect(element?.querySelector("[data-preshot-export-column-row]"))
-        .not.toBeNull();
+      expect(element).not.toBeNull();
       return element!;
     });
 
@@ -358,8 +320,6 @@ describe("LongImageExportSurface", () => {
     expect(measurements.topLevelBlocks).toHaveLength(
       complexPlan().document.blocks.length,
     );
-    expect(measurements.columnRows.map((row) => row.blockId))
-      .toEqual(["two-columns", "three-columns"]);
     expect(measurements.imageGroupRows.map((row) => row.id))
       .toEqual(["group-1:0", "group-1:1"]);
     expect(measurements.imageGroupRows[0]).toMatchObject({

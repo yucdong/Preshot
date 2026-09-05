@@ -3,7 +3,6 @@ import {
   defaultBlockSpecs,
   withPageBreak,
 } from "@blocknote/core";
-import { withMultiColumn } from "@blocknote/xl-multi-column";
 import { imageGroupBlockSpec } from "./imageGroupBlockSpec";
 import {
   clothingBlockSpec,
@@ -36,9 +35,7 @@ const preshotBaseBlockNoteSchema = BlockNoteSchema.create({
   },
 });
 
-export const preshotBlockNoteSchema = withMultiColumn(
-  withPageBreak(preshotBaseBlockNoteSchema),
-);
+export const preshotBlockNoteSchema = withPageBreak(preshotBaseBlockNoteSchema);
 
 export type PreshotBlockNoteSchema = typeof preshotBlockNoteSchema;
 export type PreshotBlockNoteEditor =

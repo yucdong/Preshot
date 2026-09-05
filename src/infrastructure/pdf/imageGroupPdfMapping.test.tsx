@@ -289,120 +289,31 @@ describe("image-group React-PDF render model", () => {
     )).toBe(true);
   });
 
-  it("uses the actual weighted two-thirds column conversion", () => {
-    const source = group("column-group", {
-      x: 18,
-      width: 400,
-      height: 180,
-    });
-    const context = exportContext(plan([{
-      id: "columns",
-      type: "columnList",
-      props: {},
-      content: undefined,
-      children: [
-        {
-          id: "wide",
-          type: "column",
-          props: { width: 2 },
-          content: undefined,
-          children: [imageGroupBlock("block", source.id)],
-        },
-        {
-          id: "narrow",
-          type: "column",
-          props: { width: 1 },
-          content: undefined,
-          children: [{
-            id: "copy",
-            type: "paragraph",
-            props: {},
-            content: [],
-            children: [],
-          }],
-        },
-      ],
-    }], [source]));
-    const groupContext = context.groupsByBlockId.block;
-
-    const model = buildPreshotImageGroupPdfRenderModel(
-      imageGroupBlock("block", source.id),
-      context,
-    );
+  it("turns positive root offsets into flow padding exactly once", () => {
+    const root = group("root", { height: 180, frameOffsetY: 30 });
+    const block = imageGroupBlock("root-block", root.id);
+    const context = exportContext(plan([block], [root]));
+    const model = buildPreshotImageGroupPdfRenderModel(block, context);
 
     expect(model.kind).toBe("content");
     if (model.kind !== "content") return;
-    expect(groupContext.parent.columnBlockId).toBe("wide");
-    expect(model.container.width).toBeCloseTo(
-      groupContext.logical.width *
-        groupContext.parent.logicalToPdfScale,
+    expect(model.flow.topPadding).toBeGreaterThan(0);
+    expect(model.flow.height).toBeCloseTo(
+      model.flow.topPadding + model.container.height,
       4,
     );
-    expect(model.container.width).toBeLessThan(
-      PDF_VISUAL_CONTRACT.page.contentWidth,
+    expect(model.container.y).toBe(0);
+
+    const element = createPreshotImageGroupPdfBlockMapping(context)(block);
+    expect(isValidElement(element)).toBe(true);
+    if (!isValidElement(element)) return;
+    expect(styleOf(element).height).toBeCloseTo(model.flow.height, 4);
+    const children = childrenOf(element).filter(isValidElement);
+    expect(styleOf(children[0]).height).toBeCloseTo(
+      model.flow.topPadding,
+      4,
     );
-  });
-
-  it("turns positive root and column offsets into flow padding exactly once", () => {
-    const root = group("root", { height: 180, frameOffsetY: 30 });
-    const column = group("column", { height: 160, frameOffsetY: 24 });
-    const context = exportContext(plan([
-      imageGroupBlock("root-block", root.id),
-      {
-        id: "columns",
-        type: "columnList",
-        props: {},
-        content: undefined,
-        children: [
-          {
-            id: "left",
-            type: "column",
-            props: { width: 2 },
-            content: undefined,
-            children: [imageGroupBlock("column-block", column.id)],
-          },
-          {
-            id: "right",
-            type: "column",
-            props: { width: 1 },
-            content: undefined,
-            children: [{
-              id: "copy",
-              type: "paragraph",
-              props: {},
-              content: [],
-              children: [],
-            }],
-          },
-        ],
-      },
-    ], [root, column]));
-
-    for (const block of [
-      imageGroupBlock("root-block", root.id),
-      imageGroupBlock("column-block", column.id),
-    ]) {
-      const model = buildPreshotImageGroupPdfRenderModel(block, context);
-      expect(model.kind).toBe("content");
-      if (model.kind !== "content") continue;
-      expect(model.flow.topPadding).toBeGreaterThan(0);
-      expect(model.flow.height).toBeCloseTo(
-        model.flow.topPadding + model.container.height,
-        4,
-      );
-      expect(model.container.y).toBe(0);
-
-      const element = createPreshotImageGroupPdfBlockMapping(context)(block);
-      expect(isValidElement(element)).toBe(true);
-      if (!isValidElement(element)) continue;
-      expect(styleOf(element).height).toBeCloseTo(model.flow.height, 4);
-      const children = childrenOf(element).filter(isValidElement);
-      expect(styleOf(children[0]).height).toBeCloseTo(
-        model.flow.topPadding,
-        4,
-      );
-      expect(styleOf(children[1]).top).toBe(0);
-    }
+    expect(styleOf(children[1]).top).toBe(0);
   });
 
   it("keeps zero unchanged and negative offsets positioned without negative flow", () => {
@@ -616,68 +527,6 @@ describe("image-group React-PDF mapping", () => {
     ).toBeUndefined();
   });
 
-  it("leaves fragmented column groups free of local presence sentinels", () => {
-    const source = group("column-oversized", {
-      width: 1_008,
-      height: 1_832,
-      images: [
-        image("row-1", 600, 600),
-        image("row-2", 600, 600),
-        image("row-3", 600, 600),
-      ],
-    });
-    const context = exportContext(plan([{
-      id: "columns",
-      type: "columnList",
-      props: {},
-      content: undefined,
-      children: [
-        {
-          id: "wide",
-          type: "column",
-          props: { width: 2 },
-          content: undefined,
-          children: [imageGroupBlock("block", source.id)],
-        },
-        {
-          id: "narrow",
-          type: "column",
-          props: { width: 1 },
-          content: undefined,
-          children: [{
-            id: "copy",
-            type: "paragraph",
-            props: {},
-            content: [],
-            children: [],
-          }],
-        },
-      ],
-    }], [source]));
-
-    const element = createPreshotImageGroupPdfBlockMapping(context)(
-      imageGroupBlock("block", source.id),
-    );
-
-    expect(isValidElement(element)).toBe(true);
-    if (!isValidElement(element)) return;
-    expect(element.type).toBe(View);
-    const elementProps = element.props as {
-      minPresenceAhead?: number;
-      wrap?: boolean;
-    };
-    expect(elementProps.wrap).toBe(true);
-    expect(elementProps.minPresenceAhead).toBeUndefined();
-    expect(
-      childrenOf(element)
-        .filter(isValidElement)
-        .some((child) =>
-          (child.props as { minPresenceAhead?: number }).minPresenceAhead !==
-            undefined
-        ),
-    ).toBe(false);
-  });
-
   it.each([0.25, 0.250001])(
     "renders an emergency row accepted at scale %s within page bounds",
     (requiredScale) => {
@@ -742,54 +591,19 @@ describe("image-group React-PDF mapping", () => {
     ]);
   });
 
-  it("gives standalone and column groups the same keep-together structure", () => {
+  it("gives standalone groups the keep-together structure", () => {
     const root = group("root");
-    const column = group("column");
-    const context = exportContext(plan([
-      imageGroupBlock("root-block", root.id),
-      {
-        id: "columns",
-        type: "columnList",
-        props: {},
-        content: undefined,
-        children: [
-          {
-            id: "left",
-            type: "column",
-            props: { width: 2 },
-            content: undefined,
-            children: [imageGroupBlock("column-block", column.id)],
-          },
-          {
-            id: "right",
-            type: "column",
-            props: { width: 1 },
-            content: undefined,
-            children: [{
-              id: "copy",
-              type: "paragraph",
-              props: {},
-              content: [],
-              children: [],
-            }],
-          },
-        ],
-      },
-    ], [root, column]));
+    const block = imageGroupBlock("root-block", root.id);
+    const context = exportContext(plan([block], [root]));
     const mapping = createPreshotImageGroupPdfBlockMapping(context);
 
-    for (const block of [
-      imageGroupBlock("root-block", root.id),
-      imageGroupBlock("column-block", column.id),
-    ]) {
-      const element = mapping(block);
-      expect(isValidElement(element)).toBe(true);
-      if (isValidElement(element)) {
-        expect(element.props).toMatchObject({
-          wrap: false,
-          style: { position: "relative" },
-        });
-      }
+    const element = mapping(block);
+    expect(isValidElement(element)).toBe(true);
+    if (isValidElement(element)) {
+      expect(element.props).toMatchObject({
+        wrap: false,
+        style: { position: "relative" },
+      });
     }
   });
 

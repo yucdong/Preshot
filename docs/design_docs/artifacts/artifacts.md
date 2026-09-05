@@ -57,6 +57,9 @@ later Undo cannot remove current artifact or image-group sidecars.
 - optional height in centimetres;
 - optional weight in kilograms;
 - optional literal shoe-size text;
+- optional multiline Other Information text for style preferences, scheduling,
+  hair/makeup, or other freeform notes; it starts at a compact 48px and grows
+  with content while retaining manual vertical resize;
 - sample-image gallery.
 
 ### Clothing
@@ -64,8 +67,6 @@ later Undo cannot remove current artifact or image-group sidecars.
 - required clothing name edited independently in the block header;
 - multiline Clothing Information field for source and other details;
 - main image gallery sharing the information field's content-driven height;
-- optional try-on gallery;
-- persistent try-on expanded state, defaulting to collapsed;
 
 The source note may contain a brand, URL, lending note, purchasing detail, or
 other freeform provenance text. It is plain text and does not automatically open
@@ -92,18 +93,37 @@ The clothing source note remains available for editing. If its trimmed value is
 empty, unselected reading render and PDF, DOCX, and long-image export omit the
 complete source section, including its label, box, spacing, and placeholder.
 
-Location, clothing, and prop use the same responsive 40/60
-information/gallery row and stack below a 680px container width. Their
-galleries use exact image-group frame behavior: persisted aspect/crop/frame
-geometry, manual resize, within/cross-group drag, keyboard movement, and
-wrap-before-overflow without automatic shrink. Clothing keeps its try-on
-disclosure below the main balanced row.
+Location, model, clothing, and prop use the same responsive 40/60
+information/gallery row and stack below a 430px container width. Model
+information uses a compact two-column field panel plus one full-width,
+freely-editable Other Information textarea; the other three kinds use
+multiline information fields. Their galleries use exact image-group frame
+behavior: persisted aspect/crop/frame geometry, manual resize,
+within/cross-group drag, keyboard movement, and wrap-before-overflow without
+automatic shrink. Clothing has no try-on section.
 
-Each information field and main gallery use one shared grid row. Their body
-height is the larger of the textarea's natural content height, the wrapped
-gallery height, and a compact 134px empty baseline. The textarea uses content
-sizing, has no internal scrollbar or manual resize control, and stretches when
-image rows grow. Actual image rows keep their user-controlled image-group dimensions.
+Each information area and main gallery use aligned 32px headings and one shared
+grid row. Their body height is the larger of the information area's natural
+content height, the wrapped gallery height, and a compact 134px empty baseline.
+The textarea variants use content sizing, have no internal scrollbar or manual
+resize control, and stretch when image rows grow. Actual image rows keep their
+user-controlled image-group dimensions.
+
+## Whole-card layout
+
+Each artifact card fills its document row and has no whole-card edge or corner
+resize zones. Card height is derived from the header, information, and wrapped
+gallery content, so internal image resizing is the only direct size-changing
+interaction inside the card. Legacy proportional width, offset, and minimum
+height metadata remains valid compatibility input but is ignored by editor,
+PDF, DOCX, and long-image rendering.
+
+Artifact cards remain top-level vertical document blocks. They do not expose a
+whole-card surface drag, and the single-column editor offers no left/right
+grouping. Every document row contains one block.
+The internal 40/60 information/gallery layout stacks at container widths at or
+below 430px. Card height remains content-driven and never clips information or
+gallery rows.
 
 ## Image behavior
 
@@ -154,7 +174,7 @@ immutable committed snapshot.
 - DOCX keeps metadata editable and embeds project-local gallery images.
 - Long-image export mounts the same read-only BlockNote schema and artifact
   renderer.
-- A populated collapsed try-on gallery is exported so content is not lost.
+- Legacy try-on data is compatibility-only and is not rendered or exported.
 - Empty optional fields, empty source notes, and empty optional sections emit no
   reserved space.
 
@@ -168,7 +188,7 @@ support must not introduce a silent fallback between them.
 - Disclosure uses `aria-expanded` and keyboard activation.
 - Delete confirmation traps/restores focus.
 - Galleries retain keyboard drag alternatives.
-- Metadata and gallery layouts stack inside narrow weighted columns.
+- Metadata and gallery layouts remain responsive inside their single row.
 - Motion remains 150–200 ms and honors `prefers-reduced-motion`.
 
 ## Validation

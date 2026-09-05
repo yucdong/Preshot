@@ -8,7 +8,6 @@ const blockNotePackages = [
   "@blocknote/mantine",
   "@blocknote/react",
   "@blocknote/xl-docx-exporter",
-  "@blocknote/xl-multi-column",
   "@blocknote/xl-pdf-exporter",
 ] as const;
 const imageDragPackages = {

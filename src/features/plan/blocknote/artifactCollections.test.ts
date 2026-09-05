@@ -89,14 +89,32 @@ describe("artifact collections", () => {
       "prop-gallery",
       "group-1",
       "clothing-main",
-      "clothing-try-on",
     ]);
   });
 
   it("projects artifact collections as image groups and replaces immutably", () => {
     const original = plan();
+    original.artifacts.push({
+      id: "model-1",
+      kind: "modelCard",
+      revision: 0,
+      modelId: "Model",
+      heightCm: null,
+      weightKg: null,
+      shoeSize: "",
+      samples: { id: "model-samples", images: [] },
+    });
     expect(artifactCollectionGroups(original).map((group) => group.id))
-      .toEqual(["prop-gallery", "clothing-main", "clothing-try-on"]);
+      .toEqual([
+        "prop-gallery",
+        "clothing-main",
+        "model-samples",
+      ]);
+    expect(
+      artifactCollectionGroups(original).find(
+        (group) => group.id === "model-samples",
+      )?.height,
+    ).toBe(134);
     const next = replaceArtifactCollection(
       original,
       "clothing-main",

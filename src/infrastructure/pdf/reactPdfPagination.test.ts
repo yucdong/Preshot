@@ -23,8 +23,6 @@ function block(
     blockType,
     path,
     parentBlockId: null,
-    columnListBlockId: null,
-    columnBlockId: null,
     logicalParentWidth: editorLogicalUnits(1_008),
     pdfParentWidth: PDF_VISUAL_CONTRACT.page.contentWidth,
     logicalToPdfScale:

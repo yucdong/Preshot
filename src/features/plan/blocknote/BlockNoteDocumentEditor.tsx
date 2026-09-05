@@ -5,7 +5,6 @@ import {
   insertOrUpdateBlockForSlashMenu,
 } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/mantine";
-import { insertColumnList } from "@blocknote/xl-multi-column";
 import "@blocknote/mantine/style.css";
 import {
   getDefaultReactSlashMenuItems,
@@ -14,8 +13,6 @@ import {
   useCreateBlockNote,
 } from "@blocknote/react";
 import {
-  Columns2,
-  Columns3,
   ContactRound,
   Images,
   MapPin,
@@ -107,11 +104,7 @@ function invalidNestedSidecarBlock(
 ): { block: PreshotEditorBlock; topLevel: PreshotEditorBlock } | undefined {
   for (const block of blocks) {
     const topLevel = topLevelAncestor ?? block;
-    if (
-      isSidecarBlock(block) &&
-      parent !== undefined &&
-      parent.type !== "column"
-    ) {
+    if (isSidecarBlock(block) && parent !== undefined) {
       return { block, topLevel };
     }
     const nested = invalidNestedSidecarBlock(
@@ -545,7 +538,7 @@ export function BlockNoteDocumentEditor({
                 },
                 {
                   title: "服装",
-                  subtext: "整理服装主图、试穿和来源",
+                  subtext: "整理服装信息和参考图片",
                   aliases: ["衣服", "造型", "garment", "clothing"],
                   group: "素材组件",
                   icon: <Shirt size={18} />,
@@ -558,22 +551,6 @@ export function BlockNoteDocumentEditor({
                   group: "素材组件",
                   icon: <PackageOpen size={18} />,
                   onItemClick: () => insertArtifact("prop"),
-                },
-                {
-                  title: "两列",
-                  subtext: "插入可调整宽度的双列布局",
-                  aliases: ["两栏", "双列", "columns", "2 columns"],
-                  group: "布局",
-                  icon: <Columns2 size={18} />,
-                  onItemClick: () => insertColumnList(editor, 2),
-                },
-                {
-                  title: "三列",
-                  subtext: "插入可调整宽度的三列布局",
-                  aliases: ["三栏", "columns", "3 columns"],
-                  group: "布局",
-                  icon: <Columns3 size={18} />,
-                  onItemClick: () => insertColumnList(editor, 3),
                 },
                 ...defaults,
               ];

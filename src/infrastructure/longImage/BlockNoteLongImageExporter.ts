@@ -161,9 +161,6 @@ function measuredBlocksFrom(
   measurements.atomicBlocks.forEach((boundary) =>
     validateRect(boundary, measurements.height, "atomic block")
   );
-  measurements.columnRows.forEach((boundary) =>
-    validateRect(boundary, measurements.height, "column row")
-  );
   measurements.imageGroupRows.forEach((row) => {
     if (
       !row.id ||

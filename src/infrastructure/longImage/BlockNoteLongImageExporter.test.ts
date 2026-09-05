@@ -116,7 +116,6 @@ function measurements(
     atomicBlocks: topLevelBlocks.filter((entry) =>
       entry.blockType === "imageGroup"
     ),
-    columnRows: [],
     imageGroupRows: (options.imageRows ?? []).map((bottom, rowIndex) => ({
       id: `group:${rowIndex}`,
       blockId: "image-group",

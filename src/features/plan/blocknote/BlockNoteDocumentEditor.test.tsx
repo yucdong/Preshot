@@ -69,7 +69,6 @@ describe("BlockNoteDocumentEditor", () => {
       removeImage: vi.fn(),
       openImage: vi.fn(),
       setImageFrame: vi.fn(),
-      resizeGroup: vi.fn(),
       moveImage: vi.fn(),
     };
     const cloneArtifact = vi.fn().mockReturnValue("artifact-copy");

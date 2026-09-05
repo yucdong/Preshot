@@ -42,22 +42,7 @@ function plainText(content: BlockInlineContent[]): string {
 }
 
 function convertBlock(block: PreshotBlock): Block[] {
-  if (block.type === "columnList") {
-    return [{
-      type: "columns",
-      columns: block.children.map((column) => ({
-        weight:
-          typeof column.props.width === "number" && column.props.width > 0
-            ? column.props.width
-            : 1,
-        blocks: column.children.flatMap(convertBlock),
-      })),
-    }];
-  }
   const children = block.children.flatMap(convertBlock);
-  if (block.type === "column") {
-    return children;
-  }
   if (block.type === "image") {
     const url = String(block.props.url ?? "");
     if (!url) return children;

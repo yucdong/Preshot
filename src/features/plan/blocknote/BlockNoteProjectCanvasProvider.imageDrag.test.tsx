@@ -95,40 +95,22 @@ const plan: ProjectPlanV14 = {
   document: {
     format: "preshot-blocks",
     version: 3,
-    blocks: [{
-      id: "columns",
-      type: "columnList",
-      props: {},
-      content: undefined,
-      children: [
-        {
-          id: "target-column",
-          type: "column",
-          props: { width: 1 },
-          content: undefined,
-          children: [{
-            id: "target-block",
-            type: "shootingLocation",
-            props: { artifactId: "target-artifact" },
-            content: undefined,
-            children: [],
-          }],
-        },
-        {
-          id: "source-column",
-          type: "column",
-          props: { width: 1 },
-          content: undefined,
-          children: [{
-            id: "source-block",
-            type: "imageGroup",
-            props: { groupId: "source" },
-            content: undefined,
-            children: [],
-          }],
-        },
-      ],
-    }],
+    blocks: [
+      {
+        id: "target-block",
+        type: "shootingLocation",
+        props: { artifactId: "target-artifact" },
+        content: undefined,
+        children: [],
+      },
+      {
+        id: "source-block",
+        type: "imageGroup",
+        props: { groupId: "source" },
+        content: undefined,
+        children: [],
+      },
+    ],
   },
   imageGroups: [
     {

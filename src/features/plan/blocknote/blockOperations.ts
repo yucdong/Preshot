@@ -33,9 +33,7 @@ export type ConvertibleBlockType =
 export type BlockDropPlacement =
   | "before"
   | "after"
-  | "inside"
-  | "left"
-  | "right";
+  | "inside";
 
 export function blockContext(
   blocks: readonly PreshotEditorBlock[],
@@ -219,43 +217,6 @@ function topLevelAncestor(
   }
 }
 
-function columnAncestors(
-  editor: PreshotBlockNoteEditor,
-  block: PreshotEditorBlock,
-): {
-  column: PreshotEditorBlock;
-  columnList: PreshotEditorBlock;
-  directChild: PreshotEditorBlock;
-} | undefined {
-  let current = block;
-  for (;;) {
-    const parent = editor.getParentBlock(current) as
-      | PreshotEditorBlock
-      | undefined;
-    if (!parent) return undefined;
-    if (parent.type === "column") {
-      const columnList = editor.getParentBlock(parent) as
-        | PreshotEditorBlock
-        | undefined;
-      if (columnList?.type !== "columnList") return undefined;
-      return { column: parent, columnList, directChild: current };
-    }
-    current = parent;
-  }
-}
-
-function removeFromTree(
-  block: PreshotEditorBlock,
-  blockId: string,
-): PreshotEditorBlock {
-  return {
-    ...block,
-    children: block.children
-      .filter((child) => child.id !== blockId)
-      .map((child) => removeFromTree(child, blockId)),
-  };
-}
-
 export function moveBlockRelative(
   editor: PreshotBlockNoteEditor,
   source: PreshotEditorBlock,
@@ -271,8 +232,7 @@ export function moveBlockRelative(
     source.type === "prop"
   ) {
     if (placement === "inside") return false;
-    target = columnAncestors(editor, requestedTarget)?.directChild ??
-      topLevelAncestor(editor, requestedTarget);
+    target = topLevelAncestor(editor, requestedTarget);
   }
   if (
     source.id === target.id ||
@@ -290,79 +250,6 @@ export function moveBlockRelative(
     )
   ) {
     return false;
-  }
-  if (placement === "left" || placement === "right") {
-    const targetColumns = columnAncestors(editor, target);
-    if (!targetColumns) {
-      const orderedBlocks =
-        placement === "left" ? [source, target] : [target, source];
-      const hasWideAtomicBlock = orderedBlocks.some(
-        (block) =>
-          block.type === "imageGroup" ||
-          block.type === "shootingLocation" ||
-          block.type === "modelCard" ||
-          block.type === "clothing" ||
-          block.type === "prop",
-      );
-      editor.transact(() => {
-        editor.removeBlocks([source]);
-        editor.replaceBlocks(
-          [target],
-          [{
-            type: "columnList",
-            children: orderedBlocks.map((entry) => ({
-              type: "column",
-              props: {
-                width: hasWideAtomicBlock
-                  ? (
-                      entry.type === "imageGroup" ||
-                      entry.type === "shootingLocation" ||
-                      entry.type === "modelCard" ||
-                      entry.type === "clothing" ||
-                      entry.type === "prop"
-                    ) ? 1.25 : 0.75
-                  : 1,
-              },
-              children: [entry],
-            })),
-          }],
-        );
-      });
-      return true;
-    }
-
-    const sourceInsideTargetList = containsBlock(
-      targetColumns.columnList,
-      source.id,
-    );
-    const remainingColumns = targetColumns.columnList.children
-      .map((column) => removeFromTree(column, source.id))
-      .filter((column) => column.children.length > 0);
-    const targetColumnIndex = remainingColumns.findIndex(
-      (column) => column.id === targetColumns.column.id,
-    );
-    if (targetColumnIndex < 0) return false;
-    const insertionIndex = placement === "left"
-      ? targetColumnIndex
-      : targetColumnIndex + 1;
-    const newColumn = {
-        type: "column",
-        props: { width: 1 },
-        content: undefined,
-        children: [source],
-      } as PreshotEditorBlock;
-    const columnsWithSource = [
-      ...remainingColumns.slice(0, insertionIndex),
-      newColumn,
-      ...remainingColumns.slice(insertionIndex),
-    ];
-    editor.transact(() => {
-      if (!sourceInsideTargetList) editor.removeBlocks([source]);
-      editor.updateBlock(targetColumns.columnList, {
-        children: columnsWithSource,
-      });
-    });
-    return true;
   }
   editor.transact(() => {
     editor.removeBlocks([source]);

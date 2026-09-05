@@ -45,21 +45,17 @@ import {
   ImageDragTargetGroup,
   ImageDragTargetInsertion,
 } from "./ImageDragPresentation";
-import { isLegacyDefaultImageGroup } from "./canvasViewport";
 import { startBlockPointerDrag } from "./blockPointerDrag";
 import type {
   PreshotBlockNoteEditor,
   PreshotEditorBlock,
 } from "./blockOperations";
 import {
-  groupResizePreview,
   IMAGE_RESIZE_DIRECTIONS,
   imageGroupFrameResizePreview,
   imageWithPreview,
-  RESIZE_DIRECTIONS,
   resizeHandleStyle,
   type FramePreview,
-  type GroupPreview,
   type GuideState,
   type ImageResizeCandidate,
   type ImageResizeSnapState,
@@ -334,7 +330,6 @@ export function ImageGroupBlockView({
   const rootRef = useRef<HTMLDivElement>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [framePreview, setFramePreview] = useState<FramePreview | null>(null);
-  const [groupPreview, setGroupPreview] = useState<GroupPreview | null>(null);
   const [guide, setGuide] = useState<GuideState>({});
   const [availableWidth, setAvailableWidth] = useState(group?.width ?? 0);
   const setRootNode = useCallback((node: HTMLDivElement | null) => {
@@ -381,19 +376,7 @@ export function ImageGroupBlockView({
   const rawDisplayImages = previewItems.map((item) =>
     imageWithPreview(item.image, framePreview),
   );
-  const displayedGroup = groupPreview ?? group;
-  const requestedWidth =
-    !groupPreview && isLegacyDefaultImageGroup(group) && availableWidth > 0
-      ? availableWidth
-      : displayedGroup.width;
-  const constrainedWidth = Math.max(
-    1,
-    Math.min(requestedWidth, availableWidth || requestedWidth),
-  );
-  const constrainedX = Math.max(
-    0,
-    Math.min(displayedGroup.x, Math.max(0, availableWidth - constrainedWidth)),
-  );
+  const constrainedWidth = Math.max(1, availableWidth || group.width);
   const displayImages = compactArtifactGalleryImages(
     rawDisplayImages,
     constrainedWidth,
@@ -407,7 +390,7 @@ export function ImageGroupBlockView({
     (
       autoCompact
         ? Math.max(MIN_COMPONENT_HEIGHT, layout.height)
-        : Math.max(MIN_COMPONENT_HEIGHT, displayedGroup.height, layout.height)
+        : Math.max(MIN_COMPONENT_HEIGHT, layout.height)
     );
   const imagesById = new Map(displayImages.map((image) => [image.id, image]));
   const itemById = new Map(previewItems.map((item) => [item.image.id, item]));
@@ -622,51 +605,6 @@ export function ImageGroupBlockView({
     controller.setImageFrame(groupId, image.id, result.preview);
   };
 
-  const startGroupResize = (
-    direction: ResizeDirection,
-    event: ReactPointerEvent<HTMLSpanElement>,
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const initial = {
-      x: constrainedX,
-      width: constrainedWidth,
-      height: group.height,
-      frameOffsetY: group.frameOffsetY ?? 0,
-    };
-    let next = initial;
-    const move = (moveEvent: PointerEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
-      next = groupResizePreview(
-        initial,
-        direction,
-        dx,
-        dy,
-        availableWidth,
-      );
-      setGroupPreview(next);
-    };
-    const finish = () => {
-      document.removeEventListener("pointermove", move);
-      document.removeEventListener("pointerup", finish);
-      document.removeEventListener("pointercancel", cancel);
-      setGroupPreview(null);
-      controller.resizeGroup(groupId, next);
-    };
-    const cancel = () => {
-      document.removeEventListener("pointermove", move);
-      document.removeEventListener("pointerup", finish);
-      document.removeEventListener("pointercancel", cancel);
-      setGroupPreview(null);
-    };
-    document.addEventListener("pointermove", move);
-    document.addEventListener("pointerup", finish);
-    document.addEventListener("pointercancel", cancel);
-  };
-
   const startGroupBlockDrag = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
@@ -674,7 +612,7 @@ export function ImageGroupBlockView({
     const target = event.target as HTMLElement;
     if (
       target.closest(
-        "button, [data-image-id], [data-image-resize-edge], [data-group-resize-edge]",
+        "button, [data-image-id], [data-image-resize-edge]",
       )
     ) {
       return;
@@ -706,9 +644,9 @@ export function ImageGroupBlockView({
         ref={setRootNode}
         style={{
           height: `${displayedHeight}px`,
-          marginLeft: variant === "embedded" ? 0 : `${constrainedX}px`,
-          translate: `0 ${displayedGroup.frameOffsetY ?? 0}px`,
-          width: variant === "embedded" ? "100%" : `${constrainedWidth}px`,
+          marginLeft: 0,
+          translate: "none",
+          width: "100%",
           maxWidth: "100%",
         }}
       >
@@ -826,17 +764,6 @@ export function ImageGroupBlockView({
           {guide.horizontal ? <div className="pointer-events-none absolute inset-x-1 z-[70] border-t border-dashed border-app-accent" style={{ top: guide.horizontal.y }}><span className="absolute left-1 top-1 whitespace-nowrap rounded bg-app-accent px-1.5 py-1 text-[8px] font-bold text-white">{guide.horizontal.label}</span></div> : null}
           {guide.dimension ? <span className="pointer-events-none absolute bottom-2 left-1/2 z-[80] -translate-x-1/2 rounded border border-app-accent bg-white px-2 py-1 text-[8px] font-bold text-app-accent">{guide.dimension}</span> : null}
         </div>
-        {variant === "block" ? RESIZE_DIRECTIONS.map((direction) => (
-          <span
-            aria-label={`调整图片组${direction}`}
-            data-group-resize-edge={direction}
-            key={direction}
-            onPointerDown={(event) => startGroupResize(direction, event)}
-            role="separator"
-            style={resizeHandleStyle(direction)}
-            tabIndex={0}
-          />
-        )) : null}
       </ImageDragTargetGroup>
       <ConfirmDialog
         cancelLabel="取消"

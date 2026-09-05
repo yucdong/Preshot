@@ -397,7 +397,7 @@ test("creates, edits, saves, and exports a BlockNote v15 project", async ({ page
     ) && Math.abs(frames[0].height - frames[1].height) < 1;
   }).toBe(true);
   await expect(group.locator("[data-image-resize-edge]")).toHaveCount(16);
-  await expect(group.locator("[data-group-resize-edge]")).toHaveCount(8);
+  await expect(group.locator("[data-group-resize-edge]")).toHaveCount(0);
   const firstImageButton = group.getByRole("button", {
     name: "选择参考图 1",
   });
@@ -408,38 +408,6 @@ test("creates, edits, saves, and exports a BlockNote v15 project", async ({ page
   await firstImageButton.dblclick();
   await expect(page.getByRole("dialog", { name: "参考图" })).toBeVisible();
   await page.getByRole("button", { name: "关闭图片" }).click();
-
-  const groupHeightBeforeResize = (await group.boundingBox())?.height ?? 0;
-  await group.locator('[data-group-resize-edge="bottom"]').evaluate((handle) => {
-    const rect = handle.getBoundingClientRect();
-    const clientX = rect.left + rect.width / 2;
-    const clientY = rect.top + rect.height / 2;
-    handle.dispatchEvent(new PointerEvent("pointerdown", {
-      bubbles: true,
-      clientX,
-      clientY,
-      pointerId: 200,
-    }));
-    document.dispatchEvent(new PointerEvent("pointermove", {
-      bubbles: true,
-      clientX,
-      clientY: clientY + 18,
-      pointerId: 200,
-    }));
-  });
-  await expect.poll(async () => (await group.boundingBox())?.height ?? 0)
-    .toBeGreaterThan(groupHeightBeforeResize);
-  await expect(page.locator("[data-group-resize-preview]")).toHaveCount(0);
-  await expect.poll(() =>
-    group.locator("xpath=..").evaluate((shell) =>
-      getComputedStyle(shell).outlineStyle),
-  ).toBe("none");
-  await page.evaluate(() => {
-    document.dispatchEvent(new PointerEvent("pointerup", {
-      bubbles: true,
-      pointerId: 200,
-    }));
-  });
 
   const firstFrame = group.locator("[data-image-id]").nth(0);
   const firstFrameBeforeResize = await firstFrame.boundingBox();
@@ -639,6 +607,286 @@ test("creates and persists a merged prop information field", async ({
   await page.locator(".bn-editor p").first().click();
   await expect(restored.getByRole("textbox", { name: /道具信息/ }))
     .toHaveValue("");
+});
+
+test("keeps model information and samples compact and equal-height", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const key =
+      `preshot.browser-blocknote-plan-v15:${encodeURIComponent(projectPath)}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        schemaVersion: 15,
+        title: "Compact model card",
+        document: {
+          format: "preshot-blocks",
+          version: 3,
+          blocks: [{
+            id: "model-block",
+            type: "modelCard",
+            props: { artifactId: "model" },
+            children: [],
+          }],
+        },
+        imageGroups: [],
+        artifacts: [{
+          id: "model",
+          kind: "modelCard",
+          revision: 0,
+          modelId: "林夏",
+          heightCm: 168,
+          weightKg: 48,
+          shoeSize: "38",
+          samples: {
+            id: "model-samples",
+            images: [],
+          },
+        }],
+      }),
+    );
+  });
+  await page.goto("/");
+
+  const model = page.locator('[data-artifact-kind="modelCard"]');
+  await expect(model.getByRole("group", { name: "模特信息" })).toBeVisible();
+  await expect(model.locator("[data-image-id]")).toHaveCount(0);
+  const dimensions = await model.evaluate((element) => {
+    const information = element.querySelector(
+      ".preshot-balanced-model-fields",
+    ) as HTMLElement;
+    const gallery = element.querySelector(
+      ".preshot-blocknote-image-group",
+    ) as HTMLElement;
+    const layout = element.querySelector(
+      ".preshot-artifact-balanced-layout",
+    ) as HTMLElement;
+    return {
+      informationHeight: information.offsetHeight,
+      galleryHeight: gallery.offsetHeight,
+      layoutHeight: layout.offsetHeight,
+    };
+  });
+  expect(Math.abs(
+    dimensions.informationHeight - dimensions.galleryHeight,
+  )).toBeLessThanOrEqual(1);
+  expect(dimensions.layoutHeight).toBeLessThan(280);
+
+  const notes = model.getByRole("textbox", { name: "其他信息" });
+  await expect(notes).toHaveValue("");
+  expect(await notes.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeLessThanOrEqual(50);
+  await notes.fill("可自备黑色长靴\n周末档期需提前确认");
+  await notes.blur();
+  await expect.poll(() => model.evaluate((element) => {
+    const information = element.querySelector(
+      ".preshot-balanced-model-fields",
+    ) as HTMLElement;
+    const gallery = element.querySelector(
+      ".preshot-blocknote-image-group",
+    ) as HTMLElement;
+    return Math.abs(information.offsetHeight - gallery.offsetHeight);
+  })).toBeLessThanOrEqual(1);
+  await page.keyboard.press("Control+s");
+  await expect(page.getByTestId("save-status")).toHaveText(
+    "已保存所有更改",
+    { timeout: 10_000 },
+  );
+  await expect.poll(() => page.evaluate(() => {
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const stored = sessionStorage.getItem(
+      `preshot.browser-blocknote-plan-v15:${encodeURIComponent(projectPath)}`,
+    );
+    const plan = stored ? JSON.parse(stored) : null;
+    return plan?.artifacts?.find(
+      (artifact: { id: string }) => artifact.id === "model",
+    )?.notes;
+  })).toBe("可自备黑色长靴\n周末档期需提前确认");
+});
+
+test("keeps artifact cards full-width and ignores legacy card layout", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const key =
+      `preshot.browser-blocknote-plan-v15:${encodeURIComponent(projectPath)}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        schemaVersion: 15,
+        title: "Artifact row layout",
+        document: {
+          format: "preshot-blocks",
+          version: 3,
+          blocks: [
+            {
+              id: "model-block",
+              type: "modelCard",
+              props: { artifactId: "model" },
+              children: [],
+            },
+            {
+              id: "prop-block",
+              type: "prop",
+              props: { artifactId: "prop" },
+              children: [],
+            },
+          ],
+        },
+        imageGroups: [],
+        artifacts: [
+          {
+            id: "model",
+            kind: "modelCard",
+            revision: 0,
+            modelId: "林夏",
+            heightCm: 168,
+            weightKg: 48,
+            shoeSize: "38",
+            layout: {
+              widthRatio: 0.5,
+              offsetRatio: 0.25,
+              minHeight: 600,
+            },
+            samples: { id: "model-samples", images: [] },
+          },
+          {
+            id: "prop",
+            kind: "prop",
+            revision: 0,
+            title: "圆形反光板",
+            source: "银白双面，直径 110 cm",
+            gallery: { id: "prop-gallery", images: [] },
+          },
+        ],
+      }),
+    );
+  });
+  await page.goto("/");
+
+  const model = page.locator('[data-artifact-kind="modelCard"]');
+  await expect(page.locator(".bn-block-column")).toHaveCount(0);
+  await expect.poll(() => model.evaluate((element) => {
+    const layout = element.querySelector(
+      ".preshot-artifact-balanced-layout",
+    ) as HTMLElement;
+    return getComputedStyle(layout).gridTemplateColumns.split(" ").length;
+  })).toBe(2);
+  await expect(model.locator("[data-artifact-resize-edge]")).toHaveCount(0);
+  const modelContent = model.locator(
+    'xpath=ancestor::div[@data-content-type="modelCard"][1]',
+  );
+  const modelBox = await model.boundingBox();
+  const contentBox = await modelContent.boundingBox();
+  if (!modelBox || !contentBox) throw new Error("Expected model card geometry");
+  expect(modelBox.x).toBeCloseTo(contentBox.x, 0);
+  expect(modelBox.x + modelBox.width).toBeCloseTo(
+    contentBox.x + contentBox.width,
+    0,
+  );
+  expect(modelBox.height).toBeLessThan(600);
+
+  await page.reload();
+  await expect(page.locator(".bn-block-column")).toHaveCount(0);
+  const reloadedModel = page.locator('[data-artifact-kind="modelCard"]');
+  await expect(reloadedModel).toBeVisible();
+  await expect(reloadedModel.locator("[data-artifact-resize-edge]"))
+    .toHaveCount(0);
+  const reloadedModelBox = await reloadedModel.boundingBox();
+  const reloadedContentBox = await reloadedModel.locator(
+    'xpath=ancestor::div[@data-content-type="modelCard"][1]',
+  ).boundingBox();
+  if (!reloadedModelBox || !reloadedContentBox) {
+    throw new Error("Expected reloaded model card geometry");
+  }
+  expect(reloadedModelBox.x).toBeCloseTo(reloadedContentBox.x, 0);
+  expect(reloadedModelBox.x + reloadedModelBox.width).toBeCloseTo(
+    reloadedContentBox.x + reloadedContentBox.width,
+    0,
+  );
+  expect(reloadedModelBox.height).toBeLessThan(600);
+  await expect(page.locator('[data-artifact-kind="prop"]')).toBeVisible();
+});
+
+test("does not group an artifact card beside text", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const key =
+      `preshot.browser-blocknote-plan-v15:${encodeURIComponent(projectPath)}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, JSON.stringify({
+      schemaVersion: 15,
+      title: "Artifact beside text",
+      document: {
+        format: "preshot-blocks",
+        version: 3,
+        blocks: [
+          {
+            id: "text-block",
+            type: "paragraph",
+            props: {},
+            content: [{
+              type: "text",
+              text: "拍摄说明",
+              styles: {},
+            }],
+            children: [],
+          },
+          {
+            id: "prop-block",
+            type: "prop",
+            props: { artifactId: "prop" },
+            children: [],
+          },
+        ],
+      },
+      imageGroups: [],
+      artifacts: [{
+        id: "prop",
+        kind: "prop",
+        revision: 0,
+        title: "圆形反光板",
+        source: "银白双面，直径 110 cm",
+        gallery: { id: "prop-gallery", images: [] },
+      }],
+    }));
+  });
+  await page.goto("/");
+
+  const prop = page.locator('[data-artifact-kind="prop"]');
+  const surfaceBox = await prop.locator("header > span").first().boundingBox();
+  const textBox = await page.getByText("拍摄说明", { exact: true }).locator(
+    'xpath=ancestor::div[@data-node-type="blockOuter"][1]',
+  ).boundingBox();
+  if (!surfaceBox || !textBox) {
+    throw new Error("Expected artifact-to-text drag geometry");
+  }
+  await page.mouse.move(
+    surfaceBox.x + surfaceBox.width / 2,
+    surfaceBox.y + surfaceBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    textBox.x + textBox.width - 2,
+    textBox.y + textBox.height / 2,
+    { steps: 12 },
+  );
+  await expect(page.locator(
+    '[data-preshot-block-drop-overlay="right"], ' +
+      '[data-preshot-block-drop-overlay="left"]',
+  )).toHaveCount(0);
+  await page.mouse.up();
+
+  await expect(page.locator(".bn-block-column")).toHaveCount(0);
+  await expect(page.getByText("拍摄说明", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-artifact-kind="prop"]')).toBeVisible();
 });
 
 test("balances autosizing location information with wrapped images", async ({
@@ -1428,128 +1676,6 @@ test("previews and commits a cross-group image drag transaction", async ({
   }
 });
 
-test("uses recursive column order for keyboard image-group movement and announcements", async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
-    const image = (id: string) => ({
-      id,
-      file: `references/${id}.png`,
-      aspectRatio: 1.5,
-      sourceWidth: 900,
-      sourceHeight: 600,
-      frameWidth: 135,
-      frameHeight: 90,
-    });
-    sessionStorage.setItem(
-      `preshot.browser-blocknote-plan-v15:${encodeURIComponent(projectPath)}`,
-      JSON.stringify({
-        schemaVersion: 15,
-        title: "Visible image group order",
-        document: {
-          format: "preshot-blocks",
-          version: 3,
-          blocks: [{
-            id: "column-list",
-            type: "columnList",
-            props: {},
-            children: [
-              {
-                id: "target-column",
-                type: "column",
-                props: { width: 1 },
-                children: [{
-                  id: "target-block",
-                  type: "imageGroup",
-                  props: { groupId: "target-group" },
-                  children: [],
-                }],
-              },
-              {
-                id: "source-column",
-                type: "column",
-                props: { width: 1 },
-                children: [{
-                  id: "source-block",
-                  type: "imageGroup",
-                  props: { groupId: "source-group" },
-                  children: [],
-                }],
-              },
-            ],
-          }],
-        },
-        imageGroups: [
-          {
-            id: "source-group",
-            name: "Source",
-            type: "reference",
-            x: 0,
-            width: 320,
-            height: 126,
-            description: "",
-            images: [image("source-a"), image("source-b")],
-          },
-          {
-            id: "target-group",
-            name: "Target",
-            type: "reference",
-            x: 0,
-            width: 320,
-            height: 126,
-            description: "",
-            images: [image("target-a")],
-          },
-        ],
-        artifacts: [],
-      }),
-    );
-  });
-  await page.goto("/");
-
-  const source = page.locator('[data-image-group-id="source-group"]');
-  const target = page.locator('[data-image-group-id="target-group"]');
-  const keyboardImage = source.getByRole("button", {
-    name: "选择参考图 2",
-  });
-  await keyboardImage.focus();
-  await expect(page.getByTestId("image-drag-announcement")).toContainText(
-    "已选择第 2 个图片组“Source”",
-  );
-  await page.keyboard.press("Space");
-  await expect(page.locator("[data-image-drag-overlay]")).toBeVisible();
-  await page.keyboard.press("Control+ArrowLeft");
-  await expect(target.locator(
-    '[data-image-placeholder-id="source-b"]',
-  )).toHaveAttribute("data-image-drag-target-insertion", "true");
-  await expect(page.getByTestId("image-drag-announcement")).toContainText(
-    "第 1 个图片组“Target”的第 2 位",
-  );
-  await expect(page.getByTestId("image-drag-keyboard-focus")).toBeFocused();
-
-  await page.keyboard.press("Control+ArrowLeft");
-  await expect(page.getByTestId("image-drag-announcement")).toContainText(
-    "已经没有相邻的图片组",
-  );
-  await expect(target.locator(
-    '[data-image-placeholder-id="source-b"]',
-  )).toHaveAttribute("data-image-drag-target-insertion", "true");
-
-  await page.keyboard.press("Control+ArrowRight");
-  await expect(source.locator(
-    '[data-image-placeholder-id="source-b"]',
-  )).toHaveAttribute("data-image-drag-target-insertion", "true");
-  await page.keyboard.press("Control+ArrowLeft");
-  await expect(target.locator(
-    '[data-image-placeholder-id="source-b"]',
-  )).toHaveAttribute("data-image-drag-target-insertion", "true");
-  await expect(page.getByTestId("image-drag-keyboard-focus")).toBeFocused();
-  await page.keyboard.press("Escape");
-  await expect(page.locator("[data-image-drag-overlay]")).toHaveCount(0);
-  await expect(keyboardImage).toBeFocused();
-});
-
 test("downloads and inspects production React-PDF bytes without external export traffic", async ({
   page,
 }, testInfo) => {
@@ -2174,229 +2300,6 @@ test("drags blocks with the pointer at fit-width zoom", async ({ page }) => {
   await expect(page.locator("[data-preshot-block-drop-overlay]"))
     .toHaveCount(0);
 
-  await page.getByText("第三段", { exact: true }).hover();
-  await page.waitForTimeout(120);
-  const thirdHandle = await page.getByRole("button", {
-    name: "打开菜单",
-  }).boundingBox();
-  const firstTarget = await page.getByText("第一段", {
-    exact: true,
-  }).locator(
-    'xpath=ancestor::div[@data-node-type="blockOuter"][1]',
-  ).boundingBox();
-  if (!thirdHandle || !firstTarget) {
-    throw new Error("Expected same-row drag geometry");
-  }
-  await page.mouse.move(
-    thirdHandle.x + thirdHandle.width / 2,
-    thirdHandle.y + thirdHandle.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    firstTarget.x + firstTarget.width - 2,
-    firstTarget.y + firstTarget.height / 2,
-    { steps: 12 },
-  );
-  await expect(page.locator(
-    '[data-preshot-block-drop-overlay="right"]',
-  )).toBeVisible();
-  await page.mouse.up();
-  await expect(page.locator(".bn-block-column-list")).toHaveCount(1);
-  await expect(page.locator(".bn-block-column")).toHaveCount(2);
-});
-
-test("persists text and an image group in the same column row", async ({
-  page,
-}) => {
-  await page.goto("/");
-  const editor = page.locator(".bn-editor");
-  await editor.click();
-  await page.keyboard.type("/");
-  await page.getByText("两列", { exact: true }).click();
-
-  const columns = page.locator(".bn-block-column");
-  await expect(columns).toHaveCount(2);
-  await columns.nth(0).locator('[data-content-type="paragraph"]').click({
-    position: { x: 12, y: 10 },
-  });
-  await page.keyboard.type("左侧拍摄说明");
-  await page.evaluate(() => {
-    const target = window as typeof window & {
-      __PRESHOT_BLOCKNOTE_EDITOR__?: {
-        document: Array<{
-          type: string;
-          children: Array<{ children: Array<{ id: string }> }>;
-        }>;
-        setTextCursorPosition(blockId: string, placement: "start"): void;
-      };
-    };
-    const editor = target.__PRESHOT_BLOCKNOTE_EDITOR__;
-    const rightBlock = editor?.document
-      .find((block) => block.type === "columnList")
-      ?.children[1]?.children[0];
-    if (editor && rightBlock) {
-      editor.setTextCursorPosition(rightBlock.id, "start");
-    }
-  });
-  await page.keyboard.type("/");
-  await page.getByText("图片组", { exact: true }).click();
-  const imageGroup = page.locator(".preshot-blocknote-image-group");
-  await expect(imageGroup).toBeVisible();
-  await imageGroup.getByRole("button", { name: "添加图片" }).first().click();
-  await expect(imageGroup.locator("[data-image-id]")).toHaveCount(2);
-
-  await expect.poll(() => page.evaluate(() => {
-    const target = window as typeof window & {
-      __PRESHOT_BLOCKNOTE_EDITOR__?: {
-        document: Array<{
-          type: string;
-          children: Array<{
-            type: string;
-            props: Record<string, unknown>;
-            children: Array<{ type: string }>;
-          }>;
-        }>;
-      };
-    };
-    const columnList = target.__PRESHOT_BLOCKNOTE_EDITOR__?.document.find(
-      (block) => block.type === "columnList",
-    );
-    return columnList
-      ? {
-          widths: columnList.children.map((column) => column.props.width),
-          rightTypes: columnList.children[1]?.children.map(
-            (block) => block.type,
-          ),
-        }
-      : null;
-  })).toEqual({
-    widths: [1, 1],
-    rightTypes: ["imageGroup"],
-  });
-
-  const leftBox = await columns.nth(0).boundingBox();
-  if (!leftBox) throw new Error("Expected column resize geometry");
-  await page.mouse.move(leftBox.x + leftBox.width, leftBox.y + 60);
-  await page.mouse.down();
-  await page.mouse.move(leftBox.x + leftBox.width + 35, leftBox.y + 60, {
-    steps: 8,
-  });
-  await page.mouse.up();
-  await expect.poll(() => page.evaluate(() => {
-    const target = window as typeof window & {
-      __PRESHOT_BLOCKNOTE_EDITOR__?: {
-        document: Array<{
-          type: string;
-          children: Array<{ props: Record<string, unknown> }>;
-        }>;
-      };
-    };
-    return target.__PRESHOT_BLOCKNOTE_EDITOR__?.document
-      .find((block) => block.type === "columnList")
-      ?.children.map((column) => column.props.width);
-  })).not.toEqual([1, 1]);
-
-  await expect(page.getByTestId("save-status")).toHaveText(
-    "已保存所有更改",
-    { timeout: 10_000 },
-  );
-  await page.reload();
-  await expect(page.locator(".bn-block-column")).toHaveCount(2);
-  await expect(page.getByText("左侧拍摄说明", { exact: true })).toBeVisible();
-  await expect(page.locator(".preshot-blocknote-image-group")).toBeVisible();
-  const { option, trigger } = await openExportMenu(page, "PDF");
-  await option.click();
-  await expect(trigger).toHaveText("导出", { timeout: 10_000 });
-});
-
-test("drags an image group from its gray surface beside another group", async ({
-  page,
-}) => {
-  await page.goto("/");
-  const editor = page.locator(".bn-editor");
-  await editor.click();
-  for (let index = 0; index < 2; index += 1) {
-    await page.keyboard.type("/");
-    await page.locator(".bn-suggestion-menu").getByText(
-      "图片组",
-      { exact: true },
-    ).click();
-    if (index === 0) {
-      await page.evaluate(() => {
-        const target = window as typeof window & {
-          __PRESHOT_BLOCKNOTE_EDITOR__?: {
-            document: Array<{ id: string; type: string }>;
-            setTextCursorPosition(blockId: string, placement: "start"): void;
-          };
-        };
-        const block = target.__PRESHOT_BLOCKNOTE_EDITOR__?.document.at(-1);
-        if (block?.type === "paragraph") {
-          target.__PRESHOT_BLOCKNOTE_EDITOR__?.setTextCursorPosition(
-            block.id,
-            "start",
-          );
-        }
-      });
-    }
-  }
-
-  const groups = page.locator(".preshot-blocknote-image-group");
-  await expect(groups).toHaveCount(2);
-  for (let index = 0; index < 2; index += 1) {
-    const group = groups.nth(index);
-    await group.getByRole("button", { name: "添加图片" }).first().click();
-    await expect(group.locator("[data-image-id]")).toHaveCount(2);
-  }
-  const sourceBox = await groups.nth(1).boundingBox();
-  const sourceImageBoxes = await groups.nth(1).locator("[data-image-id]")
-    .evaluateAll((images) => images.map((image) => {
-      const rect = image.getBoundingClientRect();
-      return {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-      };
-    }));
-  const targetBox = await groups.nth(0).locator(
-    'xpath=ancestor::div[@data-node-type="blockOuter"][1]',
-  ).boundingBox();
-  if (!sourceBox || !targetBox || sourceImageBoxes.length < 2) {
-    throw new Error("Expected image-group block drag geometry");
-  }
-  const [firstImageBox, secondImageBox] = sourceImageBoxes;
-  const sourcePoint = secondImageBox.x >= firstImageBox.x + firstImageBox.width
-    ? {
-        x: (firstImageBox.x + firstImageBox.width + secondImageBox.x) / 2,
-        y: Math.max(firstImageBox.y, secondImageBox.y) +
-          Math.min(firstImageBox.height, secondImageBox.height) / 2,
-      }
-    : {
-        x: Math.max(firstImageBox.x, secondImageBox.x) +
-          Math.min(firstImageBox.width, secondImageBox.width) / 2,
-        y: (firstImageBox.y + firstImageBox.height + secondImageBox.y) / 2,
-      };
-  await page.mouse.move(
-    sourcePoint.x,
-    sourcePoint.y,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    targetBox.x + targetBox.width - 2,
-    targetBox.y + targetBox.height / 2,
-    { steps: 15 },
-  );
-  await expect(page.locator(
-    '[data-preshot-block-drop-overlay="right"]',
-  )).toBeVisible();
-  await page.mouse.up();
-
-  await expect(page.locator(".bn-block-column-list")).toHaveCount(1);
-  await expect(page.locator(".bn-block-column")).toHaveCount(2);
-  await expect(page.locator(".bn-block-column").nth(0)
-    .locator(".preshot-blocknote-image-group")).toHaveCount(1);
-  await expect(page.locator(".bn-block-column").nth(1)
-    .locator(".preshot-blocknote-image-group")).toHaveCount(1);
 });
 
 test("uploads and persists native image video and audio blocks", async ({

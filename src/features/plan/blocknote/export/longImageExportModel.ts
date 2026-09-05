@@ -64,7 +64,6 @@ export interface LongImageExportMeasurements {
   scale: number;
   topLevelBlocks: LongImageExportBlockBoundary[];
   atomicBlocks: LongImageExportBlockBoundary[];
-  columnRows: LongImageExportBlockBoundary[];
   imageGroupRows: LongImageExportRowBoundary[];
 }
 
@@ -183,11 +182,7 @@ export function annotateLongImageExportBlocks(
   const blockElements = new Map(
     Array.from(
       root.querySelectorAll<HTMLElement>(
-        [
-          '[data-node-type="blockOuter"][data-id]',
-          '[data-node-type="columnList"][data-id]',
-          '[data-node-type="column"][data-id]',
-        ].join(","),
+        '[data-node-type="blockOuter"][data-id]',
       ),
     ).map((element) => [element.dataset.id ?? "", element]),
   );
@@ -200,9 +195,6 @@ export function annotateLongImageExportBlocks(
       }
       if (ATOMIC_BLOCK_TYPES.has(block.type)) {
         element.dataset.preshotExportAtomicBlock = block.id;
-      }
-      if (block.type === "columnList") {
-        element.dataset.preshotExportColumnRow = block.id;
       }
       if (NATIVE_MEDIA_TYPES.has(block.type)) {
         const content = element.querySelector<HTMLElement>(
@@ -258,7 +250,6 @@ function blockBoundaries(
       blockId:
         element.dataset.preshotExportTopLevelBlock ??
         element.dataset.preshotExportAtomicBlock ??
-        element.dataset.preshotExportColumnRow ??
         "",
       blockType: element.dataset.preshotExportBlockType ?? "",
       ...relativeRect(element, surfaceRect),
@@ -284,10 +275,6 @@ export function measureLongImageExportSurface(
     atomicBlocks: blockBoundaries(
       surface,
       "[data-preshot-export-atomic-block]",
-    ),
-    columnRows: blockBoundaries(
-      surface,
-      "[data-preshot-export-column-row]",
     ),
     imageGroupRows: Array.from(
       surface.querySelectorAll<HTMLElement>(

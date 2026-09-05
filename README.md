@@ -10,9 +10,10 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - Production project-scoped assistant with managed Copilot CLI sessions,
   deterministic capability probes, immutable disclosed context, and
   proposal-first text edits
-- BlockNote v15 editor (`schemaVersion: 15`, `document.format: "preshot-blocks"`, `document.version: 3`) with structured location, model, clothing, and prop blocks
+- Single-column BlockNote v15 editor (`schemaVersion: 15`,
+  `document.format: "preshot-blocks"`, `document.version: 3`) with one block
+  per row and structured location, model, clothing, and prop blocks
 - Slash menu, block drag, undo/redo, headings, lists, checklists, toggles, quotes, code blocks, tables, and dividers
-- Multi-column blocks via `@blocknote/xl-multi-column@0.53.0`
 - Custom image-group blocks with resize, reorder, lightbox, native import, and Windows screen capture
 - Transactional live image-drag preview with pointer and keyboard sensors,
   same-/cross-/empty-group reflow, source and insertion placeholders, and
@@ -23,7 +24,7 @@ Preshot is a Windows-first desktop application for photography planning. The cur
   `@react-pdf/renderer@4.3.0`, with offline project-local asset preflight and a
   native save dialog
 - Editable DOCX export through `@blocknote/xl-docx-exporter@0.53.0` and
-  `docx@9.6.1`, including offline native images, weighted columns, and
+  `docx@9.6.1`, including offline native images and
   composited image groups
 - Offline long-image export through an export-only 900px BlockNote DOM surface
   and `modern-screenshot@4.7.0`, with JPEG/PNG presets, 890px compatibility,
@@ -92,6 +93,8 @@ does not ship an archive dependency.
 - Each project directory contains `.preshotproj` (legacy `.preshot` is still read and migrated).
 - The project manifest has `schemaVersion: 1` and stores the plan JSON in `manifest.plan`.
 - The active plan format is schema v15 / document v3; schema v14 is migrated on read.
+- `columnList` and `column` documents are unsupported; every visible document
+  row contains exactly one block.
 - Reference image files live under `references/`.
 - Native BlockNote media files live under `media/`.
 - Theme and shell settings are stored in `%USERPROFILE%\.preshot\settings.json`.
@@ -354,8 +357,8 @@ verification.
 
 Preshot's own source code is under the [MIT License](LICENSE).
 
-Distributed application builds that include `@blocknote/xl-multi-column`,
-`@blocknote/xl-pdf-exporter`, or `@blocknote/xl-docx-exporter` use those
+Distributed application builds that include `@blocknote/xl-pdf-exporter` or
+`@blocknote/xl-docx-exporter` use those
 dependencies through their GPL-3.0 option, so shipped Preshot application
 distributions must be provided under GPL-3.0 with the corresponding source and
 license notices. The `docx@9.6.1` dependency is MIT-licensed.

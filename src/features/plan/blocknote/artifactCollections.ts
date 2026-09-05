@@ -5,7 +5,6 @@ import type {
 } from "../../../domain/plan/canvas/blockDocument";
 import { layoutDocumentImageGroupForWidth } from "../../../domain/plan/canvas/documentImageGroupLayout";
 import {
-  DEFAULT_REFERENCE_HEIGHT,
   MIN_COMPONENT_HEIGHT,
   type ReferenceComponent,
 } from "../../../domain/plan/canvas/models";
@@ -38,20 +37,12 @@ export function collectionsForArtifact(
     }];
   }
   if (artifact.kind === "clothing") {
-    return [
-      {
-        artifactId: artifact.id,
-        artifactKind: artifact.kind,
-        collection: artifact.mainGallery,
-        label: "服装主图",
-      },
-      {
-        artifactId: artifact.id,
-        artifactKind: artifact.kind,
-        collection: artifact.tryOn.gallery,
-        label: "试穿参考",
-      },
-    ];
+    return [{
+      artifactId: artifact.id,
+      artifactKind: artifact.kind,
+      collection: artifact.mainGallery,
+      label: "服装主图",
+    }];
   }
   return [{
     artifactId: artifact.id,
@@ -72,7 +63,6 @@ export function artifactCollectionGroups(
   width = BLOCKNOTE_DOCUMENT_CONTENT_WIDTH,
 ): ReferenceComponent[] {
   return artifactCollectionOwners(plan).map(({
-    artifactKind,
     collection,
     label,
   }) => ({
@@ -83,7 +73,7 @@ export function artifactCollectionGroups(
     width,
     height: Math.max(
       MIN_COMPONENT_HEIGHT,
-      artifactKind === "modelCard" ? DEFAULT_REFERENCE_HEIGHT : 134,
+      134,
       layoutDocumentImageGroupForWidth(collection.images, width).height,
     ),
     description: "",

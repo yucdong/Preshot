@@ -137,7 +137,7 @@ html.dark {
   display: grid;
   grid-template-columns: minmax(220px, 0.4fr) minmax(0, 0.6fr);
   align-items: stretch;
-  gap: 16px;
+  gap: 12px;
 }
 
 .preshot-balanced-info-field {
@@ -177,6 +177,36 @@ html.dark {
   height: 100%;
 }
 
+.preshot-balanced-model-info {
+  display: grid;
+  height: 100%;
+  grid-template-rows: 32px minmax(134px, 1fr);
+  gap: 8px;
+}
+
+.preshot-balanced-model-fields {
+  display: grid;
+  min-height: 134px;
+  height: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px 12px;
+  border: 1px solid var(--paper-border);
+  border-radius: 0.25rem;
+  background: white;
+  padding: 10px 12px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+
+.preshot-balanced-model-notes {
+  grid-column: 1 / -1;
+}
+
+.preshot-balanced-model-notes textarea {
+  field-sizing: content;
+  min-height: 48px;
+}
+
 .preshot-image-resize-zone:focus-visible {
   background: rgb(8 145 178 / 14%) !important;
 }
@@ -192,7 +222,7 @@ html.dark {
   }
 }
 
-@container (max-width: 679px) {
+@container (max-width: 430px) {
   .preshot-artifact-balanced-layout {
     grid-template-columns: 1fr;
   }
@@ -200,6 +230,15 @@ html.dark {
   .preshot-balanced-info-field {
     height: auto;
     grid-template-rows: 32px auto;
+  }
+
+  .preshot-balanced-model-info {
+    height: auto;
+    grid-template-rows: 32px auto;
+  }
+
+  .preshot-balanced-model-fields {
+    height: auto;
   }
 
   .preshot-balanced-info-textarea {

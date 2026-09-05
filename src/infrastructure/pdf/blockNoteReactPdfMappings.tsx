@@ -35,7 +35,6 @@ import {
   type PreshotInlineContentSchema,
   type PreshotStyleSchema,
 } from "../../features/plan/blocknote/preshotBlockNoteSchema";
-import { freshPagePresenceAhead } from "./reactPdfPagination";
 import type {
   ArtifactRecord,
   ImageCollection,
@@ -108,6 +107,9 @@ function artifactMetadata(artifact: ArtifactRecord): string[] {
       ...(artifact.heightCm === null ? [] : [`身高：${artifact.heightCm} cm`]),
       ...(artifact.weightKg === null ? [] : [`体重：${artifact.weightKg} kg`]),
       ...(artifact.shoeSize ? [`鞋码：${artifact.shoeSize}`] : []),
+      ...(artifact.notes?.trim()
+        ? [`其他信息：${artifact.notes.trim()}`]
+        : []),
     ];
   }
   if (artifact.kind === "clothing") {
@@ -136,20 +138,11 @@ function artifactCollections(artifact: ArtifactRecord): Array<{
     }];
   }
   if (artifact.kind === "clothing") {
-    return [
-      {
-        label: "服装主图",
-        collection: artifact.mainGallery,
-        compact: false,
-      },
-      ...(artifact.tryOn.gallery.images.length > 0
-        ? [{
-            label: "试穿参考",
-            collection: artifact.tryOn.gallery,
-            compact: false,
-          }]
-        : []),
-    ];
+    return [{
+      label: "服装主图",
+      collection: artifact.mainGallery,
+      compact: false,
+    }];
   }
   return [{
     label: "道具图片",
@@ -233,7 +226,7 @@ function artifactPdfBlock(
           style={{
             display: "flex",
             flexDirection: "row",
-            gap: contract.columns.gap,
+            gap: contract.spacing.artifact.regionGap,
           }}
         >
           <View style={{ width: "40%" }}>{metadata}</View>
@@ -487,20 +480,6 @@ function assetBlob(context: PreshotContext, source: string): Blob {
   return new Blob([Uint8Array.from(asset.bytes)], { type: asset.mime });
 }
 
-function columnListPresenceAhead(
-  context: PreshotContext,
-  blockId: string,
-): number | undefined {
-  const hasFragmentedGroup = context.groups.some(
-    (group) =>
-      group.parent.columnListBlockId === blockId &&
-      group.pagination.mode === "row-fragments",
-  );
-  return hasFragmentedGroup
-    ? freshPagePresenceAhead(context, blockId)
-    : undefined;
-}
-
 export function createPreshotPdfAssetResolver(
   context: PreshotContext,
 ): (url: string) => Promise<Blob> {
@@ -511,11 +490,16 @@ export function createPreshotReactPdfMappings(
   context: PreshotContext,
   options: PreshotReactPdfMappingOptions,
 ): PreshotReactPdfMappings {
+  const defaultBlockMapping = {
+    ...pdfDefaultSchemaMappings.blockMapping,
+  };
+  Reflect.deleteProperty(defaultBlockMapping, "column");
+  Reflect.deleteProperty(defaultBlockMapping, "columnList");
   const blockMapping = mapping.createBlockMapping<
     PdfBlockResult,
     PdfInlineResult
   >({
-    ...pdfDefaultSchemaMappings.blockMapping,
+    ...defaultBlockMapping,
     paragraph: (block, exporter) => (
       <Text
         key={`paragraph-${block.id}`}
@@ -751,49 +735,6 @@ export function createPreshotReactPdfMappings(
       mediaFallback("video", block.props, block.id),
     file: (block) =>
       mediaFallback("file", block.props, block.id),
-    column: (block, _exporter, _nestingLevel, _index, children) => (
-      <View
-        key={`column-${block.id}`}
-        style={{
-          flexGrow: block.props.width,
-          flexBasis: 0,
-          minWidth: 0,
-        }}
-      >
-        {children}
-      </View>
-    ),
-    columnList: (
-      block,
-      _exporter,
-      _nestingLevel,
-      _index,
-      children,
-    ) => {
-      const row = (
-        <View
-          key={`column-list-${block.id}`}
-          wrap
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            gap: contract.columns.gap,
-            marginBottom: contract.spacing.paragraph.after,
-          }}
-        >
-          {children}
-        </View>
-      );
-      const presenceAhead = columnListPresenceAhead(context, block.id);
-      return presenceAhead === undefined
-        ? row
-        : (
-            <Fragment key={`column-list-${block.id}-fresh-page`}>
-              <View minPresenceAhead={presenceAhead} />
-              {row}
-            </Fragment>
-          ) as PdfBlockResult;
-    },
     imageGroup: options.imageGroup,
     shootingLocation: (block) => {
       const artifact = options.artifacts?.find(
@@ -995,8 +936,6 @@ export class PreshotReactPdfExporter extends PDFExporter<
       );
       if (
         block.type === "pageBreak" ||
-        block.type === "columnList" ||
-        block.type === "column" ||
         block.type === "imageGroup"
       ) {
         transformed.push(mapped);

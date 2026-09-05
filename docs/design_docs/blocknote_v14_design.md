@@ -24,7 +24,7 @@
   the keyboard equivalent.
 - Individual images resize only from the left or right side. The current
   displayed frame ratio is locked during the gesture; image groups retain
-  eight-direction resizing.
+  no outer-card resize interaction.
 - Individual-image resize reflows the complete group live, preserves image
   order and stable gaps, prevents overlap, and derives the group height from
   the wrapped rows.
@@ -51,8 +51,8 @@
   - one continuous white canvas growing naturally from top to bottom;
   - image import, selection, double-click viewing, deletion, within-group and
     cross-/empty-group transactional dragging, source/insertion placeholders,
-    crop-aware overlay, side-only ratio-locked image resize, eight-direction
-    group resize, live wrapping, Smart Guides, and crop editing.
+    crop-aware overlay, side-only ratio-locked image resize, full-row
+    content-driven group layout, live wrapping, Smart Guides, and crop editing.
   - Enter-to-create-block does not use `onBeforeChange(getChanges)`; image-group hierarchy constraints are normalized after the change so a brand-new block without an ID does not interrupt the ProseMirror transaction.
 - `src/infrastructure/pdf/reactPdfBlockNoteExporter.ts`
   - snapshots the plan/assets, runs deterministic local preflight, maps the
@@ -98,7 +98,11 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
 - Long-image export separately scales the logical 1080px document to an exact
   900px default or 890px compatibility surface. Viewport zoom never
   participates, and PDF/DOCX mappings remain unchanged.
-- Image groups read actual `.bn-block-content` width, fill it by default, and stay left/right aligned. Persisted width/x is clamped to that range and cannot cross the white canvas.
+- Image groups read actual `.bn-block-content` width, fill it, and derive their
+  outer height from wrapped image content. Legacy group `x`/`width`/`height`
+  metadata remains compatibility input but does not control an interactive
+  outer card. Artifact cards follow the same full-row, content-driven rule;
+  legacy artifact layout metadata is ignored by editor and export renderers.
 - After image import, original pixel width/height are measured. Batch images keep the same `frameHeight`, and `frameWidth = frameHeight × sourceWidth / sourceHeight`, with full original crop persisted so landscape and portrait images are never stretched.
 - New and batch-imported images use exactly 240 logical units of frame height.
   The loaded-project compatibility pass recognizes only approximately
@@ -106,7 +110,7 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
   matching stored, source, or crop-adjusted aspect ratios. It upgrades every
   match in every image group to exactly 240 units high, preserves image
   identity/order/crop/focal/offset metadata, and recomputes wrap-first group
-  height from the authoritative group width. Hydration then replaces a square
+  height from the available parent width. Hydration then replaces a square
   placeholder width with the measured source/crop ratio. Intentional custom
   dimensions remain authoritative.
 - A changed compatibility pass marks the loaded plan unsaved and displays one
@@ -136,7 +140,7 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
   accessibility instructions, and auto-scroller. The old component-local
   `startImageDrag` Pointer Events path and `data-image-drop-target` marker are
   intentionally absent; Pointer Events remain valid for block dragging and
-  resize gestures.
+  internal image resize gestures.
 - Drag start requires a decoded project-local source and snapshots every
   ordered group, image metadata/crop/frame, and current plan revision. The pure
   domain projector performs same-group normalization, cross-group movement,
@@ -189,8 +193,8 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
   layout. Rows wrap before overflow with a stable 7px gap, never overlap, and
   update the group height live. Pointer-up commits the image frame and derived
   group height together; pointer cancellation restores persisted geometry.
-- Image frame width and height are authoritative. Editor layout never scales a
-  group or image to fit the remaining row width or persisted group height; it
+- Image frame width and height are authoritative. Editor layout never scales an
+  image to fit the remaining row width or persisted group height; it
   wraps immediately before the next image would overflow. A legacy image wider
   than the current inner width remains unchanged on a single clipped overflow
   row until the user directly shrinks it.

@@ -93,7 +93,7 @@ DOCX export reviews:
 The final acceptance reran the production browser export while retaining only
 the three reviewed files under `artifacts\pdf-export-regressions`. It confirmed
 non-empty UI-downloaded React-PDF bytes, A4/page/text/link/image structure,
-CJK-first content, cropped/resized/wrapped and weighted-column image groups,
+CJK-first content, cropped/resized/wrapped top-level image groups,
 near-bottom and positive-offset pagination, row-boundary oversized-group
 pagination, a tall native image with long Latin/CJK captions, atomic image
 rows, no editor chrome or wrap warning, contextual asset failures, and no
@@ -211,11 +211,11 @@ Domain tests cover pure behavior such as:
   resize zones, ratio-locked corners, single-axis edges, cover/stretch
   rendering, and prioritized Smart Guide snapping,
 - PDF layout primitives and typed BlockNote PDF visual-contract boundaries
-  (root/column scaling, stable rounding, and page-safe row fragments),
-- deterministic React-PDF preflight traversal for root groups, weighted
-  columns, empty groups, page-limit groups, positive-offset flow footprints,
+  (root scaling, stable rounding, and page-safe row fragments),
+- deterministic React-PDF preflight traversal for top-level groups, empty
+  groups, page-limit groups, positive-offset flow footprints,
   zero/negative offset safety, row partitioning, and emergency row scaling,
-- pure React-PDF image-group render models for root and weighted-column
+- pure React-PDF image-group render models for top-level
   geometry, persisted-height wrapping, crop/asset identity, deterministic
   empty output, and actionable missing-context/asset failures,
 - workspace registry behavior, and
@@ -279,7 +279,7 @@ Adapter tests validate:
   behavior, local optimized data, and absence of editor chrome,
 - React-PDF ordinary mappings and rendering for bundled CJK fonts, H1-H6,
   inline styles/colors/alignment, lists, quote/code, row-safe tables, real link
-  annotations, contextual media fallbacks, weighted columns, and offline
+  annotations, contextual media fallbacks, single-block order, and offline
   project-local resolution without a hosted proxy,
 - long-image export-surface readiness, bounded segmented DOM capture, adaptive
   JPEG/PNG encoding, browser single-download and typed multipart behavior, and
@@ -295,16 +295,16 @@ Adapter tests validate:
   documents, native and fallback media, image-heavy wrapped groups,
   positive-offset next-page keep-together behavior, oversized one-page
   scaling, first-block and preceded oversized groups, authored page breaks
-  before root and fragmented-column groups, exact full-page predecessors,
-  weighted columns, mixed long-text/image rows, exact page/image counts,
+  before top-level fragmented groups, exact full-page predecessors,
+  mixed long-text/image rows, exact page/image counts,
   blank-page rejection, real annotations, image draws, page dimensions, and
   absence of editor chrome,
 - packed DOCX XML coverage for the exact shared schema, editable text and
   H1-H6 styles, top-level lists, list-only nesting depth, level-0 lists inside
-  two- and three-column rows, true nested lists within columns, column-context
-  resets, mixed structural nesting, nine supported levels, explicit level-9
+  ordinary blocks, true nested lists, mixed structural nesting, nine supported
+  levels, explicit level-9
   rejection without clamping, quote/code/table, links/colors/alignment,
-  embedded native images, contextual media fallbacks, fixed weighted columns,
+  embedded native images, contextual media fallbacks, single-block order,
   conservative `cantSplit`, A4/24pt sections, Chinese locale/metadata, path
   suppression, and zero hosted/network resolution,
 - production DOCX adapter coverage for immutable plan/assets, offline
@@ -355,7 +355,15 @@ Rust unit tests cover:
 
 `pnpm test:e2e` exercises the browser-shell path used for smoke coverage. It starts Vite in `e2e` mode, uses Microsoft Edge, and validates top-level workflows such as workspace loading, project opening, editor presence, and related UI flows.
 
-`pnpm test:e2e:blocknote` is the focused browser suite for the current v15 editor surface. Use it when changing BlockNote document behavior, image groups, artifact blocks, columns, native media, or PDF/DOCX-adjacent editing flows.
+`pnpm test:e2e:blocknote` is the focused browser suite for the current v15 editor surface. Use it when changing BlockNote document behavior, image groups, artifact blocks, native media, or PDF/DOCX-adjacent editing flows.
+
+Artifact layout coverage loads top-level artifact cards with legacy size
+metadata, verifies that they remain full-row and content-driven with zero
+whole-card resize zones before and after reload, and retains internal image
+resize coverage. A separate journey attempts to drag an artifact beside text
+and verifies that no left/right grouping indicator is created. Domain tests
+require artifact markers to remain top-level, and block-operation tests reject
+horizontal grouping.
 
 Long-image work should run both the focused production journey in
 `blocknote-v14.spec.ts` and `pnpm test:e2e:capture`. The former verifies

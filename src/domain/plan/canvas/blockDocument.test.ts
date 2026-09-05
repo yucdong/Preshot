@@ -148,6 +148,12 @@ describe("BlockNote plan v15", () => {
         heightCm: 172.5,
         weightKg: null,
         shoeSize: "EU 39",
+        notes: "Available after 14:00",
+        layout: {
+          widthRatio: 0.6,
+          offsetRatio: 0.1,
+          minHeight: 320,
+        },
         samples: { id: "model-samples", images: [image("model-image")] },
       },
       {
@@ -167,6 +173,23 @@ describe("BlockNote plan v15", () => {
     const plan = planWithArtifacts(artifacts);
 
     expect(validateProjectPlanV15(plan)).toEqual(plan);
+    expect(() => validateProjectPlanV15({
+      ...plan,
+      artifacts: plan.artifacts.map((artifact) =>
+        artifact.kind === "modelCard"
+          ? { ...artifact, notes: 42 }
+          : artifact),
+    })).toThrow(/notes must be text/i);
+    expect(() => validateProjectPlanV15({
+      ...plan,
+      artifacts: plan.artifacts.map((artifact) =>
+        artifact.kind === "modelCard"
+          ? {
+              ...artifact,
+              layout: { widthRatio: 0.8, offsetRatio: 0.4 },
+            }
+          : artifact),
+    })).toThrow(/layout is malformed/i);
     expect(artifactIdsInBlockDocument(plan.document)).toEqual([
       "location",
       "model",
@@ -339,7 +362,7 @@ describe("BlockNote plan v15", () => {
     expect(validateProjectPlanV15(legacyPlan)).toEqual(legacyPlan);
   });
 
-  it("validates image groups at the top level or directly inside columns", () => {
+  it("validates image groups only at the top level", () => {
     const plan: ProjectPlanV15 = {
       schemaVersion: 15,
       title: "Editorial",
@@ -347,38 +370,11 @@ describe("BlockNote plan v15", () => {
         format: "preshot-blocks",
         version: 3,
         blocks: [{
-          id: "columns",
-          type: "columnList",
-          props: {},
+          id: "block-1",
+          type: "imageGroup",
+          props: { groupId: "group-1" },
           content: undefined,
-          children: [
-            {
-              id: "left-column",
-              type: "column",
-              props: { width: 0.75 },
-              content: undefined,
-              children: [{
-                id: "paragraph",
-                type: "paragraph",
-                props: {},
-                content: [],
-                children: [],
-              }],
-            },
-            {
-              id: "right-column",
-              type: "column",
-              props: { width: 1.25 },
-              content: undefined,
-              children: [{
-                id: "block-1",
-                type: "imageGroup",
-                props: { groupId: "group-1" },
-                content: undefined,
-                children: [],
-              }],
-            },
-          ],
+          children: [],
         }],
       },
       imageGroups: [group("group-1")],
@@ -404,7 +400,7 @@ describe("BlockNote plan v15", () => {
           }],
         }],
       },
-    })).toThrow(/column/i);
+    })).toThrow(/top-level/i);
   });
 
   it("deterministically migrates v14 and repairs duplicate legacy image IDs", () => {

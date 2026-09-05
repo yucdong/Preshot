@@ -65,7 +65,6 @@ function context(
     schema: preshotBlockNoteSchema,
     blocks: [],
     blocksById: {},
-    columnLists: [],
     groups: [],
     groupsByBlockId: {},
     groupsByGroupId: {},
@@ -222,6 +221,31 @@ describe("BlockNote React-PDF mappings", () => {
     );
     expect(renderedText(sourceElement)).toContain("Studio Supply / 徐汇仓");
     expect(renderedText(sourceElement)).not.toContain("来源说明：");
+  });
+
+  it("maps optional model additional information", async () => {
+    const artifact = {
+      id: "model-1",
+      kind: "modelCard" as const,
+      revision: 0,
+      modelId: "林夏",
+      heightCm: 168,
+      weightKg: 48,
+      shoeSize: "38",
+      notes: "可自备黑色长靴",
+      samples: { id: "model-samples", images: [] },
+    };
+    const exporter = createPreshotReactPdfExporter(context(), {
+      artifacts: [artifact],
+      imageGroup: imageGroupMapping,
+      resolvedAssets: {},
+    });
+
+    const element = await mapBlock(
+      exporter,
+      block("modelCard", { artifactId: artifact.id }, undefined),
+    );
+    expect(renderedText(element)).toContain("其他信息：可自备黑色长靴");
   });
 
   it("uses persisted crop and manual frame geometry", async () => {
@@ -537,33 +561,6 @@ describe("BlockNote React-PDF mappings", () => {
     await expect(resolver("https://example.com/image.png")).rejects.toThrow(
       "project-local resolver",
     );
-  });
-
-  it("preserves column weights and gaps while leaving rows breakable", async () => {
-    const pdf = exporter();
-    const left = await mapBlock(pdf, 
-      block("column", { width: 0.75 }),
-      0,
-      0,
-      [],
-    );
-    const right = await mapBlock(pdf, 
-      block("column", { width: 1.25 }),
-      0,
-      0,
-      [],
-    );
-    const row = await mapBlock(pdf, 
-      block("columnList"),
-      0,
-      0,
-      [left, right],
-    );
-
-    expect(style(left).flexGrow).toBe(0.75);
-    expect(style(right).flexGrow).toBe(1.25);
-    expect(style(row).gap).toBe(PDF_VISUAL_CONTRACT.columns.gap);
-    expect(props(row).wrap).toBe(true);
   });
 
   it("registers only bundled upright Noto Sans SC regular and bold faces", async () => {

@@ -323,9 +323,9 @@ The active editable plan is schema v15:
 The v15 document is validated in TypeScript before persistence. Key invariants:
 
 - block IDs must be unique,
-- `columnList` blocks are top-level only,
-- `column` blocks may only exist under `columnList`,
-- `imageGroup` blocks may be top-level or direct children of a `column`, and
+- every visible document row contains exactly one block,
+- `columnList` and `column` blocks are unsupported,
+- `imageGroup` blocks must be top-level,
 - every image-group ID must appear exactly once in `document.blocks` and exactly once in `plan.imageGroups`,
 - every artifact ID must appear exactly once in `document.blocks` and exactly once in `plan.artifacts`, and
 - image IDs are globally unique across image groups and artifact collections.
@@ -363,15 +363,34 @@ without adding a second pointer-drag implementation. Clothing exposes one
 optional multiline source note. Empty notes produce no read-only or export node;
 prop source text is part of its combined information field.
 
-Location, clothing, and prop keep their required names as independently
-editable header titles. Their multiline information editors map to existing
-schema-v15 detail fields and share responsive 40/60 CSS Grid rows with their
-main galleries. The row height follows the larger natural content; textareas
-have no internal scrollbar and grow when text or image rows grow. All three
-galleries directly reuse persisted image-group frame/crop geometry, manual
-resizing, dnd-kit reorder, keyboard movement, and no-shrink wrapping in editor
-and export surfaces. Clothing keeps its try-on disclosure below the main row.
-Stored frame dimensions remain authoritative.
+Artifact cards fill their document row and derive height from their header,
+information, and gallery content. They expose no whole-card resize zones.
+Legacy artifact `layout` metadata remains valid compatibility input but is
+ignored by the editor, PDF, DOCX, and long-image renderers. Internal gallery
+image frame metadata and image resize remain authoritative.
+
+Artifact cards are top-level-only document blocks. They do not start whole-card
+surface dragging, and `moveBlockRelative` rejects left/right grouping whenever
+either source or target is an artifact. The editor reconciliation path hoists
+an accidentally nested artifact, while strict schema-v15 validation rejects
+persisted artifact markers inside ordinary blocks. Image groups, artifacts,
+and ordinary content all remain in one vertical document flow.
+
+All four artifact kinds share responsive 40/60 information/gallery CSS Grid
+rows. Location, clothing, and prop keep independently editable header titles
+and multiline information editors; the model uses a compact two-column field
+panel for name/ID, height, weight, and shoe size plus a full-width optional
+freeform notes field. Missing model notes remain valid compatibility input for
+existing schema-v15 projects. Both columns use aligned 32-unit headings and one
+shared content-driven body height with a compact 134-unit baseline. Textareas
+grow with their content or an explicit user resize. Artifact galleries directly
+reuse persisted image-group
+frame/crop geometry, manual resizing, dnd-kit reorder, keyboard movement, and
+no-shrink wrapping in editor and export surfaces. Below 430 CSS pixels the
+card's own container query stacks information above the gallery without
+viewport overflow. Clothing contains only its information and main image
+gallery; legacy try-on data is not rendered or exported. Stored frame
+dimensions remain authoritative.
 
 Reference-image hydration traverses both `plan.imageGroups` and every
 `plan.artifacts` image collection. Imports and screen captures begin with a
@@ -444,13 +463,17 @@ Preshot uses BlockNote 0.53 with Mantine styling and the built-in Chinese dictio
 - native `image`, `video`, and `audio`
 - custom `imageGroup`
 - custom `shootingLocation`, `modelCard`, `clothing`, and `prop` artifact blocks
-- `columnList` and `column` through `@blocknote/xl-multi-column@0.53.0`
 
 ### Custom image groups
 
 `imageGroup` is a BlockNote block with no editable inline content. It stores only a primitive `groupId`; all group metadata lives in `plan.imageGroups`.
 
-Each group record contains the image-group frame plus its images, including persisted frame sizes, aspect ratios, and optional crop data. The React block view resolves the metadata from context and handles:
+Each group record contains compatibility group geometry plus its images,
+including persisted image frame sizes, aspect ratios, and optional crop data.
+The outer card fills its document row and derives height from wrapped image
+content; legacy group `x`/`width`/`height` values do not expose or control an
+outer-card resize interaction. The React block view resolves the metadata from
+context and handles:
 
 - creating and cloning groups,
 - importing images,
@@ -458,7 +481,7 @@ Each group record contains the image-group frame plus its images, including pers
 - global image selection and double-click viewing,
 - eight transparent continuous resize zones: corner ratio lock plus
   single-axis edge resizing with live non-overlap wrapping,
-- eight-direction group resizing and prioritized equal-size/edge guides,
+- image-level equal-size/edge guides,
 - preset/free crop editing and project-copy overwrite,
 - within-group and cross-group reordering, and
 - lightbox opening.
@@ -529,10 +552,6 @@ imports, removals, and retirement cleanup. Every metadata alias of the same
 project file is then reset to the new bitmap dimensions, a full-image crop,
 zero offsets, and a frame width derived from its retained height.
 
-### Multi-column layout
-
-The multi-column extension is the source of `columnList` and `column` blocks. Preshot adds slash-menu entries for two-column and three-column layouts and enforces valid nesting when serializing the document.
-
 ### Native media
 
 BlockNote native image/video/audio blocks use the editor `uploadFile` boundary. Runtime editing may use data URLs, but persisted JSON must store only relative `media/<file>` paths. In the exported PDF:
@@ -551,7 +570,7 @@ Implemented editor behaviors include:
 - manual zoom controls plus Ctrl+wheel zoom,
 - a 5-second change-detected auto-save loop,
 - Ctrl/Cmd+S immediate save,
-- slash-menu insertion for image groups and columns,
+- slash-menu insertion for image groups and artifact cards,
 - side-menu block duplication/move/delete helpers, and
 - single-click image selection/dragging and double-click full viewing,
 - pointer and keyboard image reordering through one immutable preview
@@ -589,12 +608,11 @@ layers:
 
 - `pdfVisualContract.ts` fixes A4 at 595.28 × 841.89pt with 24pt margins and a
   547.28pt content width, and owns the shared typography, spacing, color,
-  border, column, and image-group tokens.
+  border, artifact, and image-group tokens.
 - `pdfExportPreflight.ts` validates marker/group integrity, walks root and
-  weighted-column blocks in document order, and produces portable logical/PDF
-  dimensions plus keep-together image-group geometry. Root groups use the
-  1008-logical-unit content scale; column children use the persisted weights
-  and width-conserving column rounding.
+  nested blocks in document order, and produces portable logical/PDF dimensions
+  plus keep-together image-group geometry. Top-level image groups use the
+  1008-logical-unit content scale.
 - `blockNotePdfPreflight.ts` receives the exact shared BlockNote schema and
   resolved project-local assets, measures native images, and invokes the
   injectable browser canvas optimizer at 144 DPI.
@@ -602,12 +620,12 @@ layers:
   optimized once at the largest required draw box. Missing or corrupt data is
   rejected with block/group/image context.
 - The immutable `PreshotPdfExportContext` contains block/group indexes,
-  columns, slots, optimized assets, visual tokens, warnings, and fatal-error
+  slots, optimized assets, visual tokens, warnings, and fatal-error
   contracts. It contains no React-PDF types and does not use hosted proxies or
   private filesystem paths.
 - `imageGroupPdfRenderModel.ts` resolves each marker through that context and
   produces either a normal keep-together model or ordered page-safe row
-  fragments using the exact root/column conversion, persisted frame height,
+  fragments using the exact root conversion, persisted frame height,
   optimized local assets, and immutable preflight row metadata. Positive group
   Y offsets become first-fragment flow padding; negative offsets keep a
   non-negative footprint and remain relative visual positioning.
@@ -620,7 +638,7 @@ layers:
 - `blockNoteReactPdfMappings.tsx` composes the official BlockNote 0.53 defaults
   with Preshot A4/type/spacing tokens for ordinary blocks, inline content, and
   styles. It registers bundled Noto Sans SC regular/bold, disables emoji
-  networking, creates real PDF links, preserves weighted columns, and resolves
+  networking, creates real PDF links, preserves single-block order, and resolves
   images only through preflight assets. The custom image-group renderer remains
   a typed injected seam.
 - Native image blocks are measured before mapping, preserve aspect ratio, and
@@ -654,20 +672,13 @@ than maintaining a second document schema.
 The ordinary mapping layer preserves editable paragraphs, H1-H6, all four list
 kinds, quote/code/divider/page-break/table blocks, links, inline emphasis,
 text/background colors, and alignment. Word `ilvl` is calculated only from
-list ancestors; ordinary structural wrappers do not add a level, and entering
-a `columnList` or `column` resets list context so every column starts at level
-0. True nested lists preserve levels 0-8. Level 9 and deeper are rejected
-before packing rather than silently clamped. Native images are embedded from
-caller-supplied local Blob or data-URL values with aspect ratio, caption, and
-alternative text. Audio, video, and file blocks become contextual hyperlinks
-for external URLs or path-free fallback text for project-local/missing media.
-
-Multi-column rows are represented by a borderless fixed-layout Word table.
-The A4 body is 10,946 twips wide after 24pt margins; each 10pt inter-column gap
-is exactly 200 twips, and the remaining integer twips are allocated
-deterministically from persisted column weights. Mixed or long-text rows remain
-splittable. `cantSplit` is emitted only for the conservative known-short
-all-atomic set.
+list ancestors; ordinary structural wrappers do not add a level. True nested
+lists preserve levels 0-8. Level 9 and deeper are rejected before packing
+rather than silently clamped. Native images are embedded from caller-supplied
+local Blob or data-URL values with aspect ratio, caption, and alternative text.
+Audio, video, and file blocks become contextual hyperlinks for external URLs
+or path-free fallback text for project-local/missing media. Document blocks are
+exported in the same single-column order as the editor.
 
 The factory configures A4 portrait, 24pt page margins, `zh-CN` styles, and
 Chinese document metadata. It intentionally does not embed a Chinese font:
@@ -722,7 +733,7 @@ read-only, control-free BlockNote view. The 1080px logical document, including
 36px side padding and 1008px content, is uniformly scaled to the requested
 890px or 900px outer width. It resolves only already supplied local URLs,
 waits for local fonts/images and stable layout, and annotates top-level blocks,
-atomic blocks, column rows, and wrapped image-group rows for measurement.
+atomic blocks, and wrapped image-group rows for measurement.
 
 `BlockNoteLongImageExporter` snapshots schema-15 plan/assets, creates one
 reusable `modern-screenshot` context, and captures sequential integer-pixel

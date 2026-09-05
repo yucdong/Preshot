@@ -36,8 +36,6 @@ export type PdfImageMeasurer = (
 
 const LOCAL_NATIVE_IMAGE_SOURCE = /^media\/[^/\\]+$/i;
 const REQUIRED_BLOCK_SPECS = [
-  "column",
-  "columnList",
   "image",
   "imageGroup",
 ] as const;

@@ -31,7 +31,6 @@ import { layoutDocumentImageGroupForWidth } from "../../../domain/plan/canvas/do
 import { DEFAULT_REFERENCE_HEIGHT } from "../../../domain/plan/canvas/models";
 import {
   MIN_COMPONENT_HEIGHT,
-  MIN_COMPONENT_WIDTH,
   type ReferenceComponent,
   type ReferenceImage,
 } from "../../../domain/plan/canvas/models";
@@ -186,6 +185,7 @@ function createArtifactRecord(kind: ArtifactKind): ArtifactRecord {
       heightCm: null,
       weightKg: null,
       shoeSize: "",
+      notes: "",
       samples: collection(),
     };
   }
@@ -1809,33 +1809,6 @@ export function BlockNoteProjectCanvasProvider({
           ),
         }),
       ));
-    },
-    resizeGroup(groupId, frame) {
-      const current = planRef.current;
-      if (!current) return;
-      const canvasWidth = BLOCKNOTE_DOCUMENT_CONTENT_WIDTH;
-      const width = Math.max(
-        MIN_COMPONENT_WIDTH,
-        Math.min(frame.width, canvasWidth),
-      );
-      applyPlan({
-        ...current,
-        imageGroups: current.imageGroups.map((group) =>
-          group.id !== groupId
-            ? group
-            : {
-                ...group,
-                x: Math.max(0, Math.min(frame.x, canvasWidth - width)),
-                width,
-                height: Math.max(
-                  MIN_COMPONENT_HEIGHT,
-                  frame.height,
-                  layoutDocumentImageGroupForWidth(group.images, width).height,
-                ),
-                frameOffsetY: frame.frameOffsetY,
-              },
-        ),
-      });
     },
     moveImage(fromGroupId, imageId, toGroupId, toIndex) {
       void enqueueImageMutation((context) => {
