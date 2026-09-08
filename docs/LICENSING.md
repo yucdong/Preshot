@@ -44,11 +44,15 @@ BlockNote XL package or GPL option is introduced by long-image export.
 Attribution is maintained in
 [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 
-## SQLite metadata dependency
+## SQLite and material search dependencies
 
-The global agent metadata store uses `rusqlite@0.37.0` under the MIT license
-with its `bundled` feature. The bundled SQLite source is public domain. Version
-and source attribution are maintained in
+The global agent metadata store and separate material content store use
+`rusqlite@0.37.0` under the MIT license with its `bundled` feature. The bundled
+SQLite source is public domain. The material library also pins
+`jieba-rs@0.8.1` with its embedded default dictionary, `sha2@0.10.9`,
+`fs2@0.4.3`, and `unicode-normalization@0.1.24`. Their MIT license options are
+GPL-compatible. Version, source attribution, copyright and MIT notices are
+maintained in the installer-bundled
 [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 
 ## GitHub Copilot SDK and managed CLI

@@ -56,8 +56,8 @@ export class WebTest extends BaseTestContext<PlaywrightAgent> {
       current = undefined;
       await this.collectReport(this.reports, finished, testCtx);
     });
-    afterAll((context, suite: RunnerTestSuite) => {
-      void context;
+    // eslint-disable-next-line no-empty-pattern -- Vitest suite hooks require an empty fixture pattern.
+    afterAll(({}, suite: RunnerTestSuite) => {
       return this.mergeAndTeardown(this.reports, this.teardown.bind(this), suite);
     });
     return {

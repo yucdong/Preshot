@@ -6,7 +6,7 @@ export interface ImportedImage {
 export interface ReferenceImageStore {
   importImage(projectPath: string, sourcePath: string): Promise<ImportedImage>;
   loadImage(projectPath: string, file: string): Promise<string>;
-  removeImage(projectPath: string, file: string): Promise<void>;
+  removeImage(projectPath: string, file: string): Promise<void | "removed" | "retainedForMaterialHistory">;
 }
 
 export interface ReferenceImageCropBounds {

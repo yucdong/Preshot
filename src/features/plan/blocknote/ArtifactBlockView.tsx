@@ -1,6 +1,7 @@
 import {
   ContactRound,
   Copy,
+  Library,
   MapPin,
   MoreHorizontal,
   PackageOpen,
@@ -30,6 +31,9 @@ import {
   useOptionalArtifactBlockController,
 } from "./ArtifactBlockContext";
 import { ImageGroupBlockRenderer } from "./ImageGroupBlockRenderer";
+import { ArtifactDraftValidationError, useArtifactDraftCommit } from "./ArtifactDraftContext";
+import { componentTextInputEvents } from "./componentTextInput";
+import { useOptionalImageGroupExportController } from "./export/ImageGroupExportContext";
 
 interface ArtifactMeta {
   icon: LucideIcon;
@@ -69,17 +73,24 @@ function CommittedTextFieldDraft({
   const id = useId();
   const errorId = `${id}-error`;
   const [draft, setDraft] = useState(value);
+  const draftRef = useRef(value);
   const [error, setError] = useState(false);
 
-  const commit = () => {
-    const normalized = draft.trim();
+  const prepareCommit = () => {
+    const normalized = draftRef.current.trim();
     if (required && !normalized) {
       setError(true);
-      return;
+      return null;
     }
     setError(false);
-    if (normalized !== value) onCommit(normalized);
+    return () => { if (normalized !== value) onCommit(normalized); };
   };
+  useArtifactDraftCommit(() => {
+    const commit = prepareCommit();
+    if (!commit) throw new ArtifactDraftValidationError(`请输入${label}后再保存。`);
+    return commit;
+  }, () => { draftRef.current = value; setDraft(value); setError(false); });
+  const commit = () => prepareCommit()?.();
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter" && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -87,12 +98,17 @@ function CommittedTextFieldDraft({
     }
     if (event.key === "Escape" && draft !== value) {
       event.preventDefault();
+      draftRef.current = value;
       setDraft(value);
       setError(false);
     }
   };
   const className =
-    "w-full rounded border border-paper-border bg-white px-2.5 py-2 text-sm text-paper-ink shadow-sm transition-colors focus-visible:border-paper-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-primary/25";
+    "preshot-component-field w-full rounded border border-paper-border bg-white px-2.5 py-2 text-sm text-paper-ink shadow-sm transition-colors focus-visible:border-paper-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-primary/25";
+  const change = (event: React.SyntheticEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    draftRef.current = event.currentTarget.value;
+    setDraft(event.currentTarget.value);
+  };
 
   return (
     <label className={`grid min-w-0 gap-1 text-xs font-semibold text-paper-muted ${
@@ -101,6 +117,7 @@ function CommittedTextFieldDraft({
       <span>{label}{required ? <span aria-hidden> *</span> : null}</span>
       {multiline ? (
         <textarea
+          {...componentTextInputEvents}
           aria-describedby={error ? errorId : undefined}
           aria-invalid={error}
           className={`${className} leading-5 ${
@@ -109,17 +126,20 @@ function CommittedTextFieldDraft({
               : "min-h-20 resize-y"
           }`}
           onBlur={commit}
-          onChange={(event) => setDraft(event.target.value)}
+          onInputCapture={change}
+          onChange={change}
           placeholder={placeholder}
           value={draft}
         />
       ) : (
         <input
+          {...componentTextInputEvents}
           aria-describedby={error ? errorId : undefined}
           aria-invalid={error}
           className={className}
           onBlur={commit}
-          onChange={(event) => setDraft(event.target.value)}
+          onInputCapture={change}
+          onChange={change}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
           value={draft}
@@ -150,24 +170,36 @@ function CommittedTitleFieldDraft({
   value,
 }: CommittedTitleFieldProps) {
   const [draft, setDraft] = useState(value);
+  const draftRef = useRef(value);
   const [error, setError] = useState(false);
-  const commit = () => {
-    const normalized = draft.trim();
+  const prepareCommit = () => {
+    const normalized = draftRef.current.trim();
     if (!normalized) {
       setError(true);
-      return;
+      return null;
     }
     setError(false);
-    if (normalized !== value) onCommit(normalized);
+    return () => { if (normalized !== value) onCommit(normalized); };
+  };
+  useArtifactDraftCommit(() => {
+    const commit = prepareCommit();
+    if (!commit) throw new ArtifactDraftValidationError(`请输入${label}后再保存。`);
+    return commit;
+  }, () => { draftRef.current = value; setDraft(value); setError(false); });
+  const change = (event: React.SyntheticEvent<HTMLInputElement>) => {
+    draftRef.current = event.currentTarget.value;
+    setDraft(event.currentTarget.value);
   };
   return (
     <>
       <input
+        {...componentTextInputEvents}
         aria-invalid={error}
         aria-label={label}
-        className="w-full min-w-0 border-0 border-b border-transparent bg-transparent p-0 pb-0.5 text-base font-bold text-paper-ink outline-none transition-colors hover:border-paper-border focus:border-paper-primary focus:ring-0"
-        onBlur={commit}
-        onChange={(event) => setDraft(event.target.value)}
+        className="preshot-component-field w-full min-w-0 border-0 border-b border-transparent bg-transparent p-0 pb-0.5 text-base font-bold text-paper-ink outline-none transition-colors hover:border-paper-border focus:border-paper-primary focus:ring-0"
+        onBlur={() => prepareCommit()?.()}
+        onInputCapture={change}
+        onChange={change}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.nativeEvent.isComposing) {
             event.preventDefault();
@@ -175,6 +207,7 @@ function CommittedTitleFieldDraft({
           }
           if (event.key === "Escape" && draft !== value) {
             event.preventDefault();
+            draftRef.current = value;
             setDraft(value);
             setError(false);
           }
@@ -218,34 +251,48 @@ function CommittedNumberFieldDraft({
 }: CommittedNumberFieldProps) {
   const id = useId();
   const [draft, setDraft] = useState(value === null ? "" : String(value));
+  const draftRef = useRef(value === null ? "" : String(value));
   const [error, setError] = useState(false);
-  const commit = () => {
-    const normalized = draft.trim();
+  const prepareCommit = () => {
+    const normalized = draftRef.current.trim();
     if (!normalized) {
       setError(false);
-      if (value !== null) onCommit(null);
-      return;
+      return () => { if (value !== null) onCommit(null); };
     }
 
     const number = Number(normalized);
     if (!Number.isFinite(number) || number < min || number > max) {
       setError(true);
-      return;
+      return null;
     }
     setError(false);
-    if (number !== value) onCommit(number);
+    return () => { if (number !== value) onCommit(number); };
+  };
+  useArtifactDraftCommit(() => {
+    const commit = prepareCommit();
+    if (!commit) throw new ArtifactDraftValidationError(`${label}应为 ${min}–${max} ${suffix}，请修正后再保存。`);
+    return commit;
+  }, () => {
+    const restored = value === null ? "" : String(value);
+    draftRef.current = restored; setDraft(restored); setError(false);
+  });
+  const change = (event: React.SyntheticEvent<HTMLInputElement>) => {
+    draftRef.current = event.currentTarget.value;
+    setDraft(event.currentTarget.value);
   };
   return (
     <label className="grid min-w-0 gap-1 text-xs font-semibold text-paper-muted">
       <span>{label}</span>
       <span className="flex overflow-hidden rounded border border-paper-border bg-white shadow-sm focus-within:border-paper-primary focus-within:ring-2 focus-within:ring-paper-primary/25">
         <input
+          {...componentTextInputEvents}
           aria-describedby={error ? `${id}-error` : undefined}
           aria-invalid={error}
-          className="min-w-0 flex-1 px-2.5 py-2 text-sm text-paper-ink outline-none"
+          className="preshot-component-field min-w-0 flex-1 px-2.5 py-2 text-sm text-paper-ink outline-none"
           inputMode="decimal"
-          onBlur={commit}
-          onChange={(event) => setDraft(event.target.value)}
+          onBlur={() => prepareCommit()?.()}
+          onInputCapture={change}
+          onChange={change}
           value={draft}
         />
         <span className="grid min-w-10 place-items-center border-l border-paper-border bg-paper-subtle px-2 text-[11px]">
@@ -290,19 +337,20 @@ function ArtifactGallery({
   collection: ImageCollection;
   label: string;
 }) {
+  const exporting = useOptionalImageGroupExportController() !== null;
   return (
     <section
       className={`grid gap-2 ${
         balanced ? "preshot-balanced-gallery" : ""
-      }`}
+      } ${exporting ? "" : "preshot-editable-gallery"}`}
       aria-label={label}
     >
-      <div className="flex items-center justify-between">
+      {exporting && <div className="flex items-center justify-between">
         <h3 className="m-0 text-sm font-bold text-paper-ink">{label}</h3>
         <span className="text-[11px] font-semibold text-paper-muted">
           {collection.images.length} 张图片
         </span>
-      </div>
+      </div>}
       <ImageGroupBlockRenderer
         autoCompact={autoCompact}
         blockId={`${blockId}:${collection.id}`}
@@ -380,7 +428,7 @@ function ArtifactMenu({
       document.removeEventListener("keydown", closeOnEscape, true);
     };
   }, [open]);
-  if (!controller?.removeArtifactBlock) return null;
+  if (!controller?.removeArtifactBlock || controller.structureEditable === false) return null;
   return (
     <>
       <div className="relative" ref={rootRef}>
@@ -400,6 +448,19 @@ function ArtifactMenu({
             className="absolute right-0 top-9 z-50 grid w-36 gap-1 rounded border border-paper-border bg-white p-1 shadow-xl"
             role="menu"
           >
+            {controller.saveArtifactBlock ? (
+              <button
+                className="flex min-h-9 items-center gap-2 rounded px-2 text-left text-xs font-semibold hover:bg-paper-subtle"
+                onClick={() => {
+                  setOpen(false);
+                  controller.saveArtifactBlock?.(blockId);
+                }}
+                role="menuitem"
+                type="button"
+              >
+                <Library aria-hidden size={15} />保存到素材库
+              </button>
+            ) : null}
             <button
               className="flex min-h-9 items-center gap-2 rounded px-2 text-left text-xs font-semibold hover:bg-paper-subtle"
               onClick={() => {
@@ -730,7 +791,14 @@ export function ArtifactBlockView({
           <EditableArtifact
             artifact={artifact}
             blockId={blockId}
-            update={(next) => controller.updateArtifact(artifactId, () => next)}
+            update={(next) => controller.updateArtifact(artifactId, (current) => {
+              // Several focused-field drafts may flush before React rerenders.
+              // Apply only this field's changes, not the old rendered sidecar.
+              const changes = Object.fromEntries(Object.entries(next).filter(
+                ([key, value]) => value !== artifact[key as keyof ArtifactRecord],
+              ));
+              return { ...current, ...changes };
+            })}
           />
         ) : (
           <ReadonlyArtifact artifact={artifact} blockId={blockId} />

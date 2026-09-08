@@ -105,8 +105,29 @@ function renderGroups(
 }
 
 describe("ImageGroupBlockView image tile interactions", () => {
+  it("locks outer block actions while preserving internal image controls", () => {
+    const groups = [group("locked", "image")];
+    const controller = controllerFor(groups, {
+      structureEditable: false, removeBlock: vi.fn(), saveBlock: vi.fn(),
+    });
+    renderGroups(groups, controller);
+    expect(screen.queryByRole("button", { name: "删除图片组" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "保存图片组到素材库" })).not.toBeInTheDocument();
+    expect(screen.queryByTitle("拖动图片组")).not.toBeInTheDocument();
+    expect(document.querySelectorAll("[data-image-resize-edge]")).toHaveLength(8);
+    fireEvent.click(screen.getByRole("button", { name: "添加图片" }));
+    expect(controller.addImages).toHaveBeenCalledWith("locked");
+  });
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("saves the whole top-level image group through its block identity", () => {
+    const groups = [group("group-1", "image-1")];
+    const controller = controllerFor(groups, { saveBlock: vi.fn() });
+    renderGroups(groups, controller);
+    fireEvent.click(screen.getByRole("button", { name: "保存图片组到素材库" }));
+    expect(controller.saveBlock).toHaveBeenCalledWith("block-group-1");
   });
 
   it("selects on click and opens the viewer only on body double click", () => {

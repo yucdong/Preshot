@@ -2,6 +2,17 @@ import { describe, expect, it, vi } from "vitest";
 import { createTauriPlan } from "./tauriPlan";
 
 describe("createTauriPlan", () => {
+  it("distinguishes removed references from copies retained for material history", async () => {
+    const invokeCommand = vi.fn()
+      .mockResolvedValueOnce("retainedForMaterialHistory")
+      .mockResolvedValueOnce("removed")
+      .mockResolvedValueOnce(null);
+    const plan = createTauriPlan({ invokeCommand });
+    await expect(plan.removeImage("C:\\p", "references/0001.png")).resolves.toBe("retainedForMaterialHistory");
+    await expect(plan.removeImage("C:\\p", "references/0002.png")).resolves.toBe("removed");
+    await expect(plan.removeImage("C:\\p", "references/0003.png")).rejects.toThrow("Malformed native response");
+  });
+
   it("imports an image and validates the response", async () => {
     const invokeCommand = vi.fn().mockResolvedValue({ file: "references/0001.jpg", dataUrl: "data:image/jpeg;base64,AA" });
     const plan = createTauriPlan({ invokeCommand });

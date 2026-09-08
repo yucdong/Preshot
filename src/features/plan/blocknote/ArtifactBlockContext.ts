@@ -10,6 +10,8 @@ export interface ArtifactBlockReader {
 }
 
 export interface ArtifactBlockController extends ArtifactBlockReader {
+  /** Omitted in the normal editor; false hides all document-structure actions. */
+  structureEditable?: boolean;
   createArtifact(kind: ArtifactKind): string;
   discardPendingArtifact?(artifactId: string): void;
   cloneArtifact(artifactId: string): string | null;
@@ -19,6 +21,7 @@ export interface ArtifactBlockController extends ArtifactBlockReader {
   ): void;
   duplicateArtifactBlock?(blockId: string): void;
   removeArtifactBlock?(blockId: string): void;
+  saveArtifactBlock?(blockId: string): void;
 }
 
 export const ArtifactBlockContext =

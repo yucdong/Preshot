@@ -10,8 +10,51 @@
 - SQLite status: public domain
 
 Preshot enables rusqlite's `bundled` feature so the production agent metadata
-store uses the reviewed SQLite version compiled with the application instead
-of depending on a system SQLite installation.
+store and separate material content store use SQLite compiled with the
+application instead of depending on a system SQLite installation.
+
+## Material library native dependencies
+
+| Crate | Pinned version | Purpose | License option used | Source |
+| --- | --- | --- | --- | --- |
+| `jieba-rs` | `0.8.1` | Offline Chinese segmentation with the embedded default dictionary | MIT | <https://github.com/messense/jieba-rs> |
+| `sha2` | `0.10.9` | Original-image content hashes | MIT | <https://github.com/RustCrypto/hashes> |
+| `fs2` | `0.4.3` | Cross-process library/project file locks | MIT | <https://github.com/danburkert/fs2-rs> |
+| `unicode-normalization` | `0.1.24` | Display/search Unicode normalization | MIT | <https://github.com/unicode-rs/unicode-normalization> |
+
+`sha2`, `fs2`, and `unicode-normalization` also offer Apache-2.0; Preshot uses
+their MIT option. The embedded dictionary ships with `jieba-rs`; no dictionary
+download, Java runtime, hosted search or external tokenizer service is used.
+Upstream Jieba attribution is retained as well:
+<https://github.com/fxsjy/jieba>.
+
+Copyright notices from the selected MIT license files:
+
+- `jieba-rs`: Copyright (c) 2018 - 2019 messense; Copyright (c) 2019 Paul Meng.
+- Upstream Jieba: Copyright (c) 2013 Sun Junyi.
+- `sha2`: Copyright (c) 2006-2009 Graydon Hoare; Copyright (c) 2009-2013 Mozilla Foundation; Copyright (c) 2016 Artyom Pavlov.
+- `fs2`: Copyright (c) 2015 The Rust Project Developers.
+- `unicode-normalization`: Copyright (c) 2015 The Rust Project Developers.
+
+The following MIT permission and warranty notice applies to these components:
+
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
 
 ## GitHub Copilot SDK for Rust
 

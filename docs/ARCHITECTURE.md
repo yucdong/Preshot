@@ -44,6 +44,92 @@ The mounted editor path in the app is `BlockNoteProjectCanvasProvider`; legacy c
 
 Browser-only adapters exist for tests and Midscene-driven workflows, but production wiring uses the Tauri adapters.
 
+## Global material library
+
+`AppMaterialLibrary` composes the domain `MaterialLibraryRepository`, a narrow
+Tauri adapter, the library dialogs, and offline preview rendering. The shell
+and launcher share the Material library entry. The active project registers its
+target-bound opener; without an active document, the same browser remains available
+for management with insertion disabled. The editor toolbar has no duplicate
+insertion button. The slash-menu shortcut remains available, and image-group
+toolbars and artifact menus save one complete component.
+Opening captures the last user-focused cursor block before modal focus moves.
+Materials occupy a complete row after that block's top-level ancestor; no cursor
+means insertion at the document beginning, not after the default editor selection.
+The browser's explicit Insert into current document action preserves this pinned
+target throughout previews, searches and material editing.
+
+Portable payload v1 supports image groups, locations, models, props and clothing.
+It preserves component text and individual image order/frame/crop/fit fields,
+but contains no source project identities or paths. Clothing excludes its hidden
+legacy try-on gallery with a confirmation warning. Domain instantiation assigns
+fresh block, sidecar, collection and image identities and inserts one full-row
+component without changing existing document content.
+
+The native content store lives in
+`%USERPROFILE%\.preshot\library\library.db`, independently of `agent.db`.
+The authoritative database-v4 DDL is
+[`src-tauri/src/library/schema.sql`](../src-tauri/src/library/schema.sql).
+Immutable original images live in the library's content-addressed `objects`
+directory; screenshots in `previews` are replaceable caches, not saved content.
+FTS5 consumes Rust-segmented Chinese text alongside literal substring matching.
+
+Permanent deletion is restricted to trashed materials and checks the expected
+metadata version. The schema tracks attributable asset ownership, content-free
+operation tombstones and a durable per-material cleanup outbox. Canonical
+records and search entries are removed atomically before confined file cleanup.
+Shared assets and edit-draft references are rechecked; inserted project copies
+are never cleanup targets. Library open resumes only already-approved outboxes
+and surfaces failures so retry remains available after a restart.
+
+The detail preview area exposes only Edit material and Preview. Edit material
+combines library name, tags, description and favorite state with a session-owned,
+one-component canvas using the production
+schema/renderers but no project provider or autosave. Structural transactions
+are blocked; internal field/image edits use a local draft and history.
+Session-scoped native image import/crop copies bytes without mutating originals.
+Save checks the pinned content revision and metadata version using one transaction
+and an idempotent edit receipt. It updates metadata, payload, image mappings and
+search together, increments both versions once, and invalidates the thumbnail.
+Schema v4 migrates v1-v3 atomically and retains existing receipt hashes for the
+optional payload-only API, which still preserves current metadata. The material UUID
+and existing project copies remain independent of the edit. Cancel discards both
+sets of edits and cleans only the draft. Ambiguous save results freeze the exact
+metadata/content request and its source images for safe retry.
+Confirmed saves keep the editor open and replace the consumed draft with a fresh,
+version-pinned native session. Cleanup or re-opening failures are retryable without
+another commit; late sessions are retired when their owner has gone away. Closing
+refreshes the live detail and generates the cached preview from committed content,
+with preview-only failure recovery in the library.
+
+The browser's Create material action selects one of the five existing kinds and
+opens the same editor without a project. Domain code supplies an image-free portable
+seed; `library_begin_create` allocates a session-owned draft and a future material
+UUID, not a canonical row. Only this draft response may carry empty metadata and
+zero versions. First `library_commit_edit` requires validated metadata at expected
+version zero and atomically publishes content, owned images, search and receipt at
+content/metadata version one. Further saves resume normal editing of the same UUID.
+Cancelling before first Save leaves no searchable material. Closing a saved creation
+clears hiding search/type filters and selects it in the recent list.
+Both creation and editing check active exact names immediately before each new save.
+The frozen candidate needs explicit confirmation if another UUID has that name;
+confirmation never updates by name or overwrites another record. An uncertain
+commit retries its already-approved receipt, not a fresh name lookup.
+
+Insertion prepares new project-owned `references` files and a project-local
+`.preshot-library` journal. The provider loads those copies, validates the
+unchanged target, and commits the complete manifest before publishing its
+marker and sidecar together. Lost responses are resolved through operation
+receipts; unresolved status blocks subsequent saves and destructive retirement.
+An isolated BlockNote history transaction supplies insertion undo/redo.
+Inserted components use the existing exporters without consulting the library.
+
+The browser adapter fails explicitly for persistence. The E2E fixture injects
+a typed test repository while mounting the real app, editor, dialogs and
+preview renderer; it is not a durable browser implementation. Backup/restore,
+automatic expiry/GC and revision-history UI are not shipped
+by this first library implementation.
+
 ## Agent workspace bridge
 
 The mounted application has a typed agent-context seam, production model

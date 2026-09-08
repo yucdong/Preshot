@@ -10,6 +10,8 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - Active plan schema: v15 with BlockNote document v3 (`format: "preshot-blocks"`)
 - Active UI language: Simplified Chinese (`src/shared/i18n/locales/zh.ts`)
 - Project manifest: `.preshotproj` with manifest `schemaVersion: 1`
+- Global material library: `%USERPROFILE%\.preshot\library\library.db`,
+  portable payload v1, separate from the agent metadata database
 - Legacy `.preshot` and schema v13 plans are compatibility input only
 - Agent runtime: `github-copilot-sdk@1.0.11`, Empty mode, bundled CLI release
   `1.0.79` (self-reporting `1.0.81-7`), and one global SQLite metadata store
@@ -23,6 +25,9 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - `src-tauri`: native project, media, PDF, reveal, settings, and screen-capture commands
 - `src/domain/agent`, `src/infrastructure/agent`, and `src-tauri/src/agent`:
   pure agent contracts, adapters, managed runtime, closed tools, and sessions
+- `src/domain/library`, `src/features/library`, `src/infrastructure/library`,
+  and `src-tauri/src/library`: reusable component snapshots, dialogs, offline
+  previews, SQLite search, copied assets, and insertion recovery
 - `e2e`: Playwright browser-shell smoke suites
 - `tests`: PowerShell initializer regression harness
 - `scripts`: the Windows Tauri wrapper, Midscene helpers, and maintenance scripts
@@ -53,18 +58,52 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   the pointerdown frame ratio; left/right edges change width only and top/bottom
   edges change height only. `fitMode` defaults to crop/cover; stretch is
   explicit and exporters must preserve it.
-- Artifact cards use eight transparent continuous edge/corner resize zones.
-  Persist proportional width/offset plus optional minimum height in the
-  artifact sidecar; never shrink below current content. Every document block
-  remains in the single vertical flow; no left/right BlockNote drops or grouped
-  rows exist. Keep card contents 40/60 above
-  430px and stacked below it.
+- Artifact cards and image-group containers are full-width, content-height
+  blocks without outer resize handles. Every document block remains in the
+  single vertical flow; no left/right drops or grouped rows exist. Keep card
+  contents 40/60 above 430px and stacked below it.
 - The active BlockNote document is single-column and stores exactly one block
   per visible row. `columnList` and `column` documents are unsupported.
 - `imageGroup` blocks store only `groupId`; the actual group metadata lives in `plan.imageGroups`.
 - Every image-group ID must appear exactly once in the BlockNote document and exactly once in `plan.imageGroups`.
 - Native BlockNote media persists as relative `media/<file>` paths; runtime data URLs must not be written back to the manifest.
 - Reference image imports copy project-local JPG/PNG files into `references/####.<ext>` and leave the original user-selected files untouched.
+- Library saves own independent original-image copies; insertion allocates
+  fresh identities and new project-local reference files. Preserve individual
+  image crop/fit/frame fields, not outer component layout or source identities.
+- Material insertion must commit the complete manifest before editor publication.
+  Keep project-local recovery receipts and copied files needed by undo/redo.
+  Keep a single shell/launcher Material library button, with insertion inside
+  the browser. Capture the active document's last user-focused block before
+  modal focus changes; insert after its top-level row, or prepend if no cursor
+  exists. Do not treat the editor's default selection as a user cursor.
+  Native image removal reports retained history files explicitly; retention
+  must not prevent the provider from publishing a successful document removal.
+- Material content editing uses an isolated, structurally locked one-component
+  draft, never the project provider or autosave. Preserve the material ID/kind,
+  save library metadata and canvas content atomically with both pinned CAS
+  versions plus exact edit receipts, and keep original blobs immutable.
+  Cancel deletes only owned staging; uncertain saves retain their retry sources.
+  Cleanup/thumbnail failures after commit must not trigger another content save.
+  Saving keeps the material editor open with a fresh, version-pinned draft for
+  continued edits. Closing refreshes previews from committed content only;
+  discard never removes earlier saves, and preview retries never resubmit them.
+  Screen captures use the same bounded draft staging. Cancel/retire must drain
+  capture and clean its temporary PNG before session discard; never publish late
+  cancelled results. Text fields retain native selection/clipboard/IME behavior.
+- Direct library creation chooses one of the five kinds and uses that same editor.
+  `beginCreate` allocates only a draft; first Save atomically publishes its UUID
+  at content/metadata version 1. No project or dummy canonical record is required.
+  Later saves update that UUID. Before each new save, check active exact names
+  across kinds (excluding the current UUID for edits) and confirm duplicates
+  without overwriting another material. Unknown-save retry keeps its frozen intent.
+- Permanent material deletion is recycle-bin-only and metadata-version checked.
+  Preserve shared assets, live/recoverable drafts and all project copies.
+  Keep the durable purge receipt/outbox and content-free operation tombstones;
+  reopen resumes only approved cleanup. Never sweep unknown files or report
+  cleanup failure as success.
+- Do not expose library content to the assistant or put it in `agent.db`.
+  Browser library persistence is explicitly unavailable outside injected tests.
 - Live image drag is an immutable dnd-kit preview transaction. Never write
   preview order into `plan.imageGroups`, autosave, undo history, PDF, DOCX, or
   long-image input; only one validated drop may call the provider move command.
@@ -242,6 +281,10 @@ pnpm migrate:project
   undo/save boundaries, and committed PDF/DOCX/long-image ordering.
 - Mock only platform boundaries such as Tauri `invoke`, file pickers, or browser storage.
 - Playwright stays a smoke/integration layer and should not duplicate unit coverage.
+- Library changes cover all five payload kinds, copied-image ownership,
+  Chinese/literal search, metadata CAS, insertion/recovery, source readiness,
+  and real editor undo/redo. Native fixtures must use temporary user/project
+  roots, never the developer's real library.
 - Avoid snapshots for dynamic editor, image-layout, or PDF output.
 - Use the real Chinese UI strings in assertions unless the change explicitly updates localization.
 - Installer changes require the static MSI contract, production-script

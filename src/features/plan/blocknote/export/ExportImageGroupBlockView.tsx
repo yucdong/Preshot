@@ -121,6 +121,10 @@ export function ExportImageGroupBlockView({
       data-preshot-export-image-group-block={blockId}
       ref={shellRef}
     >
+      {variant === "block" && controller.includeImageGroupMetadata && <div className="mb-3 grid gap-2 text-paper-ink">
+        <h3 className="whitespace-pre-wrap break-words text-lg font-semibold">{group.name}</h3>
+        {group.description && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{group.description}</p>}
+      </div>}
       <div
         className="preshot-long-image-export-group"
         data-preshot-export-image-group={groupId}

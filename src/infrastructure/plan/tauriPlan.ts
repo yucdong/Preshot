@@ -85,7 +85,11 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
     },
     async removeImage(projectPath, file) {
       try {
-        await invokeCommand("remove_reference_image", { projectPath, file });
+        const status = await invokeCommand("remove_reference_image", { projectPath, file });
+        if (status !== "removed" && status !== "retainedForMaterialHistory") {
+          throw new Error("Malformed native response");
+        }
+        return status;
       } catch (error) {
         throw new Error(`Unable to remove the reference image: ${detail(error)}`, { cause: error });
       }

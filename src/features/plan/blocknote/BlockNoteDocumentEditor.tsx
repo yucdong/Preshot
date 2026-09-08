@@ -15,6 +15,7 @@ import {
 import {
   ContactRound,
   Images,
+  Library,
   MapPin,
   PackageOpen,
   Shirt,
@@ -58,6 +59,8 @@ import {
   type ArtifactBlockController,
 } from "./ArtifactBlockContext";
 import type { ArtifactKind } from "../../../domain/plan/canvas/blockDocument";
+import { closeHistory } from "prosemirror-history";
+import type { MaterialEditorBridge } from "./MaterialEditorBridge";
 
 interface BlockNoteDocumentEditorProps {
   agentWorkspace?: AgentWorkspacePublisher;
@@ -67,6 +70,8 @@ interface BlockNoteDocumentEditorProps {
   imageGroupController: ImageGroupBlockController;
   onChange(document: PreshotBlockDocument): void;
   onEditorReady?(editor: PreshotBlockNoteEditor): void;
+  onMaterialEditorReady?(bridge: MaterialEditorBridge): () => void;
+  onInsertMaterial?(): void;
   onDocumentTransactionReady?(
     applyDocument: (document: PreshotBlockDocument) => void,
   ): () => void;
@@ -161,6 +166,8 @@ export function BlockNoteDocumentEditor({
   imageGroupController,
   onChange,
   onEditorReady,
+  onMaterialEditorReady,
+  onInsertMaterial,
   onDocumentTransactionReady,
   persistMediaUrl,
   resolveMediaUrl,
@@ -169,6 +176,7 @@ export function BlockNoteDocumentEditor({
   const { resolved } = useTheme();
   const onChangeRef = useRef(onChange);
   const lastEmitRef = useRef(JSON.stringify(document));
+  const lastActiveBlockRef = useRef<string | null>(null);
   const reconcilingRef = useRef(false);
   const proposalTransactionRef = useRef(false);
   const proposalTransactionTimerRef = useRef<number | null>(null);
@@ -184,6 +192,12 @@ export function BlockNoteDocumentEditor({
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  useEffect(() => editor.onSelectionChange(() => {
+    if (!editor.prosemirrorView.hasFocus()) return;
+    lastActiveBlockRef.current = editor.getSelection()?.blocks[0]?.id ??
+      editor.getTextCursorPosition().block.id;
+  }), [editor]);
 
   useEffect(() => {
     if (!agentWorkspace) return;
@@ -239,8 +253,8 @@ export function BlockNoteDocumentEditor({
   }, [editor, onEditorReady]);
 
   useEffect(() => {
-    if (!onDocumentTransactionReady) return;
-    const applyDocument = (next: PreshotBlockDocument) => {
+    if (!onDocumentTransactionReady && !onMaterialEditorReady) return;
+    const applyDocument = (next: PreshotBlockDocument, isolatedHistory = false) => {
       const serialized = JSON.stringify(next);
       lastEmitRef.current = serialized;
       proposalTransactionRef.current = true;
@@ -251,16 +265,43 @@ export function BlockNoteDocumentEditor({
         next,
         resolveMediaUrl,
       );
-      editor.transact(() => {
-        editor.replaceBlocks(editor.document, replacement);
-      });
-      proposalTransactionTimerRef.current = window.setTimeout(() => {
-        proposalTransactionTimerRef.current = null;
-        proposalTransactionRef.current = false;
-      }, 0);
+      try {
+        if (isolatedHistory) editor.prosemirrorView.dispatch(closeHistory(editor.prosemirrorView.state.tr));
+        editor.transact(() => {
+          editor.replaceBlocks(editor.document, replacement);
+        });
+        if (isolatedHistory) editor.prosemirrorView.dispatch(closeHistory(editor.prosemirrorView.state.tr));
+      } finally {
+        proposalTransactionTimerRef.current = window.setTimeout(() => {
+          proposalTransactionTimerRef.current = null;
+          proposalTransactionRef.current = false;
+        }, 0);
+      }
     };
-    return onDocumentTransactionReady(applyDocument);
-  }, [editor, onDocumentTransactionReady, resolveMediaUrl]);
+    const unregisterProposal = onDocumentTransactionReady?.(applyDocument);
+    const unregisterMaterial = onMaterialEditorReady?.({
+      getAnchor: () => {
+        const anchor = lastActiveBlockRef.current;
+        return anchor && editor.getBlock(anchor) ? anchor : null;
+      },
+      applyDocument: (next) => applyDocument(next, true),
+      focusBlock(blockId) {
+        const block = editor.getBlock(blockId);
+        if (!block) return;
+        editor.setTextCursorPosition(block, "start");
+        editor.focus();
+        const target = editor.domElement?.querySelector<HTMLElement>(
+          `[data-id="${CSS.escape(blockId)}"]`,
+        );
+        target?.scrollIntoView?.({ block: "center" });
+        target?.querySelector<HTMLInputElement>("input")?.focus();
+      },
+    });
+    return () => {
+      unregisterProposal?.();
+      unregisterMaterial?.();
+    };
+  }, [editor, onDocumentTransactionReady, onMaterialEditorReady, resolveMediaUrl]);
 
   useEffect(() => {
     if (import.meta.env.VITE_WORKSPACE_ADAPTER !== "memory") return;
@@ -466,12 +507,23 @@ export function BlockNoteDocumentEditor({
       aria-label={ariaLabel}
       className="preshot-blocknote-document"
       data-editor-engine="blocknote"
+      onFocusCapture={(event) => {
+        if (!event.currentTarget.contains(event.target)) return;
+        const block = event.target.closest<HTMLElement>("[data-id]");
+        lastActiveBlockRef.current = block?.dataset.id ?? editor.getTextCursorPosition().block.id;
+      }}
+      onPointerDownCapture={(event) => {
+        if (!(event.target instanceof Element)) return;
+        const block = event.target.closest<HTMLElement>("[data-id]");
+        if (block?.dataset.id) lastActiveBlockRef.current = block.dataset.id;
+      }}
       onKeyDownCapture={handleBlockShortcut}
       role="group"
     >
       <ImageGroupBlockContext.Provider value={contextualImageGroupController}>
         <ArtifactBlockContext.Provider value={contextualArtifactController}>
         <BlockNoteView
+          autoFocus={false}
           editor={editor}
           onChange={handleChange}
           slashMenu={false}
@@ -552,6 +604,14 @@ export function BlockNoteDocumentEditor({
                   icon: <PackageOpen size={18} />,
                   onItemClick: () => insertArtifact("prop"),
                 },
+                ...(onInsertMaterial ? [{
+                  title: "从素材库插入",
+                  subtext: "预览并插入已保存组件的独立副本",
+                  aliases: ["素材库", "library", "saved"],
+                  group: "素材组件",
+                  icon: <Library size={18} />,
+                  onItemClick: onInsertMaterial,
+                }] : []),
                 ...defaults,
               ];
               return filterSuggestionItems(items, query);

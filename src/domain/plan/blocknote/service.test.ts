@@ -15,6 +15,38 @@ function referenceImage(id: string) {
 }
 
 describe("BlockNote plan service", () => {
+  it("publishes image removal and retires a card when native history retains its copied file", async () => {
+    const retained = referenceImage("retained");
+    const group = {
+      id: "group", name: "Group", type: "reference" as const,
+      x: 0, width: 1008, height: 320, description: "", images: [retained],
+    };
+    const plan: ProjectPlanV15 = {
+      schemaVersion: 15, title: "Material removal",
+      document: { format: "preshot-blocks", version: 3, blocks: [{
+        id: "block", type: "imageGroup", props: { groupId: "group" },
+        content: undefined, children: [],
+      }] },
+      imageGroups: [group], artifacts: [],
+    };
+    const repository = { loadRawPlan: vi.fn(), saveRawPlan: vi.fn() };
+    const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const service = createBlockNotePlanService({
+      repository,
+      imageStore: { importImage: vi.fn(), loadImage: vi.fn(), removeImage: vi.fn().mockResolvedValue("retainedForMaterialHistory") },
+      imageCropStore: { beginImageCrop: vi.fn() },
+      mediaStore: { importMedia: vi.fn(), loadMedia: vi.fn(), removeMedia: vi.fn() },
+      createId: () => "unused",
+      logger,
+    });
+    const next = await service.removeImage("C:\\project", () => plan, "group", retained.id);
+    expect(next.imageGroups[0].images).toEqual([]);
+    expect(repository.saveRawPlan).toHaveBeenCalledWith("C:\\project", next);
+    await service.purgeDetachedGroups("C:\\project", next, [group]);
+    expect(logger.info).toHaveBeenCalledTimes(2);
+    expect(logger.info).toHaveBeenCalledWith("Reference image retained for material insertion history");
+  });
+
   it("creates and loads v15, migrates v14 and v13, and blocks older schemas", async () => {
     const paragraph = (version: 1 | 2 | 3) => ({
       format: "preshot-blocks",

@@ -171,6 +171,34 @@ test("recovers a staged apply journal after a process-style page reload", async 
   ).toContain("进程重启后恢复的提案");
 });
 
+test("workspace loading preserves wait cancellation and reveals only the stopped-and-switched project", async ({ page }) => {
+  await page.goto("/e2e/fixtures/project-loading.html");
+  await expect(page.getByRole("group", { name: "方案正文" })).toBeVisible();
+  const assistant = await openReadyAssistant(page, false, false);
+  await assistant.getByRole("button", { name: "开始新对话" }).click();
+  await page.evaluate(() => window.__PRESHOT_AGENT_TEST__!.emitRunning());
+  await page.getByRole("button", { name: "打开项目 Preshot 入门示例" }).click();
+  const dialog = page.getByRole("dialog", { name: "切换到“Preshot 入门示例”" });
+  await dialog.getByRole("button", { name: "等待并切换" }).click();
+  await expect(page.getByRole("progressbar", { name: "项目加载进度" })).toHaveAttribute("aria-valuenow", "0");
+  await expect(page.getByRole("group", { name: "方案正文" })).toBeHidden();
+  await page.getByRole("button", { name: "取消切换", exact: true }).click();
+  await expect(page.getByRole("progressbar")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "方案正文" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "打开项目 进度条示例" })).toHaveAttribute("aria-current", "page");
+
+  await page.getByRole("button", { name: "打开项目 Preshot 入门示例" }).click();
+  await dialog.getByRole("button", { name: "等待并切换" }).click();
+  await assistant.getByRole("button", { name: "取消待切换项目" }).click();
+  await expect(page.getByRole("progressbar")).toHaveCount(0);
+  await page.getByRole("button", { name: "打开项目 Preshot 入门示例" }).click();
+  await dialog.getByRole("button", { name: "停止并切换" }).click();
+  await expect(page.getByRole("progressbar", { name: "项目加载进度" })).toHaveAttribute("aria-valuenow", "100");
+  await expect(page.getByRole("group", { name: "方案正文" })).toBeHidden();
+  await expect(page.getByRole("group", { name: "方案正文" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "打开项目 Preshot 入门示例" })).toHaveAttribute("aria-current", "page");
+});
+
 test("sends a verified image attachment, aborts, and handles queued project switching", async ({
   page,
 }) => {

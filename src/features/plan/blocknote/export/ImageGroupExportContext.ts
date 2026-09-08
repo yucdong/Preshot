@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import type { ReferenceComponent } from "../../../../domain/plan/canvas/models";
 
 export interface ImageGroupExportController {
+  includeImageGroupMetadata?: boolean;
   getGroup(groupId: string): ReferenceComponent | undefined;
   getImageSrc(file: string): string | undefined;
 }

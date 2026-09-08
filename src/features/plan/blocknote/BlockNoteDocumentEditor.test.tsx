@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { SettingsRepository } from "../../../domain/settings/ports";
 import type { PreshotBlockDocument } from "../../../domain/plan/canvas/blockDocument";
+import { validateBlockDocument } from "../../../domain/plan/canvas/blockDocument";
+import type { MaterialEditorBridge } from "./MaterialEditorBridge";
 import { BlockNoteDocumentEditor } from "./BlockNoteDocumentEditor";
 import { ImageDragPreviewProvider } from "./ImageDragPreviewContext";
 import {
@@ -42,6 +44,7 @@ const document: PreshotBlockDocument = {
 describe("BlockNoteDocumentEditor", () => {
   it("renders portable JSON blocks and the custom image-group block", async () => {
     let editor: PreshotBlockNoteEditor | undefined;
+    let materialEditor: MaterialEditorBridge | undefined;
     let applyDocument:
       | ((document: PreshotBlockDocument) => void)
       | undefined;
@@ -108,6 +111,10 @@ describe("BlockNoteDocumentEditor", () => {
             document={document}
             imageGroupController={imageGroupController}
             onChange={onChange}
+            onMaterialEditorReady={(bridge) => {
+              materialEditor = bridge;
+              return () => { materialEditor = undefined; };
+            }}
             onDocumentTransactionReady={(transaction) => {
               applyDocument = transaction;
               return () => {
@@ -128,10 +135,11 @@ describe("BlockNoteDocumentEditor", () => {
     expect(screen.getByRole("group", { name: "BlockNote 方案正文" }))
       .toHaveAttribute("data-editor-engine", "blocknote");
     expect(await screen.findByText("BlockNote canvas")).toBeVisible();
-    expect(screen.getByText("添加图片")).toBeVisible();
+    expect(screen.getAllByRole("button", { name: "添加图片" })[0]).toBeVisible();
 
     await waitFor(() => expect(editor).toBeDefined());
     expect(editor!.schema).toBe(preshotBlockNoteSchema);
+    expect(materialEditor!.getAnchor()).toBeNull();
     await waitFor(() =>
       expect(agentWorkspace.captureSnapshot().cursorBlockId).toBe("paragraph")
     );
@@ -201,6 +209,34 @@ describe("BlockNoteDocumentEditor", () => {
         ),
       ).toBe(false);
     });
+
+    await waitFor(() => expect(materialEditor).toBeDefined());
+    editor!.updateBlock("paragraph", { content: "Earlier edit" });
+    const beforeMaterial = validateBlockDocument({
+      format: "preshot-blocks",
+      version: 3,
+      blocks: JSON.parse(JSON.stringify(editor!.document)),
+    });
+    const insertedDocument: PreshotBlockDocument = {
+      ...beforeMaterial,
+      blocks: [...beforeMaterial.blocks, {
+        id: "library-inserted-block",
+        type: "paragraph",
+        props: {},
+        content: [{ type: "text", text: "Library insertion", styles: {} }],
+        children: [],
+      }],
+    };
+    await act(async () => {
+      materialEditor!.applyDocument(insertedDocument);
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+    expect(editor!.document.at(-1)?.id).toBe("library-inserted-block");
+    expect(editor!.undo()).toBe(true);
+    expect(editor!.getBlock("library-inserted-block")).toBeUndefined();
+    expect(screen.getByText("Earlier edit")).toBeVisible();
+    expect(editor!.redo()).toBe(true);
+    expect(editor!.document.at(-1)?.id).toBe("library-inserted-block");
 
     await waitFor(() => expect(applyDocument).toBeDefined());
     const beforeTransaction = structuredClone(editor!.document);

@@ -30,6 +30,7 @@ import type {
   BlockNoteLongImageExportRequest,
 } from "../../../infrastructure/longImage/BlockNoteLongImageExporter";
 import { BlockNoteProjectCanvasProvider } from "./BlockNoteProjectCanvasProvider";
+import type { PlanLoadProgress } from "./planLoadProgress";
 import {
   createAgentWorkspaceStore,
   hashPreshotDocument,
@@ -60,12 +61,14 @@ function renderProvider(
     projectDirectoryRevealer?: ProjectDirectoryRevealer;
     saver?: PdfSaveTarget;
     agentWorkspace?: AgentWorkspaceStore;
+    onLoadProgress?: (path: string, progress: PlanLoadProgress) => void;
   } = {},
 ) {
   return render(
     <ThemeProvider repository={settings}>
       <BlockNoteProjectCanvasProvider
         agentWorkspace={dependencies.agentWorkspace}
+        onLoadProgress={dependencies.onLoadProgress}
         docxExporter={dependencies.docxExporter ?? {
           implementation: "blocknote-docx",
           export: vi.fn(),
@@ -481,6 +484,66 @@ describe("BlockNoteProjectCanvasProvider", () => {
     expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
   });
 
+  it("reports real image reads and decoding before declaring the mounted canvas ready", async () => {
+    const read = deferred<string>();
+    const decoded = deferred<void>();
+    class LoadingImage {
+      naturalWidth = 800;
+      naturalHeight = 600;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(_value: string) {}
+      decode() { return decoded.promise; }
+    }
+    vi.stubGlobal("Image", LoadingImage);
+    const plan = createEmptyProjectPlanV14("Editorial", { makeId: () => "initial" });
+    plan.document.blocks = [{
+      id: "group-block", type: "imageGroup", props: { groupId: "group" },
+      content: undefined, children: [],
+    }];
+    plan.imageGroups = [{
+      id: "group", type: "reference", name: "References", description: "",
+      x: 0, width: 1008, height: 320,
+      images: [{ id: "photo", file: "references/photo.png", aspectRatio: 1, frameWidth: 240, frameHeight: 240 }],
+    }];
+    const onLoadProgress = vi.fn();
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
+      loadImage: vi.fn().mockReturnValue(read.promise),
+    }), { onLoadProgress });
+    await waitFor(() => expect(onLoadProgress).toHaveBeenLastCalledWith("C:\\Editorial", { status: "loading", percent: 30 }));
+    await act(async () => read.resolve("data:image/png;base64,AA"));
+    expect(onLoadProgress).toHaveBeenLastCalledWith("C:\\Editorial", { status: "loading", percent: 57 });
+    expect(screen.queryByRole("group", { name: "方案正文" })).not.toBeInTheDocument();
+    await act(async () => decoded.resolve());
+    await waitFor(() => expect(onLoadProgress).toHaveBeenLastCalledWith("C:\\Editorial", { status: "ready" }));
+    expect(onLoadProgress.mock.calls.map(([, progress]) => progress))
+      .toEqual([
+        { status: "loading", percent: 12 }, { status: "loading", percent: 30 },
+        { status: "loading", percent: 57 }, { status: "loading", percent: 84 },
+        { status: "loading", percent: 94 }, { status: "loading", percent: 97 },
+        { status: "ready" },
+      ]);
+  });
+
+  it("does not resume progress when another asset completes after a loading failure", async () => {
+    const later = deferred<string>();
+    const plan = createEmptyProjectPlanV14("Editorial", { makeId: () => "initial" });
+    plan.document.blocks = ["one", "two"].map((id) => ({
+      id, type: "image", props: { url: `media/${id}.png` }, content: undefined, children: [],
+    }));
+    const onLoadProgress = vi.fn();
+    renderProvider(serviceWith({
+      loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
+      loadMedia: vi.fn().mockRejectedValueOnce(new Error("Media unavailable")).mockReturnValueOnce(later.promise),
+    }), { onLoadProgress });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Media unavailable");
+    const count = onLoadProgress.mock.calls.length;
+    await act(async () => later.resolve("data:image/png;base64,AA"));
+    expect(onLoadProgress).toHaveBeenCalledTimes(count);
+    expect(onLoadProgress).toHaveBeenLastCalledWith("C:\\Editorial", { status: "failed", message: "Media unavailable" });
+  });
+
   it("renders a new schema-v14 BlockNote canvas", async () => {
     const plan = createEmptyProjectPlanV14("Editorial", {
       makeId: () => "block-1",
@@ -489,7 +552,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
     }));
 
-    expect(await screen.findByText("BlockNote Canvas v15")).toBeVisible();
+    expect(await screen.findByRole("group", { name: "方案正文" })).toBeVisible();
     expect(screen.getByRole("group", { name: "方案正文" })).toHaveAttribute(
       "data-editor-engine",
       "blocknote",
@@ -569,7 +632,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
 
     const first = renderProvider(service);
 
-    expect(await screen.findByText("BlockNote Canvas v15")).toBeVisible();
+    expect(await screen.findByRole("group", { name: "方案正文" })).toBeVisible();
     expect(screen.getByTestId("save-status")).toHaveTextContent("未保存");
     expect(screen.getByText(
       /已升级 1 张旧版默认尺寸图片/,
@@ -594,7 +657,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
 
     renderProvider(service);
 
-    expect(await screen.findByText("BlockNote Canvas v15")).toBeVisible();
+    expect(await screen.findByRole("group", { name: "方案正文" })).toBeVisible();
     expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
     expect(screen.queryByText(/已升级 1 张旧版默认尺寸图片/))
       .not.toBeInTheDocument();
@@ -626,7 +689,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
       savePlan,
     }));
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     view.unmount();
 
@@ -646,7 +709,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
       savePlan,
     }));
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
 
@@ -671,7 +734,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
       savePlan,
     }));
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
@@ -704,7 +767,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       projectDirectoryRevealer: { revealProjectDirectory },
       saver: { save: savePdf },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     selectExport("PDF");
 
@@ -753,7 +816,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       projectDirectoryRevealer: { revealProjectDirectory },
       saver: { save: savePdf },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     selectExport("PDF");
 
@@ -784,7 +847,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       projectDirectoryRevealer: { revealProjectDirectory },
       saver: { save: savePdf },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     selectExport("PDF");
 
@@ -816,7 +879,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
         save: savePdf,
       },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     selectExport("PDF");
 
@@ -848,7 +911,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
         save: vi.fn().mockRejectedValue(new Error("Disk is full")),
       },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     selectExport("PDF");
 
@@ -882,7 +945,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       projectDirectoryRevealer: { revealProjectDirectory },
       saver: { save: savePdf },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     selectExport("PDF");
 
@@ -935,7 +998,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       docxSaver: { save: saveDocx },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     selectExport("DOCX");
 
@@ -974,7 +1037,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       docxSaver: { save: saveDocx },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     selectExport("DOCX");
 
@@ -1016,7 +1079,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
         docxSaver: { save: saveDocx },
         projectDirectoryRevealer: { revealProjectDirectory },
       });
-      await screen.findByText("BlockNote Canvas v15");
+      await screen.findByRole("group", { name: "方案正文" });
 
       selectExport("DOCX");
 
@@ -1050,7 +1113,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       logger,
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     selectExport("DOCX");
 
@@ -1086,7 +1149,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     selectExport("DOCX");
 
@@ -1120,7 +1183,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
         export: exportDocx,
       },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
     const pdfOption = screen.getByRole("menuitem", { name: "导出 PDF" });
@@ -1172,7 +1235,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     openLongImageDialog();
     fireEvent.click(screen.getByRole("checkbox", { name: "自动分图" }));
@@ -1262,7 +1325,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       longImageExporter: { export: exportLongImage },
       longImageSaver: { save: saveLongImage },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     openLongImageDialog();
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
@@ -1292,7 +1355,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       longImageSaver: { save: vi.fn().mockResolvedValue(null) },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     openLongImageDialog();
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
@@ -1338,7 +1401,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
         longImageSaver: { save: saveLongImage },
         projectDirectoryRevealer: { revealProjectDirectory },
       });
-      await screen.findByText("BlockNote Canvas v15");
+      await screen.findByRole("group", { name: "方案正文" });
 
       openLongImageDialog();
       fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
@@ -1399,7 +1462,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
           ),
         },
       });
-      await screen.findByText("BlockNote Canvas v15");
+      await screen.findByRole("group", { name: "方案正文" });
 
       openLongImageDialog();
       configure();
@@ -1436,7 +1499,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       },
       projectDirectoryRevealer: { revealProjectDirectory },
     });
-    await screen.findByText("BlockNote Canvas v15");
+    await screen.findByRole("group", { name: "方案正文" });
 
     openLongImageDialog();
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));

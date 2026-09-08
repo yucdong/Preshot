@@ -11,6 +11,9 @@ The main exceptions are intentional and narrow:
 
 ## Agent metadata database
 
+The separate material content store is described below; the agent database
+must never be reused for material payloads or images.
+
 `%USERPROFILE%\.preshot\agent.db` is opened through the same user-root
 bootstrap used by workspace startup. Project adoption first inspects and
 canonicalizes the real project directory and reads its manifest identity; a
@@ -60,6 +63,127 @@ messages, prompts, image bytes, attachment data, credentials, or secrets.
 Permission, path, disk, migration, constraint, and contention failures surface
 as contextual `agent_store_*` errors; no failed write is converted into a
 success-shaped response.
+
+## Material content database and insertion
+
+The library is opened lazily under `%USERPROFILE%\.preshot\library`.
+SQLite uses foreign keys, WAL, `synchronous=FULL` and a five-second busy timeout.
+A cross-process library lock spans object publication and database commit.
+Original blobs are immutable; current payload/image mappings change only through
+an isolated content-edit session and content-revision compare-and-swap.
+Metadata changes use their own compare-and-swap version. Both update the FTS
+projection in the same database transaction as their canonical change.
+Database or decoder failures do not replace content with an empty library.
+
+Saving validates the disclosed component against the committed source manifest,
+then copies and hashes its original JPG/PNG bytes before publishing the record.
+Each source is limited to 16 MiB, 8192 pixels per edge and 32 megapixels.
+One material is limited to 128 images and 256 MiB of encoded image bytes.
+Native reads reject linked/reparse-point storage paths. Thumbnails are PNG
+caches bounded to 480 pixels wide, 8192 pixels tall and 2 MiB, with an explicit
+partial flag; ordinary tall components retain their aspect ratio.
+A thumbnail failure leaves the canonical material saved and retryable.
+
+Material content edits pin the original revision and image identities. New
+imports and crops belong to a bounded native draft; cropping never overwrites
+source bytes. Screen captures use that same draft import boundary, never the
+project reference directory. Cancellation and retirement drain started native
+capture/import work before discarding temporary captures or the session;
+late cancelled results cannot enter the canvas. Capture timeout and cleanup
+failure are reported explicitly rather than converted to successful cancellation.
+A unified save checks the pinned content revision, metadata version and deletion
+state, commits metadata/content/search/image mappings atomically, increments both
+versions once and clears the old preview pointer. This includes metadata-only
+changes submitted by the unified editor. Payload-only API callers omit the
+metadata update and preserve the latest library metadata and its version.
+Database v1/v2/v3-to-v4 migration preserves existing content and receipt intent
+hashes atomically. It allows combined version increments and retains metadata-only
+and identity safeguards. Missing asset ownership is backfilled from current images,
+previews and retained edit receipts.
+Sessions cap retained original/staged undo sources at 512 images and 512 MiB;
+committed content retains the 128-image/256-MiB limit. Unknown crash files are
+not adopted or swept and block additional staging.
+
+Durable edit receipts resolve retried requests without another revision, including
+after draft cleanup. The UI freezes an unconfirmed request instead of allowing
+later metadata or canvas edits to change its meaning. The combined receipt must
+match the requested metadata and both version increments. Forced retirement drains started operations
+and retains an ambiguous save's draft. Definite rejection permits correction or
+cancel; ordinary cancel never updates canonical content. Cleanup and thumbnail
+failures after commit are reported separately and never presented as a failed
+content save. Crash-stale drafts are retained, not swept without recovery evidence.
+Successful saves do not dismiss the material editor. Continued editing uses a fresh
+native session and operation ID with the new CAS versions; failure to prepare it
+does not undo or repeat the confirmed save. Closing discards only later unsaved
+changes, then updates live detail and regenerates the latest committed preview.
+Preview retries never resubmit a content commit.
+Direct creation reuses the same bounded session, image and receipt boundaries.
+Its image-free seed has an allocated UUID but no canonical material, FTS entry or
+receipt before first Save. Draft-only zero versions never pass canonical adapter
+parsing. A validated first save publishes the material and all mappings atomically
+at version one; retries cannot create a second record or reuse another UUID.
+Cancelling an unsaved creation removes only its owned draft sources.
+Creation manifests use v2; existing v1 edit manifests and database schema v4
+remain compatible. A `library_create_conflict` reports an earlier committed
+creation, not a definitely-unsaved attempt.
+Every new UI save performs a fresh exact-name lookup across active kinds, excluding
+only the current material ID when editing. Duplicate confirmation freezes metadata,
+payload and viewport; cancelling keeps the input, and lookup failure blocks saving.
+Late lookup results for a retired owner cannot commit. Names remain non-unique and
+concurrent saves are allowed; consent never means overwriting another same-name record.
+Background project shortcuts ignore an inert project surface. An active image
+gesture consumes Escape before the containing material dialog can dismiss;
+nested image viewers and confirmations keep their own keyboard/focus scope.
+
+The shared library entry captures the active project, revision, editor bridge
+and last user-focused block before modal focus changes. Preview navigation and
+library editing cannot replace that anchor. Insertion adds one complete row after
+the cursor's top-level block; without a user cursor it prepends, ignoring the
+editor's implicit initial selection. Existing blocks are never split or rewritten.
+Stale project/revision intents are rejected, and retired document registrations
+cannot clear a newer document's opener. Without an active document the browser
+remains available for management, with insertion disabled.
+
+Library insertion and ordinary project save/import/crop/removal share a native
+project lock. The `.preshot-library` directory holds operation-bound journals
+and temporary copies; never delete it as generic temporary data. File publication
+distinguishes owned files from collisions, including collisions containing
+identical bytes. Manifest publication is atomic and synced. Commit retries do
+not overwrite later normal edits or undo operations.
+An ordinary mutation safely cancels an uncommitted prepared insertion while
+its base still matches, before changing the manifest or files. A stale insertion
+then fails as cancelled rather than creating a conflict after a successful save.
+
+Reopening a project reconciles incomplete journals without requiring a healthy
+library database. Conflicting content is retained and reported, not guessed.
+The renderer resolves failed prepare/commit responses conservatively and does
+not publish a partial component. It also prevents autosave or retirement from
+overwriting an uncertain native commit.
+
+Copied files needed by committed insertion history are retained. Normal image
+removal returns an explicit `retainedForMaterialHistory` result so document
+removal still completes while undo/redo data remains available; the active
+service records this disposition without logging user text or paths.
+
+Recycle-bin permanent deletion requires an explicit irreversible confirmation
+and a version-qualified native operation. Active materials and materials with
+live or recoverable edit drafts cannot be purged. Shared blobs and independent
+project copies remain intact. A failed cleanup is not success: retain its
+recovery state and allow retry rather than restoring a record with missing
+images or silently abandoning owned files.
+Library open resumes only durable, already-approved purge outboxes under the
+same lock. If cleanup is still blocked, Retry Reading retries that work without
+requiring a deleted material ID. Minimal operation/intent tombstones prevent
+old save or edit receipts from recreating permanently deleted materials.
+Unattributable pre-v3 orphan files are preserved, not guessed or swept.
+
+V1 deliberately has no automatic trash expiry, general object GC,
+backup/restore command or history browser. Unreferenced file-first objects, old
+previews and recovery receipts outside an explicit purge may accumulate.
+Do not claim the proposed 30-day purge policy is active, manually delete content-addressed objects, or
+copy only `library.db` while WAL is live as a backup. Close all Preshot instances
+before making an external full-directory copy; keep associated project
+reference files and recovery journals with their projects.
 
 ## Agent runtime and session lifecycle
 

@@ -82,7 +82,8 @@ import {
   fitBlockNoteDocumentZoom,
 } from "./canvasViewport";
 import type { ImageGroupBlockController } from "./ImageGroupBlockContext";
-import { applyMeasuredImages } from "./imageHydration";
+import { applyMeasuredImages, measureImageDimensions } from "./imageHydration";
+import { assetLoadPercent, type PlanLoadProgress } from "./planLoadProgress";
 import type { LongImageExportSettings } from "./LongImageExportDialog";
 import type { ArtifactBlockController } from "./ArtifactBlockContext";
 import {
@@ -91,9 +92,18 @@ import {
   findArtifactCollection,
   replaceArtifactCollection,
 } from "./artifactCollections";
+import { useOptionalMaterialLibrary } from "../../library/MaterialLibraryContext";
+import { useOptionalAgentController } from "../../agent/AgentContext";
+import { createMaterialSnapshot } from "../../../domain/library";
+import {
+  insertLibraryMaterial,
+  MaterialInsertionRecoveryError,
+} from "./materialInsertion";
+import type { MaterialEditorBridge } from "./MaterialEditorBridge";
 
 interface BlockNoteProjectCanvasProviderProps {
   agentWorkspace?: AgentWorkspacePublisher;
+  onLoadProgress?(projectPath: string, progress: PlanLoadProgress): void;
   projectId?: string;
   projectName: string;
   projectPath: string;
@@ -454,6 +464,7 @@ function applyImageRemovalToLatest(
 
 export function BlockNoteProjectCanvasProvider({
   agentWorkspace,
+  onLoadProgress,
   projectId,
   projectName,
   projectPath,
@@ -471,7 +482,13 @@ export function BlockNoteProjectCanvasProvider({
 }: BlockNoteProjectCanvasProviderProps) {
   const proposalProjectId = projectId ?? projectPath;
   const { resolved: resolvedTheme } = useTheme();
+  const materialLibrary = useOptionalMaterialLibrary();
+  const agentController = useOptionalAgentController();
+  const [libraryBusy, setLibraryBusy] = useState(false);
+  const [libraryRecoveryBlocked, setLibraryRecoveryBlocked] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
+  const [editorMounted, setEditorMounted] = useState(false);
+  const reportEditorMounted = useCallback(() => setEditorMounted(true), []);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [canvasError, setCanvasError] = useState<string | null>(null);
@@ -499,6 +516,12 @@ export function BlockNoteProjectCanvasProvider({
   const longImageAbortRef = useRef<AbortController | null>(null);
   const planRef = useRef<ProjectPlanV15 | null>(null);
   const planRevisionRef = useRef(0);
+  const materialEditorRef = useRef<MaterialEditorBridge | null>(null);
+  const libraryBusyRef = useRef(false);
+  const libraryRecoveryBlockedRef = useRef(false);
+  const libraryComposingRef = useRef(false);
+  const libraryOwnsDialogRef = useRef(false);
+  const materialLibraryRef = useRef(materialLibrary);
   const loadStateRef = useRef<LoadState>({ status: "loading" });
   const saveStateRef = useRef<SaveState>("saved");
   const saveErrorRef = useRef<string | null>(null);
@@ -530,10 +553,15 @@ export function BlockNoteProjectCanvasProvider({
   }, [imageSrc]);
 
   useEffect(() => {
+    materialLibraryRef.current = materialLibrary;
+  }, [materialLibrary]);
+
+  useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       longImageAbortRef.current?.abort();
+      if (libraryOwnsDialogRef.current) materialLibraryRef.current?.close();
     };
   }, []);
 
@@ -554,6 +582,9 @@ export function BlockNoteProjectCanvasProvider({
 
   const save = useCallback(async () => {
     await imageMutationTailRef.current;
+    if (libraryRecoveryBlockedRef.current) {
+      throw new Error("素材插入恢复状态尚未确认，已暂停自动保存。请重新打开项目。");
+    }
     const plan = planRef.current;
     if (!plan) return;
     const serialized = JSON.stringify(plan);
@@ -972,7 +1003,9 @@ export function BlockNoteProjectCanvasProvider({
   const registerProposalDocumentTransaction = useCallback(
     (applyDocument: (document: PreshotBlockDocument) => void) => {
       proposalDocumentTransactionRef.current = applyDocument;
-      proposalApplicationRegistrationRef.current?.setReady(true);
+      proposalApplicationRegistrationRef.current?.setReady(
+        !libraryBusyRef.current && !libraryRecoveryBlockedRef.current,
+      );
       return () => {
         if (proposalDocumentTransactionRef.current === applyDocument) {
           proposalDocumentTransactionRef.current = null;
@@ -982,6 +1015,13 @@ export function BlockNoteProjectCanvasProvider({
     },
     [],
   );
+
+  const registerMaterialEditor = useCallback((bridge: MaterialEditorBridge) => {
+    materialEditorRef.current = bridge;
+    return () => {
+      if (materialEditorRef.current === bridge) materialEditorRef.current = null;
+    };
+  }, []);
 
   const reportImageMutationFailure = useCallback((error: unknown) => {
     if (!mountedRef.current) return;
@@ -1126,13 +1166,24 @@ export function BlockNoteProjectCanvasProvider({
 
   useEffect(() => {
     let cancelled = false;
-    void retirementCoordinator.waitFor(projectPath)
-      .then(() => service.loadPlan(projectPath, projectName))
-      .then(
-      (result) => {
+    let failed = false;
+    const report = (progress: PlanLoadProgress) => {
+      if (!cancelled && !failed) onLoadProgress?.(projectPath, progress);
+    };
+    const load = async () => {
+      try {
+        await retirementCoordinator.waitFor(projectPath);
+        if (cancelled) return;
+        report({ status: "loading", percent: 12 });
+        const result = await service.loadPlan(projectPath, projectName);
         if (cancelled) return;
         if (result.status === "incompatible") {
           updateLoadState(result);
+          report({
+            status: "failed",
+            message: `方案版本不兼容：当前项目版本为 ${result.foundSchemaVersion ?? "未知"}，需要版本 ${result.requiredSchemaVersion}。项目文件未被修改。`,
+          });
+          failed = true;
           return;
         }
         const persistedPlan = result.plan;
@@ -1161,66 +1212,76 @@ export function BlockNoteProjectCanvasProvider({
             group.images.map((image) => image.file),
           ),
         );
+        const mediaFiles = new Set(mediaFilesInBlockDocument(plan.document));
+        const total = files.size * 2 + mediaFiles.size;
+        let completed = 0;
+        const assetFinished = () => {
+          if (cancelled || failed) return;
+          completed += 1;
+          report({ status: "loading", percent: assetLoadPercent(completed, total) });
+        };
+        report({ status: "loading", percent: assetLoadPercent(0, total) });
         const imageEntriesPromise = Promise.all(
-          [...files].map(async (file) => [
-            file,
-            await service.loadImage(projectPath, file),
-          ] as const),
-        );
-        const mediaFiles = new Set(
-          mediaFilesInBlockDocument(plan.document),
+          [...files].map(async (file) => {
+            const source = await service.loadImage(projectPath, file);
+            assetFinished();
+            return [file, source] as const;
+          }),
         );
         const mediaEntriesPromise = Promise.all(
-          [...mediaFiles].map(async (file) => [
-            file,
-            await service.loadMedia(projectPath, file),
-          ] as const),
+          [...mediaFiles].map(async (file) => {
+            const source = await service.loadMedia(projectPath, file);
+            assetFinished();
+            return [file, source] as const;
+          }),
         );
-        void Promise.all([
+        const [imageEntries, mediaEntries] = await Promise.all([
           imageEntriesPromise,
           mediaEntriesPromise,
-        ]).then(async ([imageEntries, mediaEntries]) => {
-          if (cancelled) return;
-          setImageSrc(Object.fromEntries(imageEntries));
-          const nextMedia = Object.fromEntries(mediaEntries);
-          mediaSrcRef.current = nextMedia;
-          setMediaSrc(nextMedia);
-          const measured = await applyMeasuredImages(plan, imageEntries);
-          if (cancelled) return;
-          planRef.current = measured;
-          planRevisionRef.current += 1;
-          const measuredSaveState = JSON.stringify(measured) === savedRef.current
-            ? "saved"
-            : "unsaved";
-          publishAgentPlan(
-            measured,
-            planRevisionRef.current,
-            measuredSaveState,
-          );
-          setPlanRevision(planRevisionRef.current);
-          updateSaveState(measuredSaveState);
-          updateLoadState({ status: "ready", plan: measured });
-        }).catch((error: unknown) => {
-          if (cancelled) return;
-          updateLoadState({
-            status: "failed",
-            message: error instanceof Error ? error.message : String(error),
-          });
-        });
-      },
-      (error: unknown) => {
+        ]);
         if (cancelled) return;
+        setImageSrc(Object.fromEntries(imageEntries));
+        const nextMedia = Object.fromEntries(mediaEntries);
+        mediaSrcRef.current = nextMedia;
+        setMediaSrc(nextMedia);
+        const measured = await applyMeasuredImages(plan, imageEntries, async (source) => {
+          const dimensions = await measureImageDimensions(source);
+          assetFinished();
+          return dimensions;
+        });
+        if (cancelled) return;
+        planRef.current = measured;
+        planRevisionRef.current += 1;
+        const measuredSaveState = JSON.stringify(measured) === savedRef.current
+          ? "saved"
+          : "unsaved";
+        publishAgentPlan(
+          measured,
+          planRevisionRef.current,
+          measuredSaveState,
+        );
+        setPlanRevision(planRevisionRef.current);
+        updateSaveState(measuredSaveState);
+        report({ status: "loading", percent: 94 });
+        updateLoadState({ status: "ready", plan: measured });
+      } catch (error: unknown) {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : String(error);
+        report({ status: "failed", message });
+        failed = true;
         updateLoadState({
           status: "failed",
-          message: error instanceof Error ? error.message : String(error),
+          message,
         });
-      },
-    );
+      }
+    };
+    void load();
     return () => {
       cancelled = true;
     };
   }, [
     applyPlan,
+    onLoadProgress,
     projectName,
     projectPath,
     retirementCoordinator,
@@ -1235,6 +1296,9 @@ export function BlockNoteProjectCanvasProvider({
       .queue(projectPath, async () => {
         await captureTaskRef.current;
         await imageMutationTailRef.current;
+        if (libraryRecoveryBlockedRef.current) {
+          throw new Error("Material insertion recovery is unresolved; retirement will not overwrite the project or purge its files.");
+        }
         const activePlan = planRef.current;
         if (activePlan) {
           const detachedGroups = [...detachedGroupsRef.current.values()];
@@ -1282,6 +1346,7 @@ export function BlockNoteProjectCanvasProvider({
 
   useEffect(() => {
     const onUndoImageMove = (event: KeyboardEvent) => {
+      if (scrollerRef.current?.closest("[inert]")) return;
       if (
         !(event.ctrlKey || event.metaKey) ||
         event.shiftKey ||
@@ -1309,6 +1374,7 @@ export function BlockNoteProjectCanvasProvider({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || scrollerRef.current?.closest("[inert]")) return;
       if (
         (event.ctrlKey || event.metaKey) &&
         event.key.toLowerCase() === "s"
@@ -1368,8 +1434,28 @@ export function BlockNoteProjectCanvasProvider({
     return url;
   }, []);
 
+  useLayoutEffect(() => {
+    if (loadState.status !== "ready" || !materialLibrary) return;
+    return materialLibrary.registerDocumentBrowser(() => requestMaterialInsert());
+  });
+
+  useEffect(() => {
+    if (!onLoadProgress || !editorMounted || loadState.status !== "ready") return;
+    let finalFrame = 0;
+    const frame = requestAnimationFrame(() => {
+      onLoadProgress(projectPath, { status: "loading", percent: 97 });
+      finalFrame = requestAnimationFrame(() => {
+        onLoadProgress(projectPath, { status: "ready" });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(finalFrame);
+    };
+  }, [editorMounted, loadState.status, onLoadProgress, projectPath]);
+
   if (loadState.status === "loading") {
-    return <div className="p-6 text-sm text-app-muted">正在加载 BlockNote 方案…</div>;
+    return <div className="p-6 text-sm text-app-muted">正在加载方案…</div>;
   }
   if (loadState.status === "failed") {
     return <div className="m-6 rounded border border-app-danger bg-app-danger-soft p-4 text-sm" role="alert">{loadState.message}</div>;
@@ -1448,7 +1534,171 @@ export function BlockNoteProjectCanvasProvider({
       artifacts: [...activeArtifactsById.values()],
     });
   };
+
+  const requireLibraryReady = () => {
+    if (!mountedRef.current || !planRef.current || !projectId) {
+      throw new Error("当前项目不可用，请重新打开项目后再操作素材库。");
+    }
+    if (libraryRecoveryBlockedRef.current) {
+      throw new Error("素材插入存在未解决的恢复记录，请先重新打开项目。");
+    }
+    if (libraryComposingRef.current) {
+      throw new Error("请先完成当前文字输入，再操作素材库。");
+    }
+    const recovery = agentController?.getSnapshot().proposalRecoveryStatus;
+    if (recovery === "conflict" || recovery === "failed" || recovery === "recovering") {
+      throw new Error("方案存在待处理的恢复状态，请先处理后再操作素材库。");
+    }
+  };
+
+  const setLibraryOperationBusy = (busy: boolean) => {
+    libraryBusyRef.current = busy;
+    if (mountedRef.current) setLibraryBusy(busy);
+    proposalApplicationRegistrationRef.current?.setReady(
+      !busy && !libraryRecoveryBlockedRef.current && mountedRef.current &&
+      proposalDocumentTransactionRef.current !== null,
+    );
+  };
+
+  const requestMaterialSave = (blockId: string) => {
+    if (!materialLibrary) return;
+    void (async () => {
+      requireLibraryReady();
+      await captureTaskRef.current;
+      await imageMutationTailRef.current;
+      requireLibraryReady();
+      const current = planRef.current!;
+      const snapshot = createMaterialSnapshot(current, blockId);
+      const revision = planRevisionRef.current;
+      const expectedPlan = structuredClone(current);
+      const operationId = crypto.randomUUID();
+      libraryOwnsDialogRef.current = true;
+      materialLibrary.openSave({
+        snapshot,
+        projectName,
+        async onSave(metadata) {
+          requireLibraryReady();
+          if (libraryBusyRef.current || planRevisionRef.current !== revision) {
+            throw new Error("组件已变化，请关闭窗口后重新保存到素材库。");
+          }
+          setLibraryOperationBusy(true);
+          try {
+            await save();
+            return await enqueueImageMutation(async () => {
+              requireLibraryReady();
+              if (planRevisionRef.current !== revision) {
+                throw new Error("组件已变化，请关闭窗口后重新保存到素材库。");
+              }
+              return materialLibrary.repository.save({
+                operationId,
+                projectId: projectId!,
+                projectPath,
+                expectedPlan,
+                snapshot,
+                metadata,
+              });
+            });
+          } finally {
+            setLibraryOperationBusy(false);
+          }
+        },
+      });
+    })().catch(reportImageMutationFailure);
+  };
+
+  function requestMaterialInsert() {
+    if (!materialLibrary) return;
+    try {
+      requireLibraryReady();
+      const editor = materialEditorRef.current;
+      if (!editor) throw new Error("编辑器尚未就绪，请稍后再试。");
+      const afterBlockId = editor.getAnchor();
+      const revision = planRevisionRef.current;
+      const expectedPlan = structuredClone(planRef.current!);
+      libraryOwnsDialogRef.current = true;
+      materialLibrary.openBrowser({
+        targetLabel: `「${projectName}」· ${afterBlockId ? "当前光标所在内容之后" : "文档开头"}`,
+        async onInsert(material) {
+          requireLibraryReady();
+          if (libraryBusyRef.current || planRevisionRef.current !== revision) {
+            throw new Error("方案或插入位置已变化，请重新打开素材库。");
+          }
+          setLibraryOperationBusy(true);
+          const importedSources: Record<string, string> = {};
+          try {
+            await save();
+            await enqueueImageMutation(() => insertLibraryMaterial({
+              repository: materialLibrary.repository,
+              input: {
+                operationId: crypto.randomUUID(),
+                materialId: material.id,
+                revision: material.revision,
+                projectId: projectId!,
+                projectPath,
+                expectedPlan,
+              },
+              afterBlockId,
+              makeId: () => crypto.randomUUID(),
+              isCurrent: () =>
+                mountedRef.current && !libraryRecoveryBlockedRef.current &&
+                planRevisionRef.current === revision &&
+                materialEditorRef.current === editor,
+              async preparePublication(nextPlan) {
+                const currentFiles = new Set(
+                  allCollectionGroups(expectedPlan).flatMap((group) =>
+                    group.images.map((image) => image.file),
+                  ),
+                );
+                const addedFiles = new Set(
+                  allCollectionGroups(nextPlan).flatMap((group) =>
+                    group.images.map((image) => image.file),
+                  ).filter((file) => !currentFiles.has(file)),
+                );
+                for (const file of addedFiles) {
+                  importedSources[file] = await service.loadImage(projectPath, file);
+                }
+              },
+              publish(nextPlan, insertedBlockId) {
+                // Native commit is authoritative even if this provider retired.
+                planRef.current = nextPlan;
+                savedRef.current = JSON.stringify(nextPlan);
+                planRevisionRef.current = revision + 1;
+                imageMoveUndoRef.current = null;
+                if (!mountedRef.current) return;
+                flushSync(() => setImageSrc((existing) => ({ ...existing, ...importedSources })));
+                updateSaveState("saved");
+                updateSaveError(null);
+                publishAgentPlan(nextPlan, revision + 1, "saved");
+                metadataListenersRef.current.forEach((listener) => listener());
+                editor.applyDocument(nextPlan.document);
+                updateLoadState({ status: "ready", plan: nextPlan });
+                setPlanRevision(revision + 1);
+                window.requestAnimationFrame(() => {
+                  if (mountedRef.current) editor.focusBlock(insertedBlockId);
+                });
+              },
+            }));
+          } catch (error) {
+            if (error instanceof MaterialInsertionRecoveryError) {
+              libraryRecoveryBlockedRef.current = true;
+              if (mountedRef.current) {
+                setLibraryRecoveryBlocked(true);
+                setCanvasError(error.message);
+              }
+            }
+            throw error;
+          } finally {
+            setLibraryOperationBusy(false);
+          }
+        },
+      });
+    } catch (error) {
+      reportImageMutationFailure(error);
+    }
+  }
+
   const artifactController: ArtifactBlockController = {
+    ...(materialLibrary ? { saveArtifactBlock: requestMaterialSave } : {}),
     subscribe(listener) {
       metadataListenersRef.current.add(listener);
       return () => metadataListenersRef.current.delete(listener);
@@ -1512,6 +1762,7 @@ export function BlockNoteProjectCanvasProvider({
     },
   };
   const imageGroupController: ImageGroupBlockController = {
+    ...(materialLibrary ? { saveBlock: requestMaterialSave } : {}),
     selectedImageId,
     subscribe(listener) {
       metadataListenersRef.current.add(listener);
@@ -2136,6 +2387,9 @@ export function BlockNoteProjectCanvasProvider({
       <div
         className="editor-workspace-grid min-h-0 flex-1 overflow-auto p-5"
         data-testid="canvas-scroller"
+        inert={libraryBusy || libraryRecoveryBlocked}
+        onCompositionStartCapture={() => { libraryComposingRef.current = true; }}
+        onCompositionEndCapture={() => { libraryComposingRef.current = false; }}
         onWheel={(event) => {
           if (!event.ctrlKey) return;
           event.preventDefault();
@@ -2181,6 +2435,9 @@ export function BlockNoteProjectCanvasProvider({
               key={`${projectPath}:${loadState.plan.schemaVersion}`}
               onChange={updateDocument}
               onDocumentTransactionReady={registerProposalDocumentTransaction}
+              onEditorReady={reportEditorMounted}
+              onMaterialEditorReady={registerMaterialEditor}
+              onInsertMaterial={materialLibrary ? requestMaterialInsert : undefined}
               persistMediaUrl={persistMediaUrl}
               resolveMediaUrl={resolveMediaUrl}
               uploadFile={uploadMedia}
@@ -2208,7 +2465,6 @@ export function BlockNoteProjectCanvasProvider({
               sourceWidth: image.sourceWidth!,
               sourceHeight: image.sourceHeight!,
               // Invoked by the crop dialog after user confirmation, not during render.
-              // eslint-disable-next-line react-hooks/refs
               confirm: confirmLightboxCrop,
             };
           })()}

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useDialogPortalHost } from "./DialogPortalContext";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -20,6 +21,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const portalHost = useDialogPortalHost();
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -44,10 +46,12 @@ export function ConfirmDialog({
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       onCancel();
       return;
     }
     if (event.key === "Tab" && dialogRef.current) {
+      event.stopPropagation();
       const focusable = Array.from(
         dialogRef.current.querySelectorAll<HTMLElement>(
           'button:not(:disabled), [href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
@@ -74,7 +78,7 @@ export function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/55 p-6 backdrop-blur-[2px]"
       data-preshot-surface="true"
       onClick={handleBackdropClick}
     >
@@ -108,6 +112,6 @@ export function ConfirmDialog({
         </div>
       </div>
     </div>,
-    document.body,
+    portalHost,
   );
 }

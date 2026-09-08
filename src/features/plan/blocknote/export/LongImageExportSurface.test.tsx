@@ -175,6 +175,23 @@ const assets = {
 };
 
 describe("LongImageExportSurface", () => {
+  it("includes saved image-group text only for explicit material-preview surfaces", async () => {
+    const plan = complexPlan();
+    plan.document.blocks = plan.document.blocks.filter((block) => block.type === "imageGroup");
+    plan.imageGroups[0].name = "素材图片组名称";
+    plan.imageGroups[0].description = "素材图片组的完整说明";
+    const mounted = render(<LongImageExportSurface plan={plan} resolvedAssets={assets}
+      includeImageGroupMetadata />);
+    expect(await screen.findByText("素材图片组名称")).toBeVisible();
+    expect(screen.getByText("素材图片组的完整说明")).toBeVisible();
+    expect(mounted.container.querySelectorAll("img")).toHaveLength(2);
+    mounted.unmount();
+    const normalExport = render(<LongImageExportSurface plan={plan} resolvedAssets={assets} />);
+    await waitFor(() => expect(normalExport.container.querySelectorAll("img")).toHaveLength(2));
+    expect(screen.queryByText("素材图片组名称")).not.toBeInTheDocument();
+    expect(screen.queryByText("素材图片组的完整说明")).not.toBeInTheDocument();
+  });
+
   it("renders the complete schema-14 document with export-only boundaries", async () => {
     const plan = complexPlan();
     const onSurfaceReady = vi.fn();

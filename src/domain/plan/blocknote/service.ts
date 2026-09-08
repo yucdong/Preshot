@@ -158,6 +158,13 @@ export function createBlockNotePlanService({
   createId,
   logger,
 }: Dependencies): BlockNotePlanService {
+  async function removeImageFile(projectPath: string, file: string): Promise<void> {
+    const status = await imageStore.removeImage(projectPath, file);
+    if (status === "retainedForMaterialHistory") {
+      logger.info("Reference image retained for material insertion history");
+    }
+  }
+
   let queue: Promise<void> = Promise.resolve();
   const projectRevisions = new Map<string, number>();
   const committedCrops = new Map<string, Map<string, {
@@ -382,7 +389,7 @@ export function createBlockNotePlanService({
     const message = cause instanceof Error ? cause.message : String(cause);
     let rollbackContext = "";
     try {
-      await imageStore.removeImage(projectPath, file);
+      await removeImageFile(projectPath, file);
     } catch (rollbackError) {
       rollbackContext = `; copied-image rollback also failed: ${
         rollbackError instanceof Error
@@ -406,7 +413,7 @@ export function createBlockNotePlanService({
     for (const file of new Set(imported.map(({ image }) => image.file))) {
       if (referencesFile(getLatestPlan(), file)) continue;
       try {
-        await imageStore.removeImage(projectPath, file);
+        await removeImageFile(projectPath, file);
       } catch (error) {
         rollbackErrors.push(
           `${file}: ${error instanceof Error ? error.message : String(error)}`,
@@ -848,7 +855,7 @@ export function createBlockNotePlanService({
         );
         await saveValidatedPlan(projectPath, next);
         if (target && !referencesFile(next, target.file)) {
-          await imageStore.removeImage(projectPath, target.file);
+          await removeImageFile(projectPath, target.file);
         }
         return next;
       });
@@ -865,7 +872,7 @@ export function createBlockNotePlanService({
         if (target) {
           for (const file of new Set(target.images.map((image) => image.file))) {
             if (!referencesFile(next, file)) {
-              await imageStore.removeImage(projectPath, file);
+              await removeImageFile(projectPath, file);
             }
           }
         }
@@ -886,7 +893,7 @@ export function createBlockNotePlanService({
         }
         for (const file of files) {
           if (!referencesFile(activePlan, file)) {
-            await imageStore.removeImage(projectPath, file);
+            await removeImageFile(projectPath, file);
           }
         }
         committedArtifactCrops.delete(projectPath);

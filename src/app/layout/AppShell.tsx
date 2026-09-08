@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type PropsWithChildren,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -13,6 +14,7 @@ import {
   Minimize2,
   PanelLeftOpen,
   PanelRightOpen,
+  Library,
   Trash2,
   X,
 } from "lucide-react";
@@ -26,10 +28,15 @@ import { AgentPanel } from "../../features/agent/AgentPanel";
 import { SettingsButton } from "../../features/settings/SettingsButton";
 import { useTheme } from "../theme/ThemeContext";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
+import { useOptionalMaterialLibrary } from "../../features/library/MaterialLibraryContext";
 
 interface AppShellProps extends PropsWithChildren {
   projects: WorkspaceProjectView[];
   currentProjectId: string;
+  projectLoading?: boolean;
+  loadingProjectName?: string;
+  loadingContent?: ReactNode;
+  onCancelQueuedSwitch?(): void;
   error?: string | null;
   onSelectProject(project: WorkspaceProjectView): void;
   onNewProject(): void;
@@ -59,6 +66,10 @@ export function AppShell({
   children,
   projects,
   currentProjectId,
+  projectLoading = false,
+  loadingProjectName,
+  loadingContent,
+  onCancelQueuedSwitch,
   error,
   onSelectProject,
   onNewProject,
@@ -68,7 +79,17 @@ export function AppShell({
   getProjectSessionCount,
 }: AppShellProps) {
   const { t } = useTranslation();
+  const materialLibrary = useOptionalMaterialLibrary();
   const settings = useTheme();
+  const workspaceContentRef = useRef<HTMLDivElement>(null);
+  const previouslyLoading = useRef(false);
+  const hasLoadingContent = Boolean(loadingContent);
+  useEffect(() => {
+    if (previouslyLoading.current && !hasLoadingContent) {
+      workspaceContentRef.current?.focus({ preventScroll: true });
+    }
+    previouslyLoading.current = hasLoadingContent;
+  }, [hasLoadingContent]);
   const assistantOpen = settings.assistantOpen;
   const [projectMenuId, setProjectMenuId] = useState<string | null>(null);
   const [projectMenuPosition, setProjectMenuPosition] = useState({
@@ -329,17 +350,28 @@ export function AppShell({
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-app-bg text-app-ink">
-      <header className="flex h-[58px] shrink-0 items-center gap-3 border-b border-white/10 bg-[#17191d] px-4 text-white shadow-[0_2px_12px_rgb(0_0_0_/_16%)]">
+      <header className="relative flex h-[58px] shrink-0 items-center gap-3 border-b border-white/10 bg-[#17191d] px-4 text-white shadow-[0_2px_12px_rgb(0_0_0_/_16%)]">
         <span className="font-editorial grid h-7 w-7 place-items-center rounded-lg bg-app-accent text-sm font-extrabold">P</span>
         <h1 className="font-editorial text-lg font-extrabold">PRESHOT</h1>
         <span className="h-5 w-px bg-white/15" />
         <strong className="max-w-64 truncate text-sm font-semibold">
-          {projects.find((project) => project.projectId === currentProjectId)?.name ?? ""}
+          {loadingProjectName ?? projects.find((project) => project.projectId === currentProjectId)?.name ?? ""}
         </strong>
-        <span className="text-xs text-white/45">
+        <span className="whitespace-nowrap text-xs text-white/45">
           {t("shell.tagline")}
         </span>
         <div className="ml-auto flex items-center gap-2">
+          {materialLibrary ? (
+            <button
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => materialLibrary.openBrowser()}
+              disabled={hasLoadingContent}
+              type="button"
+            >
+              <Library aria-hidden className="h-4 w-4" />
+              素材库
+            </button>
+          ) : null}
           <button
             aria-label={focusMode ? "退出专注模式" : "进入专注模式"}
             className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
@@ -410,6 +442,7 @@ export function AppShell({
         ) : null}
         {!focusMode || overlayPanel === "projects" ? (
           <nav
+            inert={projectLoading}
             aria-label={t("shell.projects")}
             className={focusMode
               ? "absolute inset-y-3 left-3 z-50 flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-app-border bg-app-panel shadow-[0_16px_42px_rgb(24_24_27_/_20%)]"
@@ -541,10 +574,10 @@ export function AppShell({
           </div>
         ) : null}
         <div className={focusMode
-          ? "flex h-full min-h-0 min-w-0 flex-col"
-          : "flex min-h-0 min-w-0 flex-col"}
+          ? "relative flex h-full min-h-0 min-w-0 flex-col"
+          : "relative flex min-h-0 min-w-0 flex-col"}
         >
-          {error ? (
+          {error && !hasLoadingContent ? (
             <div
               className="border-b border-rose-200 bg-rose-50 px-6 py-3 text-sm text-rose-700 dark:border-rose-400/40 dark:bg-rose-500/10 dark:text-rose-100"
               role="alert"
@@ -552,7 +585,18 @@ export function AppShell({
               {t("errors.workspace")}
             </div>
           ) : null}
-          {children}
+          <div
+            ref={workspaceContentRef}
+            tabIndex={-1}
+            aria-label="方案工作区"
+            aria-hidden={hasLoadingContent || undefined}
+            inert={hasLoadingContent}
+            className="flex min-h-0 flex-1 flex-col outline-none"
+            style={hasLoadingContent ? { visibility: "hidden" } : undefined}
+          >
+            {children}
+          </div>
+          {hasLoadingContent ? <div className="absolute inset-0 z-40">{loadingContent}</div> : null}
         </div>
         {!focusMode && assistantOpen ? (
           <div
@@ -580,7 +624,7 @@ export function AppShell({
                 <X aria-hidden className="h-4 w-4" />
               </button>
             ) : null}
-            <AgentPanel />
+            <AgentPanel onCancelQueuedSwitch={onCancelQueuedSwitch} />
           </div>
         ) : null}
       </div>

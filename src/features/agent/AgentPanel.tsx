@@ -271,7 +271,7 @@ function AgentErrorCard({
   );
 }
 
-export function AgentPanel() {
+export function AgentPanel({ onCancelQueuedSwitch }: { onCancelQueuedSwitch?: () => void } = {}) {
   const { t } = useTranslation();
   const controller = useAgentController();
   const state = useAgentControllerState();
@@ -358,7 +358,7 @@ export function AgentPanel() {
           </span>
           <button
             className="shrink-0 rounded-md px-2 py-1 font-semibold text-app-functional hover:bg-app-panel-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
-            onClick={() => controller.cancelWaitingProjectSwitch()}
+            onClick={onCancelQueuedSwitch ?? (() => controller.cancelWaitingProjectSwitch())}
             type="button"
           >
             {t("agent.cancelSwitch")}

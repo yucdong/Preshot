@@ -15,6 +15,7 @@ export interface MountLongImageExportSurfaceOptions {
   resolvedAssets: Readonly<Record<string, string>>;
   outerWidth?: LongImageExportOuterWidth;
   theme?: "light" | "dark";
+  includeImageGroupMetadata?: boolean;
   timeoutMs?: number;
   signal?: AbortSignal;
 }
@@ -273,6 +274,7 @@ export async function mountLongImageExportSurface({
   resolvedAssets,
   outerWidth = LONG_IMAGE_EXPORT_DEFAULT_OUTER_WIDTH,
   theme,
+  includeImageGroupMetadata = false,
   timeoutMs = 10_000,
   signal,
 }: MountLongImageExportSurfaceOptions): Promise<LongImageExportSurfaceHandle> {
@@ -293,6 +295,7 @@ export async function mountLongImageExportSurface({
       plan={plan}
       resolvedAssets={resolvedAssets}
       theme={theme}
+      includeImageGroupMetadata={includeImageGroupMetadata}
     />,
   );
 

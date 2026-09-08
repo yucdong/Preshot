@@ -31,6 +31,7 @@ export interface LongImageExportSurfaceProps {
   resolvedAssets: Readonly<Record<string, string>>;
   outerWidth?: LongImageExportOuterWidth;
   theme?: "light" | "dark";
+  includeImageGroupMetadata?: boolean;
   onSurfaceReady?(surface: HTMLElement): void;
 }
 
@@ -39,6 +40,7 @@ export function LongImageExportSurface({
   resolvedAssets,
   outerWidth = LONG_IMAGE_EXPORT_DEFAULT_OUTER_WIDTH,
   theme = "light",
+  includeImageGroupMetadata = false,
   onSurfaceReady,
 }: LongImageExportSurfaceProps) {
   assertLongImageExportOuterWidth(outerWidth);
@@ -59,11 +61,12 @@ export function LongImageExportSurface({
       ...artifactCollectionGroups(plan),
     ];
     return {
+      includeImageGroupMetadata,
       getGroup: (groupId: string) =>
         groups.find((group) => group.id === groupId),
       getImageSrc: (file: string) => resolvedAssets[file],
     };
-  }, [plan, resolvedAssets]);
+  }, [plan, resolvedAssets, includeImageGroupMetadata]);
   const artifactReader = useMemo(() => ({
     getArtifact: (artifactId: string) =>
       plan.artifacts.find((artifact) => artifact.id === artifactId),

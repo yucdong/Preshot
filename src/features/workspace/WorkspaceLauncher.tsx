@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectRail } from "./ProjectRail";
+import { Library } from "lucide-react";
+import { useOptionalMaterialLibrary } from "../library/MaterialLibraryContext";
 
 export interface WorkspaceLauncherProps {
   projects: WorkspaceProjectView[];
@@ -35,6 +37,7 @@ export function WorkspaceLauncher({
   onRemove,
 }: WorkspaceLauncherProps) {
   const { t } = useTranslation();
+  const materialLibrary = useOptionalMaterialLibrary();
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   async function runAction(actionKey: string, action: () => Promise<void> | void) {
@@ -70,6 +73,15 @@ export function WorkspaceLauncher({
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            {materialLibrary ? (
+              <button
+                className={`${actionButtonClassName} border border-white/15 bg-white/[0.06] text-white hover:bg-white/10`}
+                onClick={() => materialLibrary.openBrowser()}
+                type="button"
+              >
+                <Library aria-hidden className="mr-2 h-4 w-4" />素材库
+              </button>
+            ) : null}
             <button
               className={`${actionButtonClassName} bg-app-accent text-white hover:bg-app-accent-hover active:scale-[0.98]`}
               disabled={Boolean(busyAction)}

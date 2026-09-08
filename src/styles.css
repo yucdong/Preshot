@@ -119,6 +119,29 @@ html.dark {
   container-type: inline-size;
 }
 
+.preshot-blocknote-document .preshot-component-field {
+  caret-color: var(--paper-ink);
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.preshot-blocknote-document .preshot-component-field::selection {
+  color: white;
+  background: color-mix(in srgb, var(--paper-primary) 72%, var(--paper-ink));
+}
+
+.preshot-blocknote-document .preshot-component-field:focus {
+  border-color: var(--paper-primary);
+  outline: 2px solid color-mix(in srgb, var(--paper-primary) 24%, transparent);
+  outline-offset: 1px;
+}
+
+.preshot-blocknote-document .bn-block-content.ProseMirror-selectednode:has(.preshot-component-field:focus) > *,
+.preshot-blocknote-document .ProseMirror-selectednode:has(.preshot-component-field:focus) > .bn-block-content > * {
+  outline: none;
+}
+
 .bn-block-content[data-content-type="shootingLocation"],
 .bn-block-content[data-content-type="modelCard"],
 .bn-block-content[data-content-type="clothing"],
@@ -170,6 +193,91 @@ html.dark {
 
 .preshot-balanced-gallery .preshot-blocknote-image-group {
   min-height: 100%;
+}
+
+.preshot-image-group-editable-shell,
+.preshot-balanced-gallery.preshot-editable-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preshot-editable-gallery .preshot-blocknote-image-group-shell {
+  flex: 1;
+  align-items: stretch;
+}
+
+.preshot-editable-gallery .preshot-blocknote-image-group {
+  flex: 1 0 auto;
+  min-height: 0;
+}
+
+.preshot-image-group-heading,
+.preshot-image-group-caption,
+.preshot-blocknote-image-group-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preshot-image-group-heading {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  min-height: 32px;
+}
+
+.preshot-image-group-caption {
+  min-width: 0;
+  flex-wrap: wrap;
+  color: var(--paper-ink);
+}
+
+.preshot-image-group-caption h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.preshot-image-group-count {
+  color: var(--paper-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.preshot-blocknote-image-group-toolbar {
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.preshot-blocknote-image-group-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid var(--paper-border);
+  border-radius: 5px;
+  background: white;
+  color: var(--paper-ink);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.preshot-blocknote-image-group-toolbar button:hover {
+  background: var(--paper-primary-soft);
+}
+
+.preshot-blocknote-image-group-toolbar button:focus-visible {
+  outline: 2px solid var(--paper-primary);
+  outline-offset: 2px;
+}
+
+.preshot-blocknote-image-group-toolbar svg {
+  flex-shrink: 0;
 }
 
 .preshot-balanced-info-readonly {

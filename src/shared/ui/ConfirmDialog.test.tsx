@@ -1,8 +1,29 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { DialogPortalContext } from "./DialogPortalContext";
 
 describe("ConfirmDialog", () => {
+  it("uses the enclosing modal portal host and consumes nested Escape", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const outerEscape = vi.fn();
+    const onCancel = vi.fn();
+    const { unmount } = render(
+      <div onKeyDown={outerEscape}>
+        <DialogPortalContext.Provider value={() => host}>
+          <ConfirmDialog open title="删除图片？" confirmLabel="删除" cancelLabel="取消"
+            onConfirm={vi.fn()} onCancel={onCancel} />
+        </DialogPortalContext.Provider>
+      </div>,
+    );
+    expect(host).toContainElement(screen.getByRole("dialog"));
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(outerEscape).not.toHaveBeenCalled();
+    unmount();
+    host.remove();
+  });
   it("renders nothing when not open", () => {
     const { container } = render(
       <ConfirmDialog

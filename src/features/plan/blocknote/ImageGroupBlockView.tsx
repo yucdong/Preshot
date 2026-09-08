@@ -1,6 +1,7 @@
 import {
   Camera,
   Images,
+  Library,
   Scaling,
   Scan,
   Plus,
@@ -62,6 +63,7 @@ import {
   type ResizeDirection,
 } from "./imageGroupInteraction";
 import { compactArtifactGalleryImages } from "./artifactGallerySizing";
+import { ImageGroupMetadataFields } from "./ImageGroupMetadataFields";
 
 function imageSlotRows(
   slots: readonly DocumentImageGroupSlot[],
@@ -608,7 +610,7 @@ export function ImageGroupBlockView({
   const startGroupBlockDrag = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
-    if (variant === "embedded" || event.button !== 0) return;
+    if (controller.structureEditable === false || variant === "embedded" || event.button !== 0) return;
     const target = event.target as HTMLElement;
     if (
       target.closest(
@@ -631,9 +633,42 @@ export function ImageGroupBlockView({
 
   return (
     <div
-      className="preshot-blocknote-image-group-shell relative w-full min-w-0"
+      className="preshot-blocknote-image-group-shell preshot-image-group-editable-shell relative w-full min-w-0"
       contentEditable={false}
     >
+      {variant === "block" && controller.updateGroupMetadata ? (
+        <ImageGroupMetadataFields name={group.name} description={group.description}
+          onCommit={(update) => controller.updateGroupMetadata?.(groupId, update)} />
+      ) : null}
+      <div className="preshot-image-group-heading bn-drag-exclude">
+        <div className="preshot-image-group-caption" onPointerDown={startGroupBlockDrag}>
+          <Images aria-hidden size={16} />
+          <h3>{label}</h3>
+          <span className="preshot-image-group-count">{group.images.length} 张图片</span>
+        </div>
+        <div className="preshot-blocknote-image-group-toolbar" role="group" aria-label={`${label}操作`}
+          onPointerDownCapture={(event) => event.stopPropagation()}
+          onMouseDownCapture={(event) => event.stopPropagation()}>
+          <button aria-label="添加图片" onClick={() => controller.addImages(groupId)} title="从文件添加图片" type="button">
+            <Plus aria-hidden size={15} />添加图片
+          </button>
+          {controller.captureImage ? (
+            <button aria-label="截图" onClick={() => controller.captureImage?.(groupId)} title="截图插入当前图片组" type="button">
+              <Camera aria-hidden size={15} />截图
+            </button>
+          ) : null}
+          {variant === "block" && controller.structureEditable !== false && controller.saveBlock ? (
+            <button aria-label="保存图片组到素材库" onClick={() => controller.saveBlock?.(blockId)} title="保存到素材库" type="button">
+              <Library aria-hidden size={15} />
+            </button>
+          ) : null}
+          {variant === "block" && controller.structureEditable !== false ? (
+            <button aria-label="删除图片组" onClick={() => controller.removeBlock?.(blockId)} title="删除图片组" type="button">
+              <Trash2 aria-hidden size={15} />
+            </button>
+          ) : null}
+        </div>
+      </div>
       <ImageDragTargetGroup
         active={targetActive}
         className={`preshot-blocknote-image-group bn-drag-exclude relative rounded border border-app-border p-2 ${
@@ -650,37 +685,6 @@ export function ImageGroupBlockView({
           maxWidth: "100%",
         }}
       >
-        <div className="preshot-blocknote-image-group-toolbar absolute right-0 top-[-34px] z-20 flex h-[30px] items-center gap-1 rounded border border-white/10 bg-[#202329] px-1 text-white shadow-lg">
-          <span
-            className="flex h-6 items-center gap-1 rounded bg-app-functional/20 px-2 text-[10px] font-bold text-cyan-100"
-            title="拖动图片组"
-          >
-            <Images aria-hidden size={14} />{label}
-          </span>
-          <button aria-label="添加图片" className="grid h-6 w-6 place-items-center rounded hover:bg-white/10" onClick={() => controller.addImages(groupId)} title="插入图片" type="button">
-            <Plus aria-hidden size={14} />
-          </button>
-          {controller.captureImage ? (
-            <button
-              aria-label="截图"
-              className="grid h-6 w-6 place-items-center rounded hover:bg-white/10"
-              onClick={() => controller.captureImage?.(groupId)}
-              title="截图"
-              type="button"
-            >
-              <Camera aria-hidden size={14} />
-            </button>
-          ) : null}
-          {variant === "block" ? <button
-            aria-label="删除图片组"
-            className="grid h-6 w-6 place-items-center rounded text-rose-200 hover:bg-app-danger hover:text-white"
-            onClick={() => controller.removeBlock?.(blockId)}
-            title="删除图片组"
-            type="button"
-          >
-            <Trash2 aria-hidden size={14} />
-          </button> : null}
-        </div>
         <div className="relative h-full overflow-hidden">
           {group.images.length === 0 ? (
             <EmptyImageGroupDropSlot
@@ -689,7 +693,7 @@ export function ImageGroupBlockView({
             />
           ) : null}
           {group.images.length === 0 && drag.state.status === "idle" ? (
-            <button className="grid h-full w-full place-items-center rounded border border-dashed border-app-border bg-white text-xs text-app-muted" onClick={() => controller.addImages(groupId)} type="button">
+            <button className="relative grid h-full w-full place-items-center rounded border border-dashed border-app-border bg-white text-xs text-app-muted" onClick={() => controller.addImages(groupId)} type="button">
               添加图片
             </button>
           ) : null}

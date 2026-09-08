@@ -72,6 +72,123 @@ preservation of `%USERPROFILE%\.preshot` across upgrade, forced rollback,
 repair, and uninstall. Also run negative attempts for downgrade and
 `ALLUSERS=1`. Do not run this matrix on a developer workstation.
 
+## Material library matrix
+
+Use the following focused commands for library changes:
+
+```powershell
+pnpm exec vitest run src\domain\library src\features\library src\infrastructure\library src\features\plan\blocknote\materialInsertion.test.ts src\features\plan\blocknote\BlockNoteProjectCanvasProvider.library.test.tsx
+pnpm exec vitest run src\infrastructure\plan\tauriPlan.test.ts src\domain\plan\blocknote\service.test.ts src\features\plan\blocknote\BlockNoteDocumentEditor.test.tsx
+cargo test --manifest-path src-tauri\Cargo.toml library:: --lib --quiet
+cargo test --manifest-path src-tauri\Cargo.toml plan::tests:: --lib --quiet
+pnpm exec playwright test material-library.spec.ts material-content-editor.spec.ts material-editing-interactions.spec.ts material-create.spec.ts
+```
+
+Domain cases cover all five portable kinds, exact source mappings, fresh IDs,
+single-row insertion, metadata bounds, crop/fit fields and omitted legacy
+clothing images. Native cases use disposable roots and cover source/copy
+independence, hashes, Chinese/literal matching, FTS updates/rebuild, metadata
+CAS, cross-process locks, linked paths and interrupted operation recovery.
+Permanent-deletion cases cover atomic removal, shared assets, old receipt
+tombstones, draft blocking, prepared/project-copy independence, interrupted
+cleanup, restart recovery, Windows file locks and path confinement.
+The ignored Rust lock-worker cases are invoked by their parent cross-process tests.
+
+Provider cases use the real editor to assert manifest-before-publication,
+new image readiness, an isolated undo/redo boundary, and unresolved-status
+blocking. Removal cases distinguish logical document removal from native
+retention of copied history files. Preview cases cover readiness, decode and
+capture budgets, complete live content, partial thumbnails and cleanup.
+
+The Playwright fixture mounts production app/dialog/editor/preview modules
+under the same React StrictMode as the app, with explicit test persistence
+and the existing workspace test adapter. It exercises saving, full and cached
+previews, repeated pointer dismissal, backdrop/Escape dismissal and focus
+restoration, cross-project insertion, theme layout and normal-browser
+unavailability. Component cases also cover nested preview, metadata and
+confirmation dialogs across StrictMode effect replay. The fixture is not
+evidence of native disk durability, which is covered by the temporary-root
+Rust tests.
+
+Recycle-bin cases cover cancel/Escape/backdrop dismissal, irreversible
+confirmation, disabled repeat submission, retry after failure, last-page
+removal and search focus restoration. Content and metadata versions stay out
+of the details and edit-header UI. The visual scenario
+`e2e-midscene\web\material-trash.test.ts` uses only synthetic fixture data to
+delete a library entry and retain its already-inserted project copy.
+
+Unified-edit cases cover exactly two detail-preview actions, one shared metadata
+and canvas save, metadata-only/content-only/combined changes, unchanged project
+copies, metadata validation/focus, IME, discard, metadata CAS rejection and
+freezing both surfaces for an exact lost-response retry. They preserve the new-save
+duplicate-name confirmation rather than routing edits through a second metadata RPC.
+Browser cases enter metadata before touching the canvas to prevent first-input
+loss from capture-phase draft updates. The synthetic Midscene unified-edit
+scenario also reviews the two actions, shared editing window and large preview.
+Save/close cases cover remaining in the editor, repeated saves with new draft IDs
+and CAS versions, retained zoom/scroll, discarding only post-save changes, recovery
+from cleanup/re-opening failures, late-draft retirement and preview regeneration
+only after dismissal. Preview failures retry without another canonical save.
+Direct-creation cases cover all five image-free seeds and strict draft-only adapter
+parsing, no project/dummy record, name validation, first-save version one, subsequent
+saves by the same UUID, cancellation, late draft retirement and selection after
+closing from the recycle bin. Duplicate creation/edit cases preserve input on
+cancel, freeze both editing surfaces for confirmation, exclude only the edited
+UUID, block lookup failures and ignore late responses. Lost first-save responses
+retry the same request without another lookup or record.
+`e2e\material-create.spec.ts` uses the shared production canvas for all five kinds,
+text selection, imported and captured images, repeated saves, refreshed previews
+and reopening. Native creation tests use disposable library roots to cover the
+corresponding atomic storage, asset ownership, cancellation and receipt boundaries.
+Image-group preview coverage requires visible saved name/description in the live
+surface and thumbnail input; ordinary long-image surfaces retain their default
+image-only presentation.
+Content-edit cases cover the real single-component canvas, invalid field
+handling, structural keyboard/paste/drop rejection, isolated undo/redo and
+image-token preservation. Draft-lease cases cover cancellation during image
+work, retirement during save, stable retry requests and post-commit cleanup.
+The browser fixture edits content through an explicit session repository,
+checks cancellation and unchanged project copies, refreshes search/previews,
+and simulates a lost successful save response without producing two revisions.
+All five component kinds are reopened after save. Library navigation cases
+verify the single library entry, default beginning insertion without a
+cursor, retained cursor-row insertion after modal navigation, and repeated insertion
+after the newly focused component. Provider cases retain native commit/undo
+boundaries; registry cases reject stale cleanup from a retired document.
+Native insertion cases accept the first document row without changing existing content.
+Real-browser image cases
+cover crop, removal/undo, edge resize, keyboard move/cancel/undo and image
+reopening; cancelling a drag must not dismiss the containing editor. Model-card
+editing also covers the dark desktop shell at a narrower viewport.
+Synthetic images are generated locally; user photos never enter fixtures.
+Native draft/image copying, cropping, both CAS versions, combined-save rollback,
+exact edit receipts and database-v1/v2/v3-to-v4 migration use disposable roots.
+Browser project-image copying is not simulated.
+
+The interaction matrix exercises native text fields for all five material kinds:
+visible caret and focus, mouse/keyboard selection, clipboard copy/cut/paste,
+native text undo, and selection contrast of at least 4.5:1. Gallery heading,
+count and action rectangles must remain disjoint at 960/1280/1600px desktop
+widths, and images must start below the entire header. Capture cases use an
+explicit synthetic Windows-dialog substitute to cover Escape/cancel, busy
+controls, focus restoration after BlockNote remounts, captured-image undo/redo
+and saved reopening. Adapter cases separately cover native capture polling,
+session-only import, races, timeout and temporary-file cleanup.
+
+Supplementary visual reviews use the existing Midscene setup:
+
+```powershell
+# Keep the fixture server running in a separate terminal.
+pnpm dev --mode e2e --host 127.0.0.1 --port 15614
+pnpm exec vitest run --config vitest.midscene.config.ts e2e-midscene\web\material-editing.test.ts
+```
+
+`MIDSCENE_MATERIAL_URL` can override the fixture server URL. The configured
+model bridge must be running. All five cases use `aiAct` to edit/select text
+and review the real gallery action row; screenshots and reports go under
+`midscene_run`. This visual evidence supplements, not replaces, deterministic
+interaction, ownership and geometry assertions.
+
 ## Preshot 0.0.1 verification
 
 The final release-hardening matrix completed on 2026-08-18 after the PDF and
@@ -354,6 +471,13 @@ Rust unit tests cover:
 ### Playwright
 
 `pnpm test:e2e` exercises the browser-shell path used for smoke coverage. It starts Vite in `e2e` mode, uses Microsoft Edge, and validates top-level workflows such as workspace loading, project opening, editor presence, and related UI flows.
+
+Project-loading coverage gates real project, document and asset reads, verifies
+image decoding progress, rejects stale attempt callbacks, and holds the document
+hidden through displayed 100% and the completion transition. Browser fixtures
+exercise normal/reduced motion, forced colors, load failure and same-project retry.
+The standalone HTML review is a simulated visual reference only; its timeline
+is not the production progress source.
 
 `pnpm test:e2e:blocknote` is the focused browser suite for the current v15 editor surface. Use it when changing BlockNote document behavior, image groups, artifact blocks, native media, or PDF/DOCX-adjacent editing flows.
 

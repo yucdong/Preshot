@@ -1173,6 +1173,7 @@ export function ImageDragPreviewProvider({
         event.preventDefault();
       }
       if (event.key === "Escape") {
+        event.preventDefault();
         cancel("escape");
       }
     };

@@ -7,6 +7,19 @@
 ## Workspace
 
 - Opening a project maximizes the window.
+- The editor toolbar does not expose engine names or internal schema badges.
+- Project switching uses the approved centered loading card from
+  `../design_refs/preshot-project-loading-review.html`, not a header spinner.
+  Progress starts at 0 and interpolates only toward actual completed work:
+  preparation, document read, asset reads/decodes, and mounted canvas readiness.
+  These are weighted workflow percentages, not elapsed time or byte throughput.
+- The document remains mounted with its measurement geometry intact, but hidden
+  and inert until the displayed progress reaches 100, holds for 450ms, and fades
+  for 180ms. Reduced motion removes decorative transitions. A load failure
+  retains the loading card below 100 with an actionable retry, never a partial
+  document. Waiting for an assistant task retains an explicit switch cancellation.
+- Loading does not shift the header or canvas. Theme tokens and forced-color
+  support keep the progress indicator visible in each appearance mode.
 - The project panel remains visible by default. The assistant panel is closed
   by default once the basic agent feature is enabled, and can be opened from
   the persistent assistant toggle.

@@ -1,8 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { SettingsRepository } from "../../domain/settings/ports";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import type { PlanDependencies } from "../../features/plan/blocknote/dependencies";
+import type { PlanLoadProgress } from "../../features/plan/blocknote/planLoadProgress";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import type { WorkspaceDependencies } from "./dependencies";
 import { WorkspaceProvider } from "./WorkspaceProvider";
@@ -12,13 +14,22 @@ import { createBrowserAgentModelProbe } from "../../infrastructure/agent/browser
 import { createSettingsAgentModelStore } from "../../infrastructure/agent/settingsAgentModelStore";
 
 vi.mock("../layout/Workspace", () => ({
-  Workspace: ({
+  Workspace: function Workspace({
     projectName,
     projectPath,
+    loadId,
+    onLoadProgress,
   }: {
     projectName: string;
     projectPath: string;
-  }) => <div>{`${projectName}|${projectPath}`}</div>,
+    loadId: number;
+    onLoadProgress?(id: number, path: string, progress: PlanLoadProgress): void;
+  }) {
+    useEffect(() => {
+      onLoadProgress?.(loadId, projectPath, { status: "ready" });
+    }, [loadId, onLoadProgress, projectPath]);
+    return <div>{`${projectName}|${projectPath}`}</div>;
+  },
 }));
 
 describe("WorkspaceProvider startup", () => {
@@ -77,9 +88,9 @@ describe("WorkspaceProvider startup", () => {
       </AgentModelSettingsProvider>,
     );
 
-    expect(await screen.findByText(
+    await waitFor(() => expect(screen.getByText(
       "Preshot 入门示例|C:\\Users\\me\\.preshot\\projects\\Preshot 入门示例",
-    )).toBeVisible();
+    )).toBeVisible(), { timeout: 5000 });
     expect(maximizeWindow).toHaveBeenCalledTimes(1);
   });
 });

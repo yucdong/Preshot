@@ -25,6 +25,9 @@ These canonical files define the current BlockNote v14 behavior:
 - [Feature status tracker](design_docs/featurelist.json)
 - [Basic agent design](design_docs/agent/agent_basic_design.md)
 - [Artifact document blocks](design_docs/artifacts/artifacts.md)
+- [Global material library](design_docs/material-library/material-library.md):
+  implemented core behavior, database schema, design rationale and explicitly
+  deferred maintenance features
 - [Deterministic agent eval report](../tests/artifacts/agent-mvp-eval-report.md)
 
 ## Historical design and reference material

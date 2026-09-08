@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type {
   ArtifactRecord,
@@ -13,6 +13,7 @@ import {
   type ArtifactBlockController,
 } from "./ArtifactBlockContext";
 import { ArtifactBlockView } from "./ArtifactBlockView";
+import { ArtifactDraftContext, createArtifactDraftRegistry } from "./ArtifactDraftContext";
 
 vi.mock("./ImageGroupBlockRenderer", () => ({
   ImageGroupBlockRenderer: ({
@@ -51,6 +52,62 @@ function controllerFor(initial: ArtifactRecord) {
 }
 
 describe("ArtifactBlockView", () => {
+  it("flushes every valid visible draft synchronously and rejects invalid numeric input", () => {
+    const { controller } = controllerFor({
+      id: "model-flush", kind: "modelCard", revision: 0, modelId: "原模特",
+      heightCm: 170, weightKg: 50, shoeSize: "38", samples: { id: "samples", images: [] },
+    });
+    const drafts = createArtifactDraftRegistry();
+    render(<ArtifactDraftContext.Provider value={drafts}>
+      <ArtifactBlockContext.Provider value={controller}>
+        <ArtifactBlockView artifactId="model-flush" blockId="block" expectedKind="modelCard" />
+      </ArtifactBlockContext.Provider>
+    </ArtifactDraftContext.Provider>);
+    fireEvent.change(screen.getByRole("textbox", { name: /模特名称/ }), { target: { value: "新模特" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /身高/ }), { target: { value: "999" } });
+    act(() => { expect(() => drafts.flush()).toThrow(/身高.*50.*250/); });
+    expect(controller.getArtifact("model-flush")).toMatchObject({ modelId: "原模特", heightCm: 170 });
+    fireEvent.change(screen.getByRole("textbox", { name: /身高/ }), { target: { value: "180" } });
+    act(() => drafts.flush());
+    expect(controller.getArtifact("model-flush")).toMatchObject({ modelId: "新模特", heightCm: 180 });
+  });
+  it("hides structural actions when the controller locks structure", () => {
+    const { controller } = controllerFor({
+      id: "locked", kind: "prop", revision: 0, title: "花瓶", source: "",
+      gallery: { id: "gallery", images: [] },
+    });
+    controller.structureEditable = false;
+    render(<ArtifactBlockContext.Provider value={controller}>
+      <ArtifactBlockView artifactId="locked" blockId="block" expectedKind="prop" />
+    </ArtifactBlockContext.Provider>);
+    expect(screen.queryByRole("button", { name: /更多操作/ })).not.toBeInTheDocument();
+    const title = screen.getByRole("textbox", { name: "道具名称" });
+    fireEvent.change(title, { target: { value: "新花瓶" } });
+    fireEvent.blur(title);
+    expect(controller.getArtifact("locked")).toMatchObject({ title: "新花瓶" });
+  });
+  it("offers saving the entire artifact rather than only its gallery", () => {
+    const prop: PropArtifact = {
+      id: "prop-save",
+      kind: "prop",
+      revision: 0,
+      title: "玻璃花瓶",
+      source: "侧光拍摄",
+      gallery: { id: "prop-gallery", images: [] },
+    };
+    const { controller } = controllerFor(prop);
+    controller.saveArtifactBlock = vi.fn();
+    render(
+      <ArtifactBlockContext.Provider value={controller}>
+        <ArtifactBlockView artifactId={prop.id} blockId="prop-block" expectedKind="prop" />
+      </ArtifactBlockContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /更多操作/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "保存到素材库" }));
+    expect(controller.saveArtifactBlock).toHaveBeenCalledWith("prop-block");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
   it("uses the shared compact balanced row for model information and samples", () => {
     const model: ModelCardArtifact = {
       id: "model-1",

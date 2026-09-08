@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ReferenceImageLightbox } from "./ReferenceImageLightbox";
+import { DialogPortalContext } from "../../shared/ui/DialogPortalContext";
 
 function LightboxHarness() {
   const [open, setOpen] = useState(false);
@@ -28,12 +29,52 @@ function LightboxHarness() {
 }
 
 describe("ReferenceImageLightbox", () => {
+  it("keeps programmatic focus inside the topmost viewer", () => {
+    const outside = document.createElement("button");
+    document.body.append(outside);
+    const { unmount } = render(<ReferenceImageLightbox
+      src="data:image/png;base64,AA" alt="参考图" onClose={vi.fn()} />);
+    outside.focus();
+    expect(screen.getByRole("button", { name: "关闭图片" })).toHaveFocus();
+    unmount();
+    outside.remove();
+  });
+  it("explains copy-on-write draft cropping without claiming to overwrite project files", () => {
+    render(<ReferenceImageLightbox src="data:image/png;base64,AA" alt="参考图"
+      copyScope="draft" onClose={vi.fn()} cropAction={{ sourceWidth: 900, sourceHeight: 600, confirm: vi.fn() }} />);
+    fireEvent.click(screen.getByRole("button", { name: "裁剪" }));
+    expect(screen.getByText("裁剪只修改素材草稿副本，保存素材后生效；原始素材图片保持不变。")).toBeVisible();
+  });
+  it("portals inside the active modal without leaking Escape or changing inert siblings", () => {
+    const host = document.createElement("div");
+    const outside = document.createElement("div");
+    outside.inert = true;
+    document.body.append(host, outside);
+    const onClose = vi.fn();
+    const parentKey = vi.fn();
+    const { unmount } = render(
+      <div onKeyDown={parentKey}>
+        <DialogPortalContext.Provider value={() => host}>
+          <ReferenceImageLightbox src="data:image/png;base64,AA" alt="参考图" onClose={onClose} />
+        </DialogPortalContext.Provider>
+      </div>,
+    );
+    expect(host).toContainElement(screen.getByRole("dialog"));
+    fireEvent.keyDown(screen.getByRole("button", { name: "关闭图片" }), { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(parentKey).not.toHaveBeenCalled();
+    expect(outside.inert).toBe(true);
+    unmount();
+    host.remove();
+    outside.remove();
+  });
   it("shows the image and closes via button and Escape", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<ReferenceImageLightbox src="data:image/png;base64,AA" alt="参考图" onClose={onClose} />);
 
     expect(screen.getByRole("dialog")).toBeVisible();
+    expect(screen.getByRole("dialog").parentElement).toHaveAttribute("data-reference-image-lightbox", "");
     expect(screen.getByRole("img", { name: "参考图" })).toBeVisible();
     expect(
       screen.getByRole("button", { name: "关闭图片" }).querySelector('[data-icon="close"]'),

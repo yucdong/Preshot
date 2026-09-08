@@ -5,13 +5,17 @@ import type {
 } from "../../../domain/plan/canvas/models";
 
 export interface ImageGroupBlockController {
+  /** Internal image editing remains available when document structure is locked. */
+  structureEditable?: boolean;
   selectedImageId?: string | null;
   createGroup(): string;
   subscribe(listener: () => void): () => void;
   cloneGroup(sourceGroupId: string): string | null;
   removeBlock?(blockId: string): void;
+  saveBlock?(blockId: string): void;
   getGroup(groupId: string): ReferenceComponent | undefined;
   getImageSrc(file: string): string | undefined;
+  updateGroupMetadata?(groupId: string, update: { name?: string; description?: string }): void;
   addImages(groupId: string): void;
   captureImage?(groupId: string): void;
   removeImage(groupId: string, imageId: string): void;

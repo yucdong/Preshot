@@ -691,7 +691,7 @@ describe("ImageDragPreviewProvider transactions", () => {
     expect(controller!.state.status).toBe("idle");
 
     start();
-    fireEvent.keyDown(window, { key: "Escape" });
+    expect(fireEvent.keyDown(window, { key: "Escape" })).toBe(false);
     expect(controller!.state.status).toBe("idle");
 
     start();

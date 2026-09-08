@@ -27,6 +27,13 @@ pub struct ImportedImage {
     pub data_url: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ReferenceRemovalDisposition {
+    Removed,
+    RetainedForMaterialHistory,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceCropBounds {
@@ -398,6 +405,8 @@ pub fn import_reference_image_into(
 ) -> Result<ImportedImage, CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let _project_lock = crate::library::files::project_lock(&project_path)?;
+    crate::library::before_regular_mutation(&project_path)?;
     let extension = reference_extension(source_path).ok_or_else(|| {
         CommandError::new(
             "reference_unsupported_type",
@@ -554,6 +563,8 @@ pub fn crop_reference_image_in(
 ) -> Result<CroppedReferenceImage, CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let _project_lock = crate::library::files::project_lock(&project_path)?;
+    crate::library::before_regular_mutation(&project_path)?;
     let absolute = resolve_reference_path(&project_path, file)?;
     let crop = encode_reference_crop(&absolute, bounds)?;
     let transaction_id = Uuid::new_v4();
@@ -583,6 +594,8 @@ pub fn copy_reference_image_crop_in(
 ) -> Result<CopiedReferenceImage, CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let _project_lock = crate::library::files::project_lock(&project_path)?;
+    crate::library::before_regular_mutation(&project_path)?;
     let absolute = resolve_reference_path(&project_path, file)?;
     let extension = reference_extension(&absolute).ok_or_else(|| {
         CommandError::new(
@@ -623,6 +636,8 @@ pub fn commit_reference_image_crop_in(
 ) -> Result<(), CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let _project_lock = crate::library::files::project_lock(&project_path)?;
+    crate::library::before_regular_mutation(&project_path)?;
     let absolute = resolve_reference_path(&project_path, file)?;
     let backup = reference_crop_backup_path(&absolute, crop_transaction_id(transaction_id)?)?;
     match fs::remove_file(backup) {
@@ -642,6 +657,8 @@ pub fn rollback_reference_image_crop_in(
 ) -> Result<(), CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let _project_lock = crate::library::files::project_lock(&project_path)?;
+    crate::library::before_regular_mutation(&project_path)?;
     let absolute = resolve_reference_path(&project_path, file)?;
     let backup = reference_crop_backup_path(&absolute, crop_transaction_id(transaction_id)?)?;
     replace_file_atomically(&backup, &absolute).map_err(|error| {
@@ -685,16 +702,31 @@ pub fn load_reference_image_from(project_path: &Path, file: &str) -> Result<Stri
     ))
 }
 
-pub fn remove_reference_image_from(project_path: &Path, file: &str) -> Result<(), CommandError> {
+pub fn remove_reference_image_from(
+    project_path: &Path,
+    file: &str,
+) -> Result<ReferenceRemovalDisposition, CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let _project_lock = crate::library::files::project_lock(&project_path)?;
+    crate::library::before_regular_mutation(&project_path)?;
     let absolute = resolve_reference_path(&project_path, file)?;
+    let relative = absolute
+        .strip_prefix(&project_path)
+        .map_err(|_| reference_path_error())?;
+    if crate::library::retain_reference_for_material_history(
+        &project_path,
+        &relative.to_string_lossy(),
+    )? {
+        return Ok(ReferenceRemovalDisposition::RetainedForMaterialHistory);
+    }
     fs::remove_file(&absolute).map_err(|error| {
         CommandError::new(
             "reference_remove_failed",
             format!("Unable to remove the reference image: {error}"),
         )
-    })
+    })?;
+    Ok(ReferenceRemovalDisposition::Removed)
 }
 
 pub fn import_plan_media_into(
@@ -705,6 +737,8 @@ pub fn import_plan_media_into(
 ) -> Result<ImportedPlanMedia, CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let _project_lock = crate::library::files::project_lock(&project_path)?;
+    crate::library::before_regular_mutation(&project_path)?;
     let kind = media_kind(name, mime_type).ok_or_else(|| {
         CommandError::new(
             "media_unsupported_type",
@@ -779,6 +813,8 @@ pub fn load_plan_media_from(project_path: &Path, file: &str) -> Result<String, C
 pub fn remove_plan_media_from(project_path: &Path, file: &str) -> Result<(), CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let _project_lock = crate::library::files::project_lock(&project_path)?;
+    crate::library::before_regular_mutation(&project_path)?;
     let absolute = resolve_media_path(&project_path, file)?;
     fs::remove_file(&absolute).map_err(|error| {
         CommandError::new(
@@ -794,6 +830,8 @@ pub fn save_project_plan_in(
 ) -> Result<ProjectManifest, CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let _project_lock = crate::library::files::project_lock(&project_path)?;
+    crate::library::before_regular_mutation(&project_path)?;
     let mut manifest = read_manifest(&project_path)?;
     manifest.plan = Some(plan);
     manifest.updated_at = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
@@ -804,6 +842,8 @@ pub fn save_project_plan_in(
 pub fn read_project_plan_in(project_path: &Path) -> Result<serde_json::Value, CommandError> {
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
+    let _project_lock = crate::library::files::project_lock(&project_path)?;
+    crate::library::reconcile_project(&project_path)?;
     Ok(read_manifest(&project_path)?
         .plan
         .unwrap_or(serde_json::Value::Null))
@@ -859,7 +899,10 @@ pub fn load_reference_image(project_path: String, file: String) -> Result<String
 }
 
 #[tauri::command]
-pub fn remove_reference_image(project_path: String, file: String) -> Result<(), CommandError> {
+pub fn remove_reference_image(
+    project_path: String,
+    file: String,
+) -> Result<ReferenceRemovalDisposition, CommandError> {
     remove_reference_image_from(Path::new(&project_path), &file)
 }
 

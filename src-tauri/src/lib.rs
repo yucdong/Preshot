@@ -7,6 +7,7 @@ pub mod copilot;
 mod docx;
 mod error;
 mod long_image;
+mod library;
 mod menu;
 mod pdf;
 mod plan;
@@ -76,6 +77,27 @@ pub fn run() {
             plan::import_plan_media,
             plan::load_plan_media,
             plan::remove_plan_media,
+            library::library_search,
+            library::library_get,
+            library::library_save,
+            library::library_begin_edit,
+            library::library_begin_create,
+            library::library_load_edit_image,
+            library::library_import_edit_images,
+            library::library_crop_edit_image,
+            library::library_commit_edit,
+            library::library_discard_edit,
+            library::library_update_metadata,
+            library::library_set_deleted,
+            library::library_purge,
+            library::library_load_image,
+            library::library_load_preview,
+            library::library_save_preview,
+            library::library_mark_preview_failed,
+            library::library_prepare_insert,
+            library::library_commit_insert,
+            library::library_abort_insert,
+            library::library_insert_status,
             pdf::save_pdf,
             docx::save_docx,
             long_image::save_long_images,

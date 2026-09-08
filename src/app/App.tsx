@@ -28,6 +28,8 @@ import { MemoryAttachmentTokenResolver } from "../infrastructure/agent/memoryAtt
 import { createMemoryAgentMetadataStore } from "../infrastructure/agent/memoryAgentMetadataStore";
 import { createTauriAgentRuntime } from "../infrastructure/agent/tauriAgentRuntime";
 import { tauriAgentMetadataStore } from "../infrastructure/agent/tauriAgentMetadataStore";
+import { AppMaterialLibrary } from "./libraryDependencies";
+import type { MaterialLibraryRepository } from "../domain/library/ports";
 
 const defaultWorkspaceDependencies = createWorkspaceDependencies();
 const defaultPlanDependencies = createPlanDependencies();
@@ -69,11 +71,13 @@ function createBrowserAgentMetadataStore(): AgentMetadataStorePort {
 interface AppProps {
   dependencies?: WorkspaceDependencies;
   planDependencies?: PlanDependencies;
+  materialLibraryRepository?: MaterialLibraryRepository;
 }
 
 export function App({
   dependencies = defaultWorkspaceDependencies,
   planDependencies = defaultPlanDependencies,
+  materialLibraryRepository,
 }: AppProps) {
   const agent = useMemo(() => {
     const attachments = new MemoryAttachmentTokenResolver();
@@ -376,11 +380,13 @@ export function App({
     <AgentModelSettingsProvider controller={agentModelSettingsController}>
       <ThemeProvider repository={settingsRepository}>
         <AgentProvider controller={agent.controller}>
-          <WorkspaceProvider
-            agentWorkspace={agent.workspace}
-            dependencies={dependencies}
-            planDependencies={planDependencies}
-          />
+          <AppMaterialLibrary repository={materialLibraryRepository}>
+            <WorkspaceProvider
+              agentWorkspace={agent.workspace}
+              dependencies={dependencies}
+              planDependencies={planDependencies}
+            />
+          </AppMaterialLibrary>
         </AgentProvider>
       </ThemeProvider>
     </AgentModelSettingsProvider>

@@ -17,5 +17,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "e2e/docxTestArchive.ts"]
+  "include": ["src", "e2e/docxTestArchive.ts", "e2e/fixtures/materialLibrary*.tsx"]
 }

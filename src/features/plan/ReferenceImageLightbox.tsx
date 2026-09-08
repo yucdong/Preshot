@@ -10,6 +10,8 @@ import {
 } from "react";
 import { Check, Crop, LoaderCircle, RotateCcw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { createPortal } from "react-dom";
+import { useDialogPortalHost } from "../../shared/ui/DialogPortalContext";
 import {
   cropFocus,
   cropForFrame,
@@ -29,6 +31,7 @@ interface ReferenceImageLightboxProps {
   src: string;
   alt: string;
   cropAction?: ReferenceImageCropAction;
+  copyScope?: "project" | "draft";
   onClose(): void;
 }
 
@@ -49,17 +52,28 @@ const CROP_PRESETS: ReadonlyArray<{
 
 const FULL_CROP: NormalizedImageCrop = { x: 0, y: 0, width: 1, height: 1 };
 
-function errorMessage(error: unknown) {
+function errorMessage(error: unknown, draft: boolean) {
   const detail = error instanceof Error ? error.message : String(error);
-  return `裁剪项目图片副本失败：${detail}。请检查项目文件是否可写，然后重试。`;
+  return draft
+    ? `裁剪素材草稿图片失败：${detail}。请检查素材库是否可写，然后重试。`
+    : `裁剪项目图片副本失败：${detail}。请检查项目文件是否可写，然后重试。`;
+}
+
+function isTopmostDialog(dialog: HTMLElement | null): boolean {
+  if (!dialog || dialog.closest("[inert], [aria-hidden='true']")) return false;
+  return Array.from(document.querySelectorAll(
+    '[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]',
+  )).filter((element) => !element.closest("[inert], [aria-hidden='true']")).at(-1) === dialog;
 }
 
 export function ReferenceImageLightbox({
   src,
   alt,
   cropAction,
+  copyScope = "project",
   onClose,
 }: ReferenceImageLightboxProps) {
+  const portalHost = useDialogPortalHost();
   const { t } = useTranslation();
   const titleId = useId();
   const descriptionId = useId();
@@ -76,6 +90,7 @@ export function ReferenceImageLightbox({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const copyLabel = copyScope === "draft" ? "素材草稿图片副本" : "项目图片副本";
 
   const sourceAspectRatio = cropAction
     ? cropAction.sourceWidth / cropAction.sourceHeight
@@ -97,7 +112,17 @@ export function ReferenceImageLightbox({
       ? document.activeElement
       : null;
     closeRef.current?.focus();
+    const keepFocus = (event: FocusEvent) => {
+      const dialog = dialogRef.current;
+      if (!isTopmostDialog(dialog) || dialog?.contains(event.target as Node)) return;
+      const target = dialog?.querySelector<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), [tabindex="0"]',
+      );
+      (target ?? dialog)?.focus();
+    };
+    document.addEventListener("focusin", keepFocus);
     return () => {
+      document.removeEventListener("focusin", keepFocus);
       panCleanupRef.current?.();
       returnFocusRef.current?.focus();
     };
@@ -111,16 +136,19 @@ export function ReferenceImageLightbox({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      if (!isTopmostDialog(dialogRef.current)) return;
       if (event.key === "Escape") {
         event.preventDefault();
+        event.stopPropagation();
         if (confirming) {
-          setStatus("正在裁剪项目图片副本，完成前无法关闭。");
+          setStatus(`正在裁剪${copyLabel}，完成前无法关闭。`);
         } else {
           onCloseRef.current();
         }
         return;
       }
       if (event.key !== "Tab") return;
+      event.stopPropagation();
       const focusable = Array.from(
         dialogRef.current?.querySelectorAll<HTMLElement>(
           'button:not(:disabled), input:not(:disabled), [tabindex="0"]',
@@ -151,7 +179,7 @@ export function ReferenceImageLightbox({
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
     };
-  }, [confirming]);
+  }, [confirming, copyLabel]);
 
   const beginCrop = () => {
     setPreset("original");
@@ -257,16 +285,18 @@ export function ReferenceImageLightbox({
     if (!cropAction || confirming) return;
     setConfirming(true);
     setError(null);
-    setStatus("正在裁剪项目图片副本…");
+    setStatus(`正在裁剪${copyLabel}…`);
     try {
       await cropAction.confirm(draftCrop);
       setMode("viewer");
       setPreset("original");
       setDraftCrop(FULL_CROP);
-      setStatus("裁剪已应用到项目图片副本，外部源文件未更改。");
+      setStatus(copyScope === "draft"
+        ? "裁剪已应用到素材草稿，保存素材后生效；原始素材图片未更改。"
+        : "裁剪已应用到项目图片副本，外部源文件未更改。");
       window.requestAnimationFrame(() => cropButtonRef.current?.focus());
     } catch (caught) {
-      setError(errorMessage(caught));
+      setError(errorMessage(caught, copyScope === "draft"));
       setStatus(null);
     } finally {
       setConfirming(false);
@@ -275,15 +305,16 @@ export function ReferenceImageLightbox({
 
   const close = () => {
     if (confirming) {
-      setStatus("正在裁剪项目图片副本，完成前无法关闭。");
+      setStatus(`正在裁剪${copyLabel}，完成前无法关闭。`);
     } else {
       onClose();
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 sm:p-6"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 p-4 sm:p-6"
+      data-reference-image-lightbox=""
       data-preshot-surface="true"
       data-testid="reference-image-backdrop"
       onClick={close}
@@ -304,9 +335,13 @@ export function ReferenceImageLightbox({
               {mode === "crop" ? "裁剪参考图" : alt}
             </h2>
             <p className="text-xs text-white/65" id={descriptionId}>
-              {mode === "crop"
-                ? "裁剪只覆盖项目中的图片副本，不会修改外部源文件。"
-                : "查看项目中的参考图片副本。"}
+              {copyScope === "draft"
+                ? mode === "crop"
+                  ? "裁剪只修改素材草稿副本，保存素材后生效；原始素材图片保持不变。"
+                  : "查看当前素材草稿中的参考图片副本。"
+                : mode === "crop"
+                  ? "裁剪只覆盖项目中的图片副本，不会修改外部源文件。"
+                  : "查看项目中的参考图片副本。"}
             </p>
           </div>
           <button
@@ -531,6 +566,7 @@ export function ReferenceImageLightbox({
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    portalHost,
   );
 }
