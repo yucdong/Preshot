@@ -295,7 +295,7 @@ describe("BlockNoteLongImageExporter", () => {
   });
 
   it("treats omitted allowSplit as false and rejects unsafe overflow", async () => {
-    const test = harness(measurements([8001], { blockIds: ["one"] }));
+    const test = harness(measurements([20_001], { blockIds: ["one"] }));
 
     await expect(test.exporter.export(request(planFor(["one"]))))
       .rejects.toMatchObject({
@@ -308,17 +308,26 @@ describe("BlockNoteLongImageExporter", () => {
     expect(test.destroy).toHaveBeenCalledOnce();
   });
 
-  it("tiles above the 8000px allocation cap when splitting is explicit", async () => {
-    const test = harness(measurements([8001], { blockIds: ["one"] }));
+  it("captures the exact 20000px limit as one image without enabling splitting", async () => {
+    const test = harness(measurements([20_000], { blockIds: ["one"] }));
+    const result = await test.exporter.export(request(planFor(["one"])));
+    expect(result.parts.map(({ height }) => height)).toEqual([20_000]);
+    expect(test.captures[0]?.viewport).toMatchObject({ y: 0, height: 20_000 });
+    expect(test.canvases[0]).toMatchObject({ width: 0, height: 0 });
+    expect(test.close).toHaveBeenCalledOnce();
+  });
+
+  it("tiles above the 20000px allocation cap when splitting is explicit", async () => {
+    const test = harness(measurements([20_001], { blockIds: ["one"] }));
     const result = await test.exporter.export(request(planFor(["one"]), {
       options: { allowSplit: true },
     }));
 
     expect(test.captures.map((entry) => entry.viewport)).toEqual([
-      expect.objectContaining({ y: 0, height: 8000 }),
-      expect.objectContaining({ y: 8000, height: 1 }),
+      expect.objectContaining({ y: 0, height: 20_000 }),
+      expect.objectContaining({ y: 20_000, height: 1 }),
     ]);
-    expect(result.parts.map(({ height }) => height)).toEqual([8000, 1]);
+    expect(result.parts.map(({ height }) => height)).toEqual([20_000, 1]);
     expect(result.warnings.map(({ code }) => code)).toContain(
       "ATOMIC_BLOCK_TILED",
     );
@@ -346,9 +355,9 @@ describe("BlockNoteLongImageExporter", () => {
   });
 
   it("splits a huge image group only on complete row metadata", async () => {
-    const layout = measurements([10_500], {
+    const layout = measurements([22_500], {
       blockIds: ["image-group"],
-      imageRows: [2100, 4800, 7300, 10_500],
+      imageRows: [2100, 4800, 12_300, 22_500],
     });
     const test = harness(layout);
     const result = await test.exporter.export(
@@ -360,8 +369,8 @@ describe("BlockNoteLongImageExporter", () => {
     expect(result.manifest.blocks[0]?.imageGroupRows).toEqual([
       { rowIndex: 0, bottom: 2100 },
       { rowIndex: 1, bottom: 4800 },
-      { rowIndex: 2, bottom: 7300 },
-      { rowIndex: 3, bottom: 10_500 },
+      { rowIndex: 2, bottom: 12_300 },
+      { rowIndex: 3, bottom: 22_500 },
     ]);
     expect(result.parts.map(({ part }) => [
       part.top,
@@ -369,7 +378,7 @@ describe("BlockNoteLongImageExporter", () => {
       part.endKind,
     ])).toEqual([
       [0, 4800, "image-group-row"],
-      [4800, 10_500, "document-end"],
+      [4800, 22_500, "block"],
     ]);
   });
 

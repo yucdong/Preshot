@@ -9,12 +9,27 @@ use uuid::Uuid;
 mod content_edit;
 #[path = "tests_purge.rs"]
 mod permanent_delete;
+#[path = "tests_image.rs"]
+mod single_image;
+#[path = "tests_insert_selection.rs"]
+mod insert_selection_tests;
+#[path = "tests_categories.rs"]
+mod categories;
+
+#[test]
+fn library_image_kind_schema_preserves_v5_instances() {
+    let fixture = Fixture::new("prop");
+    let store = fixture.store();
+    let version: u32 = store.conn.pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
+    assert_eq!(version, 6);
+    assert!(store.conn.prepare("SELECT storage_id FROM image_instances").is_ok());
+}
 
 #[test]
 fn library_edit_schema_migrates_v1_without_losing_content() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let material = store.save(fixture.save_request()).unwrap();
+    let material = store.save_legacy_fixture(fixture.save_request()).unwrap();
     store.conn.execute_batch(
         "DROP TRIGGER IF EXISTS revisioned_content;
          DROP TRIGGER IF EXISTS material_identity_insert;
@@ -32,7 +47,7 @@ fn library_edit_schema_migrates_v1_without_losing_content() {
         .conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 4);
+    assert_eq!(version, 6);
     assert_eq!(store.get(&material.summary.id).unwrap(), material);
     assert_eq!(store.blob(&material.images[0]).unwrap(), fixture.bytes);
 }
@@ -58,6 +73,63 @@ struct Fixture {
     project: PathBuf,
     plan: Value,
     bytes: Vec<u8>,
+}
+
+impl Store {
+    // Seed authentic pre-v5 objects for compatibility/purge tests. Production
+    // snapshot saves deliberately no longer expose a legacy-write branch.
+    fn save_legacy_fixture(&mut self, mut input: MaterialSaveRequest) -> Result<MaterialDetail> {
+        let replay: bool = self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM save_receipts WHERE operation_id=?1
+             UNION ALL SELECT 1 FROM purged_operations WHERE operation_kind='save' AND operation_id=?1)",
+            [&input.operation_id], |r| r.get(0),
+        ).map_err(|e| error("database", e))?;
+        if replay { return self.save(input); }
+        input.metadata = validation::metadata(input.metadata)?;
+        validation::snapshot(&input.expected_plan, &input.snapshot)?;
+        let intent = files::hash(&serde_json::to_vec(&input).unwrap());
+        let project = files::directory(std::path::Path::new(&input.project_path))?;
+        let mut images = Vec::new();
+        for portable in validation::payload_images(&input.snapshot.payload)? {
+            let local_id = portable["localImageId"].as_str().unwrap();
+            let source = input.snapshot.sources.iter().find(|image| image.local_image_id == local_id).unwrap();
+            let bytes = files::read_limited(&files::reference(&project, &source.file, true)?, files::MAX_IMAGE_BYTES)?;
+            let (mime, width, height) = files::image_info(&bytes, false)?;
+            let image = MaterialImage {
+                local_image_id: local_id.into(), blob_id: files::hash(&bytes), storage_id: None,
+                mime_type: mime.into(), byte_length: bytes.len() as u64, width, height,
+            };
+            let path = self.object_path(&image.blob_id, &image.mime_type)?;
+            if !path.exists() { files::atomic(&path, &bytes)?; }
+            images.push(image);
+        }
+        let timestamp = now();
+        let detail = MaterialDetail {
+            summary: MaterialSummary {
+                metadata: input.metadata, id: Uuid::new_v4().to_string(),
+                kind: input.snapshot.payload.kind.clone(), revision: 1, metadata_version: 1,
+                created_at: timestamp, updated_at: timestamp, deleted_at: None,
+                image_count: images.len(), byte_length: images.iter().map(|image| image.byte_length).sum(),
+                preview_state: PreviewState::Pending, preview_partial: None,
+            },
+            payload: input.snapshot.payload, images,
+        };
+        let tx = self.conn.transaction().map_err(|e| error("database", e))?;
+        tx.execute("INSERT INTO materials(id,kind,detail_json) VALUES(?1,?2,?3)",
+            params![detail.summary.id, detail.summary.kind.as_str(), serde_json::to_string(&detail).unwrap()])
+            .map_err(|e| error("database", e))?;
+        let rowid = tx.last_insert_rowid();
+        for (position, image) in detail.images.iter().enumerate() {
+            instances::insert_blob_metadata(&tx, image)?;
+            tx.execute("INSERT INTO material_images(material_id,local_image_id,blob_hash,position) VALUES(?1,?2,?3,?4)",
+                params![detail.summary.id, image.local_image_id, image.blob_id, position]).map_err(|e| error("database", e))?;
+        }
+        search::projection(&tx, rowid, &detail)?;
+        tx.execute("INSERT INTO save_receipts(operation_id,intent_hash,material_id) VALUES(?1,?2,?3)",
+            params![input.operation_id, intent, detail.summary.id]).map_err(|e| error("database", e))?;
+        tx.commit().map_err(|e| error("database", e))?;
+        Ok(detail)
+    }
 }
 
 impl Fixture {
@@ -148,6 +220,8 @@ impl Fixture {
 
     fn insert_request(&self, material: &models::MaterialDetail) -> models::MaterialInsertRequest {
         models::MaterialInsertRequest {
+            target_group_id: None,
+            selection: None,
             operation_id: Uuid::new_v4().to_string(),
             material_id: material.summary.id.clone(),
             revision: material.summary.revision,
@@ -160,6 +234,19 @@ impl Fixture {
     fn next_plan(&self, prepared: &models::PreparedMaterialInsert) -> Value {
         let mut next = self.plan.clone();
         let kind = prepared.payload.kind.as_str();
+        if kind == "image" || insert_selection::separate_images(prepared.selection.as_ref()) {
+            let component = &prepared.payload.component;
+            for image in component["images"].as_array().unwrap() {
+            let source = prepared.images.iter().find(|source| image["localImageId"] == source.local_image_id).unwrap();
+            next["document"]["blocks"].as_array_mut().unwrap().push(json!({
+                "id": Uuid::new_v4().to_string(), "type":"image", "children":[],
+                "props": {"url":source.file,"name":component["name"],
+                    "caption":image["caption"].as_str().unwrap_or(""),
+                    "showPreview":true,"previewWidth":image["frameWidth"]}
+            }));
+            }
+            return next;
+        }
         let mut record = prepared.payload.component.clone();
         let record_id = Uuid::new_v4().to_string();
         record["id"] = json!(record_id);
@@ -241,6 +328,56 @@ impl Fixture {
         journal["phase"] = json!(phase);
         journal["nextPlan"] = json!(next);
         fs::write(path, serde_json::to_vec(&journal).unwrap()).unwrap();
+    }
+}
+
+#[test]
+fn library_insert_resolves_pending_image_paste_before_replacing_the_manifest() {
+    for paste_was_written in [false, true] {
+        let mut fixture = Fixture::new("prop");
+        let mut store = fixture.store();
+        let material = store.save(fixture.save_request()).unwrap();
+        let project_path = fixture.project.to_str().unwrap().to_owned();
+        let pasted = crate::image_paste::prepare_image_paste(
+            project_path.clone(),
+            Uuid::new_v4().to_string(),
+            fixture.plan.clone(),
+            crate::image_paste::Destination::References,
+            crate::image_paste::PasteImage {
+                name: "clipboard.png".into(), mime_type: "image/png".into(), bytes: fixture.bytes.clone(),
+            },
+        ).unwrap();
+        let paste_file = fixture.project.join("references").join(files::reference_name(&pasted.file).unwrap());
+        let receipt_path = fixture.project.join(".preshot-image-paste").join(format!("{}.json", pasted.operation_id));
+        assert!(paste_file.exists());
+        if paste_was_written {
+            let mut next = fixture.plan.clone();
+            let mut image = next["artifacts"][0]["gallery"]["images"][0].clone();
+            image["id"] = json!(Uuid::new_v4().to_string());
+            image["file"] = json!(pasted.file);
+            next["artifacts"][0]["gallery"]["images"].as_array_mut().unwrap().push(image);
+            next["artifacts"][0]["revision"] = json!(fixture.plan["artifacts"][0]["revision"].as_u64().unwrap() + 1);
+            crate::image_paste::commit_image_paste(
+                project_path.clone(), pasted.operation_id.clone(), fixture.plan.clone(), next.clone(),
+            ).unwrap();
+            fixture.plan = next;
+            let mut receipt: Value = serde_json::from_slice(&fs::read(&receipt_path).unwrap()).unwrap();
+            receipt["phase"] = json!("committing");
+            fs::write(&receipt_path, serde_json::to_vec(&receipt).unwrap()).unwrap();
+        }
+        let prepared = store.prepare_insert(fixture.insert_request(&material)).unwrap();
+        let next = fixture.next_plan(&prepared);
+        insert::commit(fixture.commit_request(&prepared, &next)).unwrap();
+        let durable: Value = serde_json::from_slice(&fs::read(&receipt_path).unwrap()).unwrap();
+        assert_eq!(durable["phase"], if paste_was_written { "committed" } else { "aborted" });
+        let status = crate::image_paste::get_image_paste_status(project_path, pasted.operation_id).unwrap();
+        assert_eq!(status.status, if paste_was_written {
+            crate::image_paste::PasteStatus::Committed
+        } else {
+            crate::image_paste::PasteStatus::Aborted
+        });
+        assert_eq!(paste_file.exists(), paste_was_written);
+        assert_eq!(crate::workspace::read_manifest(&fixture.project).unwrap().plan, Some(next));
     }
 }
 
@@ -790,7 +927,7 @@ fn library_failed_prepare_cleans_only_its_copies() {
     let mut store = fixture.store();
     let material = store.save(fixture.save_request()).unwrap();
     let missing = store
-        .object_path(&material.images[1].blob_id, &material.images[1].mime_type)
+        .instance_path(material.images[1].storage_id.as_deref().unwrap(), &material.images[1].mime_type)
         .unwrap();
     fs::remove_file(missing).unwrap();
     let request = fixture.insert_request(&material);
@@ -955,7 +1092,7 @@ fn library_path_and_image_validation_rejects_traversal_aliases_and_wrong_magic()
     .unwrap();
     let material = store.save(fixture.save_request()).unwrap();
     let path = store
-        .object_path(&material.images[0].blob_id, &material.images[0].mime_type)
+        .instance_path(material.images[0].storage_id.as_deref().unwrap(), &material.images[0].mime_type)
         .unwrap();
     fs::write(path, b"changed").unwrap();
     assert!(store

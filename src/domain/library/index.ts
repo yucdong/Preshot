@@ -1,4 +1,6 @@
 export * from "./models";
+export { selectMaterialImages, insertPreparedMaterial } from "./materialInsertion";
+export { createImageMaterialSnapshot } from "./imageMaterial";
 export * from "./ports";
 export type { MaterialInstance } from "./materialStructure";
 export {

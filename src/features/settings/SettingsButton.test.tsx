@@ -2,25 +2,15 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { ThemeProvider } from "../../app/theme/ThemeProvider";
-import { AgentModelSettingsController } from "../../domain/agent";
-import { createBrowserAgentModelProbe } from "../../infrastructure/agent/browserAgentModelProbe";
-import { createSettingsAgentModelStore } from "../../infrastructure/agent/settingsAgentModelStore";
 import { createBrowserSettingsRepository } from "../../infrastructure/settings/browserSettings";
-import { AgentModelSettingsProvider } from "../agent/AgentModelSettingsContext";
 import { SettingsButton } from "./SettingsButton";
 
 function renderButton() {
   const repository = createBrowserSettingsRepository();
-  const controller = new AgentModelSettingsController({
-    store: createSettingsAgentModelStore(repository),
-    probe: createBrowserAgentModelProbe(),
-  });
   return render(
-    <AgentModelSettingsProvider controller={controller}>
       <ThemeProvider repository={repository}>
         <SettingsButton />
-      </ThemeProvider>
-    </AgentModelSettingsProvider>,
+      </ThemeProvider>,
   );
 }
 
@@ -33,5 +23,8 @@ describe("SettingsButton", () => {
     expect(button).toBeVisible();
     await user.click(button);
     expect(screen.getByRole("dialog", { name: "设置" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(button).toHaveFocus();
   });
 });

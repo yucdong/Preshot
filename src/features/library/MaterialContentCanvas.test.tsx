@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { MaterialDetail, MaterialEditImage } from "../../domain/library/models";
 import type { MaterialContentEditorRepository } from "../../domain/library/ports";
 import { MaterialContentCanvas, type MaterialContentCanvasHandle } from "./MaterialContentCanvas";
+import { createEmptyMaterialPayload } from "../../domain/library/materialCreation";
 import { componentImages } from "../../domain/library/materialStructure";
 import { LibraryDialog } from "./LibraryDialog";
 
@@ -27,6 +28,23 @@ function repository(): MaterialContentEditorRepository {
 }
 
 describe("MaterialContentCanvas", () => {
+  it.each(["prop", "clothing"] as const)("edits legacy %s under the merged category without changing its payload kind", async (kind) => {
+    const ref = createRef<MaterialContentCanvasHandle>();
+    const material = { ...model(), kind, payload: createEmptyMaterialPayload(kind, "原名称") };
+    render(<MaterialContentCanvas material={material} assets={new Map()} sessionId="merged-category"
+      repository={repository()} onChange={vi.fn()} onBusyChange={vi.fn()} onError={vi.fn()} ref={ref} />);
+    const title = await screen.findByRole("textbox", { name: "道具与服装名称" });
+    fireEvent.change(title, { target: { value: "新名称" } });
+    fireEvent.blur(title);
+    const source = screen.getByRole("textbox", { name: "道具与服装信息" });
+    fireEvent.change(source, { target: { value: "品牌、来源和拍摄说明" } });
+    fireEvent.blur(source);
+    expect(ref.current!.readPayload()).toMatchObject({
+      kind, component: { kind, title: "新名称", source: "品牌、来源和拍摄说明" },
+    });
+    expect(screen.getByRole("group", { name: "道具与服装组件" })).toBeVisible();
+  });
+
   it("captures into the current draft, cancels late results, and restores image undo", async () => {
     const repo = repository();
     const onChange = vi.fn();

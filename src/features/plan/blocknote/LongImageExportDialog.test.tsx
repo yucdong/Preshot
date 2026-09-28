@@ -49,6 +49,7 @@ describe("LongImageExportDialog", () => {
       .not.toBeChecked();
     expect(screen.getByLabelText("JPEG 体积目标")).toHaveValue("wechat");
     expect(screen.getByText("每张目标不超过 1 MB / 6000 px")).toBeVisible();
+    expect(screen.getByText("单张图片高度上限：20000 px。")).toBeVisible();
     expect(screen.getByText(
       "默认将整个文档导出为一张长图；勾选“自动分图”后，才会按完整区块边界导出多张连续图片。",
     )).toBeVisible();

@@ -16,6 +16,7 @@ import {
 } from "./LongImageExportDialog";
 
 interface BlockNoteCanvasToolbarProps {
+  active?: boolean;
   exportingDocx: boolean;
   exportingLongImage: boolean;
   exportingPdf: boolean;
@@ -31,6 +32,7 @@ interface BlockNoteCanvasToolbarProps {
 }
 
 export function BlockNoteCanvasToolbar({
+  active = true,
   exportingDocx,
   exportingLongImage,
   exportingPdf,
@@ -54,7 +56,7 @@ export function BlockNoteCanvasToolbar({
       : "导出";
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [longImageDialogOpen, setLongImageDialogOpen] = useState(false);
-  const exportMenuVisible = exportMenuOpen && !exportBusy;
+  const exportMenuVisible = active && exportMenuOpen && !exportBusy;
   const exportControlRef = useRef<HTMLDivElement>(null);
   const exportTriggerRef = useRef<HTMLButtonElement>(null);
   const exportItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -270,7 +272,7 @@ export function BlockNoteCanvasToolbar({
           ) : null}
         </div>
       </div>
-      {longImageDialogOpen ? (
+      {active && longImageDialogOpen ? (
         <LongImageExportDialog
           onCancel={closeLongImageDialog}
           onStart={(settings) => {

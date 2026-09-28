@@ -7,64 +7,45 @@
 ## Workspace
 
 - Opening a project maximizes the window.
+- New project creation uses one form with an editable parent directory and the
+  project name. The directory defaults to the native Preshot projects root;
+  opening the form never opens the system picker. An optional picker starts at
+  the currently entered directory. Explain that a new child folder is created
+  there using the project name, and preview the full destination. Cancelled
+  picking and failed creation retain both inputs.
 - The editor toolbar does not expose engine names or internal schema badges.
-- Project switching uses the approved centered loading card from
+- First-time project loading uses the centered loading card from
   `../design_refs/preshot-project-loading-review.html`, not a header spinner.
   Progress starts at 0 and interpolates only toward actual completed work:
   preparation, document read, asset reads/decodes, and mounted canvas readiness.
   These are weighted workflow percentages, not elapsed time or byte throughput.
 - The document remains mounted with its measurement geometry intact, but hidden
-  and inert until the displayed progress reaches 100, holds for 450ms, and fades
-  for 180ms. Reduced motion removes decorative transitions. A load failure
+  and inert until actual canvas readiness. Readiness immediately dismisses the
+  card without waiting for interpolation, a completion hold, or a fade. A load failure
   retains the loading card below 100 with an actionable retry, never a partial
-  document. Waiting for an assistant task retains an explicit switch cancellation.
+  document.
 - Loading does not shift the header or canvas. Theme tokens and forced-color
   support keep the progress indicator visible in each appearance mode.
-- The project panel remains visible by default. The assistant panel is closed
-  by default once the basic agent feature is enabled, and can be opened from
-  the persistent assistant toggle.
+- The project rail has independently scrolling sections: open projects above all
+  registered projects. Clicking a session's close button always asks whether to
+  save and close, discard unsaved changes and close, or cancel. Its autosave is
+  paused while deciding. Failed saves keep the dialog and session open for retry.
+  Discard skips retirement saves and asset purges based on the unsaved draft;
+  previously persisted content (including autosaves) remains intact. Closing
+  releases the in-memory session without removing its registry entry or files.
+- Open projects retain their mounted editor, image sources, history and scroll
+  position. Switching between ready sessions does not read the project or assets
+  again. Background sessions autosave but cannot handle active keyboard shortcuts,
+  image drag, clipboard actions or material insertion.
+- Reference images decode with at most four concurrent jobs; dimensions remain
+  associated with their original files regardless of completion order.
+- The project panel remains visible by default and is the only resizable side
+  panel (192px default, 176-320px range). Focus mode hides it and provides a
+  temporary project overlay. Settings provide theme selection only.
 - The center workspace uses the available viewport with restrained gray margins.
 - The white document has a fixed logical width of 1080px and can extend vertically.
 - Mouse-wheel zoom uses 15% steps and remains anchored near the pointer.
 - Fit-width keeps the document readable without creating a large gray gutter.
-
-## Assistant context seam
-
-- Assistant visibility is a persisted app setting and defaults to closed. The
-  production `AgentPanel` uses the completed native runtime, project-scoped
-  sessions, proposal application, and workspace bridge.
-- Request composition shows immutable project and document chips plus
-  removable block, cursor, and selected-image chips. Removing a chip affects
-  the draft request only, not the editor selection.
-- A selected image contributes at most one automatic attachment. Selecting a
-  different image replaces an unpinned automatic attachment. Pinning preserves
-  it across selection changes; removing it suppresses that automatic image
-  until selection changes. Image-group selection never bulk-attaches a group.
-- Sending captures an immutable snapshot and a per-turn receipt. The receipt
-  records project/document revision, block/cursor selection, and attachment
-  identity without tokens, project paths, thumbnails, or raw media bytes.
-- Immediately before Send, the workspace bridge revalidates the active
-  project, revision, image identity, and current relative file, then issues a
-  fresh single-use opaque token. React never retains that token or constructs
-  an absolute attachment path. If validation fails, the draft and visible chip
-  remain available for correction and the message is not sent.
-- Block citations focus, center-scroll, and briefly highlight the source.
-  Image citations select and scroll to the image and may open the full viewer.
-  If a cited block or image was deleted, the source is shown as unavailable
-  rather than navigating to a replacement.
-- The transcript is a non-live log: streaming is animation-frame batched and
-  screen readers are not asked to announce individual token deltas. Scrolling
-  away pauses auto-follow and exposes an explicit new-response control.
-- Tool permission, disclosed context, and proposal application are visually
-  and semantically separate decisions. Destructive proposal operations always
-  require a fresh confirmation and are never remembered.
-- Session history is newest-first within the current project. The 240-420px
-  panel uses one-column stacked review/actions, supports light/dark and forced
-  colors, preserves focus through dialogs, and removes nonessential motion
-  under `prefers-reduced-motion`.
-- Composer Enter/Shift+Enter remains IME-safe. Forced-colors and
-  reduced-motion modes are independent, and 240-420px panel widths plus 200%
-  text scaling must not introduce panel-level horizontal scrolling.
 
 ## Document editing
 
@@ -173,6 +154,14 @@
 - Persisted documents store relative `media/...` paths; runtime rendering uses
   resolved data URLs.
 - Image imports are limited to 16 MiB, audio to 64 MiB, and video to 128 MiB.
+- Native image blocks place Upload, Embed, and the one-click screen capture
+  button on the same header row. A Windows region capture fills the same image block and
+  supports editor undo/redo. The document shows a cancel action while waiting;
+  cancellation, project deactivation/close, or a removed/replaced target must
+  not publish a late result. Cancelling the Windows snip (Escape or closing its
+  overlay) also ends the in-app wait automatically; users can immediately start
+  another capture without an error or an additional cancel click. Capture
+  failures remain actionable and retryable.
 - Successful Windows captures are imported into the project and their
   Preshot-owned temporary PNG is discarded.
 - Reload reads confirmed reference-image crops from the same project-relative
@@ -214,8 +203,8 @@
   890px is the only compatibility width. The app never silently reduces width.
 - The default WeChat preset prefers 6000px JPEG parts at 0.84 quality and
   adapts no lower than 0.68 before splitting at an earlier block boundary.
-  Lossless PNG prefers 4000px parts. No part may exceed the absolute 8000px
-  safety cap.
+  Lossless PNG prefers 4000px parts. No part may exceed the absolute 20000px
+  safety cap. The dialog displays this cap separately from preset targets.
 - WeChat height/byte/quality values are conservative empirical compatibility
   targets, not official upload limits. The dialog must not promise guaranteed
   acceptance or absence of platform-side recompression.

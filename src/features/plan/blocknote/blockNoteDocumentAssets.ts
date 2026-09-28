@@ -1,6 +1,8 @@
-import type {
-  PreshotBlockDocument,
-  PreshotBlock,
+import {
+  BLOCK_DOCUMENT_SCHEMA_VERSION,
+  validateBlockDocument,
+  type PreshotBlockDocument,
+  type PreshotBlock,
 } from "../../../domain/plan/canvas/blockDocument";
 import type { PreshotEditorPartialBlock } from "./preshotBlockNoteSchema";
 
@@ -10,6 +12,32 @@ const NATIVE_MEDIA_TYPES = new Set([
   "image",
   "video",
 ]);
+
+interface SerializableEditorBlock {
+  id?: string;
+  type: string;
+  props: Record<string, unknown>;
+  children: SerializableEditorBlock[];
+}
+
+export function serializeBlockNoteDocumentAssets(
+  blocks: unknown,
+  persistMediaUrl: (url: string, blockId?: string) => string,
+): PreshotBlockDocument {
+  const jsonSafeBlocks = JSON.parse(JSON.stringify(blocks)) as SerializableEditorBlock[];
+  const normalize = (block: SerializableEditorBlock) => {
+    if (NATIVE_MEDIA_TYPES.has(block.type) && typeof block.props.url === "string") {
+      block.props.url = persistMediaUrl(block.props.url, block.id);
+    }
+    block.children.forEach(normalize);
+  };
+  jsonSafeBlocks.forEach(normalize);
+  return validateBlockDocument({
+    format: "preshot-blocks",
+    version: BLOCK_DOCUMENT_SCHEMA_VERSION,
+    blocks: jsonSafeBlocks,
+  });
+}
 
 function resolveBlock(
   block: PreshotBlock,

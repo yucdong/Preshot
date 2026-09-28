@@ -31,7 +31,11 @@ struct Draft {
     pending: Vec<MaterialImage>,
 }
 
-fn validate_image(image: &MaterialImage) -> Result<()> {
+pub(super) fn validate_image(image: &MaterialImage) -> Result<()> {
+    validation::local_image_identifier(&image.local_image_id)?;
+    if let Some(storage_id) = &image.storage_id {
+        files::uuid(storage_id)?;
+    }
     if !matches!(image.mime_type.as_str(), "image/png" | "image/jpeg")
         || image.blob_id.len() != 64
         || !image
@@ -115,6 +119,7 @@ mod tests {
         let image = MaterialImage {
             local_image_id: Uuid::new_v4().to_string(),
             blob_id: "a".repeat(64),
+            storage_id: None,
             mime_type: "image/png".into(),
             byte_length: files::MAX_IMAGE_BYTES as u64,
             width: 8192,
@@ -203,10 +208,11 @@ impl Store {
         )
     }
 
-    pub(super) fn purge_draft_references(&self) -> Result<(HashSet<String>, HashSet<String>)> {
+    pub(super) fn purge_draft_references(&self) -> Result<(HashSet<String>, HashSet<String>, HashSet<String>)> {
         let root = files::directory(&self.root.join("drafts"))?;
         let mut materials = HashSet::new();
         let mut blobs = HashSet::new();
+        let mut instances = HashSet::new();
         for entry in fs::read_dir(root).map_err(|e| error("edit_read", e))? {
             let entry = entry.map_err(|e| error("edit_read", e))?;
             let name = entry.file_name();
@@ -215,17 +221,15 @@ impl Store {
                 .ok_or_else(|| error("edit_corrupt", "Invalid edit session name"))?;
             let draft = self.read_draft(session)?;
             materials.insert(draft.material.summary.id);
-            blobs.extend(
-                draft
-                    .material
-                    .images
-                    .into_iter()
-                    .chain(draft.staged)
-                    .chain(draft.pending)
-                    .map(|image| image.blob_id),
-            );
+            for image in draft.material.images.into_iter().chain(draft.staged).chain(draft.pending) {
+                if let Some(storage_id) = image.storage_id {
+                    instances.insert(storage_id);
+                } else {
+                    blobs.insert(image.blob_id);
+                }
+            }
         }
-        Ok((materials, blobs))
+        Ok((materials, blobs, instances))
     }
 
     fn draft_path(&self, session_id: &str) -> Result<PathBuf> {
@@ -314,6 +318,12 @@ impl Store {
             .iter()
             .map(|i| i.local_image_id.as_str())
             .collect();
+        let mut storage_ids = HashSet::new();
+        for image in draft.material.images.iter().chain(&draft.staged).chain(&draft.pending) {
+            if image.storage_id.as_ref().is_some_and(|id| !storage_ids.insert(id)) {
+                return Err(error("edit_corrupt", "Draft has duplicate physical image ownership"));
+            }
+        }
         for image in draft.staged.iter().chain(&draft.pending) {
             image_filename(image)?;
             if !ids.insert(&image.local_image_id) {
@@ -483,6 +493,7 @@ impl Store {
         let image = MaterialImage {
             local_image_id: Uuid::new_v4().to_string(),
             blob_id: files::hash(bytes),
+            storage_id: Some(Uuid::new_v4().to_string()),
             mime_type: mime.into(),
             byte_length: bytes.len() as u64,
             width,
@@ -589,6 +600,26 @@ impl Store {
         self.finish_batch(&mut draft, result)
     }
 
+    pub(super) fn import_edit_image_data(
+        &self,
+        session_id: &str,
+        input: MaterialEditImageData,
+    ) -> Result<MaterialEditImage> {
+        let filename = format!("references/{}", input.name);
+        files::reference_name(&filename)?;
+        let (mime, _, _) = files::image_info(&input.bytes, false)?;
+        if mime != input.mime_type
+            || (mime == "image/png") != input.name.to_ascii_lowercase().ends_with(".png")
+        {
+            return Err(error("image_format", "Clipboard image name, MIME type and decoded bytes must agree"));
+        }
+        let mut draft = self.read_draft(session_id)?;
+        self.verify_draft_entries(&draft)?;
+        self.clear_pending(&mut draft)?;
+        let result = self.stage_image(&mut draft, &input.bytes).map(|image| vec![image]);
+        self.finish_batch(&mut draft, result).map(|mut images| images.remove(0))
+    }
+
     pub(super) fn crop_edit_image(
         &self,
         session_id: &str,
@@ -671,10 +702,16 @@ impl Store {
                     "Operation ID was reused with a different content update",
                 ));
             }
-            return serde_json::from_str(&result).map_err(|e| error("corrupt", e));
+            let detail: MaterialDetail = serde_json::from_str(&result).map_err(|e| error("corrupt", e))?;
+            validation::payload(&detail.payload)?;
+            budget(detail.images.iter(), 128, files::MAX_BATCH_BYTES)?;
+            for image in &detail.images {
+                self.validate_instance_mapping(image)?;
+            }
+            return Ok(detail);
         }
-        validation::payload(&input.payload)?;
-        let draft = self.read_draft(&input.session_id)?;
+        validation::ready_payload(&input.payload)?;
+        let mut draft = self.read_draft(&input.session_id)?;
         let creating = draft.version == CREATE_DRAFT_VERSION;
         let mut detail = if creating {
             let purged: bool = self
@@ -745,6 +782,20 @@ impl Store {
             .revision
             .checked_add(1)
             .ok_or_else(|| error("revision", "Material content revision exhausted"))?;
+        let used_ids: HashSet<_> = validation::payload_images(&input.payload)?.iter()
+            .map(|image| image["localImageId"].as_str().unwrap()).collect();
+        let mut upgraded_stages = false;
+        for image in &mut draft.staged {
+            if image.storage_id.is_none() && used_ids.contains(image.local_image_id.as_str()) {
+                image.storage_id = Some(Uuid::new_v4().to_string());
+                upgraded_stages = true;
+            }
+        }
+        if upgraded_stages {
+            // Old drafts remain readable, but their previously unpublished
+            // imports gain a pinned instance before their first v5 Save.
+            self.write_draft(&draft)?;
+        }
         let mut images = Vec::new();
         let mut byte_length = 0u64;
         for portable in validation::payload_images(&input.payload)? {
@@ -754,20 +805,14 @@ impl Store {
             if byte_length > files::MAX_BATCH_BYTES {
                 return Err(error("edit_limit", "Material images exceed 256 MiB"));
             }
-            let destination = self.object_path(&image.blob_id, &image.mime_type)?;
-            if destination.try_exists().map_err(|e| error("path", e))? {
-                self.blob(&image)?;
-            } else {
-                // Objects become durable first. Rollback may retain orphan blobs, never missing ones.
-                if !creating {
-                    self.remember_asset(
-                        &detail.summary.id,
-                        "object",
-                        &image.blob_id,
-                        &image.mime_type,
-                    )?;
+            if image.storage_id.is_some() {
+                if draft.staged.iter().any(|staged| staged.local_image_id == image.local_image_id) {
+                    self.publish_instance(&draft.session_id, &image, &bytes)?;
+                } else {
+                    self.blob(&image)?;
                 }
-                files::atomic(&destination, &bytes)?;
+            } else {
+                self.blob(&image)?;
             }
             images.push(image);
         }
@@ -814,11 +859,18 @@ impl Store {
             .map_err(|e| error("database", e))?;
         }
         for (position, image) in detail.images.iter().enumerate() {
-            tx.execute("INSERT OR IGNORE INTO blobs(hash,mime_type,byte_length,width,height) VALUES(?1,?2,?3,?4,?5)",
-                params![image.blob_id, image.mime_type, image.byte_length, image.width, image.height])
-                .map_err(|e| error("database", e))?;
-            tx.execute("INSERT INTO material_images(material_id,local_image_id,blob_hash,position) VALUES(?1,?2,?3,?4)",
-                params![detail.summary.id, image.local_image_id, image.blob_id, position])
+            super::instances::insert_blob_metadata(&tx, image)?;
+            if let Some(storage_id) = &image.storage_id {
+                tx.execute(
+                    "INSERT INTO image_instances(storage_id,blob_hash,session_id,local_image_id) VALUES(?1,?2,?3,?4)
+                     ON CONFLICT(storage_id) DO NOTHING",
+                    params![storage_id, image.blob_id, draft.session_id, image.local_image_id],
+                ).map_err(|e| error("database", e))?;
+                tx.execute("DELETE FROM instance_publications WHERE storage_id=?1 AND session_id=?2",
+                    params![storage_id, draft.session_id]).map_err(|e| error("database", e))?;
+            }
+            tx.execute("INSERT INTO material_images(material_id,local_image_id,blob_hash,position,storage_id) VALUES(?1,?2,?3,?4,?5)",
+                params![detail.summary.id, image.local_image_id, image.blob_id, position, image.storage_id])
                 .map_err(|e| error("database", e))?;
         }
         let rowid: i64 = tx
@@ -844,9 +896,21 @@ impl Store {
         let draft = self.read_draft(session_id)?;
         let images: Vec<_> = draft.staged.iter().chain(&draft.pending).cloned().collect();
         self.verify_draft_entries(&draft)?;
+        self.cleanup_instance_publications(session_id)?;
         self.cleanup_stages(&draft, &images)?;
         fs::remove_file(path.join("manifest.json")).map_err(|e| error("edit_cleanup", e))?;
         fs::remove_dir(path).map_err(|e| error("edit_cleanup", e))?;
         Ok(())
+    }
+
+    pub(super) fn instance_publication_is_pinned(&self, session_id: &str, image: &MaterialImage) -> Result<bool> {
+        if !self.draft_path(session_id)?.try_exists().map_err(|e| error("edit_read", e))? {
+            return Ok(false);
+        }
+        let draft = self.read_draft(session_id)?;
+        if !draft.staged.iter().any(|staged| staged == image) {
+            return Err(error("edit_corrupt", "Instance publication differs from its owning draft"));
+        }
+        Ok(true)
     }
 }

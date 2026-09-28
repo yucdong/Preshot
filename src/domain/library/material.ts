@@ -3,6 +3,7 @@ import {
   type ImageCollection,
   type ProjectPlanV15,
   type PreshotBlock,
+  mediaFilesInBlockDocument,
 } from "../plan/canvas/blockDocument";
 import { DEFAULT_REFERENCE_HEIGHT, type ReferenceImage } from "../plan/canvas/models";
 import {
@@ -61,7 +62,7 @@ function planImages(plan: ProjectPlanV15): ReferenceImage[] {
 export function createMaterialSnapshot(plan: ProjectPlanV15, blockId: string): MaterialSnapshot {
   const source = validateLibraryPlan(plan);
   const block = source.document.blocks.find(({ id }) => id === blockId);
-  if (!block || !(MATERIAL_KINDS as readonly string[]).includes(block.type)) {
+  if (!block || block.type === "image" || !(MATERIAL_KINDS as readonly string[]).includes(block.type)) {
     throw new Error("Select one supported top-level material component");
   }
   if (block.children.length !== 0) {
@@ -155,9 +156,12 @@ export function instantiateMaterial(
   payload: MaterialPayload,
   files: readonly MaterialImageSource[],
   makeId: () => string,
+  surface: "project" | "libraryCanvas" = "project",
 ): MaterialInstance {
   const validated = validateMaterialPayload(payload);
+  const nativeImage = validated.kind === "image" && surface === "project";
   const images = componentImages(validated.component);
+  if (nativeImage && images.length !== 1) throw new Error("图片素材需要且只能包含一张图片。");
   if (!Array.isArray(files) || files.length !== images.length) {
     throw new Error("Material image sources must map every payload image exactly once");
   }
@@ -166,7 +170,14 @@ export function instantiateMaterial(
   for (const source of files) {
     const value = exactRecord(source, ["localImageId", "file"], "Material image source");
     assertLocalImageId(value.localImageId);
-    assertReferenceFile(value.file);
+    if (nativeImage) {
+      if (typeof value.file !== "string" || !value.file.startsWith("media/")) {
+        throw new Error("Image material insertion requires a project-local media file");
+      }
+      assertReferenceFile(value.file.replace(/^media\//, "references/"));
+    } else {
+      assertReferenceFile(value.file);
+    }
     if (!expected.has(value.localImageId) || supplied.has(value.localImageId)) {
       throw new Error("Material image sources must form a bijection with payload images");
     }
@@ -184,7 +195,16 @@ export function instantiateMaterial(
     used.add(id);
     return id;
   };
-  const instance = buildMaterialInstance(validated, sourceMap(files), freshId);
+  const instance: MaterialInstance = nativeImage && validated.component.kind === "image"
+    ? { block: {
+      id: freshId(), type: "image", children: [], content: undefined,
+      props: {
+        url: files[0].file, name: validated.component.name,
+        caption: images[0].caption ?? "", showPreview: true,
+        previewWidth: images[0].frameWidth,
+      },
+    } }
+    : buildMaterialInstance(validated, sourceMap(files), freshId);
   validateLibraryPlan(instancePlan(instance));
   return instance;
 }
@@ -220,14 +240,22 @@ export function insertMaterialIntoPlan(
     !(MATERIAL_KINDS as readonly string[]).includes(instance.block.type) ||
     !Array.isArray(instance.block.children) || instance.block.children.length !== 0 ||
     instance.block.content !== undefined ||
-    (instance.block.type === "imageGroup"
+    (instance.block.type === "image"
+      ? instance.imageGroup !== undefined || instance.artifact !== undefined
+      : instance.block.type === "imageGroup"
       ? !instance.imageGroup || instance.artifact !== undefined
       : !instance.artifact || instance.imageGroup !== undefined)
   ) {
     throw new Error("Material insertion requires exactly one supported block and sidecar");
   }
-  exactRecord(instance.block.props,
-    [instance.block.type === "imageGroup" ? "groupId" : "artifactId"], "Material marker");
+  exactRecord(instance.block.props, instance.block.type === "image"
+    ? ["url", "name", "caption", "showPreview", "previewWidth"]
+    : [instance.block.type === "imageGroup" ? "groupId" : "artifactId"], "Material marker");
+  if (instance.block.type === "image") {
+    const url = instance.block.props.url;
+    if (typeof url !== "string" || !url.startsWith("media/")) throw new Error("Image material requires local media");
+    assertReferenceFile(url.replace(/^media\//, "references/"));
+  }
   if (instance.artifact?.layout !== undefined) {
     throw new Error("Material artifact must not contain outer layout");
   }
@@ -243,9 +271,12 @@ export function insertMaterialIntoPlan(
     if (used.has(id)) throw new Error("Material insertion identity collision");
     used.add(id);
   }
-  const existingFiles = new Set(planImages(target).map(({ file }) => file.toLowerCase()));
-  for (const image of planImages(addition)) {
-    if (existingFiles.has(image.file.toLowerCase())) {
+  const imageFiles = (plan: ProjectPlanV15) => [
+    ...planImages(plan).map(({ file }) => file), ...mediaFilesInBlockDocument(plan.document),
+  ];
+  const existingFiles = new Set(imageFiles(target).map((file) => file.toLowerCase()));
+  for (const file of imageFiles(addition)) {
+    if (existingFiles.has(file.toLowerCase())) {
       throw new Error("Material insertion files must be newly copied project files");
     }
   }

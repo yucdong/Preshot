@@ -46,7 +46,7 @@ Attribution is maintained in
 
 ## SQLite and material search dependencies
 
-The global agent metadata store and separate material content store use
+The global material content store uses
 `rusqlite@0.37.0` under the MIT license with its `bundled` feature. The bundled
 SQLite source is public domain. The material library also pins
 `jieba-rs@0.8.1` with its embedded default dictionary, `sha2@0.10.9`,
@@ -55,22 +55,12 @@ GPL-compatible. Version, source attribution, copyright and MIT notices are
 maintained in the installer-bundled
 [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 
-## GitHub Copilot SDK and managed CLI
+## Image clipboard dependencies
 
-The Rust dependency is pinned exactly to
-`github-copilot-sdk@1.0.11` with only its `bundled-cli` feature enabled. The
-SDK is MIT-licensed. It embeds the unmodified GitHub Copilot CLI release
-artifact `1.0.79`; that signed artifact self-reports runtime version
-`1.0.81-7`. Preshot does not enable the optional in-process transport.
-The reviewed Windows x64 archive is 100,644,089 bytes and its unmodified
-`copilot.exe` payload is 159,403,296 bytes. The archive SHA-256 is recorded in
-the third-party notice and enforced by the native packaging contract.
-
-The CLI has its own redistribution license. Preshot's distribution fits that
-license's application-bundling conditions: the CLI remains unmodified, is not
-offered standalone or as the primary product, and Preshot provides material
-photography-planning functionality independently. The exact SDK and CLI
-license texts and checksums are recorded in
-[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) and [`LICENSES`](../LICENSES).
-Access to GitHub services is governed separately by the applicable GitHub and
-GitHub Copilot terms.
+Image clipboard history directly pins the already-used
+`prosemirror-transform@1.12.0` under MIT. Enabling GIF/WebP support on the existing
+Rust `image` dependency adds locked `gif@0.14.2`, `color_quant@1.1.0` and
+`image-webp@0.2.4`. Preshot selects their MIT license options; these remain
+GPL-compatible and run locally. Their attribution and MIT permission notice
+are included in the installer-bundled
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).

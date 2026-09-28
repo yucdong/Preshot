@@ -13,16 +13,15 @@ function advance(milliseconds: number) {
   });
 }
 
-function finishInterpolation() {
-  for (let frame = 0; frame < 45 && displayedProgress() < 100; frame += 1) {
-    act(() => {
-      vi.advanceTimersToNextFrame();
-    });
-  }
-  expect(displayedProgress()).toBe(100);
-}
-
 describe("ProjectLoadingScreen", () => {
+  it("completes immediately on real readiness without advancing animation or timers", () => {
+    const onComplete = vi.fn();
+    const { rerender } = render(<ProjectLoadingScreen projectName="即时加载" progress={40} onComplete={onComplete} />);
+    expect(onComplete).not.toHaveBeenCalled();
+    rerender(<ProjectLoadingScreen projectName="即时加载" progress={100} onComplete={onComplete} />);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(displayedProgress()).toBe(100);
+  });
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -127,63 +126,15 @@ describe("ProjectLoadingScreen", () => {
     expect(announcement).toHaveTextContent("正在整理画布…");
   });
 
-  it("holds displayed 100 for 450ms, fades for 180ms and completes exactly once", () => {
-    const onComplete = vi.fn();
-    const { rerender } = render(
-      <ProjectLoadingScreen projectName="夜景摆设" progress={100} onComplete={onComplete} />,
-    );
-    const view = screen.getByRole("region", { name: "项目加载" });
-    finishInterpolation();
-    expect(screen.getByText("项目已就绪")).toBeVisible();
-    expect(screen.getByRole("status")).toHaveTextContent("已准备就绪");
-    expect(view).toHaveAttribute("data-state", "complete");
-
-    advance(449);
-    expect(view).toHaveAttribute("data-state", "complete");
-    expect(onComplete).not.toHaveBeenCalled();
-    advance(1);
-    expect(view).toHaveAttribute("data-state", "leaving");
-    advance(179);
-    expect(onComplete).not.toHaveBeenCalled();
-    advance(1);
-    expect(onComplete).toHaveBeenCalledTimes(1);
-    expect(view).toBeInTheDocument();
-
-    rerender(
-      <ProjectLoadingScreen
-        projectName="夜景摆设"
-        progress={100}
-        statusText="画布已经准备好"
-        onComplete={onComplete}
-      />,
-    );
-    advance(5_000);
-    expect(onComplete).toHaveBeenCalledTimes(1);
-  });
-
-  it("uses replacement completion callbacks without restarting interpolation or the hold", () => {
+  it("completes only once across callback changes", () => {
     const original = vi.fn();
     const replacement = vi.fn();
-    const latest = vi.fn();
-    const { rerender } = render(
-      <ProjectLoadingScreen projectName="夜景摆设" progress={100} onComplete={original} />,
-    );
-    advance(400);
-    const current = displayedProgress();
-    rerender(
-      <ProjectLoadingScreen projectName="夜景摆设" progress={100} onComplete={replacement} />,
-    );
-    expect(displayedProgress()).toBe(current);
-    advance(300);
-    expect(displayedProgress()).toBe(100);
-    advance(300);
-    rerender(
-      <ProjectLoadingScreen projectName="夜景摆设" progress={100} onComplete={latest} />,
-    );
-    advance(330);
-    expect(original).not.toHaveBeenCalled();
+    const { rerender } = render(<ProjectLoadingScreen projectName="夜景摆设" progress={100} onComplete={original} />);
+    expect(original).toHaveBeenCalledTimes(1);
+    rerender(<ProjectLoadingScreen projectName="夜景摆设" progress={100} onComplete={replacement} />);
+    advance(5_000);
+    expect(original).toHaveBeenCalledTimes(1);
     expect(replacement).not.toHaveBeenCalled();
-    expect(latest).toHaveBeenCalledTimes(1);
   });
 
   it("freezes interpolation on error, including when the parent subsequently reports 100", () => {
@@ -211,28 +162,6 @@ describe("ProjectLoadingScreen", () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 
-  it.each([200, 500])("cancels completion when an error arrives %ims after displayed 100", (delay) => {
-    const onComplete = vi.fn();
-    const { rerender } = render(
-      <ProjectLoadingScreen projectName="夜景摆设" progress={100} onComplete={onComplete} />,
-    );
-    finishInterpolation();
-    advance(delay);
-    rerender(
-      <ProjectLoadingScreen
-        projectName="夜景摆设"
-        progress={100}
-        error="画布初始化失败，请重试。"
-        onComplete={onComplete}
-      />,
-    );
-    advance(5_000);
-    expect(screen.getByRole("alert")).toBeVisible();
-    expect(screen.getByRole("region", { name: "项目加载" })).toHaveAttribute("data-state", "error");
-    expect(displayedProgress()).toBe(100);
-    expect(onComplete).not.toHaveBeenCalled();
-  });
-
   it("exposes retry only on error and invokes the supplied callback without resetting progress itself", () => {
     const onRetry = vi.fn();
     const onComplete = vi.fn();
@@ -257,63 +186,30 @@ describe("ProjectLoadingScreen", () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 
-  it("completes once in StrictMode after the complete hold and fade", () => {
+  it("completes once in StrictMode without timers", () => {
     const onComplete = vi.fn();
-    render(
-      <StrictMode>
-        <ProjectLoadingScreen projectName="棚拍人像" progress={100} onComplete={onComplete} />
-      </StrictMode>,
-    );
-    expect(displayedProgress()).toBe(0);
-    finishInterpolation();
-    advance(630);
+    render(<StrictMode><ProjectLoadingScreen projectName="棚拍人像" progress={100} onComplete={onComplete} /></StrictMode>);
+    expect(displayedProgress()).toBe(100);
+    expect(onComplete).toHaveBeenCalledTimes(1);
     advance(5_000);
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["interpolation", "hold", "fade"])("cancels pending work on unmount during %s", (phase) => {
+  it("cancels interpolation on unmount", () => {
     const onComplete = vi.fn();
-    const { unmount } = render(
-      <ProjectLoadingScreen projectName="夜景摆设" progress={100} onComplete={onComplete} />,
-    );
-    if (phase === "interpolation") {
-      advance(96);
-    } else {
-      finishInterpolation();
-      advance(phase === "hold" ? 200 : 500);
-    }
+    const { unmount } = render(<ProjectLoadingScreen projectName="夜景摆设" progress={80} onComplete={onComplete} />);
+    advance(96);
     unmount();
     expect(vi.getTimerCount()).toBe(0);
     advance(5_000);
     expect(onComplete).not.toHaveBeenCalled();
   });
 
-  it("preserves truthful progress and the hold while skipping fade for reduced motion", () => {
-    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
-      matches: query === "(prefers-reduced-motion: reduce)",
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(() => true),
-    }));
+  it("does not complete when readiness and an error arrive together", () => {
     const onComplete = vi.fn();
-    const { rerender } = render(
-      <ProjectLoadingScreen projectName="夜景摆设" progress={99} onComplete={onComplete} />,
-    );
+    render(<ProjectLoadingScreen projectName="夜景摆设" progress={100} error="图片读取失败" onComplete={onComplete} />);
     advance(5_000);
-    expect(displayedProgress()).toBe(99);
     expect(onComplete).not.toHaveBeenCalled();
-    rerender(
-      <ProjectLoadingScreen projectName="夜景摆设" progress={100} onComplete={onComplete} />,
-    );
-    finishInterpolation();
-    advance(449);
-    expect(onComplete).not.toHaveBeenCalled();
-    advance(1);
-    expect(onComplete).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("region", { name: "项目加载" })).not.toHaveAttribute("data-state", "leaving");
+    expect(screen.getByRole("alert")).toHaveTextContent("图片读取失败");
   });
 });

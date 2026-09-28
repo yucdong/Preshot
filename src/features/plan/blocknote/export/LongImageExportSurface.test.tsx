@@ -268,10 +268,14 @@ describe("LongImageExportSurface", () => {
     const nativeMedia = surface.querySelectorAll<HTMLElement>(
       "[data-preshot-export-native-media]",
     );
-    expect(nativeMedia).toHaveLength(4);
+    // Native image blocks (including clipboard pastes) must retain their image
+    // preview; the static media marker replaces its children with a file label.
+    const nativeImage = surface.querySelector('[data-content-type="image"]')!;
+    expect(nativeImage).not.toHaveAttribute("data-preshot-export-native-media");
+    expect(nativeImage.querySelector("img")).toHaveAttribute("src", LOCAL_PNG);
+    expect(nativeMedia).toHaveLength(3);
     expect([...nativeMedia].map((entry) =>
       entry.dataset.preshotExportNativeMediaLabel)).toEqual([
-      "IMAGE · native.png",
       "AUDIO · ambient.wav",
       "VIDEO · camera.mp4",
       "FILE · call-sheet.bin",

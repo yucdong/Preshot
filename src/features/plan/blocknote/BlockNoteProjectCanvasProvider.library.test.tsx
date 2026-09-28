@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { MaterialDetail } from "../../../domain/library/models";
+import { selectMaterialImages } from "../../../domain/library";
 import type { MaterialLibraryRepository } from "../../../domain/library/ports";
 import type { BlockNotePlanService } from "../../../domain/plan/blocknote/service";
 import {
@@ -10,7 +11,8 @@ import {
   type ProjectPlanV15,
 } from "../../../domain/plan/canvas/blockDocument";
 import { unavailableMaterialLibrary } from "../../../infrastructure/library/unavailableMaterialLibrary";
-import { MaterialLibraryProvider, useOptionalMaterialLibrary } from "../../library/MaterialLibraryContext";
+import { useOptionalMaterialLibrary } from "../../library/MaterialLibraryContext";
+import { MaterialLibraryProvider } from "../../library/MaterialLibraryProvider";
 import { BlockNoteProjectCanvasProvider } from "./BlockNoteProjectCanvasProvider";
 import type { PreshotBlockNoteEditor } from "./blockOperations";
 
@@ -44,7 +46,7 @@ const material: MaterialDetail = {
 };
 const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aJ/8AAAAASUVORK5CYII=";
 
-afterEach(() => { vi.unstubAllEnvs(); });
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 function LibraryLauncher() {
   const library = useOptionalMaterialLibrary();
@@ -73,10 +75,12 @@ function fixture(initial?: ProjectPlanV15, savedMaterial = material) {
         operationId: input.operationId,
         materialId: input.materialId,
         revision: input.revision,
-        payload: savedMaterial.payload,
-        images: savedMaterial.images.map((image, index) => ({
+        payload: selectMaterialImages(savedMaterial.payload, input.selection),
+        ...(input.selection ? { selection: input.selection } : {}),
+        ...(input.targetGroupId ? { targetGroupId: input.targetGroupId } : {}),
+        images: savedMaterial.images.filter((image) => !input.selection || input.selection.imageIds.includes(image.localImageId)).map((image, index) => ({
           localImageId: image.localImageId,
-          file: `references/${String(index + 1).padStart(4, "0")}.png`,
+          file: `${!input.targetGroupId && (savedMaterial.kind === "image" || input.selection?.mode === "images") ? "media" : "references"}/${String(index + 1).padStart(4, "0")}.png`,
         })),
       };
     }),
@@ -91,7 +95,7 @@ function fixture(initial?: ProjectPlanV15, savedMaterial = material) {
     loadPlan: vi.fn<BlockNotePlanService["loadPlan"]>(async () => ({ status: "loaded", plan })),
     savePlan: vi.fn(async (_path, next) => { events.push("save"); plan = next; }),
     loadImage: vi.fn(async () => { events.push("load-image"); return pixel; }),
-    loadMedia: vi.fn(),
+    loadMedia: vi.fn(async () => { events.push("load-media"); return pixel; }),
     importMedia: vi.fn(),
     importImages: vi.fn(),
     commitImageCrop: vi.fn(),
@@ -150,6 +154,116 @@ async function chooseMaterial() {
 }
 
 describe("material library and the real project editor", () => {
+  it.each(["image", "imageGroup"] as const)("appends %s materials to the chosen group and undoes the batch", async (kind) => {
+    vi.stubGlobal("Image", class { src = ""; naturalWidth = 1; naturalHeight = 1; decode = async () => undefined; });
+    const ids = kind === "image" ? ["first"] : ["first", "middle", "last"];
+    const savedMaterial: MaterialDetail = { ...material, kind, imageCount: ids.length, byteLength: 68 * ids.length,
+      payload: { format: "preshot-material", version: 1, kind, component: { kind, name: "素材图片", description: "原素材",
+        images: ids.map((localImageId) => ({ localImageId, caption: localImageId, aspectRatio: 1, frameWidth: 120, frameHeight: 120 })) } },
+      images: ids.map((localImageId) => ({ localImageId, blobId: "a".repeat(64), mimeType: "image/png", byteLength: 68, width: 1, height: 1 })),
+    };
+    const initial = createEmptyProjectPlanV15("目标项目", { makeId: () => "initial" });
+    initial.imageGroups = [{ id: "target", type: "reference", name: "目标组名", description: "目标描述", x: 0, width: 1008, height: 320,
+      images: [{ id: "existing", file: "references/0099.png", aspectRatio: 1, sourceWidth: 1, sourceHeight: 1, frameWidth: 120, frameHeight: 120 }] }];
+    initial.document.blocks.push({ id: "target-block", type: "imageGroup", props: { groupId: "target" }, content: undefined, children: [] });
+    const context = fixture(initial, savedMaterial);
+    await screen.findByRole("group", { name: "方案正文" });
+    fireEvent.click(await screen.findByRole("button", { name: "从素材库插入" }));
+    const browser = await screen.findByRole("dialog", { name: "素材库" });
+    const insert = within(browser).getByRole("button", { name: "插入到当前图片组" });
+    await waitFor(() => expect(insert).toBeEnabled());
+    expect(context.repository.search).toHaveBeenCalledWith(expect.objectContaining({ imagesOnly: true }));
+    expect(within(browser).queryByRole("button", { name: "道具与服装" })).not.toBeInTheDocument();
+    fireEvent.click(insert);
+    if (kind === "imageGroup") {
+      const chooser = await screen.findByRole("dialog", { name: "插入图片组素材" });
+      expect(within(chooser).queryByRole("radio")).not.toBeInTheDocument();
+      fireEvent.click(within(chooser).getByRole("checkbox", { name: "选择第 2 张图片：middle" }));
+      fireEvent.click(within(chooser).getByRole("button", { name: "确认插入" }));
+    }
+    await waitFor(() => expect(context.repository.commitInsert).toHaveBeenCalledOnce());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "素材库" })).not.toBeInTheDocument());
+    expect(context.repository.prepareInsert).toHaveBeenCalledWith(expect.objectContaining({ targetGroupId: "target" }));
+    const next = context.getPlan();
+    expect(next.document.blocks.map((block) => block.id)).toEqual(initial.document.blocks.map((block) => block.id));
+    expect(next.imageGroups[0]).toMatchObject({ name: "目标组名", description: "目标描述" });
+    expect(next.imageGroups[0].images.slice(1).map((image) => image.caption)).toEqual(kind === "image" ? ["first"] : ["first", "last"]);
+    act(() => { currentEditor().undo(); });
+    await act(async () => { fireEvent.keyDown(window, { key: "s", ctrlKey: true }); });
+    expect(context.getPlan().imageGroups[0].images).toEqual(initial.imageGroups[0].images);
+    act(() => { currentEditor().redo(); });
+    await act(async () => { fireEvent.keyDown(window, { key: "s", ctrlKey: true }); });
+    expect(context.getPlan().imageGroups[0].images).toEqual(next.imageGroups[0].images);
+  });
+
+  it.each(["imageGroup", "images"] as const)("inserts selected group images as %s with one commit and one undo", async (mode) => {
+    const groupMaterial: MaterialDetail = {
+      ...material, kind: "imageGroup", imageCount: 3, byteLength: 204,
+      payload: { format: "preshot-material", version: 1, kind: "imageGroup", component: {
+        kind: "imageGroup", name: "完整组名", description: "完整描述", images: ["first", "second", "third"].map((id) => ({
+          localImageId: id, caption: id, aspectRatio: 1, frameWidth: 120, frameHeight: 120,
+        })),
+      } },
+      images: ["first", "second", "third"].map((localImageId) => ({ localImageId, blobId: "a".repeat(64), mimeType: "image/png", byteLength: 68, width: 1, height: 1 })),
+    };
+    const context = fixture(undefined, groupMaterial);
+    await screen.findByRole("group", { name: "方案正文" });
+    act(() => { currentEditor().setTextCursorPosition("initial", "end"); currentEditor().focus(); });
+    await chooseMaterial();
+    const dialog = await screen.findByRole("dialog", { name: "插入图片组素材" });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "选择第 2 张图片：second" }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: mode === "images" ? "独立图片" : "图片组" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认插入" }));
+    await waitFor(() => expect(context.repository.commitInsert).toHaveBeenCalledOnce());
+    expect(context.repository.prepareInsert).toHaveBeenCalledWith(expect.objectContaining({ selection: { mode, imageIds: ["first", "third"] } }));
+    const next = context.getPlan();
+    if (mode === "images") {
+      expect(next.document.blocks.slice(1).map((block) => [block.type, block.props.caption])).toEqual([["image", "first"], ["image", "third"]]);
+      expect(next.imageGroups).toEqual([]);
+    } else {
+      expect(next.imageGroups[0]).toMatchObject({ name: "完整组名", description: "完整描述" });
+      expect(next.imageGroups[0].images.map((image) => image.caption)).toEqual(["first", "third"]);
+    }
+    const editor = currentEditor();
+    act(() => { editor.undo(); });
+    expect(editor.document).toHaveLength(1);
+    act(() => { editor.redo(); });
+    expect(editor.document.filter((block) => block.type === (mode === "images" ? "image" : "imageGroup"))).toHaveLength(mode === "images" ? 2 : 1);
+    await act(async () => { fireEvent.keyDown(window, { key: "s", ctrlKey: true }); });
+    expect(JSON.stringify(context.getPlan())).not.toContain("data:image");
+    expect(context.repository.abortInsert).not.toHaveBeenCalled();
+  });
+
+  it("inserts an image material as a native image with independent media and real undo/redo", async () => {
+    const imageMaterial: MaterialDetail = {
+      ...material, kind: "image", imageCount: 1, byteLength: 68,
+      payload: { format: "preshot-material", version: 1, kind: "image", component: {
+        kind: "image", name: "独立照片", description: "", images: [{
+          localImageId: "photo", caption: "图片说明", aspectRatio: 1, frameWidth: 120, frameHeight: 120,
+        }],
+      } },
+      images: [{ localImageId: "photo", blobId: "a".repeat(64), mimeType: "image/png", byteLength: 68, width: 1, height: 1 }],
+    };
+    const context = fixture(undefined, imageMaterial);
+    await screen.findByRole("group", { name: "方案正文" });
+    act(() => { currentEditor().setTextCursorPosition("initial", "end"); currentEditor().focus(); });
+    await chooseMaterial();
+    await waitFor(() => expect(context.repository.commitInsert).toHaveBeenCalledOnce());
+    const inserted = context.getPlan().document.blocks[1];
+    expect(inserted).toMatchObject({ type: "image", props: { url: "media/0001.png", caption: "图片说明" } });
+    expect(context.getPlan().imageGroups).toEqual([]);
+    expect(context.service.loadMedia).toHaveBeenCalledWith("C:\\library-provider-fixture", "media/0001.png");
+    expect(context.events.indexOf("load-media")).toBeLessThan(context.events.indexOf("commit"));
+    const editor = currentEditor();
+    expect(editor.getBlock(inserted.id)).toMatchObject({ type: "image", props: { url: pixel } });
+    act(() => { editor.undo(); });
+    expect(editor.getBlock(inserted.id)).toBeUndefined();
+    act(() => { editor.redo(); });
+    expect(editor.getBlock(inserted.id)).toMatchObject({ type: "image", props: { url: pixel } });
+    await act(async () => { fireEvent.keyDown(window, { key: "s", ctrlKey: true }); });
+    expect(context.getPlan().document.blocks[1].props.url).toBe("media/0001.png");
+  });
+
   it.each([null, "middle"])("opens the shared library with insertion at %s or the document beginning", async (anchor) => {
     const initial = createEmptyProjectPlanV15("目标项目", { makeId: () => "first" });
     initial.document.blocks = ["first", "middle", "last"].map((id) => ({

@@ -2,6 +2,35 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+for (const preset of ["wechat", "lossless-png"] as const) {
+  test(`exports pasted native image pixels with ${preset}`, async ({ page }) => {
+    const { externalRequests } = trackExternalRequests(page);
+    await page.goto("/e2e/fixtures/long-image-native-media.html");
+    await page.waitForFunction(() => Boolean(window.exportPastedImages));
+    const result = await page.evaluate(value => window.exportPastedImages(value), preset);
+    expect(result.partCount).toBe(1);
+    expect(result.imageRects).toHaveLength(2);
+    expect(result.imageRects[0].width).toBeCloseTo(400, 0);
+    expect(result.imageRects[1].width).toBeCloseTo(250, 0);
+    for (const rect of result.imageRects) expect(rect.height).toBeCloseTo(rect.width / 2, 0);
+    expect(result.imageRects[1].x).toBeGreaterThan(result.imageRects[0].x);
+    expect(result.imageRects[1].y).toBeGreaterThan(result.imageRects[0].y + result.imageRects[0].height);
+    const expected = [[239, 68, 68, 255], [34, 197, 94, 255], [59, 130, 246, 255]];
+    for (const image of result.samples) image.forEach((pixel, index) => {
+      pixel.forEach((value, channel) => expect(Math.abs(value - expected[index][channel]))
+        .toBeLessThanOrEqual(preset === "lossless-png" ? 0 : 6));
+    });
+    expect(result.staticLabels).toEqual(["FILE · 拍摄清单.txt"]);
+    expect(result.captions[0]).toContain("粘贴图片说明 1");
+    expect(result.captions[1]).toContain("粘贴图片说明 2");
+    expect(result.unchanged).toBe(true);
+    expect(result.remainingSurfaces).toBe(0);
+    expect(externalRequests).toEqual([]);
+    await writeFile(test.info().outputPath(`pasted-images.${preset === "wechat" ? "jpg" : "png"}`),
+      Buffer.from(result.bytes));
+  });
+}
+
 function trackExternalRequests(page: Page): {
   externalRequests: string[];
   getAppOrigin(): string;
@@ -81,7 +110,7 @@ interface CaptureSpikeApi {
     };
     workerUrls: string[];
   }>;
-  runLongCapture(): Promise<{
+  runLongCapture(height?: number): Promise<{
     dimensions: {
       width: number;
       height: number;
@@ -130,6 +159,16 @@ interface CaptureSpikeApi {
 declare global {
   interface Window {
     captureSpike: CaptureSpikeApi;
+    exportPastedImages(preset: "wechat" | "lossless-png"): Promise<{
+      bytes: number[];
+      partCount: number;
+      imageRects: Array<{ x: number; y: number; width: number; height: number }>;
+      staticLabels: string[];
+      captions: string[];
+      samples: number[][][];
+      unchanged: boolean;
+      remainingSurfaces: number;
+    }>;
   }
 }
 
@@ -240,22 +279,21 @@ test("renders the representative offline fixture to exact canvas and Blob output
   }
 });
 
-test("captures a 6000px fixture without truncation and releases its context", async ({
+for (const height of [6000, 20_000]) {
+test(`captures a ${height}px fixture without truncation and releases its context`, async ({
   page,
 }) => {
   const { externalRequests } = trackExternalRequests(page);
   await page.goto("/e2e/fixtures/long-image-capture.html");
   await page.waitForFunction(() => Boolean(window.captureSpike));
-  const result = await page.evaluate(() =>
-    window.captureSpike.runLongCapture(),
-  );
+  const result = await page.evaluate(value => window.captureSpike.runLongCapture(value), height);
 
   expect(result.boundedPixels).toBe(true);
   expect(result.dimensions).toEqual({
     width: 900,
-    height: 6000,
+    height,
     canvasWidth: 900,
-    canvasHeight: 6000,
+    canvasHeight: height,
   });
   expect(result.bottomSentinel.slice(0, 3)).toEqual([190, 18, 60]);
   expect(result.segment).toEqual({
@@ -279,11 +317,11 @@ test("captures a 6000px fixture without truncation and releases its context", as
     const directory = resolve(reviewArtifactDirectory);
     await mkdir(directory, { recursive: true });
     await writeFile(
-      resolve(directory, "capture-6000.png"),
+      resolve(directory, `capture-${height}.png`),
       Buffer.from(result.png.base64, "base64"),
     );
     await writeFile(
-      resolve(directory, "capture-6000-summary.json"),
+      resolve(directory, `capture-${height}-summary.json`),
       JSON.stringify({
         dimensions: result.dimensions,
         bottomSentinel: result.bottomSentinel,
@@ -301,6 +339,7 @@ test("captures a 6000px fixture without truncation and releases its context", as
     );
   }
 });
+}
 
 test("reuses one context for contiguous exact-width segments and then releases it", async ({
   page,

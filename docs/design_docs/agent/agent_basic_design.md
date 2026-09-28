@@ -1,5 +1,8 @@
 # Preshot Basic Agent Design
 
+> Historical reference: the assistant feature and Copilot dependency were removed
+> on 2026-09-28. This document does not describe the current application.
+
 **Status:** Implemented production contract
 **Runtime UI:** Simplified Chinese
 **Runtime:** GitHub Copilot Rust SDK with a managed Copilot CLI process

@@ -1,10 +1,11 @@
 import { artifactCollectionsInPlan, type ProjectPlanV15 } from "../plan/canvas/blockDocument";
 import { createMaterialSnapshot, instantiateMaterial } from "./material";
 import { componentImages, instancePlan } from "./materialStructure";
-import type { MaterialPayload } from "./models";
+import type { MaterialKind, MaterialPayload } from "./models";
 import { validateMaterialPayload } from "./validation";
 
 export interface MaterialEditDraft {
+  readonly kind: MaterialKind;
   readonly plan: ProjectPlanV15;
   readonly structure: string;
   readonly fileTokens: Map<string, string>;
@@ -35,16 +36,16 @@ export function createMaterialEditDraft(
   const sources = componentImages(payload.component).map(({ localImageId }, index) => ({
     localImageId, file: `references/${String(index + 1).padStart(4, "0")}.png`,
   }));
-  const plan = instancePlan(instantiateMaterial(payload, sources, makeId));
+  const plan = instancePlan(instantiateMaterial(payload, sources, makeId, "libraryCanvas"));
   return {
-    plan, structure: structure(plan),
+    kind: payload.kind, plan, structure: structure(plan),
     fileTokens: new Map(sources.map(({ file, localImageId }) => [file, localImageId])),
   };
 }
 
 export function serializeMaterialEditDraft(
   plan: ProjectPlanV15,
-  draft: Pick<MaterialEditDraft, "structure" | "fileTokens">,
+  draft: Pick<MaterialEditDraft, "kind" | "structure" | "fileTokens">,
 ): MaterialPayload {
   if (plan.document.blocks.length !== 1 || structure(plan) !== draft.structure) {
     throw new Error("素材编辑只能修改当前组件的内容，不能改变组件类型、结构或外部布局。");
@@ -64,6 +65,9 @@ export function serializeMaterialEditDraft(
   // through the virtual reference file, including after reorder and undo.
   for (const image of componentImages(snapshot.payload.component)) {
     image.localImageId = nativeTokens.get(image.localImageId)!;
+  }
+  if (draft.kind === "image" && snapshot.payload.component.kind === "imageGroup") {
+    snapshot.payload = { ...snapshot.payload, kind: "image", component: { ...snapshot.payload.component, kind: "image" } };
   }
   return validateMaterialPayload(snapshot.payload);
 }

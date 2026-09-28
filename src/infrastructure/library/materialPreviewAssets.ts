@@ -122,6 +122,7 @@ function validateImages(material: MaterialDetail): void {
 export interface PreparedMaterialPreview {
   plan: ProjectPlanV15;
   resolvedAssets: Record<string, string>;
+  sourceTokens: ReadonlyMap<string, string>;
   text: string;
   dispose(): void;
 }
@@ -147,7 +148,7 @@ export async function prepareMaterialPreview(
     return id;
   };
   // Instantiation validates the exact payload/image bijection and removes legacy outer geometry.
-  const instance = instantiateMaterial(material.payload, files, makeId);
+  const instance = instantiateMaterial(material.payload, files, makeId, "libraryCanvas");
   const plan: ProjectPlanV15 = {
     schemaVersion: 15,
     title: material.name,
@@ -206,7 +207,8 @@ export async function prepareMaterialPreview(
       resolvedAssets[files[index].file] = objectUrl;
     }
     return {
-      plan, resolvedAssets, text: materialPayloadText(material.payload), dispose,
+      plan, resolvedAssets, sourceTokens: new Map(files.map(file => [file.file, file.localImageId])),
+      text: materialPayloadText(material.payload), dispose,
     };
   } catch (error) {
     dispose();

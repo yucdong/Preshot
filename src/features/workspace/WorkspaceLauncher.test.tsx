@@ -72,6 +72,8 @@ function renderLauncher(options: RenderOptions = {}) {
       <WorkspaceLauncher
         error={options.error ?? null}
         isCreateDialogOpen={isCreateDialogOpen}
+        defaultParentPath="C:\\Projects"
+        onPickCreateDirectory={async () => null}
         loading={options.loading ?? false}
         onCancelCreate={() => {
           onCancelCreate();
@@ -504,7 +506,7 @@ describe("WorkspaceLauncher", () => {
     await user.tab();
     expect(createButton).toHaveFocus();
     await user.tab();
-    expect(input).toHaveFocus();
+    expect(within(dialog).getByLabelText("项目所在路径")).toHaveFocus();
     await user.tab({ shift: true });
     expect(createButton).toHaveFocus();
   });

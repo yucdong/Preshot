@@ -56,21 +56,17 @@ test("scrolls the middle canvas panel to reach components below the fold", async
   await expect(lastGroup).toBeInViewport();
 });
 
-test("resizes side panels and restores defaults by double click", async ({ page }) => {
+test("resizes the project panel and restores its default by double click", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await expect(page.getByTestId("plan-document-canvas")).toBeVisible();
-  await page.getByRole("button", { name: "显示助手面板" }).click();
 
   const projectSplitter = page.getByRole("separator", { name: "调整项目栏宽度" });
-  const assistantSplitter = page.getByRole("separator", { name: "调整助手栏宽度" });
   const workspace = page.getByTestId("resizable-workspace");
   const projectBefore = Number(await projectSplitter.getAttribute("aria-valuenow"));
-  const assistantBefore = Number(await assistantSplitter.getAttribute("aria-valuenow"));
   const projectBox = await projectSplitter.boundingBox();
-  const assistantBox = await assistantSplitter.boundingBox();
-  if (!projectBox || !assistantBox) {
-    throw new Error("panel splitters are not visible");
+  if (!projectBox) {
+    throw new Error("project splitter is not visible");
   }
 
   await page.mouse.move(projectBox.x + projectBox.width / 2, projectBox.y + 120);
@@ -80,18 +76,10 @@ test("resizes side panels and restores defaults by double click", async ({ page 
   await expect.poll(async () => Number(await projectSplitter.getAttribute("aria-valuenow")))
     .toBeGreaterThan(projectBefore + 30);
 
-  await page.mouse.move(assistantBox.x + assistantBox.width / 2, assistantBox.y + 120);
-  await page.mouse.down();
-  await page.mouse.move(assistantBox.x - 36, assistantBox.y + 120, { steps: 5 });
-  await page.mouse.up();
-  await expect.poll(async () => Number(await assistantSplitter.getAttribute("aria-valuenow")))
-    .toBeGreaterThan(assistantBefore + 25);
   expect(await workspace.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
 
   await projectSplitter.dblclick();
-  await assistantSplitter.dblclick();
   await expect(projectSplitter).toHaveAttribute("aria-valuenow", "192");
-  await expect(assistantSplitter).toHaveAttribute("aria-valuenow", "272");
 });
 
 test("uses a viewport-safe project overflow menu with confirmed removal", async ({

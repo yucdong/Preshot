@@ -5,7 +5,6 @@ import {
 } from "react";
 import type { SettingsRepository } from "../../domain/settings/ports";
 import {
-  ASSISTANT_WIDTH,
   DEFAULT_SETTINGS,
   PROJECT_RAIL_WIDTH,
   normalizeSettings,
@@ -78,7 +77,6 @@ export function ThemeProvider({ repository, children }: ThemeProviderProps) {
       .then((latest) => repository.write(normalizeSettings({
         ...latest,
         ...next,
-        agentModel: latest.agentModel ?? next.agentModel,
       })))
       .catch((error) => {
         console.error(failureMessage, error);
@@ -91,16 +89,10 @@ export function ThemeProvider({ repository, children }: ThemeProviderProps) {
     persistSettings(next, "Failed to save theme setting:");
   };
 
-  const setPanelWidths = (widths: { projectRailWidth: number; assistantWidth: number }) => {
+  const setPanelWidths = (widths: { projectRailWidth: number }) => {
     const next = normalizeSettings({ ...settings, ...widths });
     setSettings(next);
     persistSettings(next, "Failed to save panel settings:");
-  };
-
-  const setAssistantOpen = (assistantOpen: boolean) => {
-    const next = normalizeSettings({ ...settings, assistantOpen });
-    setSettings(next);
-    persistSettings(next, "Failed to save assistant visibility:");
   };
 
   return (
@@ -109,9 +101,6 @@ export function ThemeProvider({ repository, children }: ThemeProviderProps) {
       setTheme,
       resolved,
       projectRailWidth: settings.projectRailWidth ?? PROJECT_RAIL_WIDTH.default,
-      assistantWidth: settings.assistantWidth ?? ASSISTANT_WIDTH.default,
-      assistantOpen: settings.assistantOpen ?? false,
-      setAssistantOpen,
       setPanelWidths,
     }}>
       {children}

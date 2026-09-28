@@ -6,12 +6,8 @@ export interface ThemeContextValue {
   setTheme: (theme: Theme) => void;
   resolved: "light" | "dark";
   projectRailWidth: number;
-  assistantWidth: number;
-  assistantOpen: boolean;
-  setAssistantOpen: (open: boolean) => void;
   setPanelWidths: (widths: {
     projectRailWidth: number;
-    assistantWidth: number;
   }) => void;
 }
 

@@ -2,6 +2,10 @@ mod commands;
 mod edit;
 pub(crate) mod files;
 mod insert;
+mod insert_selection;
+mod insert_gallery;
+mod image_material;
+mod instances;
 pub mod models;
 mod purge;
 mod search;
@@ -16,7 +20,6 @@ use std::{
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use rusqlite::{params, Connection, OptionalExtension};
-use uuid::Uuid;
 
 use crate::error::CommandError;
 use models::*;
@@ -74,20 +77,42 @@ impl Store {
         let version: u32 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(|e| error("database", e))?;
-        if version > 4 {
+        if version > 6 {
             return Err(error(
                 "database_version",
                 "Library was created by a newer application",
             ));
         }
-        conn.execute_batch(include_str!("schema.sql"))
-            .map_err(|e| error("database", e))?;
+        if version < 5 {
+            conn.execute_batch(include_str!("schema.sql"))
+                .map_err(|e| error("database", e))?;
+            let tx = conn.transaction().map_err(|e| error("database", e))?;
+            let has_storage: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('material_images') WHERE name='storage_id')",
+                [], |r| r.get(0),
+            ).map_err(|e| error("database", e))?;
+            if !has_storage {
+                tx.execute_batch("ALTER TABLE material_images ADD COLUMN storage_id TEXT REFERENCES image_instances(storage_id);")
+                    .map_err(|e| error("database", e))?;
+            }
+            tx.execute_batch(include_str!("schema_v5.sql"))
+                .map_err(|e| error("database", e))?;
+            tx.commit().map_err(|e| error("database", e))?;
+        } else {
+            conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;")
+                .map_err(|e| error("database", e))?;
+        }
+        if version < 6 {
+            conn.pragma_update(None, "user_version", 6).map_err(|e| error("database", e))?;
+        }
+        files::child_dir(&root, "instances")?;
         search::rebuild_if_needed(&mut conn)?;
         let mut store = Self {
             root,
             conn,
             _lock: lock,
         };
+        store.recover_instance_publications()?;
         store.recover_purges()?;
         Ok(store)
     }
@@ -106,7 +131,7 @@ impl Store {
         let (kind, json) = row.ok_or_else(|| error("not_found", "Material was not found"))?;
         let detail: MaterialDetail =
             serde_json::from_str(&json).map_err(|e| error("corrupt", e))?;
-        validation::payload(&detail.payload)?;
+        validation::ready_payload(&detail.payload)?;
         if detail.summary.id != id
             || detail.summary.kind != detail.payload.kind
             || detail.summary.kind.as_str() != kind
@@ -118,7 +143,7 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT i.local_image_id,b.hash,b.mime_type,b.byte_length,b.width,b.height
+                "SELECT i.local_image_id,b.hash,b.mime_type,b.byte_length,b.width,b.height,i.storage_id
             FROM material_images i JOIN blobs b ON b.hash=i.blob_hash
             WHERE i.material_id=?1 ORDER BY i.position",
             )
@@ -132,12 +157,17 @@ impl Store {
                     byte_length: row.get(3)?,
                     width: row.get(4)?,
                     height: row.get(5)?,
+                    storage_id: row.get(6)?,
                 })
             })
             .map_err(|e| error("database", e))?
             .collect::<rusqlite::Result<Vec<_>>>()
             .map_err(|e| error("database", e))?;
         let portable = validation::payload_images(&detail.payload)?;
+        for image in &images {
+            edit::validate_image(image)?;
+            self.validate_instance_mapping(image)?;
+        }
         if images != detail.images
             || portable.len() != images.len()
             || portable
@@ -145,6 +175,7 @@ impl Store {
                 .zip(&images)
                 .any(|(p, i)| p["localImageId"] != i.local_image_id)
             || detail.summary.image_count != images.len()
+            || detail.summary.byte_length > files::MAX_BATCH_BYTES
             || detail.summary.byte_length != images.iter().map(|i| i.byte_length).sum::<u64>()
         {
             return Err(error(
@@ -183,7 +214,12 @@ impl Store {
     }
 
     fn blob(&self, image: &MaterialImage) -> Result<Vec<u8>> {
-        let path = self.object_path(&image.blob_id, &image.mime_type)?;
+        self.validate_instance_mapping(image)?;
+        let path = if let Some(storage_id) = &image.storage_id {
+            self.instance_path(storage_id, &image.mime_type)?
+        } else {
+            self.object_path(&image.blob_id, &image.mime_type)?
+        };
         let bytes = files::read_limited(&path, files::MAX_IMAGE_BYTES)?;
         if files::hash(&bytes) != image.blob_id || bytes.len() as u64 != image.byte_length {
             return Err(error(
@@ -229,6 +265,7 @@ impl Store {
         let _project_lock = files::project_lock(&project)?;
         insert::check_base(&project, &input.project_id, &input.expected_plan)?;
         insert::ensure_no_conflicts(&project)?;
+        let (material_id, timestamp) = self.begin_snapshot_instance_save(&input.operation_id, &intent)?;
         let mut images = Vec::new();
         let mut byte_length = 0;
         for portable in validation::payload_images(&input.snapshot.payload)? {
@@ -239,9 +276,15 @@ impl Store {
                 .iter()
                 .find(|s| s.local_image_id == local_id)
                 .unwrap();
-            let path = files::reference(&project, &source.file, true)?;
+            let path = if input.snapshot.payload.kind == MaterialKind::Image {
+                image_material::source_path(&project, &source.file)?
+            } else { files::reference(&project, &source.file, true)? };
             let bytes = files::read_limited(&path, files::MAX_IMAGE_BYTES)?;
             let (mime, width, height) = files::image_info(&bytes, false)?;
+            if input.snapshot.payload.kind == MaterialKind::Image && source.file.starts_with("media/") &&
+                (portable["sourceWidth"] != width || portable["sourceHeight"] != height) {
+                return Err(error("source", "Native image dimensions do not match the original file"));
+            }
             let extension = path
                 .extension()
                 .and_then(|s| s.to_str())
@@ -257,36 +300,23 @@ impl Store {
             if byte_length > files::MAX_BATCH_BYTES {
                 return Err(error("size", "Material source images exceed 256 MiB"));
             }
-            let hash = files::hash(&bytes);
-            let destination = self.object_path(&hash, mime)?;
-            if destination.exists() {
-                if files::hash(&files::read_limited(&destination, files::MAX_IMAGE_BYTES)?) != hash
-                {
-                    return Err(error(
-                        "image_corrupt",
-                        "Existing immutable library object is corrupt",
-                    ));
-                }
-            } else {
-                // File-first atomic publication. A crash may leave an unreferenced object,
-                // never a published material whose image was not durably written.
-                files::atomic(&destination, &bytes)?;
-            }
-            images.push(MaterialImage {
+            let image = self.snapshot_instance_image(&input.operation_id, MaterialImage {
                 local_image_id: local_id.into(),
-                blob_id: hash,
+                blob_id: files::hash(&bytes),
+                storage_id: None,
                 mime_type: mime.into(),
                 byte_length: bytes.len() as u64,
                 width,
                 height,
-            });
+            })?;
+            self.publish_instance(&input.operation_id, &image, &bytes)?;
+            images.push(image);
         }
         insert::check_base(&project, &input.project_id, &input.expected_plan)?;
-        let timestamp = now();
         let detail = MaterialDetail {
             summary: MaterialSummary {
                 metadata: input.metadata,
-                id: Uuid::new_v4().to_string(),
+                id: material_id,
                 kind: input.snapshot.payload.kind.clone(),
                 revision: 1,
                 metadata_version: 1,
@@ -313,10 +343,13 @@ impl Store {
         .map_err(|e| error("database", e))?;
         let rowid = tx.last_insert_rowid();
         for (position, image) in detail.images.iter().enumerate() {
-            tx.execute("INSERT OR IGNORE INTO blobs(hash,mime_type,byte_length,width,height) VALUES(?1,?2,?3,?4,?5)",
-                params![image.blob_id,image.mime_type,image.byte_length,image.width,image.height]).map_err(|e| error("database", e))?;
-            tx.execute("INSERT INTO material_images(material_id,local_image_id,blob_hash,position) VALUES(?1,?2,?3,?4)",
-                params![detail.summary.id,image.local_image_id,image.blob_id,position]).map_err(|e| error("database", e))?;
+            instances::insert_blob_metadata(&tx, image)?;
+            tx.execute(
+                "INSERT INTO image_instances(storage_id,blob_hash,session_id,local_image_id) VALUES(?1,?2,?3,?4)",
+                params![image.storage_id, image.blob_id, input.operation_id, image.local_image_id],
+            ).map_err(|e| error("database", e))?;
+            tx.execute("INSERT INTO material_images(material_id,local_image_id,blob_hash,position,storage_id) VALUES(?1,?2,?3,?4,?5)",
+                params![detail.summary.id,image.local_image_id,image.blob_id,position,image.storage_id]).map_err(|e| error("database", e))?;
         }
         search::projection(&tx, rowid, &detail)?;
         tx.execute(
@@ -324,6 +357,10 @@ impl Store {
             params![input.operation_id, intent, detail.summary.id],
         )
         .map_err(|e| error("database", e))?;
+        tx.execute("DELETE FROM instance_publications WHERE session_id=?1", [&input.operation_id])
+            .map_err(|e| error("database", e))?;
+        tx.execute("DELETE FROM snapshot_instance_saves WHERE operation_id=?1", [&input.operation_id])
+            .map_err(|e| error("database", e))?;
         tx.commit().map_err(|e| error("database", e))?;
         Ok(detail)
     }

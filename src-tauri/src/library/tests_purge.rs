@@ -30,7 +30,7 @@ fn preview(store: &mut Store, material: &MaterialDetail, bytes: Vec<u8>, width: 
 fn library_purge_removes_record_original_preview_search_and_preserves_project() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let material = store.save(fixture.save_request()).unwrap();
+    let material = store.save_legacy_fixture(fixture.save_request()).unwrap();
     let object = store
         .object_path(&material.images[0].blob_id, &material.images[0].mime_type)
         .unwrap();
@@ -173,8 +173,8 @@ fn library_purge_blocks_recoverable_edit_draft_until_explicit_discard() {
 fn library_purge_retains_shared_objects_and_previews_until_last_material() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let first = store.save(fixture.save_request()).unwrap();
-    let second = store.save(fixture.save_request()).unwrap();
+    let first = store.save_legacy_fixture(fixture.save_request()).unwrap();
+    let second = store.save_legacy_fixture(fixture.save_request()).unwrap();
     preview(&mut store, &first, fixture.bytes.clone(), 3, 2);
     preview(&mut store, &second, fixture.bytes.clone(), 3, 2);
     let cached = store.preview_path(&files::hash(&fixture.bytes)).unwrap();
@@ -290,7 +290,7 @@ fn library_purge_sql_failure_rolls_back_canonical_record_search_receipts_and_out
 fn library_purge_interrupted_after_database_commit_recovers_on_open_and_retry_is_idempotent() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let material = store.save(fixture.save_request()).unwrap();
+    let material = store.save_legacy_fixture(fixture.save_request()).unwrap();
     let deleted = trash(&mut store, &material);
     let object = store
         .object_path(&material.images[0].blob_id, "image/png")
@@ -332,7 +332,7 @@ fn library_purge_partial_cleanup_reports_pending_without_paths_and_retries_missi
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
     let save = fixture.save_request();
-    let material = store.save(save.clone()).unwrap();
+    let material = store.save_legacy_fixture(save.clone()).unwrap();
     preview(&mut store, &material, fixture.bytes.clone(), 3, 2);
     let deleted = trash(&mut store, &material);
     let object = store
@@ -385,7 +385,7 @@ fn library_purge_partial_cleanup_reports_pending_without_paths_and_retries_missi
 fn library_purge_cleanup_sql_failure_after_unlink_keeps_retry_ownership() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let material = store.save(fixture.save_request()).unwrap();
+    let material = store.save_legacy_fixture(fixture.save_request()).unwrap();
     let deleted = trash(&mut store, &material);
     let object = store
         .object_path(&material.images[0].blob_id, "image/png")
@@ -427,13 +427,13 @@ fn library_purge_cleanup_sql_failure_after_unlink_keeps_retry_ownership() {
 fn library_purge_open_recovery_preserves_files_claimed_by_later_material_data() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let first = store.save(fixture.save_request()).unwrap();
+    let first = store.save_legacy_fixture(fixture.save_request()).unwrap();
     preview(&mut store, &first, fixture.bytes.clone(), 3, 2);
     let deleted = trash(&mut store, &first);
     store
         .queue_purge(&deleted.id, deleted.metadata_version)
         .unwrap();
-    let second = store.save(fixture.save_request()).unwrap();
+    let second = store.save_legacy_fixture(fixture.save_request()).unwrap();
     preview(&mut store, &second, fixture.bytes.clone(), 3, 2);
     drop(store);
     let mut store = fixture.store();
@@ -454,7 +454,7 @@ fn library_purge_removes_attributable_old_revision_blobs_previews_and_edit_recei
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
     let save = fixture.save_request();
-    let material = store.save(save.clone()).unwrap();
+    let material = store.save_legacy_fixture(save.clone()).unwrap();
     preview(&mut store, &material, fixture.bytes.clone(), 3, 2);
     let first_preview = store.preview_path(&files::hash(&fixture.bytes)).unwrap();
     let second_png = png(4, 3);
@@ -565,7 +565,7 @@ fn library_purge_rejects_unverifiable_draft_without_deleting_anything() {
 fn library_purge_does_not_sweep_unattributed_objects_or_unexpected_replacement_bytes() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let material = store.save(fixture.save_request()).unwrap();
+    let material = store.save_legacy_fixture(fixture.save_request()).unwrap();
     let unrelated_bytes = png(8, 5);
     let unrelated = store
         .object_path(&files::hash(&unrelated_bytes), "image/png")
@@ -657,7 +657,7 @@ fn library_purge_open_resumes_failed_completion_receipt_even_with_an_empty_outbo
 fn library_purge_v2_migration_recovers_current_and_historical_receipt_ownership() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let material = store.save(fixture.save_request()).unwrap();
+    let material = store.save_legacy_fixture(fixture.save_request()).unwrap();
     let session = store.begin_edit(&material.summary.id, 1).unwrap();
     store.commit_edit(edit_request(&session)).unwrap();
     store.discard_edit(&session.session_id).unwrap();
@@ -714,9 +714,11 @@ fn library_purge_removes_failed_edit_publication_after_discard_but_not_original_
         store.commit_edit(update).unwrap_err().code,
         "library_database"
     );
-    let orphan = store
-        .object_path(&files::hash(&bytes), "image/png")
-        .unwrap();
+    let image_json: String = store.conn.query_row(
+        "SELECT image_json FROM instance_publications WHERE session_id=?1", [&session.session_id], |r| r.get(0),
+    ).unwrap();
+    let published: MaterialImage = serde_json::from_str(&image_json).unwrap();
+    let orphan = store.instance_path(published.storage_id.as_deref().unwrap(), "image/png").unwrap();
     assert!(
         orphan.exists(),
         "File-first publication survives the failed edit transaction"
@@ -782,7 +784,7 @@ fn library_purge_removes_failed_preview_publication_after_reopen() {
 fn library_purge_revalidates_outbox_hashes_before_deriving_paths() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let material = store.save(fixture.save_request()).unwrap();
+    let material = store.save_legacy_fixture(fixture.save_request()).unwrap();
     let deleted = trash(&mut store, &material);
     store
         .queue_purge(&deleted.id, deleted.metadata_version)
@@ -822,7 +824,7 @@ fn library_purge_revalidates_outbox_hashes_before_deriving_paths() {
 fn library_purge_refuses_object_bucket_junction_without_touching_its_destination() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let material = store.save(fixture.save_request()).unwrap();
+    let material = store.save_legacy_fixture(fixture.save_request()).unwrap();
     let deleted = trash(&mut store, &material);
     let object = store
         .object_path(&material.images[0].blob_id, "image/png")
@@ -864,7 +866,7 @@ fn library_purge_locked_image_returns_retryable_failure_and_does_not_claim_succe
     use std::os::windows::fs::OpenOptionsExt;
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
-    let material = store.save(fixture.save_request()).unwrap();
+    let material = store.save_legacy_fixture(fixture.save_request()).unwrap();
     let deleted = trash(&mut store, &material);
     let object = store
         .object_path(&material.images[0].blob_id, "image/png")

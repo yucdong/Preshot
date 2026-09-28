@@ -134,11 +134,12 @@ pub fn search(conn: &Connection, input: MaterialSearch) -> Result<MaterialSearch
         .prepare(
             "SELECT m.rowid,m.detail_json,s.name_raw,s.tags_raw,s.body_raw
         FROM materials m JOIN material_search s ON s.rowid=m.rowid
-        WHERE (?1 IS NULL OR m.kind=?1)
+        WHERE (?1 IS NULL OR m.kind=?1 OR (?1='propClothing' AND m.kind IN ('prop','clothing')))
         AND (?2=0 OR json_extract(m.detail_json,'$.favorite')=1)
         AND ((?3=1 AND json_extract(m.detail_json,'$.deletedAt') IS NOT NULL)
           OR (?3=0 AND json_extract(m.detail_json,'$.deletedAt') IS NULL))
-        AND (?4 IS NULL OR json_extract(m.detail_json,'$.name')=?4)",
+        AND (?4 IS NULL OR json_extract(m.detail_json,'$.name')=?4)
+        AND (?5=0 OR m.kind IN ('image','imageGroup'))",
         )
         .map_err(|e| error("search", e))?;
     let rows = statement
@@ -147,7 +148,8 @@ pub fn search(conn: &Connection, input: MaterialSearch) -> Result<MaterialSearch
                 input.kind.map(|kind| kind.as_str()),
                 input.favorites.unwrap_or(false),
                 input.trash.unwrap_or(false),
-                exact_name
+                exact_name,
+                input.images_only.unwrap_or(false)
             ],
             |row| {
                 Ok((

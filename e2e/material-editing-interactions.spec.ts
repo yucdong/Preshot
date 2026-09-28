@@ -4,8 +4,8 @@ const variants = [
   { kind: "imageGroup", text: "图片组说明", gallery: "图片组" },
   { kind: "modelCard", text: "其他信息", gallery: "样片" },
   { kind: "shootingLocation", text: "场地信息", gallery: "场地图片" },
-  { kind: "clothing", text: "服装信息", gallery: "服装图片" },
-  { kind: "prop", text: "道具信息", gallery: "道具图片" },
+  { kind: "clothing", text: "道具与服装信息", gallery: "道具与服装图片" },
+  { kind: "prop", text: "道具与服装信息", gallery: "道具与服装图片" },
 ];
 
 for (const variant of variants) {

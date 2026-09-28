@@ -10,6 +10,44 @@ non-persistent. Performance targets below are not measured guarantees.
 
 ## Implementation status and deviations
 
+The browser and creation chooser expose five categories: individual images,
+image groups, locations, models, and combined props/clothing. The `propClothing`
+search category matches both stored `prop` and `clothing` kinds before sorting,
+counting and pagination, including favorite/trash filters. Legacy search keys
+are aliases for the merged category. Both kinds use the same category label in
+library details, editing and previews; new combined materials use the `prop`
+payload. Existing payloads, image instances, revisions and recovery receipts
+remain unchanged, so no database migration is required. Project block schemas
+and labels remain independent of this library classification.
+
+The library also includes an individual-image category. It accepts a selected
+project-local JPG/PNG native image or one gallery image, or an imported/captured
+image in a new isolated draft. Saved image materials contain exactly one image;
+empty drafts cannot be published. Description and keyword tags share the
+existing offline search. Images retain crop/frame/fit data in the library and
+insert as native image blocks with independent `media/` files and block identities.
+Insertion preserves caption and display width, rendering crop/fit into the project
+copy when necessary. Untransformed originals are copied byte-for-byte. The isolated
+library editor and previews continue to use their one-image group representation.
+Image-group materials also support inserting all or selected images, either as
+one group or as separate native images. The chooser defaults to all images and
+group mode. Selection preserves the original order, retains group metadata in
+group mode, and commits the whole result as one insertion with one undo step.
+The image-group toolbar also opens an image-only picker for insertion into that
+existing group. It accepts individual-image materials or selected images from an
+image-group material. This path appends in source order and preserves the target
+name, description, existing images and document structure. An optional
+`targetGroupId` is pinned in prepare/retry/recovery receipts. Native commit checks
+the exact append, fresh image identities and independent `references/` copies;
+the editor records the complete batch as one external undo/redo entry. Image-only
+search applies before counting and pagination. The chooser omits new-block modes.
+The same picker works inside isolated material-group editing. It copies selected
+originals into session-owned staging, preserves per-image presentation, and applies
+one draft history step only after the whole batch is ready. Import is bounded to
+128 total images and 64 MiB per selection; cancellation/discard never saves content.
+Database v6 gates this new kind while preserving the v5 immutable UUID image
+instances and all earlier exact receipts. Portable payloads remain version 1.
+
 The authoritative deployed DDL is
 [`src-tauri/src/library/schema.sql`](../../../src-tauri/src/library/schema.sql),
 not the more expansive review-only [schema.sql](schema.sql) beside this document.
@@ -89,14 +127,16 @@ created material. Closing selects the new item in the recent, unfiltered list
 and regenerates its committed preview; an unsaved cancellation preserves the
 previous browser filters.
 
-The detail preview area has exactly two actions: **Edit material** and **Preview**.
+The detail action area has exactly two actions: **Edit material** and **Preview**.
 Edit material opens one large modal with a library-information sidebar and the
 selected component's production canvas. Name, description, tags and favorite state
 are edited beside the content, with one Save/Cancel boundary. Separate favorite,
 information editing, refresh and thumbnail-regeneration actions are removed from
 this area; deletion/recycle-bin actions and conditional error retries remain.
-Preview opens the complete, large read-only production render with original offline
-images, not an enlarged low-resolution cached thumbnail. Editing does not open
+The detail pane does not mount a live component preview. Only clicking Preview
+loads and opens the complete, large read-only production render with original offline
+images; closing the dialog disposes that render. Cached list thumbnails remain
+available while browsing. Editing does not open
 another project, update recents, or mount project autosave.
 Both live and cached image-group previews explicitly include the saved component
 name and description above its images. This preview-only presentation option
@@ -335,13 +375,13 @@ subsequent source edits do not change it.
   image count, tags, and selection state.
 - Default order with no query is most recently updated. With a query, relevance
   is default; newest and name are alternatives. Stable ID breaks sort ties.
-- Selecting a card opens the right-hand detail pane. Show full component
-  preview, image count, logical bytes, library description, tags, and content
-  revision. Thumbnails use `contain`, never crop away the text to make a
-  photographic cover. Large originals are loaded only for the selected item.
-- The preview starts fitted to pane width. **Full preview** opens a scrollable
-  larger view; tall components must not be silently clipped. Screenshot
-  thumbnails are not expected to make every field legible; live detail is.
+- Selecting a card opens the right-hand detail pane with image count, logical
+  bytes, library description, tags, and content revision, without a live preview.
+  Cached list thumbnails use `contain`, never crop away text to make a photographic
+  cover. Source-readiness checks for insertion remain independent of preview rendering.
+- **Preview** mounts the complete component in a scrollable dialog, fitted to its
+  width. Closing unmounts it and releases preview resources. Selecting another
+  card does not start a preview. Tall components must not be silently clipped.
 - Footer states the project and insertion anchor explicitly. Insert after the
   selected top-level component, or after the top-level ancestor containing the
   caret. Capture user focus/selection, not the editor's default selection.
@@ -351,7 +391,7 @@ subsequent source edits do not change it.
 - Insert only on **Insert into current document** inside the library. Single-click
   selects; double-click does not silently insert. Disable insert without a project, available source
   images, a supported payload, and a ready document. No cursor is required.
-- During copy, keep the preview visible and disable double submission. After
+- During copy, keep the material details visible and disable double submission. After
   durable commit, close the browser, focus the new full-row component, and show
   a concise success notification. One undo removes that entire insertion.
 

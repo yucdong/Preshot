@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MaterialDetail, PortableComponent } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
 import type { MountLongImageExportSurfaceOptions } from "../longImage/longImageExportSurface";
 import { createMaterialPreview, MaterialComponentPreview } from "./materialPreview";
+import { ImageClipboardContext } from "../../features/plan/ImageClipboardContext";
+import { LibraryDialog } from "../../features/library/LibraryDialog";
+import type { ImageClipboardPort } from "../../domain/clipboard/imageClipboard";
 
 const boundaries = vi.hoisted(() => ({
   mount: vi.fn(),
@@ -155,6 +158,101 @@ afterEach(() => {
 });
 
 describe("createMaterialPreview", () => {
+  it("retains preview assets until an aborted in-flight surface mount has finished cleanup", async () => {
+    let rejectMount!: (error: Error) => void;
+    let assets!: Readonly<Record<string, string>>;
+    boundaries.mount.mockImplementation((options: MountLongImageExportSurfaceOptions) => {
+      assets = options.resolvedAssets;
+      return new Promise((_resolve, reject) => { rejectMount = reject; });
+    });
+    const view = render(<MaterialComponentPreview repository={repository()} material={material()} />);
+    await waitFor(() => expect(boundaries.mount).toHaveBeenCalledOnce());
+    view.unmount();
+    expect(assets["references/0001.png"]).toBe("blob:material-preview");
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    await act(async () => { rejectMount(new DOMException("Cancelled", "AbortError")); });
+    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledOnce());
+    expect(Object.keys(assets)).toEqual([]);
+  });
+
+  it("tracks image hit targets when the read-only renderer mounts or replaces frames later", async () => {
+    const port: ImageClipboardPort = {
+      availability: "test", write: vi.fn(async () => undefined),
+      read: vi.fn(async () => null), hasImage: vi.fn(async () => false),
+    };
+    const group = document.createElement("div");
+    const frame = document.createElement("div");
+    boundaries.mount.mockImplementation(async (options: MountLongImageExportSurfaceOptions) => {
+      const artifact = options.plan.artifacts[0];
+      if (artifact.kind !== "shootingLocation") throw new Error("Unexpected preview");
+      group.dataset.preshotExportImageGroup = artifact.gallery.id;
+      frame.dataset.preshotExportImage = artifact.gallery.images[0].id;
+      group.append(frame);
+      return mounted;
+    });
+    render(<ImageClipboardContext.Provider value={port}>
+      <MaterialComponentPreview repository={repository()} material={material()} />
+    </ImageClipboardContext.Provider>);
+    await waitFor(() => expect(screen.getByRole("region", { name: "完整场地 · 完整预览" })).toHaveAttribute("aria-busy", "false"));
+    act(() => { mounted.element.append(group); });
+    const target = await screen.findByRole("button", { name: "选择素材图片 1" });
+    expect(target.closest("[inert]")).toBeNull();
+    target.focus();
+    const replacement = document.createElement("div");
+    replacement.dataset.preshotExportImage = frame.dataset.preshotExportImage;
+    act(() => { group.replaceChildren(replacement); });
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByRole("button", { name: "选择素材图片 1" })).toBe(target);
+    expect(target).toHaveFocus();
+    fireEvent.contextMenu(target, { clientX: 40, clientY: 40 });
+    fireEvent.click(await screen.findByRole("menuitem", { name: /复制图片/ }));
+    await waitFor(() => expect(port.write).toHaveBeenCalledWith(expect.objectContaining({ dataUrl: source })));
+    act(() => { group.remove(); });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "选择素材图片 1" })).not.toBeInTheDocument());
+  });
+
+  it("copies an original-backed preview image outside the inert surface and Escape only closes its menu", async () => {
+    const repo = repository();
+    const port: ImageClipboardPort = {
+      availability: "test", write: vi.fn(async () => undefined),
+      read: vi.fn(async () => null), hasImage: vi.fn(async () => false),
+    };
+    const onClose = vi.fn();
+    boundaries.mount.mockImplementation(async (options: MountLongImageExportSurfaceOptions) => {
+      const artifact = options.plan.artifacts[0];
+      if (artifact.kind !== "shootingLocation") throw new Error("Unexpected preview");
+      const group = document.createElement("div");
+      group.dataset.preshotExportImageGroup = artifact.gallery.id;
+      const frame = document.createElement("div");
+      frame.dataset.preshotExportImage = artifact.gallery.images[0].id;
+      group.append(frame);
+      mounted.element.append(group);
+      return mounted;
+    });
+    render(<LibraryDialog title="预览素材" onClose={onClose}>
+      <ImageClipboardContext.Provider value={port}>
+        <MaterialComponentPreview repository={repo} material={material()} />
+      </ImageClipboardContext.Provider>
+    </LibraryDialog>);
+    const target = await screen.findByRole("button", { name: "选择素材图片 1" });
+    expect(target.closest("[inert]")).toBeNull();
+    expect(mounted.element.parentElement).toHaveAttribute("inert");
+    fireEvent.contextMenu(target, { clientX: 40, clientY: 40 });
+    const copy = await screen.findByRole("menuitem", { name: /复制图片/ });
+    expect(screen.queryByRole("menuitem", { name: /粘贴图片/ })).not.toBeInTheDocument();
+    fireEvent.keyDown(copy, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.contextMenu(target, { clientX: 40, clientY: 40 });
+    fireEvent.click(await screen.findByRole("menuitem", { name: /复制图片/ }));
+    await waitFor(() => expect(port.write).toHaveBeenCalledOnce());
+    expect(port.write).toHaveBeenCalledWith(expect.objectContaining({
+      dataUrl: source, presentation: expect.objectContaining({ fitMode: "stretch" }),
+    }));
+    expect(repo.loadImage).toHaveBeenLastCalledWith(material().id, 1, "image-1");
+    expect(repo.savePreview).not.toHaveBeenCalled();
+  });
+
   it.each([false, true])("removes only preview selection outlines before capture (node view: %s)", async (nodeView) => {
     const card = selectedCard(mounted.element, nodeView);
     const unrelated = surface();

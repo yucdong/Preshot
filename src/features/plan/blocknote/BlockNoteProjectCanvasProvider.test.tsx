@@ -7,6 +7,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { FilePanelExtension } from "@blocknote/core/extensions";
+import { createTauriScreenCapture } from "../../../infrastructure/plan/screenCapture";
+import type { ScreenCapture } from "../../../domain/plan/ports";
+import type { PreshotBlockNoteEditor } from "./preshotBlockNoteSchema";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import { createEmptyProjectPlanV14 } from "../../../domain/plan/canvas/blockDocument";
 import type { SettingsRepository } from "../../../domain/settings/ports";
@@ -31,12 +35,6 @@ import type {
 } from "../../../infrastructure/longImage/BlockNoteLongImageExporter";
 import { BlockNoteProjectCanvasProvider } from "./BlockNoteProjectCanvasProvider";
 import type { PlanLoadProgress } from "./planLoadProgress";
-import {
-  createAgentWorkspaceStore,
-  hashPreshotDocument,
-  type AgentWorkspaceStore,
-} from "../../../domain/agent";
-import { MemoryAttachmentTokenResolver } from "../../../infrastructure/agent/memoryAttachmentTokenResolver";
 
 const settings: SettingsRepository = {
   read: vi.fn().mockResolvedValue({ theme: "light" }),
@@ -52,6 +50,9 @@ afterEach(() => {
 function renderProvider(
   service: BlockNotePlanService,
   dependencies: {
+    screenCapture?: ScreenCapture;
+    savePaused?: boolean;
+    registerBeforeClose?(path: string, close: (saveChanges?: boolean) => Promise<void>): () => void;
     docxExporter?: BlockNoteDocxExporter;
     docxSaver?: PdfSaveTarget;
     exporter?: BlockNotePdfExporter;
@@ -60,14 +61,15 @@ function renderProvider(
     longImageSaver?: LongImageSaveTarget;
     projectDirectoryRevealer?: ProjectDirectoryRevealer;
     saver?: PdfSaveTarget;
-    agentWorkspace?: AgentWorkspaceStore;
     onLoadProgress?: (path: string, progress: PlanLoadProgress) => void;
   } = {},
 ) {
   return render(
     <ThemeProvider repository={settings}>
       <BlockNoteProjectCanvasProvider
-        agentWorkspace={dependencies.agentWorkspace}
+        screenCapture={dependencies.screenCapture}
+        savePaused={dependencies.savePaused}
+        registerBeforeClose={dependencies.registerBeforeClose}
         onLoadProgress={dependencies.onLoadProgress}
         docxExporter={dependencies.docxExporter ?? {
           implementation: "blocknote-docx",
@@ -197,291 +199,120 @@ function longImageResult(partCount = 1): LongImageExportResult {
   };
 }
 
+const capturedMedia = { file: "media/0001.png", name: "截图.png", mimeType: "image/png",
+  dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" };
+
+async function openCapture(captureMedia: NonNullable<ScreenCapture["captureMedia"]>) {
+  vi.stubEnv("VITE_WORKSPACE_ADAPTER", "memory");
+  const plan = createEmptyProjectPlanV14("Editorial", { makeId: () => "initial" });
+  plan.document.blocks = [{ id: "native-image", type: "image", props: { url: "" }, content: undefined, children: [] }];
+  const service = serviceWith({ loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
+    savePlan: vi.fn().mockResolvedValue(undefined) });
+  let close!: (saveChanges?: boolean) => Promise<void>;
+  const view = renderProvider(service, { screenCapture: { captureMedia, start: vi.fn(), poll: vi.fn(), cancel: vi.fn(), discard: vi.fn() },
+    registerBeforeClose: (_path, handler) => { close = handler; return () => {}; } });
+  await screen.findByRole("group", { name: "方案正文" });
+  await waitFor(() => expect((window as typeof window & { __PRESHOT_BLOCKNOTE_EDITOR__?: PreshotBlockNoteEditor }).__PRESHOT_BLOCKNOTE_EDITOR__).toBeDefined());
+  const editor = (window as typeof window & { __PRESHOT_BLOCKNOTE_EDITOR__: PreshotBlockNoteEditor }).__PRESHOT_BLOCKNOTE_EDITOR__;
+  act(() => editor.getExtension(FilePanelExtension)?.showMenu("native-image"));
+  expect(await screen.findByRole("tab", { name: "上传" })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "嵌入" })).toBeVisible();
+  fireEvent.click(await screen.findByRole("button", { name: "截图" }));
+  return { ...view, service, editor, close };
+}
+
 describe("BlockNoteProjectCanvasProvider", () => {
-  it("applies and restores proposal documents through one editor transaction and one immediate save", async () => {
-    const plan = createEmptyProjectPlanV14("Editorial", {
-      makeId: () => "paragraph",
+  it("clears the pending screenshot after system cancellation and lets the same block capture again", async () => {
+    let starts = 0;
+    const invokeCommand = vi.fn(async (command: string) => {
+      if (command === "start_screen_capture") return `token-${++starts}`;
+      if (command === "poll_screen_capture") return starts === 1 ? { status: "cancelled" } : { status: "captured", path: "capture.png" };
+      if (command === "import_screen_capture_media") return capturedMedia;
+      return null;
     });
-    const savePlan = vi.fn().mockResolvedValue(undefined);
+    const { editor } = await openCapture(createTauriScreenCapture({ invokeCommand }).captureMedia!);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "取消截图" })).not.toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(editor.getBlock("native-image")?.props).toMatchObject({ url: "" });
+    act(() => editor.getExtension(FilePanelExtension)?.showMenu("native-image"));
+    fireEvent.click(await screen.findByRole("button", { name: "截图" }));
+    await waitFor(() => expect(editor.getBlock("native-image")?.props).toMatchObject({ url: capturedMedia.file }));
+    expect(starts).toBe(2);
+    expect(invokeCommand).not.toHaveBeenCalledWith("cancel_screen_capture", expect.anything());
+  });
+  it("captures into the same image block, renders local media, and saves relative paths with undo/redo", async () => {
+    const captureMedia = vi.fn().mockResolvedValue(capturedMedia);
+    const { service, editor, close } = await openCapture(captureMedia);
+    await waitFor(() => expect(editor.getBlock("native-image")?.props).toMatchObject({ url: capturedMedia.file }));
+    expect(captureMedia).toHaveBeenCalledWith("C:\\Editorial", expect.any(Promise));
+    await waitFor(() => expect(document.querySelector("img.bn-visual-media")).toHaveAttribute("src", capturedMedia.dataUrl));
+    await act(async () => close());
+    expect(service.savePlan).toHaveBeenLastCalledWith("C:\\Editorial", expect.objectContaining({
+      document: expect.objectContaining({ blocks: expect.arrayContaining([expect.objectContaining({
+        id: "native-image", type: "image", props: expect.objectContaining({ url: "media/0001.png" }),
+      })]) }),
+    }));
+    act(() => { editor.undo(); });
+    await waitFor(() => expect(editor.getBlock("native-image")?.props).toMatchObject({ url: "" }));
+    act(() => { editor.redo(); });
+    await waitFor(() => expect(editor.getBlock("native-image")?.props).toMatchObject({ url: "media/0001.png" }));
+  });
+
+  it.each(["cancel", "remove", "unmount"] as const)("does not publish a late capture after %s", async (action) => {
+    const gate = deferred<typeof capturedMedia>();
+    let cancelled = false;
+    const captureMedia = vi.fn(async (_path: string, cancellation: Promise<void>) => {
+      void cancellation.then(() => { cancelled = true; });
+      return gate.promise;
+    });
+    const { editor, unmount } = await openCapture(captureMedia);
+    await waitFor(() => expect(captureMedia).toHaveBeenCalledOnce());
+    if (action === "cancel") fireEvent.click(screen.getByRole("button", { name: "取消截图" }));
+    if (action === "remove") act(() => editor.removeBlocks(["native-image"]));
+    if (action === "unmount") unmount();
+    await act(async () => { gate.resolve(capturedMedia); await gate.promise; });
+    if (action !== "remove") expect(cancelled).toBe(true);
+    if (action !== "unmount") {
+      await waitFor(() => expect(screen.queryByRole("button", { name: "取消截图" })).not.toBeInTheDocument());
+      expect(editor.getBlock("native-image")?.props).not.toMatchObject({ url: "media/0001.png" });
+    }
+  });
+
+  it("reports screenshot failures and lets the same image block retry", async () => {
+    const captureMedia = vi.fn().mockRejectedValueOnce(new Error("无法启动系统截图")).mockResolvedValueOnce(capturedMedia);
+    const { editor } = await openCapture(captureMedia);
+    expect(await screen.findByRole("alert")).toHaveTextContent("无法启动系统截图");
+    act(() => editor.getExtension(FilePanelExtension)?.showMenu("native-image"));
+    fireEvent.click(await screen.findByRole("button", { name: "截图" }));
+    await waitFor(() => expect(editor.getBlock("native-image")?.props).toMatchObject({ url: capturedMedia.file }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it.each([true, false])("pauses autosave for confirmation and honors close save choice %s on unmount", async (saveChanges) => {
+    const plan = createEmptyProjectPlanV14("Editorial", { makeId: () => "block-1" });
     const service = serviceWith({
-      loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
-      savePlan,
+      loadPlan: vi.fn().mockResolvedValue({ status: "missing", plan }),
+      savePlan: vi.fn().mockResolvedValue(undefined),
     });
-    const agentWorkspace = createAgentWorkspaceStore(
-      new MemoryAttachmentTokenResolver(),
-    );
-    agentWorkspace.activateProject({
-      projectId: "project-1",
-      projectName: "Editorial",
-      projectPath: "C:\\Editorial",
+    let close!: (saveChanges?: boolean) => Promise<void>;
+    const view = renderProvider(service, {
+      savePaused: true,
+      registerBeforeClose: (_path, handler) => { close = handler; return () => {}; },
     });
-    renderProvider(service, { agentWorkspace });
-    await screen.findByLabelText("方案正文");
-    await waitFor(() =>
-      expect(agentWorkspace.captureSnapshot().documentHash)
-        .toBe(hashPreshotDocument(plan.document))
-    );
-    const current = await agentWorkspace.getCurrentPlan("project-1");
-    const projected = structuredClone(current.plan);
-    projected.document.blocks[0].content = [{
-      type: "text",
-      text: "Applied proposal",
-      styles: {},
-    }];
-
-    await act(() => agentWorkspace.applyAtomically({
-      projectId: "project-1",
-      expectedRevision: current.revision,
-      expectedDocumentHash: hashPreshotDocument(current.plan.document),
-      projectedPlan: projected,
-    }));
-
-    expect(savePlan).toHaveBeenCalledTimes(1);
-    expect(savePlan).toHaveBeenLastCalledWith("C:\\Editorial", projected);
-    const applied = await agentWorkspace.getCurrentPlan("project-1");
-    expect(applied.revision).toBe(current.revision + 1);
-    expect(screen.getByText("Applied proposal")).toBeInTheDocument();
-
-    await act(() => agentWorkspace.restoreCheckpointAtomically({
-      projectId: "project-1",
-      expectedRevision: applied.revision,
-      expectedDocumentHash: hashPreshotDocument(applied.plan.document),
-      restoredPlan: current.plan,
-    }));
-    expect(savePlan).toHaveBeenCalledTimes(2);
-    expect(await agentWorkspace.getCurrentPlan("project-1")).toMatchObject({
-      revision: applied.revision + 1,
-      plan: current.plan,
-    });
+    await screen.findByRole("group", { name: "方案正文" });
     vi.useFakeTimers();
-    await act(() => vi.advanceTimersByTimeAsync(5_000));
-    expect(savePlan).toHaveBeenCalledTimes(2);
-  });
-
-  it("keeps apply failure-atomic and retries from the exact saved editor state", async () => {
-    const plan = createEmptyProjectPlanV14("Editorial", {
-      makeId: () => "paragraph",
-    });
-    const savePlan = vi.fn()
-      .mockRejectedValueOnce(new Error("manifest unavailable"))
-      .mockResolvedValue(undefined);
-    const agentWorkspace = createAgentWorkspaceStore(
-      new MemoryAttachmentTokenResolver(),
-    );
-    agentWorkspace.activateProject({
-      projectId: "project-1",
-      projectName: "Editorial",
-      projectPath: "C:\\Editorial",
-    });
-    renderProvider(serviceWith({
-      loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
-      savePlan,
-    }), { agentWorkspace });
-    await screen.findByLabelText("方案正文");
-    const before = await agentWorkspace.getCurrentPlan("project-1");
-    const projected = structuredClone(before.plan);
-    projected.document.blocks[0].content = [{
-      type: "text",
-      text: "Retryable proposal",
-      styles: {},
-    }];
-    const input = {
-      projectId: "project-1",
-      expectedRevision: before.revision,
-      expectedDocumentHash: hashPreshotDocument(before.plan.document),
-      projectedPlan: projected,
-    };
-
-    await expect(act(() => agentWorkspace.applyAtomically(input)))
-      .rejects.toThrow("manifest unavailable");
-    expect(await agentWorkspace.getCurrentPlan("project-1")).toEqual(before);
-    expect(screen.queryByText("Retryable proposal")).not.toBeInTheDocument();
-    expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
-
-    await act(() => agentWorkspace.applyAtomically(input));
-    expect(savePlan).toHaveBeenCalledTimes(2);
-    expect(screen.getByText("Retryable proposal")).toBeInTheDocument();
-    expect(await agentWorkspace.getCurrentPlan("project-1")).toMatchObject({
-      plan: projected,
-      revision: before.revision + 1,
-    });
-  });
-
-  it("rolls back a failed undo save without changing the applied editor state", async () => {
-    const plan = createEmptyProjectPlanV14("Editorial", {
-      makeId: () => "paragraph",
-    });
-    const savePlan = vi.fn()
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error("undo write failed"))
-      .mockResolvedValue(undefined);
-    const agentWorkspace = createAgentWorkspaceStore(
-      new MemoryAttachmentTokenResolver(),
-    );
-    agentWorkspace.activateProject({
-      projectId: "project-1",
-      projectName: "Editorial",
-      projectPath: "C:\\Editorial",
-    });
-    renderProvider(serviceWith({
-      loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
-      savePlan,
-    }), { agentWorkspace });
-    await screen.findByLabelText("方案正文");
-    const before = await agentWorkspace.getCurrentPlan("project-1");
-    const projected = structuredClone(before.plan);
-    projected.document.blocks[0].content = [{
-      type: "text",
-      text: "Applied state",
-      styles: {},
-    }];
-    await act(() => agentWorkspace.applyAtomically({
-      projectId: "project-1",
-      expectedRevision: before.revision,
-      expectedDocumentHash: hashPreshotDocument(before.plan.document),
-      projectedPlan: projected,
-    }));
-    const applied = await agentWorkspace.getCurrentPlan("project-1");
-    const undoInput = {
-      projectId: "project-1",
-      expectedRevision: applied.revision,
-      expectedDocumentHash: hashPreshotDocument(applied.plan.document),
-      restoredPlan: before.plan,
-    };
-
-    await expect(act(() =>
-      agentWorkspace.restoreCheckpointAtomically(undoInput)
-    )).rejects.toThrow("undo write failed");
-    expect(await agentWorkspace.getCurrentPlan("project-1")).toEqual(applied);
-    expect(screen.getByText("Applied state")).toBeInTheDocument();
-    expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
-
-    await act(() => agentWorkspace.restoreCheckpointAtomically(undoInput));
-    expect(savePlan).toHaveBeenCalledTimes(3);
-    expect(screen.queryByText("Applied state")).not.toBeInTheDocument();
-    expect(await agentWorkspace.getCurrentPlan("project-1")).toMatchObject({
-      plan: before.plan,
-      revision: applied.revision + 1,
-    });
-  });
-
-  it("reconciles an apply that races project retirement before reload", async () => {
-    const plan = createEmptyProjectPlanV14("Editorial", {
-      makeId: () => "paragraph",
-    });
-    let persisted = structuredClone(plan);
-    const gate = deferred<void>();
-    const savePlan = vi.fn()
-      .mockImplementationOnce(async (
-        _projectPath: string,
-        next: typeof plan,
-      ) => {
-        await gate.promise;
-        persisted = structuredClone(next);
-      })
-      .mockImplementation(async (
-        _projectPath: string,
-        next: typeof plan,
-      ) => {
-        persisted = structuredClone(next);
-      });
-    const loadPlan = vi.fn().mockImplementation(async () => ({
-      status: "loaded" as const,
-      plan: structuredClone(persisted),
-    }));
-    const service = serviceWith({ loadPlan, savePlan });
-    const agentWorkspace = createAgentWorkspaceStore(
-      new MemoryAttachmentTokenResolver(),
-    );
-    agentWorkspace.activateProject({
-      projectId: "project-1",
-      projectName: "Editorial",
-      projectPath: "C:\\Editorial",
-    });
-    const first = renderProvider(service, { agentWorkspace });
-    await screen.findByLabelText("方案正文");
-    const before = await agentWorkspace.getCurrentPlan("project-1");
-    const projected = structuredClone(before.plan);
-    projected.document.blocks[0].content = [{
-      type: "text",
-      text: "Must not survive retirement",
-      styles: {},
-    }];
-    const applying = agentWorkspace.applyAtomically({
-      projectId: "project-1",
-      expectedRevision: before.revision,
-      expectedDocumentHash: hashPreshotDocument(before.plan.document),
-      projectedPlan: projected,
-    });
-    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(1));
-
-    first.unmount();
-    gate.resolve();
-    await expect(applying).rejects.toMatchObject({
-      code: "project_deleted",
-    });
-    await waitFor(() => expect(savePlan).toHaveBeenCalledTimes(2));
-    expect(persisted).toEqual(plan);
-
-    renderProvider(service);
-    await screen.findByLabelText("方案正文");
-    expect(screen.queryByText("Must not survive retirement"))
-      .not.toBeInTheDocument();
-    expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
-  });
-
-  it("restores the persisted plan and editor when the publish transaction throws", async () => {
-    vi.stubEnv("VITE_WORKSPACE_ADAPTER", "memory");
-    const plan = createEmptyProjectPlanV14("Editorial", {
-      makeId: () => "paragraph",
-    });
-    const savePlan = vi.fn().mockResolvedValue(undefined);
-    const agentWorkspace = createAgentWorkspaceStore(
-      new MemoryAttachmentTokenResolver(),
-    );
-    agentWorkspace.activateProject({
-      projectId: "project-1",
-      projectName: "Editorial",
-      projectPath: "C:\\Editorial",
-    });
-    renderProvider(serviceWith({
-      loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
-      savePlan,
-    }), { agentWorkspace });
-    await screen.findByLabelText("方案正文");
-    const before = await agentWorkspace.getCurrentPlan("project-1");
-    const projected = structuredClone(before.plan);
-    projected.document.blocks[0].content = [{
-      type: "text",
-      text: "Editor publish must roll back",
-      styles: {},
-    }];
-    const editor = (
-      window as typeof window & {
-        __PRESHOT_BLOCKNOTE_EDITOR__?: {
-          replaceBlocks: (...args: unknown[]) => unknown;
-        };
-      }
-    ).__PRESHOT_BLOCKNOTE_EDITOR__;
-    expect(editor).toBeDefined();
-    vi.spyOn(editor!, "replaceBlocks").mockImplementationOnce(() => {
-      throw new Error("editor publish failed");
-    });
-
-    await expect(agentWorkspace.applyAtomically({
-      projectId: "project-1",
-      expectedRevision: before.revision,
-      expectedDocumentHash: hashPreshotDocument(before.plan.document),
-      projectedPlan: projected,
-    })).rejects.toThrow("editor publish failed");
-
-    expect(savePlan).toHaveBeenCalledTimes(2);
-    expect(savePlan).toHaveBeenNthCalledWith(1, "C:\\Editorial", projected);
-    expect(savePlan).toHaveBeenNthCalledWith(2, "C:\\Editorial", before.plan);
-    expect(await agentWorkspace.getCurrentPlan("project-1")).toEqual(before);
-    expect(screen.queryByText("Editor publish must roll back"))
-      .not.toBeInTheDocument();
-    expect(screen.getByTestId("save-status")).toHaveTextContent("已保存");
+    await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await act(async () => {});
+    expect(service.savePlan).not.toHaveBeenCalled();
+    await act(async () => close(saveChanges));
+    view.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+    expect(service.savePlan).toHaveBeenCalledTimes(saveChanges ? 1 : 0);
+    if (!saveChanges) {
+      expect(service.purgeDetachedGroups).not.toHaveBeenCalled();
+      expect(service.purgeDetachedMedia).not.toHaveBeenCalled();
+    }
   });
 
   it("reports real image reads and decoding before declaring the mounted canvas ready", async () => {

@@ -1,11 +1,8 @@
-use tauri::Manager;
-
-pub mod agent;
-mod agent_store;
 mod byte_write;
-pub mod copilot;
 mod docx;
 mod error;
+mod image_clipboard;
+mod image_paste;
 mod long_image;
 mod library;
 mod menu;
@@ -34,24 +31,16 @@ fn platform_info() -> PlatformInfo {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let agent_bridge = std::sync::Arc::new(agent::RendererAgentBridge::default());
-    let agent_runtime = agent::AgentRuntimeService::with_dependencies(
-        workspace::preshot_home(),
-        agent_bridge.clone(),
-        agent_bridge.clone(),
-    );
-    let agent_bridge_for_setup = agent_bridge.clone();
+    if image_clipboard::run_codec_worker_if_requested() {
+        return;
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .manage(agent_bridge)
-        .manage(agent_runtime)
         .manage(workspace::PendingProjectRollbacks::default())
         .manage(screenshot::ScreenCaptureSessions::default())
+        .manage(image_clipboard::ImageClipboardState::default())
         .setup(move |app| {
-            let store = agent_store::AgentMetadataStore::for_current_user()?;
-            agent_bridge_for_setup.configure_store(store.clone());
-            app.manage(store);
             menu::install(app.handle())?;
             menu::register_handlers(app.handle().clone());
             Ok(())
@@ -70,6 +59,7 @@ pub fn run() {
             plan::import_reference_image,
             plan::crop_reference_image,
             plan::copy_reference_image_crop,
+            plan::is_reference_image_retained_for_history,
             plan::commit_reference_image_crop,
             plan::rollback_reference_image_crop,
             plan::load_reference_image,
@@ -77,6 +67,13 @@ pub fn run() {
             plan::import_plan_media,
             plan::load_plan_media,
             plan::remove_plan_media,
+            image_clipboard::image_clipboard_write,
+            image_clipboard::image_clipboard_read,
+            image_clipboard::image_clipboard_has_image,
+            image_paste::prepare_image_paste,
+            image_paste::commit_image_paste,
+            image_paste::get_image_paste_status,
+            image_paste::abort_image_paste,
             library::library_search,
             library::library_get,
             library::library_save,
@@ -84,6 +81,7 @@ pub fn run() {
             library::library_begin_create,
             library::library_load_edit_image,
             library::library_import_edit_images,
+            library::library_import_edit_image_data,
             library::library_crop_edit_image,
             library::library_commit_edit,
             library::library_discard_edit,
@@ -106,54 +104,9 @@ pub fn run() {
             screenshot::poll_screen_capture,
             screenshot::cancel_screen_capture,
             screenshot::discard_screen_capture,
+            screenshot::import_screen_capture_media,
             settings::read_settings,
             settings::write_settings,
-            agent_store::agent_store_adopt_project,
-            agent_store::agent_store_list_sessions,
-            agent_store::agent_store_create_session,
-            agent_store::agent_store_update_session,
-            agent_store::agent_store_rename_session,
-            agent_store::agent_store_delete_session,
-            agent_store::agent_store_read_draft,
-            agent_store::agent_store_write_draft,
-            agent_store::agent_store_create_proposal,
-            agent_store::agent_store_list_proposals,
-            agent_store::agent_store_mark_proposal_stale,
-            agent_store::agent_store_set_proposal_status,
-            agent_store::agent_store_apply_proposal,
-            agent_store::agent_store_commit_proposal_apply,
-            agent_store::agent_store_undo_proposal,
-            agent_store::agent_store_save_checkpoint,
-            agent_store::agent_store_read_latest_checkpoint,
-            agent_store::agent_store_begin_proposal_recovery,
-            agent_store::agent_store_list_proposal_recovery,
-            agent_store::agent_store_finalize_proposal_recovery,
-            agent_store::agent_store_abort_proposal_recovery,
-            agent_store::agent_store_mark_proposal_recovery_conflict,
-            agent_store::agent_store_record_proposal_recovery_error,
-            agent_store::agent_store_update_usage,
-            agent_store::agent_store_delete_project,
-            agent_store::agent_store_add_cleanup_tombstone,
-            agent_store::agent_store_list_cleanup_tombstones,
-            agent_store::agent_store_retry_cleanup_tombstone,
-            agent_store::agent_store_remove_cleanup_tombstone,
-            agent::commands::agent_list_models,
-            agent::commands::agent_probe_model,
-            agent::commands::agent_register_request_context,
-            agent::commands::agent_create_session,
-            agent::commands::agent_resume_session,
-            agent::commands::agent_send,
-            agent::commands::agent_abort,
-            agent::commands::agent_disconnect_session,
-            agent::commands::agent_delete_session,
-            agent::commands::agent_get_events,
-            agent::commands::agent_get_usage,
-            agent::commands::agent_subscribe_events,
-            agent::commands::agent_unsubscribe_events,
-            agent::commands::agent_resolve_permission,
-            agent::commands::agent_resolve_input,
-            agent::commands::agent_resolve_elicitation,
-            agent::commands::agent_stop_runtime,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Preshot");

@@ -3,6 +3,8 @@ use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MaterialKind {
+    #[serde(rename = "image")]
+    Image,
     #[serde(rename = "imageGroup")]
     ImageGroup,
     #[serde(rename = "shootingLocation")]
@@ -18,6 +20,7 @@ pub enum MaterialKind {
 impl MaterialKind {
     pub fn as_str(&self) -> &'static str {
         match self {
+            Self::Image => "image",
             Self::ImageGroup => "imageGroup",
             Self::ShootingLocation => "shootingLocation",
             Self::ModelCard => "modelCard",
@@ -94,10 +97,25 @@ pub enum PreviewState {
 pub struct MaterialImage {
     pub local_image_id: String,
     pub blob_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "present_storage_id")]
+    pub storage_id: Option<String>,
     pub mime_type: String,
     pub byte_length: u64,
     pub width: u32,
     pub height: u32,
+}
+
+fn present_storage_id<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where D: serde::Deserializer<'de> {
+    String::deserialize(deserializer).map(Some)
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MaterialEditImageData {
+    pub name: String,
+    pub mime_type: String,
+    pub bytes: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -168,12 +186,38 @@ pub struct MaterialEditCropBounds {
     pub height: i64,
 }
 
+// Categories may combine legacy payload kinds without rewriting immutable
+// content, pinned edit sessions, or exact insertion/save receipts.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MaterialCategory {
+    Image,
+    ImageGroup,
+    ShootingLocation,
+    ModelCard,
+    #[serde(alias = "prop", alias = "clothing")]
+    PropClothing,
+}
+
+impl MaterialCategory {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Image => "image",
+            Self::ImageGroup => "imageGroup",
+            Self::ShootingLocation => "shootingLocation",
+            Self::ModelCard => "modelCard",
+            Self::PropClothing => "propClothing",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MaterialSearch {
     pub query: String,
+    pub images_only: Option<bool>,
     pub exact_name: Option<String>,
-    pub kind: Option<MaterialKind>,
+    pub kind: Option<MaterialCategory>,
     pub favorites: Option<bool>,
     pub trash: Option<bool>,
     pub sort: SearchSort,
@@ -211,22 +255,41 @@ pub struct MaterialSaveRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MaterialInsertRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_group_id: Option<String>,
     pub operation_id: String,
     pub material_id: String,
     pub revision: u32,
     pub project_id: String,
     pub project_path: String,
     pub expected_plan: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selection: Option<MaterialImageSelection>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MaterialImageSelection {
+    pub image_ids: Vec<String>,
+    pub mode: MaterialImageInsertMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MaterialImageInsertMode { ImageGroup, Images }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PreparedMaterialInsert {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_group_id: Option<String>,
     pub operation_id: String,
     pub material_id: String,
     pub revision: u32,
     pub payload: MaterialPayload,
     pub images: Vec<MaterialImageSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selection: Option<MaterialImageSelection>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

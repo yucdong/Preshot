@@ -337,7 +337,7 @@ The persisted version has now been upgraded to schema 14 / document version 2. S
   dialog, base64 allocation, or the single all-or-rollback Tauri IPC call;
   Rust repeats estimated and exact decoded-byte checks.
 - Segmentation chooses the last complete block boundary within the target.
-  Atomic blocks may exceed the preferred height up to the absolute 8000px
+  Atomic blocks may exceed the preferred height up to the absolute 20000px
   safety cap. Larger image groups split only at measured row boundaries;
   other indivisible oversized blocks use explicit emergency pixel tiles with
   warnings. Every part range is contiguous with no overlap or gap.

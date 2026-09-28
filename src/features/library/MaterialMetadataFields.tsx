@@ -27,7 +27,7 @@ export function MaterialMetadataFields({
       onChange={(event) => onChange({ ...value, tags: event.target.value })}
       aria-invalid={invalidField === "tags" || undefined}
       aria-describedby={`${id}-tags-help ${errorId}`} placeholder="例如：夜景，街拍，霓虹" />
-    <p id={`${id}-tags-help`} className="ml-help">用逗号分隔，最多 12 个标签，每个最多 24 字。</p>
+    <p id={`${id}-tags-help`} className="ml-help">标签用于关键词检索。用逗号分隔，最多 12 个标签，每个最多 24 字。</p>
     <label htmlFor={`${id}-description`}>素材说明</label>
     <textarea id={`${id}-description`} name="material-description" value={value.description}
       onChange={(event) => onChange({ ...value, description: event.target.value })}

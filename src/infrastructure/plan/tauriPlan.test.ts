@@ -1,7 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTauriPlan } from "./tauriPlan";
+import { createEmptyProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
 
 describe("createTauriPlan", () => {
+  it("validates clipboard file receipts, status and retained history results", async () => {
+    const operationId = "paste-operation";
+    const input = { projectPath: "C:\\p", operationId, destination: "references" as const,
+      expectedPlan: createEmptyProjectPlanV15("P", { makeId: () => "paragraph" }), image: { name: "image.png", mimeType: "image/png", bytes: [1] } };
+    const invokeCommand = vi.fn()
+      .mockResolvedValueOnce({ operationId, file: "references/0002.png", name: "image.png", mimeType: "image/png" })
+      .mockResolvedValueOnce({ status: "committed" })
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce("true")
+      .mockResolvedValueOnce({ operationId, file: "..\\other.png", name: "image.png", mimeType: "image/png" })
+      .mockResolvedValueOnce({ status: "anything" });
+    const plan = createTauriPlan({ invokeCommand });
+    await expect(plan.prepareImagePaste(input)).resolves.toMatchObject({ file: "references/0002.png" });
+    expect(invokeCommand).toHaveBeenCalledWith("prepare_image_paste", input);
+    await expect(plan.getImagePasteStatus("C:\\p", operationId)).resolves.toBe("committed");
+    await expect(plan.isImageRetainedForHistory!("C:\\p", "references/0002.png")).resolves.toBe(true);
+    await expect(plan.isImageRetainedForHistory!("C:\\p", "references/0002.png")).rejects.toThrow();
+    await expect(plan.prepareImagePaste(input)).rejects.toThrow();
+    await expect(plan.getImagePasteStatus("C:\\p", operationId)).rejects.toThrow();
+  });
+
   it("distinguishes removed references from copies retained for material history", async () => {
     const invokeCommand = vi.fn()
       .mockResolvedValueOnce("retainedForMaterialHistory")

@@ -1,7 +1,4 @@
-import {
-  insertMaterialIntoPlan,
-  instantiateMaterial,
-} from "../../../domain/library";
+import { insertPreparedMaterial } from "../../../domain/library";
 import type {
   MaterialInsertRequest,
   PreparedMaterialInsert,
@@ -64,11 +61,14 @@ export async function insertLibraryMaterial({
     if (
       prepared.operationId !== input.operationId ||
       prepared.materialId !== input.materialId ||
-      prepared.revision !== input.revision
+      prepared.revision !== input.revision ||
+      prepared.targetGroupId !== input.targetGroupId ||
+      prepared.selection?.mode !== input.selection?.mode ||
+      JSON.stringify(prepared.selection?.imageIds) !== JSON.stringify(input.selection?.imageIds)
     ) throw new Error("素材插入准备结果与请求不一致");
-    const instance = instantiateMaterial(prepared.payload, prepared.images, makeId);
-    nextPlan = insertMaterialIntoPlan(input.expectedPlan, instance, afterBlockId);
-    blockId = instance.block.id;
+    const inserted = insertPreparedMaterial(input.expectedPlan, prepared, afterBlockId, makeId);
+    nextPlan = inserted.plan;
+    blockId = inserted.lastBlockId;
     await preparePublication?.(nextPlan);
     requireCurrent();
   } catch (error) {

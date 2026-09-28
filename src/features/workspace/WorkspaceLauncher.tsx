@@ -14,7 +14,9 @@ export interface WorkspaceLauncherProps {
   onOpen(project: WorkspaceProjectView): Promise<void> | void;
   onRequestCreate(): Promise<void> | void;
   onCancelCreate(): void;
-  onCreate(name: string): Promise<void> | void;
+  defaultParentPath: string;
+  onPickCreateDirectory(currentPath: string): Promise<string | null>;
+  onCreate(name: string, parentPath: string): Promise<void> | void;
   onOpenExisting(): Promise<void> | void;
   onRelocate(project: WorkspaceProjectView): Promise<void> | void;
   onRemove(project: WorkspaceProjectView): Promise<void> | void;
@@ -28,6 +30,8 @@ export function WorkspaceLauncher({
   loading,
   error,
   isCreateDialogOpen,
+  defaultParentPath,
+  onPickCreateDirectory,
   onOpen,
   onRequestCreate,
   onCancelCreate,
@@ -158,6 +162,8 @@ export function WorkspaceLauncher({
 
       {isCreateDialogOpen ? (
         <NewProjectDialog
+          defaultParentPath={defaultParentPath}
+          onPickDirectory={onPickCreateDirectory}
           onClose={onCancelCreate}
           onCreate={onCreate}
         />

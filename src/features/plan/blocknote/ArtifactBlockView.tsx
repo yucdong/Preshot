@@ -504,10 +504,12 @@ function ArtifactMenu({
 function EditableArtifact({
   artifact,
   blockId,
+  kindLabel,
   update,
 }: {
   artifact: ArtifactRecord;
   blockId: string;
+  kindLabel?: string;
   update(next: ArtifactRecord): void;
 }) {
   if (artifact.kind === "shootingLocation") {
@@ -578,7 +580,7 @@ function EditableArtifact({
           <div className="grid min-h-0">
             <CommittedTextField
               balanced
-              label="服装信息"
+              label={`${kindLabel ?? "服装"}信息`}
               multiline
               onCommit={(source) => update({ ...clothing, source })}
               placeholder="填写品牌、链接、借样、购买和其他说明"
@@ -589,7 +591,7 @@ function EditableArtifact({
             balanced
             blockId={blockId}
             collection={clothing.mainGallery}
-            label="服装图片"
+            label={`${kindLabel ?? "服装"}图片`}
           />
       </div>
     );
@@ -600,7 +602,7 @@ function EditableArtifact({
       <div className="grid min-h-0">
         <CommittedTextField
           balanced
-          label="道具信息"
+          label={`${kindLabel ?? "道具"}信息`}
           multiline
           onCommit={(value) => update(propFromInfo(prop, value))}
           placeholder="填写描述、来源、租赁和其他说明"
@@ -611,7 +613,7 @@ function EditableArtifact({
         balanced
         blockId={blockId}
         collection={prop.gallery}
-        label="道具图片"
+        label={`${kindLabel ?? "道具"}图片`}
       />
     </div>
   );
@@ -620,9 +622,11 @@ function EditableArtifact({
 function ReadonlyArtifact({
   artifact,
   blockId,
+  kindLabel,
 }: {
   artifact: ArtifactRecord;
   blockId: string;
+  kindLabel?: string;
 }) {
   if (artifact.kind === "shootingLocation") {
     return (
@@ -672,13 +676,13 @@ function ReadonlyArtifact({
     return (
       <div className="preshot-artifact-balanced-layout">
           <dl className="preshot-balanced-info-readonly grid content-start gap-3">
-            <ReadonlyValue label="服装信息" value={artifact.source} />
+            <ReadonlyValue label={`${kindLabel ?? "服装"}信息`} value={artifact.source} />
           </dl>
           <ArtifactGallery
             balanced
             blockId={blockId}
             collection={artifact.mainGallery}
-            label="服装图片"
+            label={`${kindLabel ?? "服装"}图片`}
           />
       </div>
     );
@@ -686,13 +690,13 @@ function ReadonlyArtifact({
   return (
     <div className="preshot-artifact-balanced-layout">
       <dl className="preshot-balanced-info-readonly grid content-start gap-3">
-        <ReadonlyValue label="道具信息" value={propInfo(artifact)} />
+        <ReadonlyValue label={`${kindLabel ?? "道具"}信息`} value={propInfo(artifact)} />
       </dl>
       <ArtifactGallery
         balanced
         blockId={blockId}
         collection={artifact.gallery}
-        label="道具图片"
+        label={`${kindLabel ?? "道具"}图片`}
       />
     </div>
   );
@@ -742,21 +746,30 @@ export function ArtifactBlockView({
     );
   }
 
-  const meta = ARTIFACT_META[artifact.kind];
+  const kindLabel = reader.kindLabels?.[artifact.kind];
+  const meta = { ...ARTIFACT_META[artifact.kind], ...(kindLabel ? { label: kindLabel } : {}) };
   const Icon = meta.icon;
   const editable = controller !== null && "updateArtifact" in controller;
   const title = artifactTitle(artifact);
-  const titleLabel = artifactTitleLabel(artifact);
+  const titleLabel = kindLabel ? `${kindLabel}名称` : artifactTitleLabel(artifact);
   return (
     <section
       className="preshot-artifact-block bn-drag-exclude relative my-3 grid min-w-0 content-start gap-4 rounded border border-paper-border bg-white p-4 text-paper-ink shadow-sm"
       contentEditable={false}
       data-artifact-id={artifactId}
       data-artifact-kind={artifact.kind}
+      data-clipboard-component={editable ? (artifact.kind === "modelCard" ? artifact.samples.id :
+        artifact.kind === "clothing" ? artifact.mainGallery.id : artifact.gallery.id) : undefined}
+      data-clipboard-component-label={editable ? meta.label : undefined}
+      tabIndex={editable ? 0 : undefined}
+      role="group"
+      aria-label={`${meta.label}组件`}
+      aria-description={editable ? "选中后，Ctrl+V 将图片粘贴到该组件的图片区域。" : undefined}
       style={{ width: "100%" }}
     >
       <header className="flex min-w-0 items-center gap-3 border-b border-paper-border pb-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded bg-paper-primary-soft text-paper-primary">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded bg-paper-primary-soft text-paper-primary"
+          title={editable ? "选中组件，Ctrl+V 粘贴图片" : undefined}>
           <Icon aria-hidden size={19} />
         </span>
         <div className="min-w-0 flex-1">
@@ -791,6 +804,7 @@ export function ArtifactBlockView({
           <EditableArtifact
             artifact={artifact}
             blockId={blockId}
+            kindLabel={kindLabel}
             update={(next) => controller.updateArtifact(artifactId, (current) => {
               // Several focused-field drafts may flush before React rerenders.
               // Apply only this field's changes, not the old rendered sidecar.
@@ -801,7 +815,7 @@ export function ArtifactBlockView({
             })}
           />
         ) : (
-          <ReadonlyArtifact artifact={artifact} blockId={blockId} />
+          <ReadonlyArtifact artifact={artifact} blockId={blockId} kindLabel={kindLabel} />
         )}
       </div>
     </section>

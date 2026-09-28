@@ -55,7 +55,7 @@ function identifier(value: unknown): string {
   return id;
 }
 function kind(value: unknown): MaterialKind {
-  if (value === "imageGroup" || value === "shootingLocation" || value === "modelCard" || value === "prop" || value === "clothing") {
+  if (value === "image" || value === "imageGroup" || value === "shootingLocation" || value === "modelCard" || value === "prop" || value === "clothing") {
     return value;
   }
   throw new Error("素材类型不受支持");
@@ -104,13 +104,20 @@ function image(value: unknown): MaterialImage {
   const localImageId = text(item.localImageId);
   const blobId = text(item.blobId);
   if (!localImageId || !/^[a-f0-9]{64}$/.test(blobId)) throw new Error("素材图片标识无效");
+  assertLocalImageId(localImageId);
+  const storageId = item.storageId === undefined ? undefined : identifier(item.storageId);
+  if (storageId !== undefined && storageId !== storageId.toLowerCase()) throw new Error("素材图片存储标识无效");
+  const width = integer(item.width, 1, 8192);
+  const height = integer(item.height, 1, 8192);
+  if (width * height > 32_000_000) throw new Error("素材图片尺寸超出限制");
   return {
     localImageId,
     blobId,
+    ...(storageId === undefined ? {} : { storageId }),
     mimeType,
     byteLength: integer(item.byteLength, 1, 16 * 1024 * 1024),
-    width: integer(item.width, 1, 8192),
-    height: integer(item.height, 1, 8192),
+    width,
+    height,
   };
 }
 function detail(value: unknown, creationDraft = false): MaterialDetail {
@@ -119,8 +126,11 @@ function detail(value: unknown, creationDraft = false): MaterialDetail {
   const payload = validateMaterialPayload(item.payload);
   if (!Array.isArray(item.images) || result.kind !== payload.kind) throw new Error("素材内容与类型不一致");
   const images = item.images.map(image);
+  if (result.kind === "image" && images.length !== (creationDraft ? 0 : 1)) {
+    throw new Error("图片素材必须包含一张图片");
+  }
   const component = payload.component;
-  const occurrences = component.kind === "imageGroup" ? component.images
+  const occurrences = (component.kind === "image" || component.kind === "imageGroup") ? component.images
     : component.kind === "modelCard" ? component.samples.images
       : component.kind === "clothing" ? component.mainGallery.images
         : component.gallery.images;
@@ -128,7 +138,10 @@ function detail(value: unknown, creationDraft = false): MaterialDetail {
     images.length !== result.imageCount ||
     images.length !== occurrences.length ||
     new Set(images.map((entry) => entry.localImageId)).size !== images.length ||
-    occurrences.some((entry) => !images.some((source) => source.localImageId === entry.localImageId))
+    new Set(images.flatMap((entry) => entry.storageId ? [entry.storageId] : [])).size !==
+      images.filter((entry) => entry.storageId !== undefined).length ||
+    result.byteLength !== images.reduce((sum, entry) => sum + entry.byteLength, 0) ||
+    occurrences.some((entry, index) => images[index].localImageId !== entry.localImageId)
   ) {
     throw new Error("素材图片清单与内容不一致");
   }
@@ -164,17 +177,36 @@ function editImage(value: unknown): MaterialEditImage {
 function prepared(value: unknown): PreparedMaterialInsert {
   const item = record(value);
   const payload = validateMaterialPayload(item.payload);
+  let selection: PreparedMaterialInsert["selection"];
+  if (item.selection !== undefined) {
+    const selected = record(item.selection);
+    if ((selected.mode !== "images" && selected.mode !== "imageGroup") || !Array.isArray(selected.imageIds) ||
+        selected.imageIds.length === 0 || selected.imageIds.length > 128 || payload.component.kind !== "imageGroup") {
+      throw new Error("插入图片选择无效");
+    }
+    const imageIds = selected.imageIds.map((id) => text(id));
+    if (new Set(imageIds).size !== imageIds.length || imageIds.length !== payload.component.images.length ||
+        payload.component.images.some((image) => !imageIds.includes(image.localImageId))) throw new Error("插入图片与选择不一致");
+    selection = { imageIds, mode: selected.mode };
+  }
   if (!Array.isArray(item.images) || item.images.length > 128) throw new Error("插入图片清单无效");
+  const targetGroupId = item.targetGroupId === undefined ? undefined : text(item.targetGroupId);
+  if (targetGroupId !== undefined && (!targetGroupId || !["image", "imageGroup"].includes(payload.kind) || selection?.mode === "images")) {
+    throw new Error("目标图片组或插入形式无效");
+  }
   return {
     operationId: identifier(item.operationId),
     materialId: identifier(item.materialId),
     revision: integer(item.revision, 1),
     payload,
+    ...(selection ? { selection } : {}),
+    ...(targetGroupId !== undefined ? { targetGroupId } : {}),
     images: item.images.map((entry) => {
       const source = record(entry);
       const file = text(source.file);
-      if (!/^references\/[0-9]{4,}\.(?:jpg|png)$/.test(file)) {
-        throw new Error("插入图片必须属于项目的参考图片目录");
+      const pattern = targetGroupId === undefined && (payload.kind === "image" || selection?.mode === "images") ? /^media\/[0-9]{4,}\.(?:jpg|png)$/ : /^references\/[0-9]{4,}\.(?:jpg|png)$/;
+      if (!pattern.test(file)) {
+        throw new Error("插入图片必须属于项目中对应的图片目录");
       }
       return { localImageId: text(source.localImageId), file };
     }),
@@ -183,6 +215,7 @@ function prepared(value: unknown): PreparedMaterialInsert {
 
 function materialFailureMessage(code: string): string | undefined {
   switch (code) {
+    case "library_insert_selection": return "所选图片或插入形式已变化，请重新选择后再插入。";
     case "library_not_deleted": return "只能永久删除回收站中的素材，请重新打开素材库后重试。";
     case "library_metadata_conflict": return "素材已发生变化，请重新打开素材库后重试。";
     case "library_purge_in_use": return "素材仍有未完成的编辑，请先保存或取消编辑，再重试永久删除。";
@@ -253,6 +286,27 @@ export function createTauriMaterialLibrary({
         "无法读取素材草稿图片", "library_load_edit_image", { sessionId, localImageId },
         (value) => dataUrl(value, 16 * 1024 * 1024),
       ),
+      async importEditImageData(sessionId, input) {
+        if (typeof input.name !== "string" || !input.name || input.name.length > 255 ||
+            /[\\/:<>"|?*]/.test(input.name) ||
+            Array.from(input.name).some((char) => char.charCodeAt(0) < 32 ||
+              (char.charCodeAt(0) >= 127 && char.charCodeAt(0) <= 159)) ||
+            !/\.(?:jpe?g|png)$/i.test(input.name) ||
+            (input.mimeType !== "image/png" && input.mimeType !== "image/jpeg") ||
+            (input.mimeType === "image/png") !== /\.png$/i.test(input.name) ||
+            !Array.isArray(input.bytes) || input.bytes.length === 0 ||
+            input.bytes.length > 16 * 1024 * 1024 ||
+            input.bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
+          throw new MaterialLibraryNativeError("无法粘贴素材图片", "请选择有效的 JPG/PNG 图片，且大小不超过 16 MiB");
+        }
+        return call("无法粘贴素材图片", "library_import_edit_image_data", { sessionId, input }, (value) => {
+          const image = editImage(value);
+          if (image.mimeType !== input.mimeType || image.byteLength !== input.bytes.length) {
+            throw new Error("粘贴图片回执与输入数据不一致");
+          }
+          return image;
+        });
+      },
       async importEditImages(sessionId) {
         let sourcePaths: string[];
         try {

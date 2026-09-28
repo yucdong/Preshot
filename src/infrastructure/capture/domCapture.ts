@@ -1,6 +1,7 @@
 export const DOM_CAPTURE_PIXEL_RATIO = 1 as const;
-export const DOM_CAPTURE_MAX_DIMENSION = 16_384;
-export const DOM_CAPTURE_MAX_PIXELS = 16_777_216;
+// Permit the full 900 x 20000 long-image surface without implicit downscaling.
+export const DOM_CAPTURE_MAX_DIMENSION = 20_000;
+export const DOM_CAPTURE_MAX_PIXELS = 18_000_000;
 
 export type DomCaptureFormat = "image/png" | "image/jpeg";
 

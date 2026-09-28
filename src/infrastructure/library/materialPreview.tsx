@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { MaterialDetail, MaterialPreviewInput } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
+import { artifactCollectionsInPlan } from "../../domain/plan/canvas/blockDocument";
+import type { ImageClipboardSelection } from "../../domain/clipboard/imageClipboard";
+import { imageClipboardFilename, unavailableImageClipboard } from "../../domain/clipboard/imageClipboard";
+import { useImageClipboardPort } from "../../features/plan/ImageClipboardContext";
+import { materialArtifactLabels } from "../../features/library/libraryUi";
+import { ImageClipboardScope } from "../../features/plan/blocknote/clipboard/ImageClipboardScope";
 import type { DomCaptureSession } from "../capture/domCapture";
 import { modernScreenshotCaptureAdapter } from "../capture/modernScreenshotCapture";
 import {
@@ -20,7 +26,7 @@ const MAX_CAPTURE_PIXELS = 8_000_000;
 const MAX_THUMBNAIL_WIDTH = 480;
 const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
 const PREVIEW_TIMEOUT_MS = 60_000;
-const RENDER_KEY = "preshot-material-preview:v3:plan15:bn0.53:light:900:480:8192:8M:png";
+const RENDER_KEY = "preshot-material-preview:v4:plan15:bn0.53:light:900:480:8192:8M:png";
 const PARTIAL_LABEL = "局部缩略图 · 完整内容请打开预览";
 const hiddenText: CSSProperties = {
   position: "absolute", width: 1, height: 1, padding: 0, margin: -1,
@@ -127,9 +133,12 @@ async function persistPreview(
   const signal = deadline.controller.signal;
   let prepared: PreparedMaterialPreview | undefined;
   let surface: LongImageExportSurfaceHandle | undefined;
+  let mountingSurface = false;
   let session: DomCaptureSession | undefined;
   let canvas: HTMLCanvasElement | undefined;
   const disposeSurface = () => {
+    // The mount promise tears down its root before rejecting cancellation.
+    if (mountingSurface) return;
     surface?.destroy();
     surface = undefined;
     prepared?.dispose();
@@ -143,11 +152,17 @@ async function persistPreview(
   signal.addEventListener("abort", abort, { once: true });
   try {
     prepared = await prepareMaterialPreview(repository, material, signal);
-    surface = await mountLongImageExportSurface({
-      plan: prepared.plan, resolvedAssets: prepared.resolvedAssets,
-      outerWidth: SURFACE_WIDTH, theme: "light", signal,
-      includeImageGroupMetadata: true,
-    });
+    mountingSurface = true;
+    try {
+      surface = await mountLongImageExportSurface({
+        plan: prepared.plan, resolvedAssets: prepared.resolvedAssets,
+        outerWidth: SURFACE_WIDTH, theme: "light", signal,
+        includeImageGroupMetadata: true,
+        artifactKindLabels: materialArtifactLabels,
+      });
+    } finally {
+      mountingSurface = false;
+    }
     assertPreviewActive(signal);
     applyPreviewPresentation(surface.element);
     const measuredHeight = Math.ceil(surface.measurements.height);
@@ -242,6 +257,8 @@ interface PreviewProps {
 
 function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode {
   const container = useRef<HTMLDivElement>(null);
+  const imageClipboard = useImageClipboardPort();
+  const clipboardSources = useRef<PreparedMaterialPreview | null>(null);
   const [state, setState] = useState<
     { status: "loading" } | { status: "ready"; text: string } | { status: "error"; message: string }
   >({ status: "loading" });
@@ -254,10 +271,20 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
     let mounted = true;
     let prepared: PreparedMaterialPreview | undefined;
     let surface: LongImageExportSurfaceHandle | undefined;
+    let mountingSurface = false;
     let observer: ResizeObserver | undefined;
+    let frameObserver: MutationObserver | undefined;
+    let imageTargets: HTMLDivElement | undefined;
     const dispose = () => {
+      clipboardSources.current = null;
+      imageTargets?.remove();
+      imageTargets = undefined;
       observer?.disconnect();
       observer = undefined;
+      frameObserver?.disconnect();
+      frameObserver = undefined;
+      // A cancelled mount may still render while its asynchronous root cleanup runs.
+      if (mountingSurface) return;
       const retainedSurface = surface;
       const retainedAssets = prepared;
       surface = undefined;
@@ -281,11 +308,17 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
     void (async () => {
       try {
         prepared = await prepareMaterialPreview(repository, material, signal);
-        surface = await mountLongImageExportSurface({
-          plan: prepared.plan, resolvedAssets: prepared.resolvedAssets,
-          outerWidth: SURFACE_WIDTH, theme: "light", signal,
-          includeImageGroupMetadata: true,
-        });
+        mountingSurface = true;
+        try {
+          surface = await mountLongImageExportSurface({
+            plan: prepared.plan, resolvedAssets: prepared.resolvedAssets,
+            outerWidth: SURFACE_WIDTH, theme: "light", signal,
+            includeImageGroupMetadata: true,
+            artifactKindLabels: materialArtifactLabels,
+          });
+        } finally {
+          mountingSurface = false;
+        }
         assertPreviewActive(signal);
         applyPreviewPresentation(surface.element);
         const host = surface.element.parentElement;
@@ -297,13 +330,70 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
         host.style.pointerEvents = "none";
         host.setAttribute("inert", "");
         viewport.append(host);
+        clipboardSources.current = prepared;
+        imageTargets = document.createElement("div");
+        Object.assign(imageTargets.style, { position: "absolute", inset: "0", pointerEvents: "none" });
+        const targets = new Map<string, { button: HTMLButtonElement; frame: HTMLElement }>();
+        const canCopy = imageClipboard && imageClipboard.availability !== "unavailable";
+        if (canCopy) viewport.append(imageTargets);
         const resize = () => {
+          if (!mounted || signal.aborted || !surface || !imageTargets) return;
           const width = viewport.clientWidth;
           if (width > 0) host.style.zoom = String(Math.min(1, width / SURFACE_WIDTH));
+          if (canCopy) {
+            const present = new Set<string>();
+            for (const frame of surface.element.querySelectorAll<HTMLElement>("[data-preshot-export-image]")) {
+              const groupId = frame.closest<HTMLElement>("[data-preshot-export-image-group]")?.dataset.preshotExportImageGroup;
+              const imageId = frame.dataset.preshotExportImage;
+              if (!groupId || !imageId) continue;
+              const key = `${groupId}\0${imageId}`;
+              let target = targets.get(key);
+              if (!target) {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.dataset.clipboardGallery = groupId;
+                button.dataset.imageClipboardId = imageId;
+                Object.assign(button.style, {
+                  position: "absolute", background: "transparent", border: "0",
+                  borderRadius: "4px", padding: "0", cursor: "default", pointerEvents: "auto",
+                });
+                button.addEventListener("focus", () => { button.style.outline = "2px solid #0891b2"; });
+                button.addEventListener("blur", () => { button.style.outline = ""; });
+                target = { button, frame };
+                targets.set(key, target);
+              }
+              target.frame = frame;
+              const index = present.size;
+              present.add(key);
+              target.button.setAttribute("aria-label", `选择素材图片 ${index + 1}`);
+              if (imageTargets.children[index] !== target.button) {
+                imageTargets.insertBefore(target.button, imageTargets.children[index] ?? null);
+              }
+            }
+            for (const [key, target] of targets) {
+              if (!present.has(key)) { target.button.remove(); targets.delete(key); }
+            }
+          }
+          const bounds = viewport.getBoundingClientRect();
+          for (const { button, frame } of targets.values()) {
+            const rectangle = frame.getBoundingClientRect();
+            Object.assign(button.style, {
+              left: `${rectangle.left - bounds.left}px`, top: `${rectangle.top - bounds.top}px`,
+              width: `${rectangle.width}px`, height: `${rectangle.height}px`,
+            });
+          }
         };
         resize();
         observer = new ResizeObserver(resize);
         observer.observe(viewport);
+        observer.observe(surface.element);
+        if (canCopy) {
+          frameObserver = new MutationObserver(resize);
+          frameObserver.observe(surface.element, {
+            childList: true, subtree: true, attributes: true,
+            attributeFilter: ["data-preshot-export-image", "data-preshot-export-image-group", "style", "class"],
+          });
+        }
         if (mounted) setState({ status: "ready", text: prepared.text });
         deadline.clear();
       } catch (error) {
@@ -321,9 +411,23 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
       signal.removeEventListener("abort", dispose);
       dispose();
     };
-  }, [repository, material]);
+  }, [repository, material, imageClipboard]);
+
+  const resolveImage = async (selection: ImageClipboardSelection) => {
+    const prepared = clipboardSources.current;
+    if (!prepared || selection.kind !== "gallery") throw new Error("素材预览尚未就绪，请稍候再复制。");
+    const groups = [...prepared.plan.imageGroups, ...artifactCollectionsInPlan(prepared.plan)];
+    const image = groups.find(group => group.id === selection.groupId)?.images.find(image => image.id === selection.imageId);
+    const token = image && prepared.sourceTokens.get(image.file);
+    if (!image || !token) throw new Error("找不到选中的素材原图，请重新打开预览。");
+    const dataUrl = await repository.loadImage(material.id, material.revision, token);
+    if (clipboardSources.current !== prepared) throw new Error("素材预览已关闭或改变，请重新复制。");
+    const { id: _id, file: _file, ...presentation } = image;
+    return { dataUrl, name: imageClipboardFilename(`${material.name}.png`), presentation };
+  };
 
   return (
+    <ImageClipboardScope port={imageClipboard ?? unavailableImageClipboard} resolveImage={resolveImage}>
     <section
       aria-label={`${material.name} · 完整预览`}
       aria-busy={state.status === "loading"}
@@ -339,8 +443,9 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
           <p>{state.text}</p>
         </div>
       )}
-      <div ref={container} style={{ width: "100%", minWidth: 0 }} />
+      <div ref={container} style={{ position: "relative", width: "100%", minWidth: 0 }} />
     </section>
+    </ImageClipboardScope>
   );
 }
 

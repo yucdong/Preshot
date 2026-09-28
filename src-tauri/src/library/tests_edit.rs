@@ -4,6 +4,8 @@ use super::*;
 mod combined;
 #[path = "tests_create.rs"]
 mod creation;
+#[path = "tests_instances.rs"]
+mod instances;
 
 fn update(session: &MaterialEditSession) -> MaterialContentUpdate {
     MaterialContentUpdate {
@@ -17,7 +19,7 @@ fn update(session: &MaterialEditSession) -> MaterialContentUpdate {
 fn images_mut(payload: &mut MaterialPayload) -> &mut Vec<Value> {
     let component = &mut payload.component;
     let images = match payload.kind {
-        MaterialKind::ImageGroup => &mut component["images"],
+        MaterialKind::Image | MaterialKind::ImageGroup => &mut component["images"],
         MaterialKind::ModelCard => &mut component["samples"]["images"],
         MaterialKind::Clothing => &mut component["mainGallery"]["images"],
         _ => &mut component["gallery"]["images"],

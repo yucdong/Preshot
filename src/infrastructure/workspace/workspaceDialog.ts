@@ -39,13 +39,24 @@ export function createWorkspaceDirectoryPicker({
   invokeCommand = invoke,
 }: Dependencies = {}): WorkspaceDirectoryPicker {
   return {
+    async getDefaultProjectsDirectory(): Promise<string> {
+      try {
+        const path = await invokeCommand("default_projects_dir");
+        if (typeof path !== "string" || !path.trim()) {
+          throw new Error("Unexpected default projects directory response");
+        }
+        return path;
+      } catch (error) {
+        throw new Error(`Unable to resolve default projects directory: ${detail(error)}`, { cause: error });
+      }
+    },
     async pickDirectory(
       title: string,
       options?: DirectoryPickerOptions,
     ): Promise<string | null> {
-      let defaultPath: string | undefined;
+      let defaultPath = options?.defaultPath;
 
-      if (options?.defaultToProjectsDir) {
+      if (!defaultPath && options?.defaultToProjectsDir) {
         try {
           const resolved = await invokeCommand("default_projects_dir");
           if (typeof resolved === "string" && resolved.length > 0) {

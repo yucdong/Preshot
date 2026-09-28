@@ -3,6 +3,19 @@
   "description": "Photographic preparation desktop tool",
   "features": [
     {
+      "name": "Assistant removal",
+      "status": "completed",
+      "feature_descriptions": [
+        "The workspace contains the project rail and plan editor; normal and focus modes expose no assistant controls.",
+        "Settings retain theme selection. Assistant sessions, model probes, context publication, proposals, native commands and the bundled Copilot runtime have been removed."
+      ],
+      "decisions": [
+        "Ignore retired assistant settings while preserving custom project width and theme.",
+        "Keep project files and existing user-owned runtime data untouched.",
+        "Earlier assistant-related progress entries below are historical and no longer describe the supported product."
+      ]
+    },
+    {
       "name": "Global Material Library Core",
       "status": "completed",
       "feature_descriptions": [
@@ -12,7 +25,7 @@
         "Edit one existing material on an isolated production canvas with explicit save/cancel, internal image editing and locked block structure."
       ],
       "decisions": [
-        "Keep library.db and content-addressed images separate from metadata-only agent.db; no network or assistant disclosure.",
+        "Keep library.db and independently owned image instances offline and separate from project copies.",
         "Use FTS5 with native Jieba segmentation plus literal matching, not Java Lucene.",
         "Commit the complete target manifest before publishing one full-row component with an isolated undo/redo boundary.",
         "Preserve original image crop/fit/frame fields; exclude outer component layout and hidden clothing try-on images with a warning.",

@@ -361,7 +361,7 @@ fn library_combined_edit_database_failure_rolls_back_metadata_content_preview_se
 }
 
 #[test]
-fn library_combined_edit_invalid_or_stale_metadata_never_publishes_staged_objects() {
+fn library_combined_edit_invalid_or_stale_metadata_never_publishes_staged_instances() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
     let material = store.save(fixture.save_request()).unwrap();
@@ -378,12 +378,12 @@ fn library_combined_edit_invalid_or_stale_metadata_never_publishes_staged_object
             },
         )
         .unwrap();
-    let bytes = STANDARD
-        .decode(staged.data_url.split(',').nth(1).unwrap())
-        .unwrap();
-    let object = store
-        .object_path(&files::hash(&bytes), "image/png")
-        .unwrap();
+    let manifest: Value = serde_json::from_slice(
+        &fs::read(draft_path(&store, &session).join("manifest.json")).unwrap(),
+    ).unwrap();
+    let stored: MaterialImage = serde_json::from_value(manifest["staged"][0].clone()).unwrap();
+    assert_eq!(stored.local_image_id, staged.local_image_id);
+    let object = store.instance_path(stored.storage_id.as_deref().unwrap(), "image/png").unwrap();
     assert!(!object.exists());
     for (expected_version, invalid_name, code) in [
         (1, "", "library_validation"),
@@ -584,7 +584,7 @@ fn library_combined_edit_migrates_v1_v2_v3_and_preserves_existing_save_and_edit_
         let fixture = Fixture::new("prop");
         let mut store = fixture.store();
         let saved = fixture.save_request();
-        let mut material = store.save(saved.clone()).unwrap();
+        let mut material = store.save_legacy_fixture(saved.clone()).unwrap();
         let old_request = if version > 1 {
             let session = store.begin_edit(&material.summary.id, 1).unwrap();
             let request = update(&session);
@@ -603,7 +603,7 @@ fn library_combined_edit_migrates_v1_v2_v3_and_preserves_existing_save_and_edit_
                 .conn
                 .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
                 .unwrap(),
-            4
+            6
         );
         let current = store.get(&material.summary.id).unwrap();
         assert_eq!(store.save(saved).unwrap(), current);

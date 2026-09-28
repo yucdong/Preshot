@@ -47,6 +47,20 @@ describe("isolated material screenshot insertion", () => {
     vi.useRealTimers();
   });
 
+  it("treats system cancellation as a quiet empty result and allows another material capture", async () => {
+    const { capture, screenCapture, invokeCommand } = setup();
+    screenCapture.poll.mockResolvedValueOnce({ status: "cancelled" });
+    const first = capture();
+    await vi.advanceTimersByTimeAsync(250);
+    await expect(first).resolves.toBeNull();
+    expect(invokeCommand).not.toHaveBeenCalled();
+    expect(screenCapture.cancel).not.toHaveBeenCalled();
+    const second = capture();
+    await vi.advanceTimersByTimeAsync(250);
+    await expect(second).resolves.toEqual(staged);
+    expect(screenCapture.start).toHaveBeenCalledTimes(2);
+  });
+
   it("uses the default native capture port, polls at 250ms, and copies exactly one image into this draft", async () => {
     let polls = 0;
     const invokeCommand = vi.fn(async (command: string) => {

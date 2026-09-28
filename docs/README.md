@@ -14,7 +14,6 @@ This directory contains the English maintenance documentation for the current Pr
 - [Reliability](RELIABILITY.md)
 - [Windows installer operator guide](WINDOWS_INSTALLER.md)
 - [Licensing and distribution](LICENSING.md)
-- [Copilot Rust SDK spike](COPILOT_SDK_SPIKE.md)
 
 ## Active v14 specifications
 
@@ -23,14 +22,16 @@ These canonical files define the current BlockNote v14 behavior:
 - [BlockNote v14 interaction history](design_docs/blocknote_v14_design.md)
 - [UI/UX contract](design_docs/UI_UX_CONTRACT.md)
 - [Feature status tracker](design_docs/featurelist.json)
-- [Basic agent design](design_docs/agent/agent_basic_design.md)
 - [Artifact document blocks](design_docs/artifacts/artifacts.md)
 - [Global material library](design_docs/material-library/material-library.md):
   implemented core behavior, database schema, design rationale and explicitly
   deferred maintenance features
-- [Deterministic agent eval report](../tests/artifacts/agent-mvp-eval-report.md)
 
 ## Historical design and reference material
+
+- [Retired assistant design](design_docs/agent/agent_basic_design.md) and
+  [Copilot dependency investigation](COPILOT_SDK_SPIKE.md) describe the removed
+  assistant feature and are retained only as historical references.
 
 - The other files in [`design_docs`](design_docs) preserve earlier
   requirements, research, TipTap-era architecture, and interaction decisions.

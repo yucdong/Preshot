@@ -17,6 +17,28 @@ function expectErrorWithCause(
 }
 
 describe("createWorkspaceDirectoryPicker", () => {
+  it("resolves the default parent without opening a system picker", async () => {
+    const openDialog = vi.fn();
+    const invokeCommand = vi.fn().mockResolvedValue("C:\\Users\\me\\.preshot\\projects");
+    const picker = createWorkspaceDirectoryPicker({ openDialog, invokeCommand });
+    await expect(picker.getDefaultProjectsDirectory()).resolves.toBe("C:\\Users\\me\\.preshot\\projects");
+    expect(openDialog).not.toHaveBeenCalled();
+    expect(invokeCommand).toHaveBeenCalledWith("default_projects_dir");
+  });
+
+  it.each([null, "", 42])("rejects an invalid default directory: %s", async (path) => {
+    const picker = createWorkspaceDirectoryPicker({ invokeCommand: vi.fn().mockResolvedValue(path) });
+    await expect(picker.getDefaultProjectsDirectory()).rejects.toThrow("Unable to resolve default projects directory");
+  });
+
+  it("uses the manually entered parent as the picker starting location", async () => {
+    const openDialog = vi.fn().mockResolvedValue(null);
+    const invokeCommand = vi.fn();
+    const picker = createWorkspaceDirectoryPicker({ openDialog, invokeCommand });
+    await picker.pickDirectory("选择上级目录", { defaultPath: "D:\\拍摄", defaultToProjectsDir: true });
+    expect(openDialog).toHaveBeenCalledWith({ title: "选择上级目录", directory: true, multiple: false, defaultPath: "D:\\拍摄" });
+    expect(invokeCommand).not.toHaveBeenCalled();
+  });
   it("returns the selected directory path", async () => {
     const openDialog = vi.fn().mockResolvedValue("C:\\shoots");
     const picker = createWorkspaceDirectoryPicker({ openDialog });

@@ -14,7 +14,7 @@ test("material content canvas cancels safely, locks block structure and saves an
   await browser.getByRole("button", { name: "编辑素材", exact: true }).click();
   const editor = page.getByRole("dialog", { name: "编辑素材", exact: true });
   const materialName = editor.getByRole("textbox", { name: "素材名称", exact: true });
-  const title = editor.getByRole("textbox", { name: "道具名称", exact: true });
+  const title = editor.getByRole("textbox", { name: "道具与服装名称", exact: true });
   await expect(title).toHaveValue("透明玻璃杯");
   await expect(editor.getByText(/内容版本|元数据版本/)).toHaveCount(0);
   await expect(editor.getByRole("button", { name: "保存素材", exact: true })).toBeDisabled();
@@ -45,7 +45,7 @@ test("material content canvas cancels safely, locks block structure and saves an
   await editor.getByRole("textbox", { name: "标签", exact: true }).fill("窗边专用，玻璃");
   await editor.getByRole("textbox", { name: "素材说明", exact: true }).fill("素材信息与画布一起保存");
   await editor.getByRole("checkbox", { name: "收藏素材", exact: true }).check();
-  await editor.getByRole("textbox", { name: "道具信息", exact: true }).fill("微光拍摄专用");
+  await editor.getByRole("textbox", { name: "道具与服装信息", exact: true }).fill("微光拍摄专用");
   await editor.locator(".bn-editor").focus();
   await page.keyboard.press("Control+A");
   await page.keyboard.press("Backspace");
@@ -100,7 +100,7 @@ test("an interrupted edit response is confirmed without a second content revisio
   const browser = page.getByRole("dialog", { name: "素材库", exact: true });
   await browser.getByRole("button", { name: "编辑素材", exact: true }).click();
   const editor = page.getByRole("dialog", { name: "编辑素材", exact: true });
-  await editor.getByRole("textbox", { name: "道具名称", exact: true }).fill("回执确认的杯子");
+  await editor.getByRole("textbox", { name: "道具与服装名称", exact: true }).fill("回执确认的杯子");
   await editor.getByRole("textbox", { name: "素材名称", exact: true }).fill("回执确认的素材");
   await editor.getByRole("button", { name: "保存素材", exact: true }).click();
   await expect(editor.getByText(/暂时不能继续编辑或取消/)).toBeVisible();
@@ -198,7 +198,7 @@ test("material image edits persist owned images and reopen on the full canvas", 
   await expect(editor.getByText("素材已保存，可继续编辑；关闭后更新预览。")).toBeVisible();
   await editor.getByRole("button", { name: "关闭", exact: true }).click();
   await expect(editor).toBeHidden({ timeout: 30_000 });
-  await expect(browser.getByText(/道具 · 3 张图片/).first()).toBeVisible();
+  await expect(browser.getByText(/道具与服装 · 3 张图片/).first()).toBeVisible();
   await browser.getByRole("button", { name: "编辑素材", exact: true }).click();
   await expect(editor.locator("[data-image-id]")).toHaveCount(3);
   await expect(editor.getByRole("button", { name: "保存素材", exact: true })).toBeDisabled();
@@ -212,7 +212,7 @@ for (const variant of [
   { kind: "imageGroup", field: "图片组名称", value: "更新后的窗边光线" },
   { kind: "modelCard", field: "模特名称 / 编号", value: "更新后的示例模特" },
   { kind: "shootingLocation", field: "场地名称", value: "更新后的窗边影棚" },
-  { kind: "clothing", field: "服装名称", value: "更新后的米色外套" },
+  { kind: "clothing", field: "道具与服装名称", value: "更新后的米色外套" },
 ]) {
   test(`single-component editing preserves the ${variant.kind} kind and fields`, async ({ page }) => {
     const errors: string[] = [];

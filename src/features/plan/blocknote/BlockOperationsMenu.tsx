@@ -10,6 +10,7 @@ import {
   IndentIncrease,
   List,
   ListOrdered,
+  Library,
   Pilcrow,
   Plus,
   Quote,
@@ -21,7 +22,8 @@ import {
   useComponentsContext,
   useExtensionState,
 } from "@blocknote/react";
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
+import { ImageGroupBlockContext } from "./ImageGroupBlockContext";
 import {
   blockContext,
   canNestSpecificBlock,
@@ -68,6 +70,7 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   table: "表格",
   divider: "分隔线",
   imageGroup: "图片组",
+  image: "图片",
   shootingLocation: "拍摄场地",
   modelCard: "模特信息",
   clothing: "服装",
@@ -139,6 +142,7 @@ export function BlockOperationsMenu({
   notify,
 }: BlockOperationsMenuProps) {
   const Components = useComponentsContext();
+  const imageController = useContext(ImageGroupBlockContext);
   const editor = useBlockNoteEditor<
     PreshotBlockSchema,
     PreshotInlineContentSchema,
@@ -240,6 +244,13 @@ export function BlockOperationsMenu({
         />
       </div>
       <Components.Generic.Menu.Divider className="preshot-block-operation-divider" />
+      {block.type === "image" && block.props.url && imageController?.saveBlock ? (
+        <Components.Generic.Menu.Item
+          className="preshot-block-operation-item"
+          icon={<Library size={15} />}
+          onClick={() => imageController.saveBlock?.(block.id)}
+        >保存图片到素材库</Components.Generic.Menu.Item>
+      ) : null}
       <Components.Generic.Menu.Item
         className="preshot-block-operation-item"
         icon={<Plus size={15} />}

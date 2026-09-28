@@ -27,6 +27,43 @@ const staged: MaterialEditImage = {
 };
 
 describe("MaterialContentDraft", () => {
+  it("appends selected library images with independent identities, presentation and one undo step", () => {
+    const original = material();
+    const draft = new MaterialContentDraft(original, new Map(original.images.map((image) => [image.localImageId, source])), vi.fn());
+    const group = draft.getSnapshot().groups[0];
+    const copies = [staged, { ...staged, localImageId: "another-copy" }];
+    const visuals = copies.map((_, index) => ({ localImageId: `source-${index}`, caption: `caption-${index}`,
+      aspectRatio: 1.5, frameWidth: 150, frameHeight: 100, fitMode: "stretch" as const,
+      crop: { x: 0, y: 0, width: 0.5, height: 1 } }));
+    draft.addImages(group.id, copies, visuals);
+    const inserted = draft.readPayload();
+    expect(componentImages(inserted.component).slice(2)).toEqual(visuals.map((image, index) => ({ ...image, localImageId: copies[index].localImageId })));
+    expect(draft.getSnapshot().groups[0].images).toHaveLength(4);
+    draft.undo();
+    expect(draft.readPayload()).toEqual(original.payload);
+    draft.redo();
+    expect(draft.readPayload()).toEqual(inserted);
+    expect(original.images).toHaveLength(2);
+  });
+  it("keeps an image material to one image across replacement and undo", () => {
+    const original = material();
+    original.kind = "image";
+    original.payload = { ...original.payload, kind: "image", component: {
+      kind: "image", name: "图片", description: "", images: componentImages(original.payload.component).slice(0, 1),
+    } };
+    original.images = original.images.slice(0, 1);
+    const draft = new MaterialContentDraft(original, new Map([[original.images[0].localImageId, source]]), vi.fn());
+    const group = draft.getSnapshot().groups[0];
+    expect(() => draft.addImages(group.id, [staged])).toThrow("一张图片");
+    expect(draft.getSnapshot().canUndo).toBe(false);
+    draft.removeImage(group.id, group.images[0].id);
+    draft.addImages(group.id, [staged]);
+    expect(draft.readPayload().kind).toBe("image");
+    expect(componentImages(draft.readPayload().component)).toHaveLength(1);
+    draft.undo();
+    draft.undo();
+    expect(draft.readPayload()).toEqual(original.payload);
+  });
   it("keeps reorder/import/remove/crop and history isolated with synchronous native-token payloads", () => {
     const original = material();
     const unchanged = structuredClone(original);
@@ -63,5 +100,23 @@ describe("MaterialContentDraft", () => {
     expect(() => draft.addImages(group.id, [{ ...staged, localImageId: "original-a" }])).toThrow();
     expect(draft.getSnapshot().canUndo).toBe(false);
     expect(draft.readPayload()).toEqual(original.payload);
+  });
+
+  it("pastes a new image after the selected image in one undo step", () => {
+    const original = material();
+    const draft = new MaterialContentDraft(original,
+      new Map(original.images.map((image) => [image.localImageId, source])), vi.fn());
+    const group = draft.getSnapshot().groups[0];
+    const pasted = draft.pasteImage(group.id, group.images[0].id, staged, {
+      aspectRatio: 1.5, frameWidth: 240, frameHeight: 160, fitMode: "stretch",
+    });
+    expect(draft.getSnapshot().groups[0].images[1]).toMatchObject({ id: pasted.id, fitMode: "stretch" });
+    expect(componentImages(draft.readPayload().component).map(image => image.localImageId))
+      .toEqual(["original-b", staged.localImageId, "original-a"]);
+    draft.undo();
+    expect(draft.readPayload()).toEqual(original.payload);
+    draft.redo();
+    expect(draft.getSnapshot().groups[0].images[1]).toEqual(pasted);
+    expect(draft.getSnapshot().plan.document.blocks).toHaveLength(1);
   });
 });

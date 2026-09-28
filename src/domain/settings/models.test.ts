@@ -2,19 +2,29 @@ import { describe, it, expect } from "vitest";
 import { normalizeSettings, DEFAULT_SETTINGS } from "./models";
 
 describe("normalizeSettings", () => {
+  it("discards retired assistant settings while preserving the theme and custom project width", () => {
+    expect(normalizeSettings({
+      theme: "dark",
+      projectRailWidth: 260,
+      assistantWidth: 360,
+      assistantOpen: true,
+      agentModel: { settings: { enabled: true, modelId: "previous-model" } },
+    })).toEqual({ theme: "dark", projectRailWidth: 260 });
+  });
+
   it("should accept valid light theme", () => {
     const result = normalizeSettings({ theme: "light" });
-    expect(result).toEqual({ theme: "light", projectRailWidth: 192, assistantWidth: 272, assistantOpen: false });
+    expect(result).toEqual({ theme: "light", projectRailWidth: 192 });
   });
 
   it("should accept valid dark theme", () => {
     const result = normalizeSettings({ theme: "dark" });
-    expect(result).toEqual({ theme: "dark", projectRailWidth: 192, assistantWidth: 272, assistantOpen: false });
+    expect(result).toEqual({ theme: "dark", projectRailWidth: 192 });
   });
 
   it("should accept valid system theme", () => {
     const result = normalizeSettings({ theme: "system" });
-    expect(result).toEqual({ theme: "system", projectRailWidth: 192, assistantWidth: 272, assistantOpen: false });
+    expect(result).toEqual({ theme: "system", projectRailWidth: 192 });
   });
 
   it("should default to system for empty object", () => {
@@ -55,8 +65,6 @@ describe("normalizeSettings", () => {
     })).toEqual({
       theme: "light",
       projectRailWidth: 176,
-      assistantWidth: 420,
-      assistantOpen: false,
     });
   });
 
@@ -68,8 +76,6 @@ describe("normalizeSettings", () => {
     })).toEqual({
       theme: "light",
       projectRailWidth: 192,
-      assistantWidth: 272,
-      assistantOpen: false,
     });
 
     expect(normalizeSettings({
@@ -80,8 +86,6 @@ describe("normalizeSettings", () => {
     })).toEqual({
       theme: "light",
       projectRailWidth: 208,
-      assistantWidth: 320,
-      assistantOpen: false,
     });
   });
 
@@ -105,8 +109,6 @@ describe("normalizeSettings", () => {
     })).toEqual({
       theme: "dark",
       projectRailWidth: 192,
-      assistantWidth: 272,
-      assistantOpen: false,
     });
   });
 });
@@ -114,7 +116,6 @@ describe("normalizeSettings", () => {
 describe("DEFAULT_SETTINGS", () => {
   it("should have system as default theme", () => {
     expect(DEFAULT_SETTINGS.theme).toBe("system");
-    expect(DEFAULT_SETTINGS).toMatchObject({ projectRailWidth: 192, assistantWidth: 272 });
-    expect(DEFAULT_SETTINGS.assistantOpen).toBe(false);
+    expect(DEFAULT_SETTINGS).toMatchObject({ projectRailWidth: 192 });
   });
 });

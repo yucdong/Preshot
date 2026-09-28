@@ -419,6 +419,24 @@ afterEach(() => {
 });
 
 describe("ImageDragPreviewProvider transactions", () => {
+  it("cancels the drag when its retained project becomes inactive", async () => {
+    let controller: ImageDragPreviewController | null = null;
+    const onController = (next: ImageDragPreviewController) => { controller = next; };
+    const onMoveImage = vi.fn();
+    const view = render(<ProviderHarness onController={onController} onMoveImage={onMoveImage} />);
+    await waitFor(() => expect(controller).not.toBeNull());
+    act(() => {
+      controller!.start({ activeImageId: "source-image", sourceGroupId: "source", sourceIndex: 1 });
+      controller!.project({ groupId: "target", index: 0 });
+    });
+    flushAnimationFrames();
+    expect(controller!.state.status).toBe("dragging");
+    view.rerender(<ProviderHarness enabled={false} onController={onController} onMoveImage={onMoveImage} />);
+    expect(controller!.state.status).toBe("idle");
+    act(() => controller!.commit());
+    expect(onMoveImage).not.toHaveBeenCalled();
+  });
+
   it("previews a cross-group move for every group without mutating the plan", async () => {
     const original = structuredClone(initialGroups);
     let controller: ImageDragPreviewController | null = null;

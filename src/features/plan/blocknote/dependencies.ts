@@ -14,6 +14,8 @@ import type {
   LongImageWidth,
 } from "../../../domain/plan/blocknote/longImageExportContract";
 import type { ProjectPlanV14 } from "../../../domain/plan/canvas/blockDocument";
+import type { ImagePasteRepository } from "../../../domain/clipboard/projectImagePaste";
+import type { ImageClipboardPort } from "../../../domain/clipboard/imageClipboard";
 
 export type LongImageExportPhase =
   | "prepare"
@@ -47,6 +49,8 @@ export interface LongImageExporter {
 }
 
 export interface PlanDependencies {
+  imagePasteRepository?: ImagePasteRepository;
+  imageClipboard?: ImageClipboardPort;
   service: BlockNotePlanService;
   exporter: BlockNotePdfExporter;
   docxExporter: BlockNoteDocxExporter;

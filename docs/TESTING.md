@@ -84,7 +84,20 @@ cargo test --manifest-path src-tauri\Cargo.toml plan::tests:: --lib --quiet
 pnpm exec playwright test material-library.spec.ts material-content-editor.spec.ts material-editing-interactions.spec.ts material-create.spec.ts
 ```
 
-Domain cases cover all five portable kinds, exact source mappings, fresh IDs,
+`e2e/material-image.spec.ts` covers the individual-image category, required image,
+description/tag search, preview, reopening and single-click library actions for
+native images and individual gallery images through
+injected platform adapters. Native `library/tests_image.rs` covers source ownership,
+independent copies, insertion, real image dimensions and v5-to-v6 receipt preservation.
+`e2e/material-group-insert.spec.ts` covers complete-group insertion, a one-image
+subset, and multiple independent images with one undo/redo. Domain and provider
+cases cover selected-image order, copied file identities and one manifest commit.
+Native `library/tests_insert_selection.rs` covers both modes, exact retries,
+invalid IDs, mode changes, transformed JPEGs, ignored unselected missing originals,
+partial-copy rollback and project reopen. The browser fixture uses in-memory
+project copies; native filesystem ownership and rendering remain native test cases.
+
+Domain cases cover all six portable kinds, exact source mappings, fresh IDs,
 single-row insertion, metadata bounds, crop/fit fields and omitted legacy
 clothing images. Native cases use disposable roots and cover source/copy
 independence, hashes, Chinese/literal matching, FTS updates/rebuild, metadata
@@ -156,14 +169,55 @@ cursor, retained cursor-row insertion after modal navigation, and repeated inser
 after the newly focused component. Provider cases retain native commit/undo
 boundaries; registry cases reject stale cleanup from a retired document.
 Native insertion cases accept the first document row without changing existing content.
+Single-image insertion cases require a native image block and a new `media/` file,
+with no image-group sidecar. Real-editor tests cover source loading before commit,
+caption/width, undo/redo and relative-path saves. Native cases cover unchanged
+original bytes, rendered crop/cover/stretch, cancellation, forged insertions and
+retained media across undo, cleanup and project reopen. Legacy group-based image
+insertion receipts remain readable for recovery.
 Real-browser image cases
 cover crop, removal/undo, edge resize, keyboard move/cancel/undo and image
 reopening; cancelling a drag must not dismiss the containing editor. Model-card
 editing also covers the dark desktop shell at a narrower viewport.
 Synthetic images are generated locally; user photos never enter fixtures.
 Native draft/image copying, cropping, both CAS versions, combined-save rollback,
-exact edit receipts and database-v1/v2/v3-to-v4 migration use disposable roots.
-Browser project-image copying is not simulated.
+exact edit receipts and database-v1/v2/v3/v4-to-v5 migration use disposable roots.
+The ordinary material fixture simulates material insertion copies in memory;
+the separate clipboard boundary simulates clipboard image transactions.
+
+### Image clipboard matrix
+
+```powershell
+pnpm exec vitest run src\domain\clipboard src\infrastructure\clipboard src\features\plan\blocknote\clipboard src\features\plan\blocknote\imagePasteAssets.test.ts src\features\plan\blocknote\BlockNoteProjectCanvasProvider.clipboard.test.tsx
+cargo test --manifest-path src-tauri\Cargo.toml image_clipboard:: --lib --quiet
+cargo test --manifest-path src-tauri\Cargo.toml image_paste:: --lib --quiet
+pnpm exec playwright test image-clipboard.spec.ts
+```
+
+The browser fixture uses an explicit in-memory Preshot clipboard/transaction
+boundary. Its headless keyboard case seeds only a synthetic PNG through the
+browser Clipboard API to exercise genuine Ctrl+V events. Do not run clipboard
+tests against an interactive browser without permission to replace its clipboard.
+The fixture mounts the production material editor,
+read-only preview and document, checks refreshed saved content, fresh native
+files and subsequent text editing. Native tests own disposable project/library
+roots and cover exact deltas, receipts, retained-file crops and v5 physical
+independence before and after Save/reopen.
+The component-targeting cases cover all five component kinds in the material
+canvas and project document: focusable component selection, empty-gallery and
+same/cross-component paste, after-image ordering, independent files, and clearing
+the target when returning to document text. Selection feedback must not change
+component geometry. Read-only previews remain copy-only.
+Late preview-frame mounting/replacement must create or update copy hit targets
+without losing keyboard focus; the inert export surface itself remains unchanged.
+
+Real Win32 format publication/read, alpha/orientation, contention and publisher
+exit run in a private noninteractive window station. Internal ignored subprocess
+fixtures are launched by their enclosing tests; they are not manual live-clipboard
+tests. The decoder-worker entry can be exercised with the built executable and
+the repository's synthetic icon through stdin/stdout, without starting the app.
+Interactive WebView2/Paint/document-consumer interoperability remains a separate
+gate: do not replace the developer's clipboard or use personal photos unattended.
 
 The interaction matrix exercises native text fields for all five material kinds:
 visible caret and focus, mouse/keyboard selection, clipboard copy/cut/paste,
@@ -232,38 +286,6 @@ first page renders at 1241 x 1754 pixels.
 Vite still reports its advisory large-chunk warning for the production bundle.
 This is a known advisory, not a build failure.
 
-## Agent panel acceptance (2026-08-22)
-
-The completed production assistant-panel review passed:
-
-- documentation, ESLint, TypeScript, and the production web build;
-- 159 Vitest files / 1,070 tests, including controller context controls,
-  setup/history/composer/IME/streaming/tool/permission/input/usage/error/
-  citation behavior, all proposal review paths, dialog focus, forced-color,
-  reduced-motion, and 240-420px contracts;
-- all 29 main Playwright journeys;
-- all 14 focused BlockNote journeys and all 3 isolated capture journeys;
-- 144 passed Rust tests with only the 2 explicitly ignored local live-proxy
-  probes; and
-- both focused mocked agent journeys covering configure, chat, tool proposal,
-  apply, session-resume receipt reload, undo, verified image attachment,
-  abort, queued-switch cancellation, and Stop/switch.
-
-The Vite large-chunk advisory remains unchanged and is not an agent-panel
-failure.
-
-The standalone deterministic agent eval is `pnpm test:agent-evals`. It uses no
-live model, proxy, network, user document, or user image and refreshes
-[`tests/artifacts/agent-mvp-eval-report.md`](../tests/artifacts/agent-mvp-eval-report.md).
-Its fixture inventory covers all 18 normalized event variants, all 24 typed
-errors, text/vision/no-model capability gates, eight adversarial
-shell/network/path/media/schema proposal payloads, every allowed text block
-type and nesting, source identity, no mutation before Apply, stale revision,
-hash conflict, Apply, and restart-safe Undo. Rust fixtures separately map every
-supported SDK event class, native error class, and ephemeral non-replay event.
-The final runner report records 54/54 deterministic checks, including five
-send-time attachment token/receipt/lifetime cases.
-
 ## Long-image acceptance (2026-08-20)
 
 The completed long-image audit passed:
@@ -293,7 +315,6 @@ eight exact files are listed in the Playwright acceptance section below.
 | `pnpm test:e2e:capture` | Bounded `modern-screenshot` adapter fixture on `http://127.0.0.1:1440`, including offline fonts/assets, PNG/JPEG bytes, a 6000px capture, contiguous segments from one reused context, worker/CSP compatibility, and cleanup. |
 | `pnpm test:init` | PowerShell harness for `init.ps1` error handling and Node version boundaries. |
 | `pnpm test:production-scripts` | Isolated PowerShell production/release tooling contracts. |
-| `pnpm test:agent-evals` | Offline agent event/error/capability/security/proposal fixtures; no live model in CI. |
 
 ### Midscene and AI-assisted checks
 
@@ -345,16 +366,8 @@ Prefer domain tests when the bug can be reproduced without React or Tauri.
 Component tests cover user-visible behavior for:
 
 - the workspace launcher, project rail, and project cards,
-- app-shell resizing and focus mode,
-- settings interactions,
-- the production assistant setup states, project-scoped create/resume/rename/
-  delete history, RAF-batched transcript auto-follow, reasoning/tool/
-  permission/input rendering, usage and typed errors, IME-safe drafts,
-  removable context and selected-image attachment behavior, send-time token
-  refresh after expiry, bounded token pruning, deleted/moved/revised image
-  rejection, and path/thumbnail-free receipts, citations,
-  stacked proposal review/apply/discard/revision/stale/undo-conflict paths,
-  and focus-safe project-switch/destructive dialogs,
+- project-rail resizing and focus mode, with no assistant entry points,
+- theme settings, dialog focus restoration, and removal of legacy assistant settings,
 - save-state UI,
 - the BlockNote editor wrapper,
 - image-group selection, drag-safe double-click viewing, within/cross-group
@@ -375,12 +388,6 @@ Component tests cover user-visible behavior for:
   AbortController cancellation, multipart saves, and contextual failures.
 
 Use React Testing Library and assert via roles, labels, visible text, and interaction outcomes.
-
-The main Playwright suite also runs a deterministic assistant journey through
-the production panel: configure the browser model, chat, stage a tool proposal,
-review/apply, resume the session to reload proposal receipts, undo, verify a
-vision attachment including pin/remove/reselect, abort streaming, and exercise
-Wait/Cancel and Stop/switch project behavior.
 
 ### Infrastructure adapters
 

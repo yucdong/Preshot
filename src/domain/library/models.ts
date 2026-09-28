@@ -2,9 +2,16 @@ import type { ReferenceImage } from "../plan/canvas/models";
 import type { ProjectPlanV15 } from "../plan/canvas/blockDocument";
 
 export const MATERIAL_KINDS = [
-  "imageGroup", "shootingLocation", "modelCard", "prop", "clothing",
+  "image", "imageGroup", "shootingLocation", "modelCard", "prop", "clothing",
 ] as const;
 export type MaterialKind = (typeof MATERIAL_KINDS)[number];
+
+/** Browsing/creation categories are independent of the immutable payload kinds. */
+export type MaterialCategory = Exclude<MaterialKind, "prop" | "clothing"> | "propClothing";
+
+export function materialCategory(kind: MaterialKind | MaterialCategory): MaterialCategory {
+  return kind === "prop" || kind === "clothing" ? "propClothing" : kind;
+}
 
 export type PortableImage = Omit<ReferenceImage, "id" | "file"> & {
   localImageId: string;
@@ -13,6 +20,7 @@ export interface PortableCollection {
   images: PortableImage[];
 }
 export type PortableComponent =
+  | { kind: "image"; name: string; description: string; images: PortableImage[] }
   | { kind: "imageGroup"; name: string; description: string; images: PortableImage[] }
   | {
       kind: "shootingLocation";
@@ -71,6 +79,8 @@ export interface MaterialSummary extends MaterialMetadata {
 export interface MaterialImage {
   localImageId: string;
   blobId: string;
+  /** Present for independent physical files; absence selects legacy hash objects. */
+  storageId?: string;
   mimeType: "image/jpeg" | "image/png";
   byteLength: number;
   width: number;
@@ -115,8 +125,9 @@ export class MaterialContentSaveError extends Error {
 }
 export interface MaterialSearch {
   query: string;
+  imagesOnly?: boolean;
   exactName?: string;
-  kind?: MaterialKind;
+  kind?: MaterialCategory;
   favorites?: boolean;
   trash?: boolean;
   sort: "relevance" | "recent" | "name";
@@ -136,6 +147,10 @@ export interface MaterialSaveRequest {
   snapshot: MaterialSnapshot;
   metadata: MaterialMetadata;
 }
+export interface MaterialImageSelection {
+  imageIds: string[];
+  mode: "imageGroup" | "images";
+}
 export interface MaterialInsertRequest {
   operationId: string;
   materialId: string;
@@ -143,6 +158,8 @@ export interface MaterialInsertRequest {
   projectId: string;
   projectPath: string;
   expectedPlan: ProjectPlanV15;
+  selection?: MaterialImageSelection;
+  targetGroupId?: string;
 }
 export interface PreparedMaterialInsert {
   operationId: string;
@@ -150,6 +167,8 @@ export interface PreparedMaterialInsert {
   revision: number;
   payload: MaterialPayload;
   images: MaterialImageSource[];
+  selection?: MaterialImageSelection;
+  targetGroupId?: string;
 }
 export interface MaterialInsertCommit {
   operationId: string;

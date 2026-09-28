@@ -1,6 +1,6 @@
 import { createRoot, type Root } from "react-dom/client";
 import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
-import { LongImageExportSurface } from "../../features/plan/blocknote/export/LongImageExportSurface";
+import { LongImageExportSurface, type LongImageExportSurfaceProps } from "../../features/plan/blocknote/export/LongImageExportSurface";
 import {
   assertLongImageExportOuterWidth,
   LONG_IMAGE_EXPORT_DEFAULT_OUTER_WIDTH,
@@ -16,6 +16,7 @@ export interface MountLongImageExportSurfaceOptions {
   outerWidth?: LongImageExportOuterWidth;
   theme?: "light" | "dark";
   includeImageGroupMetadata?: boolean;
+  artifactKindLabels?: LongImageExportSurfaceProps["artifactKindLabels"];
   timeoutMs?: number;
   signal?: AbortSignal;
 }
@@ -275,6 +276,7 @@ export async function mountLongImageExportSurface({
   outerWidth = LONG_IMAGE_EXPORT_DEFAULT_OUTER_WIDTH,
   theme,
   includeImageGroupMetadata = false,
+  artifactKindLabels,
   timeoutMs = 10_000,
   signal,
 }: MountLongImageExportSurfaceOptions): Promise<LongImageExportSurfaceHandle> {
@@ -296,6 +298,7 @@ export async function mountLongImageExportSurface({
       resolvedAssets={resolvedAssets}
       theme={theme}
       includeImageGroupMetadata={includeImageGroupMetadata}
+      artifactKindLabels={artifactKindLabels}
     />,
   );
 

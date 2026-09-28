@@ -4,7 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -14,19 +13,20 @@ import type {
 import { sortProjectsByRecentEdit, upsertProject } from "../../domain/workspace/registry";
 import type { WorkspaceMenuAction } from "../../domain/workspace/ports";
 import type { PlanDependencies } from "../../features/plan/blocknote/dependencies";
-import { AgentWorkspaceProvider } from "../../features/agent/AgentWorkspaceContext";
-import { AgentProjectSwitchDialog } from "../../features/agent/AgentProjectSwitchDialog";
-import { useOptionalAgentController } from "../../features/agent/AgentContext";
-import { createAgentWorkspaceStore } from "../../domain/agent/workspaceBridge";
-import type { AgentWorkspaceStore } from "../../domain/agent/workspaceBridge";
-import { MemoryAttachmentTokenResolver } from "../../infrastructure/agent/memoryAttachmentTokenResolver";
 import { WorkspaceLauncher } from "../../features/workspace/WorkspaceLauncher";
 import { AppShell } from "../layout/AppShell";
 import { Workspace } from "../layout/Workspace";
 import { createPlanDependencies } from "../plan/planDependencies";
 import type { WorkspaceDependencies } from "./dependencies";
 import { useProjectLoading } from "./useProjectLoading";
+import type { PlanLoadProgress } from "../../features/plan/blocknote/planLoadProgress";
+import { CloseProjectDialog } from "../../features/workspace/CloseProjectDialog";
 import { ProjectLoadingScreen } from "../../features/workspace/ProjectLoadingScreen";
+
+interface OpenProject {
+  project: WorkspaceProjectView;
+  loadId: number;
+}
 
 type AppView =
   | { kind: "launcher" }
@@ -35,7 +35,6 @@ type AppView =
 interface WorkspaceProviderProps {
   dependencies: WorkspaceDependencies;
   planDependencies?: PlanDependencies;
-  agentWorkspace?: AgentWorkspaceStore;
 }
 
 const defaultPlanDependencies = createPlanDependencies();
@@ -60,12 +59,33 @@ function toRecord(project: WorkspaceProjectView): WorkspaceProjectRecord {
 export function WorkspaceProvider({
   dependencies,
   planDependencies = defaultPlanDependencies,
-  agentWorkspace: providedAgentWorkspace,
 }: WorkspaceProviderProps) {
   const { t } = useTranslation();
   const [view, setView] = useState<AppView>({ kind: "launcher" });
   const [projects, setProjects] = useState<WorkspaceProjectView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openProjects, setOpenProjects] = useState<OpenProject[]>([]);
+  const openProjectsRef = useRef<OpenProject[]>([]);
+  const readyLoadsRef = useRef(new Set<number>());
+  const beforeCloseRef = useRef(new Map<string, (saveChanges?: boolean) => Promise<void>>());
+  const [closing, setClosing] = useState(false);
+  const [closeRequest, setCloseRequest] = useState<WorkspaceProjectView | null>(null);
+  const closeRequestRef = useRef<WorkspaceProjectView | null>(null);
+  const [closeError, setCloseError] = useState<string | null>(null);
+  const registerBeforeClose = useCallback((path: string, flush: (saveChanges?: boolean) => Promise<void>) => {
+    beforeCloseRef.current.set(path, flush);
+    return () => {
+      if (beforeCloseRef.current.get(path) === flush) beforeCloseRef.current.delete(path);
+    };
+  }, []);
+  const updateOpenProjects = useCallback((next: OpenProject[]) => {
+    const retained = new Set(next.map((entry) => entry.loadId));
+    readyLoadsRef.current.forEach((id) => {
+      if (!retained.has(id)) readyLoadsRef.current.delete(id);
+    });
+    openProjectsRef.current = next;
+    setOpenProjects(next);
+  }, []);
   const {
     attempt: loadAttempt, begin: beginLoad, activate: activateLoad,
     report: reportLoad, finish: finishLoad, cancel: cancelLoad, isPending: isLoadPending,
@@ -77,18 +97,6 @@ export function WorkspaceProvider({
   const unlistenRef = useRef<(() => void) | null>(null);
   const activeProjectRef = useRef<WorkspaceProjectView | null>(null);
   const activeLoadIdRef = useRef(0);
-  const fallbackAgentWorkspace = useMemo(
-    () => createAgentWorkspaceStore(new MemoryAttachmentTokenResolver()),
-    [],
-  );
-  const agentWorkspace = providedAgentWorkspace ?? fallbackAgentWorkspace;
-  const agentController = useOptionalAgentController();
-  const agentControllerState = useSyncExternalStore(
-    agentController?.subscribe ?? (() => () => {}),
-    agentController?.getSnapshot ?? (() => null),
-    agentController?.getSnapshot ?? (() => null),
-  );
-
   const setMountedState = useCallback((update: () => void) => {
     if (isMountedRef.current) {
       update();
@@ -111,8 +119,9 @@ export function WorkspaceProvider({
     async (
       actionName: string,
       action: () => Promise<void>,
+      allowDuringClose = false,
     ): Promise<boolean> => {
-      if (isBusyRef.current || !isMountedRef.current || isLoadPending()) {
+      if (isBusyRef.current || !isMountedRef.current || isLoadPending() || (closeRequestRef.current && !allowDuringClose)) {
         return false;
       }
 
@@ -131,9 +140,29 @@ export function WorkspaceProvider({
     [isLoadPending, reportActionError],
   );
 
+  const handleLoadProgress = useCallback((id: number, path: string, progress: PlanLoadProgress) => {
+    if (progress.status === "ready" && openProjectsRef.current.some(
+      (entry) => entry.loadId === id && entry.project.path === path,
+    )) readyLoadsRef.current.add(id);
+    reportLoad(id, path, progress);
+  }, [reportLoad]);
+
+  const activateCachedProject = useCallback((path: string) => {
+    const cached = openProjectsRef.current.find((entry) =>
+      entry.project.path === path && readyLoadsRef.current.has(entry.loadId));
+    if (!cached) return false;
+    cancelLoad();
+    activeProjectRef.current = cached.project;
+    activeLoadIdRef.current = cached.loadId;
+    setAlert(null);
+    setView({ kind: "project", ...cached });
+    return true;
+  }, [cancelLoad]);
+
   const showProject = useCallback(
     async (project: WorkspaceProjectView, requestedLoadId?: number) => {
       if (!isMountedRef.current) return;
+      if (activateCachedProject(project.path)) return;
       const loadId = requestedLoadId ?? beginLoad(project.path, project.name);
       const activate = () => {
         if (!isMountedRef.current || !activateLoad(loadId, project.name, project.path)) return;
@@ -143,49 +172,32 @@ export function WorkspaceProvider({
           });
         });
         setMountedState(() => {
-          agentWorkspace.activateProject({
-            projectId: project.projectId,
-            projectName: project.name,
-            projectPath: project.path,
-          });
           activeProjectRef.current = project;
           activeLoadIdRef.current = loadId;
           setProjects((currentProjects) =>
             upsertProject(currentProjects, project)
           );
           setAlert(null);
+          updateOpenProjects([
+            ...openProjectsRef.current.filter((entry) => entry.project.projectId !== project.projectId && entry.project.path !== project.path),
+            { project, loadId },
+          ]);
           setView({ kind: "project", project, loadId });
         });
       };
       try {
-        if (agentController) {
-          const result = await agentController.activateProject({
-            projectId: project.projectId,
-            projectName: project.name,
-            projectPath: project.path,
-          }, activate);
-          if (result === "already_queued") throw new Error("另一个项目正在切换，请稍后重试。");
-        } else {
-          activate();
-        }
+        activate();
       } catch (error) {
         reportLoad(loadId, project.path, { status: "failed", message: detail(error) });
         throw error;
       }
     },
-    [activateLoad, agentController, agentWorkspace, beginLoad, dependencies, reportLoad, setMountedState],
+    [activateCachedProject, activateLoad, beginLoad, dependencies, reportLoad, setMountedState, updateOpenProjects],
   );
 
   const requestCreate = useCallback(async () => {
     await runGuardedAction("Unable to prepare project creation", async () => {
-      const parentPath = await dependencies.directoryPicker.pickDirectory(
-        t("picker.createParent"),
-        { defaultToProjectsDir: true },
-      );
-
-      if (parentPath === null) {
-        return;
-      }
+      const parentPath = await dependencies.directoryPicker.getDefaultProjectsDirectory();
 
       setMountedState(() => {
         setAlert(null);
@@ -193,26 +205,22 @@ export function WorkspaceProvider({
         setCreateParentPath(parentPath);
       });
     });
-  }, [dependencies, runGuardedAction, setMountedState, t]);
+  }, [dependencies, runGuardedAction, setMountedState]);
 
   const cancelCreate = useCallback(() => {
     setMountedState(() => {
       setCreateParentPath(null);
       if (activeProjectRef.current) {
-        const project = activeProjectRef.current;
-        const loadId = beginLoad(project.path, project.name);
-        activateLoad(loadId, project.name);
-        activeLoadIdRef.current = loadId;
-        setView({ kind: "project", project, loadId });
+        activateCachedProject(activeProjectRef.current.path);
       }
     });
-  }, [activateLoad, beginLoad, setMountedState]);
+  }, [activateCachedProject, setMountedState]);
 
   const createProject = useCallback(
-    async (name: string) => {
-      if (createParentPath === null) {
+    async (name: string, parentPath: string) => {
+      if (createParentPath === null || !parentPath.trim()) {
         const error = new Error(
-          "Select a parent folder before naming the project",
+          "请填写项目文件夹所在的上级目录",
         );
         reportActionError("Unable to create workspace project", error);
         throw error;
@@ -222,7 +230,7 @@ export function WorkspaceProvider({
         "Unable to create workspace project",
         async () => {
           const project = await dependencies.service.createProject(
-            createParentPath,
+            parentPath.trim(),
             name,
           );
 
@@ -259,6 +267,7 @@ export function WorkspaceProvider({
   const openProject = useCallback(
     async (path: string, name: string) => {
       await runGuardedAction("Unable to open workspace project", async () => {
+        if (activateCachedProject(path)) return;
         const loadId = beginLoad(path, name);
         try {
           const project = await dependencies.service.openProject(path);
@@ -269,7 +278,7 @@ export function WorkspaceProvider({
         }
       });
     },
-    [beginLoad, dependencies, reportLoad, runGuardedAction, showProject],
+    [activateCachedProject, beginLoad, dependencies, reportLoad, runGuardedAction, showProject],
   );
 
   const openAvailableProject = useCallback(
@@ -285,14 +294,13 @@ export function WorkspaceProvider({
         if (isLoadPending()) return;
         cancelLoad();
         setMountedState(() => {
-          agentWorkspace.clearProject();
           setAlert(null);
           setView({ kind: "launcher" });
         });
         return;
       }
 
-      if (activeProjectRef.current?.projectId === project.projectId) {
+      if (view.kind === "project" && activeProjectRef.current?.projectId === project.projectId) {
         return;
       }
 
@@ -300,7 +308,7 @@ export function WorkspaceProvider({
         // The guarded action already logs and displays the opening failure.
       });
     },
-    [agentWorkspace, cancelLoad, isLoadPending, openProject, setMountedState],
+    [cancelLoad, isLoadPending, openProject, setMountedState, view.kind],
   );
 
   const openExistingProject = useCallback(async () => {
@@ -313,6 +321,7 @@ export function WorkspaceProvider({
         return;
       }
 
+      if (activateCachedProject(projectPath)) return;
       const loadId = beginLoad(projectPath, t("shell.openProject"));
       try {
         const project = await dependencies.service.openProject(projectPath);
@@ -322,7 +331,7 @@ export function WorkspaceProvider({
         throw error;
       }
     });
-  }, [beginLoad, dependencies, reportLoad, runGuardedAction, showProject, t]);
+  }, [activateCachedProject, beginLoad, dependencies, reportLoad, runGuardedAction, showProject, t]);
 
   const relocateProject = useCallback(
     async (project: WorkspaceProjectView) => {
@@ -359,12 +368,10 @@ export function WorkspaceProvider({
       await runGuardedAction(
         "Unable to remove workspace project from recents",
         async () => {
-          if (agentController) {
-            await agentController.deleteProject(project.projectId);
-          }
           const nextProjects = await dependencies.service.removeRecord(
             project.projectId,
           );
+          updateOpenProjects(openProjectsRef.current.filter((entry) => entry.project.projectId !== project.projectId));
           const removedActiveProject =
             activeProjectRef.current?.projectId === project.projectId;
           const [nextProject] = removedActiveProject
@@ -384,7 +391,6 @@ export function WorkspaceProvider({
           } else if (removedActiveProject) {
             setMountedState(() => {
               activeProjectRef.current = null;
-              agentWorkspace.clearProject();
               setView({ kind: "launcher" });
             });
           }
@@ -392,14 +398,38 @@ export function WorkspaceProvider({
       );
     },
     [
-      agentController,
-      agentWorkspace,
       dependencies,
       runGuardedAction,
       setMountedState,
       showProject,
+      updateOpenProjects,
     ],
   );
+
+  const closeProject = useCallback(async (project: WorkspaceProjectView, saveChanges: boolean) => {
+    await runGuardedAction("Unable to close workspace project", async () => {
+      setClosing(true);
+      try {
+        await beforeCloseRef.current.get(project.path)?.(saveChanges);
+        if (!isMountedRef.current) return;
+        const remaining = openProjectsRef.current.filter((entry) => entry.project.projectId !== project.projectId);
+        updateOpenProjects(remaining);
+        closeRequestRef.current = null;
+        setCloseRequest(null);
+        if (activeProjectRef.current?.projectId !== project.projectId) return;
+        const next = remaining[remaining.length - 1];
+        if (next) {
+          await showProject(next.project);
+        } else {
+          cancelLoad();
+          activeProjectRef.current = null;
+          setView({ kind: "launcher" });
+        }
+      } finally {
+        if (isMountedRef.current) setClosing(false);
+      }
+    }, true);
+  }, [cancelLoad, runGuardedAction, showProject, updateOpenProjects]);
 
   const revealProjectDirectory = useCallback(
     async (project: WorkspaceProjectView) => {
@@ -503,64 +533,32 @@ export function WorkspaceProvider({
     [projects],
   );
 
-  const cancelQueuedSwitch = () => {
-    if (agentController?.getSnapshot().switchProject.status !== "waiting") return;
-    agentController.cancelWaitingProjectSwitch();
-    cancelLoad();
-  };
   const loadingContent = loadAttempt ? (
     <div key={loadAttempt.id} className="relative h-full">
-    <ProjectLoadingScreen
-      projectName={loadAttempt.name}
-      progress={loadAttempt.percent}
-      error={loadAttempt.error}
-      statusText={agentControllerState?.switchProject.status === "waiting"
-        ? "等待助手结束当前任务…" : undefined}
-      onRetry={() => {
-        void openProject(loadAttempt.path, loadAttempt.name).catch(() => {
-          // Guarded opening reports the error and retains the retry screen.
-        });
-      }}
-      onComplete={() => finishLoad(loadAttempt.id)}
-    />
-    {agentControllerState?.switchProject.status === "waiting" ? (
-      <button
-        className="absolute bottom-6 left-1/2 min-h-9 -translate-x-1/2 rounded-lg border border-app-border bg-app-panel-strong px-4 text-sm text-app-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
-        onClick={cancelQueuedSwitch}
-        type="button"
-      >
-        取消切换
-      </button>
-    ) : null}
+      <ProjectLoadingScreen
+        projectName={loadAttempt.name}
+        progress={loadAttempt.percent}
+        error={loadAttempt.error}
+        onRetry={() => {
+          void openProject(loadAttempt.path, loadAttempt.name).catch(() => {
+            // Guarded opening reports the error and retains the retry screen.
+          });
+        }}
+        onComplete={() => finishLoad(loadAttempt.id)}
+      />
     </div>
   ) : undefined;
-  const switchDialog = agentController && agentControllerState ? (
-    <AgentProjectSwitchDialog
-      onCancelWait={cancelQueuedSwitch}
-      onChoose={(choice) => {
-        if (choice === "cancel" && agentController.getSnapshot().switchProject.status === "choosing") cancelLoad();
-        void agentController.chooseProjectSwitch(choice).catch((error) => {
-          if (loadAttempt) reportLoad(loadAttempt.id, loadAttempt.path, { status: "failed", message: detail(error) });
-          reportActionError("Unable to switch workspace project", error);
-        });
-      }}
-      state={agentControllerState.switchProject}
-    />
-  ) : null;
-
-  if (view.kind === "project") {
-    return (
-      <>
-        <AgentWorkspaceProvider store={agentWorkspace}>
+  return (
+    <>
+      {openProjects.length > 0 ? (
+        <div hidden={view.kind !== "project"} inert={view.kind !== "project" || closing || closeRequest !== null}>
           <AppShell
-            currentProjectId={view.project.projectId}
+            currentProjectId={view.kind === "project" ? view.project.projectId : ""}
             error={alert}
-            getProjectSessionCount={agentController
-              ? (projectId) =>
-                agentController.countProjectSessions(projectId)
-              : undefined}
             onNewProject={() => {
-              void requestCreate();
+              void requestCreate().catch(() => {
+                // The guarded action already reports default-directory failures.
+              });
             }}
             onOpenProject={() => {
               void openExistingProject().catch(() => {
@@ -575,44 +573,73 @@ export function WorkspaceProvider({
             }}
             onSelectProject={selectProject}
             projects={orderedProjects}
+            openProjects={openProjects.map((entry) => entry.project)}
+            onCloseProject={(project) => {
+              if (isBusyRef.current || isLoadPending() || closeRequestRef.current) return;
+              closeRequestRef.current = project;
+              setCloseError(null);
+              setCloseRequest(project);
+            }}
             projectLoading={Boolean(loadAttempt && !loadAttempt.error)}
             loadingProjectName={loadAttempt?.name}
-            loadingContent={loadingContent}
-            onCancelQueuedSwitch={cancelQueuedSwitch}
+            loadingContent={view.kind === "project" ? loadingContent : undefined}
           >
-            <Workspace
-              agentWorkspace={agentWorkspace}
-              loadId={view.loadId}
-              onLoadProgress={reportLoad}
-              dependencies={planDependencies}
-              projectDirectoryRevealer={dependencies.projectDirectoryRevealer}
-              projectName={view.project.name}
-              projectId={view.project.projectId}
-              projectPath={view.project.path}
-            />
+            {openProjects.map((entry) => (
+              <Workspace
+                key={entry.loadId}
+                active={view.kind === "project" && entry.loadId === view.loadId}
+                loadId={entry.loadId}
+                onLoadProgress={handleLoadProgress}
+                registerBeforeClose={registerBeforeClose}
+                savePaused={closeRequest?.path === entry.project.path}
+                dependencies={planDependencies}
+                projectDirectoryRevealer={dependencies.projectDirectoryRevealer}
+                projectName={entry.project.name}
+                projectId={entry.project.projectId}
+                projectPath={entry.project.path}
+              />
+            ))}
           </AppShell>
-        </AgentWorkspaceProvider>
-        {switchDialog}
-      </>
-    );
-  }
-
-  return (
-    <>
-    {loadingContent ? <div className="h-screen bg-app-bg">{loadingContent}</div> : <WorkspaceLauncher
-      error={alert}
-      isCreateDialogOpen={createParentPath !== null}
-      loading={loading}
-      onCancelCreate={cancelCreate}
-      onCreate={createProject}
-      onOpen={openAvailableProject}
-      onOpenExisting={openExistingProject}
-      onRelocate={relocateProject}
-      onRemove={removeProject}
-      onRequestCreate={requestCreate}
-      projects={projects}
-    />}
-    {switchDialog}
+        </div>
+      ) : null}
+      {view.kind === "launcher" ? (
+        loadingContent ? <div className="h-screen bg-app-bg">{loadingContent}</div> : (
+          <WorkspaceLauncher
+            error={alert}
+            isCreateDialogOpen={createParentPath !== null}
+            defaultParentPath={createParentPath ?? ""}
+            onPickCreateDirectory={(currentPath) => dependencies.directoryPicker.pickDirectory(
+              t("picker.createParent"), { defaultPath: currentPath },
+            )}
+            loading={loading}
+            onCancelCreate={cancelCreate}
+            onCreate={createProject}
+            onOpen={openAvailableProject}
+            onOpenExisting={openExistingProject}
+            onRelocate={relocateProject}
+            onRemove={removeProject}
+            onRequestCreate={requestCreate}
+            projects={projects}
+          />
+        )
+      ) : null}
+      {closeRequest ? <CloseProjectDialog
+        projectName={closeRequest.name}
+        busy={closing}
+        error={closeError}
+        onCancel={() => {
+          if (isBusyRef.current) return;
+          closeRequestRef.current = null;
+          setCloseRequest(null);
+          setCloseError(null);
+        }}
+        onClose={(saveChanges) => {
+          setCloseError(null);
+          void closeProject(closeRequest, saveChanges).catch((error: unknown) => {
+            if (isMountedRef.current) setCloseError(detail(error));
+          });
+        }}
+      /> : null}
     </>
   );
 }

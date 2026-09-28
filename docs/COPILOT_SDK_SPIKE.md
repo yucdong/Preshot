@@ -1,5 +1,8 @@
 # Copilot Rust SDK Dependency Spike
 
+> Historical reference: the assistant feature and Copilot dependency were removed
+> on 2026-09-28. This document does not describe the current application.
+
 ## Decision and provenance
 
 Preshot pins the released crate `github-copilot-sdk@1.0.11` exactly. The

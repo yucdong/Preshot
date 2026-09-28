@@ -174,10 +174,13 @@ export function validateMaterialPayload(input: unknown): MaterialPayload {
   };
   let component: PortableComponent;
   switch (header.kind) {
+    case "image":
     case "imageGroup": {
       const value = exactRecord(header.component, ["kind", "name", "description", "images"], "Image group");
-      component = { kind: "imageGroup", name: text(value.name, "Group name"),
-        description: text(value.description, "Group description"), images: images(value.images) };
+      const entries = images(value.images);
+      if (header.kind === "image" && entries.length > 1) throw new Error("图片素材只能包含一张图片。");
+      component = { kind: header.kind, name: text(value.name, "Group name"),
+        description: text(value.description, "Group description"), images: entries };
       break;
     }
     case "shootingLocation": {

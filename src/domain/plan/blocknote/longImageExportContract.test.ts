@@ -141,6 +141,19 @@ describe("long-image geometry and limits", () => {
     expect(estimate.withinSafetyBudget).toBe(true);
   });
 
+  it.each([890, 900])("allows a 20000px single image at %spx wide", (width) => {
+    const estimate = estimateLongImageDecodedMemory(width, 20_000);
+    expect(estimate.withinSafetyBudget).toBe(true);
+    expect(estimate.rgbaBytes).toBe(width * 20_000 * 4);
+    expect(estimateLongImageDecodedMemory(width, 20_001).withinSafetyBudget).toBe(false);
+    const plan = planLongImageParts({
+      documentHeight: 20_000, targetHeight: 6_000,
+      blocks: [block("one", 0, 20_000)], allowSplit: false,
+    });
+    expect(plan.parts).toHaveLength(1);
+    expect(plan.parts[0].height).toBe(20_000);
+  });
+
   it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
     "rejects invalid geometry values: %s",
     (value) => {
@@ -214,16 +227,16 @@ describe("planLongImageParts", () => {
 
   it("tiles one indivisible block at the absolute cap and guarantees progress", () => {
     const plan = planLongImageParts({
-      documentHeight: 17_500,
+      documentHeight: 41_500,
       targetHeight: 6_000,
-      blocks: [block("huge-table", 0, 17_500)],
+      blocks: [block("huge-table", 0, 41_500)],
       allowSplit: true,
     });
 
     expect(plan.parts.map(({ top, bottom }) => [top, bottom])).toEqual([
-      [0, 8_000],
-      [8_000, 16_000],
-      [16_000, 17_500],
+      [0, 20_000],
+      [20_000, 40_000],
+      [40_000, 41_500],
     ]);
     expect(plan.parts.slice(0, 2).every(
       (part) => part.endKind === "emergency-tile",
@@ -235,9 +248,9 @@ describe("planLongImageParts", () => {
 
   it("splits an oversized image group only at wrapped row boundaries", () => {
     const plan = planLongImageParts({
-      documentHeight: 10_500,
+      documentHeight: 22_500,
       targetHeight: 6_000,
-      blocks: [block("group", 0, 10_500, [2_100, 4_800, 7_300, 10_500])],
+      blocks: [block("group", 0, 22_500, [2_100, 4_800, 12_300, 22_500])],
       allowSplit: true,
     });
 
@@ -247,7 +260,7 @@ describe("planLongImageParts", () => {
       endKind,
     }))).toEqual([
       { top: 0, bottom: 4_800, endKind: "image-group-row" },
-      { top: 4_800, bottom: 10_500, endKind: "document-end" },
+      { top: 4_800, bottom: 22_500, endKind: "block" },
     ]);
   });
 
@@ -276,11 +289,11 @@ describe("planLongImageParts", () => {
 
   it("fails actionably when safe output requires splitting but it is disabled", () => {
     expect(() => planLongImageParts({
-      documentHeight: 8_001,
+      documentHeight: 20_001,
       targetHeight: 6_000,
       blocks: [
         block("one", 0, 4_000),
-        block("two", 4_000, 8_001),
+        block("two", 4_000, 20_001),
       ],
       allowSplit: false,
     })).toThrow(expect.objectContaining({

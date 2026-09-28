@@ -11,6 +11,45 @@ afterEach(() => {
 });
 
 describe("applyMeasuredImages", () => {
+  it("decodes concurrently without exceeding the worker limit", async () => {
+    const plan: ProjectPlanV14 = {
+      schemaVersion: 15, title: "Parallel", artifacts: [], imageGroups: [],
+      document: { format: "preshot-blocks", version: 3, blocks: [] },
+    };
+    const pending: Array<() => void> = [];
+    const measure = vi.fn(() => new Promise<{ sourceWidth: number; sourceHeight: number }>((resolve) => {
+      pending.push(() => resolve({ sourceWidth: 800, sourceHeight: 600 }));
+    }));
+    const result = applyMeasuredImages(plan, Array.from({ length: 9 }, (_, i) => [`${i}.png`, `${i}`] as const), measure);
+    expect(measure).toHaveBeenCalledTimes(4);
+    while (pending.length) {
+      pending.splice(0).reverse().forEach((finish) => finish());
+      await Promise.resolve();
+      await Promise.resolve();
+    }
+    await result;
+    expect(measure).toHaveBeenCalledTimes(9);
+  });
+
+  it("surfaces decode failure and stops scheduling remaining images", async () => {
+    const plan: ProjectPlanV14 = {
+      schemaVersion: 15, title: "Failure", artifacts: [], imageGroups: [],
+      document: { format: "preshot-blocks", version: 3, blocks: [] },
+    };
+    const remaining: Array<() => void> = [];
+    const measure = vi.fn((source: string) => source === "0"
+      ? Promise.reject(new Error("Invalid image"))
+      : new Promise<{ sourceWidth: number; sourceHeight: number }>((resolve) => {
+        remaining.push(() => resolve({ sourceWidth: 800, sourceHeight: 600 }));
+      }));
+    await expect(applyMeasuredImages(plan, Array.from({ length: 8 }, (_, i) => [`${i}.png`, `${i}`] as const), measure))
+      .rejects.toThrow("Invalid image");
+    remaining.splice(0).forEach((finish) => finish());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(measure).toHaveBeenCalledTimes(4);
+  });
+
   it("hydrates a captured location image with its measured aspect ratio", async () => {
     const plan: ProjectPlanV14 = {
       schemaVersion: 15,

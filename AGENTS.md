@@ -11,20 +11,16 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - Active UI language: Simplified Chinese (`src/shared/i18n/locales/zh.ts`)
 - Project manifest: `.preshotproj` with manifest `schemaVersion: 1`
 - Global material library: `%USERPROFILE%\.preshot\library\library.db`,
-  portable payload v1, separate from the agent metadata database
+  database v6 and portable payload v1
 - Legacy `.preshot` and schema v13 plans are compatibility input only
-- Agent runtime: `github-copilot-sdk@1.0.11`, Empty mode, bundled CLI release
-  `1.0.79` (self-reporting `1.0.81-7`), and one global SQLite metadata store
 
 ## Repository map
 
 - `src/app`: dependency composition, theme, workspace provider, and application shell
-- `src/features`: workspace launcher, BlockNote editor UI, settings panel, and production assistant UI
+- `src/features`: workspace launcher, BlockNote editor UI, and settings panel
 - `src/domain`: pure workspace/settings/plan models, services, ports, schema validation, and shared geometry
 - `src/infrastructure`: Tauri/browser adapters, dialogs, PDF exporter, and persistence wiring
 - `src-tauri`: native project, media, PDF, reveal, settings, and screen-capture commands
-- `src/domain/agent`, `src/infrastructure/agent`, and `src-tauri/src/agent`:
-  pure agent contracts, adapters, managed runtime, closed tools, and sessions
 - `src/domain/library`, `src/features/library`, `src/infrastructure/library`,
   and `src-tauri/src/library`: reusable component snapshots, dialogs, offline
   previews, SQLite search, copied assets, and insertion recovery
@@ -71,7 +67,31 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
 - Library saves own independent original-image copies; insertion allocates
   fresh identities and new project-local reference files. Preserve individual
   image crop/fit/frame fields, not outer component layout or source identities.
+- Image clipboard commands receive bounded image bytes/metadata, never source
+  paths. Preserve native text, IME and multi-block clipboard behavior. Previews
+  and lightboxes are copy-only; material paste targets only the current gallery.
+  Each paste owns a new physical file and identity. Keep the isolated decoder
+  worker entry before app initialization, and never use the live system
+  clipboard in unattended tests.
+- Project image paste uses `.preshot-image-paste` prepare/commit/status/abort
+  receipts and publishes only after the native manifest commit. Gallery history
+  must interleave with real editor history. Undo/redo retains the copied file;
+  retained reference crops are copy-on-write. Serialize native media URLs with
+  their owning block IDs so equal pixels cannot collapse independent files.
+- Library v5 `storageId` selects an immutable UUID image instance, while `blobId`
+  remains an integrity hash. All new image writes use independent instances;
+  unchanged legacy images use the explicit hash resolver. Never fall back from
+  a missing instance to an equal-hash file. Preserve old exact receipts and
+  instance ownership through session renewal, purge and recovery.
 - Material insertion must commit the complete manifest before editor publication.
+  Image-group materials support all or selected images, as one group or consecutive
+  native image blocks. Preserve source order and pin image IDs plus mode in the
+  insertion receipt. Copy only selected originals; publish/undo the batch together.
+  The image-group toolbar opens an image-only library picker. `targetGroupId`
+  pins append-to-group insertion in the same receipt; preserve the target metadata,
+  existing images and document blocks, copy originals into new reference files,
+  and record one external editor history entry. Isolated material groups use owned
+  draft staging and one local undo step; cancellation never saves the material.
   Keep project-local recovery receipts and copied files needed by undo/redo.
   Keep a single shell/launcher Material library button, with insertion inside
   the browser. Capture the active document's last user-focused block before
@@ -91,7 +111,16 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   Screen captures use the same bounded draft staging. Cancel/retire must drain
   capture and clean its temporary PNG before session discard; never publish late
   cancelled results. Text fields retain native selection/clipboard/IME behavior.
-- Direct library creation chooses one of the five kinds and uses that same editor.
+- The library exposes five categories: image, image group, location, model, and
+  combined props/clothing. `propClothing` search includes both legacy `prop`
+  and `clothing` payloads before sorting/pagination; creation uses `prop`.
+  Preserve both immutable payload shapes, IDs, receipts and versions. Library
+  editing/preview labels use the combined category without changing project blocks.
+- Direct library creation chooses one of the five categories and uses that same editor.
+  Image materials contain exactly one image (unsaved drafts may be empty), retain
+  individual crop/frame/fit fields. Project insertion creates a native image block
+  with its own media file; render crop/fit into that copy when needed. The isolated
+  library canvas keeps its one-image group representation for editing and previews.
   `beginCreate` allocates only a draft; first Save atomically publishes its UUID
   at content/metadata version 1. No project or dummy canonical record is required.
   Later saves update that UUID. Before each new save, check active exact names
@@ -102,8 +131,7 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   Keep the durable purge receipt/outbox and content-free operation tombstones;
   reopen resumes only approved cleanup. Never sweep unknown files or report
   cleanup failure as success.
-- Do not expose library content to the assistant or put it in `agent.db`.
-  Browser library persistence is explicitly unavailable outside injected tests.
+- Browser library persistence is explicitly unavailable outside injected tests.
 - Live image drag is an immutable dnd-kit preview transaction. Never write
   preview order into `plan.imageGroups`, autosave, undo history, PDF, DOCX, or
   long-image input; only one validated drop may call the provider move command.
@@ -148,6 +176,9 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   adaptive to encoded bytes, bounded by canvas/decoded-memory limits, offline,
   and cleanup-safe. Desktop multipart saves are rollback-safe native batches;
   browser multipart remains an explicit typed no-op test adapter.
+- The absolute long-image height cap is 20000px. Domain memory checks and
+  DOM capture must both allow 900 x 20000 (18 million pixels / 72,000,000
+  decoded RGBA bytes), while preset height targets remain unchanged.
 - Automatic long-image splitting is explicit opt-in. Every new dialog starts
   unchecked, preset/format/width changes do not enable it, and omitted exporter
   options must preserve one-image behavior or fail actionably at safety limits.
@@ -161,23 +192,6 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   Program Files installation, or installer-authored project/profile data.
 - Keep the fixed MSI UpgradeCode stable, increment `x.y.z` before publishing,
   and let WiX generate ProductCode and PackageCode.
-- Keep agent sessions in SDK Empty mode. Creation and resume must expose only
-  the four source-qualified Preshot tools; never add shell, arbitrary
-  filesystem, network, Git/GitHub, MCP, skills, sub-agent, or ambient tools.
-- Agent tools may read only immutable disclosed context. Text edits remain
-  closed-schema proposals and must not mutate the plan before explicit Apply.
-- Selected-image chips and turn receipts remain token/path-free. Issue a fresh
-  single-use attachment token only at Send after revalidating project,
-  revision, image identity, and the current project-relative file.
-- Proposal Apply/Undo must keep the schema-v4 durable recovery journal and
-  atomic provider/save boundary. Retained recovery conflicts block later
-  proposal actions; never guess or silently overwrite the plan.
-- Keep API keys absent. The renderer never contacts the proxy; model discovery,
-  text/vision probes, and inference stay behind narrow Tauri/Rust commands.
-- Keep `%USERPROFILE%\.preshot\agent.db` metadata-only. Never store or log
-  prompts, transcript bodies, document text, image bytes, attachment payloads,
-  secrets, or absolute paths.
-
 ## Commands
 
 Run `.\init.ps1` on a new Windows checkout.
@@ -206,7 +220,6 @@ pnpm test
 pnpm test:watch
 pnpm test:init
 pnpm test:production-scripts
-pnpm test:agent-evals
 pnpm test:e2e
 pnpm test:e2e:blocknote
 pnpm test:e2e:capture
@@ -266,10 +279,21 @@ pnpm migrate:project
   a modal focus trap with Escape/backdrop cancellation and focus restoration;
   desktop success reveals the project directory, while cancellation, failure,
   and browser/Midscene output do not.
-- The app shell supports focus mode, persisted theme choice, and persisted project/assistant panel widths.
-- The assistant panel is a production project-scoped surface, but its MVP
-  remains proposal-first and text-only. Do not describe it as autonomous,
-  ambient, or able to edit files/media directly.
+- The app shell supports focus mode, persisted theme choice, and persisted project-rail width.
+- New project creation uses one dialog with an editable parent directory and
+  project name. Resolve the default Preshot projects directory without opening
+  a system picker. Explain and preview the named child folder; directory picking
+  is optional and starts at the current input path.
+- The project rail shows open sessions above all registered projects. Keep ready
+  sessions mounted in memory across switches; preserve their editors, image
+  sources, history and scroll position. Inactive sessions autosave but must not
+  handle active shortcuts, clipboard, drag, or library insertion. Scope DOM
+  lookups to the owning editor because project copies can share block/image IDs.
+- Closing a session always prompts to save, discard unsaved edits, or cancel.
+  Pause its autosave while the prompt is open. Save failures keep the session
+  open; discard skips retirement saves and draft-based asset purges without
+  rolling back previously persisted content. First-load image decoding uses at most four concurrent jobs,
+  and actual canvas readiness dismisses loading without a hold or fade.
 - Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v15.
 
 ## Testing expectations
@@ -281,7 +305,7 @@ pnpm migrate:project
   undo/save boundaries, and committed PDF/DOCX/long-image ordering.
 - Mock only platform boundaries such as Tauri `invoke`, file pickers, or browser storage.
 - Playwright stays a smoke/integration layer and should not duplicate unit coverage.
-- Library changes cover all five payload kinds, copied-image ownership,
+- Library changes cover all six payload kinds, copied-image ownership,
   Chinese/literal search, metadata CAS, insertion/recovery, source readiness,
   and real editor undo/redo. Native fixtures must use temporary user/project
   roots, never the developer's real library.

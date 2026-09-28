@@ -62,4 +62,27 @@ describe("modernScreenshotCaptureAdapter", () => {
     session.close();
     expect(destroyContext).toHaveBeenCalledOnce();
   });
+
+  it("captures 900x20000 while rejecting excess dimensions or pixel area", async () => {
+    const { createModernScreenshotCaptureAdapter } = await import("./modernScreenshotCapture");
+    const { domToCanvas } = await import("modern-screenshot");
+    const canvas = document.createElement("canvas");
+    canvas.width = 900;
+    canvas.height = 20_000;
+    vi.mocked(domToCanvas).mockReset().mockResolvedValue(canvas);
+    const session = await createModernScreenshotCaptureAdapter().createSession(document.createElement("section"));
+    const capture = (width: number, height: number) => session.capture({
+      output: "canvas", format: "image/png",
+      viewport: { x: 0, y: 0, width, height, sourceWidth: width, sourceHeight: height },
+    });
+    try {
+      await expect(capture(900, 20_000)).resolves.toMatchObject({ width: 900, height: 20_000 });
+      await expect(capture(900, 20_001)).rejects.toThrow("Capture dimensions exceed 20000px");
+      await expect(capture(901, 20_000)).rejects.toThrow("Capture exceeds 18000000 pixels");
+      expect(domToCanvas).toHaveBeenCalledOnce();
+    } finally {
+      session.close();
+      canvas.width = canvas.height = 0;
+    }
+  });
 });

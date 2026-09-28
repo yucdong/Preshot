@@ -10,6 +10,7 @@ import type { CanvasPlanRepository } from "../../domain/plan/canvas/ports";
 import type { ProjectPlan as CanvasPlan } from "../../domain/plan/canvas/models";
 import type { ProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
 import type { BlockNotePlanRepository } from "../../domain/plan/blocknote/ports";
+import type { ImagePasteRepository } from "../../domain/clipboard/projectImagePaste";
 
 type InvokeCommand = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 
@@ -65,8 +66,51 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
   ReferenceImageCropStore &
   PlanMediaStore &
   CanvasPlanRepository &
-  BlockNotePlanRepository {
+  BlockNotePlanRepository & ImagePasteRepository {
   return {
+    async isImageRetainedForHistory(projectPath, file) {
+      try {
+        const value = await invokeCommand("is_reference_image_retained_for_history", { projectPath, file });
+        if (typeof value !== "boolean") throw new Error("Malformed image history retention result");
+        return value;
+      } catch (error) { throw new Error(`无法确认图片历史保留状态：${detail(error)}`, { cause: error }); }
+    },
+    async prepareImagePaste(input) {
+      try {
+        const value = await invokeCommand("prepare_image_paste", input);
+        if (!isRecord(value)) throw new Error("Malformed image paste receipt");
+        const operationId = requireString(value.operationId);
+        const file = requireString(value.file);
+        if (operationId !== input.operationId ||
+            !(input.destination === "references" ? /^references\/[0-9]{4,}\.(jpg|png)$/ : /^media\/[^/\\]+\.(jpg|jpeg|png|gif|webp)$/).test(file)) {
+          throw new Error("Image paste receipt does not match the destination");
+        }
+        return { operationId, file, name: requireString(value.name), mimeType: requireString(value.mimeType) };
+      } catch (error) {
+        throw new Error(`无法准备图片粘贴：${detail(error)}`, { cause: error });
+      }
+    },
+    async commitImagePaste(input) {
+      try { await invokeCommand("commit_image_paste", input); }
+      catch (error) { throw new Error(`无法提交图片粘贴：${detail(error)}`, { cause: error }); }
+    },
+    async getImagePasteStatus(projectPath, operationId) {
+      try {
+        const value = await invokeCommand("get_image_paste_status", { projectPath, operationId });
+        if (!isRecord(value) || !["prepared", "committed", "aborted", "missing"].includes(String(value.status))) {
+          throw new Error("Malformed image paste status");
+        }
+        const status = value.status;
+        if (status !== "prepared" && status !== "committed" && status !== "aborted" && status !== "missing") {
+          throw new Error("Invalid image paste status");
+        }
+        return status;
+      } catch (error) { throw new Error(`无法确认图片粘贴结果：${detail(error)}`, { cause: error }); }
+    },
+    async abortImagePaste(projectPath, operationId) {
+      try { await invokeCommand("abort_image_paste", { projectPath, operationId }); }
+      catch (error) { throw new Error(`无法清理未提交的图片粘贴：${detail(error)}`, { cause: error }); }
+    },
     async importImage(projectPath, sourcePath) {
       try {
         return validateImported(

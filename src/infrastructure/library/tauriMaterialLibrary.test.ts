@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createTauriMaterialLibrary } from "./tauriMaterialLibrary";
 import { unavailableMaterialLibrary } from "./unavailableMaterialLibrary";
 import { createEmptyMaterialPayload, MATERIAL_KINDS, validateMaterialPayload } from "../../domain/library";
+import { createEmptyProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
 
 const material = {
   id: "8f88ead0-f300-4666-8515-7bdfaa82c338",
@@ -28,6 +29,86 @@ const material = {
 };
 
 describe("Tauri material library boundary", () => {
+  it("accepts native media copies only for image material insertion", async () => {
+    const payload = validateMaterialPayload({ format: "preshot-material", version: 1, kind: "image", component: {
+      kind: "image", name: "图片", description: "", images: [{ localImageId: "image-1", aspectRatio: 1, frameWidth: 100, frameHeight: 100 }],
+    } });
+    const input = { operationId: material.id, materialId: material.id, revision: 1,
+      projectId: material.id, projectPath: "C:\\project", expectedPlan: createEmptyProjectPlanV15("test", { makeId: () => "anchor" }) };
+    const result = { operationId: input.operationId, materialId: material.id, revision: 1, payload,
+      images: [{ localImageId: "image-1", file: "media/0001.png" }] };
+    const invokeCommand = vi.fn().mockResolvedValue(result);
+    const repository = createTauriMaterialLibrary({ invokeCommand });
+    expect(await repository.prepareInsert(input)).toEqual(result);
+    for (const file of ["references/0001.png", "media/../0001.png", "C:/media/0001.png"]) {
+      invokeCommand.mockResolvedValue({ ...result, images: [{ localImageId: "image-1", file }] });
+      await expect(repository.prepareInsert(input)).rejects.toThrow("无法准备插入素材");
+    }
+    invokeCommand.mockResolvedValue({ ...result, payload: { ...payload, kind: "imageGroup", component: { ...payload.component, kind: "imageGroup" } } });
+    await expect(repository.prepareInsert(input)).rejects.toThrow("无法准备插入素材");
+  });
+
+  it("imports one encoded clipboard image without selecting a filesystem path", async () => {
+    const staged = { localImageId: "pasted", mimeType: "image/png", byteLength: 3, width: 20, height: 30, dataUrl: "data:image/png;base64,YWJj" };
+    const invokeCommand = vi.fn().mockResolvedValue(staged);
+    const imagePicker = { pickImageFiles: vi.fn() };
+    const editor = createTauriMaterialLibrary({ invokeCommand, imagePicker }).contentEditor!;
+    const input = { name: "clipboard.png", mimeType: "image/png", bytes: [97, 98, 99] };
+    expect(await editor.importEditImageData!("draft", input)).toEqual(staged);
+    expect(invokeCommand).toHaveBeenCalledExactlyOnceWith("library_import_edit_image_data", { sessionId: "draft", input });
+    expect(imagePicker.pickImageFiles).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { name: "..\\outside.png", mimeType: "image/png", bytes: [1] },
+    { name: "clipboard.gif", mimeType: "image/gif", bytes: [1] },
+    { name: "clipboard.jpg", mimeType: "image/png", bytes: [1] },
+    { name: "clipboard.png", mimeType: "image/png", bytes: [] },
+    { name: "clipboard.png", mimeType: "image/png", bytes: [256] },
+    { name: "clipboard.png", mimeType: "image/png", bytes: [0.5] },
+  ])("rejects invalid encoded import envelopes before native invocation: %j", async (input) => {
+    const invokeCommand = vi.fn();
+    const editor = createTauriMaterialLibrary({ invokeCommand }).contentEditor!;
+    await expect(editor.importEditImageData!("draft", input)).rejects.toThrow("无法粘贴素材图片");
+    expect(invokeCommand).not.toHaveBeenCalled();
+  });
+
+  it("preserves explicit instance identity while keeping legacy image JSON unchanged", async () => {
+    const image = { localImageId: "image-1", blobId: "a".repeat(64), mimeType: "image/png", byteLength: 3, width: 20, height: 30 };
+    const detail = {
+      ...material, imageCount: 1, byteLength: 3,
+      payload: { ...material.payload, component: { ...material.payload.component, gallery: { images: [
+        { localImageId: "image-1", aspectRatio: 1, frameWidth: 100, frameHeight: 100, caption: "" },
+      ] } } },
+      images: [image],
+    };
+    const invokeCommand = vi.fn().mockResolvedValue(detail);
+    const repository = createTauriMaterialLibrary({ invokeCommand });
+    expect((await repository.get(material.id)).images).toEqual([image]);
+    expect("storageId" in (await repository.get(material.id)).images[0]).toBe(false);
+    const instance = { ...image, storageId: "11111111-1111-4111-8111-111111111111" };
+    invokeCommand.mockResolvedValue({ ...detail, images: [instance] });
+    expect((await repository.get(material.id)).images).toEqual([instance]);
+    for (const storageId of ["invalid", "../objects/a", "", null, 123, "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"]) {
+      invokeCommand.mockResolvedValue({ ...detail, images: [{ ...image, storageId }] });
+      await expect(repository.get(material.id)).rejects.toThrow();
+    }
+  });
+
+  it("rejects encoded import replies for another MIME type or byte length", async () => {
+    const invokeCommand = vi.fn().mockResolvedValue({
+      localImageId: "pasted", mimeType: "image/jpeg", byteLength: 3, width: 2, height: 3,
+      dataUrl: "data:image/jpeg;base64,YWJj",
+    });
+    const editor = createTauriMaterialLibrary({ invokeCommand }).contentEditor!;
+    await expect(editor.importEditImageData!("draft", {
+      name: "clipboard.png", mimeType: "image/png", bytes: [1, 2, 3],
+    })).rejects.toThrow("回执");
+    await expect(editor.importEditImageData!("draft", {
+      name: "clipboard.jpg", mimeType: "image/jpeg", bytes: [1, 2],
+    })).rejects.toThrow("回执");
+  });
+
   const sessionId = "cb481ce3-64d4-4cd4-9cbb-79eb9d0a3c88";
   const newDraft = {
     ...material, name: "", description: "", tags: [], favorite: false, revision: 0, metadataVersion: 0,

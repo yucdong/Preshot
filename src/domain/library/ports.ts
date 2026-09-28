@@ -22,6 +22,10 @@ export interface MaterialContentEditorRepository {
   beginEdit(materialId: string, revision: number): Promise<MaterialEditSession>;
   loadEditImage(sessionId: string, localImageId: string): Promise<string>;
   importEditImages(sessionId: string): Promise<MaterialEditImage[]>;
+  /** Encoded JPG/PNG only; each paste owns a new draft and persistent image file. */
+  importEditImageData?(
+    sessionId: string, input: { name: string; mimeType: string; bytes: number[] },
+  ): Promise<MaterialEditImage>;
   /** Resolving cancellation stops capture; null means explicitly cancelled, never a failure. */
   captureEditImage(sessionId: string, cancellation: Promise<void>): Promise<MaterialEditImage | null>;
   cropEditImage(

@@ -49,7 +49,7 @@
 .ml-search-row { display: flex; gap: 12px; padding: 0 24px 18px; flex-shrink: 0; border-bottom: 1px solid var(--app-border); }
 .ml-search { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; }
 .ml-search > svg { position: absolute; left: 14px; color: var(--app-ink-muted); }
-.material-library-dialog :is(input:not([type="checkbox"]), textarea, select):not(:where([data-material-canvas-document] *, [data-reference-image-lightbox] *)) {
+.material-library-dialog :is(input:not([type="checkbox"], [type="radio"]), textarea, select):not(:where([data-material-canvas-document] *, [data-reference-image-lightbox] *)) {
   min-width: 0; width: 100%; border: 1px solid var(--app-border); border-radius: 6px;
   background: var(--app-panel-strong); color: var(--app-ink); padding: 9px 12px; min-height: 44px;
 }
@@ -163,6 +163,19 @@
   color-scheme: light;
 }
 .ml-confirm-dialog { max-width: 460px; }
+.ml-image-insert-dialog { max-width: 850px; }
+.ml-image-insert-body { padding: 0 24px 24px; overflow-y: auto; }
+.ml-image-insert-mode { display: flex; gap: 24px; margin-bottom: 12px; }
+.ml-image-insert-mode legend { margin-bottom: 10px; font-weight: 600; }
+.ml-image-insert-mode label { display: flex; align-items: center; gap: 8px; }
+.ml-image-insert-mode input { width: 18px; height: 18px; }
+.ml-image-insert-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-top: 16px; }
+.ml-image-insert-tile { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 2px solid var(--app-border); border-radius: 10px; cursor: pointer; min-width: 0; }
+.ml-image-insert-tile[data-selected="true"] { border-color: var(--app-accent); }
+.ml-image-insert-tile input { position: absolute; top: 14px; left: 14px; width: 18px; height: 18px; }
+.ml-image-insert-tile img, .ml-image-insert-placeholder { width: 100%; height: 125px; object-fit: contain; }
+.ml-image-insert-placeholder { display: grid; place-content: center; color: var(--app-ink-muted); }
+.ml-image-insert-tile > span:last-child { overflow-wrap: anywhere; font-size: 12px; }
 .ml-confirm-body { padding: 4px 24px 24px; overflow-y: auto; overflow-wrap: anywhere; }
 .ml-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @keyframes ml-dialog-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }

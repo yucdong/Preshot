@@ -18,16 +18,7 @@ The MSI owns the application files, its shortcuts, and its HKCU registration.
 It does not create, seed, migrate, repair, or remove
 `%USERPROFILE%\.preshot`, project directories, `.preshotproj` manifests, or
 legacy `.preshot` data. Application startup owns the user-data bootstrap.
-
-The pinned GitHub Copilot SDK stores its managed CLI as an embedded payload in
-`preshot.exe`, not as a separate WiX file or sidecar. When that internal
-service is used, application runtime extraction creates
-`%USERPROFILE%\.preshot\copilot\bin\<version>\copilot.exe`; the MSI does not
-own or remove that user-data cache. Release signing still covers the final
-Preshot executable and MSI in the existing two-phase order. The MSI also
-installs the GitHub Copilot SDK license, GitHub Copilot CLI license, and
-third-party notice as application resources. See
-[Copilot Rust SDK dependency spike](COPILOT_SDK_SPIKE.md).
+The third-party notice is installed as an application resource.
 
 `MainProgram` always owns `preshot.exe` and every required application binary.
 The optional `Environment` feature owns only the current-user PATH environment

@@ -15,6 +15,36 @@ function referenceImage(id: string) {
 }
 
 describe("BlockNote plan service", () => {
+  it("uses copy-on-write when a standalone image is retained by clipboard paste history", async () => {
+    const target = referenceImage("retained");
+    const plan: ProjectPlanV15 = {
+      schemaVersion: 15, title: "Clipboard crop", artifacts: [],
+      document: { format: "preshot-blocks", version: 3, blocks: [{
+        id: "block", type: "imageGroup", props: { groupId: "group" }, content: undefined, children: [],
+      }] },
+      imageGroups: [{ id: "group", type: "reference", name: "Group", description: "", x: 0, width: 700, height: 300, images: [target] }],
+    };
+    const cropStore = {
+      beginImageCrop: vi.fn(),
+      isImageRetainedForHistory: vi.fn(async () => true),
+      copyImageCrop: vi.fn(async () => ({ file: "references/0010.png", dataUrl: "data:image/png;base64,AA", width: 450, height: 300 })),
+    };
+    const removeImage = vi.fn();
+    const service = createBlockNotePlanService({
+      repository: { loadRawPlan: vi.fn(), saveRawPlan: vi.fn() },
+      imageStore: { importImage: vi.fn(), loadImage: vi.fn(), removeImage },
+      imageCropStore: cropStore,
+      mediaStore: { importMedia: vi.fn(), loadMedia: vi.fn(), removeMedia: vi.fn() },
+      createId: () => "unused", logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    });
+    const result = await service.commitImageCrop("C:\\p", () => plan, "group", "retained", { x: 0, y: 0, width: .5, height: .5 });
+    expect(result.image.file).toBe("references/0010.png");
+    expect(cropStore.isImageRetainedForHistory).toHaveBeenCalledWith("C:\\p", target.file);
+    expect(cropStore.beginImageCrop).not.toHaveBeenCalled();
+    expect(removeImage).not.toHaveBeenCalled();
+    expect(plan.imageGroups[0].images[0].file).toBe(target.file);
+  });
+
   it("publishes image removal and retires a card when native history retains its copied file", async () => {
     const retained = referenceImage("retained");
     const group = {

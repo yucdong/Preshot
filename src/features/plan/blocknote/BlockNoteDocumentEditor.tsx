@@ -8,6 +8,8 @@ import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import {
   getDefaultReactSlashMenuItems,
+  FilePanelController,
+  FormattingToolbarController,
   SideMenuController,
   SuggestionMenuController,
   useCreateBlockNote,
@@ -29,17 +31,13 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useTheme } from "../../../app/theme/ThemeContext";
-import {
-  BLOCK_DOCUMENT_SCHEMA_VERSION,
-  type PreshotBlockDocument,
-  validateBlockDocument,
-} from "../../../domain/plan/canvas/blockDocument";
+import type { PreshotBlockDocument } from "../../../domain/plan/canvas/blockDocument";
 import {
   preshotBlockNoteSchema,
   type PreshotBlockNoteEditor,
   type PreshotEditorPartialBlock,
 } from "./preshotBlockNoteSchema";
-import { resolveBlockNoteDocumentAssets } from "./blockNoteDocumentAssets";
+import { resolveBlockNoteDocumentAssets, serializeBlockNoteDocumentAssets } from "./blockNoteDocumentAssets";
 import {
   ImageGroupBlockContext,
   type ImageGroupBlockController,
@@ -51,9 +49,6 @@ import {
   type PreshotEditorBlock,
 } from "./blockOperations";
 import { PreshotBlockSideMenu } from "./PreshotBlockSideMenu";
-import type {
-  AgentWorkspacePublisher,
-} from "../../../domain/agent/workspaceBridge";
 import {
   ArtifactBlockContext,
   type ArtifactBlockController,
@@ -61,9 +56,15 @@ import {
 import type { ArtifactKind } from "../../../domain/plan/canvas/blockDocument";
 import { closeHistory } from "prosemirror-history";
 import type { MaterialEditorBridge } from "./MaterialEditorBridge";
+import { IMAGE_CLIPBOARD_SELECTION_CHANGE, registerImageClipboardDocument } from "./clipboard/imageClipboardDom";
+import { selectedClipboardComponent } from "./clipboard/selectedClipboardComponent";
+import { attachExternalImageHistory } from "./clipboard/externalImageHistory";
+import { focusClipboardTargetWhenReady } from "./clipboard/focusClipboardTargetWhenReady";
+import { PreshotImageFilePanel } from "./PreshotImageFilePanel";
+import { PreshotFormattingToolbar } from "./PreshotFormattingToolbar";
+import { CaptureBlockImageContext, type CaptureBlockImage } from "./ImageBlockCaptureContext";
 
 interface BlockNoteDocumentEditorProps {
-  agentWorkspace?: AgentWorkspacePublisher;
   ariaLabel: string;
   document: PreshotBlockDocument;
   artifactController: ArtifactBlockController;
@@ -72,12 +73,10 @@ interface BlockNoteDocumentEditorProps {
   onEditorReady?(editor: PreshotBlockNoteEditor): void;
   onMaterialEditorReady?(bridge: MaterialEditorBridge): () => void;
   onInsertMaterial?(): void;
-  onDocumentTransactionReady?(
-    applyDocument: (document: PreshotBlockDocument) => void,
-  ): () => void;
-  persistMediaUrl(url: string): string;
+  persistMediaUrl(url: string, blockId?: string): string;
   resolveMediaUrl(url: string): string;
   uploadFile(file: File): Promise<string>;
+  captureImage?: CaptureBlockImage;
 }
 
 type PreshotSidecarBlock = Extract<
@@ -122,44 +121,7 @@ function invalidNestedSidecarBlock(
   return undefined;
 }
 
-function serializeEditorDocument(
-  blocks: unknown,
-  persistMediaUrl: (url: string) => string,
-): PreshotBlockDocument {
-  const jsonSafeBlocks = JSON.parse(JSON.stringify(blocks)) as Array<{
-    type: string;
-    props: Record<string, unknown>;
-    children: unknown[];
-  }>;
-  const normalize = (block: {
-    type: string;
-    props: Record<string, unknown>;
-    children: unknown[];
-  }) => {
-    if (
-      (
-        block.type === "image" ||
-        block.type === "video" ||
-        block.type === "audio" ||
-        block.type === "file"
-      ) &&
-      typeof block.props.url === "string"
-    ) {
-      block.props.url = persistMediaUrl(block.props.url);
-    }
-    block.children.forEach((child) =>
-      normalize(child as typeof block));
-  };
-  jsonSafeBlocks.forEach(normalize);
-  return validateBlockDocument({
-    format: "preshot-blocks",
-    version: BLOCK_DOCUMENT_SCHEMA_VERSION,
-    blocks: jsonSafeBlocks,
-  });
-}
-
 export function BlockNoteDocumentEditor({
-  agentWorkspace,
   ariaLabel,
   artifactController,
   document,
@@ -168,18 +130,21 @@ export function BlockNoteDocumentEditor({
   onEditorReady,
   onMaterialEditorReady,
   onInsertMaterial,
-  onDocumentTransactionReady,
   persistMediaUrl,
   resolveMediaUrl,
   uploadFile,
+  captureImage,
 }: BlockNoteDocumentEditorProps) {
   const { resolved } = useTheme();
+  const documentRootRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
   const lastEmitRef = useRef(JSON.stringify(document));
   const lastActiveBlockRef = useRef<string | null>(null);
+  const externalHistoryRef = useRef<ReturnType<typeof attachExternalImageHistory> | null>(null);
+  const pendingClipboardFocusRef = useRef<(() => void) | null>(null);
   const reconcilingRef = useRef(false);
-  const proposalTransactionRef = useRef(false);
-  const proposalTransactionTimerRef = useRef<number | null>(null);
+  const documentTransactionRef = useRef(false);
+  const documentTransactionTimerRef = useRef<number | null>(null);
   const operationToastTimerRef = useRef<number | null>(null);
   const [operationToast, setOperationToast] = useState<string | null>(null);
   const editor = useCreateBlockNote({
@@ -187,6 +152,7 @@ export function BlockNoteDocumentEditor({
     dictionary: zh,
     initialContent: resolveBlockNoteDocumentAssets(document, resolveMediaUrl),
     uploadFile,
+    resolveFileUrl: async (url) => resolveMediaUrl(url),
   });
 
   useEffect(() => {
@@ -200,66 +166,82 @@ export function BlockNoteDocumentEditor({
   }), [editor]);
 
   useEffect(() => {
-    if (!agentWorkspace) return;
-    const publishSelection = () => {
-      const selection = editor.getSelection();
-      const cursorBlockId = editor.getTextCursorPosition().block.id;
-      agentWorkspace.publishSelection({
-        selectedBlockIds: selection?.blocks.map((block) => block.id) ?? [],
-        cursorBlockId,
-      });
+    const root = documentRootRef.current;
+    if (!root) return;
+    const topLevelId = (id: string): string => {
+      const contains = (block: PreshotEditorBlock): boolean =>
+        block.id === id || block.children.some(contains);
+      return editor.document.find(contains)?.id ?? id;
     };
-    publishSelection();
-    return editor.onSelectionChange(publishSelection);
-  }, [agentWorkspace, editor]);
-
-  useEffect(() => {
-    if (!agentWorkspace) return;
-    return agentWorkspace.registerBlockNavigator({
-      focusBlock(blockId) {
-        const block = editor.getBlock(blockId);
-        if (!block) return false;
-        editor.setTextCursorPosition(block, "start");
-        editor.focus();
-        const escapedId = typeof CSS !== "undefined" && CSS.escape
-          ? CSS.escape(blockId)
-          : blockId.replaceAll('"', '\\"');
-        const target = editor.domElement?.querySelector<HTMLElement>(
-          `[data-id="${escapedId}"]`,
-        );
-        target?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-        target?.setAttribute("data-agent-citation-highlight", "true");
-        if (target) {
-          window.setTimeout(() => {
-            target.removeAttribute("data-agent-citation-highlight");
-          }, 2_000);
+    const unregister = registerImageClipboardDocument(root, {
+      getSelectedComponent: () => selectedClipboardComponent(editor, root),
+      getTopLevelBlock: topLevelId,
+      getAnchor() {
+        const id = lastActiveBlockRef.current;
+        return id ? topLevelId(id) : null;
+      },
+      getNativeSelection() {
+        const view = editor.prosemirrorView;
+        if (!view.hasFocus()) return null;
+        const selection = view.state.selection;
+        if (selection.toJSON().type !== "node") return null;
+        const node = view.state.doc.nodeAt(selection.from);
+        if (node?.type.name === "blockContainer" && node.childCount === 1 &&
+          node.firstChild?.type.name === "image" &&
+          editor.getBlock(node.attrs.id)?.type === "image") return node.attrs.id as string;
+        if (node?.type.name !== "image") return null;
+        for (let depth = selection.$from.depth; depth > 0; depth--) {
+          const ancestor = selection.$from.node(depth);
+          if (ancestor.type.name === "blockContainer" && typeof ancestor.attrs.id === "string" &&
+            editor.getBlock(ancestor.attrs.id)?.type === "image") return ancestor.attrs.id as string;
         }
-        return true;
+        return null;
+      },
+      resolveNativeImage(element) {
+        // BlockNote 0.53's native image renderer, not a thumbnail in a sidecar block.
+        if (!element.matches("img.bn-visual-media") ||
+          !element.closest("[data-content-type='image']")) return null;
+        const id = element.closest<HTMLElement>("[data-id]")?.dataset.id;
+        return id && editor.getBlock(id)?.type === "image" ? id : null;
       },
     });
-  }, [agentWorkspace, editor]);
+    const unsubscribe = editor.onSelectionChange(() => {
+      root.dispatchEvent(new Event(IMAGE_CLIPBOARD_SELECTION_CHANGE, { bubbles: true }));
+    });
+    return () => { unsubscribe(); unregister(); };
+  }, [editor]);
 
   useEffect(() => () => {
+    pendingClipboardFocusRef.current?.();
     if (operationToastTimerRef.current !== null) {
       window.clearTimeout(operationToastTimerRef.current);
     }
-    if (proposalTransactionTimerRef.current !== null) {
-      window.clearTimeout(proposalTransactionTimerRef.current);
+    if (documentTransactionTimerRef.current !== null) {
+      window.clearTimeout(documentTransactionTimerRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    const history = attachExternalImageHistory(editor);
+    externalHistoryRef.current = history;
+    return () => {
+      externalHistoryRef.current = null;
+      history.dispose();
+    };
+  }, [editor]);
 
   useEffect(() => {
     onEditorReady?.(editor);
   }, [editor, onEditorReady]);
 
   useEffect(() => {
-    if (!onDocumentTransactionReady && !onMaterialEditorReady) return;
+    if (!onMaterialEditorReady) return;
     const applyDocument = (next: PreshotBlockDocument, isolatedHistory = false) => {
       const serialized = JSON.stringify(next);
       lastEmitRef.current = serialized;
-      proposalTransactionRef.current = true;
-      if (proposalTransactionTimerRef.current !== null) {
-        window.clearTimeout(proposalTransactionTimerRef.current);
+      documentTransactionRef.current = true;
+      if (documentTransactionTimerRef.current !== null) {
+        window.clearTimeout(documentTransactionTimerRef.current);
       }
       const replacement = resolveBlockNoteDocumentAssets(
         next,
@@ -272,36 +254,49 @@ export function BlockNoteDocumentEditor({
         });
         if (isolatedHistory) editor.prosemirrorView.dispatch(closeHistory(editor.prosemirrorView.state.tr));
       } finally {
-        proposalTransactionTimerRef.current = window.setTimeout(() => {
-          proposalTransactionTimerRef.current = null;
-          proposalTransactionRef.current = false;
+        documentTransactionTimerRef.current = window.setTimeout(() => {
+          documentTransactionTimerRef.current = null;
+          documentTransactionRef.current = false;
         }, 0);
       }
     };
-    const unregisterProposal = onDocumentTransactionReady?.(applyDocument);
     const unregisterMaterial = onMaterialEditorReady?.({
       getAnchor: () => {
         const anchor = lastActiveBlockRef.current;
         return anchor && editor.getBlock(anchor) ? anchor : null;
       },
       applyDocument: (next) => applyDocument(next, true),
+      recordExternalHistory(entry) {
+        const history = externalHistoryRef.current;
+        if (!history) throw new Error("当前图片粘贴历史已结束。");
+        history.recordExternalHistory(entry);
+      },
+      undo() {
+        if (!externalHistoryRef.current) throw new Error("当前图片粘贴历史已结束。");
+        if (!editor.undo()) throw new Error("当前没有可撤销的编辑，请重新确认图片操作。");
+      },
       focusBlock(blockId) {
-        const block = editor.getBlock(blockId);
-        if (!block) return;
-        editor.setTextCursorPosition(block, "start");
-        editor.focus();
-        const target = editor.domElement?.querySelector<HTMLElement>(
-          `[data-id="${CSS.escape(blockId)}"]`,
-        );
-        target?.scrollIntoView?.({ block: "center" });
-        target?.querySelector<HTMLInputElement>("input")?.focus();
+        pendingClipboardFocusRef.current?.();
+        const root = documentRootRef.current;
+        if (!root) return;
+        pendingClipboardFocusRef.current = focusClipboardTargetWhenReady(root, () => {
+          if (editor.prosemirrorView.isDestroyed) return;
+          const block = editor.getBlock(blockId);
+          if (!block) return;
+          editor.setTextCursorPosition(block, "start");
+          editor.focus();
+          const target = editor.domElement?.querySelector<HTMLElement>(
+            `[data-id="${CSS.escape(blockId)}"]`,
+          );
+          target?.scrollIntoView?.({ block: "center" });
+          target?.querySelector<HTMLInputElement>("input")?.focus();
+        });
       },
     });
     return () => {
-      unregisterProposal?.();
       unregisterMaterial?.();
     };
-  }, [editor, onDocumentTransactionReady, onMaterialEditorReady, resolveMediaUrl]);
+  }, [editor, onMaterialEditorReady, resolveMediaUrl]);
 
   useEffect(() => {
     if (import.meta.env.VITE_WORKSPACE_ADAPTER !== "memory") return;
@@ -315,7 +310,7 @@ export function BlockNoteDocumentEditor({
   }, [editor]);
 
   const handleChange = useCallback(() => {
-    if (proposalTransactionRef.current) return;
+    if (documentTransactionRef.current) return;
     if (!reconcilingRef.current) {
       const nestedSidecarBlock = invalidNestedSidecarBlock(editor.document);
       if (nestedSidecarBlock) {
@@ -390,7 +385,7 @@ export function BlockNoteDocumentEditor({
         }
       }
     }
-    const next = serializeEditorDocument(
+    const next = serializeBlockNoteDocumentAssets(
       editor.document,
       persistMediaUrl,
     );
@@ -507,6 +502,8 @@ export function BlockNoteDocumentEditor({
       aria-label={ariaLabel}
       className="preshot-blocknote-document"
       data-editor-engine="blocknote"
+      data-clipboard-document=""
+      ref={documentRootRef}
       onFocusCapture={(event) => {
         if (!event.currentTarget.contains(event.target)) return;
         const block = event.target.closest<HTMLElement>("[data-id]");
@@ -522,14 +519,19 @@ export function BlockNoteDocumentEditor({
     >
       <ImageGroupBlockContext.Provider value={contextualImageGroupController}>
         <ArtifactBlockContext.Provider value={contextualArtifactController}>
+        <CaptureBlockImageContext.Provider value={captureImage}>
         <BlockNoteView
           autoFocus={false}
           editor={editor}
           onChange={handleChange}
           slashMenu={false}
           sideMenu={false}
+          filePanel={false}
+          formattingToolbar={false}
           theme={resolved}
         >
+          <FilePanelController filePanel={PreshotImageFilePanel} />
+          <FormattingToolbarController formattingToolbar={PreshotFormattingToolbar} />
           <SuggestionMenuController
             getItems={async (query) => {
               const defaults = getDefaultReactSlashMenuItems(editor);
@@ -627,6 +629,7 @@ export function BlockNoteDocumentEditor({
             )}
           />
         </BlockNoteView>
+        </CaptureBlockImageContext.Provider>
         {operationToast ? (
           <div
             className="preshot-block-operation-toast"

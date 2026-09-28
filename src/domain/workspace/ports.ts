@@ -36,10 +36,12 @@ export interface NativeWorkspace {
 }
 
 export interface DirectoryPickerOptions {
+  defaultPath?: string;
   defaultToProjectsDir?: boolean;
 }
 
 export interface WorkspaceDirectoryPicker {
+  getDefaultProjectsDirectory(): Promise<string>;
   pickDirectory(
     title: string,
     options?: DirectoryPickerOptions,

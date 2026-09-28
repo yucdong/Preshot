@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 import type { MaterialLibraryRepository } from "../domain/library/ports";
-import { MaterialLibraryProvider } from "../features/library/MaterialLibraryContext";
+import { MaterialLibraryProvider } from "../features/library/MaterialLibraryProvider";
 import { createPlatformMaterialLibrary } from "../infrastructure/library/tauriMaterialLibrary";
 import { unavailableMaterialLibrary } from "../infrastructure/library/unavailableMaterialLibrary";
 import {

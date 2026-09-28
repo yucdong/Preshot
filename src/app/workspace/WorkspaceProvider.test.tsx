@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { SettingsRepository } from "../../domain/settings/ports";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
@@ -8,31 +9,90 @@ import type { PlanLoadProgress } from "../../features/plan/blocknote/planLoadPro
 import { ThemeProvider } from "../theme/ThemeProvider";
 import type { WorkspaceDependencies } from "./dependencies";
 import { WorkspaceProvider } from "./WorkspaceProvider";
-import { AgentModelSettingsController } from "../../domain/agent";
-import { AgentModelSettingsProvider } from "../../features/agent/AgentModelSettingsContext";
-import { createBrowserAgentModelProbe } from "../../infrastructure/agent/browserAgentModelProbe";
-import { createSettingsAgentModelStore } from "../../infrastructure/agent/settingsAgentModelStore";
 
 vi.mock("../layout/Workspace", () => ({
   Workspace: function Workspace({
+    active = true,
     projectName,
     projectPath,
     loadId,
     onLoadProgress,
   }: {
+    active?: boolean;
     projectName: string;
     projectPath: string;
     loadId: number;
     onLoadProgress?(id: number, path: string, progress: PlanLoadProgress): void;
   }) {
+    const [draft, setDraft] = useState("");
     useEffect(() => {
       onLoadProgress?.(loadId, projectPath, { status: "ready" });
     }, [loadId, onLoadProgress, projectPath]);
-    return <div>{`${projectName}|${projectPath}`}</div>;
+    return <div hidden={!active}>{`${projectName}|${projectPath}`}<input aria-label={`${projectName} 草稿`} value={draft} onChange={(event) => setDraft(event.target.value)} /></div>;
   },
 }));
 
 describe("WorkspaceProvider startup", () => {
+  it("retains open editors across switching and creation cancellation, and closes only the selected session", async () => {
+    const user = userEvent.setup();
+    const first: WorkspaceProjectView = {
+      projectId: "first", path: "C:\\first", name: "项目一", status: "available",
+      coverImage: null, coverDataUrl: null, createdAt: "2026-09-01", updatedAt: "2026-09-02", lastOpenedAt: "2026-09-02",
+    };
+    const second = { ...first, projectId: "second", path: "C:\\second", name: "项目二", updatedAt: "2026-09-01" };
+    const dependencies: WorkspaceDependencies = {
+      service: {
+        loadProjects: vi.fn().mockResolvedValue([first, second]),
+        openProject: vi.fn().mockImplementation(async (path) => path === second.path ? second : first),
+        createProject: vi.fn(), relocateProject: vi.fn(), removeRecord: vi.fn(),
+      },
+      directoryPicker: {
+      getDefaultProjectsDirectory: vi.fn().mockResolvedValue("C:\\Users\\me\\.preshot\\projects"), pickDirectory: vi.fn().mockResolvedValue("C:\\projects") },
+      native: { onMenuAction: vi.fn().mockResolvedValue(vi.fn()), maximizeWindow: vi.fn().mockResolvedValue(undefined) },
+      projectDirectoryRevealer: { revealProjectDirectory: vi.fn() },
+      logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    };
+    render(<ThemeProvider repository={{ read: async () => ({ theme: "light" }), write: async () => {} }}>
+      <WorkspaceProvider dependencies={dependencies} planDependencies={{} as PlanDependencies} />
+    </ThemeProvider>);
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "项目一 草稿" })).toBeVisible());
+    const firstEditor = screen.getByRole("textbox", { name: "项目一 草稿" });
+    fireEvent.change(firstEditor, { target: { value: "未丢失的编辑" } });
+    await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 项目二" }));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "项目二 草稿" })).toBeVisible());
+    await user.click(within(screen.getByRole("region", { name: "打开项目" })).getByRole("button", { name: "打开项目 项目一" }));
+    expect(screen.getByRole("textbox", { name: "项目一 草稿" })).toBe(firstEditor);
+    expect(firstEditor).toHaveValue("未丢失的编辑");
+    expect(screen.queryByRole("region", { name: "项目加载" })).not.toBeInTheDocument();
+    expect(dependencies.service.openProject).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "新建项目" }));
+    await screen.findByRole("dialog");
+    expect(screen.getByLabelText("项目所在路径")).toHaveValue("C:\\Users\\me\\.preshot\\projects");
+    expect(dependencies.directoryPicker.pickDirectory).not.toHaveBeenCalled();
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "取消" }));
+    expect(screen.getByRole("textbox", { name: "项目一 草稿" })).toBe(firstEditor);
+    expect(firstEditor).toHaveValue("未丢失的编辑");
+    expect(screen.queryByRole("region", { name: "项目加载" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "关闭项目 项目二" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "保存并关闭" }));
+    await waitFor(() => expect(within(screen.getByRole("region", { name: "打开项目" })).queryByRole("button", { name: "打开项目 项目二" })).not.toBeInTheDocument());
+    expect(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 项目二" })).toBeVisible();
+    await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 项目二" }));
+    await waitFor(() => expect(dependencies.service.openProject).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "项目二 草稿" })).toBeVisible());
+    await user.click(screen.getByRole("button", { name: "关闭项目 项目二" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "保存并关闭" }));
+    await waitFor(() => expect(firstEditor).toBeVisible());
+    await user.click(screen.getByRole("button", { name: "关闭项目 项目一" }));
+    const confirmation = await screen.findByRole("dialog");
+    expect(confirmation).toHaveTextContent("项目一");
+    await user.click(within(confirmation).getByRole("button", { name: "取消" }));
+    expect(firstEditor).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "关闭项目 项目一" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "不保存并关闭" }));
+    await waitFor(() => expect(firstEditor).not.toBeInTheDocument());
+    expect(dependencies.service.removeRecord).not.toHaveBeenCalled();
+  });
   it("auto-opens the starter returned by the bootstrapping workspace service", async () => {
     const starter: WorkspaceProjectView = {
       projectId: "starter",
@@ -54,7 +114,8 @@ describe("WorkspaceProvider startup", () => {
         relocateProject: vi.fn(),
         removeRecord: vi.fn(),
       },
-      directoryPicker: { pickDirectory: vi.fn().mockResolvedValue(null) },
+      directoryPicker: {
+      getDefaultProjectsDirectory: vi.fn().mockResolvedValue("C:\\Users\\me\\.preshot\\projects"), pickDirectory: vi.fn().mockResolvedValue(null) },
       native: {
         onMenuAction: vi.fn().mockResolvedValue(vi.fn()),
         maximizeWindow,
@@ -73,19 +134,13 @@ describe("WorkspaceProvider startup", () => {
       write: vi.fn().mockResolvedValue(undefined),
     };
 
-    const controller = new AgentModelSettingsController({
-      store: createSettingsAgentModelStore(settings),
-      probe: createBrowserAgentModelProbe(),
-    });
     render(
-      <AgentModelSettingsProvider controller={controller}>
         <ThemeProvider repository={settings}>
           <WorkspaceProvider
             dependencies={dependencies}
             planDependencies={{} as PlanDependencies}
           />
-        </ThemeProvider>
-      </AgentModelSettingsProvider>,
+        </ThemeProvider>,
     );
 
     await waitFor(() => expect(screen.getByText(

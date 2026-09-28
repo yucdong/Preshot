@@ -1,27 +1,16 @@
-import {
-  normalizePersistedAgentModelSettings,
-  type PersistedAgentModelSettings,
-} from "../agent/settings";
-
 export type Theme = "light" | "dark" | "system";
 
 export const PROJECT_RAIL_WIDTH = { default: 192, min: 176, max: 320 } as const;
-export const ASSISTANT_WIDTH = { default: 272, min: 240, max: 420 } as const;
 const LEGACY_DEFAULT_PANEL_WIDTHS = { projectRailWidth: 208, assistantWidth: 304 };
 
 export interface AppSettings {
   theme: Theme;
   projectRailWidth?: number;
-  assistantWidth?: number;
-  assistantOpen?: boolean;
-  agentModel?: PersistedAgentModelSettings;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "system",
   projectRailWidth: PROJECT_RAIL_WIDTH.default,
-  assistantWidth: ASSISTANT_WIDTH.default,
-  assistantOpen: false,
 };
 
 function isValidTheme(value: unknown): value is Theme {
@@ -37,23 +26,10 @@ export function normalizeSettings(raw: unknown): AppSettings {
     typeof value === "number" && Number.isFinite(value)
       ? Math.min(range.max, Math.max(range.min, Math.round(value)))
       : range.default;
-  let agentModel: PersistedAgentModelSettings | undefined;
-  if (record.agentModel !== undefined) {
-    try {
-      agentModel = normalizePersistedAgentModelSettings(record.agentModel);
-    } catch {
-      agentModel = undefined;
-    }
-  }
   return {
     theme: isValidTheme(record.theme) ? record.theme : "system",
     projectRailWidth: hasLegacyDefaultPanelWidths
       ? PROJECT_RAIL_WIDTH.default
       : clamp(record.projectRailWidth, PROJECT_RAIL_WIDTH),
-    assistantWidth: hasLegacyDefaultPanelWidths
-      ? ASSISTANT_WIDTH.default
-      : clamp(record.assistantWidth, ASSISTANT_WIDTH),
-    assistantOpen: record.assistantOpen === true,
-    ...(agentModel ? { agentModel } : {}),
   };
 }

@@ -35,7 +35,7 @@ export function createMaterialEditingFixture(
   };
   const original = (material: MaterialDetail, id: string) => {
     const image = material.images.find((entry) => entry.localImageId === id);
-    const src = image && objects.get(image.blobId);
+    const src = image && objects.get(image.storageId ?? image.blobId);
     if (!src) throw new Error("此素材原图不存在");
     return src;
   };
@@ -53,7 +53,7 @@ export function createMaterialEditingFixture(
     async beginCreate(input) {
       const payload = validateMaterialPayload(input);
       const component = payload.component;
-      const images = component.kind === "imageGroup" ? component.images :
+      const images = (component.kind === "image" || component.kind === "imageGroup") ? component.images :
         component.kind === "modelCard" ? component.samples.images :
           component.kind === "clothing" ? component.mainGallery.images : component.gallery.images;
       if (images.length) throw new Error("New material seeds cannot own images");
@@ -92,6 +92,29 @@ export function createMaterialEditingFixture(
       context.fillStyle = "#f1dcc3";
       context.fillRect(20, 15, 65, 45);
       return [await stage(canvas, draft)];
+    },
+    async importEditImageData(id, input) {
+      const draft = requireDraft(id);
+      if (!["image/png", "image/jpeg"].includes(input.mimeType) || input.bytes.length > 16 * 1024 * 1024) {
+        throw new Error("Clipboard fixture requires a bounded static image");
+      }
+      const bytes = new Uint8Array(input.bytes);
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: input.mimeType }));
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(reader.error);
+          reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Invalid fixture image"));
+          reader.readAsDataURL(new Blob([bytes], { type: input.mimeType }));
+        });
+        const mimeType = input.mimeType === "image/jpeg" ? "image/jpeg" : "image/png";
+        const image: MaterialEditImage = {
+          localImageId: crypto.randomUUID(), mimeType, byteLength: bytes.length,
+          width: bitmap.width, height: bitmap.height, dataUrl,
+        };
+        draft.staged.set(image.localImageId, image);
+        return image;
+      } finally { bitmap.close(); }
     },
     async captureEditImage(id, cancellation) {
       requireDraft(id);
@@ -174,7 +197,7 @@ export function createMaterialEditingFixture(
       const metadata = input.metadataUpdate ? validateMaterialMetadata(input.metadataUpdate.metadata) : undefined;
       if (payload.kind !== current.kind) throw new MaterialContentSaveError("不能更换素材类型", "rejected");
       const component = payload.component;
-      const entries = component.kind === "imageGroup" ? component.images :
+      const entries = (component.kind === "image" || component.kind === "imageGroup") ? component.images :
         component.kind === "modelCard" ? component.samples.images :
           component.kind === "clothing" ? component.mainGallery.images : component.gallery.images;
       const images: MaterialImage[] = [];
@@ -187,8 +210,9 @@ export function createMaterialEditingFixture(
         const hash = await crypto.subtle.digest("SHA-256", bytes);
         const blobId = Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
         const { dataUrl, ...image } = staged;
-        objects.set(blobId, dataUrl);
-        images.push({ ...image, blobId });
+        const storageId = crypto.randomUUID();
+        objects.set(storageId, dataUrl);
+        images.push({ ...image, blobId, storageId });
       }
       const result: MaterialDetail = {
         ...current, payload, images, revision: current.revision + 1, updatedAt: Date.now(),

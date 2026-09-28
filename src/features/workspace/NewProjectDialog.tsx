@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 
 interface NewProjectDialogProps {
   onClose(): void;
-  onCreate(name: string): Promise<void> | void;
+  defaultParentPath: string;
+  onPickDirectory(currentPath: string): Promise<string | null>;
+  onCreate(name: string, parentPath: string): Promise<void> | void;
 }
 
 const buttonClassName =
@@ -28,9 +30,13 @@ function getFocusableElements(container: HTMLElement | null) {
   );
 }
 
-export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
+export function NewProjectDialog({ defaultParentPath, onPickDirectory, onClose, onCreate }: NewProjectDialogProps) {
   const { t } = useTranslation();
   const [value, setValue] = useState("");
+  const [parentPath, setParentPath] = useState(defaultParentPath);
+  const [isPicking, setIsPicking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -38,10 +44,20 @@ export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
   const isSubmittingRef = useRef(isSubmitting);
   const triggerRef = useRef<HTMLElement | null>(null);
   const trimmedValue = value.trim();
+  const trimmedPath = parentPath.trim();
+  const busy = isSubmitting || isPicking;
+  const finalPath = trimmedPath && trimmedValue
+    ? trimmedPath.replace(/[\\/]+$/, "") + (trimmedPath.includes("\\") ? "\\" : "/") + trimmedValue
+    : null;
 
   useEffect(() => {
-    isSubmittingRef.current = isSubmitting;
-  }, [isSubmitting]);
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    isSubmittingRef.current = busy;
+  }, [busy]);
 
   useEffect(() => {
     triggerRef.current =
@@ -103,29 +119,38 @@ export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
     };
   }, [onClose]);
 
+  async function chooseDirectory() {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsPicking(true);
+    setError(null);
+    try {
+      const selected = await onPickDirectory(trimmedPath);
+      if (mountedRef.current && selected !== null) setParentPath(selected);
+    } catch (failure) {
+      if (mountedRef.current) setError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      isSubmittingRef.current = false;
+      if (mountedRef.current) setIsPicking(false);
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!trimmedValue || isSubmitting) {
-      return;
-    }
-
+    if (!trimmedValue || !trimmedPath || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setValue(trimmedValue);
+    setParentPath(trimmedPath);
+    setError(null);
     setIsSubmitting(true);
-
     try {
-      const created = await Promise.resolve(onCreate(trimmedValue)).then(
-        () => true,
-        () => false,
-      );
-
-      if (created) {
-        onClose();
-      } else {
-        setValue(trimmedValue);
-      }
+      await onCreate(trimmedValue, trimmedPath);
+      if (mountedRef.current) onClose();
+    } catch (failure) {
+      if (mountedRef.current) setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
-      setIsSubmitting(false);
+      isSubmittingRef.current = false;
+      if (mountedRef.current) setIsSubmitting(false);
     }
   }
 
@@ -148,22 +173,49 @@ export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
             </h2>
           </div>
         </div>
-        <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
-          <label className="block text-sm font-medium text-app-muted" htmlFor={inputId}>
-            {t("dialog.projectName")}
-          </label>
-          <input
-            className="mt-2 w-full rounded-lg border border-app-border bg-app-panel px-4 py-3 text-base text-app-ink outline-none transition-colors placeholder:text-app-muted focus:border-app-primary focus:ring-2 focus:ring-app-primary/25"
-            disabled={isSubmitting}
-            id={inputId}
-            onChange={(event) => setValue(event.target.value)}
-            ref={inputRef}
-            value={value}
-          />
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <div>
+            <label className="block text-sm font-medium text-app-muted" htmlFor={inputId + "-path"}>
+              {t("dialog.projectPath")}
+            </label>
+            <div className="mt-2 flex gap-2">
+              <input
+                id={inputId + "-path"}
+                aria-describedby={inputId + "-path-help"}
+                className="min-w-0 flex-1 rounded-lg border border-app-border bg-app-panel px-3 py-3 text-sm text-app-ink outline-none focus:border-app-primary focus:ring-2 focus:ring-app-primary/25"
+                disabled={busy}
+                value={parentPath}
+                onChange={(event) => setParentPath(event.target.value)}
+                spellCheck={false}
+              />
+              <button type="button" disabled={busy} onClick={() => { void chooseDirectory(); }}
+                className={buttonClassName + " shrink-0 border border-app-border text-app-ink"}>
+                {t("dialog.choosePath")}
+              </button>
+            </div>
+            <p id={inputId + "-path-help"} className="mt-2 text-xs leading-5 text-app-muted">
+              {t("dialog.projectPathHint")}
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-app-muted" htmlFor={inputId}>
+              {t("dialog.projectName")}
+            </label>
+            <input
+              className="mt-2 w-full rounded-lg border border-app-border bg-app-panel px-4 py-3 text-base text-app-ink outline-none transition-colors placeholder:text-app-muted focus:border-app-primary focus:ring-2 focus:ring-app-primary/25"
+              disabled={busy}
+              id={inputId}
+              onChange={(event) => setValue(event.target.value)}
+              ref={inputRef}
+              value={value}
+            />
+          </div>
+          {finalPath ? <p className="break-all text-xs text-app-muted">{t("dialog.finalPath", { path: finalPath })}</p> : null}
+          {error ? <p role="alert" className="text-sm text-app-danger">{error}</p> : null}
           <div className="flex justify-end gap-3">
             <button
               className={`${buttonClassName} border border-app-border text-app-muted hover:border-app-primary hover:text-app-primary`}
-              disabled={isSubmitting}
+              disabled={busy}
               onClick={onClose}
               type="button"
             >
@@ -171,7 +223,7 @@ export function NewProjectDialog({ onClose, onCreate }: NewProjectDialogProps) {
             </button>
             <button
               className={`${buttonClassName} bg-app-accent text-white hover:bg-app-accent-hover active:scale-[0.98]`}
-              disabled={!trimmedValue || isSubmitting}
+              disabled={!trimmedValue || !trimmedPath || busy}
               type="submit"
             >
               {isSubmitting ? t("dialog.creating") : t("dialog.create")}

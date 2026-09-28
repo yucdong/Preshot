@@ -18,7 +18,7 @@ The mounted editor path in the app is `BlockNoteProjectCanvasProvider`; legacy c
 ## Layers
 
 - `src/app`: dependency composition, theme provider, workspace provider, and shell layout
-- `src/features`: workspace launcher, settings UI, production assistant UI, BlockNote editor, image-group UI, and save status
+- `src/features`: workspace launcher, settings UI, BlockNote editor, image-group UI, and save status
 - `src/domain`: pure workspace/settings/plan models, services, ports, validation, migration, crop, and layout helpers
 - `src/infrastructure`: Tauri/browser adapters, file dialogs, PDF/DOCX/long-image exporters, DOM capture, and persistence wiring
 - `src-tauri`: serializable native commands for project management, plan persistence, media import/load/remove, PDF/DOCX/long-image save, reveal, settings, and screen capture
@@ -27,7 +27,7 @@ The mounted editor path in the app is `BlockNoteProjectCanvasProvider`; legacy c
 
 1. `WorkspaceProvider` asks the workspace domain service to initialize user data before loading recents. Production delegates `%USERPROFILE%\.preshot` and its `projects` child to narrow Rust bootstrap commands; browser and Midscene adapters provide deterministic in-memory equivalents.
 2. When no registered project is available, startup adopts the first valid project under the default projects root or creates, registers, and auto-opens the single localized Preshot starter.
-3. `AppShell` renders the resizable project rail, center workspace, settings access, focus mode, and production assistant panel.
+3. `AppShell` renders the resizable project rail, center workspace, settings access, and focus mode.
 4. `Workspace` mounts `BlockNoteProjectCanvasProvider` for the active project.
 5. `BlockNoteProjectCanvasProvider` loads the plan through `BlockNotePlanService`, then loads referenced `references/` images and `media/` files.
 6. `BlockNoteDocumentEditor` owns the live BlockNote instance; the provider reconciles its serialized document with `plan.imageGroups` and runtime-loaded media URLs.
@@ -59,7 +59,26 @@ means insertion at the document beginning, not after the default editor selectio
 The browser's explicit Insert into current document action preserves this pinned
 target throughout previews, searches and material editing.
 
-Portable payload v1 supports image groups, locations, models, props and clothing.
+Portable payload v1 supports individual images, image groups, locations, models,
+props and clothing. Image materials store exactly one image; only unsaved drafts
+may be empty. Project-local JPG/PNG native blocks and individual gallery images
+can be collected, and direct creation supports file import or screen capture.
+Single-click selection exposes an Add to library action in the native image's
+floating toolbar or the gallery toolbar. Both open the existing metadata dialog
+for exactly the selected image; gallery tiles keep their action visible while selected.
+Project insertion creates a native image block with a fresh `media/` copy, caption
+and preview width. Crop/fit is rendered into that copy when needed; untransformed
+images retain their original bytes. The library original and its editable visual
+fields remain unchanged. Isolated library editing and previews still use a
+one-image group. Library descriptions and keyword tags use the same search projection
+as other categories.
+Image-group insertion opens an image chooser, initially selecting every image.
+Users can insert a subset as one new group (retaining its name and description)
+or as consecutive native image blocks. Both modes preserve source order. The
+request and durable receipt pin the selected local image IDs and insertion mode;
+only those originals are copied. Native preparation renders one image at a time,
+tracks each output hash, and commits the complete batch before one editor/history
+publication. Cancel or a failed copy cleans all owned files from that attempt.
 It preserves component text and individual image order/frame/crop/fit fields,
 but contains no source project identities or paths. Clothing excludes its hidden
 legacy try-on gallery with a confirmation warning. Domain instantiation assigns
@@ -67,11 +86,17 @@ fresh block, sidecar, collection and image identities and inserts one full-row
 component without changing existing document content.
 
 The native content store lives in
-`%USERPROFILE%\.preshot\library\library.db`, independently of `agent.db`.
-The authoritative database-v4 DDL is
+`%USERPROFILE%\.preshot\library\library.db`.
+Database version 6 gates the new image kind and preserves all v5 instances,
+legacy records and exact operation receipts without rewriting their content.
+The legacy base DDL is
 [`src-tauri/src/library/schema.sql`](../src-tauri/src/library/schema.sql).
-Immutable original images live in the library's content-addressed `objects`
-directory; screenshots in `previews` are replaceable caches, not saved content.
+The additive v5 migration retains legacy content-addressed `objects`, while all
+new image writes own immutable UUID instances. Optional `MaterialImage.storageId`
+selects the verified instance resolver; `blobId` remains SHA-256 integrity metadata.
+Equal bytes do not imply a shared physical instance, and a missing instance never
+falls back to the legacy object. Screenshots in `previews` are replaceable caches,
+not saved content.
 FTS5 consumes Rust-segmented Chinese text alongside literal substring matching.
 
 Permanent deletion is restricted to trashed materials and checks the expected
@@ -82,7 +107,10 @@ Shared assets and edit-draft references are rechecked; inserted project copies
 are never cleanup targets. Library open resumes only already-approved outboxes
 and surfaces failures so retry remains available after a restart.
 
-The detail preview area exposes only Edit material and Preview. Edit material
+The detail action area exposes only Edit material and Preview. The detail pane
+shows metadata without mounting a live preview; Preview mounts the complete
+read-only component in its own dialog and closing disposes it. Cached list
+thumbnails and insertion source-readiness checks remain independent. Edit material
 combines library name, tags, description and favorite state with a session-owned,
 one-component canvas using the production
 schema/renderers but no project provider or autosave. Structural transactions
@@ -91,7 +119,7 @@ Session-scoped native image import/crop copies bytes without mutating originals.
 Save checks the pinned content revision and metadata version using one transaction
 and an idempotent edit receipt. It updates metadata, payload, image mappings and
 search together, increments both versions once, and invalidates the thumbnail.
-Schema v4 migrates v1-v3 atomically and retains existing receipt hashes for the
+The v4/v5 migrations preserve earlier records and existing receipt hashes for the
 optional payload-only API, which still preserves current metadata. The material UUID
 and existing project copies remain independent of the edit. Cancel discards both
 sets of edits and cleans only the draft. Ambiguous save results freeze the exact
@@ -102,7 +130,7 @@ another commit; late sessions are retired when their owner has gone away. Closin
 refreshes the live detail and generates the cached preview from committed content,
 with preview-only failure recovery in the library.
 
-The browser's Create material action selects one of the five existing kinds and
+The browser's Create material action selects one of the six supported kinds and
 opens the same editor without a project. Domain code supplies an image-free portable
 seed; `library_begin_create` allocates a session-owned draft and a future material
 UUID, not a canonical row. Only this draft response may carry empty metadata and
@@ -130,205 +158,40 @@ preview renderer; it is not a durable browser implementation. Backup/restore,
 automatic expiry/GC and revision-history UI are not shipped
 by this first library implementation.
 
-## Agent workspace bridge
+## Image clipboard
 
-The mounted application has a typed agent-context seam, production model
-settings/capability probing, a UI-agnostic text-proposal engine, and the full
-project-scoped assistant panel.
-`WorkspaceProvider` owns one `AgentWorkspaceStore`, registers the active project
-with an attachment resolver, and provides only the resulting read interface to
-future agent consumers. `Workspace`, `BlockNoteProjectCanvasProvider`, and
-`BlockNoteDocumentEditor` receive the narrow publisher interface.
+`domain/clipboard` defines detached copy data, target placement and the durable
+project-paste coordinator. A shared app port connects the project editor,
+isolated material canvas, live preview overlays and single-image viewer.
+Preview overlays remain outside the inert export surface; exports acquire no
+clipboard controls. Text fields and unrelated BlockNote clipboard content keep
+their native behavior.
 
-The bridge uses `useSyncExternalStore`. Plan revisions, save state, block/cursor
-selection, selected-image context, and project switches update store snapshots
-without placing a mutable BlockNote editor in React context or rerendering
-unsubscribed shell descendants. Every captured `AgentWorkspaceSnapshot` is
-frozen and contains:
+Editable components declare their primary gallery on the live view. Clipboard
+target resolution uses the focused component or a genuine single-node editor
+selection, never the last document anchor as a proxy for component selection.
+An unavailable component gallery rejects paste instead of falling through to
+document insertion. Selection outlines and destination badges are DOM-only
+feedback shared by the project and structurally locked material canvas.
 
-- project ID/name and an opaque project handle, never the project path;
-- document revision and canonical SHA-256 document hash;
-- save state, selected block IDs, cursor block ID, and bounded reference-image
-  metadata without paths or bytes; and
-- selected-image identity, display metadata, and a bounded thumbnail.
+Windows publishes PNG, CF_DIBV5 and an opaque `Preshot.Image.v1` receipt in one
+owned clipboard interval. The native state holds original bytes and display
+metadata independently of the source project/draft. Decoding uses a pipe-only,
+time- and memory-bounded worker entered before application initialization; it
+does not initialize workspace services. Browser persistence remains
+explicitly unavailable except for injected fixture adapters.
 
-Request-context chips are derived from a captured snapshot. The project and
-document chips are fixed; block, cursor, and selected-image chips are
-removable. Exactly one selected image can be attached automatically. A new
-selection replaces an unpinned automatic attachment, a pinned attachment
-survives selection and revision changes, and project changes clear stale
-context. Selecting an image group does not attach every image in the group.
+Project paste allocates one new `media` or `references` file and records a
+`.preshot-image-paste` journal. Closed delta validation accepts one native row
+or one image in an existing visible gallery, not an arbitrary replacement plan.
+Commit/status resolves uncertain writes before editor publication or cleanup.
+History retains copied files, and retained reference crops create new files.
+Native media serialization resolves by block identity, not data-URL equality.
+Material paste instead imports bytes through its edit-session lease; canonical
+publication happens only on Save through the existing metadata/content CAS.
 
-Per-turn receipts omit thumbnails and project handles. Runtime send attachments
-contain only stable identity metadata. Serialization rejects
-absolute Windows/UNC paths, media data URLs, oversized context, duplicate block
-requests, and stale revision/hash reads.
-
-Attachment tokens are short-lived, single-use, and project/revision-bound.
-`AgentAttachmentTokenResolverPort` owns project registration, token issue,
-resolution, pruning, and revocation. A visible chip never owns a token. The
-Tauri runtime adapter issues and resolves a fresh token immediately before
-Send, registers the resulting path in a request-scoped native bridge, and
-sends only that fresh opaque token to the SDK-facing runtime. Resolution
-consumes the token; publication evicts stale revisions and removed images,
-automatic issuance supersedes the previous automatic token, pinned tokens are
-bounded, and project switches revoke all remaining project tokens.
-`RendererAgentBridge` revalidates project containment, MIME, size, and
-signature before creating the SDK attachment and consumes its request-scoped
-path registration on resolution. Absolute paths never enter the
-React snapshot, request receipt, model prompt, or tool result.
-
-Block and image citations are commands, not editor references. The bridge
-validates the current project and source index before asking the registered
-editor/image driver to focus, scroll, select, open, and briefly highlight the
-source. Deleted blocks/images return an explicit unavailable result.
-
-## Agent session controller
-
-`AgentSessionController` is a domain external store mounted through
-`AgentProvider` at the App/Workspace boundary. It composes the native
-`AgentRuntimePort`, global SQLite `AgentMetadataStorePort`, and immutable
-`AgentWorkspaceBridgePort`. A typed `AgentProposalApplicationPort` is
-registered by the active BlockNote provider without exposing its mutable
-editor. Opening the assistant alone remains lazy: the
-managed runtime starts only when model discovery/probing or session work calls
-the native adapter.
-
-The controller owns one active generation globally. It loads project-scoped
-history newest-first and coordinates create, resume, rename, delete, drafts,
-usage/context summaries, errors, permission/input resolution, Send, and abort.
-Resume always re-supplies the current validated BYOK provider configuration and
-the native closed tool policy. Pending permission/input receipts are shown as
-interrupted; `continuePendingWork` is fixed to false.
-
-The native managed-session map treats resume as a serialized swap. Because the
-pinned SDK has a single router slot per session identity, the runtime retains
-the old entry and its complete recovery configuration while it disconnects the
-old handle and resumes the replacement. The map changes only after replacement
-success. A failed replacement is restored against the retained configuration;
-if replacement cleanup or restoration also fails, the retained entry stays
-addressable in a detached recovery state for retry, abort, disconnect, or
-delete. Disconnect errors likewise retain and reattach the original entry
-instead of reporting success or discarding control.
-
-SDK replay and the live Tauri channel feed the same bounded ordered reducer.
-Event IDs are deduplicated, tool output is capped, and message/reasoning/tool
-deltas are accumulated off React state then published at most once per
-animation frame. SQLite stores summaries and drafts but not transcript
-content; the Copilot runtime remains authoritative for replay.
-
-Before Send, the controller captures an immutable request receipt. The Tauri
-adapter reads only the disclosed block IDs through typed workspace commands,
-revalidates optional attachment identity, issues and consumes a fresh token,
-and registers both context and resolved path against one native request/context
-ID. A failed attachment validation removes the failed turn receipt while
-retaining the composer draft and visible chip for correction.
-`RendererAgentBridge` implements all four Preshot tools from that frozen
-registration. The three read tools return only bounded disclosed metadata and
-text. `propose_text_block_edits` validates the exact closed schema and snapshot
-target hashes, generates a trusted proposal ID, and stages bounded operation
-JSON in SQLite; it has no apply or file-write capability.
-
-`AgentProposalService` reloads staged operations through the TypeScript domain
-validator, projects and validates the complete schema-v14 plan, and creates a
-stacked Before/After diff. Apply rechecks revision/document hash, requires a
-separate delete confirmation, and performs one BlockNote transaction followed
-by the normal provider save queue. Before that save it creates a bounded
-schema-v4 recovery row in `agent.db`; after the save, SQLite atomically commits
-the checkpoint/final receipt and consumes the row. Startup, project activation,
-and session resume reconcile pending rows by the validated current document
-hash before proposal history becomes actionable. Before-hash rows are cleared,
-after-hash rows are finalized idempotently, and other hashes become retained
-conflicts with no project mutation. Discard and Ask revisions do not mutate the
-plan. Proposal lifecycle and recovery receipts are bounded in controller state.
-
-The persisted checkpoint contains the exact pre-apply plan plus affected-block
-hashes. Undo can survive session/app restart and preserves unrelated later
-edits. A changed, missing, or reintroduced affected block is reported as a
-conflict instead of being overwritten.
-
-Workspace switches are serialized through the controller. An active turn
-opens the accepted Wait/Stop/Cancel dialog: Wait retains one queued target and
-switches on idle or error, Stop performs bounded abort and disconnect before
-switching, and Cancel clears the request. Workspace activation stays inside
-the queued callback, so two project canvases cannot race. Removing a project
-counts sessions, aborts/disconnects the active one, deletes SDK sessions, then
-cascades SQLite metadata. Failed SDK deletion becomes a cleanup tombstone and
-does not block normal project removal.
-
-Browser, E2E, and Midscene composition uses `FakeAgentRuntime`, which preserves
-the same single-generation and event contracts with deterministic IDs and
-scriptable event emission.
-
-Production pins `github-copilot-sdk@1.0.11` with only `bundled-cli`. The
-reviewed Windows x64 archive is upstream release/file version `1.0.79`, prints
-`GitHub Copilot CLI 1.0.81-7`, is 100,644,089 bytes compressed, and contains
-an unmodified 159,403,296-byte `copilot.exe`. The SDK launches that executable
-as a separate stdio child; Preshot does not enable the in-process transport.
-Extraction is isolated under
-`%USERPROFILE%\.preshot\copilot\bin\1.0.79`.
-
-## Agent model settings
-
-`AgentModelSettingsController` is a domain external store composed once by the
-application. It normalizes the user-facing proxy URL, derives the canonical
-`/v1` API root, discovers models, coordinates text and optional vision probes,
-ignores cancelled or stale probe completions, and exposes immutable setup state
-to the settings and assistant surfaces.
-
-Production model discovery and probing use narrow Tauri commands. The WebView
-does not fetch the proxy. Browser, E2E, and Midscene modes use a deterministic
-adapter with the same port. The native compatibility probe creates a temporary
-Copilot SDK session and requires Responses streaming, a strict no-op custom
-tool call, tool-result continuation, and terminal completion. Vision is a
-separate opt-in probe using a bundled non-user PNG.
-
-Only non-secret settings and capability evidence are stored in
-`%USERPROFILE%\.preshot\settings.json`. The cache key includes the normalized
-API root, model ID, and probe version. Proxy or model changes immediately
-disable send eligibility and require a new probe. API keys are not represented
-in the domain model, UI, native provider configuration, or persisted schema.
-The assistant panel enables its composer only after the text compatibility
-probe verifies Responses, streaming, and custom tools. Optional image content
-is sent only after the separate vision probe succeeds.
-
-The no-key provider uses an OpenAI-compatible Responses endpoint. The default
-display URL is `http://localhost:4141` and its canonical API root is
-`http://localhost:4141/v1`. Loopback HTTP and remote HTTPS are accepted;
-remote HTTP, embedded credentials, paths, queries, fragments, and unsupported
-schemes are rejected. Model list discovery proves identity only. Send remains
-disabled until the separate bounded SDK round trip proves Responses,
-streaming, a strict no-op custom tool, tool-result continuation, and terminal
-completion. Changing proxy or model invalidates that evidence. Vision uses a
-separate opt-in bundled non-user image probe.
-
-## Agent panel
-
-`AgentPanel` is a controller-backed production surface decomposed into header,
-project-scoped history, transcript, composer/context attachments, proposal
-review, usage, and project-switch components. It remains closed by default and
-preserves the existing 240-420px splitter range and focus-mode overlay.
-
-The transcript renders replayed and live user/assistant messages, collapsed
-reasoning summaries, bounded tool progress/results, one-shot permission
-requests, user-input requests, compaction, usage, and typed errors. Live deltas
-are published by the controller at animation-frame cadence; the transcript is
-not a token-by-token live region. Scrolling away disables auto-follow until the
-user activates the new-response control.
-
-The 14px composer persists one draft per session, handles Enter,
-Shift+Enter, and IME composition, and displays the exact removable context and
-single selected-image attachment that will be captured on Send. Unsupported
-vision leaves the image visible but excludes it from the immutable turn
-receipt. Proposal cards remain separate from tool permissions: they provide a
-stacked before/after review, stale/invalid handling, destructive confirmation,
-Apply/Discard/Ask revisions, persistent applied receipts, and conflict-aware
-Undo.
-
-Session history is newest-first and project-scoped, with create, resume,
-rename, and confirmed deletion. Citation actions delegate to the workspace
-bridge so BlockNote blocks are focused/highlighted and reference images are
-selected/opened only after current-project/source validation.
+See [the clipboard contract](design_docs/image-clipboard.md) for representations,
+limits, animation conversion and the remaining desktop interoperability gate.
 
 ## Installer and app-data ownership boundary
 
@@ -489,48 +352,18 @@ is published or saved.
 App settings are stored in `%USERPROFILE%\.preshot\settings.json`. The current settings surface is:
 
 - theme (`light`, `dark`, `system`),
-- project-rail width, and
-- assistant-panel width,
-- assistant visibility, and
-- non-secret agent proxy/model settings plus versioned capability evidence.
+- project-rail width.
+
+Legacy assistant settings are ignored during normalization. The application no
+longer starts an assistant runtime or reads its metadata database; existing
+user-owned runtime data is left untouched.
 
 The default new-project parent directory is `%USERPROFILE%\.preshot\projects`.
-
-### Agent metadata
-
-Agent metadata is stored globally in `%USERPROFILE%\.preshot\agent.db`, not in
-individual project directories and not in the Copilot runtime directory. The
-Rust `AgentMetadataStore` owns this database and the TypeScript
-`AgentMetadataStorePort` exposes only project/session metadata, drafts,
-proposal receipts/checkpoints, bounded proposal recovery records, usage
-summaries, and cleanup tombstones. Browser and Midscene flows use the matching
-in-memory adapter.
-
-The bundled `rusqlite`/SQLite database contains:
-
-- `agent_schema_migrations`;
-- `agent_projects`, keyed by project ID with one canonical path and name;
-- `agent_sessions`, ordered newest-first per project, with optional model,
-  error, interruption, token/context, and reliable cost metadata;
-- `agent_drafts`, with one bounded composer draft per session;
-- `agent_proposals`, with bounded optional validated operation JSON and
-  staged/stale/applied/discarded/undone receipts;
-- `agent_proposal_checkpoints`, with one bounded exact pre-apply checkpoint per
-  proposal;
-- `agent_proposal_recovery`, with at most one pending apply/undo operation per
-  project, exact before/after hash/revision boundaries, checkpoint/finalization
-  data, and retained conflict evidence; and
-- `agent_cleanup_tombstones`, which remain after project metadata deletion so
-  failed Copilot runtime cleanup can be retried.
-
-Foreign keys cascade session-owned drafts and proposals when a session or
-project is deleted. Cleanup tombstones and proposal recovery conflicts
-deliberately have no project foreign key because they represent evidence or
-external work remaining after local project metadata is gone. The database
-never stores full transcripts, prompt or response bodies, image bytes,
-attachment payloads, API keys, access tokens, or project paths in recovery
-rows. Copilot runtime files under `%USERPROFILE%\.preshot\copilot` remain
-authoritative for resumable runtime state.
+The new-project form resolves this location through the directory-picker port
+without displaying a native picker. Users edit both the parent path and project
+name in that form; the optional directory picker uses the current parent path
+as its starting location. Creation passes the parent and name separately to the
+workspace service so the native layer creates the named child folder.
 
 ## BlockNote editor model
 
@@ -639,6 +472,24 @@ project file is then reset to the new bitmap dimensions, a full-image crop,
 zero offsets, and a frame width derived from its retained height.
 
 ### Native media
+
+`PreshotImageFilePanel` adds screen capture to the native image file panel.
+The provider tracks capture through its image mutation/save barrier and cancels
+on project deactivation or close confirmation. `ScreenCapture.captureMedia`
+uses the shared bounded capture lifecycle (also used by material drafts), then
+`import_screen_capture_media` copies only an owned temporary PNG into `media/`.
+The native boundary enforces the 16 MiB image limit before allocation completes.
+The editor publishes a relative file URL and resolves it via `resolveFileUrl`,
+preserving distinct file identities even for captures with identical pixels.
+Cleanup drains before completion; cancelled or stale targets are not published.
+Native snip sessions expose explicit `pending`, `cancelled`, and `captured`
+results. Session-scoped Windows hooks observe Escape and foreground changes
+from ScreenClippingHost/SnippingTool before the overlay launches. Escape ends
+without reading clipboard data; overlay dismissal allows a short bitmap
+publication grace period. Hooks retire with the session. Terminal polls clear
+the native token, and the shared capture lifecycle clears the UI wait state
+without sending another Escape. Native start/cancel are serialized, and a stale
+cancel is a no-op so it cannot dismiss a subsequent capture.
 
 BlockNote native image/video/audio blocks use the editor `uploadFile` boundary. Runtime editing may use data URLs, but persisted JSON must store only relative `media/<file>` paths. In the exported PDF:
 
@@ -825,7 +676,8 @@ atomic blocks, and wrapped image-group rows for measurement.
 reusable `modern-screenshot` context, and captures sequential integer-pixel
 viewports. Segmentation prefers the last complete block within the target;
 oversized image groups may split only between complete rows; an indivisible
-block is tiled only at the absolute 8000px safety cap. JPEG encoding searches
+block is tiled only at the absolute 20000px safety cap. Capture allows up to
+18 million pixels and 72,000,000 decoded RGBA bytes (900 x 20000). JPEG encoding searches
 the highest quality under the byte target, then re-splits at an earlier
 semantic boundary when minimum quality is still too large. PNG never exposes
 quality and re-splits by the same byte-aware path. Canvases are zeroed and

@@ -84,11 +84,16 @@ export function startBlockPointerDrag({
   onActivate,
   onFinish,
 }: BlockPointerDragOptions): void {
+  const editorRoot = editor.prosemirrorView.dom;
   let dragging = false;
   let targetBlock: PreshotEditorBlock | null = null;
   let placement: BlockDropPlacement | null = null;
 
   const move = (moveEvent: PointerEvent) => {
+    if (!editorRoot.isConnected || editorRoot.closest("[inert]")) {
+      cancel();
+      return;
+    }
     const distance = Math.hypot(
       moveEvent.clientX - clientX,
       moveEvent.clientY - clientY,
@@ -98,7 +103,7 @@ export function startBlockPointerDrag({
       dragging = true;
       onActivate?.();
       document.body.classList.add("preshot-is-dragging-block");
-      document.querySelector<HTMLElement>(
+      editorRoot.querySelector<HTMLElement>(
         `[data-node-type="blockOuter"][data-id="${CSS.escape(source.id)}"]`,
       )?.setAttribute("data-preshot-block-dragging", "true");
     }
@@ -114,7 +119,7 @@ export function startBlockPointerDrag({
     const outer = hit?.closest<HTMLElement>(
       '[data-node-type="blockOuter"][data-id]',
     );
-    const targetId = outer?.dataset.id;
+    const targetId = outer && editorRoot.contains(outer) ? outer.dataset.id : undefined;
     let target = targetId
       ? editor.getBlock(targetId) as PreshotEditorBlock | undefined
       : undefined;
@@ -126,7 +131,7 @@ export function startBlockPointerDrag({
     if (isAtomicLayoutBlock(source)) {
       target = validAtomicLayoutTarget(editor, target);
     }
-    const targetOuter = document.querySelector<HTMLElement>(
+    const targetOuter = editorRoot.querySelector<HTMLElement>(
       `[data-node-type="blockOuter"][data-id="${CSS.escape(target.id)}"]`,
     );
     if (!targetOuter) return;
@@ -159,6 +164,8 @@ export function startBlockPointerDrag({
     clearDropIndicators();
     if (
       dragging &&
+      editorRoot.isConnected &&
+      !editorRoot.closest("[inert]") &&
       targetBlock &&
       placement &&
       moveBlockRelative(editor, source, targetBlock, placement)

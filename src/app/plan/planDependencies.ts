@@ -32,6 +32,7 @@ const blockNoteDocxExporter = createBlockNoteDocxExporter({
 
 function createProductionPlanDependencies(): PlanDependencies {
   return {
+    imagePasteRepository: tauriPlan,
     service: createBlockNotePlanService({
       repository: tauriPlan,
       imageStore: tauriPlan,

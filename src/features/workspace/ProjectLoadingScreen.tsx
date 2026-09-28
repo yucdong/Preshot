@@ -27,14 +27,13 @@ export function ProjectLoadingScreen({
   onComplete,
 }: ProjectLoadingScreenProps) {
   const [value, setValue] = useState(0);
-  const [leaving, setLeaving] = useState(false);
   const valueRef = useRef(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const latest = useRef({ error, onComplete });
   const completedRef = useRef(false);
   const stageId = useId();
   const hasError = Boolean(error);
-  const displayed = Math.floor(value);
+  const displayed = progress >= 100 && !hasError ? 100 : Math.floor(value);
   const complete = displayed === 100 && !hasError;
 
   useLayoutEffect(() => {
@@ -47,7 +46,7 @@ export function ProjectLoadingScreen({
 
   useEffect(() => {
     const from = valueRef.current;
-    if (hasError || progress <= from) return;
+    if (hasError || progress >= 100 || progress <= from) return;
 
     const duration = Math.min(650, Math.max(180, (progress - from) * 6.5));
     let started: number | undefined;
@@ -76,30 +75,8 @@ export function ProjectLoadingScreen({
   useEffect(() => {
     if (!complete || completedRef.current) return;
 
-    let cancelled = false;
-    let fadeTimer: ReturnType<typeof setTimeout> | undefined;
-
-    function finish() {
-      if (cancelled || latest.current.error || completedRef.current) return;
-      completedRef.current = true;
-      latest.current.onComplete();
-    }
-
-    const holdTimer = setTimeout(() => {
-      if (cancelled || latest.current.error) return;
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        finish();
-        return;
-      }
-      setLeaving(true);
-      fadeTimer = setTimeout(finish, 180);
-    }, 450);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(holdTimer);
-      clearTimeout(fadeTimer);
-    };
+    completedRef.current = true;
+    latest.current.onComplete();
   }, [complete]);
 
   const stageIndex = displayed < 12 ? 0 : displayed < 30 ? 1 : displayed < 84 ? 2 : 3;
@@ -107,7 +84,7 @@ export function ProjectLoadingScreen({
     ? "项目加载未完成"
     : complete ? "已准备就绪" : stages[stageIndex].message;
   const visibleStatus = hasError || complete ? announcement : statusText || announcement;
-  const state = hasError ? "error" : complete ? leaving ? "leaving" : "complete" : "loading";
+  const state = hasError ? "error" : complete ? "complete" : "loading";
 
   return (
     <section
@@ -158,7 +135,7 @@ export function ProjectLoadingScreen({
           <div
             className="project-loading-screen__fill"
             data-testid="project-loading-fill"
-            style={{ transform: `scaleX(${value / 100})` }}
+            style={{ transform: `scaleX(${(complete ? 100 : value) / 100})` }}
           />
         </div>
         <ol className="project-loading-screen__steps" aria-label="加载阶段">

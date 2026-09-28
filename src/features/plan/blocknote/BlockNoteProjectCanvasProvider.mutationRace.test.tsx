@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
@@ -215,7 +215,7 @@ function renderProvider(
     screenCapture?: {
       start(): Promise<string>;
       poll(token: string): Promise<
-        { status: "pending" } | { status: "captured"; path: string }
+        { status: "pending" } | { status: "cancelled" } | { status: "captured"; path: string }
       >;
       cancel(token: string): Promise<void>;
       discard(path: string): Promise<void>;
@@ -265,6 +265,33 @@ async function expectReorderedWith(sourceOrder: string) {
 }
 
 describe("BlockNote image mutation serialization", () => {
+  it("retires a failed image-group capture before allowing a retry", async () => {
+    const start = vi.fn().mockResolvedValue("token");
+    const poll = vi.fn().mockRejectedValueOnce(new Error("读取截图失败")).mockResolvedValue({ status: "cancelled" });
+    const cancel = vi.fn().mockResolvedValue(undefined);
+    renderProvider(serviceWith({}, []), { screenCapture: { start, poll, cancel, discard: vi.fn() } });
+    const button = await screen.findByRole("button", { name: "截图测试图片" });
+    fireEvent.click(button);
+    await waitFor(() => expect(cancel).toHaveBeenCalledExactlyOnceWith("token"));
+    await act(async () => {});
+    fireEvent.click(button);
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+  it("releases the image-group capture after system cancellation so another capture can start", async () => {
+    const start = vi.fn().mockResolvedValue("token");
+    const poll = vi.fn().mockResolvedValue({ status: "cancelled" });
+    const service = serviceWith({}, []);
+    renderProvider(service, { screenCapture: { start, poll, cancel: vi.fn(), discard: vi.fn() } });
+    const button = await screen.findByRole("button", { name: "截图测试图片" });
+    fireEvent.click(button);
+    await waitFor(() => expect(poll).toHaveBeenCalledOnce());
+    await act(async () => {});
+    fireEvent.click(button);
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(service.importImages).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
   it("keeps a completed reorder when an older import resolves", async () => {
     const gate = deferred<void>();
     const imported = image("imported");

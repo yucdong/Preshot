@@ -13,18 +13,15 @@ import {
   FolderOpen,
   Minimize2,
   PanelLeftOpen,
-  PanelRightOpen,
   Library,
   Trash2,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
-  ASSISTANT_WIDTH,
   PROJECT_RAIL_WIDTH,
 } from "../../domain/settings/models";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
-import { AgentPanel } from "../../features/agent/AgentPanel";
 import { SettingsButton } from "../../features/settings/SettingsButton";
 import { useTheme } from "../theme/ThemeContext";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
@@ -32,18 +29,18 @@ import { useOptionalMaterialLibrary } from "../../features/library/MaterialLibra
 
 interface AppShellProps extends PropsWithChildren {
   projects: WorkspaceProjectView[];
+  openProjects?: WorkspaceProjectView[];
+  onCloseProject?(project: WorkspaceProjectView): void;
   currentProjectId: string;
   projectLoading?: boolean;
   loadingProjectName?: string;
   loadingContent?: ReactNode;
-  onCancelQueuedSwitch?(): void;
   error?: string | null;
   onSelectProject(project: WorkspaceProjectView): void;
   onNewProject(): void;
   onOpenProject(): void;
   onRevealProject(project: WorkspaceProjectView): void;
   onRemoveProject(project: WorkspaceProjectView): void;
-  getProjectSessionCount?(projectId: string): Promise<number>;
 }
 
 const railButtonClassName =
@@ -55,28 +52,27 @@ const SPLITTER_WIDTH = 6;
 function constrainedPanelWidth(
   requested: number,
   range: { min: number; max: number },
-  otherWidth: number,
   workspaceWidth: number,
 ) {
-  const available = workspaceWidth - otherWidth - MIN_CANVAS_WIDTH - SPLITTER_WIDTH * 2;
+  const available = workspaceWidth - MIN_CANVAS_WIDTH - SPLITTER_WIDTH;
   return Math.min(range.max, Math.max(range.min, Math.min(requested, available)));
 }
 
 export function AppShell({
   children,
   projects,
+  openProjects = [],
+  onCloseProject,
   currentProjectId,
   projectLoading = false,
   loadingProjectName,
   loadingContent,
-  onCancelQueuedSwitch,
   error,
   onSelectProject,
   onNewProject,
   onOpenProject,
   onRevealProject,
   onRemoveProject,
-  getProjectSessionCount,
 }: AppShellProps) {
   const { t } = useTranslation();
   const materialLibrary = useOptionalMaterialLibrary();
@@ -90,7 +86,6 @@ export function AppShell({
     }
     previouslyLoading.current = hasLoadingContent;
   }, [hasLoadingContent]);
-  const assistantOpen = settings.assistantOpen;
   const [projectMenuId, setProjectMenuId] = useState<string | null>(null);
   const [projectMenuPosition, setProjectMenuPosition] = useState({
     left: 0,
@@ -101,25 +96,10 @@ export function AppShell({
     new Map<string, HTMLButtonElement>(),
   );
   const [projectToRemove, setProjectToRemove] = useState<WorkspaceProjectView | null>(null);
-  const [projectSessionCount, setProjectSessionCount] = useState<
-    number | "loading" | "error" | null
-  >(null);
-  const requestProjectRemoval = (project: WorkspaceProjectView) => {
-    setProjectToRemove(project);
-    if (!getProjectSessionCount) {
-      setProjectSessionCount(0);
-      return;
-    }
-    setProjectSessionCount("loading");
-    void getProjectSessionCount(project.projectId).then(
-      (count) => setProjectSessionCount(count),
-      () => setProjectSessionCount("error"),
-    );
-  };
   const [workspaceView, setWorkspaceView] = useState<{
     projectId: string;
     focusMode: boolean;
-    overlayPanel: "projects" | "assistant" | null;
+    overlayPanel: "projects" | null;
   }>({
     projectId: currentProjectId,
     focusMode: false,
@@ -151,10 +131,9 @@ export function AppShell({
   const setOverlayPanel = (
     value:
       | "projects"
-      | "assistant"
       | null
-      | ((current: "projects" | "assistant" | null) =>
-          "projects" | "assistant" | null),
+      | ((current: "projects" | null) =>
+          "projects" | null),
   ) => {
     setWorkspaceView((previous) => {
       const current = previous.projectId === currentProjectId
@@ -170,11 +149,9 @@ export function AppShell({
   };
   const [panelWidthPreview, setPanelWidthPreview] = useState<{
     projectRailWidth: number;
-    assistantWidth: number;
   } | null>(null);
   const panelWidths = panelWidthPreview ?? {
       projectRailWidth: settings.projectRailWidth,
-      assistantWidth: settings.assistantWidth,
   };
 
   useEffect(() => {
@@ -278,14 +255,13 @@ export function AppShell({
     setPanelWidthPreview(null);
   };
 
-  const splitterProps = (side: "project" | "assistant") => {
-    const isProject = side === "project";
-    const value = isProject ? panelWidths.projectRailWidth : panelWidths.assistantWidth;
-    const range = isProject ? PROJECT_RAIL_WIDTH : ASSISTANT_WIDTH;
+  const splitterProps = () => {
+    const value = panelWidths.projectRailWidth;
+    const range = PROJECT_RAIL_WIDTH;
     return {
       role: "separator" as const,
       tabIndex: 0,
-      "aria-label": isProject ? t("shell.resizeProjectRail") : t("shell.resizeAssistant"),
+      "aria-label": t("shell.resizeProjectRail"),
       "aria-orientation": "vertical" as const,
       "aria-valuemin": range.min,
       "aria-valuemax": range.max,
@@ -293,7 +269,7 @@ export function AppShell({
       onDoubleClick: () => {
         const next = {
           ...panelWidths,
-          [isProject ? "projectRailWidth" : "assistantWidth"]: range.default,
+          projectRailWidth: range.default,
         };
         setPanelWidthPreview(next);
         commitWidths(next);
@@ -302,15 +278,12 @@ export function AppShell({
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
         event.preventDefault();
         const direction = event.key === "ArrowRight" ? 1 : -1;
-        const delta = direction * 8 * (isProject ? 1 : -1);
+        const delta = direction * 8;
         const workspaceWidth = event.currentTarget.parentElement?.getBoundingClientRect().width ?? Number.POSITIVE_INFINITY;
-        const other = isProject
-          ? (assistantOpen ? panelWidths.assistantWidth : 0)
-          : panelWidths.projectRailWidth;
-        const nextValue = constrainedPanelWidth(value + delta, range, other, workspaceWidth);
+        const nextValue = constrainedPanelWidth(value + delta, range, workspaceWidth);
         const next = {
           ...panelWidths,
-          [isProject ? "projectRailWidth" : "assistantWidth"]: nextValue,
+          projectRailWidth: nextValue,
         };
         setPanelWidthPreview(next);
         commitWidths(next);
@@ -324,14 +297,11 @@ export function AppShell({
         target.setPointerCapture(event.pointerId);
         const move = (moveEvent: PointerEvent) => {
           const delta = moveEvent.clientX - startX;
-          const requested = startWidth + delta * (isProject ? 1 : -1);
-          const other = isProject
-            ? (assistantOpen ? latest.assistantWidth : 0)
-            : latest.projectRailWidth;
-          const nextValue = constrainedPanelWidth(requested, range, other, workspaceWidth);
+          const requested = startWidth + delta;
+          const nextValue = constrainedPanelWidth(requested, range, workspaceWidth);
           latest = {
             ...latest,
-            [isProject ? "projectRailWidth" : "assistantWidth"]: nextValue,
+            projectRailWidth: nextValue,
           };
           setPanelWidthPreview(latest);
         };
@@ -384,25 +354,6 @@ export function AppShell({
             {focusMode ? <Minimize2 aria-hidden className="h-4 w-4" /> : <Focus aria-hidden className="h-4 w-4" />}
             <span>{focusMode ? "退出专注" : "专注模式"}</span>
           </button>
-          <button
-            aria-label={assistantOpen ? "隐藏助手面板" : "显示助手面板"}
-            aria-pressed={focusMode
-              ? overlayPanel === "assistant"
-              : assistantOpen}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
-            onClick={() => {
-              if (focusMode) {
-                setOverlayPanel((current) =>
-                  current === "assistant" ? null : "assistant");
-                return;
-              }
-              settings.setAssistantOpen(!assistantOpen);
-            }}
-            type="button"
-          >
-            <PanelRightOpen aria-hidden className="h-4 w-4" />
-            <span>助手</span>
-          </button>
           <SettingsButton />
         </div>
       </header>
@@ -411,9 +362,7 @@ export function AppShell({
         data-testid="resizable-workspace"
         data-focus-mode={focusMode ? "true" : "false"}
         style={focusMode ? undefined : {
-          gridTemplateColumns: assistantOpen
-            ? `${panelWidths.projectRailWidth}px ${SPLITTER_WIDTH}px minmax(0, 1fr) ${SPLITTER_WIDTH}px ${panelWidths.assistantWidth}px`
-            : `${panelWidths.projectRailWidth}px ${SPLITTER_WIDTH}px minmax(0, 1fr)`,
+          gridTemplateColumns: `${panelWidths.projectRailWidth}px ${SPLITTER_WIDTH}px minmax(0, 1fr)`,
         }}
       >
         {focusMode ? (
@@ -428,16 +377,6 @@ export function AppShell({
             >
               <PanelLeftOpen aria-hidden className="h-4 w-4" />
             </button>
-            <button
-              aria-label="打开助手面板"
-              aria-pressed={overlayPanel === "assistant"}
-              className="absolute right-0 top-14 z-40 grid h-10 w-8 place-items-center rounded-l-lg border border-r-0 border-app-border bg-app-panel-strong text-app-muted shadow-md transition-colors hover:text-app-functional focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
-              onClick={() => setOverlayPanel((current) =>
-                current === "assistant" ? null : "assistant")}
-              type="button"
-            >
-              <PanelRightOpen aria-hidden className="h-4 w-4" />
-            </button>
           </>
         ) : null}
         {!focusMode || overlayPanel === "projects" ? (
@@ -451,7 +390,7 @@ export function AppShell({
           >
             <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-4">
               <p className="text-[11px] font-bold text-app-ink">
-                {t("shell.recentProjects")}
+                {t("shell.openProjects")}
               </p>
               {focusMode ? (
                 <button
@@ -464,7 +403,30 @@ export function AppShell({
                 </button>
               ) : null}
             </div>
-          <ul className="min-h-0 max-h-[38rem] space-y-1 overflow-y-auto px-3 pb-3">
+          <section aria-label={t("shell.openProjects")} className="flex min-h-0 flex-1 flex-col">
+            <ul className="min-h-0 space-y-1 overflow-y-auto px-3 pb-3">
+              {openProjects.map((project) => (
+                <li key={project.projectId} className={`flex items-center rounded-lg border ${project.projectId === currentProjectId ? "border-app-border bg-app-panel-strong" : "border-transparent"}`}>
+                  <button
+                    type="button"
+                    className={`${railButtonClassName} min-w-0 flex-1 truncate text-left text-app-ink`}
+                    aria-current={project.projectId === currentProjectId ? "page" : undefined}
+                    aria-label={t("shell.openProjectNamed", { name: project.name })}
+                    onClick={() => { setProjectMenuId(null); onSelectProject(project); }}
+                  >{project.name}</button>
+                  <button
+                    type="button"
+                    className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded text-app-muted hover:bg-app-panel-strong hover:text-app-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
+                    aria-label={t("shell.closeProjectNamed", { name: project.name })}
+                    onClick={() => onCloseProject?.(project)}
+                  ><X aria-hidden className="h-3.5 w-3.5" /></button>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section aria-label={t("shell.allProjects")} className="flex min-h-0 flex-1 flex-col border-t border-app-border">
+          <h2 className="shrink-0 px-4 pb-2 pt-4 text-[11px] font-bold text-app-ink">{t("shell.allProjects")}</h2>
+          <ul className="min-h-0 space-y-1 overflow-y-auto px-3 pb-3">
             {projects.map((project) => {
               const isCurrent = project.projectId === currentProjectId;
               const isAvailable = project.status === "available";
@@ -545,7 +507,7 @@ export function AppShell({
               );
             })}
           </ul>
-          <div aria-hidden className="min-h-0 flex-1" />
+          </section>
           <div className="shrink-0 space-y-2 border-t border-app-border p-3">
             <button
               className={`${railButtonClassName} bg-[#202329] text-white hover:bg-[#30343a] active:scale-[0.98]`}
@@ -566,7 +528,7 @@ export function AppShell({
         ) : null}
         {!focusMode ? (
           <div
-            {...splitterProps("project")}
+            {...splitterProps()}
             className="group relative z-30 cursor-col-resize bg-[#d5d6da] transition-colors duration-200 hover:bg-app-accent focus-visible:bg-app-accent focus-visible:outline-none"
             title={t("shell.resizePanelHint")}
           >
@@ -583,6 +545,7 @@ export function AppShell({
               role="alert"
             >
               {t("errors.workspace")}
+              <span className="ml-2">{error}</span>
             </div>
           ) : null}
           <div
@@ -598,35 +561,6 @@ export function AppShell({
           </div>
           {hasLoadingContent ? <div className="absolute inset-0 z-40">{loadingContent}</div> : null}
         </div>
-        {!focusMode && assistantOpen ? (
-          <div
-            {...splitterProps("assistant")}
-            className="group relative z-30 cursor-col-resize bg-[#d5d6da] transition-colors duration-200 hover:bg-app-accent focus-visible:bg-app-accent focus-visible:outline-none"
-            title={t("shell.resizePanelHint")}
-          >
-            <span className="absolute left-1/2 top-1/2 h-10 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-app-muted/50 group-hover:bg-white" />
-          </div>
-        ) : null}
-        {(!focusMode && assistantOpen) || overlayPanel === "assistant" ? (
-          <div
-            className={focusMode
-              ? "absolute inset-y-3 right-3 z-50 flex min-h-0 overflow-hidden rounded-xl border border-app-border bg-app-panel shadow-[0_16px_42px_rgb(24_24_27_/_20%)] [&>aside]:h-full [&>aside]:w-full"
-              : "flex min-h-0 min-w-0 [&>aside]:h-full [&>aside]:w-full"}
-            style={focusMode ? { width: panelWidths.assistantWidth } : undefined}
-          >
-            {focusMode ? (
-              <button
-                aria-label="关闭助手面板"
-                className="absolute right-3 top-3 z-10 grid h-7 w-7 place-items-center rounded-md text-app-muted hover:bg-app-panel-strong hover:text-app-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
-                onClick={() => setOverlayPanel(null)}
-                type="button"
-              >
-                <X aria-hidden className="h-4 w-4" />
-              </button>
-            ) : null}
-            <AgentPanel onCancelQueuedSwitch={onCancelQueuedSwitch} />
-          </div>
-        ) : null}
       </div>
       {projectMenuId
         ? (() => {
@@ -700,7 +634,7 @@ export function AppShell({
                   onClick={() => {
                     focusProjectMenuTrigger(project.projectId);
                     setProjectMenuId(null);
-                    requestProjectRemoval(project);
+                    setProjectToRemove(project);
                   }}
                   role="menuitem"
                   type="button"
@@ -716,24 +650,15 @@ export function AppShell({
       <ConfirmDialog
         cancelLabel="取消"
         confirmLabel="从列表移除"
-        confirmDisabled={projectSessionCount === "loading"}
         onCancel={() => {
           setProjectToRemove(null);
-          setProjectSessionCount(null);
         }}
         onConfirm={() => {
           if (projectToRemove) onRemoveProject(projectToRemove);
           setProjectToRemove(null);
-          setProjectSessionCount(null);
         }}
         open={projectToRemove !== null}
-        title={projectSessionCount === "loading"
-          ? "正在检查关联的助手会话…"
-          : projectSessionCount === "error"
-          ? "无法统计助手会话；移除项目仍会执行安全清理"
-          : `仅从最近项目移除，磁盘文件不会被删除；将删除 ${
-            projectSessionCount ?? 0
-          } 个助手会话`}
+        title="仅从项目列表移除，磁盘文件不会被删除"
       />
     </div>
   );

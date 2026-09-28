@@ -1,3 +1,4 @@
+import { captureScreenImage } from "./captureScreenImage";
 import { invoke } from "@tauri-apps/api/core";
 import type {
   ScreenCapture,
@@ -31,6 +32,7 @@ function requirePollResult(value: unknown): ScreenCapturePollResult {
   if (value.status === "pending") {
     return { status: "pending" };
   }
+  if (value.status === "cancelled") return { status: "cancelled" };
   if (
     value.status === "captured" &&
     "path" in value &&
@@ -45,7 +47,24 @@ function requirePollResult(value: unknown): ScreenCapturePollResult {
 export function createTauriScreenCapture({
   invokeCommand = invoke,
 }: Dependencies = {}): ScreenCapture {
-  return {
+  const capture: ScreenCapture = {
+    async captureMedia(projectPath, cancellation) {
+      return captureScreenImage(capture, cancellation, async (path) => {
+        try {
+          const result = await invokeCommand("import_screen_capture_media", { projectPath, path });
+          if (typeof result !== "object" || result === null ||
+            !("file" in result) || typeof result.file !== "string" || !/^media\/[a-zA-Z0-9_-]+\.png$/.test(result.file) ||
+            !("dataUrl" in result) || typeof result.dataUrl !== "string" || !result.dataUrl.startsWith("data:image/png;base64,") ||
+            !("name" in result) || typeof result.name !== "string" ||
+            !("mimeType" in result) || result.mimeType !== "image/png") {
+            throw new Error("Malformed native response");
+          }
+          return { file: result.file, dataUrl: result.dataUrl, name: result.name, mimeType: result.mimeType };
+        } catch (cause) {
+          throw new Error(`无法保存截图到项目：${detail(cause)}`, { cause });
+        }
+      });
+    },
     async start() {
       try {
         return requireToken(await invokeCommand("start_screen_capture"));
@@ -85,6 +104,7 @@ export function createTauriScreenCapture({
       }
     },
   };
+  return capture;
 }
 
 export const tauriScreenCapture = createTauriScreenCapture();

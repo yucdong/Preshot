@@ -33,6 +33,7 @@ export interface ReferenceImageCropTransaction {
 }
 
 export interface ReferenceImageCropStore {
+  isImageRetainedForHistory?(projectPath: string, file: string): Promise<boolean>;
   beginImageCrop(
     projectPath: string,
     input: {
@@ -76,9 +77,12 @@ export interface PlanImagePicker {
 
 export type ScreenCapturePollResult =
   | { status: "pending" }
+  | { status: "cancelled" }
   | { status: "captured"; path: string };
 
 export interface ScreenCapture {
+  /** Capture and copy a PNG into project-local native media; cancellation drains cleanup. */
+  captureMedia?(projectPath: string, cancellation: Promise<void>): Promise<ImportedPlanMedia | null>;
   start(): Promise<string>;
   poll(token: string): Promise<ScreenCapturePollResult>;
   cancel(token: string): Promise<void>;

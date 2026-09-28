@@ -95,6 +95,7 @@ function InteractiveImageTile({
   onResize,
   onResizeKeyDown,
   onSelect,
+  onSave,
 }: {
   groupId: string;
   image: ReferenceImage;
@@ -115,6 +116,7 @@ function InteractiveImageTile({
     event: ReactKeyboardEvent<HTMLSpanElement>,
   ): void;
   onSelect(): void;
+  onSave?(): void;
 }) {
   const drag = useImageDragPreview();
   const {
@@ -214,6 +216,12 @@ function InteractiveImageTile({
           src ? "cursor-grab active:cursor-grabbing" : "cursor-default"
         }`}
         data-image-drag-activator="true"
+        data-image-clipboard-id={image.id}
+        data-image-group-id={groupId}
+        onMouseDownCapture={(event) => {
+          // Keep ProseMirror from taking button focus; pointerdown still reaches dnd-kit.
+          event.stopPropagation();
+        }}
         onClick={(event) => {
           event.stopPropagation();
           onSelect();
@@ -223,7 +231,10 @@ function InteractiveImageTile({
           if (drag.isViewerSuppressed()) return;
           onOpen();
         }}
-        onFocus={() => drag.announceSelection(groupId, image.id, index)}
+        onFocus={() => {
+          onSelect();
+          drag.announceSelection(groupId, image.id, index);
+        }}
         onKeyDown={handleKeyDown}
         ref={setActivatorNodeRef}
         type="button"
@@ -283,6 +294,16 @@ function InteractiveImageTile({
       >
         <Trash2 aria-hidden size={10} />
       </button>
+      {onSave ? (
+        <button
+          aria-label={`保存参考图 ${index + 1} 到素材库`}
+          className={`absolute bottom-1 right-1 z-[60] grid h-[22px] w-[22px] place-items-center rounded bg-[#202329]/85 text-white ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"}`}
+          onClick={(event) => { event.stopPropagation(); onSave(); }}
+          onPointerDown={(event) => event.stopPropagation()}
+          title="保存图片到素材库"
+          type="button"
+        ><Library aria-hidden size={12} /></button>
+      ) : null}
       {IMAGE_RESIZE_DIRECTIONS.map((direction) => (
         <span
           aria-label={`从${direction}调整参考图 ${index + 1}`}
@@ -635,26 +656,53 @@ export function ImageGroupBlockView({
     <div
       className="preshot-blocknote-image-group-shell preshot-image-group-editable-shell relative w-full min-w-0"
       contentEditable={false}
+      data-clipboard-gallery={groupId}
+      data-clipboard-component={variant === "block" ? groupId : undefined}
+      data-clipboard-component-label={variant === "block" ? group.name || label : undefined}
+      role={variant === "block" ? "group" : undefined}
+      aria-label={variant === "block" ? "图片组组件" : undefined}
+      aria-description={variant === "block" ? "选中后，Ctrl+V 将图片粘贴到此图片组。" : undefined}
+      data-clipboard-gesture={drag.state.status !== "idle" || framePreview !== null ? "true" : undefined}
+      tabIndex={variant === "block" ? 0 : -1}
     >
       {variant === "block" && controller.updateGroupMetadata ? (
-        <ImageGroupMetadataFields name={group.name} description={group.description}
+        <ImageGroupMetadataFields singleImage={controller.singleImage} name={group.name} description={group.description}
           onCommit={(update) => controller.updateGroupMetadata?.(groupId, update)} />
       ) : null}
-      <div className="preshot-image-group-heading bn-drag-exclude">
+      <div className="preshot-image-group-heading bn-drag-exclude" data-clipboard-gallery-heading="">
         <div className="preshot-image-group-caption" onPointerDown={startGroupBlockDrag}>
           <Images aria-hidden size={16} />
-          <h3>{label}</h3>
+          <h3>{controller.singleImage ? "图片" : label}</h3>
           <span className="preshot-image-group-count">{group.images.length} 张图片</span>
         </div>
         <div className="preshot-blocknote-image-group-toolbar" role="group" aria-label={`${label}操作`}
           onPointerDownCapture={(event) => event.stopPropagation()}
           onMouseDownCapture={(event) => event.stopPropagation()}>
-          <button aria-label="添加图片" onClick={() => controller.addImages(groupId)} title="从文件添加图片" type="button">
+          <button disabled={controller.singleImage && group.images.length > 0} aria-label="添加图片" onClick={() => controller.addImages(groupId)} title={controller.singleImage && group.images.length > 0 ? "请先删除当前图片再添加" : "从文件添加图片"} type="button">
             <Plus aria-hidden size={15} />添加图片
           </button>
           {controller.captureImage ? (
-            <button aria-label="截图" onClick={() => controller.captureImage?.(groupId)} title="截图插入当前图片组" type="button">
+            <button disabled={controller.singleImage && group.images.length > 0} aria-label="截图" onClick={() => controller.captureImage?.(groupId)} title="截图插入当前图片组" type="button">
               <Camera aria-hidden size={15} />截图
+            </button>
+          ) : null}
+          {variant === "block" && !controller.singleImage && controller.insertImagesFromLibrary ? (
+            <button aria-label="从素材库插入" type="button"
+              disabled={drag.state.status !== "idle" || framePreview !== null}
+              title="从图片或图片组素材中选择图片，插入当前图片组"
+              onClick={() => controller.insertImagesFromLibrary?.(groupId)}>
+              <Library aria-hidden size={15} />从素材库插入
+            </button>
+          ) : null}
+          {controller.saveImage && group.images.some(({ id }) => id === controller.selectedImageId) ? (
+            <button aria-label="添加到素材库" type="button"
+              disabled={drag.state.status !== "idle" || framePreview !== null}
+              title="将选中的图片添加到素材库"
+              onClick={() => {
+                const selected = group.images.find(({ id }) => id === controller.selectedImageId);
+                if (selected) controller.saveImage?.(groupId, selected.id);
+              }}>
+              <Library aria-hidden size={15} />添加到素材库
             </button>
           ) : null}
           {variant === "block" && controller.structureEditable !== false && controller.saveBlock ? (
@@ -676,6 +724,7 @@ export function ImageGroupBlockView({
         }`}
         data-image-group-id={groupId}
         onPointerDown={startGroupBlockDrag}
+        data-clipboard-gallery={groupId}
         ref={setRootNode}
         style={{
           height: `${displayedHeight}px`,
@@ -693,7 +742,7 @@ export function ImageGroupBlockView({
             />
           ) : null}
           {group.images.length === 0 && drag.state.status === "idle" ? (
-            <button className="relative grid h-full w-full place-items-center rounded border border-dashed border-app-border bg-white text-xs text-app-muted" onClick={() => controller.addImages(groupId)} type="button">
+            <button data-clipboard-gallery-empty="" className="relative grid h-full w-full place-items-center rounded border border-dashed border-app-border bg-white text-xs text-app-muted" onClick={() => controller.addImages(groupId)} type="button">
               添加图片
             </button>
           ) : null}
@@ -757,6 +806,7 @@ export function ImageGroupBlockView({
                 onResizeKeyDown={(direction, event) =>
                   resizeImageWithKeyboard(image, direction, event)}
                 onSelect={() => controller.selectImage?.(image.id)}
+                onSave={controller.saveImage ? () => controller.saveImage?.(groupId, image.id) : undefined}
                 row={rowByImageId.get(image.id) ?? 0}
                 selected={selected}
                 slot={slot}

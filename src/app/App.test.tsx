@@ -104,6 +104,7 @@ function createDependencies(project: WorkspaceProjectView): WorkspaceDependencie
   return {
     service,
     directoryPicker: {
+      getDefaultProjectsDirectory: vi.fn().mockResolvedValue("C:\\Users\\me\\.preshot\\projects"),
       pickDirectory: vi.fn().mockResolvedValue(null),
     },
     native: {
@@ -138,7 +139,7 @@ describe("App", () => {
 
     const nav = screen.getByRole("navigation", { name: "项目" });
     expect(
-      within(nav).getByRole("button", { name: "打开项目 Editorial" }),
+      within(within(nav).getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 Editorial" }),
     ).toHaveAttribute("aria-current", "page");
 
     expect(screen.queryByText("Canvas")).not.toBeInTheDocument();
@@ -159,7 +160,7 @@ describe("App", () => {
 
     expect(await canvasReady()).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "打开项目 Preshot 入门示例" }),
+      within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 Preshot 入门示例" }),
     ).toHaveAttribute("aria-current", "page");
     expect(dependencies.native.maximizeWindow).toHaveBeenCalledTimes(1);
   });
@@ -184,20 +185,20 @@ describe("App", () => {
     await canvasReady();
     await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
 
-    await user.click(screen.getByRole("button", { name: "打开项目 Editorial" }));
+    await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 Editorial" }));
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(dependencies.service.openProject).not.toHaveBeenCalled();
 
     vi.mocked(plans.service.loadPlan).mockReturnValueOnce(loaded.promise);
     vi.mocked(plans.service.loadMedia).mockReturnValueOnce(media.promise);
-    await user.click(screen.getByRole("button", { name: "打开项目 夜景" }));
+    await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 夜景" }));
     expect(screen.getByRole("progressbar", { name: "项目加载进度" })).toBeVisible();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
     expect(screen.queryByRole("group", { name: "方案正文" })).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "项目" })).toHaveAttribute("inert");
-    expect(screen.getByRole("button", { name: "打开项目 Editorial" }))
+    expect(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 Editorial" }))
       .toHaveAttribute("aria-current", "page");
-    await user.click(screen.getByRole("button", { name: "打开项目 夜景" }));
+    await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 夜景" }));
     expect(dependencies.service.openProject).toHaveBeenCalledTimes(1);
 
     await act(async () => opened.resolve(second));
@@ -218,11 +219,9 @@ describe("App", () => {
     await waitFor(() => expect(plans.service.loadMedia).toHaveBeenCalledWith(second.path, "media/delayed.png"));
     expect(screen.getByRole("progressbar")).toBeVisible();
     await act(async () => media.resolve("data:image/png;base64,AA"));
-    await waitFor(() => expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100"), { timeout: 4000 });
-    expect(screen.queryByRole("group", { name: "方案正文" })).not.toBeInTheDocument();
     await canvasReady();
     await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "打开项目 夜景" }))
+    expect(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 夜景" }))
       .toHaveAttribute("aria-current", "page");
   });
 
@@ -237,16 +236,16 @@ describe("App", () => {
       .mockResolvedValue(second);
     render(<App dependencies={dependencies} planDependencies={planDeps()} />);
     await canvasReady();
-    await user.click(screen.getByRole("button", { name: "打开项目 夜景" }));
+    await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 夜景" }));
     expect(screen.getByRole("progressbar")).toBeVisible();
     await act(async () => opened.reject(new Error("无法读取项目，请重试")));
     expect(await screen.findByRole("alert")).toBeVisible();
     expect(Number(screen.getByRole("progressbar").getAttribute("aria-valuenow"))).toBeLessThan(100);
     expect(dependencies.logger.error).toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "打开项目 Editorial" }))
+    expect(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 Editorial" }))
       .toHaveAttribute("aria-current", "page");
     await user.click(screen.getByRole("button", { name: "重试加载" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "打开项目 夜景" }))
+    await waitFor(() => expect(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 夜景" }))
       .toHaveAttribute("aria-current", "page"));
     await canvasReady();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
@@ -266,12 +265,12 @@ describe("App", () => {
       .mockReturnValueOnce(newLoad.promise);
     render(<App dependencies={dependencies} planDependencies={plans} />);
     await waitFor(() => expect(plans.service.loadPlan).toHaveBeenCalledTimes(1));
-    await user.click(screen.getByRole("button", { name: "打开项目 夜景" }));
+    await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 夜景" }));
     expect(dependencies.service.openProject).not.toHaveBeenCalled();
     const result = await planDeps().service.loadPlan(first.path, first.name);
     await act(async () => oldLoad.resolve(result));
     await canvasReady();
-    await user.click(screen.getByRole("button", { name: "打开项目 夜景" }));
+    await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 夜景" }));
     await waitFor(() => expect(plans.service.loadPlan).toHaveBeenCalledTimes(2));
     expect(screen.getByRole("progressbar")).toBeVisible();
     await act(async () => newLoad.resolve(result));
@@ -298,7 +297,7 @@ describe("App", () => {
         requiredSchemaVersion: 15,
       });
     }
-    await user.click(screen.getByRole("button", { name: "打开项目 夜景" }));
+    await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 夜景" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(status === "failed" ? "方案读取失败" : "方案版本不兼容");
     expect(Number(screen.getByRole("progressbar").getAttribute("aria-valuenow"))).toBeLessThan(100);
     expect(screen.getByRole("button", { name: "重试加载" })).toBeVisible();

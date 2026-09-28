@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MaterialContentSaveError, type MaterialDetail, type MaterialEditSession } from "../../domain/library/models";
+import { MaterialContentSaveError, type MaterialDetail, type MaterialEditSession, type MaterialPayload } from "../../domain/library/models";
 import type { MaterialContentEditorRepository } from "../../domain/library/ports";
 import { MaterialEditLease } from "./materialEditLease";
 
@@ -27,6 +27,37 @@ function deferred<T>() {
 }
 
 describe("material edit draft ownership", () => {
+  it("does not submit an empty image material", async () => {
+    const repo = repository();
+    const payload: MaterialPayload = { format: "preshot-material", version: 1, kind: "image",
+      component: { kind: "image", name: "图片", description: "", images: [] } };
+    const lease = new MaterialEditLease(repo, { ...session, material: { ...material, kind: "image", payload } });
+    await expect(lease.save(payload)).rejects.toThrow("请先添加一张图片");
+    expect(repo.commitEdit).not.toHaveBeenCalled();
+  });
+  it("does not advertise clipboard import for old injected repositories", () => {
+    const lease = new MaterialEditLease(repository(), session);
+    expect(lease.repository.importEditImageData).toBeUndefined();
+  });
+
+  it("drains clipboard image imports and rejects cross-session or retired work", async () => {
+    const repo = repository();
+    const pending = deferred<never>();
+    repo.importEditImageData = vi.fn(() => pending.promise);
+    const lease = new MaterialEditLease(repo, session);
+    const input = { name: "clipboard.png", mimeType: "image/png", bytes: [1] };
+    await expect(lease.repository.importEditImageData!("other", input)).rejects.toThrow("其他素材");
+    const importing = lease.repository.importEditImageData!("draft", input);
+    const rejected = expect(importing).rejects.toThrow("write failed");
+    const retiring = lease.retire();
+    expect(repo.discardEdit).not.toHaveBeenCalled();
+    pending.reject(new Error("write failed"));
+    await rejected;
+    expect(await retiring).toBe("discarded");
+    expect(repo.importEditImageData).toHaveBeenCalledExactlyOnceWith("draft", input);
+    await expect(lease.repository.importEditImageData!("draft", input)).rejects.toThrow("素材编辑已结束");
+  });
+
   it("requires metadata to create, then pins the first canonical versions and UUID", async () => {
     const repo = repository();
     const draft: MaterialEditSession = {

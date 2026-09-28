@@ -78,6 +78,7 @@ export function LibraryDialog({
         ? event.target.closest('[role="dialog"][aria-modal="true"]') : null;
       if (nested && nested !== surface && surface.contains(nested)) return;
       if (event.key === "Escape") {
+        if (event.target instanceof Element && event.target.closest('[role="menu"]')) return;
         if (event.isComposing || event.keyCode === 229) return;
         event.preventDefault();
         event.stopImmediatePropagation();

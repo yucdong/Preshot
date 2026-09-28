@@ -41,7 +41,9 @@ function paragraph(id: string, children: PreshotBlock[] = []): PreshotBlock {
   return { id, type: "paragraph", props: {}, content: [], children };
 }
 
-function sourcePlan(kind: MaterialKind): ProjectPlanV15 {
+const COMPONENT_KINDS = MATERIAL_KINDS.filter((kind) => kind !== "image");
+
+function sourcePlan(kind: Exclude<MaterialKind, "image">): ProjectPlanV15 {
   const plan = createEmptyProjectPlanV15("原方案", { makeId: () => "anchor" });
   const images = [image("original-one"), image("original-two")];
   if (kind === "imageGroup") {
@@ -82,11 +84,11 @@ function sourcePlan(kind: MaterialKind): ProjectPlanV15 {
   return plan;
 }
 
-function payload(kind: MaterialKind = "imageGroup"): MaterialPayload {
+function payload(kind: Exclude<MaterialKind, "image"> = "imageGroup"): MaterialPayload {
   return createMaterialSnapshot(sourcePlan(kind), "source-block").payload;
 }
 
-function newInstance(kind: MaterialKind = "imageGroup", prefix = "new"): MaterialInstance {
+function newInstance(kind: Exclude<MaterialKind, "image"> = "imageGroup", prefix = "new"): MaterialInstance {
   const snapshot = createMaterialSnapshot(sourcePlan(kind), "source-block");
   let id = 0;
   return instantiateMaterial(snapshot.payload, snapshot.sources.map((source, index) => ({
@@ -102,7 +104,7 @@ function allImages(instance: MaterialInstance): ReferenceImage[] {
 }
 
 describe("material snapshots and insertion", () => {
-  it.each(MATERIAL_KINDS)("roundtrips %s with fresh identities and preserved visual data", (kind) => {
+  it.each(COMPONENT_KINDS)("roundtrips %s with fresh identities and preserved visual data", (kind) => {
     const plan = sourcePlan(kind);
     const original = structuredClone(plan);
     const snapshot = createMaterialSnapshot(plan, "source-block");
@@ -152,7 +154,7 @@ describe("material snapshots and insertion", () => {
       .omittedLegacyImages).toBe(1);
   });
 
-  it.each(MATERIAL_KINDS)("supports empty %s galleries", (kind) => {
+  it.each(COMPONENT_KINDS)("supports empty %s galleries", (kind) => {
     const plan = sourcePlan(kind);
     plan.imageGroups.forEach((group) => { group.images = []; });
     artifactCollectionsInPlan(plan).forEach((collection) => { collection.images = []; });
@@ -169,7 +171,7 @@ describe("material snapshots and insertion", () => {
       prop: ["保存的标题", "道具信息"],
       clothing: ["保存的标题", "服装信息"],
     };
-    for (const kind of MATERIAL_KINDS) {
+    for (const kind of COMPONENT_KINDS) {
       const text = materialPayloadText(payload(kind));
       for (const field of [...expectations[kind], "说明 original-one", "说明 original-two"]) {
         expect(text).toContain(field);

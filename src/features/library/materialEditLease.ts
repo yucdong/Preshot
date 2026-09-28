@@ -36,6 +36,10 @@ export class MaterialEditLease {
       beginEdit: async () => { throw new Error("单素材画布不能打开其他素材"); },
       loadEditImage: (id, image) => scoped(id, () => native.loadEditImage(id, image)),
       importEditImages: (id) => scoped(id, () => native.importEditImages(id)),
+      ...(native.importEditImageData ? {
+        importEditImageData: (id: string, input: { name: string; mimeType: string; bytes: number[] }) =>
+          scoped(id, () => native.importEditImageData!(id, input)),
+      } : {}),
       captureEditImage: (id, cancellation) => scoped(id, () => this.retired
         ? Promise.resolve(null)
         : native.captureEditImage(id, Promise.race([cancellation, this.captureCancellation]))),
@@ -69,6 +73,9 @@ export class MaterialEditLease {
       throw new MaterialContentSaveError("创建素材必须填写素材信息", "rejected");
     }
     const validated = validateMaterialPayload(payload);
+    if (validated.component.kind === "image" && validated.component.images.length !== 1) {
+      throw new MaterialContentSaveError("请先添加一张图片，再保存图片素材。", "rejected");
+    }
     if (validated.kind !== this.session.material.kind) {
       throw new MaterialContentSaveError("不能更换素材类型", "rejected");
     }

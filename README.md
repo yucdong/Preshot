@@ -7,9 +7,6 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 ## Current product surface
 
 - Recent-project launcher and in-app project rail
-- Production project-scoped assistant with managed Copilot CLI sessions,
-  deterministic capability probes, immutable disclosed context, and
-  proposal-first text edits
 - Single-column BlockNote v15 editor (`schemaVersion: 15`,
   `document.format: "preshot-blocks"`, `document.version: 3`) with one block
   per row and structured location, model, clothing, and prop blocks
@@ -19,7 +16,10 @@ Preshot is a Windows-first desktop application for photography planning. The cur
   same-/cross-/empty-group reflow, source and insertion placeholders, and
   zoom-safe edge auto-scroll
 - Native BlockNote image, video, and audio blocks backed by project-local `media/`
-- Auto-save, explicit save shortcut, theme settings, resizable shell panels, and focus mode
+- Material library with six categories, including individual images. Save a
+  project image or create one in the library, add descriptions and keyword tags,
+  search offline, and reuse independent image copies across projects.
+- Auto-save, explicit save shortcut, theme settings, a resizable project rail, and focus mode
 - A4 PDF export through `@blocknote/xl-pdf-exporter@0.53.0` and
   `@react-pdf/renderer@4.3.0`, with offline project-local asset preflight and a
   native save dialog
@@ -52,7 +52,8 @@ saving preflights a separate 64 MiB raw-image ceiling before creating base64
 or sending the single rollback-safe Tauri IPC batch; Rust repeats the count and
 byte checks before allocation and after decode.
 
-By default, the entire document remains one image. If that output would exceed
+By default, the entire document remains one image, with an absolute height
+limit of 20000px (18 million pixels at 900px wide). If that output would exceed
 the safe single-image limits, export fails actionably instead of silently
 splitting; the user can enable automatic splitting, shorten the plan, or export
 PDF/DOCX. When enabled, automatic splitting prefers complete top-level block
@@ -98,10 +99,6 @@ does not ship an archive dependency.
 - Reference image files live under `references/`.
 - Native BlockNote media files live under `media/`.
 - Theme and shell settings are stored in `%USERPROFILE%\.preshot\settings.json`.
-- Agent session metadata, drafts, proposal receipts/checkpoints, bounded
-  Apply/Undo recovery journals, and usage summaries live in
-  `%USERPROFILE%\.preshot\agent.db`; full transcripts remain in the managed
-  Copilot runtime under `%USERPROFILE%\.preshot\copilot`.
 - New-project picking defaults to `%USERPROFILE%\.preshot\projects`.
 - On startup, the application creates those user-owned roots when absent,
   adopts an existing valid default-root project when possible, or creates and
@@ -111,8 +108,6 @@ does not ship an archive dependency.
 
 - React 19, TypeScript, Vite
 - Tauri 2, Rust
-- `github-copilot-sdk@1.0.11` with its reviewed bundled CLI artifact
-  (`1.0.79`, self-reporting `1.0.81-7`) and bundled SQLite metadata storage
 - BlockNote 0.53, Mantine 8
 - Tailwind CSS 4
 - `@blocknote/xl-pdf-exporter@0.53.0` + `@react-pdf/renderer@4.3.0`
@@ -272,7 +267,6 @@ Install, upgrade, repair, and uninstall preserve `%USERPROFILE%\.preshot`.
 | `pnpm test:watch` | Run Vitest in watch mode. |
 | `pnpm test:init` | Run the PowerShell initializer regression harness. |
 | `pnpm test:production-scripts` | Run isolated production/release script fixtures. |
-| `pnpm test:agent-evals` | Run deterministic offline agent security/capability/proposal fixtures and refresh their report. |
 | `pnpm test:e2e` | Run the main Playwright browser-shell smoke suite. |
 | `pnpm test:e2e:blocknote` | Run the focused BlockNote v15 Playwright suite. |
 | `pnpm test:e2e:capture` | Run the isolated long-image DOM-capture acceptance suite. |
@@ -350,7 +344,6 @@ verification.
 - [BlockNote v14 interaction history](docs/design_docs/blocknote_v14_design.md)
 - [Artifact document blocks](docs/design_docs/artifacts/artifacts.md)
 - [UI/UX contract](docs/design_docs/UI_UX_CONTRACT.md)
-- [Basic agent design and security contract](docs/design_docs/agent/agent_basic_design.md)
 - [Feature status tracker](docs/design_docs/featurelist.json)
 
 ## License

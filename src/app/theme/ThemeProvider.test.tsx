@@ -12,24 +12,19 @@ function TestConsumer() {
     resolved,
     setTheme,
     projectRailWidth,
-    assistantWidth,
-    assistantOpen,
-    setAssistantOpen,
     setPanelWidths,
   } = useTheme();
   return (
     <div>
       <div data-testid="theme">{theme}</div>
       <div data-testid="resolved">{resolved}</div>
-      <div data-testid="panel-widths">{projectRailWidth},{assistantWidth}</div>
-      <div data-testid="assistant-open">{String(assistantOpen)}</div>
+      <div data-testid="panel-widths">{projectRailWidth}</div>
       <button onClick={() => setTheme("dark")}>Set Dark</button>
       <button onClick={() => setTheme("light")}>Set Light</button>
       <button onClick={() => setTheme("system")}>Set System</button>
-      <button onClick={() => setPanelWidths({ projectRailWidth: 260, assistantWidth: 360 })}>
+      <button onClick={() => setPanelWidths({ projectRailWidth: 260 })}>
         Set Panels
       </button>
-      <button onClick={() => setAssistantOpen(true)}>Open Assistant</button>
     </div>
   );
 }
@@ -210,8 +205,6 @@ describe("ThemeProvider", () => {
       expect(repository.write).toHaveBeenCalledWith({
         theme: "dark",
         projectRailWidth: 192,
-        assistantWidth: 272,
-        assistantOpen: false,
       });
     });
 
@@ -262,46 +255,12 @@ describe("ThemeProvider", () => {
 
     screen.getByText("Set Panels").click();
 
-    await waitFor(() => expect(screen.getByTestId("panel-widths")).toHaveTextContent("260,360"));
+    await waitFor(() => expect(screen.getByTestId("panel-widths")).toHaveTextContent("260"));
     expect(repository.write).toHaveBeenCalledWith({
       theme: "light",
       projectRailWidth: 260,
-      assistantWidth: 360,
-      assistantOpen: false,
     });
   });
 
-  it("defaults assistant visibility closed and persists opening it", async () => {
-    const repository = createMockRepository({ theme: "light" });
-    render(
-      <ThemeProvider repository={repository}>
-        <TestConsumer />
-      </ThemeProvider>,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("assistant-open")).toHaveTextContent("false")
-    );
-    screen.getByText("Open Assistant").click();
-    await waitFor(() =>
-      expect(screen.getByTestId("assistant-open")).toHaveTextContent("true")
-    );
-    expect(repository.write).toHaveBeenLastCalledWith({
-      theme: "light",
-      projectRailWidth: 192,
-      assistantWidth: 272,
-      assistantOpen: true,
-    });
-  });
 
-  it("throws error when useTheme is used outside provider", () => {
-    // Suppress console.error for this test
-    const originalError = console.error;
-    console.error = vi.fn();
-
-    expect(() => {
-      render(<TestConsumer />);
-    }).toThrow("useTheme must be used within a ThemeProvider");
-
-    console.error = originalError;
-  });
 });

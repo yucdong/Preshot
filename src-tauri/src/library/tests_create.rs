@@ -32,7 +32,7 @@ impl CreateFixture {
 
 fn payload(kind: &str) -> MaterialPayload {
     let component = match kind {
-        "imageGroup" => json!({"kind":kind,"name":"新图片组","description":"","images":[]}),
+        "image" | "imageGroup" => json!({"kind":kind,"name":"新图片组","description":"","images":[]}),
         "shootingLocation" => {
             json!({"kind":kind,"venueName":"新场地","address":"","description":"","gallery":{"images":[]}})
         }
@@ -95,6 +95,32 @@ fn assert_unpublished(store: &Store) {
         assert_eq!(count(store, table), 0, "{table}");
     }
     assert_eq!(store.search(query("")).unwrap().total, 0);
+}
+
+#[test]
+fn image_creation_requires_one_image_and_keeps_kind_through_editing() {
+    let fixture = CreateFixture::new();
+    let mut store = fixture.store();
+    let session = store.begin_create(payload("image")).unwrap();
+    assert!(store.commit_edit(create_request(&session)).is_err());
+    assert_unpublished(&store);
+    let images = store.import_edit_images(&session.session_id, vec![fixture.source().to_string_lossy().into_owned()]).unwrap();
+    let mut input = create_request(&session);
+    add_image(&mut input, &images[0]);
+    let mut two = input.clone();
+    let mut second = images_mut(&mut two.payload)[0].clone();
+    second["localImageId"] = json!("another");
+    images_mut(&mut two.payload).push(second);
+    assert!(store.commit_edit(two).is_err());
+    let saved = store.commit_edit(input).unwrap();
+    assert_eq!(saved.summary.kind, MaterialKind::Image);
+    let editing = store.begin_edit(&saved.summary.id, 1).unwrap();
+    let mut input = update(&editing);
+    input.payload.component["description"] = json!("午后光影");
+    let edited = store.commit_edit(input).unwrap();
+    assert_eq!(edited.summary.kind, MaterialKind::Image);
+    assert_eq!(edited.images, saved.images);
+    assert_eq!(store.search(query("午后光影")).unwrap().total, 1);
 }
 
 #[test]
@@ -408,7 +434,8 @@ fn library_create_database_rollback_keeps_retry_sources_but_no_partial_material_
     let saved = store.commit_edit(request).unwrap();
     assert_eq!(saved.summary.revision, 1);
     assert_eq!(saved.summary.metadata_version, 1);
-    assert_eq!(count(&store, "material_asset_owners"), 1);
+    assert_eq!(count(&store, "material_asset_owners"), 0);
+    assert_eq!(count(&store, "material_instance_owners"), 1);
     assert_eq!(count(&store, "materials"), 1);
 }
 
@@ -492,7 +519,7 @@ fn library_create_purge_blocks_retained_creation_drafts_and_never_replays_purged
 }
 
 #[test]
-fn library_create_staged_images_pin_shared_library_objects_during_another_material_purge() {
+fn library_create_staged_instances_survive_an_equal_hash_material_purge() {
     let fixture = CreateFixture::new();
     let mut store = fixture.store();
     let source = fixture.source();
@@ -505,9 +532,7 @@ fn library_create_staged_images_pin_shared_library_objects_during_another_materi
     add_image(&mut first_request, &first_image);
     let saved = store.commit_edit(first_request).unwrap();
     store.discard_edit(&first.session_id).unwrap();
-    let object = store
-        .object_path(&saved.images[0].blob_id, "image/png")
-        .unwrap();
+    let object = store.instance_path(saved.images[0].storage_id.as_deref().unwrap(), "image/png").unwrap();
     let second = store.begin_create(payload("imageGroup")).unwrap();
     let second_image = store
         .import_edit_images(&second.session_id, vec![source.to_str().unwrap().into()])
@@ -518,13 +543,14 @@ fn library_create_staged_images_pin_shared_library_objects_during_another_materi
         .purge(&saved.summary.id, deleted.metadata_version)
         .unwrap();
     assert!(
-        object.exists(),
-        "Creation staging must be included in purge reference checks"
+        !object.exists(),
+        "Independent creation staging must not retain another material's equal-hash instance"
     );
     let mut request = create_request(&second);
     add_image(&mut request, &second_image);
     let created = store.commit_edit(request).unwrap();
     assert_eq!(created.images[0].blob_id, saved.images[0].blob_id);
+    assert_ne!(created.images[0].storage_id, saved.images[0].storage_id);
     assert_eq!(
         store.blob(&created.images[0]).unwrap(),
         fs::read(source).unwrap()
@@ -740,6 +766,7 @@ fn library_create_respects_encoded_decoded_crop_payload_and_session_image_caps()
     let retained: Vec<_> = (0..512)
         .map(|_| {
             recorded["localImageId"] = json!(Uuid::new_v4().to_string());
+            recorded["storageId"] = json!(Uuid::new_v4().to_string());
             recorded.clone()
         })
         .collect();

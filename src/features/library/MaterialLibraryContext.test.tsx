@@ -7,10 +7,10 @@ import type { MaterialDetail, MaterialEditSession, MaterialSnapshot } from "../.
 import type { MaterialContentEditorRepository, MaterialLibraryRepository } from "../../domain/library/ports";
 import { MaterialContentSaveError } from "../../domain/library";
 import {
-  MaterialLibraryProvider,
   useOptionalMaterialLibrary,
   type MaterialLibraryController,
 } from "./MaterialLibraryContext";
+import { MaterialLibraryProvider } from "./MaterialLibraryProvider";
 
 const material: MaterialDetail = {
   id: "6df83545-5a19-4d47-a305-0b8d58ca448c",
@@ -91,6 +91,20 @@ function Launcher({
 afterEach(() => { vi.useRealTimers(); });
 
 describe("MaterialLibraryProvider", () => {
+  it("keeps existing library consumers connected when the provider module is refreshed", async () => {
+    // A timestamped import re-evaluates the provider, as Vite does during HMR,
+    // while Launcher retains the hook imported before that refresh.
+    const refreshedModule = "./MaterialLibraryProvider.tsx?provider-refresh";
+    const { MaterialLibraryProvider: RefreshedProvider } = await import(
+      /* @vite-ignore */ refreshedModule
+    ) as typeof import("./MaterialLibraryProvider");
+    render(<RefreshedProvider repository={repository()}><Launcher /></RefreshedProvider>);
+
+    expect(screen.queryByText("未提供素材库")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "管理素材" }));
+    expect(await screen.findByRole("dialog", { name: "素材库" })).toBeVisible();
+  });
+
   it("routes the shared library entry to the current document and ignores obsolete target cleanup", async () => {
     const user = userEvent.setup();
     let controller!: MaterialLibraryController;
@@ -142,10 +156,12 @@ describe("MaterialLibraryProvider", () => {
     await user.click(screen.getByRole("button", { name: "回收站" }));
     await user.click(screen.getByRole("button", { name: "创建素材" }));
     const chooser = screen.getByRole("dialog", { name: "创建素材" });
-    expect(within(chooser).getByRole("button", { name: "图片组" })).toHaveFocus();
+    expect(within(chooser).getByRole("button", { name: "图片" })).toHaveFocus();
     expect(contentEditor.beginCreate).not.toHaveBeenCalled();
-    await user.click(within(chooser).getByRole("button", { name: "道具" }));
-    await screen.findByDisplayValue("未命名道具");
+    expect(within(chooser).queryByRole("button", { name: "道具" })).not.toBeInTheDocument();
+    expect(within(chooser).queryByRole("button", { name: "服装" })).not.toBeInTheDocument();
+    await user.click(within(chooser).getByRole("button", { name: "道具与服装" }));
+    await screen.findByDisplayValue("未命名道具与服装");
     expect(published).toBe(false);
     expect(contentEditor.beginCreate).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ kind: "prop" }));
     await user.type(screen.getByRole("textbox", { name: "素材名称" }), "新建的道具素材");
@@ -411,7 +427,7 @@ describe("MaterialLibraryProvider", () => {
     expect(search).toHaveFocus();
     expect(container).toHaveAttribute("inert");
     await user.click(await screen.findByRole("button", { name: "选择素材：窗边参考" }));
-    expect(await screen.findByText(/完整参考说明/)).toBeVisible();
+    expect(await screen.findByText("下午拍摄")).toBeVisible();
     expect(onInsert).not.toHaveBeenCalled();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -468,8 +484,10 @@ describe("MaterialLibraryProvider", () => {
     expect(await screen.findByText(/搜索索引正在重建/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "下一页" }));
     await waitFor(() => expect(repo.search).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 50, limit: 50 })));
-    await user.click(screen.getByRole("button", { name: "服装" }));
-    await waitFor(() => expect(repo.search).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "clothing", offset: 0 })));
+    expect(screen.queryByRole("button", { name: "道具" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "服装" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "道具与服装" }));
+    await waitFor(() => expect(repo.search).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "propClothing", offset: 0 })));
     await user.click(screen.getByRole("button", { name: "收藏" }));
     await waitFor(() => expect(repo.search).toHaveBeenLastCalledWith(expect.objectContaining({ favorites: true })));
     await user.selectOptions(screen.getByRole("combobox", { name: "排序方式" }), "name");
@@ -732,8 +750,9 @@ describe("MaterialLibraryProvider", () => {
       } },
     }));
     expect(repo.updateMetadata).not.toHaveBeenCalled();
-    expect(await screen.findByRole("heading", { name: "原组件标题" })).toBeVisible();
     expect(screen.queryByRole("dialog", { name: "编辑素材" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "预览" }));
+    expect(await screen.findByRole("heading", { name: "原组件标题" })).toBeVisible();
   });
 
   it("refreshes the committed component and cached preview only after the editor closes", async () => {
@@ -770,10 +789,12 @@ describe("MaterialLibraryProvider", () => {
     await waitFor(() => expect(createPreview).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
       name: "窗边参考修改", revision: 2, payload: expect.objectContaining({ component: expect.objectContaining({ name: "保存后的组件" }) }),
     })));
-    await screen.findByRole("heading", { name: "保存后的组件" });
+    expect(screen.queryByRole("region", { name: "组件只读预览" })).not.toBeInTheDocument();
     await act(async () => preview.resolve());
     expect(await screen.findByRole("img", { name: "窗边参考修改的组件缩略图" })).toHaveAttribute("src", cache);
     expect(screen.getByRole("searchbox")).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "预览" }));
+    expect(await screen.findByRole("heading", { name: "保存后的组件" })).toBeVisible();
     expect(contentEditor.commitEdit).toHaveBeenCalledOnce();
   });
 
@@ -983,6 +1004,41 @@ describe("MaterialLibraryProvider", () => {
     expect(screen.getByRole("dialog", { name: "素材库" })).toBeVisible();
     expect(createPreview).not.toHaveBeenCalled();
     expect(onSave).toHaveBeenCalledOnce();
+  });
+
+  it.each(["管理素材", "从库插入"])("renders a preview only on request when opened through %s", async (entry) => {
+    const user = userEvent.setup();
+    const second = { ...material, id: "226f6001-cbcb-4c77-b8a0-1833fdf0c7a7", name: "第二份素材" };
+    const repo = repository({
+      search: vi.fn(async () => ({ items: [material, second], total: 2, indexState: "ready" as const })),
+      get: vi.fn(async (id) => id === second.id ? second : material),
+    });
+    const renderPreview = vi.fn((value: MaterialDetail) => <article>{value.name}的完整内容</article>);
+    render(<MaterialLibraryProvider repository={repo} renderPreview={renderPreview}><Launcher /></MaterialLibraryProvider>);
+
+    await user.click(screen.getByRole("button", { name: entry }));
+    await screen.findByRole("button", { name: "预览" });
+    expect(renderPreview).not.toHaveBeenCalled();
+    expect(screen.queryByRole("region", { name: "组件只读预览" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "选择素材：第二份素材" }));
+    await screen.findByRole("heading", { name: second.name });
+    expect(renderPreview).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "预览" }));
+    const preview = screen.getByRole("dialog", { name: "完整组件预览" });
+    expect(within(preview).getByText("第二份素材的完整内容")).toBeVisible();
+    expect(renderPreview).toHaveBeenCalledExactlyOnceWith(second);
+
+    await user.click(within(preview).getByRole("button", { name: "关闭完整组件预览" }));
+    expect(screen.queryByRole("region", { name: "组件只读预览" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "预览" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "选择素材：窗边参考" }));
+    await screen.findByRole("heading", { name: material.name });
+    expect(renderPreview).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "预览" }));
+    expect(within(screen.getByRole("dialog", { name: "完整组件预览" })).getByText("窗边参考的完整内容")).toBeVisible();
+    expect(renderPreview).toHaveBeenCalledTimes(2);
+    expect(renderPreview).toHaveBeenLastCalledWith(material);
   });
 
   it("explicitly labels partial cached thumbnails without restricting the full component preview", async () => {

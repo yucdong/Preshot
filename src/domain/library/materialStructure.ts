@@ -20,6 +20,7 @@ export interface MaterialInstance {
 
 export function componentImages(component: PortableComponent): PortableImage[] {
   switch (component.kind) {
+    case "image":
     case "imageGroup": return component.images;
     case "shootingLocation":
     case "prop": return component.gallery.images;
@@ -30,6 +31,7 @@ export function componentImages(component: PortableComponent): PortableImage[] {
 
 export function componentTitle(component: PortableComponent): string {
   switch (component.kind) {
+    case "image":
     case "imageGroup": return component.name;
     case "shootingLocation": return component.venueName;
     case "modelCard": return component.modelId;
@@ -41,6 +43,7 @@ export function componentTitle(component: PortableComponent): string {
 export function componentText(component: PortableComponent): string[] {
   let fields: string[];
   switch (component.kind) {
+    case "image":
     case "imageGroup": fields = [component.name, component.description]; break;
     case "shootingLocation":
       fields = [component.venueName, component.address, component.description]; break;
@@ -80,14 +83,14 @@ export function buildMaterialInstance(
   }));
   const block: PreshotBlock = {
     id: blockId,
-    type: component.kind,
-    props: component.kind === "imageGroup"
+    type: component.kind === "image" ? "imageGroup" : component.kind,
+    props: (component.kind === "image" || component.kind === "imageGroup")
       ? { groupId: sidecarId }
       : { artifactId: sidecarId },
     content: undefined,
     children: [],
   };
-  if (component.kind === "imageGroup") {
+  if ((component.kind === "image" || component.kind === "imageGroup")) {
     return {
       block,
       imageGroup: {

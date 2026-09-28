@@ -4,8 +4,7 @@ const variants = [
   { label: "图片组", field: "图片组名称", text: "图片组说明" },
   { label: "模特", field: "模特名称 / 编号", text: "其他信息" },
   { label: "场地", field: "场地名称", text: "场地信息" },
-  { label: "道具", field: "道具名称", text: "道具信息" },
-  { label: "服装", field: "服装名称", text: "服装信息" },
+  { label: "道具与服装", field: "道具与服装名称", text: "道具与服装信息" },
 ];
 
 for (const variant of variants) {
@@ -18,7 +17,7 @@ for (const variant of variants) {
     await library.getByRole("button", { name: "回收站", exact: true }).click();
     await library.getByRole("button", { name: "创建素材", exact: true }).click();
     const chooser = page.getByRole("dialog", { name: "创建素材", exact: true });
-    await expect(chooser.getByRole("button", { name: "图片组", exact: true })).toBeFocused();
+    await expect(chooser.getByRole("button", { name: "图片", exact: true })).toBeFocused();
     if (variant.label === "图片组") {
       await page.screenshot({ path: test.info().outputPath("material-create-types.png"), animations: "disabled" });
     }
@@ -83,7 +82,7 @@ test("cancelling a new material with staged images leaves no library record", as
   const library = page.getByRole("dialog", { name: "素材库", exact: true });
   await library.getByRole("button", { name: "创建素材", exact: true }).click();
   await page.getByRole("dialog", { name: "创建素材", exact: true })
-    .getByRole("button", { name: "服装", exact: true }).click();
+    .getByRole("button", { name: "道具与服装", exact: true }).click();
   const editor = page.locator(".ml-content-editor-dialog");
   await editor.getByRole("textbox", { name: "素材名称", exact: true }).fill("取消的新素材");
   await editor.getByRole("button", { name: /添加.*图片|导入.*图片/ }).first().click();
@@ -125,7 +124,7 @@ test("duplicate create and update both ask permission without overwriting anothe
   await expect(library.getByRole("button", { name: "选择素材：逆光玻璃杯", exact: true })).toHaveCount(2);
   await library.getByRole("button", { name: "选择素材：逆光玻璃杯", exact: true }).last().click();
   await library.getByRole("button", { name: "编辑素材", exact: true }).click();
-  await expect(editor.getByRole("textbox", { name: "道具名称", exact: true })).toHaveValue("透明玻璃杯");
+  await expect(editor.getByRole("textbox", { name: "道具与服装名称", exact: true })).toHaveValue("透明玻璃杯");
 });
 
 test("an interrupted first creation is confirmed once and remains editable", async ({ page }) => {
@@ -134,7 +133,7 @@ test("an interrupted first creation is confirmed once and remains editable", asy
   const library = page.getByRole("dialog", { name: "素材库", exact: true });
   await library.getByRole("button", { name: "创建素材", exact: true }).click();
   await page.getByRole("dialog", { name: "创建素材", exact: true })
-    .getByRole("button", { name: "道具", exact: true }).click();
+    .getByRole("button", { name: "道具与服装", exact: true }).click();
   const editor = page.locator(".ml-content-editor-dialog");
   await editor.getByRole("textbox", { name: "素材名称", exact: true }).fill("断线后的新素材");
   await editor.getByRole("button", { name: "保存素材", exact: true }).click();

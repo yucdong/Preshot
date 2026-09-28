@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Box, Check, Images, LayoutGrid, MapPin, Plus, Search, Shirt, Star, Trash2, UserRound } from "lucide-react";
-import type { MaterialDetail, MaterialKind, MaterialSearch } from "../../domain/library/models";
+import { Box, Check, Image, Images, LayoutGrid, MapPin, Plus, Search, Star, Trash2, UserRound } from "lucide-react";
+import type { MaterialCategory, MaterialDetail, MaterialSearch } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
 import type { MaterialBrowserInput } from "./MaterialLibraryContext";
 import { LibraryDialog } from "./LibraryDialog";
@@ -8,6 +8,7 @@ import { MaterialPreview, MaterialThumbnail } from "./MaterialPreview";
 import { formatMaterialBytes, libraryError, materialKindLabels, unavailableMessage, useLibraryLifetime } from "./libraryUi";
 import { useMaterialDetail, useMaterialSearch } from "./useMaterialBrowserData";
 import { MaterialContentEditor } from "./MaterialContentEditor";
+import { MaterialImageInsertDialog } from "./MaterialImageInsertDialog";
 import { MaterialEditLease } from "./materialEditLease";
 import { createEmptyMaterialPayload, materialNameExists } from "../../domain/library";
 
@@ -21,7 +22,7 @@ async function retireClosedEditor(lease: MaterialEditLease) {
   }
 }
 
-type Filter = MaterialKind | "all" | "favorite" | "trash";
+type Filter = MaterialCategory | "all" | "favorite" | "trash";
 export interface MaterialBrowserPreferences {
   query: string;
   filter: Filter;
@@ -30,9 +31,10 @@ export interface MaterialBrowserPreferences {
   selectedId: string | null;
 }
 const materialTypes = [
+  ["image", "图片", Image],
   ["imageGroup", "图片组", Images],
   ["modelCard", "模特", UserRound], ["shootingLocation", "场地", MapPin],
-  ["prop", "道具", Box], ["clothing", "服装", Shirt],
+  ["propClothing", "道具与服装", Box],
 ] as const;
 const filters = [
   ["all", "全部素材", LayoutGrid], ...materialTypes,
@@ -50,7 +52,9 @@ export function MaterialBrowser({
   renderPreview?: (material: MaterialDetail) => ReactNode;
   createPreview?: (material: MaterialDetail) => Promise<void>;
 }) {
-  const [preferences, setPreferences] = useState(initialPreferences);
+  const imagesOnly = input?.imagesOnly === true;
+  const availableFilters = imagesOnly ? filters.filter(([kind]) => ["all", "image", "imageGroup", "favorite"].includes(kind)) : filters;
+  const [preferences, setPreferences] = useState(() => imagesOnly ? { ...initialPreferences, filter: "all" as const, page: 0 } : initialPreferences);
   const [draft, setDraft] = useState(initialPreferences.query);
   const [composing, setComposing] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -60,6 +64,7 @@ export function MaterialBrowser({
   const [previewFailure, setPreviewFailure] = useState<{ id: string; message: string } | null>(null);
   const [dialog, setDialog] = useState<"create" | "delete" | "purge" | "preview" | null>(null);
   const [editing, setEditing] = useState<MaterialEditLease | null>(null);
+  const [insertingGroup, setInsertingGroup] = useState<MaterialDetail | null>(null);
   const editingRef = useRef<MaterialEditLease | null>(null);
   const creatingId = useRef<string | null>(null);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -98,9 +103,10 @@ export function MaterialBrowser({
   }, [draft, composing]);
 
   const resultState = useMaterialSearch(repository, {
+    ...(imagesOnly ? { imagesOnly: true } : {}),
     query: preferences.query.trim(),
     kind: filters.some(([kind]) => kind === preferences.filter) &&
-      !["all", "favorite", "trash"].includes(preferences.filter) ? preferences.filter as MaterialKind : undefined,
+      !["all", "favorite", "trash"].includes(preferences.filter) ? preferences.filter as MaterialCategory : undefined,
     favorites: preferences.filter === "favorite" || undefined,
     trash: preferences.filter === "trash",
     sort: preferences.sort === "auto" ? preferences.query.trim() ? "relevance" : "recent" : preferences.sort,
@@ -114,7 +120,8 @@ export function MaterialBrowser({
   const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / 50));
   const knownMissing = detailState.missing.length > 0;
   const canInsert = !unavailable && !busy && !loading && Boolean(input && detail && detail.deletedAt === null) &&
-    !detailState.checking && !detailState.error && !knownMissing;
+    (!imagesOnly || Boolean(detail && ["image", "imageGroup"].includes(detail.kind) && detail.imageCount > 0)) &&
+    !detailState.checking && !detailState.error && (!knownMissing || detail?.kind === "imageGroup" && detailState.missing.length < detail.imageCount);
 
   const run = async (label: string, action: () => Promise<void>) => {
     if (lock.current || unavailable) return;
@@ -156,7 +163,9 @@ export function MaterialBrowser({
   };
 
   return <>
-    <LibraryDialog title="素材库" subtitle="本机 · 跨项目。保存自己的组件，在每一个项目里重新使用。"
+    <LibraryDialog title="素材库" subtitle={imagesOnly
+      ? "选择图片素材，或从图片组素材中勾选图片，追加到当前图片组。"
+      : "本机 · 跨项目。保存自己的组件，在每一个项目里重新使用。"}
       className="ml-browser-dialog" busy={busy} onClose={onClose}>
       <div className="ml-search-row">
         <label className="ml-search">
@@ -179,15 +188,15 @@ export function MaterialBrowser({
             <option value="name">名称排序</option>
           </select>
         </label>
-        <button type="button" className="ml-primary ml-create-button"
+        {!imagesOnly && <button type="button" className="ml-primary ml-create-button"
           disabled={busy || unavailable || !repository.contentEditor}
           onClick={() => { setError(""); setDialog("create"); }}>
           <Plus size={17} aria-hidden="true" />创建素材
-        </button>
+        </button>}
       </div>
       <div className="ml-browser-body">
         <nav className="ml-type-rail" aria-label="素材类型筛选">
-          {filters.map(([filter, label, Icon]) => <button key={filter} type="button"
+          {availableFilters.map(([filter, label, Icon]) => <button key={filter} type="button"
             aria-pressed={preferences.filter === filter} disabled={busy || unavailable}
             onClick={() => setPreferences((value) => ({ ...value, filter, page: 0 }))}>
             <Icon size={18} aria-hidden="true" />{label}
@@ -248,7 +257,7 @@ export function MaterialBrowser({
               <h3>{detail.name}</h3>
               <p className="ml-muted">{materialKindLabels[detail.kind]} · {detail.imageCount} 张图片 · {formatMaterialBytes(detail.byteLength)}</p>
               <div className="ml-actions" role="group" aria-label="素材操作">
-                <button type="button" className="ml-primary"
+                {!imagesOnly && <button type="button" className="ml-primary"
                   disabled={busy || detail.deletedAt !== null || !repository.contentEditor}
                   title={!repository.contentEditor ? "当前环境不支持编辑素材内容" : undefined}
                   onClick={() => void run("正在打开素材编辑画布…", async () => {
@@ -262,16 +271,15 @@ export function MaterialBrowser({
                     editingRef.current = lease;
                     creatingId.current = null;
                     setEditing(lease);
-                  })}>编辑素材</button>
+                  })}>编辑素材</button>}
                 <button type="button" disabled={busy} onClick={() => setDialog("preview")}>预览</button>
               </div>
               {detail.previewPartial && <p className="ml-banner">
                 缓存缩略图仅展示组件的一部分，不代表内容缺失。请打开预览查看完整内容。
               </p>}
-              <MaterialPreview material={detail} renderPreview={renderPreview} />
               {detailState.checking && <p role="status">正在检查原始图片…</p>}
               {knownMissing && <div className="ml-banner ml-error" role="alert">
-                <p>第 {detailState.missing.join("、")} 张原始图片不可用，暂时无法插入。请恢复素材库备份后重试；缩略图不能替代原图。</p>
+                <p>第 {detailState.missing.join("、")} 张原始图片不可用。{detail.kind === "imageGroup" ? "可在插入时取消选择这些图片。" : "暂时无法插入。"}请恢复素材库备份后重试；缩略图不能替代原图。</p>
                 <button type="button" disabled={busy} onClick={() => setRefresh((value) => value + 1)}>重新检查图片</button>
               </div>}
               <h4>素材说明</h4><p className="ml-description">{detail.description || "暂无素材说明"}</p>
@@ -280,7 +288,7 @@ export function MaterialBrowser({
                 <div><dt>创建时间</dt><dd>{new Date(detail.createdAt).toLocaleString("zh-CN")}</dd></div>
                 <div><dt>最近更新</dt><dd>{new Date(detail.updatedAt).toLocaleString("zh-CN")}</dd></div>
               </dl>
-              {detail.deletedAt === null ?
+              {!imagesOnly && (detail.deletedAt === null ?
                 <button type="button" className="ml-danger" disabled={busy} onClick={() => setDialog("delete")}><Trash2 size={16} aria-hidden="true" />删除</button> :
                 <div className="ml-actions">
                   <button type="button" disabled={busy} onClick={() => void run("正在恢复素材", async () => {
@@ -291,7 +299,7 @@ export function MaterialBrowser({
                     onClick={() => { setError(""); setDialog("purge"); }}>
                     <Trash2 size={16} aria-hidden="true" />永久删除
                   </button>
-                </div>}
+                </div>)}
             </> : <p className="ml-muted" role="status">{selected ? "正在加载素材详情…" : "选择一份素材，查看完整内容。"}</p>}
         </aside>
       </div>
@@ -309,14 +317,26 @@ export function MaterialBrowser({
           <button type="button" className="ml-primary" disabled={!canInsert}
             onClick={() => {
               if (!canInsert || !detail || !input) return;
+              if (detail.kind === "imageGroup" && detail.imageCount > 0) {
+                setError(""); setInsertingGroup(detail); return;
+              }
               void run("正在复制素材到项目…", async () => {
                 await input.onInsert(detail);
                 if (alive.current) onClose();
               });
-            }}>插入到当前文档</button>
+            }}>{imagesOnly ? "插入到当前图片组" : "插入到当前文档"}</button>
         </div>
       </footer>
     </LibraryDialog>
+    {insertingGroup && input && <MaterialImageInsertDialog key={`${insertingGroup.id}:${insertingGroup.revision}`}
+      material={insertingGroup} repository={repository} busy={busy} error={error}
+      intoCurrentGroup={imagesOnly}
+      unavailableImageIds={detailState.missing.map((index) => insertingGroup.images[index - 1]?.localImageId).filter((id): id is string => Boolean(id))}
+      onClose={() => { setInsertingGroup(null); setError(""); }}
+      onInsert={(selection) => void run("正在复制所选图片到项目…", async () => {
+        await input.onInsert(insertingGroup, selection);
+        if (alive.current) onClose();
+      })} />}
     {editing && <MaterialContentEditor lease={editing}
       checkDuplicateName={(name, excludeId) => materialNameExists(repository, name, excludeId)}
       onSaved={() => {

@@ -196,7 +196,9 @@ export function annotateLongImageExportBlocks(
       if (ATOMIC_BLOCK_TYPES.has(block.type)) {
         element.dataset.preshotExportAtomicBlock = block.id;
       }
-      if (NATIVE_MEDIA_TYPES.has(block.type)) {
+      // Images already have a static preview. Only non-image media need a
+      // file label; the export stylesheet hides children of marked blocks.
+      if (NATIVE_MEDIA_TYPES.has(block.type) && block.type !== "image") {
         const content = element.querySelector<HTMLElement>(
           `[data-content-type="${block.type}"]`,
         );

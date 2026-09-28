@@ -153,6 +153,7 @@ function createNative(clock: { now(): string }): NativeWorkspace {
 }
 
 const directoryPicker: WorkspaceDirectoryPicker = {
+  async getDefaultProjectsDirectory() { return MIDSCENE_PROJECT_ROOT; },
   async pickDirectory() {
     return MIDSCENE_PROJECT_ROOT;
   },

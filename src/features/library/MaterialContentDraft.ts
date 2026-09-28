@@ -3,8 +3,10 @@ import {
   serializeMaterialEditDraft,
   type MaterialEditDraft,
 } from "../../domain/library/materialEditing";
-import type { MaterialDetail, MaterialEditImage, MaterialPayload } from "../../domain/library/models";
+import type { MaterialDetail, MaterialEditImage, MaterialPayload, PortableImage } from "../../domain/library/models";
 import { assertLocalImageId } from "../../domain/library/validation";
+import type { ClipboardImagePresentation } from "../../domain/clipboard/imageClipboard";
+import { pastedReferenceImage } from "../../domain/clipboard/projectImagePaste";
 import type { ArtifactRecord, ProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
 import { cropForResizedFrame } from "../../domain/plan/canvas/imageView";
 import type { ImageFitMode, ReferenceComponent, ReferenceImage } from "../../domain/plan/canvas/models";
@@ -173,19 +175,48 @@ export class MaterialContentDraft {
     });
   }
 
-  addImages(groupId: string, images: readonly MaterialEditImage[]): void {
+  addImages(groupId: string, images: readonly MaterialEditImage[], visuals?: readonly PortableImage[]): void {
+    if (visuals && visuals.length !== images.length) throw new Error("素材图片与显示信息不一致。");
     const group = this.snapshot.groups.find(({ id }) => id === groupId);
+    if (this.draft.kind === "image" && (group?.images.length ?? 0) + images.length > 1) throw new Error("图片素材只能保留一张图片，请先移除原图再添加。");
     if (!group || group.images.length + images.length > 128) {
       throw new Error("每个素材最多保留 128 张图片，请先移除部分图片。");
     }
+
     if (images.length === 0) return;
     const files = this.stage(images);
-    this.updateImages(groupId, (existing) => [...existing, ...images.map((image, index) => ({
-      id: this.makeId(), file: files[index],
-      aspectRatio: image.width / image.height,
-      sourceWidth: image.width, sourceHeight: image.height,
-      ...defaultImageFrame(image.width / image.height),
-    }))]);
+    this.updateImages(groupId, (existing) => [...existing, ...images.map((image, index) => {
+      if (visuals) {
+        const { localImageId: _sourceId, ...visual } = visuals[index];
+        return { ...structuredClone(visual), id: this.makeId(), file: files[index] };
+      }
+      return {
+        id: this.makeId(), file: files[index],
+        aspectRatio: image.width / image.height,
+        sourceWidth: image.width, sourceHeight: image.height,
+        ...defaultImageFrame(image.width / image.height),
+      };
+    })]);
+  }
+
+  pasteImage(
+    groupId: string, afterImageId: string | null, image: MaterialEditImage,
+    presentation?: ClipboardImagePresentation, maxFrameWidth?: number,
+  ): ReferenceImage {
+    const group = this.snapshot.groups.find(entry => entry.id === groupId);
+    if (this.draft.kind === "image" && group?.images.length) throw new Error("图片素材只能保留一张图片，请先移除原图再粘贴。");
+    if (!group || group.images.length >= 128) throw new Error("图片区域不存在或已达到 128 张图片上限。");
+    const index = afterImageId === null ? group.images.length - 1 : group.images.findIndex(entry => entry.id === afterImageId);
+    if (afterImageId !== null && index < 0) throw new Error("目标图片已变化，请重新选择粘贴位置。");
+    const id = this.makeId();
+    if (this.snapshot.groups.some(entry => entry.images.some(existing => existing.id === id))) {
+      throw new Error("粘贴图片必须使用新的标识。");
+    }
+    const pasted = pastedReferenceImage(id, "", image, presentation, maxFrameWidth);
+    const [file] = this.stage([image]);
+    pasted.file = file;
+    this.updateImages(groupId, existing => [...existing.slice(0, index + 1), pasted, ...existing.slice(index + 1)]);
+    return pasted;
   }
 
   replaceImage(groupId: string, imageId: string, replacement: MaterialEditImage): void {

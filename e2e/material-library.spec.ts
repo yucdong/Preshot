@@ -54,7 +54,7 @@ test("material library browses, renders a full preview, inserts and saves a reus
   const dialog = page.getByRole("dialog");
   await dialog.getByText("逆光玻璃杯", { exact: true }).first().click();
   await expect(dialog.getByRole("button", { name: /^插入/ })).toBeEnabled();
-  await expect(dialog.getByText("透明玻璃杯", { exact: true }).first()).toBeVisible();
+  await expect(dialog.getByRole("region", { name: "组件只读预览" })).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("material-library-browser.png"), animations: "disabled" });
   await expect(dialog.getByRole("group", { name: "素材操作" }).getByRole("button")).toHaveText(["编辑素材", "预览"]);
   await dialog.getByRole("button", { name: "预览", exact: true }).click();
@@ -63,6 +63,7 @@ test("material library browses, renders a full preview, inserts and saves a reus
   await page.screenshot({ path: test.info().outputPath("material-library-full-preview.png"), animations: "disabled" });
   await fullPreview.getByRole("button", { name: "关闭完整组件预览" }).click();
   await expect(fullPreview).toBeHidden();
+  await expect(dialog.getByRole("region", { name: "组件只读预览" })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "预览", exact: true })).toBeFocused();
   for (const dismiss of ["button", "backdrop", "escape"]) {
     await dialog.getByRole("button", { name: "预览", exact: true }).click();

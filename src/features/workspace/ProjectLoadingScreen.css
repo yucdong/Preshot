@@ -27,12 +27,6 @@
   box-shadow: var(--app-shadow);
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 180ms ease, transform 180ms ease;
-}
-
-.project-loading-screen[data-state="leaving"] .project-loading-screen__card {
-  opacity: 0;
-  transform: translateY(-5px);
 }
 
 .project-loading-screen[data-state="error"] .project-loading-screen__card {
@@ -242,11 +236,11 @@
   border-color: var(--app-ink);
 }
 
-.project-loading-screen:is([data-state="complete"], [data-state="leaving"]) .project-loading-screen__percentage {
+.project-loading-screen[data-state="complete"] .project-loading-screen__percentage {
   color: var(--app-functional);
 }
 
-.project-loading-screen:is([data-state="complete"], [data-state="leaving"]) .project-loading-screen__stage {
+.project-loading-screen[data-state="complete"] .project-loading-screen__stage {
   color: color-mix(in srgb, var(--app-functional) 78%, var(--app-ink));
 }
 
@@ -286,8 +280,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .project-loading-screen__card,
-  .project-loading-screen[data-state="leaving"] .project-loading-screen__card {
+  .project-loading-screen__card {
     opacity: 1;
     transform: none;
     transition: none;

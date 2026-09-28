@@ -621,7 +621,10 @@ export function createBlockNotePlanService({
           artifactCollectionsInPlan(currentPlan).some(
             (collection) => collection.id === groupId,
           ) ||
-          artifactReferencesFile(currentPlan, target.file);
+          artifactReferencesFile(currentPlan, target.file) ||
+          (imageCropStore.isImageRetainedForHistory
+            ? await imageCropStore.isImageRetainedForHistory(projectPath, target.file)
+            : false);
         if (requiresCopyOnWrite) {
           const copyImageCrop = imageCropStore.copyImageCrop;
           if (!copyImageCrop) {

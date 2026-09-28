@@ -32,11 +32,26 @@ export async function applyMeasuredImages(
   measure: (dataUrl: string) => Promise<SourceImageDimensions> =
     measureImageDimensions,
 ): Promise<ProjectPlanV14> {
+  // Keep full-resolution decodes concurrent without starting every image at once.
+  const dimensions = new Array<SourceImageDimensions>(entries.length);
+  let cursor = 0;
+  let failed = false;
+  await Promise.all(Array.from({ length: Math.min(4, entries.length) }, async () => {
+    while (!failed && cursor < entries.length) {
+      const index = cursor++;
+      try {
+        dimensions[index] = await measure(entries[index][1]);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
+    }
+  }));
   let next = plan;
-  for (const [file, dataUrl] of entries) {
+  for (const [index, [file]] of entries.entries()) {
     next = setBlockNoteImageNaturalDimensions(next, {
       file,
-      ...await measure(dataUrl),
+      ...dimensions[index],
     });
   }
   return next;

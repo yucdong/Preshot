@@ -2,11 +2,12 @@ import { useCallback } from "react";
 import type { PlanDependencies } from "../../features/plan/blocknote/dependencies";
 import type { ProjectDirectoryRevealer } from "../../domain/workspace/ports";
 import { BlockNoteProjectCanvasProvider } from "../../features/plan/blocknote/BlockNoteProjectCanvasProvider";
-import type { AgentWorkspacePublisher } from "../../domain/agent/workspaceBridge";
 import type { PlanLoadProgress } from "../../features/plan/blocknote/planLoadProgress";
 
 interface WorkspaceProps {
-  agentWorkspace?: AgentWorkspacePublisher;
+  active?: boolean;
+  savePaused?: boolean;
+  registerBeforeClose?(path: string, flush: (saveChanges?: boolean) => Promise<void>): () => void;
   loadId: number;
   onLoadProgress?(loadId: number, projectPath: string, progress: PlanLoadProgress): void;
   projectPath: string;
@@ -17,7 +18,9 @@ interface WorkspaceProps {
 }
 
 export function Workspace({
-  agentWorkspace,
+  active = true,
+  savePaused = false,
+  registerBeforeClose,
   loadId,
   onLoadProgress,
   projectPath,
@@ -30,9 +33,11 @@ export function Workspace({
     onLoadProgress?.(loadId, path, progress);
   }, [loadId, onLoadProgress]);
   return (
-    <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-app-bg">
+    <main hidden={!active} inert={!active} style={!active ? { display: "none" } : undefined} className="flex min-h-0 min-w-0 flex-1 flex-col bg-app-bg">
       <BlockNoteProjectCanvasProvider
-        agentWorkspace={agentWorkspace}
+        active={active}
+        savePaused={savePaused}
+        registerBeforeClose={registerBeforeClose}
         onLoadProgress={reportProgress}
         docxExporter={dependencies.docxExporter}
         docxSaver={dependencies.docxSaver}
@@ -49,6 +54,7 @@ export function Workspace({
         saver={dependencies.saver}
         screenCapture={dependencies.screenCapture}
         service={dependencies.service}
+        imagePasteRepository={dependencies.imagePasteRepository}
       />
     </main>
   );

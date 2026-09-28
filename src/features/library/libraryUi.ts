@@ -2,8 +2,9 @@ import { useEffect, useRef } from "react";
 import type { MaterialKind } from "../../domain/library/models";
 
 export const materialKindLabels: Record<MaterialKind, string> = {
-  imageGroup: "图片组", shootingLocation: "场地", modelCard: "模特", prop: "道具", clothing: "服装",
+  image: "图片", imageGroup: "图片组", shootingLocation: "场地", modelCard: "模特", prop: "道具与服装", clothing: "道具与服装",
 };
+export const materialArtifactLabels = { prop: "道具与服装", clothing: "道具与服装" } as const;
 export const unavailableMessage = "素材库仅在本机桌面版可用。请使用 Preshot 桌面版打开项目；当前文档仍可继续编辑。";
 
 export function formatMaterialBytes(bytes: number): string {

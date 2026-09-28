@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{error, files, models::*, validation, Result, Store};
+use super::{error, files, image_material, insert_selection, models::*, validation, Result, Store};
 use crate::workspace::ProjectManifest;
 
 const JOURNAL_DIR: &str = ".preshot-library";
@@ -31,6 +31,12 @@ enum Phase {
 struct OwnedImage {
     file: String,
     image: MaterialImage,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rendered_hash: Option<String>,
+}
+
+impl OwnedImage {
+    fn hash(&self) -> &str { self.rendered_hash.as_deref().unwrap_or(&self.image.blob_id) }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,6 +88,9 @@ fn read(project: &Path, operation: &str) -> Result<Option<Journal>> {
     files::uuid(&journal.prepared.material_id)?;
     validation::plan(&journal.base_plan)?;
     validation::payload(&journal.prepared.payload)?;
+    insert_selection::validate_prepared(&journal.prepared)?;
+    super::insert_gallery::validate_target(&journal.base_plan, &journal.prepared.payload,
+        journal.prepared.target_group_id.as_deref(), journal.prepared.selection.as_ref())?;
     if journal.prepared.images.len() != journal.owned.len() {
         return Err(error(
             "journal_corrupt",
@@ -107,12 +116,23 @@ fn read(project: &Path, operation: &str) -> Result<Option<Journal>> {
                 "Journal image ownership does not match prepared result",
             ));
         }
-        files::reference_name(&owned.file)?;
+        let native_copy = owned.file.starts_with("media/");
+        if native_copy && journal.prepared.payload.kind != MaterialKind::Image &&
+            !insert_selection::separate_images(journal.prepared.selection.as_ref()) {
+            return Err(error("journal_corrupt", "Only image materials may own native media"));
+        }
+        if let Some(hash) = &owned.rendered_hash {
+            if !native_copy || hash.len() != 64 || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                return Err(error("journal_corrupt", "Invalid rendered-image integrity hash"));
+            }
+        }
+        // Validate retired paths syntactically without requiring a directory retained forever.
+        files::reference_name(&owned.file.replacen("media/", "references/", 1))?;
         if matches!(
             journal.phase,
             Phase::Preparing | Phase::Prepared | Phase::Committing
         ) {
-            files::reference(project, &owned.file, false)?;
+            image_material::insertion_path(project, &owned.file, false)?;
         }
     }
     if let Some(next) = &journal.next_plan {
@@ -195,13 +215,13 @@ fn cleanup(project: &Path, journal: &mut Journal, manifest: &ProjectManifest) ->
         if contains_reference(&journal.base_plan, &owned.file) {
             return conflict(project, journal);
         }
-        let path = files::reference(project, &owned.file, false)?;
+        let path = image_material::insertion_path(project, &owned.file, false)?;
         if path.try_exists().map_err(|e| error("journal_cleanup", e))? {
             let bytes = match files::read_limited(&path, files::MAX_IMAGE_BYTES) {
                 Ok(bytes) => bytes,
                 Err(_) => return conflict(project, journal),
             };
-            if files::hash(&bytes) != owned.image.blob_id {
+            if files::hash(&bytes) != owned.hash() {
                 return conflict(project, journal);
             }
             paths.push(path);
@@ -340,10 +360,10 @@ pub(crate) fn retain_reference_for_material_history(project: &Path, file: &str) 
 fn verify_owned(project: &Path, journal: &Journal) -> Result<()> {
     for owned in &journal.owned {
         let bytes = files::read_limited(
-            &files::reference(project, &owned.file, true)?,
+            &image_material::insertion_path(project, &owned.file, true)?,
             files::MAX_IMAGE_BYTES,
         )?;
-        if files::hash(&bytes) != owned.image.blob_id {
+        if files::hash(&bytes) != owned.hash() {
             return Err(error(
                 "insert_image_changed",
                 "Prepared project reference bytes changed; insertion was not committed",
@@ -368,6 +388,8 @@ impl Store {
                 || journal.base_plan != input.expected_plan
                 || journal.prepared.material_id != input.material_id
                 || journal.prepared.revision != input.revision
+                || journal.prepared.selection != input.selection
+                || journal.prepared.target_group_id != input.target_group_id
             {
                 return Err(error(
                     "operation_conflict",
@@ -405,7 +427,14 @@ impl Store {
                 "Restore this material before inserting it",
             ));
         }
-        let references = files::child_dir(&project, "references")?;
+        let payload = insert_selection::select_payload(&detail.payload, input.selection.as_ref())?;
+        super::insert_gallery::validate_target(&input.expected_plan, &payload, input.target_group_id.as_deref(), input.selection.as_ref())?;
+        let selected_images = validation::payload_images(&payload)?.iter().map(|visual| {
+            detail.images.iter().find(|image| visual["localImageId"] == image.local_image_id).cloned()
+                .ok_or_else(|| error("insert_selection", "Selected original is missing"))
+        }).collect::<Result<Vec<_>>>()?;
+        let directory = if input.target_group_id.is_none() && (payload.kind == MaterialKind::Image || insert_selection::separate_images(input.selection.as_ref())) { "media" } else { "references" };
+        let references = files::child_dir(&project, directory)?;
         let mut number = 0u32;
         for entry in fs::read_dir(&references).map_err(|e| error("references", e))? {
             let path = entry.map_err(|e| error("references", e))?.path();
@@ -431,7 +460,7 @@ impl Store {
         }
         let mut owned = Vec::new();
         let mut sources = Vec::new();
-        for image in &detail.images {
+        for image in &selected_images {
             number = number
                 .checked_add(1)
                 .ok_or_else(|| error("references", "Project reference numbers are exhausted"))?;
@@ -440,7 +469,7 @@ impl Store {
             } else {
                 "jpg"
             };
-            let file = format!("references/{number:04}.{extension}");
+            let file = format!("{directory}/{number:04}.{extension}");
             if contains_reference(&input.expected_plan, &file) {
                 return Err(error(
                     "references",
@@ -454,14 +483,17 @@ impl Store {
             owned.push(OwnedImage {
                 file,
                 image: image.clone(),
+                rendered_hash: None,
             });
         }
         let prepared = PreparedMaterialInsert {
+            target_group_id: input.target_group_id,
             operation_id: input.operation_id,
             material_id: input.material_id,
             revision: input.revision,
-            payload: detail.payload,
+            payload,
             images: sources,
+            selection: input.selection,
         };
         let mut journal = Journal {
             version: 1,
@@ -476,10 +508,21 @@ impl Store {
         };
         write(&project, &journal)?;
         let copy_result = (|| {
+            let visuals = validation::payload_images(&journal.prepared.payload)?;
             for index in 0..journal.owned.len() {
-                let owned = &journal.owned[index];
-                let bytes = self.blob(&owned.image)?;
-                let destination = files::reference(&project, &owned.file, false)?;
+                let owned = &mut journal.owned[index];
+                let original = self.blob(&owned.image)?;
+                let bytes = if directory == "media" {
+                    let bytes = image_material::insertion_bytes(&original, &visuals[index])?;
+                    owned.rendered_hash = Some(files::hash(&bytes));
+                    // A transformed JPEG becomes PNG. Keep the reserved numeric identity.
+                    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") && !owned.file.ends_with(".png") {
+                        owned.file = format!("{}.png", owned.file.rsplit_once('.').unwrap().0);
+                        journal.prepared.images[index].file = owned.file.clone();
+                    }
+                    bytes
+                } else { original };
+                let destination = image_material::insertion_path(&project, &owned.file, false)?;
                 let staged = project
                     .join(JOURNAL_DIR)
                     .join(format!("{}.copy", journal.prepared.operation_id));
@@ -543,6 +586,9 @@ pub(super) fn commit(input: MaterialInsertCommit) -> Result<()> {
             ))
         }
     }
+    // Preserve the other transaction's exact-target evidence before advancing
+    // the manifest. This must not live in our reciprocal regular-mutation hook.
+    crate::image_paste::before_regular_mutation(&project)?;
     ensure_no_conflicts(&project)?;
     verify_owned(&project, &journal)?;
     let mut manifest = check_base(&project, &input.project_id, &input.expected_plan)?;

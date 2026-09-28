@@ -13,8 +13,11 @@ import type {
   MaterialPayload,
 } from "../../src/domain/library/models";
 import type { MaterialLibraryRepository } from "../../src/domain/library/ports";
+import { materialCategory, selectMaterialImages } from "../../src/domain/library";
+import { componentImages } from "../../src/domain/library/materialStructure";
 import { unavailableMaterialLibrary } from "../../src/infrastructure/library/unavailableMaterialLibrary";
 import { createMaterialEditingFixture } from "./materialLibraryEditingHarness";
+import { installImageClipboardBoundary } from "./imageClipboardBoundary";
 import "../../src/styles.css";
 
 if (import.meta.env.MODE !== "e2e") throw new Error("This fixture is only available in E2E mode");
@@ -22,10 +25,18 @@ if (import.meta.env.MODE !== "e2e") throw new Error("This fixture is only availa
 // Only the native persistence boundary is replaced. The app, editor, dialogs,
 // read-only component preview and thumbnail capture are the production modules.
 const planDependencies = createPlanDependencies();
+if (new URLSearchParams(location.search).has("clipboard")) installImageClipboardBoundary(planDependencies);
+const copiedImages = new Map<string, string>();
+const baseService = planDependencies.service;
+planDependencies.service = { ...baseService,
+  loadMedia: async (project, file) => copiedImages.get(`${project}/${file}`) ?? baseService.loadMedia(project, file),
+  loadImage: async (project, file) => copiedImages.get(`${project}/${file}`) ?? baseService.loadImage(project, file),
+};
+let copySequence = 0;
 const workspaceDependencies = createMidsceneWorkspaceDependencies();
 const materials = new Map<string, MaterialDetail>();
 const previews = new Map<string, string>();
-const operations = new Map<string, { input: MaterialInsertRequest; status: MaterialInsertStatus }>();
+const operations = new Map<string, { input: MaterialInsertRequest; status: MaterialInsertStatus; copies: string[] }>();
 const seed: MaterialDetail = {
   id: "9bcd08d4-05e8-4b70-ad27-ac8da95752e4",
   kind: "prop", name: "逆光玻璃杯", description: "暖色桌面静物拍摄",
@@ -46,7 +57,7 @@ if (requestedKind === "shootingLocation") variant = { kind: "shootingLocation", 
 if (requestedKind === "clothing") variant = { kind: "clothing", title: "米色外套", source: "自备造型", mainGallery: { images: [] } };
 if (variant) {
   seed.kind = variant.kind;
-  seed.name = variant.kind === "imageGroup" ? variant.name :
+  seed.name = (variant.kind === "image" || variant.kind === "imageGroup") ? variant.name :
     variant.kind === "modelCard" ? variant.modelId :
       variant.kind === "shootingLocation" ? variant.venueName : variant.title;
   seed.description = "完整组件编辑演示";
@@ -81,7 +92,8 @@ const repository: MaterialLibraryRepository = {
     const chunks = input.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const items = [...materials.values()].filter((item) =>
       Boolean(item.deletedAt) === Boolean(input.trash) &&
-      (!input.kind || item.kind === input.kind) &&
+      (!input.kind || materialCategory(item.kind) === input.kind) &&
+      (!input.imagesOnly || item.kind === "image" || item.kind === "imageGroup") &&
       (input.exactName === undefined || item.name.normalize("NFC").trim() === input.exactName.normalize("NFC").trim()) &&
       (!input.favorites || item.favorite) &&
       chunks.every((chunk) => JSON.stringify(item).toLowerCase().includes(chunk)))
@@ -127,9 +139,21 @@ const repository: MaterialLibraryRepository = {
     await checkPlan(input);
     const item = get(input.materialId);
     if (item.deletedAt || item.revision !== input.revision) throw new Error("素材已变化");
-    if (item.images.length) throw new Error("此浏览器夹具不模拟项目图片复制；该边界由原生测试覆盖");
-    operations.set(input.operationId, { input, status: "prepared" });
-    return { operationId: input.operationId, materialId: item.id, revision: item.revision, payload: item.payload, images: [] };
+    const payload = selectMaterialImages(item.payload, input.selection);
+    const images = [];
+    const copies: string[] = [];
+    operations.set(input.operationId, { input, status: "prepared", copies });
+    for (const image of componentImages(payload.component)) {
+      const directory = !input.targetGroupId && (item.kind === "image" || input.selection?.mode === "images") ? "media" : "references";
+      const file = `${directory}/${String(++copySequence).padStart(4, "0")}.png`;
+      const key = `${input.projectPath}/${file}`;
+      copiedImages.set(key, await repository.loadImage(item.id, item.revision, image.localImageId));
+      copies.push(key);
+      images.push({ localImageId: image.localImageId, file });
+    }
+    return { operationId: input.operationId, materialId: item.id, revision: item.revision, payload, images,
+      ...(input.targetGroupId ? { targetGroupId: input.targetGroupId } : {}),
+      ...(input.selection ? { selection: input.selection } : {}) };
   },
   async commitInsert(input) {
     const operation = operations.get(input.operationId);
@@ -141,7 +165,7 @@ const repository: MaterialLibraryRepository = {
   async abortInsert(_path, id) {
     const operation = operations.get(id);
     if (operation?.status === "committed") throw new Error("不能撤销已提交操作");
-    if (operation) operation.status = "cancelled";
+    if (operation) { operation.copies.forEach((key) => copiedImages.delete(key)); operation.status = "cancelled"; }
   },
   async getInsertStatus(_path, id) {
     const operation = operations.get(id);

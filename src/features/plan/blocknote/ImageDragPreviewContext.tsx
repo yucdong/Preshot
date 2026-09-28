@@ -752,17 +752,18 @@ export function ImageDragPreviewProvider({
     keyboardFocusImageIdRef.current = null;
     if (keyboardFocusImageId) {
       window.requestAnimationFrame(() => {
-        const frame = [...document.querySelectorAll<HTMLElement>(
+        const frame = [...(scrollContainerRef?.current ?? document).querySelectorAll<HTMLElement>(
           "[data-image-id]",
         )].find((candidate) =>
-          candidate.dataset.imageId === keyboardFocusImageId
+          candidate.dataset.imageId === keyboardFocusImageId &&
+          !candidate.closest('[inert], [hidden], [aria-hidden="true"]')
         );
         frame?.querySelector<HTMLElement>(
           '[data-image-drag-activator="true"]',
         )?.focus({ preventScroll: true });
       });
     }
-  }, [resetProjectionScheduling]);
+  }, [resetProjectionScheduling, scrollContainerRef]);
 
   const cancel = useCallback((
     reason: ImageDragCancellationReason = "explicit",
@@ -1149,11 +1150,11 @@ export function ImageDragPreviewProvider({
   }, [cancel, imageGroups, imageSources, planRevision]);
 
   useEffect(() => {
-    if (previousProjectKeyRef.current !== projectKey) {
+    if (!enabled || previousProjectKeyRef.current !== projectKey) {
       cancel("project-change");
       previousProjectKeyRef.current = projectKey;
     }
-  }, [cancel, projectKey]);
+  }, [cancel, enabled, projectKey]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

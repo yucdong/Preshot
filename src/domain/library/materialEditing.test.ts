@@ -9,8 +9,9 @@ function payload(kind: MaterialKind): MaterialPayload {
     sourceWidth: 900, sourceHeight: 600, frameOffsetX: -7, frameOffsetY: 3,
     fitMode: "stretch" as const, crop: { x: 0.1, y: 0.2, width: 0.8, height: 0.7 },
   }));
+  if (kind === "image") images.splice(1);
   const gallery = { images };
-  const component = kind === "imageGroup"
+  const component = (kind === "image" || kind === "imageGroup")
     ? { kind, name: "参考", description: "说明", images }
     : kind === "shootingLocation"
       ? { kind, venueName: "场地", address: "地址", description: "说明", gallery }

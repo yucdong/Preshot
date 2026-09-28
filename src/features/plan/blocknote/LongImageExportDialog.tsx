@@ -6,9 +6,10 @@ import {
   type FormEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import type {
-  LongImagePresetId,
-  LongImageWidth,
+import {
+  LONG_IMAGE_SAFETY,
+  type LongImagePresetId,
+  type LongImageWidth,
 } from "../../../domain/plan/blocknote/longImageExportContract";
 
 export interface LongImageExportSettings {
@@ -252,6 +253,7 @@ export function LongImageExportDialog({
 
           <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs leading-5 text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
             <p className="font-semibold">{limits}</p>
+            <p className="mt-1">单张图片高度上限：{LONG_IMAGE_SAFETY.absoluteMaxHeight} px。</p>
             <p className="mt-1">
               未启用自动分图时，如文档超过单张图片安全限制，请启用自动分图、缩短方案，或导出 PDF/DOCX。
             </p>

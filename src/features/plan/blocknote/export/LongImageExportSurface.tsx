@@ -12,7 +12,7 @@ import type { ProjectPlanV14 } from "../../../../domain/plan/canvas/blockDocumen
 import { resolveBlockNoteDocumentAssets } from "../blockNoteDocumentAssets";
 import { preshotBlockNoteSchema } from "../preshotBlockNoteSchema";
 import { ImageGroupExportContext } from "./ImageGroupExportContext";
-import { ArtifactBlockContext } from "../ArtifactBlockContext";
+import { ArtifactBlockContext, type ArtifactBlockReader } from "../ArtifactBlockContext";
 import { artifactCollectionGroups } from "../artifactCollections";
 import {
   annotateLongImageExportBlocks,
@@ -32,6 +32,7 @@ export interface LongImageExportSurfaceProps {
   outerWidth?: LongImageExportOuterWidth;
   theme?: "light" | "dark";
   includeImageGroupMetadata?: boolean;
+  artifactKindLabels?: ArtifactBlockReader["kindLabels"];
   onSurfaceReady?(surface: HTMLElement): void;
 }
 
@@ -41,6 +42,7 @@ export function LongImageExportSurface({
   outerWidth = LONG_IMAGE_EXPORT_DEFAULT_OUTER_WIDTH,
   theme = "light",
   includeImageGroupMetadata = false,
+  artifactKindLabels,
   onSurfaceReady,
 }: LongImageExportSurfaceProps) {
   assertLongImageExportOuterWidth(outerWidth);
@@ -68,10 +70,11 @@ export function LongImageExportSurface({
     };
   }, [plan, resolvedAssets, includeImageGroupMetadata]);
   const artifactReader = useMemo(() => ({
+    kindLabels: artifactKindLabels,
     getArtifact: (artifactId: string) =>
       plan.artifacts.find((artifact) => artifact.id === artifactId),
     subscribe: () => () => undefined,
-  }), [plan.artifacts]);
+  }), [plan.artifacts, artifactKindLabels]);
 
   useLayoutEffect(() => {
     const surface = surfaceRef.current;

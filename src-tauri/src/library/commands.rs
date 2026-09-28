@@ -53,6 +53,14 @@ pub async fn library_import_edit_images(
 }
 
 #[tauri::command]
+pub async fn library_import_edit_image_data(
+    session_id: String,
+    input: MaterialEditImageData,
+) -> Result<MaterialEditImage> {
+    blocking(move || store()?.import_edit_image_data(&session_id, input)).await
+}
+
+#[tauri::command]
 pub async fn library_crop_edit_image(
     session_id: String,
     local_image_id: String,

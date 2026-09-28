@@ -5,6 +5,8 @@ import type {
 } from "../../../domain/plan/canvas/blockDocument";
 
 export interface ArtifactBlockReader {
+  /** Optional presentation labels for isolated library surfaces. */
+  kindLabels?: Partial<Record<ArtifactKind, string>>;
   getArtifact(artifactId: string): ArtifactRecord | undefined;
   subscribe(listener: () => void): () => void;
 }

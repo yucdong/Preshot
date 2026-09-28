@@ -13,6 +13,10 @@ import type { MaterialContentEditorRepository } from "../../domain/library/ports
 import type { NormalizedImageCrop } from "../../domain/plan/canvas/imageView";
 import type { ReferenceImageCropBounds } from "../../domain/plan/ports";
 import { ArtifactBlockContext, type ArtifactBlockController } from "../plan/blocknote/ArtifactBlockContext";
+import { materialArtifactLabels } from "./libraryUi";
+import { MaterialBrowser } from "./MaterialBrowser";
+import { useOptionalMaterialLibrary } from "./MaterialLibraryContext";
+import { importMaterialImages } from "./importMaterialImages";
 import { ArtifactDraftContext, ArtifactDraftValidationError, createArtifactDraftRegistry } from "../plan/blocknote/ArtifactDraftContext";
 import {
   BLOCKNOTE_DOCUMENT_HORIZONTAL_PADDING, BLOCKNOTE_DOCUMENT_WIDTH,
@@ -24,6 +28,13 @@ import { preshotBlockNoteSchema, type PreshotEditorPartialBlock } from "../plan/
 import { ReferenceImageLightbox } from "../plan/ReferenceImageLightbox";
 import { MaterialContentDraft } from "./MaterialContentDraft";
 import { lockMaterialContentEditor } from "./materialStructureLock";
+import type { ImageClipboardContents, ImageClipboardSelection, ImagePasteTarget } from "../../domain/clipboard/imageClipboard";
+import { unavailableImageClipboard } from "../../domain/clipboard/imageClipboard";
+import { useImageClipboardPort } from "../plan/ImageClipboardContext";
+import { ImageClipboardScope } from "../plan/blocknote/clipboard/ImageClipboardScope";
+import { clipboardPasteAsset } from "../plan/blocknote/imagePasteAssets";
+import { IMAGE_CLIPBOARD_SELECTION_CHANGE, registerImageClipboardDocument } from "../plan/blocknote/clipboard/imageClipboardDom";
+import { selectedClipboardComponent } from "../plan/blocknote/clipboard/selectedClipboardComponent";
 
 export interface MaterialContentCanvasHandle {
   readPayload(): MaterialPayload;
@@ -79,9 +90,12 @@ export function MaterialContentCanvas(props: MaterialContentCanvasProps) {
 
 function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
   const { disabled = false, material, assets, sessionId, repository, ref } = props;
+  const imageClipboard = useImageClipboardPort();
   const callbacks = useRef(props);
   useLayoutEffect(() => { callbacks.current = props; }, [props]);
   const [store] = useState(() => new MaterialContentDraft(material, assets, props.onChange));
+  const library = useOptionalMaterialLibrary();
+  const [libraryTarget, setLibraryTarget] = useState<string | null>(null);
   useLayoutEffect(() => store.setOnChange(props.onChange), [store, props.onChange]);
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const [drafts] = useState(createArtifactDraftRegistry);
@@ -91,10 +105,13 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
   const captureCancelButton = useRef<HTMLButtonElement>(null);
   const captureFocusGroup = useRef<string | null>(null);
   const [uncommittedText, setUncommittedText] = useState(false);
+  const clipboardInputVersion = useRef(0);
+  const clipboardFocusVersion = useRef(0);
   const busyRef = useRef(false);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ groupId: string; imageId: string } | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const clipboardDocumentRef = useRef<HTMLDivElement>(null);
   const composingRef = useRef(false);
   const [zoom, setZoom] = useState(props.initialViewport?.zoom ?? 1);
   const autoFit = useRef(props.initialViewport?.autoFit ?? true);
@@ -140,6 +157,18 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
     },
   });
   useLayoutEffect(() => lockMaterialContentEditor(editor), [editor]);
+  useEffect(() => {
+    const root = clipboardDocumentRef.current;
+    if (!root) return;
+    const unregister = registerImageClipboardDocument(root, {
+      getNativeSelection: () => null, resolveNativeImage: () => null, getAnchor: () => null,
+      getSelectedComponent: () => selectedClipboardComponent(editor, root),
+    });
+    const unsubscribe = editor.onSelectionChange(() => {
+      root.dispatchEvent(new Event(IMAGE_CLIPBOARD_SELECTION_CHANGE, { bubbles: true }));
+    });
+    return () => { unsubscribe(); unregister(); };
+  }, [editor]);
 
   useLayoutEffect(() => {
     const scroller = scrollerRef.current;
@@ -213,7 +242,12 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
   }, [drafts]);
 
   const imageController = useMemo<ImageGroupBlockController>(() => ({
+    ...(library && repository.importEditImageData ? { insertImagesFromLibrary: (id: string) => {
+      if (callbacks.current.disabled || busyRef.current) return;
+      try { drafts.flush(); setLibraryTarget(id); } catch (error) { report(error); }
+    } } : {}),
     structureEditable: false,
+    singleImage: material.kind === "image",
     selectedImageId,
     subscribe: store.subscribe,
     createGroup: rejectStructure,
@@ -261,9 +295,10 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
     setImageFrame: (groupId, imageId, frame) => mutate(() => store.setImageFrame(groupId, imageId, frame)),
     setImageFitMode: (groupId, imageId, fitMode) => mutate(() => store.setImageFitMode(groupId, imageId, fitMode)),
     moveImage: (from, imageId, to, index) => mutate(() => store.moveImage(from, imageId, to, index)),
-  }), [store, selectedImageId, mutate, runImageOperation, report, repository, sessionId]);
+  }), [store, selectedImageId, mutate, runImageOperation, report, repository, sessionId, material.kind, library, drafts]);
 
   const artifactController = useMemo<ArtifactBlockController>(() => ({
+    kindLabels: materialArtifactLabels,
     structureEditable: false,
     subscribe: store.subscribe,
     createArtifact: rejectStructure,
@@ -273,6 +308,58 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
       if (!callbacks.current.disabled && !busyRef.current) store.updateArtifact(id, update);
     },
   }), [store]);
+
+  const resolveClipboardImage = (selection: ImageClipboardSelection) => {
+    if (selection.kind !== "gallery" || busyRef.current || callbacks.current.disabled || !mounted.current) {
+      throw new Error("当前素材图片不可复制，请完成编辑操作后重试。");
+    }
+    const image = store.getSnapshot().groups.find(group => group.id === selection.groupId)
+      ?.images.find(entry => entry.id === selection.imageId);
+    if (!image) throw new Error("选中的素材图片已不存在。");
+    const dataUrl = store.getSnapshot().sources[image.file];
+    if (!dataUrl) throw new Error("素材原图尚未加载，请稍候再复制。");
+    const { id: _id, file: _file, ...presentation } = image;
+    return { dataUrl, name: "素材图片.png", presentation };
+  };
+
+  const pasteClipboardImage = async (contents: ImageClipboardContents, target: ImagePasteTarget) => {
+    if (target.kind !== "gallery") throw new Error("只能粘贴到当前素材的图片区域，不能新增其他组件。");
+    const importer = repository.importEditImageData;
+    if (!importer) throw new Error("当前素材编辑服务不支持图片粘贴，请在桌面应用中重试。");
+    await runImageOperation(async () => {
+      const revision = store.getSnapshot().revision;
+      const group = store.getSnapshot().groups.find(entry => entry.id === target.groupId);
+      if (!group || (target.afterImageId !== null && !group.images.some(image => image.id === target.afterImageId))) {
+        throw new Error("素材粘贴位置已变化，请重新选择。");
+      }
+      if (group.images.length >= 128) throw new Error("当前素材已达到 128 张图片上限。");
+      const asset = await clipboardPasteAsset(contents, target);
+      if (!mounted.current || store.getSnapshot().revision !== revision) throw new Error("素材编辑已结束或内容已变化。");
+      const imported = await importer(sessionId, asset.image);
+      if (!mounted.current || store.getSnapshot().revision !== revision) throw new Error("素材编辑已结束或内容已变化。");
+      const pasted = store.pasteImage(target.groupId, target.afterImageId, imported,
+        asset.presentation, target.maxFrameWidth);
+      setSelectedImageId(pasted.id);
+      const focusVersion = clipboardFocusVersion.current;
+      window.requestAnimationFrame(() => {
+        const active = document.activeElement;
+        if (!mounted.current || clipboardFocusVersion.current !== focusVersion ||
+            (active && active !== document.body && !scrollerRef.current?.contains(active))) return;
+        scrollerRef.current?.querySelector<HTMLElement>(`[data-image-clipboard-id="${pasted.id}"]`)?.focus({ preventScroll: true });
+      });
+    });
+    const revision = store.getSnapshot().revision;
+    const inputVersion = clipboardInputVersion.current;
+    return {
+      undo() {
+        if (!mounted.current || busyRef.current || callbacks.current.disabled ||
+            store.getSnapshot().revision !== revision || clipboardInputVersion.current !== inputVersion) {
+          throw new Error("粘贴之后已有其他编辑，请使用素材画布的撤销功能。");
+        }
+        history("undo");
+      },
+    };
+  };
 
   const history = (direction: "undo" | "redo") => mutate(() => {
     try {
@@ -296,7 +383,9 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
   const dimensions = opened ? store.getDimensions(opened.file) : null;
 
   return <section className="ml-content-canvas" aria-label="素材内容编辑画布" aria-busy={locked && !captureState}
+    onPointerDownCapture={() => { clipboardFocusVersion.current += 1; }}
     onKeyDownCapture={(event) => {
+      clipboardFocusVersion.current += 1;
       if (!event.currentTarget.contains(event.target as Node)) return;
       if (event.key === "Escape" && captureRef.current) {
         event.preventDefault();
@@ -339,9 +428,10 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
       ref={scrollerRef}
       onCompositionStartCapture={() => { composingRef.current = true; }}
       onCompositionEndCapture={() => { composingRef.current = false; }}
-      onInputCapture={() => setUncommittedText(true)}
+      onInputCapture={() => { clipboardInputVersion.current += 1; setUncommittedText(true); }}
       onDropCapture={(event) => { event.preventDefault(); event.stopPropagation(); }}
       onPasteCapture={(event) => {
+        if (event.target instanceof Element && event.target.closest("[data-image-clipboard-scope]")) return;
         if (!(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement)) {
           event.preventDefault(); event.stopPropagation();
         }
@@ -357,11 +447,16 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
                 imageGroupOrder={snapshot.groups.map(({ id }) => id)} imageSources={snapshot.sources}
                 onMoveImage={imageController.moveImage} planRevision={snapshot.revision}
                 projectKey={`material-edit:${sessionId}`} scrollContainerRef={scrollerRef}>
-                <div className="preshot-blocknote-document" data-editor-engine="blocknote" role="group" aria-label="素材组件正文">
+                <ImageClipboardScope port={imageClipboard ?? unavailableImageClipboard}
+                  resolveImage={resolveClipboardImage} pasteImage={pasteClipboardImage}
+                  disabled={disabled && !busy} onUndo={() => history("undo")}>
+                <div ref={clipboardDocumentRef} className="preshot-blocknote-document" data-editor-engine="blocknote"
+                  data-clipboard-document="" role="group" aria-label="素材组件正文">
                   <BlockNoteView editor={editor} editable={!locked} theme="light"
                     slashMenu={false} sideMenu={false} formattingToolbar={false}
                     linkToolbar={false} filePanel={false} tableHandles={false} emojiPicker={false} />
                 </div>
+                </ImageClipboardScope>
               </ImageDragPreviewProvider>
             </ImageGroupBlockContext.Provider>
           </ArtifactBlockContext.Provider>
@@ -386,5 +481,21 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
         },
       }}
     /> : null}
+    {libraryTarget && library && <MaterialBrowser repository={library.repository}
+      initialPreferences={{ query: "", filter: "all", sort: "auto", page: 0, selectedId: null }}
+      onPreferencesChange={() => undefined} onClose={() => setLibraryTarget(null)}
+      input={{ imagesOnly: true, targetLabel: `当前素材的图片组「${store.getSnapshot().groups.find((group) => group.id === libraryTarget)?.name || "未命名"}」`,
+        onInsert: async (selected, selection) => {
+          await runImageOperation(async () => {
+            const revision = store.getSnapshot().revision;
+            const group = store.getSnapshot().groups.find((group) => group.id === libraryTarget);
+            if (!group) throw new Error("目标图片组已不存在。");
+            const result = await importMaterialImages({ library: library.repository, editor: repository, sessionId,
+              material: selected, selection, remaining: 128 - group.images.length,
+              isCurrent: () => mounted.current && store.getSnapshot().revision === revision });
+            if (mounted.current) store.addImages(libraryTarget, result.images, result.visuals);
+          });
+        },
+      }} />}
   </section>;
 }

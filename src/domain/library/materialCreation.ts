@@ -1,9 +1,11 @@
-import type { MaterialKind, MaterialPayload, PortableComponent } from "./models";
+import type { MaterialCategory, MaterialKind, MaterialPayload, PortableComponent } from "./models";
 import { validateMaterialPayload } from "./validation";
 
-export function createEmptyMaterialPayload(kind: MaterialKind, title: string): MaterialPayload {
+export function createEmptyMaterialPayload(category: MaterialCategory | MaterialKind, title: string): MaterialPayload {
+  const kind = category === "propClothing" ? "prop" : category;
   let component: PortableComponent;
   switch (kind) {
+    case "image":
     case "imageGroup":
       component = { kind, name: title, description: "", images: [] };
       break;

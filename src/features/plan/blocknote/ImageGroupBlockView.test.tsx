@@ -6,7 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReferenceComponent } from "../../../domain/plan/canvas/models";
 import {
@@ -105,6 +105,43 @@ function renderGroups(
 }
 
 describe("ImageGroupBlockView image tile interactions", () => {
+  it("shows a library action after a single click and saves only the currently selected image", () => {
+    const images = group("collection", "first");
+    images.images.push({ ...images.images[0], id: "second", file: "references/second.png" });
+    const saveImage = vi.fn();
+    const openImage = vi.fn();
+    function SelectionFixture() {
+      const [selectedImageId, selectImage] = useState<string | null>(null);
+      const controller = controllerFor([images], { selectedImageId, selectImage, saveImage, openImage });
+      return <ImageDragPreviewProvider enabled imageGroups={[images]} imageSources={{}} onMoveImage={controller.moveImage} planRevision={1} projectKey="selection-test">
+        <ImageGroupBlockContext.Provider value={controller}>
+          <ImageGroupBlockView blockId="owner" groupId={images.id} />
+        </ImageGroupBlockContext.Provider>
+      </ImageDragPreviewProvider>;
+    }
+    render(<SelectionFixture />);
+    expect(screen.queryByRole("button", { name: "添加到素材库" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "选择参考图 1" }));
+    expect(screen.getByRole("button", { name: "添加到素材库" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "选择参考图 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加到素材库" }));
+    expect(saveImage).toHaveBeenCalledExactlyOnceWith("collection", "second");
+    expect(openImage).not.toHaveBeenCalled();
+  });
+  it("saves the selected tile separately from its group", () => {
+    const groups = [group("collection", "selected-image")];
+    const saveImage = vi.fn();
+    renderGroups(groups, controllerFor(groups, { saveImage }));
+    fireEvent.click(screen.getByRole("button", { name: "保存参考图 1 到素材库" }));
+    expect(saveImage).toHaveBeenCalledExactlyOnceWith("collection", "selected-image");
+  });
+
+  it("disables adding a second image in an image material", () => {
+    const groups = [group("collection", "selected-image")];
+    renderGroups(groups, controllerFor(groups, { singleImage: true, captureImage: vi.fn() }));
+    expect(screen.getByRole("button", { name: "添加图片" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "截图" })).toBeDisabled();
+  });
   it("locks outer block actions while preserving internal image controls", () => {
     const groups = [group("locked", "image")];
     const controller = controllerFor(groups, {
@@ -137,6 +174,13 @@ describe("ImageGroupBlockView image tile interactions", () => {
     const tile = screen.getByRole("button", { name: "选择参考图 1" });
 
     expect(tile).toHaveAttribute("aria-pressed", "true");
+    expect(tile).toHaveAttribute("data-image-clipboard-id", "image-1");
+    expect(tile).toHaveAttribute("data-image-group-id", "group-1");
+    expect(tile.closest("[data-clipboard-gallery]")).toHaveAttribute("data-clipboard-gallery", "group-1");
+    expect(screen.getByRole("heading", { name: "图片组" }).closest("[data-clipboard-gallery]"))
+      .toContainElement(tile);
+    expect(tile.querySelector("img")).not.toHaveAttribute("data-image-clipboard-id");
+    expect(document.querySelectorAll("[data-image-resize-edge]")).toHaveLength(8);
     fireEvent.click(tile);
     expect(controller.selectImage).toHaveBeenCalledWith("image-1");
     expect(controller.openImage).not.toHaveBeenCalled();
@@ -147,6 +191,33 @@ describe("ImageGroupBlockView image tile interactions", () => {
       "image-1",
       "references/image-1.png",
     );
+  });
+
+  it("keeps the gallery paste destination available when empty", () => {
+    const empty = { ...group("empty", "unused"), images: [] };
+    renderGroups([empty], controllerFor([empty]));
+    expect(document.querySelector("[data-clipboard-gallery-empty]")?.closest("[data-clipboard-gallery]"))
+      .toHaveAttribute("data-clipboard-gallery", "empty");
+  });
+
+  it("keeps editor mousedown from reclaiming tile focus without cancelling native button defaults", () => {
+    const groups = [group("group-1", "image-1")];
+    const controller = controllerFor(groups);
+    renderGroups(groups, controller);
+    const tile = screen.getByRole("button", { name: "选择参考图 1" });
+    const gallery = tile.closest<HTMLElement>("[data-clipboard-gallery]")!;
+    gallery.tabIndex = -1;
+    const editorMouseDown = vi.fn(() => gallery.focus());
+    gallery.addEventListener("mousedown", editorMouseDown);
+
+    act(() => tile.focus());
+    expect(fireEvent.mouseDown(tile, { button: 0 })).toBe(true);
+    expect(tile).toHaveFocus();
+    expect(editorMouseDown).not.toHaveBeenCalled();
+    fireEvent.mouseUp(tile);
+    fireEvent.click(tile);
+    expect(controller.selectImage).toHaveBeenCalledWith("image-1");
+    expect(controller.openImage).not.toHaveBeenCalled();
   });
 
   it("renders only internal image resize zones and isolates their interaction", () => {

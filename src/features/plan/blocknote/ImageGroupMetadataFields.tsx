@@ -35,12 +35,12 @@ function MetadataField({
 }
 
 export function ImageGroupMetadataFields({
-  name, description, onCommit,
+  name, description, onCommit, singleImage = false,
 }: {
-  name: string; description: string; onCommit(update: { name?: string; description?: string }): void;
+  name: string; description: string; singleImage?: boolean; onCommit(update: { name?: string; description?: string }): void;
 }) {
   return <div className="bn-drag-exclude mb-3 grid gap-3">
-    <MetadataField key={`name:${name}`} label="图片组名称" value={name} onCommit={(name) => onCommit({ name })} />
-    <MetadataField key={`description:${description}`} label="图片组说明" value={description} multiline onCommit={(description) => onCommit({ description })} />
+    <MetadataField key={`name:${name}`} label={singleImage ? "图片名称" : "图片组名称"} value={name} onCommit={(name) => onCommit({ name })} />
+    <MetadataField key={`description:${description}`} label={singleImage ? "图片说明" : "图片组说明"} value={description} multiline onCommit={(description) => onCommit({ description })} />
   </div>;
 }

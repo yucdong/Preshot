@@ -78,11 +78,11 @@ fn referenced(conn: &Connection, asset: &Asset, draft_blobs: &HashSet<String>) -
         "SELECT EXISTS(
             SELECT 1 FROM material_asset_owners WHERE kind=?1 AND hash=?2
             UNION ALL SELECT 1 FROM materials WHERE ?1='preview' AND preview_hash=?2
-            UNION ALL SELECT 1 FROM material_images WHERE ?1='object' AND blob_hash=?2
+            UNION ALL SELECT 1 FROM material_images WHERE ?1='object' AND blob_hash=?2 AND storage_id IS NULL
             UNION ALL SELECT 1 FROM materials m,json_each(m.detail_json,'$.images') j
-                WHERE ?1='object' AND json_extract(j.value,'$.blobId')=?2
+                WHERE ?1='object' AND json_extract(j.value,'$.blobId')=?2 AND json_type(j.value,'$.storageId') IS NULL
             UNION ALL SELECT 1 FROM edit_receipts r,json_each(r.result_json,'$.images') j
-                WHERE ?1='object' AND json_extract(j.value,'$.blobId')=?2
+                WHERE ?1='object' AND json_extract(j.value,'$.blobId')=?2 AND json_type(j.value,'$.storageId') IS NULL
         )",
         params![asset.kind, asset.hash],
         |row| row.get(0),
@@ -144,6 +144,7 @@ impl Store {
                 "SELECT material_id,expected_version FROM purge_receipts
                  WHERE completed=0 OR EXISTS(
                      SELECT 1 FROM purge_files WHERE material_id=purge_receipts.material_id)
+                     OR EXISTS(SELECT 1 FROM purge_instance_files WHERE material_id=purge_receipts.material_id)
                  ORDER BY material_id",
             )?;
             let rows = statement.query_map([], |row| {
@@ -201,7 +202,7 @@ impl Store {
                 "Move this material to the recycle bin before permanently deleting it",
             ));
         }
-        let (draft_materials, _) = self.purge_draft_references().map_err(|_| error(
+        let (draft_materials, _, _) = self.purge_draft_references().map_err(|_| error(
             "purge_in_use",
             "An edit recovery draft cannot be verified. Preserve the drafts and resolve or discard the affected edit session before retrying permanent deletion",
         ))?;
@@ -227,6 +228,13 @@ impl Store {
              SELECT material_id,kind,hash,mime_type FROM material_asset_owners WHERE material_id=?1",
             [id],
         ).map_err(|e| error("database", e))?;
+        tx.execute(
+            "INSERT INTO purge_instance_files(material_id,storage_id,mime_type,blob_hash)
+             SELECT o.material_id,o.storage_id,b.mime_type,i.blob_hash
+             FROM material_instance_owners o JOIN image_instances i ON i.storage_id=o.storage_id
+             JOIN blobs b ON b.hash=i.blob_hash WHERE o.material_id=?1",
+            [id],
+        ).map_err(|e| error("database", e))?;
         for (kind, table) in [("save", "save_receipts"), ("edit", "edit_receipts")] {
             tx.execute(
                 &format!("INSERT INTO purged_operations(operation_kind,operation_id,intent_hash,material_id)
@@ -248,6 +256,8 @@ impl Store {
             [id],
         )
         .map_err(|e| error("database", e))?;
+        tx.execute("DELETE FROM material_instance_owners WHERE material_id=?1", [id])
+            .map_err(|e| error("database", e))?;
         let changed = tx.execute(
             "DELETE FROM materials WHERE id=?1 AND json_extract(detail_json,'$.metadataVersion')=?2
              AND json_extract(detail_json,'$.deletedAt') IS NOT NULL",
@@ -280,7 +290,7 @@ impl Store {
                 .map_err(|e| error("database", e))?
         };
         if !assets.is_empty() {
-            let (draft_materials, draft_blobs) = self.purge_draft_references()?;
+            let (draft_materials, draft_blobs, _) = self.purge_draft_references()?;
             if draft_materials.contains(id) {
                 return Err(error(
                     "purge_in_use",
@@ -315,7 +325,10 @@ impl Store {
                             .map_err(|e| error("cleanup", e))?;
                     }
                     if asset.kind == "object" {
-                        tx.execute("DELETE FROM blobs WHERE hash=?1", [&asset.hash])
+                        tx.execute("DELETE FROM blobs WHERE hash=?1
+                            AND NOT EXISTS(SELECT 1 FROM image_instances WHERE blob_hash=?1)
+                            AND NOT EXISTS(SELECT 1 FROM material_images WHERE blob_hash=?1)",
+                            [&asset.hash])
                             .map_err(|e| error("database", e))?;
                     }
                 }
@@ -326,13 +339,81 @@ impl Store {
                 tx.commit().map_err(|e| error("database", e))?;
             }
         }
+        self.finish_instance_purge(id)?;
         self.conn
             .execute(
                 "UPDATE purge_receipts SET completed=1 WHERE material_id=?1
-             AND NOT EXISTS(SELECT 1 FROM purge_files WHERE material_id=?1)",
+             AND NOT EXISTS(SELECT 1 FROM purge_files WHERE material_id=?1)
+             AND NOT EXISTS(SELECT 1 FROM purge_instance_files WHERE material_id=?1)",
                 [id],
             )
             .map_err(|e| error("database", e))?;
+        Ok(())
+    }
+
+    fn finish_instance_purge(&mut self, id: &str) -> Result<()> {
+        let instances = {
+            let mut stmt = self.conn.prepare(
+                "SELECT storage_id,mime_type,blob_hash FROM purge_instance_files WHERE material_id=?1",
+            ).map_err(|e| error("database", e))?;
+            let rows = stmt.query_map([id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))
+                .map_err(|e| error("database", e))?;
+            rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| error("database", e))?
+        };
+        if instances.is_empty() { return Ok(()); }
+        let (draft_materials, _, draft_instances) = self.purge_draft_references()?;
+        if draft_materials.contains(id) {
+            return Err(error("purge_in_use", "A live edit draft retains this material"));
+        }
+        for (storage_id, mime, hash) in instances {
+            files::uuid(&storage_id)?;
+            validate_asset("object", &hash, &mime)?;
+            let path = self.instance_path(&storage_id, &mime)?;
+            let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)
+                .map_err(|e| error("database", e))?;
+            let referenced: bool = tx.query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM material_instance_owners WHERE storage_id=?1
+                    UNION ALL SELECT 1 FROM material_images WHERE storage_id=?1
+                    UNION ALL SELECT 1 FROM instance_publications WHERE storage_id=?1
+                    UNION ALL SELECT 1 FROM materials m,json_each(m.detail_json,'$.images') j
+                        WHERE json_extract(j.value,'$.storageId')=?1
+                    UNION ALL SELECT 1 FROM edit_receipts r,json_each(r.result_json,'$.images') j
+                        WHERE json_extract(j.value,'$.storageId')=?1)",
+                [&storage_id], |r| r.get(0),
+            ).map_err(|e| error("database", e))?;
+            if referenced || draft_instances.contains(&storage_id) {
+                // Retain the outbox even if the last claim is only a draft.
+                // Reopening after its retirement must still find this asset.
+                continue;
+            }
+            let mapped_hash: Option<String> = tx.query_row(
+                "SELECT blob_hash FROM image_instances WHERE storage_id=?1", [&storage_id], |r| r.get(0),
+            ).optional().map_err(|e| error("database", e))?;
+            if mapped_hash.as_ref().is_some_and(|value| value != &hash) {
+                return Err(error("image_corrupt", "Purge instance integrity mapping differs"));
+            }
+            if path.try_exists().map_err(|e| error("path", e))? {
+                let bytes = files::read_limited(&path, files::MAX_IMAGE_BYTES)?;
+                if files::hash(&bytes) != hash {
+                    return Err(error("image_corrupt", "Instance cleanup target was replaced; preserve the library"));
+                }
+                fs::remove_file(&path).map_err(|e| error("cleanup", e))?;
+                #[cfg(not(windows))]
+                fs::File::open(path.parent().unwrap()).and_then(|dir| dir.sync_all())
+                    .map_err(|e| error("cleanup", e))?;
+            }
+            tx.execute("DELETE FROM image_instances WHERE storage_id=?1", [&storage_id])
+                .map_err(|e| error("database", e))?;
+            tx.execute("DELETE FROM blobs WHERE hash=?1
+                AND NOT EXISTS(SELECT 1 FROM image_instances WHERE blob_hash=?1)
+                AND NOT EXISTS(SELECT 1 FROM material_images WHERE blob_hash=?1)
+                AND NOT EXISTS(SELECT 1 FROM material_asset_owners WHERE kind='object' AND hash=?1)",
+                [&hash]).map_err(|e| error("database", e))?;
+            tx.execute("DELETE FROM purge_instance_files WHERE material_id=?1 AND storage_id=?2",
+                params![id, storage_id]).map_err(|e| error("database", e))?;
+            tx.commit().map_err(|e| error("database", e))?;
+        }
         Ok(())
     }
 }

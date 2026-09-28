@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -12,6 +13,10 @@ import { Check, Crop, LoaderCircle, RotateCcw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { useDialogPortalHost } from "../../shared/ui/DialogPortalContext";
+import { DialogPortalContext } from "../../shared/ui/DialogPortalContext";
+import { useImageClipboardPort } from "./ImageClipboardContext";
+import { imageClipboardFilename, unavailableImageClipboard } from "../../domain/clipboard/imageClipboard";
+import { ImageClipboardScope } from "./blocknote/clipboard/ImageClipboardScope";
 import {
   cropFocus,
   cropForFrame,
@@ -78,6 +83,8 @@ export function ReferenceImageLightbox({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const clipboardPortalHost = useCallback(() => dialogRef.current ?? portalHost, [portalHost]);
+  const imageClipboard = useImageClipboardPort();
   const closeRef = useRef<HTMLButtonElement>(null);
   const cropButtonRef = useRef<HTMLButtonElement>(null);
   const cropPreviewRef = useRef<HTMLDivElement>(null);
@@ -138,6 +145,7 @@ export function ReferenceImageLightbox({
     function onKeyDown(event: KeyboardEvent) {
       if (!isTopmostDialog(dialogRef.current)) return;
       if (event.key === "Escape") {
+        if (event.target instanceof Element && event.target.closest('[role="menu"]')) return;
         event.preventDefault();
         event.stopPropagation();
         if (confirming) {
@@ -329,6 +337,11 @@ export function ReferenceImageLightbox({
         ref={dialogRef}
         role="dialog"
       >
+        <DialogPortalContext.Provider value={clipboardPortalHost}>
+        <ImageClipboardScope port={imageClipboard ?? unavailableImageClipboard}
+          className="contents" disabled={mode !== "viewer" || confirming}
+          defaultSelection={{ kind: "gallery", groupId: "viewer", imageId: "current" }}
+          resolveImage={() => ({ dataUrl: src, name: imageClipboardFilename(alt) })}>
         <header className="flex min-h-14 items-center justify-between gap-4 border-b border-white/10 px-4 py-3">
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold" id={titleId}>
@@ -361,7 +374,11 @@ export function ReferenceImageLightbox({
             <div className="flex min-h-0 flex-1 items-center justify-center p-4">
               <img
                 alt={alt}
-                className="min-h-0 max-h-[72vh] max-w-full object-contain"
+                className="min-h-0 max-h-[72vh] max-w-full cursor-default object-contain focus-visible:outline-2 focus-visible:outline-sky-400"
+                data-clipboard-gallery="viewer"
+                data-image-clipboard-id="current"
+                tabIndex={0}
+                onClick={(event) => event.currentTarget.focus()}
                 src={src}
               />
             </div>
@@ -565,6 +582,8 @@ export function ReferenceImageLightbox({
             </footer>
           </form>
         )}
+        </ImageClipboardScope>
+        </DialogPortalContext.Provider>
       </div>
     </div>,
     portalHost,

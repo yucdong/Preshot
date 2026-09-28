@@ -364,18 +364,21 @@ async function runStandardCapture() {
   };
 }
 
-async function runLongCapture() {
+async function runLongCapture(height = LONG_FIXTURE_HEIGHT) {
   const longFixture = document.createElement("section");
   longFixture.className = "long-fixture";
-  longFixture.innerHTML = "<h1>六千像素长图离线捕获</h1>";
+  longFixture.style.height = `${height}px`;
+  longFixture.innerHTML = `<h1>${height} 像素长图离线捕获</h1>`;
   document.body.append(longFixture);
   const iframeBaseline = document.querySelectorAll("iframe").length;
+  const canvases: HTMLCanvasElement[] = [];
   try {
     const result = await modernScreenshotCaptureAdapter.capture(longFixture, {
       output: "canvas",
       format: "image/png",
     });
     requireCanvas(result);
+    canvases.push(result.canvas);
     const context = result.canvas.getContext("2d");
     if (!context) throw new Error("Expected a 2D canvas context");
     const blob = await new Promise<Blob>((resolve, reject) => {
@@ -389,14 +392,15 @@ async function runLongCapture() {
       format: "image/png",
       viewport: {
         x: 0,
-        y: 5500,
+        y: height - 500,
         width: FIXTURE_WIDTH,
         height: 500,
         sourceWidth: FIXTURE_WIDTH,
-        sourceHeight: LONG_FIXTURE_HEIGHT,
+        sourceHeight: height,
       },
     });
     requireCanvas(segment);
+    canvases.push(segment.canvas);
     const segmentContext = segment.canvas.getContext("2d");
     if (!segmentContext) throw new Error("Expected a segmented 2D context");
     return {
@@ -406,7 +410,7 @@ async function runLongCapture() {
         canvasWidth: result.canvas.width,
         canvasHeight: result.canvas.height,
       },
-      bottomSentinel: samplePixel(context, 450, LONG_FIXTURE_HEIGHT - 40),
+      bottomSentinel: samplePixel(context, 450, height - 40),
       segment: {
         width: segment.width,
         height: segment.height,
@@ -418,9 +422,10 @@ async function runLongCapture() {
         iframeBaseline,
         iframeCount: document.querySelectorAll("iframe").length,
       },
-      boundedPixels: FIXTURE_WIDTH * LONG_FIXTURE_HEIGHT < DOM_CAPTURE_MAX_PIXELS,
+      boundedPixels: FIXTURE_WIDTH * height <= DOM_CAPTURE_MAX_PIXELS,
     };
   } finally {
+    canvases.forEach(canvas => { canvas.width = 0; canvas.height = 0; });
     longFixture.remove();
   }
 }

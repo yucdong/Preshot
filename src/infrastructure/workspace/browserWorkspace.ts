@@ -148,6 +148,7 @@ function createBrowserNativeWorkspace(): NativeWorkspace {
 }
 
 const browserDirectoryPicker: WorkspaceDirectoryPicker = {
+  async getDefaultProjectsDirectory() { return "C:\\Preshot Browser\\projects"; },
   async pickDirectory(): Promise<string | null> {
     return null;
   },

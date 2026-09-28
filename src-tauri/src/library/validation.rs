@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use serde_json::{json, Map, Value};
 use unicode_normalization::UnicodeNormalization;
 
-use super::{error, models::*, Result};
+use super::{error, insert_selection, models::*, Result};
 
 pub fn metadata(mut value: MaterialMetadata) -> Result<MaterialMetadata> {
     value.name = material_name(&value.name)?;
@@ -66,6 +66,14 @@ fn identifier(value: &str) -> Result<()> {
     Ok(())
 }
 
+pub(super) fn local_image_identifier(value: &str) -> Result<()> {
+    identifier(value)?;
+    if !value.bytes().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_')) {
+        return Err(error("validation", "Local image identifiers must be portable ASCII identifiers"));
+    }
+    Ok(())
+}
+
 fn object<'a>(
     value: &'a Value,
     required: &[&str],
@@ -114,7 +122,7 @@ fn numeric(value: &Value, key: &str, positive: bool) -> Result<()> {
 pub fn payload_images(payload: &MaterialPayload) -> Result<&Vec<Value>> {
     let c = &payload.component;
     match payload.kind {
-        MaterialKind::ImageGroup => array(c, "images"),
+        MaterialKind::Image | MaterialKind::ImageGroup => array(c, "images"),
         MaterialKind::ShootingLocation | MaterialKind::Prop => array(&c["gallery"], "images"),
         MaterialKind::ModelCard => array(&c["samples"], "images"),
         MaterialKind::Clothing => array(&c["mainGallery"], "images"),
@@ -135,16 +143,7 @@ fn image(value: &Value) -> Result<()> {
             "crop",
         ],
     )?;
-    identifier(string(value, "localImageId")?)?;
-    if !string(value, "localImageId")?
-        .bytes()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_'))
-    {
-        return Err(error(
-            "validation",
-            "Local image identifiers must be portable ASCII identifiers",
-        ));
-    }
+    local_image_identifier(string(value, "localImageId")?)?;
     for key in ["aspectRatio", "frameWidth", "frameHeight"] {
         numeric(value, key, true)?;
     }
@@ -211,7 +210,7 @@ pub fn payload(value: &MaterialPayload) -> Result<()> {
     }
     let (fields, optional, strings, collection): (&[&str], &[&str], &[&str], Option<&str>) =
         match value.kind {
-            MaterialKind::ImageGroup => (
+            MaterialKind::Image | MaterialKind::ImageGroup => (
                 &["kind", "name", "description", "images"],
                 &[],
                 &["name", "description"],
@@ -282,6 +281,9 @@ pub fn payload(value: &MaterialPayload) -> Result<()> {
         object(&value.component[key], &["images"], &[])?;
     }
     let images = payload_images(value)?;
+    if value.kind == MaterialKind::Image && images.len() > 1 {
+        return Err(error("image_count", "An image material can contain only one image"));
+    }
     if images.len() > 128 {
         return Err(error(
             "payload",
@@ -426,7 +428,7 @@ pub fn snapshot_from_plan(
         ));
     }
     let fields: &[&str] = match kind {
-        MaterialKind::ImageGroup => &["name", "description", "images"],
+        MaterialKind::Image | MaterialKind::ImageGroup => &["name", "description", "images"],
         MaterialKind::ShootingLocation => &["venueName", "address", "description", "gallery"],
         MaterialKind::ModelCard => &[
             "modelId", "heightCm", "weightKg", "shoeSize", "notes", "samples",
@@ -442,7 +444,7 @@ pub fn snapshot_from_plan(
         }
     }
     let images = match kind {
-        MaterialKind::ImageGroup => component.get_mut("images"),
+        MaterialKind::Image | MaterialKind::ImageGroup => component.get_mut("images"),
         _ => {
             let key = match kind {
                 MaterialKind::ModelCard => "samples",
@@ -494,6 +496,7 @@ pub fn snapshot_from_plan(
 }
 
 pub fn snapshot(plan_value: &Value, input: &MaterialSnapshot) -> Result<()> {
+    if input.payload.kind == MaterialKind::Image { return super::image_material::snapshot(plan_value, input); }
     payload(&input.payload)?;
     let (mut expected, expected_sources, omitted) =
         snapshot_from_plan(plan_value, &input.source_block_id)?;
@@ -505,7 +508,7 @@ pub fn snapshot(plan_value: &Value, input: &MaterialSnapshot) -> Result<()> {
     }
     let images = payload_images(&input.payload)?;
     let expected_images = match expected.kind {
-        MaterialKind::ImageGroup => &mut expected.component["images"],
+        MaterialKind::Image | MaterialKind::ImageGroup => &mut expected.component["images"],
         MaterialKind::ModelCard => &mut expected.component["samples"]["images"],
         MaterialKind::Clothing => &mut expected.component["mainGallery"]["images"],
         _ => &mut expected.component["gallery"]["images"],
@@ -538,7 +541,7 @@ pub fn snapshot(plan_value: &Value, input: &MaterialSnapshot) -> Result<()> {
     Ok(())
 }
 
-fn collect_ids(value: &Value, ids: &mut HashSet<String>) {
+pub(super) fn collect_ids(value: &Value, ids: &mut HashSet<String>) {
     match value {
         Value::Object(object) => {
             if let Some(id) = object.get("id").and_then(Value::as_str) {
@@ -557,7 +560,7 @@ fn collect_ids(value: &Value, ids: &mut HashSet<String>) {
     }
 }
 
-fn fresh_ids(value: &Value, ids: &mut HashSet<String>) -> Result<()> {
+pub(super) fn fresh_ids(value: &Value, ids: &mut HashSet<String>) -> Result<()> {
     match value {
         Value::Object(object) => {
             if let Some(id) = object.get("id") {
@@ -587,6 +590,23 @@ fn fresh_ids(value: &Value, ids: &mut HashSet<String>) -> Result<()> {
 }
 
 pub fn insertion(base: &Value, next: &Value, prepared: &PreparedMaterialInsert) -> Result<()> {
+    insert_selection::validate_prepared(prepared)?;
+    if prepared.target_group_id.is_some() { return super::insert_gallery::validate(base, next, prepared); }
+    if insert_selection::separate_images(prepared.selection.as_ref()) {
+        return native_image_insertion(base, next, prepared);
+    }
+    if prepared.payload.kind == MaterialKind::Image {
+        ready_payload(&prepared.payload)?;
+        if prepared.images.first().is_some_and(|source| source.file.starts_with("media/")) {
+            return native_image_insertion(base, next, prepared);
+        }
+        // Older durable receipts published image materials as image groups.
+        // Keep validating those exact receipts for recovery and retained history.
+        let mut expanded = prepared.clone();
+        expanded.payload.kind = MaterialKind::ImageGroup;
+        expanded.payload.component["kind"] = json!("imageGroup");
+        return insertion(base, next, &expanded);
+    }
     plan(base)?;
     plan(next)?;
     let before = array(&base["document"], "blocks")?;
@@ -743,9 +763,60 @@ pub fn insertion(base: &Value, next: &Value, prepared: &PreparedMaterialInsert) 
     snapshot(next, &check)
 }
 
+fn native_image_insertion(base: &Value, next: &Value, prepared: &PreparedMaterialInsert) -> Result<()> {
+    plan(base)?;
+    plan(next)?;
+    let images = payload_images(&prepared.payload)?;
+    let count = images.len();
+    if count == 0 { return Err(error("insert", "Select at least one image")); }
+    fn mentions(value: &Value, file: &str) -> bool {
+        match value {
+            Value::String(text) => text.replace('\\', "/").eq_ignore_ascii_case(file),
+            Value::Array(values) => values.iter().any(|value| mentions(value, file)),
+            Value::Object(values) => values.values().any(|value| mentions(value, file)),
+            _ => false,
+        }
+    }
+    let before = array(&base["document"], "blocks")?;
+    let after = array(&next["document"], "blocks")?;
+    if after.len() != before.len() + count {
+        return Err(error("insert", "Insertion must add exactly the selected number of images"));
+    }
+    let index = (0..=before.len()).find(|&i| {
+        let mut remainder = after.clone();
+        remainder.drain(i..i + count);
+        remainder == *before && after[i..i + count].iter().all(|block| block["type"] == "image")
+    }).ok_or_else(|| error("insert", "Image insertion changed existing document content"))?;
+    let mut ids = HashSet::new();
+    collect_ids(base, &mut ids);
+    for image in images { ids.insert(string(image, "localImageId")?.to_owned()); }
+    let mut files = HashSet::new();
+    for (block, image) in after[index..index + count].iter().zip(images) {
+        let source = prepared.images.iter().find(|source| image["localImageId"] == source.local_image_id)
+            .ok_or_else(|| error("insert", "Missing selected image copy"))?;
+        let file = &source.file;
+        if !file.starts_with("media/") { return Err(error("insert", "Expected a native media copy")); }
+        super::files::reference_name(&file.replacen("media/", "references/", 1))?;
+        if mentions(base, file) || !files.insert(file.to_lowercase()) {
+            return Err(error("insert", "Inserted native images must own independent new files"));
+        }
+        object(block, &["id", "type", "props", "children"], &[])?;
+        if !array(block, "children")?.is_empty() { return Err(error("insert", "Inserted image must not contain child blocks")); }
+        let expected = json!({"url":file,"name":prepared.payload.component["name"],
+            "caption":image["caption"].as_str().unwrap_or(""),"showPreview":true,"previewWidth":image["frameWidth"]});
+        if block["props"] != expected { return Err(error("insert", "Inserted image does not match prepared order and content")); }
+        string(block, "id")?;
+        fresh_ids(block, &mut ids)?;
+    }
+    let mut remainder = next.clone();
+    remainder["document"]["blocks"].as_array_mut().unwrap().drain(index..index + count);
+    if remainder != *base { return Err(error("insert", "Image insertion changed unrelated plan content")); }
+    Ok(())
+}
+
 pub fn body(payload: &MaterialPayload) -> String {
     let fields: &[&str] = match payload.kind {
-        MaterialKind::ImageGroup => &["name", "description"],
+        MaterialKind::Image | MaterialKind::ImageGroup => &["name", "description"],
         MaterialKind::ShootingLocation => &["venueName", "address", "description"],
         MaterialKind::ModelCard => &["modelId", "heightCm", "weightKg", "shoeSize", "notes"],
         _ => &["title", "source"],
@@ -766,4 +837,13 @@ pub fn body(payload: &MaterialPayload) -> String {
         );
     }
     values.join("\n")
+}
+
+/// Empty single-image payloads are draft-only.
+pub fn ready_payload(value: &MaterialPayload) -> Result<()> {
+    payload(value)?;
+    if value.kind == MaterialKind::Image && payload_images(value)?.len() != 1 {
+        return Err(error("image_count", "Add exactly one image before saving the image material"));
+    }
+    Ok(())
 }

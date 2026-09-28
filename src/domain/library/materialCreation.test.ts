@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyMaterialPayload } from "./materialCreation";
-import { MATERIAL_KINDS } from "./models";
+import { MATERIAL_KINDS, materialCategory } from "./models";
 import { materialPayloadTitle } from "./material";
 import { componentImages } from "./materialStructure";
 
 describe("empty material creation", () => {
+  it("combines clothing and props into one category with one creation payload", () => {
+    expect(materialCategory("prop")).toBe("propClothing");
+    expect(materialCategory("clothing")).toBe("propClothing");
+    expect(new Set(MATERIAL_KINDS.map(materialCategory)).size).toBe(5);
+    const payload = createEmptyMaterialPayload("propClothing", "未命名道具与服装");
+    expect(payload.component).toEqual({
+      kind: "prop", title: "未命名道具与服装", source: "", gallery: { images: [] },
+    });
+  });
+
   it.each(MATERIAL_KINDS)("creates an independent editable %s without project assets", (kind) => {
     const first = createEmptyMaterialPayload(kind, "New component");
     const second = createEmptyMaterialPayload(kind, "Another component");
