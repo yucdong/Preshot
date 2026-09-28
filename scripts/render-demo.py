@@ -70,6 +70,7 @@ if not args.gif_only:
         shutil.copyfile(font, fonts / font.name)
     run(["-i", video, "-vf", filters, "-an", "-r", "24", "-c:v", "libx264",
          "-preset", "medium", "-crf", "21", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(mp4)])
+shutil.copyfile(mp4, root / "docs/media/preshot-demo.mp4")
 palette = work / "palette.png"
 run(["-i", str(mp4), "-vf", "fps=5,scale=880:-1:flags=lanczos,palettegen=max_colors=96:stats_mode=diff",
      "-frames:v", "1", "-update", "1", str(palette)])

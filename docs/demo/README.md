@@ -18,7 +18,7 @@ image-panel step; the recording does not simulate a successful Windows snip.
 ## Media
 
 - [README GIF](../media/preshot-demo.gif)
-- The MP4 is prepared as a release asset, alongside the MSI.
+- [Captioned MP4](../media/preshot-demo.mp4), also prepared as a release asset.
 - The recording procedure is in `scripts/record-demo.mjs`.
 - Downloaded reference images are kept in [photos](photos), with machine-readable
   [credits and hashes](photos/credits.json).
@@ -32,8 +32,8 @@ Edge and saves its raw recording, chapter times, and actual exports under
 
 Install FFmpeg with libass and libx264 support, then run
 `python scripts/render-demo.py --ffmpeg <path-to-ffmpeg.exe>`. This produces
-the captioned release MP4 in `.preshot-build-cache/release` and the README GIF
-in `docs/media`. The raw recording and local tools are not committed.
+the captioned release MP4 in `.preshot-build-cache/release`, and copies the MP4
+and README GIF to `docs/media`. The raw recording and local tools are not committed.
 
 ## Photo credits
 

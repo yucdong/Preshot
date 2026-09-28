@@ -45,7 +45,7 @@ Release 同时提供 SHA-256 校验文件和构建信息；签名与验证情况
 
 ![Preshot 操作流程](docs/media/preshot-demo.gif)
 
-[演示说明与图片来源](docs/demo/README.md) · [完整视频与安装包](https://github.com/yucdong/Preshot/releases)
+[完整视频](docs/media/preshot-demo.mp4) · [演示说明与图片来源](docs/demo/README.md) · [安装包](https://github.com/yucdong/Preshot/releases)
 
 ## 从源码构建
 

@@ -61,7 +61,7 @@ build and reuse materials, then export the shooting plan.
 
 ![Preshot walkthrough](docs/media/preshot-demo.gif)
 
-[Demo and photo credits](docs/demo/README.md) · [Full video and installer](https://github.com/yucdong/Preshot/releases)
+[Full video](docs/media/preshot-demo.mp4) · [Demo and photo credits](docs/demo/README.md) · [Installer](https://github.com/yucdong/Preshot/releases)
 
 ## Build from source
 
