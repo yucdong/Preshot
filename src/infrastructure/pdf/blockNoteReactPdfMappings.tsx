@@ -46,6 +46,8 @@ import {
   imageFrameContentCss,
 } from "../../domain/plan/canvas/imageView";
 import { compactArtifactGalleryImages } from "../../features/plan/blocknote/artifactGallerySizing";
+import { layoutPdfCaption } from "../../domain/plan/blocknote/pdfCaptionLayout";
+import { createReactPdfCaptionTextMeasurer } from "./reactPdfCaptionMetrics";
 
 export const PRESHOT_PDF_FONT_FAMILY = "Preshot Noto Sans SC";
 export const PRESHOT_PDF_DICTIONARY = zh;
@@ -153,33 +155,52 @@ function artifactCollections(artifact: ArtifactRecord): Array<{
   }];
 }
 
-function artifactPdfBlock(
+async function artifactPdfBlock(
   artifact: ArtifactRecord,
   resolvedAssets: Readonly<Record<string, string>>,
   blockId: string,
-): PdfBlockResult {
-  const metadata = artifactMetadata(artifact).map((text, index) => (
+  fontSources?: PreshotReactPdfMappingOptions["fontSources"],
+): Promise<PdfBlockResult> {
+  const scale = contract.editor.rootLogicalToPdfScale;
+  const inset = contract.spacing.table.cellPaddingHorizontal + contract.borders.hairline;
+  const innerWidth = contract.page.contentWidth - inset * 2;
+  const collections = artifactCollections(artifact).filter(({ collection }) => collection.images.length > 0);
+  const hasImages = collections.length > 0;
+  const columnsWidth = innerWidth - contract.spacing.artifact.regionGap;
+  const metadataWidth = hasImages ? columnsWidth * 0.4 : innerWidth;
+  const galleryWidth = columnsWidth * 0.6;
+  const measureText = await createReactPdfCaptionTextMeasurer(fontSources?.regular);
+  const measureTitle = await createReactPdfCaptionTextMeasurer(fontSources?.bold ?? boldFontUrl);
+  const titleSize = contract.typography.body.fontSize * 1.2;
+  const titleLayout = layoutPdfCaption(artifactTitle(artifact), innerWidth, {
+    fontSize: titleSize,
+    lineHeight: contract.typography.body.lineHeight * 1.2,
+    gap: contract.spacing.paragraph.after,
+    measureText: measureTitle,
+  });
+  const metadataLayouts = artifactMetadata(artifact).map((text) => layoutPdfCaption(text, metadataWidth, {
+    ...contract.typography.body,
+    gap: contract.spacing.paragraph.after / 2,
+    measureText,
+  }));
+  const metadata = metadataLayouts.map((layout, index) => (
     <Text
       key={`artifact-${blockId}-metadata-${index}`}
       style={{
         ...bodyTextStyle({}),
+        width: metadataWidth,
         marginBottom: contract.spacing.paragraph.after / 2,
       }}
     >
-      {text}
+      {layout.lines.join("\n")}
     </Text>
   ));
-  const horizontal =
-    artifact.kind === "shootingLocation" ||
-    artifact.kind === "modelCard" ||
-    artifact.kind === "clothing" ||
-    artifact.kind === "prop";
-  const galleryWidth = horizontal
-    ? contract.editor.contentWidth * 0.6
-    : contract.editor.contentWidth;
-  const galleries = artifactCollections(artifact).map(
-    ({ label, collection, compact }) =>
-      collection.images.length > 0 ? (
+  let galleriesHeight = 0;
+  const galleries = collections.map(
+    ({ label, collection, compact }) => {
+      const gallery = artifactPdfGallery(collection, resolvedAssets, compact, galleryWidth / scale);
+      galleriesHeight += gallery.height + contract.typography.body.lineHeight + contract.spacing.paragraph.after;
+      return (
         <View
           key={`artifact-${blockId}-${collection.id}`}
           style={{ marginTop: contract.spacing.paragraph.after / 2 }}
@@ -187,25 +208,28 @@ function artifactPdfBlock(
           <Text
             style={{
               ...bodyTextStyle({}),
+              width: galleryWidth,
               fontWeight: 700,
               marginBottom: contract.spacing.paragraph.after / 2,
             }}
           >
             {label}
           </Text>
-          {artifactPdfGallery(
-            collection,
-            resolvedAssets,
-            compact,
-            galleryWidth,
-          )}
+          {gallery.element}
         </View>
-      ) : null,
+      );
+    },
   );
+  const cardHeight = inset * 2 + titleLayout.height + Math.max(
+    metadataLayouts.reduce((height, layout) => height + layout.height, 0),
+    galleriesHeight,
+  ) + contract.spacing.paragraph.after;
   return (
     <View
       key={`artifact-${blockId}`}
+      wrap={cardHeight > contract.page.contentHeight - REACT_PDF_PAGE_ROUNDING_TOLERANCE}
       style={{
+        width: contract.page.contentWidth,
         borderColor: contract.colors.border,
         borderWidth: contract.borders.hairline,
         borderRadius: contract.borders.radius,
@@ -216,23 +240,25 @@ function artifactPdfBlock(
       <Text
         style={{
           ...bodyTextStyle({}),
-          fontSize: contract.typography.body.fontSize * 1.2,
+          width: innerWidth,
+          fontSize: titleSize,
           fontWeight: 700,
           marginBottom: contract.spacing.paragraph.after,
         }}
       >
-        {artifactTitle(artifact)}
+        {titleLayout.lines.join("\n")}
       </Text>
-      {horizontal ? (
+      {hasImages ? (
         <View
           style={{
             display: "flex",
+            width: innerWidth,
             flexDirection: "row",
             gap: contract.spacing.artifact.regionGap,
           }}
         >
-          <View style={{ width: "40%" }}>{metadata}</View>
-          <View style={{ width: "60%" }}>{galleries}</View>
+          <View style={{ width: metadataWidth, flexShrink: 0 }}>{metadata}</View>
+          <View style={{ width: galleryWidth, flexShrink: 0 }}>{galleries}</View>
         </View>
       ) : (
         <>
@@ -249,7 +275,7 @@ function artifactPdfGallery(
   resolvedAssets: Readonly<Record<string, string>>,
   compact: boolean,
   logicalWidth: number,
-): ReactElement {
+): { element: ReactElement; height: number } {
   const displayImages = compactArtifactGalleryImages(
     collection.images,
     logicalWidth,
@@ -262,7 +288,7 @@ function artifactPdfGallery(
   const scale =
     contract.page.contentWidth / contract.editor.contentWidth;
   const images = new Map(displayImages.map((image) => [image.id, image]));
-  return (
+  return { height: layout.height * scale, element: (
     <View
       style={{
         position: "relative",
@@ -302,7 +328,7 @@ function artifactPdfGallery(
         );
       })}
     </View>
-  );
+  ) };
 }
 
 const mapping = mappingFactory(preshotBlockNoteSchema);
@@ -749,6 +775,7 @@ export function createPreshotReactPdfMappings(
         artifact,
         options.resolvedAssets ?? {},
         block.id,
+        options.fontSources,
       );
     },
     modelCard: (block) => {
@@ -762,6 +789,7 @@ export function createPreshotReactPdfMappings(
         artifact,
         options.resolvedAssets ?? {},
         block.id,
+        options.fontSources,
       );
     },
     clothing: (block) => {
@@ -775,6 +803,7 @@ export function createPreshotReactPdfMappings(
         artifact,
         options.resolvedAssets ?? {},
         block.id,
+        options.fontSources,
       );
     },
     prop: (block) => {
@@ -788,6 +817,7 @@ export function createPreshotReactPdfMappings(
         artifact,
         options.resolvedAssets ?? {},
         block.id,
+        options.fontSources,
       );
     },
   });

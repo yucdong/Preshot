@@ -1,6 +1,8 @@
 import { chromium, expect } from "@playwright/test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { PDFDocument } from "pdf-lib";
 
 const output = resolve(".preshot-build-cache/demo");
 await mkdir(`${output}/raw`, { recursive: true });
@@ -10,16 +12,21 @@ const context = await browser.newContext({
   viewport: { width: 1280, height: 800 }, colorScheme: "light", deviceScaleFactor: 1,
   recordVideo: { dir: `${output}/raw`, size: { width: 1280, height: 800 } },
 });
+// Video recording starts while newPage() is still pending.
+const start = Date.now();
 const page = await context.newPage();
 page.setDefaultTimeout(20_000);
+page.setDefaultNavigationTimeout(120_000);
 const video = page.video();
-const start = Date.now();
 const chapters = [];
 const errors = [];
-page.on("pageerror", (error) => errors.push(error.message));
+page.on("pageerror", (error) => {
+  errors.push(error.message);
+  console.error(error.stack ?? error.message);
+});
 const hold = (ms = 700) => page.waitForTimeout(ms);
-async function chapter(zh, en) {
-  chapters.push({ seconds: (Date.now() - start) / 1000, zh, en });
+async function chapter(zh, en, realtime = false) {
+  chapters.push({ seconds: (Date.now() - start) / 1000, zh, en, realtime });
   console.log(`Chapter ${chapters.length}: ${en}`);
 }
 async function click(locator) {
@@ -55,10 +62,13 @@ async function createMaterial({ category, name, description, tags, fields = {}, 
     await click(materialEditor.getByRole("button", { name: /添加.*图片|导入.*图片/ }).first());
     await (await chooser).setFiles(photos.map((photo) => resolve(`docs/demo/photos/${photo}`)));
     await expect(materialEditor.locator("[data-image-id]")).toHaveCount(photos.length);
-    await hold(1200);
+    await expect.poll(() => materialEditor.locator("[data-image-id] img").evaluateAll((images) =>
+      images.filter((image) => image.complete && image.naturalWidth > 0).length)).toBe(photos.length);
+    await hold(2000);
+    await page.screenshot({ path: `${output}/material-${photos[0].replace(/\.[^.]+$/, "")}.png` });
   }
   await click(button("保存素材", materialEditor));
-  await expect(materialEditor.getByText("素材已保存，可继续编辑；关闭后更新预览。")).toBeVisible();
+  await expect(materialEditor.getByText("素材已保存，可继续编辑；关闭后更新预览。")).toBeVisible({ timeout: 20_000 });
   await hold(600);
   await click(button("关闭", materialEditor));
   await expect(button(`选择素材：${name}`, library)).toBeVisible();
@@ -80,8 +90,8 @@ async function insertMaterial(name, isGroup = false) {
 }
 
 try {
-  await page.goto(`${process.env.PRESHOT_DEMO_URL ?? "http://127.0.0.1:1447"}/e2e/fixtures/material-library.html?walkthrough=1`);
-  await expect(documentEditor).toBeVisible();
+  await page.goto(`${process.env.PRESHOT_DEMO_URL ?? "http://127.0.0.1:1447"}/e2e/fixtures/material-library.html?walkthrough=1`, { waitUntil: "domcontentloaded" });
+  await expect(documentEditor).toBeVisible({ timeout: 120_000 });
   // A visible pointer makes the UI recording easy to follow; it changes no app state.
   await page.evaluate(() => {
     const cursor = document.createElement("div");
@@ -107,6 +117,7 @@ try {
     ["## ", "拍摄安排"],
     ["", "16:30 江边集合 → 17:00 透明伞逆光 → 17:30 泡泡与江风 → 18:00 蓝调桥景"],
     ["", "镜头清单：桥梁全景 / 人物中景 / 透明伞特写 / 泡泡前景 / 夜色剪影"],
+    ["", "参考图：Jack No1（CC BY 3.0）、Vasily Astanin（CC BY-SA 4.0）；模特与道具为原创示意图。"],
   ]) {
     if (prefix) await page.keyboard.type(prefix, { delay: 90 });
     await page.keyboard.insertText(text);
@@ -129,15 +140,15 @@ try {
   await chapter("04 建立素材库：给地点、模特与道具添加描述和关键词", "04 Build a library: locations, models and props with searchable tags");
   await click(button("素材库"));
   await createMaterial({ category: "场地", name: "南京长江大桥", description: "江边风光人像，金色日落到蓝调时刻", tags: "南京，长江大桥，江边，日落",
-    fields: { "场地名称": "南京长江大桥", "场地信息": "选择允许停留的江边步道；以桥梁线条作为背景，注意风向与来往行人。" } });
-  await chapter("模特 A：虚构的人物资料，可在其他项目中重复使用", "Model A: a fictional profile you can reuse in future projects");
+    fields: { "场地名称": "南京长江大桥", "场地信息": "选择允许停留的江边步道；以桥梁线条作为背景，注意风向与来往行人。" }, photos: ["bridge-day.jpg"] });
+  await chapter("模特 A：添加虚构人物样片，让资料与形象一起保存", "Model A: save a fictional sample portrait with the profile");
   await createMaterial({ category: "模特", name: "模特 A", description: "虚构示例人物，自然松弛的风光人像", tags: "模特A，自然，风光人像",
-    fields: { "模特名称 / 编号": "模特 A（虚构）", "其他信息": "浅色服装，舒展姿态；镜头前尝试侧身、回望与缓慢行走。" } });
+    fields: { "模特名称 / 编号": "模特 A（虚构）", "其他信息": "浅色服装，舒展姿态；镜头前尝试侧身、回望与缓慢行走。样片为示意插画。" }, photos: ["model-a.png"] });
   await chapter("道具与服装：透明伞和泡泡机，记录来源与使用方法", "Props and wardrobe: transparent umbrella and bubble machine");
   await createMaterial({ category: "道具与服装", name: "透明伞", description: "逆光勾勒伞面轮廓，制造轻盈的画面", tags: "透明伞，逆光，人像",
-    fields: { "道具与服装名称": "透明伞", "道具与服装信息": "自备一把透明长柄伞；擦净伞面，半侧身举伞，露出面部。" } });
+    fields: { "道具与服装名称": "透明伞", "道具与服装信息": "自备一把透明长柄伞；擦净伞面，半侧身举伞，露出面部。图片为示意插画。" }, photos: ["transparent-umbrella.png"] });
   await createMaterial({ category: "道具与服装", name: "泡泡机", description: "利用江风，让泡泡形成虚化前景", tags: "泡泡机，前景，氛围",
-    fields: { "道具与服装名称": "泡泡机", "道具与服装信息": "自备电池与泡泡液；从人物侧后方少量释放，结束后清理场地。" } });
+    fields: { "道具与服装名称": "泡泡机", "道具与服装信息": "自备电池与泡泡液；从人物侧后方少量释放，结束后清理场地。图片为示意插画。" }, photos: ["bubble-machine.png"] });
   await chapter("参考图也能成为素材：保存白天与夜晚桥景图片组", "Reference boards are reusable too: daylight and night bridge photos");
   await createMaterial({ category: "图片组", name: "大桥光线参考", description: "日落前的桥梁结构与蓝调时刻的灯光", tags: "南京，桥景，光线，蓝调",
     fields: { "图片组名称": "大桥光线参考", "图片组说明": "观察桥梁线条、江面反光和夜景色温，照片来源见演示说明。" }, photos: ["bridge-day.jpg", "bridge-night.jpg"] });
@@ -160,36 +171,71 @@ try {
   await hold(1700);
   await click(button("简体中文"));
   await click(button("关闭设置"));
-  await chapter("08 导出方案：PDF 用于分享打印，DOCX 可继续编辑", "08 Export: PDF for sharing and print; DOCX for further editing");
-  for (const format of ["PDF", "DOCX"]) {
-    await click(button("导出"));
-    const downloaded = page.waitForEvent("download", { timeout: 120_000 });
-    await click(page.getByRole("menuitem", { name: `导出 ${format}`, exact: true }));
-    const file = await downloaded;
-    await file.saveAs(`${output}/exports/bridge-portraits.${format.toLowerCase()}`);
-    await expect(button("导出")).toBeEnabled({ timeout: 120_000 });
-    await hold(600);
-  }
-  await chapter("长图适合发送到聊天：JPEG / PNG，超长方案可开启自动分图", "Long images for chat: JPEG / PNG, with optional automatic splitting");
-  await click(button("导出"));
-  await click(page.getByRole("menuitem", { name: "导出长图", exact: true }));
-  const exportDialog = page.getByRole("dialog", { name: "导出长图", exact: true });
-  await hold(2200);
-  const imageDownload = page.waitForEvent("download", { timeout: 120_000 });
-  await click(button("开始导出", exportDialog));
-  const exported = await imageDownload;
-  await exported.saveAs(`${output}/exports/${exported.suggestedFilename()}`);
-  await expect(button("导出")).toBeEnabled({ timeout: 120_000 });
-  await chapter("完成：自动保存 / Ctrl+S，带着拍摄方案出发", "Ready to shoot: autosave / Ctrl+S keeps your plan");
+  await chapter("08 保存并导出 PDF：把方案、样片与道具整理成一份文件", "08 Save and export PDF: the plan, sample photos and props in one file");
   await page.keyboard.press("Control+s");
   await documentEditor.locator("h1").first().scrollIntoViewIfNeeded();
-  await hold(3200);
+  await hold(1200);
+  await page.screenshot({ path: `${output}/project-final.png` });
+  await click(button("导出"));
+  const downloaded = page.waitForEvent("download", { timeout: 120_000 });
+  await click(page.getByRole("menuitem", { name: "导出 PDF", exact: true }));
+  const file = await downloaded;
+  const pdfPath = `${output}/exports/bridge-portraits.pdf`;
+  await file.saveAs(pdfPath);
+  await expect(button("导出")).toBeEnabled({ timeout: 120_000 });
+  const pdf = await PDFDocument.load(await readFile(pdfPath));
+  const pageCount = pdf.getPageCount();
+  if (pageCount < 2) throw new Error("Expected a multi-page plan with sample images");
+
+  await chapter("09 打开刚导出的 PDF：检查版式、照片和素材卡片", "09 Open the exported PDF: review layout, photos and material cards", true);
+  // Use the real Edge PDF reader in the same recorded tab, not an HTML facsimile.
+  await page.goto(pathToFileURL(pdfPath).href);
+  await hold(3000);
+  // Edge cycles from default scale to fit-width, then fit-page.
+  await page.keyboard.press("Control+Backslash");
+  await page.keyboard.press("Control+Backslash");
+  await hold(1500);
+  await page.screenshot({ path: `${output}/pdf-page-1.png` });
+  await hold(4000);
+  for (let number = 2; number <= pageCount; number++) {
+    await chapter(`PDF 第 ${number} / ${pageCount} 页：参考图片与带样图的素材卡片`,
+      `PDF page ${number} / ${pageCount}: reference photos and illustrated material cards`, true);
+    // The native PDF surface has no DOM; the page-number control was visually
+    // verified in the fixed 1280 x 800 Edge recording viewport.
+    await page.mouse.move(637, 20, { steps: 12 });
+    await page.mouse.click(637, 20);
+    await page.keyboard.press("Control+a");
+    await page.keyboard.insertText(String(number));
+    await page.keyboard.press("Enter");
+    await hold(1500);
+    await page.screenshot({ path: `${output}/pdf-page-${number}.png` });
+    await hold(4500);
+  }
+  await chapter("放大查看：素材说明和样例图片一同保留在 PDF 中", "Zoom in: material descriptions and sample images stay together in the PDF", true);
+  // Review the populated material page, rather than scrolling into the spare
+  // space after the final card on the last PDF page.
+  await page.mouse.click(637, 20);
+  await page.keyboard.press("Control+a");
+  await page.keyboard.insertText("2");
+  await page.keyboard.press("Enter");
+  await hold(1000);
+  await page.keyboard.press("Control+Backslash");
+  await page.mouse.move(1020, 640, { steps: 12 });
+  await page.mouse.wheel(0, 320);
+  await hold(4000);
+  await page.screenshot({ path: `${output}/pdf-detail-1.png` });
+  await page.mouse.wheel(0, 480);
+  await hold(4000);
+  await page.screenshot({ path: `${output}/pdf-detail-2.png` });
+  await page.keyboard.press("Control+Backslash");
+  await chapter("完成：图文方案已导出，可分享给拍摄团队或打印携带", "Ready: share the illustrated PDF with your team or print it for the shoot", true);
+  await hold(3500);
   await page.screenshot({ path: `${output}/final.png` });
   if (errors.length) throw new Error(errors.join("\n"));
-  await writeFile(`${output}/chapters.json`, JSON.stringify({ duration: (Date.now() - start) / 1000, chapters }, null, 2));
+  await writeFile(`${output}/chapters.json`, JSON.stringify({ duration: (Date.now() - start) / 1000, chapters, pdfPages: pageCount }, null, 2));
 } catch (error) {
   await page.screenshot({ path: `${output}/failure.png` });
-  await writeFile(`${output}/failure.txt`, `${error.stack}\n${await page.locator("body").innerText()}`);
+  await writeFile(`${output}/failure.txt`, `${error.stack}\n${errors.join("\n")}\n${await page.locator("body").innerText()}`);
   throw error;
 } finally {
   await context.close();

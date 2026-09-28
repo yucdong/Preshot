@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Add sample images to the walkthrough's model, location, and prop materials.
+- Record PDF export followed by opening, paging, and zooming the actual PDF;
+  refresh the README video/GIF and include the exported PDF example.
+- Keep PDF card descriptions within their text column and keep short cards
+  together at page boundaries, while allowing taller cards to paginate.
+
 ## 0.0.3
 
 - Use the supplied photographer artwork for the application logo, browser

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#dce9e8"/><stop offset="1" stop-color="#f3eadc"/></linearGradient>
+    <linearGradient id="coat" x2="1" y2="1"><stop stop-color="#fff9ef"/><stop offset="1" stop-color="#d9c8b3"/></linearGradient>
+  </defs>
+  <rect width="960" height="720" fill="url(#sky)"/>
+  <circle cx="737" cy="158" r="92" fill="#fff5dc"/>
+  <path d="M0 420Q230 370 440 415T960 390V720H0Z" fill="#b1c9c8"/>
+  <path d="M0 490Q260 450 490 490T960 465" fill="none" stroke="#d8e5df" stroke-width="12"/>
+  <g stroke="#8da5a5" stroke-width="9" fill="none" opacity=".7">
+    <path d="M20 337H940M65 337V399M228 337V393M391 337V398M554 337V399M717 337V402M880 337V399"/>
+    <path d="M65 332L146 277L228 332L309 277L391 332L472 277L554 332L635 277L717 332L799 277L880 332" stroke-width="5"/>
+  </g>
+  <ellipse cx="480" cy="661" rx="200" ry="25" fill="#78928e" opacity=".3"/>
+  <path d="M374 270Q339 169 405 116Q464 66 540 110Q606 141 576 279L593 361L351 360Z" fill="#303941"/>
+  <path d="M433 279H514L525 372H420Z" fill="#dbad92"/>
+  <path d="M380 186Q394 143 436 143Q456 167 548 178L541 248Q533 298 483 316Q427 308 399 259Z" fill="#efc5a8"/>
+  <path d="M381 211Q358 191 371 164Q394 107 449 116Q427 169 381 211Z" fill="#303941"/>
+  <path d="M445 224L460 223M509 223L523 224" stroke="#414047" stroke-width="5" stroke-linecap="round"/>
+  <path d="M485 229L479 253L491 254" stroke="#cb927d" stroke-width="3" fill="none"/>
+  <path d="M469 273Q485 282 502 270" stroke="#b47970" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M408 325L447 350H501L543 325L613 388L650 650H313L341 389Z" fill="url(#coat)"/>
+  <path d="M447 350L476 449L506 350" fill="#a6b9b6"/>
+  <path d="M408 325L376 405L429 394L413 439L476 502L543 325L570 405L522 395" fill="none" stroke="#c5b69f" stroke-width="6"/>
+  <path d="M369 428L349 582Q417 593 482 539" fill="none" stroke="#eee3d2" stroke-width="53" stroke-linecap="round"/>
+  <path d="M482 539L525 500" stroke="#efc5a8" stroke-width="28" stroke-linecap="round"/>
+  <path d="M579 432L596 577L543 583" fill="none" stroke="#ddceb8" stroke-width="48" stroke-linecap="round"/>
+  <path d="M543 583L500 571" stroke="#efc5a8" stroke-width="27" stroke-linecap="round"/>
+  <path d="M473 502V650" stroke="#bcaa93" stroke-width="3"/>
+  <g fill="#8c8071"><circle cx="489" cy="527" r="5"/><circle cx="489" cy="599" r="5"/></g>
+  <rect x="38" y="35" width="225" height="48" rx="24" fill="#ffffff" opacity=".85"/>
+  <text x="61" y="66" font-family="Arial,sans-serif" font-size="19" letter-spacing="2" fill="#3d5557">MODEL A / MOCK</text>
+  <text x="47" y="677" font-family="Arial,sans-serif" font-size="20" letter-spacing="3" fill="#3d5557">RIVERSIDE PORTRAIT STUDY</text>
+</svg>

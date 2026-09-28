@@ -16,6 +16,12 @@ Desktop export asks where to save. Successful saves reveal the project
 directory. Fixed field labels follow the interface language; original
 document text, crop/fit settings, frame sizes, and image order are preserved.
 
+PDF material cards wrap descriptions using the bundled font metrics within
+the text column, leaving room for the image column. Cards that fit on a page
+move together when the current page has insufficient space; taller cards can
+still span pages. The [walkthrough](../demo/README.md) includes an exported PDF
+with illustrated model, location, and prop cards.
+
 Long images default to 900px width, with 890px compatibility available.
 WeChat JPEG targets 6,000px / 1 MiB, high-quality JPEG 8,000px / 3 MiB,
 and lossless PNG 4,000px / 8 MiB per part. These are practical compatibility

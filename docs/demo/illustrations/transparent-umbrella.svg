@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720">
+  <defs>
+    <linearGradient id="back" x2="0" y2="1"><stop stop-color="#edf1ec"/><stop offset="1" stop-color="#d3e3df"/></linearGradient>
+    <linearGradient id="canopy" x2="1" y2="1"><stop stop-color="#ffffff" stop-opacity=".88"/><stop offset="1" stop-color="#b6d6d9" stop-opacity=".3"/></linearGradient>
+  </defs>
+  <rect width="960" height="720" fill="url(#back)"/>
+  <circle cx="750" cy="206" r="117" fill="#faf5df"/>
+  <ellipse cx="478" cy="645" rx="222" ry="23" fill="#87a8a4" opacity=".25"/>
+  <g transform="rotate(-12 480 366)">
+    <path d="M480 143V585Q480 644 525 644Q570 644 570 600" fill="none" stroke="#71848a" stroke-width="12" stroke-linecap="round"/>
+    <path d="M480 145V125" stroke="#526970" stroke-width="12" stroke-linecap="round"/>
+    <path d="M161 377Q197 157 480 147Q755 157 801 377Q717 324 650 377Q570 321 480 377Q392 321 310 377Q238 324 161 377Z" fill="url(#canopy)" stroke="#688a91" stroke-width="5"/>
+    <path d="M480 150Q326 185 310 373M480 150V373M480 150Q637 187 650 373" fill="none" stroke="#8dadb1" stroke-width="4"/>
+    <path d="M480 150Q214 244 163 375M480 150Q754 244 799 375" fill="none" stroke="#8dadb1" stroke-width="3"/>
+    <path d="M273 278Q328 192 429 180" fill="none" stroke="white" stroke-width="16" stroke-linecap="round" opacity=".8"/>
+    <path d="M598 204Q674 237 708 290" fill="none" stroke="white" stroke-width="9" stroke-linecap="round" opacity=".6"/>
+    <path d="M480 561V585Q480 644 525 644Q570 644 570 600" fill="none" stroke="#374f58" stroke-width="21" stroke-linecap="round"/>
+    <g fill="#7898a1"><circle cx="163" cy="377" r="6"/><circle cx="310" cy="377" r="6"/><circle cx="480" cy="377" r="6"/><circle cx="650" cy="377" r="6"/><circle cx="801" cy="377" r="6"/></g>
+  </g>
+  <rect x="38" y="35" width="202" height="48" rx="24" fill="#ffffff" opacity=".85"/>
+  <text x="61" y="66" font-family="Arial,sans-serif" font-size="19" letter-spacing="2" fill="#3d5557">PROP 01 / MOCK</text>
+  <text x="47" y="677" font-family="Arial,sans-serif" font-size="20" letter-spacing="3" fill="#3d5557">CLEAR UMBRELLA / BACKLIGHT</text>
+</svg>

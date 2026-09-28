@@ -24,7 +24,8 @@ version = json.loads((root / "package.json").read_text(encoding="utf-8"))["versi
 chapters = metadata["chapters"]
 begin = chapters[0]["seconds"]
 end = metadata["duration"]
-speed = max(1.5, (end - begin) / 100)
+realtime_start = next((chapter["seconds"] for chapter in chapters if chapter.get("realtime")), end)
+speed = max(1.5, (realtime_start - begin) / 85)
 video = (work / "video-path.txt").read_text(encoding="utf-8").strip()
 mp4 = release / f"Preshot-{version}-demo.mp4"
 gif = root / "docs/media/preshot-demo.gif"
@@ -33,6 +34,12 @@ gif = root / "docs/media/preshot-demo.gif"
 def timestamp(seconds):
     centiseconds = round(max(0, seconds) * 100)
     return f"{centiseconds // 360000}:{centiseconds // 6000 % 60:02}:{centiseconds // 100 % 60:02}.{centiseconds % 100:02}"
+
+
+def playback_time(seconds):
+    """Speed up setup, but leave the actual PDF review at normal speed."""
+    return ((min(seconds, realtime_start) - begin) / speed
+            + max(0, seconds - realtime_start))
 
 
 ass = """[Script Info]
@@ -48,9 +55,9 @@ Style: English,Segoe UI,19,&H00B9BEC6,&H00B9BEC6,&H0017191D,&H0017191D,0,0,0,0,1
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 for index, chapter in enumerate(chapters):
-    start_time = (chapter["seconds"] - begin) / speed
+    start_time = playback_time(chapter["seconds"])
     next_time = (chapters[index + 1]["seconds"] if index + 1 < len(chapters) else end)
-    stop_time = (next_time - begin) / speed
+    stop_time = playback_time(next_time)
     for style, key in [("Chinese", "zh"), ("English", "en")]:
         ass += f"Dialogue: 0,{timestamp(start_time)},{timestamp(stop_time)},{style},,0,0,0,,{chapter[key]}\n"
 (work / "captions.ass").write_text(ass, encoding="utf-8-sig")
@@ -60,17 +67,24 @@ def run(arguments):
     subprocess.run([args.ffmpeg, "-hide_banner", "-loglevel", "warning", "-y", *arguments], cwd=root, check=True)
 
 
-filters = (f"trim=start={begin}:end={end},setpts=(PTS-STARTPTS)/{speed},"
-           "pad=1280:900:0:0:color=0x17191d,"
-           "subtitles=filename=.preshot-build-cache/demo/captions.ass:fontsdir=.preshot-build-cache/demo/fonts")
+finish = ("pad=1280:900:0:0:color=0x17191d,"
+          "subtitles=filename=.preshot-build-cache/demo/captions.ass:fontsdir=.preshot-build-cache/demo/fonts[out]")
+if realtime_start < end:
+    filters = ("[0:v]split=2[setup][pdf];"
+               f"[setup]trim=start={begin}:end={realtime_start},setpts=(PTS-STARTPTS)/{speed}[a];"
+               f"[pdf]trim=start={realtime_start}:end={end},setpts=PTS-STARTPTS[b];"
+               f"[a][b]concat=n=2:v=1:a=0,{finish}")
+else:
+    filters = f"[0:v]trim=start={begin}:end={end},setpts=(PTS-STARTPTS)/{speed},{finish}"
 if not args.gif_only:
     fonts = work / "fonts"
     fonts.mkdir(exist_ok=True)
     for font in (root / "src/infrastructure/pdf/fonts").glob("*.ttf"):
         shutil.copyfile(font, fonts / font.name)
-    run(["-i", video, "-vf", filters, "-an", "-r", "24", "-c:v", "libx264",
+    run(["-i", video, "-filter_complex", filters, "-map", "[out]", "-an", "-r", "24", "-c:v", "libx264",
          "-preset", "medium", "-crf", "21", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(mp4)])
 shutil.copyfile(mp4, root / "docs/media/preshot-demo.mp4")
+shutil.copyfile(work / "exports/bridge-portraits.pdf", root / "docs/media/preshot-demo.pdf")
 palette = work / "palette.png"
 run(["-i", str(mp4), "-vf", "fps=5,scale=880:-1:flags=lanczos,palettegen=max_colors=96:stats_mode=diff",
      "-frames:v", "1", "-update", "1", str(palette)])
@@ -78,5 +92,5 @@ run(["-i", str(mp4), "-i", str(palette), "-filter_complex",
      "[0:v]fps=5,scale=880:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle",
      "-loop", "0", str(gif)])
 run(["-ss", "4", "-i", str(mp4), "-frames:v", "1", "-update", "1", str(work / "caption-preview.png")])
-print(json.dumps({"mp4": str(mp4), "gif": str(gif), "seconds": round((end - begin) / speed, 1),
+print(json.dumps({"mp4": str(mp4), "gif": str(gif), "seconds": round(playback_time(end), 1),
                   "gifBytes": gif.stat().st_size, "videoBytes": mp4.stat().st_size}, indent=2))

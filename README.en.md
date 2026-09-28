@@ -56,12 +56,12 @@ Back up whole directories, including their image files.
 ## Walkthrough
 
 A Nanjing Yangtze River Bridge portrait session: create a project, plan fictional
-Model A with a transparent umbrella and bubble machine, collect references,
-build and reuse materials, then export the shooting plan.
+Model A with a transparent umbrella and bubble machine, add sample pictures to
+their materials, reuse them, then export a PDF and open the finished pages.
 
 ![Preshot walkthrough](docs/media/preshot-demo.gif)
 
-[Full video](docs/media/preshot-demo.mp4) · [Demo and photo credits](docs/demo/README.md) · [Installer](https://github.com/yucdong/Preshot/releases)
+[Full video](docs/media/preshot-demo.mp4) · [Sample PDF](docs/media/preshot-demo.pdf) · [Demo and photo credits](docs/demo/README.md) · [Installer](https://github.com/yucdong/Preshot/releases)
 
 ## Build from source
 

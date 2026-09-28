@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
 import {
   Document,
   Font,
@@ -9,9 +10,10 @@ import {
 } from "@react-pdf/renderer";
 import { PDFDocument } from "pdf-lib";
 import { zh } from "@blocknote/core/locales";
-import type { ReactElement } from "react";
+import { cloneElement, type ReactElement } from "react";
 import {
   afterEach,
+  afterAll,
   describe,
   expect,
   it,
@@ -28,7 +30,7 @@ import {
   PRESHOT_PDF_FONT_FAMILY,
   PRESHOT_PDF_DICTIONARY,
   createPreshotPdfAssetResolver,
-  createPreshotReactPdfExporter,
+  createPreshotReactPdfExporter as createPdfExporter,
   createPreshotReactPdfMappings,
   type PreshotImageGroupPdfMapping,
 } from "./blockNoteReactPdfMappings";
@@ -41,6 +43,16 @@ type ElementProps = Record<string, unknown> & {
 
 const imageGroupMapping: PreshotImageGroupPdfMapping = (block) =>
   <View key={`image-group-${block.id}`} wrap={false} />;
+
+function createPreshotReactPdfExporter(...args: Parameters<typeof createPdfExporter>) {
+  return createPdfExporter(args[0], {
+    ...args[1],
+    fontSources: args[1].fontSources ?? {
+      regular: resolve("src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf"),
+      bold: resolve("src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf"),
+    },
+  });
+}
 
 function block(
   type: PreshotEditorBlock["type"],
@@ -121,6 +133,50 @@ function allDescendants(element: ReactElement): ReactElement[] {
   ];
 }
 
+interface RenderedPdfNode {
+  type: string;
+  value?: string;
+  box?: { left: number; top: number; width: number; height: number };
+  lines?: { box: { width: number } }[];
+  children?: RenderedPdfNode[];
+}
+
+function renderedNodes(node: RenderedPdfNode): RenderedPdfNode[] {
+  return [node, ...(node.children ?? []).flatMap(renderedNodes)];
+}
+
+async function renderArtifactLayout(spacerHeight = 0, repetitions = 1) {
+  const source = "自备一把透明长柄伞；擦净伞面，半侧身举伞，露出面部。拍摄前检查伞骨，并在安全步道上使用。".repeat(repetitions);
+  const artifact = {
+    id: "layout-prop", kind: "prop" as const, revision: 0,
+    title: "透明伞", source,
+    gallery: { id: "layout-gallery", images: [{
+      id: "sample", file: "references/sample.png", aspectRatio: 4 / 3,
+      sourceWidth: 960, sourceHeight: 720, frameWidth: 300, frameHeight: 225,
+    }] },
+  };
+  const pdf = createPreshotReactPdfExporter(context(), {
+    imageGroup: imageGroupMapping, artifacts: [artifact],
+    resolvedAssets: { "references/sample.png": `data:image/png;base64,${readFileSync("src-tauri/icons/32x32.png").toString("base64")}` },
+    fontSources: {
+      regular: resolve("src/infrastructure/pdf/fonts/NotoSansSC-Regular.ttf"),
+      bold: resolve("src/infrastructure/pdf/fonts/NotoSansSC-Bold.ttf"),
+    },
+  });
+  const document = await pdf.toReactPDFDocument([
+    block("prop", { artifactId: artifact.id }, undefined),
+  ]);
+  const page = childElements(document)[0];
+  let layout: RenderedPdfNode | undefined;
+  await renderToBuffer(cloneElement(
+    document as ReactElement<React.ComponentProps<typeof Document>>,
+    { onRender: (data) => { layout = (data as unknown as { _INTERNAL__LAYOUT__DATA_: RenderedPdfNode })._INTERNAL__LAYOUT__DATA_; } },
+    cloneElement(page, {}, <View style={{ height: spacerHeight }} />, props(page).children as React.ReactNode),
+  ));
+  if (!layout) throw new Error("React-PDF did not report its rendered layout");
+  return { layout, source };
+}
+
 function exporter(currentContext = context()) {
   return createPreshotReactPdfExporter(currentContext, {
     imageGroup: imageGroupMapping,
@@ -143,11 +199,40 @@ async function mapBlock(
 }
 
 afterEach(() => {
-  Font.reset();
   vi.restoreAllMocks();
 });
 
+afterAll(() => Font.reset());
+
 describe("BlockNote React-PDF mappings", () => {
+  it("wraps long artifact descriptions inside the text column beside sample images", async () => {
+    const { layout, source } = await renderArtifactLayout();
+    const metadata = renderedNodes(layout).find((node) =>
+      node.type === "TEXT" && node.children?.some((child) => child.value?.replaceAll("\n", "") === source));
+    expect(metadata).toBeDefined();
+    expect(metadata!.lines!.length).toBeGreaterThan(1);
+    for (const line of metadata!.lines!) {
+      expect(line.box.width).toBeLessThanOrEqual(metadata!.box!.width + 0.1);
+    }
+  }, 30_000);
+
+  it("moves a short illustrated card together when the page has insufficient space", async () => {
+    const { layout } = await renderArtifactLayout(PDF_VISUAL_CONTRACT.page.contentHeight - 65);
+    expect(layout.children).toHaveLength(2);
+    const titlePages = layout.children!.map((page, index) =>
+      renderedNodes(page).some((node) => node.value === "透明伞") ? index : -1).filter((index) => index >= 0);
+    expect(titlePages).toEqual([1]);
+    expect(renderedNodes(layout.children![1]).filter((node) => node.type === "IMAGE")).toHaveLength(1);
+  }, 30_000);
+
+  it("still paginates illustrated cards with descriptions taller than a page", async () => {
+    const { layout } = await renderArtifactLayout(0, 60);
+    expect(layout.children!.length).toBeGreaterThan(1);
+    const nodes = renderedNodes(layout);
+    expect(nodes.filter((node) => node.type === "IMAGE")).toHaveLength(1);
+    expect(nodes.reduce((lines, node) => lines + (node.lines?.length ?? 0), 0)).toBeGreaterThan(100);
+  }, 30_000);
+
   it("composes the official mappings and covers every shared block", () => {
     const mappings = createPreshotReactPdfMappings(context(), {
       imageGroup: imageGroupMapping,

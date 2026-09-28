@@ -41,11 +41,11 @@ Release 同时提供 SHA-256 校验文件和构建信息；签名与验证情况
 
 ## 操作演示
 
-以“南京长江大桥风光人像”为例：创建项目，规划虚构模特 A、透明伞和泡泡机，收集参考图，建立并复用素材，最后导出拍摄方案。
+以“南京长江大桥风光人像”为例：创建项目，为虚构模特 A、透明伞和泡泡机添加样例图片，建立并复用素材，最后导出 PDF 并打开查看成品。
 
 ![Preshot 操作流程](docs/media/preshot-demo.gif)
 
-[完整视频](docs/media/preshot-demo.mp4) · [演示说明与图片来源](docs/demo/README.md) · [安装包](https://github.com/yucdong/Preshot/releases)
+[完整视频](docs/media/preshot-demo.mp4) · [PDF 示例](docs/media/preshot-demo.pdf) · [演示说明与图片来源](docs/demo/README.md) · [安装包](https://github.com/yucdong/Preshot/releases)
 
 ## 从源码构建
 

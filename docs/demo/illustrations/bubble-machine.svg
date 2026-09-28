@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720">
+  <defs>
+    <linearGradient id="back" x2="1" y2="1"><stop stop-color="#ebe8f0"/><stop offset="1" stop-color="#dcece8"/></linearGradient>
+    <linearGradient id="body" x2="1" y2="1"><stop stop-color="#e8bf97"/><stop offset="1" stop-color="#bc8871"/></linearGradient>
+    <linearGradient id="bubble" x2="1" y2="1"><stop stop-color="#ffffff"/><stop offset=".45" stop-color="#b4d6d4"/><stop offset=".75" stop-color="#d4aac7"/><stop offset="1" stop-color="#fff0c4"/></linearGradient>
+  </defs>
+  <rect width="960" height="720" fill="url(#back)"/>
+  <ellipse cx="428" cy="598" rx="226" ry="29" fill="#748e8c" opacity=".23"/>
+  <path d="M286 316V278Q286 246 318 246H485Q519 246 519 278V316" fill="none" stroke="#695c56" stroke-width="24"/>
+  <path d="M247 348L307 310H538Q566 310 566 346V519L511 572H277Q247 572 247 540Z" fill="#997363"/>
+  <rect x="240" y="340" width="284" height="231" rx="36" fill="url(#body)"/>
+  <circle cx="389" cy="448" r="92" fill="#695c56"/>
+  <circle cx="389" cy="448" r="72" fill="#a9b7ac"/>
+  <g fill="#526a67" stroke="#c9d4c8" stroke-width="6">
+    <circle cx="389" cy="396" r="20"/><circle cx="434" cy="421" r="20"/><circle cx="434" cy="474" r="20"/>
+    <circle cx="389" cy="500" r="20"/><circle cx="344" cy="474" r="20"/><circle cx="344" cy="421" r="20"/>
+  </g>
+  <circle cx="389" cy="448" r="13" fill="#dce2d5"/>
+  <rect x="277" y="568" width="43" height="20" rx="8" fill="#695c56"/><rect x="458" y="568" width="43" height="20" rx="8" fill="#695c56"/>
+  <rect x="464" y="321" width="30" height="10" rx="5" fill="#68837d"/>
+  <g fill="#ffffff" fill-opacity=".2" stroke="url(#bubble)" stroke-width="5">
+    <circle cx="628" cy="356" r="49"/><circle cx="707" cy="222" r="69"/><circle cx="557" cy="146" r="32"/>
+    <circle cx="815" cy="399" r="35"/><circle cx="802" cy="106" r="26"/><circle cx="557" cy="266" r="21"/>
+    <circle cx="722" cy="506" r="24"/><circle cx="348" cy="154" r="24"/>
+  </g>
+  <g fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".9">
+    <path d="M674 177Q695 161 716 165M604 324Q619 312 631 313M546 128L552 124M801 378L808 375"/>
+  </g>
+  <rect x="38" y="35" width="202" height="48" rx="24" fill="#ffffff" opacity=".85"/>
+  <text x="61" y="66" font-family="Arial,sans-serif" font-size="19" letter-spacing="2" fill="#3d5557">PROP 02 / MOCK</text>
+  <text x="47" y="677" font-family="Arial,sans-serif" font-size="20" letter-spacing="3" fill="#3d5557">BUBBLE MACHINE / SOFT FOREGROUND</text>
+</svg>
