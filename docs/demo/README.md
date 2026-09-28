@@ -20,6 +20,13 @@ evidence of native persistence or
 Windows installer acceptance. Windows screen capture is explained at the
 image-panel step; the recording does not simulate a successful Windows snip.
 
+The refreshed recording is approximately two minutes long. New materials return
+to the library automatically after their first confirmed save. The walkthrough
+asserts that behaviour, then previews and reuses the saved items. Its actual
+three-page PDF includes bridge, model, umbrella and bubble-machine images.
+See the [acceptance record](../test_reports/msi-full-journey.md) for automated
+results and the separate installed-desktop verification status.
+
 ## Media
 
 - [README GIF](../media/preshot-demo.gif)
@@ -45,6 +52,9 @@ screenshots, and actual exported PDF under
 Review the raw video before rendering. Chapter timestamps initially use the
 automation clock; align `chapters.json` to the recorded frames if Edge's video
 encoder introduces timing drift. The final review must include the PDF closeups.
+Avoid running initializer or packaging-script tests while recording; those
+tests create temporary project trees that the development server may observe.
+The recorder logs top-level navigations to help diagnose unexpected reloads.
 
 Install FFmpeg with libass and libx264 support, then run
 `python scripts/render-demo.py --ffmpeg <path-to-ffmpeg.exe>`. This produces

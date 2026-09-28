@@ -28,6 +28,7 @@ proposals and prototypes remain available through Git history.
 | Source commit, tag, and downloadable assets | [GitHub release](release/github.md) |
 | Installed 0.0.3 material-library image and dialog findings | [MSI regression report](test_reports/msi-0.0.3-material-library.md) |
 | Material-library repair and installed 0.0.5 verification | [MSI repair verification](test_reports/msi-0.0.5-material-library.md) |
+| Installed-app user stories and full workflow acceptance | [Full journey matrix](test_reports/msi-full-journey.md) |
 | Application and dependency licenses | [Licensing](release/licensing.md) |
 | Contributor rules | [AGENTS.md](../AGENTS.md) |
 | Release changes | [Changelog](../CHANGELOG.md) |

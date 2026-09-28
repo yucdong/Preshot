@@ -31,8 +31,8 @@ test("inserts selected library group images and single images into project and m
   await edit.getByRole("textbox", { name: "素材名称", exact: true }).fill("单张素材");
   await edit.getByTitle("从文件添加图片", { exact: true }).click();
   await edit.getByRole("button", { name: "保存素材", exact: true }).click();
-  await expect(edit.getByRole("button", { name: "关闭编辑素材", exact: true })).toBeEnabled();
-  await edit.getByRole("button", { name: "关闭编辑素材", exact: true }).click();
+  await expect(edit).toBeHidden();
+  await expect(library.getByRole("button", { name: "选择素材：单张素材", exact: true })).toBeVisible();
   await library.getByRole("button", { name: "关闭素材库", exact: true }).click();
 
   await target.getByRole("button", { name: "从素材库插入", exact: true }).click();

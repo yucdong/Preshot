@@ -21,8 +21,8 @@ test("legacy clothing and new props share one category, editor and search", asyn
   await editor.getByRole("textbox", { name: "道具与服装名称", exact: true }).fill("透明杯子");
   await editor.getByRole("textbox", { name: "道具与服装信息", exact: true }).fill("道具和服装共用的说明字段");
   await editor.getByRole("button", { name: "保存素材", exact: true }).click();
-  await expect(editor.getByText("素材已保存，可继续编辑；关闭后更新预览。")).toBeVisible();
-  await editor.getByRole("button", { name: "关闭", exact: true }).click();
+  await expect(editor).toBeHidden();
+  await expect(library.getByRole("button", { name: "选择素材：拍摄用玻璃杯" })).toBeVisible();
   await category.click();
   await expect(library.getByRole("button", { name: /^选择素材：/ })).toHaveCount(2);
   await expect(category).toHaveAttribute("aria-pressed", "true");

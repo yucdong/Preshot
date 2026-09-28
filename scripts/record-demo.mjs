@@ -20,6 +20,9 @@ page.setDefaultNavigationTimeout(120_000);
 const video = page.video();
 const chapters = [];
 const errors = [];
+page.on("framenavigated", (frame) => {
+  if (frame === page.mainFrame()) console.log(`Navigation: ${frame.url()}`);
+});
 page.on("pageerror", (error) => {
   errors.push(error.message);
   console.error(error.stack ?? error.message);
@@ -68,10 +71,11 @@ async function createMaterial({ category, name, description, tags, fields = {}, 
     await page.screenshot({ path: `${output}/material-${photos[0].replace(/\.[^.]+$/, "")}.png` });
   }
   await click(button("保存素材", materialEditor));
-  await expect(materialEditor.getByText("素材已保存，可继续编辑；关闭后更新预览。")).toBeVisible({ timeout: 20_000 });
-  await hold(600);
-  await click(button("关闭", materialEditor));
+  // A confirmed first save retires the draft and returns to the library.
+  // Waiting for the existing-material success banner stalls this walkthrough.
+  await expect(materialEditor).toBeHidden({ timeout: 20_000 });
   await expect(button(`选择素材：${name}`, library)).toBeVisible();
+  await hold(600);
 }
 
 async function insertMaterial(name, isGroup = false) {
