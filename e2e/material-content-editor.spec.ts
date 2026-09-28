@@ -1,4 +1,13 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function expectPreviewText(page: Page, text: string) {
+  const browser = page.getByRole("dialog", { name: "素材库", exact: true });
+  await expect(browser.getByText(text, { exact: true })).toHaveCount(0);
+  await browser.getByRole("button", { name: "预览", exact: true }).click();
+  const preview = page.getByRole("dialog", { name: "完整组件预览", exact: true });
+  await expect(preview.getByText(text, { exact: true })).toBeVisible();
+  await preview.getByRole("button", { name: "关闭完整组件预览" }).click();
+}
 
 test("material content canvas cancels safely, locks block structure and saves an independent revision", async ({ page }) => {
   const errors: string[] = [];
@@ -31,7 +40,7 @@ test("material content canvas cancels safely, locks block structure and saves an
   await confirmation.getByRole("button", { name: "放弃修改" }).click();
   await expect(editor).toBeHidden();
   await expect(browser.getByRole("searchbox")).toBeFocused();
-  await expect(browser.getByText("透明玻璃杯", { exact: true }).first()).toBeVisible();
+  await expectPreviewText(page, "透明玻璃杯");
 
   await browser.getByRole("button", { name: "编辑素材", exact: true }).click();
   await expect(title).toHaveValue("透明玻璃杯");
@@ -65,7 +74,7 @@ test("material content canvas cancels safely, locks block structure and saves an
   await editor.getByRole("button", { name: "关闭", exact: true }).click();
   await expect(editor).toBeHidden({ timeout: 30_000 });
   await expect(browser.getByRole("searchbox")).toBeFocused();
-  await expect(browser.getByText("磨砂玻璃杯", { exact: true }).first()).toBeVisible();
+  await expectPreviewText(page, "磨砂玻璃杯");
   await browser.getByRole("searchbox").fill("窗边专用");
   await expect(browser.getByRole("button", { name: "选择素材：窗边道具素材" })).toBeVisible();
   await browser.getByRole("searchbox").fill("微光拍摄专用");
@@ -111,7 +120,7 @@ test("an interrupted edit response is confirmed without a second content revisio
   await editor.getByRole("button", { name: "关闭", exact: true }).click();
   await expect(editor).toBeHidden({ timeout: 30_000 });
   await expect(browser.getByText(/内容版本|元数据版本/)).toHaveCount(0);
-  await expect(browser.getByText("回执确认的杯子", { exact: true }).first()).toBeVisible();
+  await expectPreviewText(page, "回执确认的杯子");
   await expect(browser.getByRole("button", { name: "选择素材：回执确认的素材" })).toBeVisible();
 });
 

@@ -314,7 +314,7 @@ test("creates, edits, saves, and exports a BlockNote v15 project", async ({ page
   ]);
   await page.keyboard.type("/");
   await page.getByText("图片组", { exact: true }).click();
-  const group = page.locator(".preshot-blocknote-image-group");
+  const group = page.locator(".preshot-blocknote-image-group-shell");
   await expect(group).toBeVisible();
   await expect(group.getByRole("button", { name: "添加图片" }).first())
     .toHaveAttribute("title", "从文件添加图片");
@@ -324,8 +324,8 @@ test("creates, edits, saves, and exports a BlockNote v15 project", async ({ page
     .toBeVisible();
   await expect(group.getByRole("button", { name: "删除图片组" }))
     .toHaveAttribute("title", "删除图片组");
-  await expect(group.getByText("图片组", { exact: true }))
-    .toHaveAttribute("title", "拖动图片组");
+  await expect(group.getByRole("heading", { name: "图片组", exact: true }))
+    .toBeVisible();
   await expect.poll(() => group.locator(
     ".preshot-blocknote-image-group-toolbar",
   ).evaluate((toolbar) =>
@@ -453,7 +453,7 @@ test("creates, edits, saves, and exports a BlockNote v15 project", async ({ page
 
   const sourceIds = await group.locator("[data-image-id]").evaluateAll((frames) =>
     frames.map((frame) => (frame as HTMLElement).dataset.imageId ?? ""));
-  const sourceGroupId = await group.getAttribute("data-image-group-id");
+  const sourceGroupId = await group.locator(".preshot-image-drag-target-group").getAttribute("data-image-group-id");
   const firstBox = await group.locator(`[data-image-id="${sourceIds[0]}"]`).boundingBox();
   const secondBox = await group.locator(`[data-image-id="${sourceIds[1]}"]`).boundingBox();
   if (!firstBox || !secondBox || !sourceGroupId) {
@@ -522,7 +522,7 @@ test("creates, edits, saves, and exports a BlockNote v15 project", async ({ page
       groups.map((entry) => entry.getAttribute("data-image-group-id")));
   expect(new Set(groupIds).size).toBe(2);
 
-  const duplicate = page.locator(".preshot-blocknote-image-group").nth(1);
+  const duplicate = page.locator(".preshot-blocknote-image-group-shell").nth(1);
   await duplicate.getByRole("button", { name: "删除图片组" }).click();
   await expect(page.locator(".preshot-blocknote-image-group")).toHaveCount(1);
   await expect(page.locator(".preshot-block-operation-toast"))
@@ -1222,8 +1222,8 @@ test("previews and commits a cross-group image drag transaction", async ({
   });
   await page.goto("/");
 
-  const source = page.locator('[data-image-group-id="source-group"]');
-  const target = page.locator('[data-image-group-id="target-group"]');
+  const source = page.locator('.preshot-image-drag-target-group[data-image-group-id="source-group"]');
+  const target = page.locator('.preshot-image-drag-target-group[data-image-group-id="target-group"]');
   await expect(source.locator("[data-image-id]")).toHaveCount(2);
   await expect(target.locator("[data-image-id]")).toHaveCount(1);
   const canvas = page.getByTestId("plan-document-canvas");
@@ -1265,7 +1265,7 @@ test("previews and commits a cross-group image drag transaction", async ({
     await canvas.evaluate((element, value) => {
       (element as HTMLElement).style.zoom = String(value);
     }, zoom);
-    await target.evaluate((element) => {
+    await target.locator('[data-image-id="target-a"]').evaluate((element) => {
       element.scrollIntoView({ block: "center", inline: "center" });
     });
     const sourceFirstBox = await source.locator(
@@ -1453,7 +1453,7 @@ test("previews and commits a cross-group image drag transaction", async ({
         stoppedScrollTop,
       );
     }
-    await target.evaluate((element) => {
+    await target.locator('[data-image-id="target-a"]').evaluate((element) => {
       element.scrollIntoView({ block: "center", inline: "center" });
     });
     await page.evaluate(() =>
@@ -2049,7 +2049,7 @@ test("blocks schema-v12 projects without opening the canvas", async ({ page }) =
   await page.goto("/");
 
   await expect(page.getByRole("alert")).toContainText("方案版本不兼容");
-  await expect(page.getByRole("alert")).toContainText("schema 12");
+  await expect(page.getByRole("alert")).toContainText("当前项目版本为 12，需要版本 15");
   await expect(page.locator('[data-editor-engine="blocknote"]')).toHaveCount(0);
   await expect(page.getByRole("button", { name: "导出" })).toHaveCount(0);
   await expect(page.getByRole("menu")).toHaveCount(0);

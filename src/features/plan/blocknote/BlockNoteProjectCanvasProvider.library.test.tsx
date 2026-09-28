@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { MaterialDetail } from "../../../domain/library/models";
@@ -143,14 +144,16 @@ function currentEditor(): PreshotBlockNoteEditor {
 }
 
 async function chooseMaterial() {
+  const user = userEvent.setup();
   await screen.findByRole("group", { name: "方案正文" });
-  fireEvent.click(screen.getByRole("button", { name: "素材库" }));
+  await waitFor(() => expect(currentEditor()).toBeDefined());
+  await user.click(screen.getByRole("button", { name: "素材库" }));
   const names = await screen.findAllByText("玻璃杯道具");
-  fireEvent.click(names[0]);
+  await user.click(names[0]);
   const dialog = screen.getByRole("dialog");
   const insert = within(dialog).getByRole("button", { name: /^插入/ });
   await waitFor(() => expect(insert).toBeEnabled());
-  fireEvent.click(insert);
+  await user.click(insert);
 }
 
 describe("material library and the real project editor", () => {

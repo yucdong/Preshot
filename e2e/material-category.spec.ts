@@ -37,7 +37,10 @@ test("legacy clothing and new props share one category, editor and search", asyn
   await editor.getByRole("button", { name: "保存素材", exact: true }).click();
   await expect(editor.getByText("素材已保存，可继续编辑；关闭后更新预览。")).toBeVisible();
   await editor.getByRole("button", { name: "关闭", exact: true }).click();
-  await expect(library.getByText("保留旧服装的完整内容", { exact: true }).first()).toBeVisible();
+  await library.getByRole("button", { name: "预览", exact: true }).click();
+  const preview = page.getByRole("dialog", { name: "完整组件预览", exact: true });
+  await expect(preview.getByText("保留旧服装的完整内容", { exact: true })).toBeVisible();
+  await preview.getByRole("button", { name: "关闭完整组件预览" }).click();
   await page.screenshot({ path: test.info().outputPath("merged-category.png"), animations: "disabled" });
   await library.getByRole("button", { name: "插入到当前文档", exact: true }).click();
   await expect(library).toBeHidden();
