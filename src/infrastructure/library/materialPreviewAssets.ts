@@ -132,6 +132,7 @@ export async function prepareMaterialPreview(
   repository: MaterialLibraryRepository,
   material: MaterialDetail,
   signal: AbortSignal,
+  assetUrl: "blob" | "data" = "blob",
 ): Promise<PreparedMaterialPreview> {
   assertPreviewActive(signal);
   validateImages(material);
@@ -203,9 +204,15 @@ export async function prepareMaterialPreview(
         closeBitmap(bitmap);
       }
       assertPreviewActive(signal);
-      const objectUrl = URL.createObjectURL(blob);
-      objectUrls.push(objectUrl);
-      resolvedAssets[files[index].file] = objectUrl;
+      if (assetUrl === "data") {
+        // Capture embeds images inside an SVG. Reuse the already validated
+        // offline URL so the screenshot worker never needs to fetch a blob.
+        resolvedAssets[files[index].file] = url;
+      } else {
+        const objectUrl = URL.createObjectURL(blob);
+        objectUrls.push(objectUrl);
+        resolvedAssets[files[index].file] = objectUrl;
+      }
     }
     return {
       plan, resolvedAssets, sourceTokens: new Map(files.map(file => [file.file, file.localImageId])),

@@ -112,8 +112,8 @@ pub async fn library_load_image(
 }
 
 #[tauri::command]
-pub async fn library_load_preview(id: String, revision: u32) -> Result<Option<String>> {
-    blocking(move || store()?.load_preview(&id, revision)).await
+pub async fn library_load_preview(id: String, revision: u32, render_key: String) -> Result<Option<String>> {
+    blocking(move || store()?.load_preview_for_renderer(&id, revision, Some(&render_key))).await
 }
 
 #[tauri::command]

@@ -55,8 +55,8 @@ function setup(creating = false) {
 }
 
 describe("MaterialContentEditor", () => {
-  it("creates only after a valid first save, stays open, then updates the same ID", async () => {
-    const { user, commitEdit, onClose, onSaved, checkDuplicateName } = setup(true);
+  it("closes a new material after its first confirmed save and draft cleanup", async () => {
+    const { user, repository, commitEdit, onClose, onSaved, checkDuplicateName } = setup(true);
     await screen.findByDisplayValue("原模特");
     expect(screen.getByRole("dialog", { name: "创建素材" })).toBeVisible();
     expect(commitEdit).not.toHaveBeenCalled();
@@ -66,19 +66,29 @@ describe("MaterialContentEditor", () => {
     expect(checkDuplicateName).not.toHaveBeenCalled();
     await user.type(name, "新建模特");
     await user.click(screen.getByRole("button", { name: "保存素材" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "保存素材" })).toBeDisabled());
-    await waitFor(() => expect(name).toBeEnabled());
-    expect(screen.getByRole("dialog", { name: "编辑素材" })).toBeVisible();
-    expect(onClose).not.toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: "material-model", revision: 1 })));
+    expect(repository.discardEdit).toHaveBeenCalledExactlyOnceWith("material-draft");
+    expect(repository.beginEdit).not.toHaveBeenCalled();
     expect(checkDuplicateName).toHaveBeenLastCalledWith("新建模特", undefined);
     expect(commitEdit.mock.calls[0][0].metadataUpdate?.expectedVersion).toBe(0);
     expect(onSaved).toHaveBeenLastCalledWith(expect.objectContaining({ id: "material-model", revision: 1, metadataVersion: 1 }));
-    await user.type(name, "更新");
+    expect(commitEdit).toHaveBeenCalledOnce();
+  });
+
+  it("retains a saved creation on cleanup failure and retries close without another save", async () => {
+    const { user, repository, commitEdit, onClose } = setup(true);
+    vi.mocked(repository.discardEdit).mockRejectedValueOnce(new Error("草稿清理暂时失败"));
+    await screen.findByDisplayValue("原模特");
+    await user.type(screen.getByRole("textbox", { name: "素材名称" }), "新建模特");
     await user.click(screen.getByRole("button", { name: "保存素材" }));
-    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(2));
-    expect(checkDuplicateName).toHaveBeenLastCalledWith("新建模特更新", "material-model");
-    expect(commitEdit.mock.calls[1][0].metadataUpdate?.expectedVersion).toBe(1);
-    expect(onSaved).toHaveBeenLastCalledWith(expect.objectContaining({ id: "material-model", revision: 2, metadataVersion: 2 }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("草稿清理暂时失败");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(repository.beginEdit).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "保存素材" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "关闭" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(repository.discardEdit).toHaveBeenCalledTimes(2);
+    expect(commitEdit).toHaveBeenCalledOnce();
   });
 
   it("cancels an untouched creation draft without publishing any material", async () => {

@@ -82,8 +82,7 @@ test("creates and searches a single image material, previews it and reopens its 
   await expect(editor.getByRole("button", { name: "添加图片", exact: true })).toBeDisabled();
   await expect(editor.getByRole("button", { name: "截图", exact: true })).toBeDisabled();
   await editor.getByRole("button", { name: "保存素材", exact: true }).click();
-  await expect(editor.getByText("素材已保存，可继续编辑；关闭后更新预览。")).toBeVisible();
-  await editor.getByRole("button", { name: "关闭", exact: true }).click();
+  await expect(editor).toBeHidden();
   const search = library.getByRole("searchbox");
   for (const word of ["午后自然光", "逆光"]) {
     await search.fill(word);

@@ -2,6 +2,7 @@ import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { MaterialDetail, MaterialPreviewInput } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
+import { MATERIAL_PREVIEW_RENDER_KEY } from "./materialPreviewCache";
 import { artifactCollectionsInPlan } from "../../domain/plan/canvas/blockDocument";
 import type { ImageClipboardSelection } from "../../domain/clipboard/imageClipboard";
 import { imageClipboardFilename, unavailableImageClipboard } from "../../domain/clipboard/imageClipboard";
@@ -27,7 +28,6 @@ const MAX_CAPTURE_PIXELS = 8_000_000;
 const MAX_THUMBNAIL_WIDTH = 480;
 const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
 const PREVIEW_TIMEOUT_MS = 60_000;
-const RENDER_KEY = "preshot-material-preview:v4:plan15:bn0.53:light:900:480:8192:8M:png";
 const PARTIAL_LABEL = "局部缩略图 · 完整内容请打开预览";
 const hiddenText: CSSProperties = {
   position: "absolute", width: 1, height: 1, padding: 0, margin: -1,
@@ -113,7 +113,7 @@ async function thumbnail(
         assertPreviewActive(signal);
         return {
           bytes: Array.from(bytes), width, height: canvas.height,
-          renderKey: RENDER_KEY, isPartial,
+          renderKey: MATERIAL_PREVIEW_RENDER_KEY, isPartial,
         };
       }
       if (width <= 240) {
@@ -152,7 +152,7 @@ async function persistPreview(
   };
   signal.addEventListener("abort", abort, { once: true });
   try {
-    prepared = await prepareMaterialPreview(repository, material, signal);
+    prepared = await prepareMaterialPreview(repository, material, signal, "data");
     mountingSurface = true;
     try {
       surface = await mountLongImageExportSurface({
@@ -165,6 +165,13 @@ async function persistPreview(
       mountingSurface = false;
     }
     assertPreviewActive(signal);
+    // Original bytes may decode even when the rendered image is blocked.
+    // Never persist a capture of that empty frame as a valid cache.
+    for (const image of surface.element.querySelectorAll("img")) {
+      if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+        throw new Error(ui("无法加载素材原图"));
+      }
+    }
     applyPreviewPresentation(surface.element);
     const measuredHeight = Math.ceil(surface.measurements.height);
     if (
@@ -231,6 +238,7 @@ async function persistPreview(
 }
 
 const activePreviews = new WeakMap<MaterialLibraryRepository, Map<string, Promise<void>>>();
+const previewQueues = new WeakMap<MaterialLibraryRepository, Promise<void>>();
 
 // This module intentionally exposes the preview component together with its cache command.
 // eslint-disable-next-line react-refresh/only-export-components
@@ -246,8 +254,17 @@ export function createMaterialPreview(
   const key = JSON.stringify([material.id, material.revision]);
   const existing = pending.get(key);
   if (existing) return existing;
-  const operation = persistPreview(repository, material).finally(() => pending.delete(key));
+  // An upgrade can expose 50 stale thumbnails at once. Bound decoded images
+  // and capture surfaces to one component per repository, including saves.
+  const previous = previewQueues.get(repository) ?? Promise.resolve();
+  const operation = previous.catch(() => undefined)
+    .then(() => persistPreview(repository, material))
+    .finally(() => {
+      pending.delete(key);
+      if (previewQueues.get(repository) === operation) previewQueues.delete(repository);
+    });
   pending.set(key, operation);
+  previewQueues.set(repository, operation);
   return operation;
 }
 

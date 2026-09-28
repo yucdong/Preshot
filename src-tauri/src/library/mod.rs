@@ -471,19 +471,32 @@ impl Store {
         Ok(self.root.join("previews").join(format!("{hash}.png")))
     }
 
+    #[cfg(test)]
     fn load_preview(&self, id: &str, revision: u32) -> Result<Option<String>> {
+        self.load_preview_for_renderer(id, revision, None)
+    }
+
+    fn load_preview_for_renderer(
+        &self,
+        id: &str,
+        revision: u32,
+        render_key: Option<&str>,
+    ) -> Result<Option<String>> {
         let detail = self.revision(id, revision)?;
         if detail.summary.preview_state != PreviewState::Ready {
             return Ok(None);
         }
-        let hash: String = self
+        let (hash, cached_key): (String, Option<String>) = self
             .conn
             .query_row(
-                "SELECT preview_hash FROM materials WHERE id=?1",
+                "SELECT preview_hash,preview_render_key FROM materials WHERE id=?1",
                 [id],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .map_err(|e| error("preview", e))?;
+        if render_key.is_some() && render_key != cached_key.as_deref() {
+            return Ok(None);
+        }
         let bytes = files::read_limited(&self.preview_path(&hash)?, 2 * 1024 * 1024)?;
         if files::hash(&bytes) != hash {
             return Err(error("preview", "Cached preview is corrupt; regenerate it"));

@@ -12,8 +12,10 @@ Five categories are available: **Image**, **Image group**, **Location**,
 
 Choose **Create material**, choose a category, and fill in the content, name,
 description, and keyword tags. The editor uses the same component controls as
-the project. Saving creates the material and keeps the editor open. Duplicate
-names prompt for confirmation without overwriting another item.
+the project. The first successful save creates the material, closes its editor,
+and selects it in the library. Editing an existing material supports repeated
+saves without closing. Duplicate names prompt for confirmation without
+overwriting another item. Failed or unconfirmed saves retain the draft for retry.
 
 Components can also be saved from document actions; selected images have an
 **Add to material library** action. For the portrait demo, create a bridge
@@ -23,6 +25,11 @@ Filter by category, names, descriptions, keywords, or favorites. Selecting an
 item shows details; full preview starts only after **Preview** is clicked.
 Editing owns a separate one-component draft and does not rewrite previously
 inserted project copies. Discard removes only edits since the last save.
+
+Local preview images work offline in installed builds. On upgrading from 0.0.3,
+outdated thumbnails rebuild automatically as their library results are shown,
+one at a time. Original images, content revisions, and metadata stay unchanged.
+Full previews still open only when requested.
 
 ## Insert
 

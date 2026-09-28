@@ -130,7 +130,7 @@ describe("MaterialLibraryProvider", () => {
     expect(currentOpen).toHaveBeenCalledOnce();
   });
 
-  it("creates without a project, keeps repeated saves open, and selects the new material after closing", async () => {
+  it("creates without a project, closes after save, and selects the new material", async () => {
     const user = userEvent.setup();
     let current = structuredClone(material);
     let published = false;
@@ -166,12 +166,10 @@ describe("MaterialLibraryProvider", () => {
     expect(contentEditor.beginCreate).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ kind: "prop" }));
     await user.type(screen.getByRole("textbox", { name: "素材名称" }), "新建的道具素材");
     await user.click(screen.getByRole("button", { name: "保存素材" }));
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "编辑素材" })).toBeVisible());
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "素材名称" })).toBeEnabled());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "编辑素材" })).not.toBeInTheDocument());
     expect(published).toBe(true);
-    expect(createPreview).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "关闭" }));
     await screen.findByRole("button", { name: "选择素材：新建的道具素材" });
+    expect(contentEditor.beginEdit).not.toHaveBeenCalled();
     await waitFor(() => expect(createPreview).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
       id: current.id, revision: 1, metadataVersion: 1,
     })));
@@ -753,6 +751,24 @@ describe("MaterialLibraryProvider", () => {
     expect(screen.queryByRole("dialog", { name: "编辑素材" })).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "预览" }));
     expect(await screen.findByRole("heading", { name: "原组件标题" })).toBeVisible();
+  });
+
+  it("regenerates an outdated ready thumbnail when browsing without resaving its material", async () => {
+    const user = userEvent.setup();
+    const ready = { ...material, previewState: "ready" as const };
+    let cache: string | null = null;
+    const repo = repository({
+      get: vi.fn(async () => ready),
+      search: vi.fn(async () => ({ items: [ready], total: 1, indexState: "ready" as const })),
+      loadPreview: vi.fn(async () => cache),
+    });
+    const createPreview = vi.fn(async () => { cache = "data:image/png;base64,YWJj"; });
+    render(<MaterialLibraryProvider repository={repo} createPreview={createPreview}><Launcher /></MaterialLibraryProvider>);
+    await user.click(screen.getByRole("button", { name: "管理素材" }));
+    expect(await screen.findByRole("img", { name: "窗边参考的组件缩略图" })).toHaveAttribute("src", "data:image/png;base64,YWJj");
+    expect(createPreview).toHaveBeenCalledExactlyOnceWith(ready);
+    expect(repo.save).not.toHaveBeenCalled();
+    expect(repo.updateMetadata).not.toHaveBeenCalled();
   });
 
   it("refreshes the committed component and cached preview only after the editor closes", async () => {

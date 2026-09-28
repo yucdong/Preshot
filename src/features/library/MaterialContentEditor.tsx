@@ -143,7 +143,17 @@ export function MaterialContentEditor({
       setSaved(result);
       setDirty(false);
       onSaved(result);
-      await continueSaved(result);
+      if (lease.session.isNew) {
+        setOperation(ui("正在关闭编辑画布…"));
+        try {
+          if (await lease.retire() === "retained") throw new Error(ui("保存结果尚未确认，草稿已保留，请重试确认"));
+          if (alive.current) onClose(result);
+        } catch (failure) {
+          if (alive.current) setCleanupError(libraryError(failure, ui("素材已保存，但草稿清理失败")));
+        }
+      } else {
+        await continueSaved(result);
+      }
     } catch (failure) {
       if (alive.current) setError(libraryError(failure, checkingName ? ui("无法检查同名素材，请重试") :
         lease.isUncertain ? ui("保存结果尚未确认，请重试确认") : ui("无法保存素材")));
@@ -242,7 +252,7 @@ export function MaterialContentEditor({
       </div>
       <footer className="ml-footer ml-content-editor-footer">
         <div>
-          <p role="status">{operation || (saved && !dirty ? ui("素材已保存，可继续编辑；关闭后更新预览。") : ui("素材信息和画布内容一起保存。Ctrl+S 保存。"))}</p>
+          <p role="status">{operation || (saved && !dirty ? lease.session.isNew ? ui("已保存") : ui("素材已保存，可继续编辑；关闭后更新预览。") : ui("素材信息和画布内容一起保存。Ctrl+S 保存。"))}</p>
           {uncertain && <p className="ml-error" role="alert">{ui("暂时不能继续编辑或取消，以免误判保存结果。重试会确认同一次保存，不会重复保存。")}</p>}
           {[error, cleanupError, resumeError].filter(Boolean).map((message) =>
             <p className="ml-error" role="alert" key={message}>{message}</p>)}

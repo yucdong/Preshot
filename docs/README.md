@@ -26,6 +26,7 @@ proposals and prototypes remain available through Git history.
 | Chinese/English interface rules | [Localization](development/i18n.md) |
 | MSI build, signing, and installation | [Windows installer](release/windows-installer.md) |
 | Source commit, tag, and downloadable assets | [GitHub release](release/github.md) |
+| Installed 0.0.3 material-library image and dialog findings | [MSI regression report](test_reports/msi-0.0.3-material-library.md) |
 | Application and dependency licenses | [Licensing](release/licensing.md) |
 | Contributor rules | [AGENTS.md](../AGENTS.md) |
 | Release changes | [Changelog](../CHANGELOG.md) |

@@ -223,7 +223,7 @@ export function MaterialBrowser({
                         setPreferences((value) => ({ ...value, selectedId: item.id }));
                         setError(""); setNotice("");
                       }}>
-                      <MaterialThumbnail material={item} repository={repository} refresh={refresh} />
+                      <MaterialThumbnail material={item} repository={repository} refresh={refresh} createPreview={createPreview} />
                       <span className="ml-card-copy">
                         <strong>{item.name}</strong>
                         <span className="ml-card-meta">{materialKindLabels[item.kind]} · {ui("{{count}} 张图片", { count: item.imageCount })}

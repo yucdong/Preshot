@@ -158,6 +158,31 @@ afterEach(() => {
 });
 
 describe("createMaterialPreview", () => {
+  it("serializes different thumbnails and continues after a failed regeneration", async () => {
+    const repo = repository();
+    let rejectFirst!: (error: Error) => void;
+    vi.mocked(repo.loadImage).mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectFirst = reject; }));
+    const first = createMaterialPreview(repo, material("first"));
+    const failure = expect(first).rejects.toThrow("failed original");
+    const second = createMaterialPreview(repo, material("second"));
+    await waitFor(() => expect(repo.loadImage).toHaveBeenCalledOnce());
+    expect(boundaries.capture).not.toHaveBeenCalled();
+    rejectFirst(new Error("failed original"));
+    await failure;
+    await second;
+    expect(repo.loadImage).toHaveBeenCalledTimes(2);
+    expect(repo.savePreview).toHaveBeenCalledExactlyOnceWith("second", 1, expect.anything());
+  });
+  it("rejects a broken rendered image instead of persisting a gray thumbnail", async () => {
+    const repo = repository();
+    const image = document.createElement("img");
+    image.src = "blob:blocked-by-production-csp";
+    mounted.element.append(image);
+    await expect(createMaterialPreview(repo, material())).rejects.toThrow();
+    expect(repo.savePreview).not.toHaveBeenCalled();
+    expect(repo.markPreviewFailed).toHaveBeenCalledOnce();
+    expect(boundaries.capture).not.toHaveBeenCalled();
+  });
   it("retains preview assets until an aborted in-flight surface mount has finished cleanup", async () => {
     let rejectMount!: (error: Error) => void;
     let assets!: Readonly<Record<string, string>>;
@@ -285,7 +310,7 @@ describe("createMaterialPreview", () => {
         crop: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 },
       }] },
     });
-    expect(URL.createObjectURL).toHaveBeenCalledOnce();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
     expect(repo.savePreview).toHaveBeenCalledWith(item.id, 1, expect.objectContaining({
       width: 480, isPartial: false, renderKey: expect.stringContaining("preshot-material-preview"),
     }));
@@ -295,7 +320,7 @@ describe("createMaterialPreview", () => {
     expect(boundaries.close).toHaveBeenCalledOnce();
     expect(mounted.destroy).toHaveBeenCalledOnce();
     expect(bitmapClose).toHaveBeenCalledOnce();
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:material-preview");
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
     expect(sourceCanvas.width).toBe(0);
     expect(repo.markPreviewFailed).not.toHaveBeenCalled();
   });
@@ -364,7 +389,7 @@ describe("createMaterialPreview", () => {
     expect(repo.markPreviewFailed).toHaveBeenCalledOnce();
     expect(boundaries.close).toHaveBeenCalledOnce();
     expect(mounted.destroy).toHaveBeenCalledOnce();
-    expect(URL.revokeObjectURL).toHaveBeenCalledOnce();
+    expect(boundaries.mount.mock.calls[0][0].resolvedAssets).toEqual({});
   });
 
   it("surfaces both rendering and failure-state persistence errors", async () => {
@@ -444,7 +469,7 @@ describe("createMaterialPreview", () => {
     resolveDecode({ width: 1, height: 1, close: bitmapClose } as unknown as ImageBitmap);
     await rejection;
     expect(vi.mocked(repo.loadImage).mock.calls.map((call) => call[2])).toEqual(["image-1", "image-2"]);
-    expect(URL.revokeObjectURL).toHaveBeenCalledOnce();
+    expect(bitmapClose).toHaveBeenCalledOnce();
     expect(boundaries.mount).not.toHaveBeenCalled();
   });
 
@@ -492,7 +517,7 @@ describe("createMaterialPreview", () => {
     await rejection;
     expect(boundaries.close).toHaveBeenCalled();
     expect(mounted.destroy).toHaveBeenCalledOnce();
-    expect(URL.revokeObjectURL).toHaveBeenCalledOnce();
+    expect(boundaries.mount.mock.calls[0][0].resolvedAssets).toEqual({});
     resolveCapture({ output: "canvas", canvas: sourceCanvas });
     await Promise.resolve();
     expect(sourceCanvas.width).toBe(0);

@@ -47,7 +47,7 @@ describe("Tauri production CSP", () => {
     const directives = parseDirectives(csp ?? "");
 
     expect(directives.get("default-src")).toEqual(["'self'"]);
-    expect(directives.get("img-src")).toEqual(["'self'", "data:"]);
+    expect(directives.get("img-src")).toEqual(["'self'", "data:", "blob:"]);
     expect(directives.get("media-src")).toEqual(["'self'", "data:"]);
     expect(directives.get("style-src")).toEqual([
       "'self'",

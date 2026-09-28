@@ -47,7 +47,9 @@ for (const variant of variants) {
     await expect(editor.locator("[data-image-id]")).toHaveCount(2);
     await page.screenshot({ path: test.info().outputPath("material-creation-canvas.png"), animations: "disabled" });
     await editor.getByRole("button", { name: "保存素材", exact: true }).click();
-    await expect(editor.getByText("素材已保存，可继续编辑；关闭后更新预览。")).toBeVisible();
+    await expect(editor).toBeHidden();
+    await expect(library.getByRole("button", { name: `选择素材：${name}`, exact: true })).toHaveCount(1);
+    await library.getByRole("button", { name: "编辑素材", exact: true }).click();
     await expect(materialName).toBeEnabled();
     await expect(editor.getByRole("heading", { name: "编辑素材", exact: true })).toBeVisible();
     await text.fill("第二次保存后的素材文字");
@@ -113,8 +115,9 @@ test("duplicate create and update both ask permission without overwriting anothe
   await expect(name).toHaveValue("逆光玻璃杯");
   await editor.getByRole("button", { name: "保存素材", exact: true }).click();
   await confirm.getByRole("button", { name: "仍然保存", exact: true }).click();
+  await expect(editor).toBeHidden();
+  await library.getByRole("button", { name: "编辑素材", exact: true }).click();
   await expect(name).toBeEnabled();
-  await expect(editor.getByText("素材已保存，可继续编辑；关闭后更新预览。")).toBeVisible();
   await editor.getByRole("textbox", { name: "模特名称 / 编号", exact: true }).fill("新模特内容");
   await editor.getByRole("button", { name: "保存素材", exact: true }).click();
   await expect(confirm.getByText("确认后只更新当前素材，不会覆盖其他同名素材。")).toBeVisible();
@@ -127,7 +130,7 @@ test("duplicate create and update both ask permission without overwriting anothe
   await expect(editor.getByRole("textbox", { name: "道具与服装名称", exact: true })).toHaveValue("透明玻璃杯");
 });
 
-test("an interrupted first creation is confirmed once and remains editable", async ({ page }) => {
+test("an interrupted first creation closes only after confirmation and can be reopened", async ({ page }) => {
   await page.goto("/e2e/fixtures/material-library.html?loseEditResponse=1");
   await page.getByRole("button", { name: "素材库", exact: true }).click();
   const library = page.getByRole("dialog", { name: "素材库", exact: true });
@@ -138,9 +141,9 @@ test("an interrupted first creation is confirmed once and remains editable", asy
   await editor.getByRole("textbox", { name: "素材名称", exact: true }).fill("断线后的新素材");
   await editor.getByRole("button", { name: "保存素材", exact: true }).click();
   await expect(editor.getByRole("textbox", { name: "素材名称", exact: true })).toBeDisabled();
+  await expect(editor).toBeVisible();
   await editor.getByRole("button", { name: "重试确认保存", exact: true }).click();
-  await expect(editor.getByText("素材已保存，可继续编辑；关闭后更新预览。")).toBeVisible();
-  await editor.getByRole("button", { name: "关闭", exact: true }).click();
+  await expect(editor).toBeHidden();
   await expect(library.getByRole("button", { name: "选择素材：断线后的新素材", exact: true })).toHaveCount(1);
   await library.getByRole("button", { name: "编辑素材", exact: true }).click();
   await expect(editor.getByRole("textbox", { name: "素材名称", exact: true })).toHaveValue("断线后的新素材");

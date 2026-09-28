@@ -1,4 +1,5 @@
 import { ui } from "../../shared/i18n/ui";
+import { MATERIAL_PREVIEW_RENDER_KEY } from "./materialPreviewCache";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   MaterialContentSaveError,
@@ -379,7 +380,7 @@ export function createTauriMaterialLibrary({
       (value) => dataUrl(value, 16 * 1024 * 1024),
     ),
     loadPreview: (id, revision) => call(
-      ui("无法读取素材预览"), "library_load_preview", { id, revision },
+      ui("无法读取素材预览"), "library_load_preview", { id, revision, renderKey: MATERIAL_PREVIEW_RENDER_KEY },
       (value) => value === null ? null : dataUrl(value, 2 * 1024 * 1024),
     ),
     savePreview: (id, revision, preview) => call(

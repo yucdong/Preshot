@@ -1,7 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.0.5
 
+- Fix installed material previews by permitting local blob images in the image CSP.
+- Rebuild outdated 0.0.3 thumbnails without changing original images or material
+  content; serialize captures and reject rendered images that failed to load.
+- Embed validated image data directly in thumbnail captures so the production
+  fetch policy cannot drop image pixels. Version 0.0.4 was an internal test build.
+- Close newly created materials after a confirmed save and draft cleanup;
+  preserve retry/recovery and continued editing of existing materials.
 - Add sample images to the walkthrough's model, location, and prop materials.
 - Record PDF export followed by opening, paging, and zooming the actual PDF;
   refresh the README video/GIF and include the exported PDF example.

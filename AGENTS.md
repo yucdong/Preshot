@@ -105,8 +105,10 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   versions plus exact edit receipts, and keep original blobs immutable.
   Cancel deletes only owned staging; uncertain saves retain their retry sources.
   Cleanup/thumbnail failures after commit must not trigger another content save.
-  Saving keeps the material editor open with a fresh, version-pinned draft for
-  continued edits. Closing refreshes previews from committed content only;
+  Saving an existing material keeps its editor open with a fresh, version-pinned
+  draft. The first confirmed save of a new material closes after owned-draft
+  cleanup; cleanup failures keep the saved result available for close retry.
+  Closing refreshes previews from committed content only;
   discard never removes earlier saves, and preview retries never resubmit them.
   Screen captures use the same bounded draft staging. Cancel/retire must drain
   capture and clean its temporary PNG before session discard; never publish late

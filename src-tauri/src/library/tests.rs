@@ -988,6 +988,27 @@ fn library_preview_limits_magic_revision_and_state() {
 }
 
 #[test]
+fn library_preview_renderer_upgrade_preserves_content_and_replaces_only_cache() {
+    let fixture = Fixture::new("imageGroup");
+    let mut store = fixture.store();
+    let material = store.save(fixture.save_request()).unwrap();
+    let id = &material.summary.id;
+    let preview = |key: &str| models::MaterialPreviewInput {
+        bytes: fixture.bytes.clone(), width: 3, height: 2,
+        render_key: key.into(), is_partial: false,
+    };
+    store.save_preview(id, 1, preview("renderer-v4")).unwrap();
+    let before = serde_json::to_value(store.get(id).unwrap()).unwrap();
+    assert!(store.load_preview_for_renderer(id, 1, Some("renderer-v5")).unwrap().is_none());
+    assert_eq!(serde_json::to_value(store.get(id).unwrap()).unwrap(), before);
+    assert!(store.load_preview_for_renderer(id, 2, Some("renderer-v5")).is_err());
+    store.save_preview(id, 1, preview("renderer-v5")).unwrap();
+    assert!(store.load_preview_for_renderer(id, 1, Some("renderer-v5")).unwrap().is_some());
+    assert!(store.load_preview_for_renderer(id, 1, Some("renderer-v4")).unwrap().is_none());
+    assert_eq!(serde_json::to_value(store.get(id).unwrap()).unwrap(), before);
+}
+
+#[test]
 fn library_index_rebuild_and_transaction_rollback_leave_no_phantom_search_results() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();

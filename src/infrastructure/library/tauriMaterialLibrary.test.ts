@@ -335,6 +335,10 @@ describe("Tauri material library boundary", () => {
     const invokeCommand = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(null);
     const repository = createTauriMaterialLibrary({ invokeCommand });
     await expect(repository.loadPreview(material.id, 1)).resolves.toBeNull();
+    expect(invokeCommand).toHaveBeenCalledWith("library_load_preview", {
+      id: material.id, revision: 1,
+      renderKey: "preshot-material-preview:v6:plan15:bn0.53:light:900:480:8192:8M:png",
+    });
     await expect(repository.loadImage(material.id, 1, "i1")).rejects.toThrow();
   });
 

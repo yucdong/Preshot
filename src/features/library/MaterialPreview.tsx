@@ -29,11 +29,12 @@ export function MaterialPreview({
 }
 
 export function MaterialThumbnail({
-  material, repository, refresh = 0,
+  material, repository, refresh = 0, createPreview,
 }: {
   material: MaterialSummary;
   repository: MaterialLibraryRepository;
   refresh?: number;
+  createPreview?: (material: MaterialDetail) => Promise<void>;
 }) {
   useUiLanguage();
   const [preview, setPreview] = useState<{ key: string; url: string | null; status: "loading" | "ready" | "missing" | "failed" }>({
@@ -42,13 +43,27 @@ export function MaterialThumbnail({
   const key = `${material.id}:${material.revision}:${refresh}`;
   useEffect(() => {
     let current = true;
-    repository.loadPreview(material.id, material.revision).then((url) => {
+    const load = async () => {
+      let url = await repository.loadPreview(material.id, material.revision);
+      if (!current) return null;
+      // A ready cache that the adapter no longer accepts is stale. Rebuild only
+      // its preview; the canonical content and its revisions remain unchanged.
+      if (!url && material.previewState === "ready" && createPreview) {
+        const latest = await repository.get(material.id);
+        if (!current || latest.revision !== material.revision) return null;
+        await createPreview(latest);
+        if (!current) return null;
+        url = await repository.loadPreview(material.id, material.revision);
+      }
+      return url;
+    };
+    load().then((url) => {
       if (current) setPreview({ key, url, status: url ? "ready" : "missing" });
     }, () => {
       if (current) setPreview({ key, url: null, status: "failed" });
     });
     return () => { current = false; };
-  }, [repository, material.id, material.revision, key]);
+  }, [repository, material.id, material.revision, material.previewState, key, createPreview]);
   const status = preview.key === key ? preview.status : "loading";
   const label = status === "loading" ? ui("缩略图加载中") :
     status === "failed" || material.previewState === "failed" ? ui("缩略图不可用") : ui("尚未生成缩略图");
