@@ -5,6 +5,8 @@ installed Windows application. This report records diagnosis of the original
 0.0.3 package; no application fix or replacement installer was produced in
 this test run.
 
+Follow-up: [0.0.5 repair and installed-application verification](msi-0.0.5-material-library.md).
+
 ## Installation and isolation
 
 - Installed `Preshot_0.0.3_x64_en-US.msi` with Windows Installer; exit code `0`.
