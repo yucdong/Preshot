@@ -1,15 +1,18 @@
 export type Theme = "light" | "dark" | "system";
+export type Language = "zh" | "en";
 
 export const PROJECT_RAIL_WIDTH = { default: 192, min: 176, max: 320 } as const;
 const LEGACY_DEFAULT_PANEL_WIDTHS = { projectRailWidth: 208, assistantWidth: 304 };
 
 export interface AppSettings {
   theme: Theme;
+  language?: Language;
   projectRailWidth?: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "system",
+  language: "zh",
   projectRailWidth: PROJECT_RAIL_WIDTH.default,
 };
 
@@ -28,6 +31,7 @@ export function normalizeSettings(raw: unknown): AppSettings {
       : range.default;
   return {
     theme: isValidTheme(record.theme) ? record.theme : "system",
+    language: record.language === "en" ? "en" : "zh",
     projectRailWidth: hasLegacyDefaultPanelWidths
       ? PROJECT_RAIL_WIDTH.default
       : clamp(record.projectRailWidth, PROJECT_RAIL_WIDTH),

@@ -18,6 +18,7 @@ import { componentImages } from "../../src/domain/library/materialStructure";
 import { unavailableMaterialLibrary } from "../../src/infrastructure/library/unavailableMaterialLibrary";
 import { createMaterialEditingFixture } from "./materialLibraryEditingHarness";
 import { installImageClipboardBoundary } from "./imageClipboardBoundary";
+import { installWalkthroughBoundary } from "./walkthroughBoundary";
 import "../../src/styles.css";
 
 if (import.meta.env.MODE !== "e2e") throw new Error("This fixture is only available in E2E mode");
@@ -173,6 +174,11 @@ const repository: MaterialLibraryRepository = {
     return operation.status;
   },
 };
+
+if (new URLSearchParams(location.search).has("walkthrough")) {
+  materials.clear();
+  installWalkthroughBoundary(repository);
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

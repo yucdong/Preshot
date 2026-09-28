@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../app/theme/ThemeProvider";
@@ -24,6 +24,60 @@ function renderPanel(options: {
 }
 
 describe("SettingsPanel", () => {
+  it("switches immediately in both directions and restores the saved language on remount", async () => {
+    const user = userEvent.setup();
+    const repository = createBrowserSettingsRepository();
+    const first = renderPanel({ repository });
+    await user.click(screen.getByRole("button", { name: "English" }));
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Appearance" })).toBeVisible();
+    expect(document.documentElement).toHaveAttribute("lang", "en");
+    await user.click(screen.getByRole("button", { name: "Dark" }));
+    await waitFor(async () => expect(await repository.read()).toMatchObject({ language: "en", theme: "dark" }));
+    first.unmount();
+    renderPanel({ repository });
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "简体中文" }));
+    expect(await screen.findByRole("dialog", { name: "设置" })).toBeVisible();
+    expect(document.documentElement).toHaveAttribute("lang", "zh-CN");
+    await waitFor(async () => expect(await repository.read()).toMatchObject({ language: "zh", theme: "dark" }));
+  });
+
+  it("serializes rapid language and theme changes while a previous write is pending", async () => {
+    const user = userEvent.setup();
+    const storage = createBrowserSettingsRepository();
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    let writes = 0;
+    const repository: SettingsRepository = {
+      read: storage.read,
+      write: async (value) => { if (++writes === 1) await pending; await storage.write(value); },
+    };
+    renderPanel({ repository });
+    await user.click(screen.getByRole("button", { name: "English" }));
+    await user.click(await screen.findByRole("button", { name: "Dark" }));
+    await user.click(screen.getByRole("button", { name: "简体中文" }));
+    expect(writes).toBe(1);
+    await act(async () => release());
+    await waitFor(async () => expect(await storage.read()).toMatchObject({ language: "zh", theme: "dark" }));
+  });
+
+  it("reports failed persistence and lets the same language choice retry", async () => {
+    const user = userEvent.setup();
+    const storage = createBrowserSettingsRepository();
+    const write = vi.fn().mockRejectedValueOnce(new Error("Disk full")).mockImplementation(storage.write);
+    const warning = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      renderPanel({ repository: { read: storage.read, write } });
+      await user.click(screen.getByRole("button", { name: "English" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Unable to save settings");
+      await user.click(screen.getByRole("button", { name: "English" }));
+      await waitFor(async () => expect((await storage.read()).language).toBe("en"));
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    } finally { warning.mockRestore(); }
+  });
+
   it("renders nothing when closed", () => {
     renderPanel({ open: false });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

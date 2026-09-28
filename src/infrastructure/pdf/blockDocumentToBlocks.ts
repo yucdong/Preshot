@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import type {
   BlockInlineContent,
   PreshotBlock,
@@ -59,14 +60,14 @@ function convertBlock(block: PreshotBlock): Block[] {
     return [{
       type: "paragraph",
       runs: [{
-        text: String(block.props.caption || block.props.name || "图片"),
+        text: String(block.props.caption || block.props.name || ui("图片")),
         ...(url ? { link: url } : {}),
       }],
     }, ...children];
   }
   if (block.type === "video" || block.type === "audio") {
     const url = String(block.props.url ?? "");
-    const label = block.type === "video" ? "视频" : "音频";
+    const label = block.type === "video" ? ui("视频") : ui("音频");
     const name = String(block.props.caption || block.props.name || label);
     return [{
       type: "paragraph",

@@ -1,3 +1,4 @@
+import { ui, uiLocale } from "../../shared/i18n/ui";
 import type { Block } from "@blocknote/core";
 import { DOCXExporter } from "@blocknote/xl-docx-exporter";
 import {
@@ -273,14 +274,14 @@ export function createPreshotDocxExporter(
       );
       const metadata = options.metadata ?? {};
       const document = await exporter.toDocxJsDocument(blocks, {
-        locale: "zh-CN",
+        locale: uiLocale(),
         documentOptions: {
-          title: metadata.title ?? "Preshot 摄影计划",
-          subject: metadata.subject ?? "摄影计划",
+          title: metadata.title ?? ui("Preshot 摄影计划"),
+          subject: metadata.subject ?? ui("摄影计划"),
           creator: metadata.creator ?? "Preshot",
-          keywords: metadata.keywords ?? "Preshot, 摄影计划, 摄影",
+          keywords: metadata.keywords ?? ui("Preshot, 摄影计划, 摄影"),
           description:
-            metadata.description ?? "由 Preshot 导出的离线摄影计划文档",
+            metadata.description ?? ui("由 Preshot 导出的离线摄影计划文档"),
           lastModifiedBy: "Preshot",
         },
         sectionOptions: {

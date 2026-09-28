@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import { captureScreenImage } from "./captureScreenImage";
 import { invoke } from "@tauri-apps/api/core";
 import type {
@@ -61,7 +62,7 @@ export function createTauriScreenCapture({
           }
           return { file: result.file, dataUrl: result.dataUrl, name: result.name, mimeType: result.mimeType };
         } catch (cause) {
-          throw new Error(`无法保存截图到项目：${detail(cause)}`, { cause });
+          throw new Error(ui("无法保存截图到项目：{{v0}}", { v0: detail(cause) }), { cause });
         }
       });
     },

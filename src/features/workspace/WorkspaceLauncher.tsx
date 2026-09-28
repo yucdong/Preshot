@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
@@ -5,6 +6,7 @@ import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectRail } from "./ProjectRail";
 import { Library } from "lucide-react";
 import { useOptionalMaterialLibrary } from "../library/MaterialLibraryContext";
+import { BrandMark } from "../../shared/ui/BrandMark";
 
 export interface WorkspaceLauncherProps {
   projects: WorkspaceProjectView[];
@@ -40,6 +42,7 @@ export function WorkspaceLauncher({
   onRelocate,
   onRemove,
 }: WorkspaceLauncherProps) {
+  useUiLanguage();
   const { t } = useTranslation();
   const materialLibrary = useOptionalMaterialLibrary();
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -66,9 +69,12 @@ export function WorkspaceLauncher({
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-8 py-8">
         <header className="flex flex-wrap items-center justify-between gap-6 rounded-lg bg-[#17191d] px-6 py-5 text-white shadow-[0_8px_24px_rgb(23_25_29_/_16%)]">
           <div className="max-w-2xl">
-            <h1 className="font-editorial text-3xl font-extrabold">
-              PRESHOT
-            </h1>
+            <div className="flex items-center gap-3">
+              <BrandMark size={44} />
+              <h1 className="font-editorial text-3xl font-extrabold">
+                PRESHOT
+              </h1>
+            </div>
             <p className="mt-2 text-sm leading-6 text-white/75">
               {t("workspace.intro")}
             </p>
@@ -83,7 +89,7 @@ export function WorkspaceLauncher({
                 onClick={() => materialLibrary.openBrowser()}
                 type="button"
               >
-                <Library aria-hidden className="mr-2 h-4 w-4" />素材库
+                <Library aria-hidden className="mr-2 h-4 w-4" />{ui("素材库")}
               </button>
             ) : null}
             <button

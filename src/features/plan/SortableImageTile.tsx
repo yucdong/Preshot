@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import { useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -101,6 +102,7 @@ export function SortableImageTile({
   onSetCrop,
   snapCandidates = [],
 }: SortableImageTileProps) {
+  useUiLanguage();
   const { t } = useTranslation();
   const prefersReducedMotion = usePrefersReducedMotion();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -347,7 +349,7 @@ export function SortableImageTile({
       </button>
       {!placeholderVisible ? (
         <button
-          aria-label={adjustingView ? "完成调整视图" : "调整视图"}
+          aria-label={adjustingView ? ui("完成调整视图") : ui("调整视图")}
           aria-pressed={adjustingView}
           className={`absolute bottom-1 right-1 z-20 rounded px-2 text-xs text-white shadow-sm transition-colors ${adjustingView ? "bg-paper-primary" : "bg-black/60 hover:bg-paper-primary"}`}
           onClick={(event) => {
@@ -361,7 +363,7 @@ export function SortableImageTile({
           onPointerDown={(event) => event.stopPropagation()}
           type="button"
         >
-          {adjustingView ? "完成" : "调整"}
+          {adjustingView ? ui("完成") : ui("调整")}
         </button>
       ) : null}
       {!placeholderVisible ? (

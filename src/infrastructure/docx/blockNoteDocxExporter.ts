@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import type { Block } from "@blocknote/core";
 import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
 import { PDF_VISUAL_CONTRACT } from "../../domain/plan/blocknote/pdfVisualContract";
@@ -160,8 +161,8 @@ export function createBlockNoteDocxExporter(
             assets: exportAssets,
             metadata: {
               title: exportPlan.title,
-              subject: "Preshot 摄影计划",
-              description: `Preshot 摄影计划：${exportPlan.title}`,
+              subject: ui("Preshot 摄影计划"),
+              description: ui("Preshot 摄影计划：{{v0}}", { v0: exportPlan.title }),
             },
           },
         );

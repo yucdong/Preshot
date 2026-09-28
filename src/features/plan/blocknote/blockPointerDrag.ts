@@ -1,3 +1,4 @@
+import { ui } from "../../../shared/i18n/ui";
 import {
   moveBlockRelative,
   type BlockDropPlacement,
@@ -172,8 +173,8 @@ export function startBlockPointerDrag({
     ) {
       notify?.(
         placement === "inside"
-          ? "Block 已移动并嵌套"
-          : "Block 已移动",
+          ? ui("Block 已移动并嵌套")
+          : ui("Block 已移动"),
       );
     }
     onFinish?.(dragging);

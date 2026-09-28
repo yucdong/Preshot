@@ -1,64 +1,35 @@
-# Documentation Index
+# Preshot documentation
 
-This directory contains the English maintenance documentation for the current Preshot implementation.
+Start with the [Chinese overview](../README.md) or [English overview](../README.en.md).
+These guides describe the current Windows application. Superseded design
+proposals and prototypes remain available through Git history.
 
-> The shipped application UI is still Simplified Chinese. These docs describe the implementation in English without changing the product's runtime localization.
+## Features
 
-## Active release documents
+| Task | Guide |
+| --- | --- |
+| Create, open, switch, save, and organize projects | [Projects](features/projects.md) |
+| Write a plan and arrange location, model, and prop cards | [Document editor](features/editor.md) |
+| Import, paste, capture, crop, and arrange images | [Images and screenshots](features/images.md) |
+| Create, search, edit, and reuse materials | [Material library](features/material-library.md) |
+| Produce PDF, Word documents, or long images | [Export](features/exports.md) |
+| Change language, appearance, and workspace layout | [Settings](features/settings.md) |
+| Follow the Nanjing bridge portrait workflow | [Demo and credits](demo/README.md) |
 
-- [Repository overview](../README.md)
-- [Contributor guide](../AGENTS.md)
-- [Release history](../CHANGELOG.md)
-- [Architecture](ARCHITECTURE.md)
-- [Testing](TESTING.md)
-- [Reliability](RELIABILITY.md)
-- [Windows installer operator guide](WINDOWS_INSTALLER.md)
-- [Licensing and distribution](LICENSING.md)
+## Development and distribution
 
-## Active v14 specifications
+| Topic | Guide |
+| --- | --- |
+| Prerequisites, commands, and test coverage | [Build and test](development/build-and-test.md) |
+| Modules, boundaries, and persisted data | [Architecture](development/architecture.md) |
+| Saves, ownership, recovery, and undo | [Reliability](development/reliability.md) |
+| Chinese/English interface rules | [Localization](development/i18n.md) |
+| MSI build, signing, and installation | [Windows installer](release/windows-installer.md) |
+| Source commit, tag, and downloadable assets | [GitHub release](release/github.md) |
+| Application and dependency licenses | [Licensing](release/licensing.md) |
+| Contributor rules | [AGENTS.md](../AGENTS.md) |
+| Release changes | [Changelog](../CHANGELOG.md) |
 
-These canonical files define the current BlockNote v14 behavior:
-
-- [BlockNote v14 interaction history](design_docs/blocknote_v14_design.md)
-- [UI/UX contract](design_docs/UI_UX_CONTRACT.md)
-- [Feature status tracker](design_docs/featurelist.json)
-- [Artifact document blocks](design_docs/artifacts/artifacts.md)
-- [Global material library](design_docs/material-library/material-library.md):
-  implemented core behavior, database schema, design rationale and explicitly
-  deferred maintenance features
-
-## Historical design and reference material
-
-- [Retired assistant design](design_docs/agent/agent_basic_design.md) and
-  [Copilot dependency investigation](COPILOT_SDK_SPIKE.md) describe the removed
-  assistant feature and are retained only as historical references.
-
-- The other files in [`design_docs`](design_docs) preserve earlier
-  requirements, research, TipTap-era architecture, and interaction decisions.
-- The translated
-  [schema-v12 UI/UX requirements ledger](design_docs/ui_ux_v12_requirements_history.md)
-  preserves the superseded `UIUE-*` requirements and their test mappings.
-- [`design_refs`](design_refs) contains historical interactive prototypes and
-  screenshots.
-
-This material remains available for traceability, but it is not normative.
-When it conflicts with an active release document or v14 specification, use
-the active document.
-
-## Reports and verification evidence
-
-- [0.0.1 code review](CODE_REVIEW.md) records the release-hardening review.
-- [`test_reports`](test_reports) preserves historical exploratory and visual
-  verification reports.
-
-Reports are evidence snapshots rather than active specifications. Current
-commands and coverage boundaries are maintained in [Testing](TESTING.md).
-
-## What to update together
-
-When editor behavior changes, update all of the following in the same change:
-
-1. the implementation,
-2. the relevant automated tests,
-3. the [architecture](ARCHITECTURE.md) and [testing](TESTING.md) docs when behavior or coverage changes, and
-4. the active design references above when the accepted interaction contract changes.
+Update the relevant feature guide when behavior changes, and the architecture
+or reliability guide when contracts change. Run `pnpm docs:check` for links
+and required documents.

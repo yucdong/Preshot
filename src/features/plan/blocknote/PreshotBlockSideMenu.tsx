@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import { SideMenuExtension } from "@blocknote/core/extensions";
 import { GripVertical } from "lucide-react";
 import {
@@ -27,6 +28,7 @@ export function PreshotBlockSideMenu({
   controller,
   notify,
 }: PreshotBlockSideMenuProps) {
+  useUiLanguage();
   const Components = useComponentsContext();
   const editor = useBlockNoteEditor<
     PreshotBlockSchema,
@@ -92,7 +94,7 @@ export function PreshotBlockSideMenu({
             <Components.SideMenu.Button
               className="bn-button"
               icon={<GripVertical aria-hidden size={19} />}
-              label="打开菜单"
+              label={ui("打开菜单")}
             />
           </Components.Generic.Menu.Trigger>
         </div>

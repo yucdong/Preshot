@@ -1,363 +1,77 @@
+<p align="center"><img src="public/preshot-mark.svg" width="80" alt="Preshot logo" /></p>
+
 # Preshot
 
-Preshot is a Windows-first desktop application for photography planning. The current application is not just a shell: it opens local projects, edits plans in a BlockNote 0.53 document, manages image groups and native media, and exports PDF, DOCX, and long-image files.
+**简体中文** | [English](README.en.md)
 
-> The application UI is currently localized in Simplified Chinese. This documentation is written in English on purpose; do not treat Chinese UI copy as missing translation work unless the task is explicitly about localization.
+把拍摄想法、参考照片、模特、道具和地点整理成一份可执行的拍摄方案。
+Preshot 是 Windows 桌面应用，项目与素材保存在本地，支持中文和英文界面。
 
-## Current product surface
+## 功能
 
-- Recent-project launcher and in-app project rail
-- Single-column BlockNote v15 editor (`schemaVersion: 15`,
-  `document.format: "preshot-blocks"`, `document.version: 3`) with one block
-  per row and structured location, model, clothing, and prop blocks
-- Slash menu, block drag, undo/redo, headings, lists, checklists, toggles, quotes, code blocks, tables, and dividers
-- Custom image-group blocks with resize, reorder, lightbox, native import, and Windows screen capture
-- Transactional live image-drag preview with pointer and keyboard sensors,
-  same-/cross-/empty-group reflow, source and insertion placeholders, and
-  zoom-safe edge auto-scroll
-- Native BlockNote image, video, and audio blocks backed by project-local `media/`
-- Material library with six categories, including individual images. Save a
-  project image or create one in the library, add descriptions and keyword tags,
-  search offline, and reuse independent image copies across projects.
-- Auto-save, explicit save shortcut, theme settings, a resizable project rail, and focus mode
-- A4 PDF export through `@blocknote/xl-pdf-exporter@0.53.0` and
-  `@react-pdf/renderer@4.3.0`, with offline project-local asset preflight and a
-  native save dialog
-- Editable DOCX export through `@blocknote/xl-docx-exporter@0.53.0` and
-  `docx@9.6.1`, including offline native images and
-  composited image groups
-- Offline long-image export through an export-only 900px BlockNote DOM surface
-  and `modern-screenshot@4.7.0`, with JPEG/PNG presets, 890px compatibility,
-  opt-in block/row-aware automatic splitting, adaptive JPEG quality, native batch
-  save, and no effect on PDF or DOCX output
+- **项目管理**：新建、打开、自动保存；多个已打开项目切换时保留编辑状态。
+- **自由编排方案**：文字、标题、清单、表格、图片和图片组，以及地点、模特、道具与服装卡片。
+- **图片与截图**：上传、粘贴、嵌入、屏幕区域截图；裁切、缩放和拖动排序。
+- **素材库**：保存单张图片、图片组、地点、模特、道具与服装，按描述和关键词检索，在不同项目中复用。
+- **导出**：PDF、可编辑的 Word 文档、JPEG/PNG 长图，可选择自动分割。
+- **工作区**：明暗主题、中英文切换、专注模式、缩放和可调侧边栏。
 
-## Long-image export contract
+## 安装
 
-BlockNote 0.53 does not provide a long-image exporter. Preshot therefore
-mounts the shared schema-15 document on a control-free export-only DOM surface,
-scales the 1080px editor geometry to 900px by default (or the explicit 890px
-compatibility width), and captures bounded segments with
-`modern-screenshot@4.7.0`.
+前往 [GitHub Releases](https://github.com/yucdong/Preshot/releases)，选择版本中的
+`Preshot_<版本>_x64_en-US.msi`。安装包适用于 **Windows 10/11 x64**，默认安装到
+`%LOCALAPPDATA%\Programs\Preshot`，从开始菜单启动；桌面快捷方式可以在安装时选择。
+`en-US` 表示安装向导语言，应用内仍可自由切换中文和英文。
 
-The default **WeChat compatible** preset emits JPEG, targets at most 6000px and
-1 MiB per part, starts at quality 0.84, and searches no lower than 0.68 before
-splitting earlier. **High quality** JPEG targets 8000px / 3 MiB, while
-**Lossless PNG** targets 4000px / 8 MiB. These are conservative empirical
-compatibility targets, not official WeChat acceptance limits; client-side
-recompression and platform behavior can change independently.
+运行需要 Microsoft Edge WebView2 Runtime，安装向导会在缺失时下载，因此首次安装可能需要联网。
+Release 同时提供 SHA-256 校验文件和构建信息；签名与验证情况以该版本说明为准。
+若 Releases 尚无安装包，可按照下方步骤从源码构建。
 
-Every preset stops at 32 parts. The exporter may retain at most 24 MiB for
-WeChat JPEG, 48 MiB for high-quality JPEG, or 64 MiB for lossless PNG. Desktop
-saving preflights a separate 64 MiB raw-image ceiling before creating base64
-or sending the single rollback-safe Tauri IPC batch; Rust repeats the count and
-byte checks before allocation and after decode.
+项目默认位于 `%USERPROFILE%\.preshot\projects`，全局素材库位于
+`%USERPROFILE%\.preshot\library`。卸载应用不会删除这些数据；备份时请复制完整目录。
 
-By default, the entire document remains one image, with an absolute height
-limit of 20000px (18 million pixels at 900px wide). If that output would exceed
-the safe single-image limits, export fails actionably instead of silently
-splitting; the user can enable automatic splitting, shorten the plan, or export
-PDF/DOCX. When enabled, automatic splitting prefers complete top-level block
-boundaries and splits an oversized image group only between complete wrapped
-rows. Parts are contiguous, captured sequentially, and named `<project>.jpg` or
-`<project>-01.jpg`, `<project>-02.jpg`, and so on (with matching PNG names).
-Generated project-title bases are normalized to Unicode NFC and capped at 120
-code points and 120 UTF-16 code units. Final generated or dialog-selected file
-components are capped at 128 UTF-16 code units, leaving room for `-01` through
-`-32`, the extension, and the atomic writer's temporary suffix. A valid
-dialog rename becomes the authoritative output base.
-The exporter rejects external assets and hosted proxies, bounds canvas and
-decoded memory, releases canvases/workers/offscreen roots after every outcome,
-and surfaces failures rather than silently reducing width or quality.
+## 快速上手
 
-The top-right **Export** menu opens a settings dialog for preset, JPEG/PNG,
-900/890px width, and automatic splitting. Splitting starts unchecked on every
-dialog open and changing preset, format, or width does not enable it. Desktop
-saving uses one native dialog to choose the destination/base, commits all
-numbered siblings as a rollback-safe batch, and opens the project directory
-only after success. Browser and Midscene download one-part output; their
-multi-part path is an explicit typed no-op test adapter because the application
-does not ship an archive dependency.
+1. 点击 **新建项目**，输入项目名称和父目录。例如父目录 `D:\拍摄`、名称“南京长江大桥人像”，会创建 `D:\拍摄\南京长江大桥人像`。
+2. 在文档中输入文字，用 `/` 插入标题、清单、图片、图片组、地点、模特或道具卡片。
+3. 插入图片时，**上传 / 嵌入 / 截图** 在同一行。点击 **截图** 后框选屏幕区域，图片自动回到文档；按 **Esc** 可取消并重新截图。也可使用 **Win+Shift+S** 截图后，在文档中 **Ctrl+V** 粘贴。
+4. 单击图片，或使用组件操作菜单，将内容 **添加到素材库**，填写名称、描述和关键词。也可在素材库中直接创建模特、地点或道具。
+5. 点击要插入的位置，再打开 **素材库**。图片组可全部或部分插入，并选择“图片组”或“单张图片”；图片组工具栏也支持从素材库追加图片。
+6. 用 **导出** 生成 PDF、DOCX 或长图。长图过长时勾选自动分割。编辑自动保存，也可以按 **Ctrl+S**；关闭项目时会询问是否保存。
 
-## Repository layout
+## 操作演示
 
-- `src/app` application composition, shell, theme, and workspace provider
-- `src/features` React feature surfaces, especially the BlockNote plan editor and workspace UI
-- `src/domain` pure models, use cases, ports, schema validation, and shared layout logic
-- `src/infrastructure` Tauri/browser adapters and PDF/DOCX export wiring
-- `src-tauri` Rust commands and Tauri configuration
-- `docs` architecture, testing, reliability, and design documentation
-- `e2e` Playwright smoke coverage
-- `init.ps1` Windows prerequisite check and dependency installation
+以“南京长江大桥风光人像”为例：创建项目，规划虚构模特 A、透明伞和泡泡机，收集参考图，建立并复用素材，最后导出拍摄方案。
 
-## Project and storage model
+![Preshot 操作流程](docs/media/preshot-demo.gif)
 
-- Each project directory contains `.preshotproj` (legacy `.preshot` is still read and migrated).
-- The project manifest has `schemaVersion: 1` and stores the plan JSON in `manifest.plan`.
-- The active plan format is schema v15 / document v3; schema v14 is migrated on read.
-- `columnList` and `column` documents are unsupported; every visible document
-  row contains exactly one block.
-- Reference image files live under `references/`.
-- Native BlockNote media files live under `media/`.
-- Theme and shell settings are stored in `%USERPROFILE%\.preshot\settings.json`.
-- New-project picking defaults to `%USERPROFILE%\.preshot\projects`.
-- On startup, the application creates those user-owned roots when absent,
-  adopts an existing valid default-root project when possible, or creates and
-  opens one editable localized starter project.
+[演示说明与图片来源](docs/demo/README.md) · [完整视频与安装包](https://github.com/yucdong/Preshot/releases)
 
-## Tech stack
+## 从源码构建
 
-- React 19, TypeScript, Vite
-- Tauri 2, Rust
-- BlockNote 0.53, Mantine 8
-- Tailwind CSS 4
-- `@blocknote/xl-pdf-exporter@0.53.0` + `@react-pdf/renderer@4.3.0`
-- `@blocknote/xl-docx-exporter@0.53.0` + `docx@9.6.1` for the production DOCX
-  exporter, offline resolver, custom image-group compositor, and ZIP packing
-- `modern-screenshot@4.7.0` for the production offline long-image DOM capture
-  adapter and same-origin worker
-- `pdf-lib` + `@pdf-lib/fontkit` retained only by the explicit rollback adapter
-- Vitest, React Testing Library, Playwright
-- dnd-kit 6/10 for the production image-tile drag context and sensors
-- pnpm 10.15.0
-
-## Live image drag contract
-
-Reference-image reordering is a preview transaction, not a sequence of plan
-writes. dnd-kit owns one pointer/keyboard context around the active BlockNote
-surface. A drag snapshots the ordered groups and decoded active image, then
-projects same-group, cross-group, end-position, or empty-group layouts from
-that immutable snapshot. The source keeps a dashed placeholder, the body-level
-overlay preserves the image crop and frame ratio, and the target reflows with
-authoritative frame sizes, wrap-before-overflow geometry, and no implicit
-shrinking.
-
-The preview never mutates `plan.imageGroups`, marks the project dirty, reaches
-autosave, or feeds PDF, DOCX, or long-image export. Escape, invalid/outside
-release, pointer cancellation, focus/visibility loss, project or plan revision
-change, group/image deletion, and decoded-asset change restore the snapshot.
-A valid release applies exactly one normalized move, creates one undo boundary,
-marks the plan unsaved, and lets the normal 5-second autosave, Ctrl/Cmd+S, and
-project-retirement flush persist the committed order. All three exporters read
-that committed order only.
-
-Mouse activation requires 6px movement; touch/pen uses a 180ms delay with 6px
-tolerance. Keyboard users press Space to pick up, use arrows or Home/End within
-a group, Ctrl/Cmd+Arrow to change groups, Space/Enter to drop, and Escape to
-cancel. Group movement follows visible recursive document order, not metadata
-array order; a hidden focus anchor keeps keyboard input stable while the active
-tile becomes a placeholder, then focus returns to the image after cancel/drop.
-A Simplified-Chinese polite live region announces selection, pickup, projected
-position, boundaries, commit, and rollback. Pointer dragging uses the latest
-physical pointer in a single 48px edge band around the central scroller and
-remeasures drop geometry after scrolling; keyboard dragging never auto-scrolls.
-CSS zoom from 55%-180%, `prefers-reduced-motion`, decoded-image gating, and
-stale transaction cancellation are covered explicitly.
-
-Non-goals are multi-image dragging, image swapping, freeform placement,
-persisting preview geometry, exporting a preview, or reviving the removed
-component-local pointer implementation and its `data-image-drop-target`
-marker.
-
-## Windows prerequisites
-
-1. Windows 10 version 1803 or later
-2. Node.js 20.19.0+ on the 20.x line, or Node.js 22.12.0+
-3. pnpm 10.15.0
-4. Rust stable with the MSVC target
-5. Visual Studio 2022 Build Tools with **Desktop development with C++**
-6. Microsoft Edge WebView2 Runtime
-
-Install pnpm:
+需要 Node.js 22+、pnpm 10、Rust MSVC x64、Visual Studio 2022 C++ 构建工具和 Windows SDK。
+在 PowerShell 中运行：
 
 ```powershell
-corepack enable
-corepack prepare pnpm@10.15.0 --activate
-```
-
-If Corepack is unavailable in your environment:
-
-```powershell
-corepack disable
-npm install --global pnpm@10.15.0
-```
-
-Install Rust:
-
-```powershell
-winget install --id Rustlang.Rustup --exact
-```
-
-## Setup
-
-Run the repository initializer from the repository root:
-
-```powershell
+git clone https://github.com/yucdong/Preshot.git
+cd Preshot
 .\init.ps1
+pnpm install --frozen-lockfile
+pnpm tauri:dev
 ```
-
-The script validates Node.js, pnpm, Rust, Cargo, Visual C++ Build Tools, and WebView2, then runs `pnpm install --frozen-lockfile`.
-
-`pnpm tauri`, `pnpm tauri:dev`, and `pnpm tauri:build` run through `scripts\tauri.ps1`, which auto-discovers Cargo in `%USERPROFILE%\.cargo\bin` when the current VS Code `PATH` has not refreshed yet. If Rust is installed elsewhere, add that Cargo directory to `PATH` and restart your terminal or editor.
-
-If another `link.exe` shadows the Visual Studio toolchain, run Tauri or Cargo commands from **Developer PowerShell for VS 2022**.
-
-## MSI installation contract
-
-The x64 MSI is built with the source-controlled
-`src-tauri\wix\main.wxs` template, pinned to the Tauri CLI 2.11.4 upstream
-template. It is a limited per-user package installed under
-`%LOCALAPPDATA%\Programs\Preshot`; attempts to set `ALLUSERS` are rejected.
-The package owns only application files, Start Menu/Desktop shortcuts, and
-HKCU application registration. `%USERPROFILE%\.preshot`, `.preshotproj`
-projects, legacy `.preshot` data, settings, and workspace metadata are never
-installer-owned or removed. The application, not the MSI, performs the
-first-start user-data bootstrap and creates the default starter only when no
-valid registered or default-root project is available.
-
-The per-user lineage uses UpgradeCode
-`493c5fb5-639d-4fba-94d3-aebe4eb0dce6`. If the historical machine-wide
-lineage `97ee9b44-6313-52eb-a67e-a1334832eb86` is installed, the MSI blocks
-with localized guidance to uninstall it through Windows **Installed apps**;
-the limited installer never attempts elevated removal. If machine-wide
-`0.0.1` was public, the first publishable per-user version is `0.0.2`.
-
-The Start Menu shortcut is installed by default. The Desktop shortcut is an
-opt-in public MSI feature:
 
 ```powershell
-msiexec.exe /i ".\Preshot_0.0.2_x64_en-US.msi" DESKTOPSHORTCUT=1
+pnpm build                 # 构建前端
+pnpm production:build      # 检查、构建 EXE 和 MSI
 ```
 
-Install a higher version with the same `/i` form for a major upgrade. Repair
-and uninstall are also available to operators:
+安装包输出到 `src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi`。
+本地未配置签名时生成的包会标为不可公开发布；正式发布的签名与校验步骤见
+[安装包说明](docs/release/windows-installer.md)。`pnpm dev` 只运行浏览器前端，完整功能请用桌面模式。
 
-```powershell
-msiexec.exe /i ".\Preshot_0.0.3_x64_en-US.msi"
-msiexec.exe /famus "{PRODUCT-CODE-GUID}" /qn /norestart
-msiexec.exe /x ".\Preshot_0.0.3_x64_en-US.msi"
-```
+[功能文档索引](docs/README.md) · [开发与测试](docs/development/build-and-test.md) · [发布流程](docs/release/github.md)
 
-Uninstall through Windows **Installed apps** / Add or Remove Programs for the
-normal interactive flow. The MSI does not create an uninstall shortcut.
-Install, upgrade, repair, and uninstall preserve `%USERPROFILE%\.preshot`.
+## 许可证
 
-## Commands
-
-### Development and packaging
-
-| Command | Purpose |
-| --- | --- |
-| `pnpm dev` | Start the browser-only Vite development server. |
-| `pnpm preview` | Preview the built web bundle. |
-| `pnpm tauri` | Run the local Tauri CLI through the Windows wrapper. |
-| `pnpm tauri:dev` | Start the desktop application in Tauri development mode. |
-| `pnpm build` | Run the TypeScript build and Vite production build. |
-| `pnpm tauri:build` | Build Windows desktop bundles. |
-| `pnpm production:build` | Validate the release matrix and build the explicit MSVC x64 release MSI. |
-| `pnpm production:verify` | Re-run the full matrix, including E2E and installer validation, against existing release artifacts without rebuilding. |
-
-### Validation
-
-| Command | Purpose |
-| --- | --- |
-| `pnpm docs:check` | Check English-only docs, feature-list JSON, local links, and stale canonical references. |
-| `pnpm lint` | Run ESLint. |
-| `pnpm typecheck` | Run the TypeScript project build in type-check mode. |
-| `pnpm test` | Run the Vitest suite. |
-| `pnpm test:watch` | Run Vitest in watch mode. |
-| `pnpm test:init` | Run the PowerShell initializer regression harness. |
-| `pnpm test:production-scripts` | Run isolated production/release script fixtures. |
-| `pnpm test:e2e` | Run the main Playwright browser-shell smoke suite. |
-| `pnpm test:e2e:blocknote` | Run the focused BlockNote v15 Playwright suite. |
-| `pnpm test:e2e:capture` | Run the isolated long-image DOM-capture acceptance suite. |
-| `cargo test --manifest-path src-tauri\Cargo.toml` | Run the Rust unit tests. |
-
-### Midscene and AI-assisted workflows
-
-| Command | Purpose |
-| --- | --- |
-| `pnpm dev:midscene` | Start the dedicated Vite server for Midscene-driven browser tests. |
-| `pnpm midscene:proxy` | Start the local Midscene Responses-API bridge. |
-| `pnpm midscene:model:verify` | Verify the configured Midscene model connection. |
-| `pnpm midscene:smoke` | Run the read-only Midscene smoke against a running app. |
-| `pnpm test:midscene:web` | Run the serialized Midscene web suite. |
-| `pnpm midscene:report:merge` | Merge Midscene HTML/text reports. |
-
-### Maintenance
-
-| Command | Purpose |
-| --- | --- |
-| `pnpm migrate:project` | Run the project-manifest migration utility. |
-| `pnpm release:set-version -- <x.y.z>` | Synchronize package, Tauri, Cargo, and lockfile release versions within MSI limits. |
-
-### Release signing and metadata
-
-`production:build` writes an MSI SHA-256 sidecar and deterministic release
-manifest beside the installer. It uses `SOURCE_DATE_EPOCH` when set, otherwise
-the Git commit timestamp, and omits the timestamp when neither is available.
-For version `<version>`, the paths are:
-
-```text
-src-tauri\target\x86_64-pc-windows-msvc\release\preshot.exe
-src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot_<version>_x64_en-US.msi
-src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot_<version>_x64_en-US.msi.sha256
-src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\Preshot-<version>-release.json
-```
-
-Local unsigned or partially signed builds are labeled non-publishable. Set
-`PRESHOT_PUBLISH=1` or run `pnpm production:build -- --Publish` and
-`pnpm production:verify -- --Publish` to require valid Authenticode signatures
-on both the executable and MSI.
-
-The current local `0.0.1` executable and MSI are unsigned. They are valid only
-as development evidence and are not publishable. Publication also requires a
-version newer than the historical machine-wide `0.0.1`, so the first eligible
-per-user release is `0.0.2` or later.
-
-Tauri's documented `bundle.windows.signCommand` can sign during bundling.
-Alternatively, post-build `signtool.exe` signing supports
-`PRESHOT_SIGNTOOL_PATH` plus either `PRESHOT_SIGN_CERT_SHA1` or
-`PRESHOT_SIGN_CERT_FILE`; optional settings are `PRESHOT_SIGN_CERT_PASSWORD`,
-`PRESHOT_SIGN_TIMESTAMP_URL`, `PRESHOT_SIGN_DESCRIPTION`, and
-`PRESHOT_SIGN_DESCRIPTION_URL`. The executable is signed before MSI bundling,
-then the MSI is signed, so the installed payload and outer package are both
-covered. Keep certificate passwords in the process environment only.
-`PRESHOT_INSTALLER_VERIFY_SCRIPT` may point to a
-non-destructive PowerShell validation hook accepting `-MsiPath`,
-`-ManifestPath`, and `-Publish`.
-
-See the [Windows installer operator guide](docs/WINDOWS_INSTALLER.md) for
-silent commands, upgrade/rollback checks, WebView2 behavior, troubleshooting,
-and the pinned Tauri template update procedure. Local installs may be
-unsigned; published artifacts must be signed and pass publish-mode
-verification.
-
-## Documentation
-
-- [Contributor guide](AGENTS.md)
-- [Documentation index](docs/README.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Testing](docs/TESTING.md)
-- [Reliability](docs/RELIABILITY.md)
-- [Windows installer operator guide](docs/WINDOWS_INSTALLER.md)
-- [Licensing and distribution](docs/LICENSING.md)
-- [BlockNote v14 interaction history](docs/design_docs/blocknote_v14_design.md)
-- [Artifact document blocks](docs/design_docs/artifacts/artifacts.md)
-- [UI/UX contract](docs/design_docs/UI_UX_CONTRACT.md)
-- [Feature status tracker](docs/design_docs/featurelist.json)
-
-## License
-
-Preshot's own source code is under the [MIT License](LICENSE).
-
-Distributed application builds that include `@blocknote/xl-pdf-exporter` or
-`@blocknote/xl-docx-exporter` use those
-dependencies through their GPL-3.0 option, so shipped Preshot application
-distributions must be provided under GPL-3.0 with the corresponding source and
-license notices. The `docx@9.6.1` dependency is MIT-licensed.
-The production long-image renderer, `modern-screenshot@4.7.0`, is also
-MIT-licensed and does not add another BlockNote XL/GPL dependency.
-
-See [Licensing and distribution](docs/LICENSING.md),
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and
-[LICENSES/GPL-3.0.txt](LICENSES/GPL-3.0.txt).
+Preshot 自有源码采用 [MIT](LICENSE)。包含 BlockNote XL 导出器的应用发行版遵循其 GPL-3.0 条款；
+详见 [许可说明](docs/release/licensing.md) 和 [第三方声明](THIRD_PARTY_NOTICES.md)。

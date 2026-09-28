@@ -1,3 +1,4 @@
+import { ui } from "../../../shared/i18n/ui";
 import { insertPreparedMaterial } from "../../../domain/library";
 import type {
   MaterialInsertRequest,
@@ -33,14 +34,14 @@ export async function insertLibraryMaterial({
   publish,
 }: InsertionContext): Promise<void> {
   const requireCurrent = () => {
-    if (!isCurrent()) throw new Error("目标项目或方案已变化，请重新选择素材插入位置。");
+    if (!isCurrent()) throw new Error(ui("目标项目或方案已变化，请重新选择素材插入位置。"));
   };
   const abortPrepared = async (cause: unknown) => {
     try {
       await repository.abortInsert(input.projectPath, input.operationId);
     } catch (cleanupError) {
       throw new MaterialInsertionRecoveryError(
-        "素材插入未完成，临时文件需要恢复处理。请重新打开目标项目，勿重复插入。",
+        ui("素材插入未完成，临时文件需要恢复处理。请重新打开目标项目，勿重复插入。"),
         new AggregateError([cause, cleanupError]),
       );
     }
@@ -65,7 +66,7 @@ export async function insertLibraryMaterial({
       prepared.targetGroupId !== input.targetGroupId ||
       prepared.selection?.mode !== input.selection?.mode ||
       JSON.stringify(prepared.selection?.imageIds) !== JSON.stringify(input.selection?.imageIds)
-    ) throw new Error("素材插入准备结果与请求不一致");
+    ) throw new Error(ui("素材插入准备结果与请求不一致"));
     const inserted = insertPreparedMaterial(input.expectedPlan, prepared, afterBlockId, makeId);
     nextPlan = inserted.plan;
     blockId = inserted.lastBlockId;
@@ -90,13 +91,13 @@ export async function insertLibraryMaterial({
       status = await repository.getInsertStatus(input.projectPath, input.operationId);
     } catch (statusError) {
       throw new MaterialInsertionRecoveryError(
-        "无法确认素材是否已写入项目。请重新打开目标项目进行恢复，勿重复插入。",
+        ui("无法确认素材是否已写入项目。请重新打开目标项目进行恢复，勿重复插入。"),
         new AggregateError([commitError, statusError]),
       );
     }
     if (status === "conflict") {
       throw new MaterialInsertionRecoveryError(
-        "素材插入与项目当前内容冲突，已保留恢复记录。请重新打开目标项目处理。",
+        ui("素材插入与项目当前内容冲突，已保留恢复记录。请重新打开目标项目处理。"),
         commitError,
       );
     }
@@ -110,7 +111,7 @@ export async function insertLibraryMaterial({
     publish(nextPlan, blockId);
   } catch (error) {
     throw new MaterialInsertionRecoveryError(
-      "素材已写入项目，但编辑器未能刷新。请重新打开项目；不要再次插入。",
+      ui("素材已写入项目，但编辑器未能刷新。请重新打开项目；不要再次插入。"),
       error,
     );
   }

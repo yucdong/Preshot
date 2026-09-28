@@ -8,7 +8,7 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 
 - Active editor path: `src/features/plan/blocknote/BlockNoteProjectCanvasProvider.tsx`
 - Active plan schema: v15 with BlockNote document v3 (`format: "preshot-blocks"`)
-- Active UI language: Simplified Chinese (`src/shared/i18n/locales/zh.ts`)
+- Active UI languages: Simplified Chinese (default) and English (`src/shared/i18n/locales`)
 - Project manifest: `.preshotproj` with manifest `schemaVersion: 1`
 - Global material library: `%USERPROFILE%\.preshot\library\library.db`,
   database v6 and portable payload v1
@@ -214,6 +214,7 @@ pnpm release:set-version -- <x.y.z>
 
 ```powershell
 pnpm docs:check
+pnpm i18n:check
 pnpm lint
 pnpm typecheck
 pnpm test
@@ -245,7 +246,7 @@ pnpm migrate:project
 - Use pnpm only; do not add npm or Yarn lock files.
 - Add a failing regression test before fixing a defect.
 - Co-locate Vitest files as `*.test.ts` or `*.test.tsx`.
-- Keep documentation in English, but keep runtime UI copy in Simplified Chinese unless the task is explicitly about localization.
+- Keep contributor documentation in English; README.md is Chinese and README.en.md is English. Runtime application copy must support Chinese and English through the bundled i18n resources; never translate user-owned content. See `docs/development/i18n.md` and run `pnpm i18n:check` for UI changes.
 - Prefer the smallest focused validation command first, then widen to the affected matrix.
 - Keep files focused on one responsibility and preserve the layer boundaries.
 - Do not broaden Rust commands or Tauri adapters into UI/business-rule layers.
@@ -279,7 +280,7 @@ pnpm migrate:project
   a modal focus trap with Escape/backdrop cancellation and focus restoration;
   desktop success reveals the project directory, while cancellation, failure,
   and browser/Midscene output do not.
-- The app shell supports focus mode, persisted theme choice, and persisted project-rail width.
+- The app shell supports focus mode, persisted theme/language choice, and persisted project-rail width.
 - New project creation uses one dialog with an editable parent directory and
   project name. Resolve the default Preshot projects directory without opening
   a system picker. Explain and preview the named child folder; directory picking
@@ -315,5 +316,5 @@ pnpm migrate:project
   harness, docs check, and a later clean-VM install/upgrade/repair/uninstall
   matrix; never run that destructive matrix on a developer workstation.
 
-See [docs/README.md](docs/README.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING.md), [docs/RELIABILITY.md](docs/RELIABILITY.md), [docs/WINDOWS_INSTALLER.md](docs/WINDOWS_INSTALLER.md), and [docs/LICENSING.md](docs/LICENSING.md).
-For active design references, use [docs/design_docs/blocknote_v14_design.md](docs/design_docs/blocknote_v14_design.md), [docs/design_docs/UI_UX_CONTRACT.md](docs/design_docs/UI_UX_CONTRACT.md), and [docs/design_docs/featurelist.json](docs/design_docs/featurelist.json).
+See the [documentation index](docs/README.md), [architecture](docs/development/architecture.md), [build and test](docs/development/build-and-test.md), [reliability](docs/development/reliability.md), [Windows installer](docs/release/windows-installer.md), and [licensing](docs/release/licensing.md).
+Feature contracts are organized under [projects](docs/features/projects.md), [editor](docs/features/editor.md), [images](docs/features/images.md), [materials](docs/features/material-library.md), [export](docs/features/exports.md), and [settings](docs/features/settings.md).

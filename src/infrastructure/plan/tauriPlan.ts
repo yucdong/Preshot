@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import { invoke } from "@tauri-apps/api/core";
 import type {
   ImportedImage,
@@ -73,7 +74,7 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         const value = await invokeCommand("is_reference_image_retained_for_history", { projectPath, file });
         if (typeof value !== "boolean") throw new Error("Malformed image history retention result");
         return value;
-      } catch (error) { throw new Error(`无法确认图片历史保留状态：${detail(error)}`, { cause: error }); }
+      } catch (error) { throw new Error(ui("无法确认图片历史保留状态：{{v0}}", { v0: detail(error) }), { cause: error }); }
     },
     async prepareImagePaste(input) {
       try {
@@ -87,12 +88,12 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         }
         return { operationId, file, name: requireString(value.name), mimeType: requireString(value.mimeType) };
       } catch (error) {
-        throw new Error(`无法准备图片粘贴：${detail(error)}`, { cause: error });
+        throw new Error(ui("无法准备图片粘贴：{{v0}}", { v0: detail(error) }), { cause: error });
       }
     },
     async commitImagePaste(input) {
       try { await invokeCommand("commit_image_paste", input); }
-      catch (error) { throw new Error(`无法提交图片粘贴：${detail(error)}`, { cause: error }); }
+      catch (error) { throw new Error(ui("无法提交图片粘贴：{{v0}}", { v0: detail(error) }), { cause: error }); }
     },
     async getImagePasteStatus(projectPath, operationId) {
       try {
@@ -105,11 +106,11 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
           throw new Error("Invalid image paste status");
         }
         return status;
-      } catch (error) { throw new Error(`无法确认图片粘贴结果：${detail(error)}`, { cause: error }); }
+      } catch (error) { throw new Error(ui("无法确认图片粘贴结果：{{v0}}", { v0: detail(error) }), { cause: error }); }
     },
     async abortImagePaste(projectPath, operationId) {
       try { await invokeCommand("abort_image_paste", { projectPath, operationId }); }
-      catch (error) { throw new Error(`无法清理未提交的图片粘贴：${detail(error)}`, { cause: error }); }
+      catch (error) { throw new Error(ui("无法清理未提交的图片粘贴：{{v0}}", { v0: detail(error) }), { cause: error }); }
     },
     async importImage(projectPath, sourcePath) {
       try {

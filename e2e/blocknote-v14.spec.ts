@@ -317,9 +317,11 @@ test("creates, edits, saves, and exports a BlockNote v15 project", async ({ page
   const group = page.locator(".preshot-blocknote-image-group");
   await expect(group).toBeVisible();
   await expect(group.getByRole("button", { name: "添加图片" }).first())
-    .toHaveAttribute("title", "插入图片");
+    .toHaveAttribute("title", "从文件添加图片");
   await expect(group.getByRole("button", { name: "截图" }))
-    .toHaveAttribute("title", "截图");
+    .toHaveAttribute("title", "截图插入当前图片组");
+  await expect(group.getByRole("button", { name: "从素材库插入" }))
+    .toBeVisible();
   await expect(group.getByRole("button", { name: "删除图片组" }))
     .toHaveAttribute("title", "删除图片组");
   await expect(group.getByText("图片组", { exact: true }))
@@ -329,7 +331,7 @@ test("creates, edits, saves, and exports a BlockNote v15 project", async ({ page
   ).evaluate((toolbar) =>
     Array.from(toolbar.children).map((element) =>
       getComputedStyle(element).cursor),
-  )).toEqual(["default", "default", "default", "default"]);
+  )).toEqual(["default", "default", "default", "default", "default"]);
   const blockContent = group.locator(
     'xpath=ancestor::div[@data-content-type="imageGroup"]',
   );

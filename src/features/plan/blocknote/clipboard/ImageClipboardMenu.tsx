@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../../shared/i18n/ui";
 import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { ImageClipboardSelection, ImagePasteTarget } from "../../../../domain/clipboard/imageClipboard";
@@ -29,6 +30,7 @@ export function ImageClipboardMenu({ menu, canPaste, busy, disabled, onCopy, onP
   onPaste(): void;
   onClose(restore: boolean): void;
 }) {
+  useUiLanguage();
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const element = ref.current!;
@@ -55,7 +57,7 @@ export function ImageClipboardMenu({ menu, canPaste, busy, disabled, onCopy, onP
     }
   }, [canPaste]);
 
-  return createPortal(<div ref={ref} role="menu" aria-label="图片剪贴板" tabIndex={-1}
+  return createPortal(<div ref={ref} role="menu" aria-label={ui("图片剪贴板")} tabIndex={-1}
     className="preshot-image-clipboard-menu"
     onContextMenu={(event) => event.preventDefault()}
     onKeyDown={(event) => {
@@ -78,7 +80,7 @@ export function ImageClipboardMenu({ menu, canPaste, busy, disabled, onCopy, onP
         items[0]?.click();
       }
     }}>
-    {menu.source && <button type="button" role="menuitem" disabled={busy || disabled} onClick={onCopy}>复制图片</button>}
-    {menu.target && <button type="button" role="menuitem" disabled={busy || disabled || !canPaste} onClick={onPaste}>粘贴图片</button>}
+    {menu.source && <button type="button" role="menuitem" disabled={busy || disabled} onClick={onCopy}>{ui("复制图片")}</button>}
+    {menu.target && <button type="button" role="menuitem" disabled={busy || disabled || !canPaste} onClick={onPaste}>{ui("粘贴图片")}</button>}
   </div>, menu.host);
 }

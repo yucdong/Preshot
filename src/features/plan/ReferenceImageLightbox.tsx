@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import {
   useCallback,
   useEffect,
@@ -60,8 +61,8 @@ const FULL_CROP: NormalizedImageCrop = { x: 0, y: 0, width: 1, height: 1 };
 function errorMessage(error: unknown, draft: boolean) {
   const detail = error instanceof Error ? error.message : String(error);
   return draft
-    ? `裁剪素材草稿图片失败：${detail}。请检查素材库是否可写，然后重试。`
-    : `裁剪项目图片副本失败：${detail}。请检查项目文件是否可写，然后重试。`;
+    ? ui("裁剪素材草稿图片失败：{{v0}}。请检查素材库是否可写，然后重试。", { v0: detail })
+    : ui("裁剪项目图片副本失败：{{v0}}。请检查项目文件是否可写，然后重试。", { v0: detail });
 }
 
 function isTopmostDialog(dialog: HTMLElement | null): boolean {
@@ -78,6 +79,7 @@ export function ReferenceImageLightbox({
   copyScope = "project",
   onClose,
 }: ReferenceImageLightboxProps) {
+  useUiLanguage();
   const portalHost = useDialogPortalHost();
   const { t } = useTranslation();
   const titleId = useId();
@@ -97,7 +99,7 @@ export function ReferenceImageLightbox({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const copyLabel = copyScope === "draft" ? "素材草稿图片副本" : "项目图片副本";
+  const copyLabel = copyScope === "draft" ? ui("素材草稿图片副本") : ui("项目图片副本");
 
   const sourceAspectRatio = cropAction
     ? cropAction.sourceWidth / cropAction.sourceHeight
@@ -149,7 +151,7 @@ export function ReferenceImageLightbox({
         event.preventDefault();
         event.stopPropagation();
         if (confirming) {
-          setStatus(`正在裁剪${copyLabel}，完成前无法关闭。`);
+          setStatus(ui("正在裁剪{{v0}}，完成前无法关闭。", { v0: copyLabel }));
         } else {
           onCloseRef.current();
         }
@@ -293,15 +295,15 @@ export function ReferenceImageLightbox({
     if (!cropAction || confirming) return;
     setConfirming(true);
     setError(null);
-    setStatus(`正在裁剪${copyLabel}…`);
+    setStatus(ui("正在裁剪{{v0}}…", { v0: copyLabel }));
     try {
       await cropAction.confirm(draftCrop);
       setMode("viewer");
       setPreset("original");
       setDraftCrop(FULL_CROP);
       setStatus(copyScope === "draft"
-        ? "裁剪已应用到素材草稿，保存素材后生效；原始素材图片未更改。"
-        : "裁剪已应用到项目图片副本，外部源文件未更改。");
+        ? ui("裁剪已应用到素材草稿，保存素材后生效；原始素材图片未更改。")
+        : ui("裁剪已应用到项目图片副本，外部源文件未更改。"));
       window.requestAnimationFrame(() => cropButtonRef.current?.focus());
     } catch (caught) {
       setError(errorMessage(caught, copyScope === "draft"));
@@ -313,7 +315,7 @@ export function ReferenceImageLightbox({
 
   const close = () => {
     if (confirming) {
-      setStatus(`正在裁剪${copyLabel}，完成前无法关闭。`);
+      setStatus(ui("正在裁剪{{v0}}，完成前无法关闭。", { v0: copyLabel }));
     } else {
       onClose();
     }
@@ -345,16 +347,16 @@ export function ReferenceImageLightbox({
         <header className="flex min-h-14 items-center justify-between gap-4 border-b border-white/10 px-4 py-3">
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold" id={titleId}>
-              {mode === "crop" ? "裁剪参考图" : alt}
+              {mode === "crop" ? ui("裁剪参考图") : alt}
             </h2>
             <p className="text-xs text-white/65" id={descriptionId}>
               {copyScope === "draft"
                 ? mode === "crop"
-                  ? "裁剪只修改素材草稿副本，保存素材后生效；原始素材图片保持不变。"
-                  : "查看当前素材草稿中的参考图片副本。"
+                  ? ui("裁剪只修改素材草稿副本，保存素材后生效；原始素材图片保持不变。")
+                  : ui("查看当前素材草稿中的参考图片副本。")
                 : mode === "crop"
-                  ? "裁剪只覆盖项目中的图片副本，不会修改外部源文件。"
-                  : "查看项目中的参考图片副本。"}
+                  ? ui("裁剪只覆盖项目中的图片副本，不会修改外部源文件。")
+                  : ui("查看项目中的参考图片副本。")}
             </p>
           </div>
           <button
@@ -394,7 +396,7 @@ export function ReferenceImageLightbox({
                   type="button"
                 >
                   <Crop aria-hidden size={17} />
-                  裁剪
+                  {ui("裁剪")}
                 </button>
               ) : null}
             </footer>
@@ -410,7 +412,7 @@ export function ReferenceImageLightbox({
             <div className="grid min-h-0 flex-1 gap-4 overflow-auto p-4 lg:grid-cols-[minmax(0,1fr)_17rem]">
               <div className="flex min-h-[18rem] items-center justify-center rounded-lg bg-black/45 p-4">
                 <div
-                  aria-label="裁剪预览；拖动调整位置，方向键微调，Shift 加方向键大幅微调"
+                  aria-label={ui("裁剪预览；拖动调整位置，方向键微调，Shift 加方向键大幅微调")}
                   aria-disabled={confirming}
                   className="relative max-h-[58vh] max-w-full touch-none cursor-move overflow-hidden rounded border border-white/70 bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                   onKeyDown={nudgeCrop}
@@ -445,7 +447,7 @@ export function ReferenceImageLightbox({
               <aside className="space-y-5 rounded-lg border border-white/10 bg-white/[0.04] p-4">
                 <fieldset disabled={confirming}>
                   <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/70">
-                    宽高比
+                    {ui("宽高比")}
                   </legend>
                   <div className="grid grid-cols-3 gap-2">
                     {CROP_PRESETS.map((entry) => (
@@ -456,7 +458,7 @@ export function ReferenceImageLightbox({
                         onClick={() => selectPreset(entry.id)}
                         type="button"
                       >
-                        {entry.label}
+                        {ui(entry.label)}
                       </button>
                     ))}
                   </div>
@@ -464,11 +466,11 @@ export function ReferenceImageLightbox({
 
                 <label className="block text-xs font-semibold text-white/75">
                   <span className="mb-2 flex justify-between">
-                    <span>缩放</span>
+                    <span>{ui("缩放")}</span>
                     <output>{zoom.toFixed(2)}×</output>
                   </span>
                   <input
-                    aria-label="裁剪缩放"
+                    aria-label={ui("裁剪缩放")}
                     className="w-full accent-white"
                     disabled={confirming}
                     max="8"
@@ -484,11 +486,11 @@ export function ReferenceImageLightbox({
                   <div className="space-y-4">
                     <label className="block text-xs font-semibold text-white/75">
                       <span className="mb-2 flex justify-between">
-                        <span>自由裁剪宽度</span>
+                        <span>{ui("自由裁剪宽度")}</span>
                         <output>{Math.round(draftCrop.width * 100)}%</output>
                       </span>
                       <input
-                        aria-label="自由裁剪宽度"
+                        aria-label={ui("自由裁剪宽度")}
                         className="w-full accent-white"
                         disabled={confirming}
                         max="1"
@@ -502,11 +504,11 @@ export function ReferenceImageLightbox({
                     </label>
                     <label className="block text-xs font-semibold text-white/75">
                       <span className="mb-2 flex justify-between">
-                        <span>自由裁剪高度</span>
+                        <span>{ui("自由裁剪高度")}</span>
                         <output>{Math.round(draftCrop.height * 100)}%</output>
                       </span>
                       <input
-                        aria-label="自由裁剪高度"
+                        aria-label={ui("自由裁剪高度")}
                         className="w-full accent-white"
                         disabled={confirming}
                         max="1"
@@ -532,11 +534,11 @@ export function ReferenceImageLightbox({
                   type="button"
                 >
                   <RotateCcw aria-hidden size={16} />
-                  重置
+                  {ui("重置")}
                 </button>
 
                 <p className="text-xs leading-5 text-white/60">
-                  拖动图片调整焦点；聚焦预览后可用方向键微调位置。
+                  {ui("拖动图片调整焦点；聚焦预览后可用方向键微调位置。")}
                 </p>
               </aside>
             </div>
@@ -560,7 +562,7 @@ export function ReferenceImageLightbox({
                   onClick={cancelCrop}
                   type="button"
                 >
-                  取消
+                  {ui("取消")}
                 </button>
                 <button
                   className="inline-flex min-h-11 min-w-28 items-center justify-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-[#17191d] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#17191d] disabled:cursor-wait disabled:opacity-65 motion-reduce:transition-none"
@@ -576,7 +578,7 @@ export function ReferenceImageLightbox({
                   ) : (
                     <Check aria-hidden size={17} />
                   )}
-                  {confirming ? "正在裁剪…" : "确认裁剪"}
+                  {confirming ? ui("正在裁剪…") : ui("确认裁剪")}
                 </button>
               </div>
             </footer>

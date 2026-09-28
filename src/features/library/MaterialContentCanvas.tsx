@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import "@blocknote/core/fonts/inter.css";
 import { zh } from "@blocknote/core/locales";
 import { BlockNoteView } from "@blocknote/mantine";
@@ -69,7 +70,7 @@ function cropPixels(
     crop.x < 0 || crop.y < 0 || crop.width <= 0 || crop.height <= 0 ||
     crop.x + crop.width > 1 || crop.y + crop.height > 1 ||
     !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0
-  ) throw new Error("裁剪范围或原图尺寸无效，请重新打开图片。");
+  ) throw new Error(ui("裁剪范围或原图尺寸无效，请重新打开图片。"));
   const x = Math.min(width - 1, Math.max(0, Math.round(crop.x * width)));
   const y = Math.min(height - 1, Math.max(0, Math.round(crop.y * height)));
   return {
@@ -80,15 +81,17 @@ function cropPixels(
 }
 
 function rejectStructure(): never {
-  throw new Error("素材编辑不支持添加、删除、复制或替换组件。");
+  throw new Error(ui("素材编辑不支持添加、删除、复制或替换组件。"));
 }
 
 export function MaterialContentCanvas(props: MaterialContentCanvasProps) {
+  useUiLanguage();
   return <MaterialContentCanvasSession
     key={`${props.sessionId}:${props.material.id}:${props.material.revision}`} {...props} />;
 }
 
 function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
+  useUiLanguage();
   const { disabled = false, material, assets, sessionId, repository, ref } = props;
   const imageClipboard = useImageClipboardPort();
   const callbacks = useRef(props);
@@ -135,7 +138,7 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
     const frame = requestAnimationFrame(() => {
       const group = Array.from(scrollerRef.current?.querySelectorAll("[data-image-group-id]") ?? [])
         .find((element) => element.getAttribute("data-image-group-id") === captureFocusGroup.current);
-      group?.parentElement?.querySelector<HTMLButtonElement>('button[aria-label="截图"]')?.focus();
+      group?.parentElement?.querySelector<HTMLButtonElement>('[data-image-capture]')?.focus();
       captureFocusGroup.current = null;
     });
     return () => cancelAnimationFrame(frame);
@@ -197,13 +200,13 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
   }, []);
 
   const readPayload = useCallback(() => {
-    if (busyRef.current) throw new Error("图片操作尚未完成，请稍候再保存。");
-    if (composingRef.current) throw new Error("请先完成当前文字输入，再保存素材。");
+    if (busyRef.current) throw new Error(ui("图片操作尚未完成，请稍候再保存。"));
+    if (composingRef.current) throw new Error(ui("请先完成当前文字输入，再保存素材。"));
     try {
       drafts.flush();
       return store.readPayload();
     } catch (error) {
-      throw new Error(`请修正素材内容后再保存：${error instanceof Error ? error.message : String(error)}`, { cause: error });
+      throw new Error(ui("请修正素材内容后再保存：{{v0}}", { v0: error instanceof Error ? error.message : String(error) }), { cause: error });
     }
   }, [drafts, store]);
   useImperativeHandle(ref, () => ({
@@ -216,7 +219,7 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
   }), [readPayload, zoom]);
 
   const report = useCallback((error: unknown) => {
-    callbacks.current.onError(`素材内容编辑失败：${error instanceof Error ? error.message : String(error)}`);
+    callbacks.current.onError(ui("素材内容编辑失败：{{v0}}", { v0: error instanceof Error ? error.message : String(error) }));
   }, []);
 
   const mutate = useCallback((action: () => void) => {
@@ -225,7 +228,7 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
   }, [report]);
 
   const runImageOperation = useCallback(async (action: () => Promise<void>) => {
-    if (callbacks.current.disabled || busyRef.current) throw new Error("正在保存或处理图片，请稍候再试。");
+    if (callbacks.current.disabled || busyRef.current) throw new Error(ui("正在保存或处理图片，请稍候再试。"));
     drafts.flush();
     busyRef.current = true;
     setBusy(true);
@@ -311,32 +314,32 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
 
   const resolveClipboardImage = (selection: ImageClipboardSelection) => {
     if (selection.kind !== "gallery" || busyRef.current || callbacks.current.disabled || !mounted.current) {
-      throw new Error("当前素材图片不可复制，请完成编辑操作后重试。");
+      throw new Error(ui("当前素材图片不可复制，请完成编辑操作后重试。"));
     }
     const image = store.getSnapshot().groups.find(group => group.id === selection.groupId)
       ?.images.find(entry => entry.id === selection.imageId);
-    if (!image) throw new Error("选中的素材图片已不存在。");
+    if (!image) throw new Error(ui("选中的素材图片已不存在。"));
     const dataUrl = store.getSnapshot().sources[image.file];
-    if (!dataUrl) throw new Error("素材原图尚未加载，请稍候再复制。");
+    if (!dataUrl) throw new Error(ui("素材原图尚未加载，请稍候再复制。"));
     const { id: _id, file: _file, ...presentation } = image;
-    return { dataUrl, name: "素材图片.png", presentation };
+    return { dataUrl, name: ui("素材图片.png"), presentation };
   };
 
   const pasteClipboardImage = async (contents: ImageClipboardContents, target: ImagePasteTarget) => {
-    if (target.kind !== "gallery") throw new Error("只能粘贴到当前素材的图片区域，不能新增其他组件。");
+    if (target.kind !== "gallery") throw new Error(ui("只能粘贴到当前素材的图片区域，不能新增其他组件。"));
     const importer = repository.importEditImageData;
-    if (!importer) throw new Error("当前素材编辑服务不支持图片粘贴，请在桌面应用中重试。");
+    if (!importer) throw new Error(ui("当前素材编辑服务不支持图片粘贴，请在桌面应用中重试。"));
     await runImageOperation(async () => {
       const revision = store.getSnapshot().revision;
       const group = store.getSnapshot().groups.find(entry => entry.id === target.groupId);
       if (!group || (target.afterImageId !== null && !group.images.some(image => image.id === target.afterImageId))) {
-        throw new Error("素材粘贴位置已变化，请重新选择。");
+        throw new Error(ui("素材粘贴位置已变化，请重新选择。"));
       }
-      if (group.images.length >= 128) throw new Error("当前素材已达到 128 张图片上限。");
+      if (group.images.length >= 128) throw new Error(ui("当前素材已达到 128 张图片上限。"));
       const asset = await clipboardPasteAsset(contents, target);
-      if (!mounted.current || store.getSnapshot().revision !== revision) throw new Error("素材编辑已结束或内容已变化。");
+      if (!mounted.current || store.getSnapshot().revision !== revision) throw new Error(ui("素材编辑已结束或内容已变化。"));
       const imported = await importer(sessionId, asset.image);
-      if (!mounted.current || store.getSnapshot().revision !== revision) throw new Error("素材编辑已结束或内容已变化。");
+      if (!mounted.current || store.getSnapshot().revision !== revision) throw new Error(ui("素材编辑已结束或内容已变化。"));
       const pasted = store.pasteImage(target.groupId, target.afterImageId, imported,
         asset.presentation, target.maxFrameWidth);
       setSelectedImageId(pasted.id);
@@ -354,7 +357,7 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
       undo() {
         if (!mounted.current || busyRef.current || callbacks.current.disabled ||
             store.getSnapshot().revision !== revision || clipboardInputVersion.current !== inputVersion) {
-          throw new Error("粘贴之后已有其他编辑，请使用素材画布的撤销功能。");
+          throw new Error(ui("粘贴之后已有其他编辑，请使用素材画布的撤销功能。"));
         }
         history("undo");
       },
@@ -382,7 +385,7 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
     ?.images.find(({ id }) => id === lightbox.imageId);
   const dimensions = opened ? store.getDimensions(opened.file) : null;
 
-  return <section className="ml-content-canvas" aria-label="素材内容编辑画布" aria-busy={locked && !captureState}
+  return <section className="ml-content-canvas" aria-label={ui("素材内容编辑画布")} aria-busy={locked && !captureState}
     onPointerDownCapture={() => { clipboardFocusVersion.current += 1; }}
     onKeyDownCapture={(event) => {
       clipboardFocusVersion.current += 1;
@@ -401,28 +404,28 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
       }
     }}
   >
-    <div className="ml-content-canvas-toolbar" role="toolbar" aria-label="素材画布工具">
-      <button type="button" aria-label="撤销" disabled={locked || (!snapshot.canUndo && !uncommittedText)}
+    <div className="ml-content-canvas-toolbar" role="toolbar" aria-label={ui("素材画布工具")}>
+      <button type="button" aria-label={ui("撤销")} disabled={locked || (!snapshot.canUndo && !uncommittedText)}
         onMouseDown={(event) => event.preventDefault()} onClick={() => history("undo")}><Undo2 aria-hidden size={17} /></button>
-      <button type="button" aria-label="重做" disabled={locked || !snapshot.canRedo || uncommittedText}
+      <button type="button" aria-label={ui("重做")} disabled={locked || !snapshot.canRedo || uncommittedText}
         onMouseDown={(event) => event.preventDefault()} onClick={() => history("redo")}><Redo2 aria-hidden size={17} /></button>
       <span aria-hidden className="ml-content-canvas-toolbar-divider" />
-      <button type="button" aria-label="缩小" disabled={locked || zoom <= BLOCKNOTE_MIN_ZOOM} onClick={() => adjustZoom(-BLOCKNOTE_ZOOM_STEP)}><ZoomOut aria-hidden size={17} /></button>
-      <output aria-label="画布缩放">{Math.round(zoom * 100)}%</output>
-      <button type="button" aria-label="放大" disabled={locked || zoom >= BLOCKNOTE_MAX_ZOOM} onClick={() => adjustZoom(BLOCKNOTE_ZOOM_STEP)}><ZoomIn aria-hidden size={17} /></button>
-      <button type="button" aria-label="适应宽度" disabled={locked} onClick={() => {
+      <button type="button" aria-label={ui("缩小")} disabled={locked || zoom <= BLOCKNOTE_MIN_ZOOM} onClick={() => adjustZoom(-BLOCKNOTE_ZOOM_STEP)}><ZoomOut aria-hidden size={17} /></button>
+      <output aria-label={ui("画布缩放")}>{Math.round(zoom * 100)}%</output>
+      <button type="button" aria-label={ui("放大")} disabled={locked || zoom >= BLOCKNOTE_MAX_ZOOM} onClick={() => adjustZoom(BLOCKNOTE_ZOOM_STEP)}><ZoomIn aria-hidden size={17} /></button>
+      <button type="button" aria-label={ui("适应宽度")} disabled={locked} onClick={() => {
         autoFit.current = true;
         setZoom(fitBlockNoteDocumentZoom(scrollerRef.current?.clientWidth ?? BLOCKNOTE_DOCUMENT_WIDTH));
-      }}><Maximize aria-hidden size={17} />适应宽度</button>
-      <span className="ml-content-canvas-hint">仅编辑当前组件 · 不影响项目方案</span>
+      }}><Maximize aria-hidden size={17} />{ui("适应宽度")}</button>
+      <span className="ml-content-canvas-hint">{ui("仅编辑当前组件 · 不影响项目方案")}</span>
     </div>
     {captureState && <div className="ml-content-capture-status" role="status">
       <Camera size={18} aria-hidden />
       <p>{captureState === "waiting"
-        ? "请选择截图区域，完成后将插入当前素材。可取消截图或按 Esc，编辑内容不会丢失。"
-        : "正在取消截图并清理临时图片…"}</p>
+        ? ui("请选择截图区域，完成后将插入当前素材。可取消截图或按 Esc，编辑内容不会丢失。")
+        : ui("正在取消截图并清理临时图片…")}</p>
       <button type="button" ref={captureCancelButton} disabled={captureState === "cancelling"}
-        onClick={() => captureRef.current?.cancel()}>取消截图</button>
+        onClick={() => captureRef.current?.cancel()}>{ui("取消截图")}</button>
     </div>}
     <div className="ml-content-canvas-scroller editor-workspace-grid min-h-0 overflow-auto p-5"
       ref={scrollerRef}
@@ -451,7 +454,7 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
                   resolveImage={resolveClipboardImage} pasteImage={pasteClipboardImage}
                   disabled={disabled && !busy} onUndo={() => history("undo")}>
                 <div ref={clipboardDocumentRef} className="preshot-blocknote-document" data-editor-engine="blocknote"
-                  data-clipboard-document="" role="group" aria-label="素材组件正文">
+                  data-clipboard-document="" role="group" aria-label={ui("素材组件正文")}>
                   <BlockNoteView editor={editor} editable={!locked} theme="light"
                     slashMenu={false} sideMenu={false} formattingToolbar={false}
                     linkToolbar={false} filePanel={false} tableHandles={false} emojiPicker={false} />
@@ -464,7 +467,7 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
       </fieldset>
     </div>
     {opened && lightbox && dimensions ? <ReferenceImageLightbox
-      src={snapshot.sources[opened.file]} alt="参考图" copyScope="draft" onClose={() => { if (!busyRef.current) setLightbox(null); }}
+      src={snapshot.sources[opened.file]} alt={ui("参考图")} copyScope="draft" onClose={() => { if (!busyRef.current) setLightbox(null); }}
       cropAction={disabled ? undefined : {
         sourceWidth: dimensions.width, sourceHeight: dimensions.height,
         confirm: async (crop) => {
@@ -484,12 +487,12 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
     {libraryTarget && library && <MaterialBrowser repository={library.repository}
       initialPreferences={{ query: "", filter: "all", sort: "auto", page: 0, selectedId: null }}
       onPreferencesChange={() => undefined} onClose={() => setLibraryTarget(null)}
-      input={{ imagesOnly: true, targetLabel: `当前素材的图片组「${store.getSnapshot().groups.find((group) => group.id === libraryTarget)?.name || "未命名"}」`,
+      input={{ imagesOnly: true, targetLabel: ui("当前素材的图片组「{{v0}}」", { v0: store.getSnapshot().groups.find((group) => group.id === libraryTarget)?.name || ui("未命名") }),
         onInsert: async (selected, selection) => {
           await runImageOperation(async () => {
             const revision = store.getSnapshot().revision;
             const group = store.getSnapshot().groups.find((group) => group.id === libraryTarget);
-            if (!group) throw new Error("目标图片组已不存在。");
+            if (!group) throw new Error(ui("目标图片组已不存在。"));
             const result = await importMaterialImages({ library: library.repository, editor: repository, sessionId,
               material: selected, selection, remaining: 128 - group.images.length,
               isCurrent: () => mounted.current && store.getSnapshot().revision === revision });

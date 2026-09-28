@@ -1,3 +1,4 @@
+import { ui } from "../../../shared/i18n/ui";
 import type { ClipboardImagePresentation, ImageClipboardContents, ImagePasteTarget } from "../../../domain/clipboard/imageClipboard";
 import { imageClipboardFilename } from "../../../domain/clipboard/imageClipboard";
 import type { ImagePasteBytes } from "../../../domain/clipboard/projectImagePaste";
@@ -14,11 +15,11 @@ export async function clipboardPasteAsset(contents: ImageClipboardContents, targ
     ? Boolean(contents.original.presentation)
     : contents.animated || !/^data:image\/(?:jpeg|png);base64,/.test(original);
   const dataUrl = convert ? contents.renderedDataUrl : original;
-  if (dataUrl.length > Math.ceil(16 * 1024 * 1024 / 3) * 4 + 100) throw new Error("复制图片超过 16 MiB，请使用较小的图片。");
+  if (dataUrl.length > Math.ceil(16 * 1024 * 1024 / 3) * 4 + 100) throw new Error(ui("复制图片超过 16 MiB，请使用较小的图片。"));
   const match = /^data:(image\/(?:png|jpeg|gif|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
-  if (!match || match[2].length % 4 !== 0) throw new Error("剪贴板图片格式无效，请重新复制。");
+  if (!match || match[2].length % 4 !== 0) throw new Error(ui("剪贴板图片格式无效，请重新复制。"));
   const decoded = atob(match[2]);
-  if (!decoded.length || decoded.length > 16 * 1024 * 1024) throw new Error("剪贴板图片数据超过安全限制。");
+  if (!decoded.length || decoded.length > 16 * 1024 * 1024) throw new Error(ui("剪贴板图片数据超过安全限制。"));
   const mimeType = match[1];
   const extension = mimeType === "image/jpeg" ? "jpg" : mimeType.slice(6);
   // Measure the already-decoded static representation for animated native files.

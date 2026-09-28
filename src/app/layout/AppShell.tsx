@@ -1,3 +1,4 @@
+import { ui, useUiLanguage, uiLocale } from "../../shared/i18n/ui";
 import {
   useCallback,
   useEffect,
@@ -25,6 +26,7 @@ import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { SettingsButton } from "../../features/settings/SettingsButton";
 import { useTheme } from "../theme/ThemeContext";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
+import { BrandMark } from "../../shared/ui/BrandMark";
 import { useOptionalMaterialLibrary } from "../../features/library/MaterialLibraryContext";
 
 interface AppShellProps extends PropsWithChildren {
@@ -74,6 +76,7 @@ export function AppShell({
   onRevealProject,
   onRemoveProject,
 }: AppShellProps) {
+  useUiLanguage();
   const { t } = useTranslation();
   const materialLibrary = useOptionalMaterialLibrary();
   const settings = useTheme();
@@ -321,7 +324,7 @@ export function AppShell({
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-app-bg text-app-ink">
       <header className="relative flex h-[58px] shrink-0 items-center gap-3 border-b border-white/10 bg-[#17191d] px-4 text-white shadow-[0_2px_12px_rgb(0_0_0_/_16%)]">
-        <span className="font-editorial grid h-7 w-7 place-items-center rounded-lg bg-app-accent text-sm font-extrabold">P</span>
+        <BrandMark />
         <h1 className="font-editorial text-lg font-extrabold">PRESHOT</h1>
         <span className="h-5 w-px bg-white/15" />
         <strong className="max-w-64 truncate text-sm font-semibold">
@@ -339,11 +342,11 @@ export function AppShell({
               type="button"
             >
               <Library aria-hidden className="h-4 w-4" />
-              素材库
+              {ui("素材库")}
             </button>
           ) : null}
           <button
-            aria-label={focusMode ? "退出专注模式" : "进入专注模式"}
+            aria-label={focusMode ? ui("退出专注模式") : ui("进入专注模式")}
             className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
             onClick={() => {
               setFocusMode((current) => !current);
@@ -352,7 +355,7 @@ export function AppShell({
             type="button"
           >
             {focusMode ? <Minimize2 aria-hidden className="h-4 w-4" /> : <Focus aria-hidden className="h-4 w-4" />}
-            <span>{focusMode ? "退出专注" : "专注模式"}</span>
+            <span>{focusMode ? ui("退出专注") : ui("专注模式")}</span>
           </button>
           <SettingsButton />
         </div>
@@ -368,7 +371,7 @@ export function AppShell({
         {focusMode ? (
           <>
             <button
-              aria-label="打开项目面板"
+              aria-label={ui("打开项目面板")}
               aria-pressed={overlayPanel === "projects"}
               className="absolute left-0 top-14 z-40 grid h-10 w-8 place-items-center rounded-r-lg border border-l-0 border-app-border bg-app-panel-strong text-app-muted shadow-md transition-colors hover:text-app-functional focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
               onClick={() => setOverlayPanel((current) =>
@@ -394,7 +397,7 @@ export function AppShell({
               </p>
               {focusMode ? (
                 <button
-                  aria-label="关闭项目面板"
+                  aria-label={ui("关闭项目面板")}
                   className="grid h-7 w-7 place-items-center rounded-md text-app-muted hover:bg-app-panel-strong hover:text-app-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
                   onClick={() => setOverlayPanel(null)}
                   type="button"
@@ -455,24 +458,20 @@ export function AppShell({
                       }}
                       type="button"
                     >
-                      {project.coverDataUrl ? (
-                        <img alt="" className="h-10 w-12 shrink-0 rounded-md object-cover" src={project.coverDataUrl} />
-                      ) : (
-                        <span className="font-editorial grid h-10 w-12 shrink-0 place-items-center rounded-md bg-app-primary-soft text-xs font-bold text-app-muted">
-                          {project.name.slice(0, 2).toUpperCase()}
-                        </span>
-                      )}
+                      <span aria-hidden="true" className="font-editorial grid h-10 w-12 shrink-0 place-items-center rounded-md bg-app-primary-soft text-xs font-bold text-app-muted">
+                        {Array.from(project.name).slice(0, 2).join("").toUpperCase()}
+                      </span>
                       <span className="min-w-0 flex-1">
                         <span className="block w-full truncate text-[11px] font-bold">{project.name}</span>
                         <span className={`mt-1 block truncate text-[9px] font-normal ${!isAvailable ? "text-app-accent" : "text-app-muted"}`}>
-                          {!isAvailable ? t("shell.unavailable") : new Date(project.updatedAt).toLocaleDateString("zh-CN")}
+                          {!isAvailable ? t("shell.unavailable") : new Date(project.updatedAt).toLocaleDateString(uiLocale())}
                         </span>
                       </span>
                     </button>
                     <button
                       aria-expanded={projectMenuId === project.projectId}
                       aria-haspopup="menu"
-                      aria-label={`更多项目操作 ${project.name}`}
+                      aria-label={ui("更多项目操作 {{v0}}", { v0: project.name })}
                       className={`absolute right-2 top-1/2 z-10 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-app-muted transition-[opacity,color,background-color] hover:bg-app-primary-soft hover:text-app-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional ${
                         isCurrent || projectMenuId === project.projectId
                           ? "opacity-100"
@@ -497,7 +496,7 @@ export function AppShell({
                           );
                         }
                       }}
-                      title="更多项目操作"
+                      title={ui("更多项目操作")}
                       type="button"
                     >
                       <Ellipsis aria-hidden className="h-4 w-4" />
@@ -551,7 +550,7 @@ export function AppShell({
           <div
             ref={workspaceContentRef}
             tabIndex={-1}
-            aria-label="方案工作区"
+            aria-label={ui("方案工作区")}
             aria-hidden={hasLoadingContent || undefined}
             inert={hasLoadingContent}
             className="flex min-h-0 flex-1 flex-col outline-none"
@@ -570,7 +569,7 @@ export function AppShell({
             if (!project) return null;
             return createPortal(
               <div
-                aria-label={`${project.name} 项目操作`}
+                aria-label={ui("{{v0}} 项目操作", { v0: project.name })}
                 className="fixed z-[90] min-w-36 rounded-lg border border-app-border bg-app-panel-strong p-1 shadow-[0_10px_28px_rgb(24_24_27_/_18%)]"
                 data-project-overflow-menu={project.projectId}
                 onBlur={(event) => {
@@ -627,7 +626,7 @@ export function AppShell({
                   type="button"
                 >
                   <FolderOpen aria-hidden className="h-3.5 w-3.5" />
-                  打开项目目录
+                  {ui("打开项目目录")}
                 </button>
                 <button
                   className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium text-app-danger hover:bg-app-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger"
@@ -640,7 +639,7 @@ export function AppShell({
                   type="button"
                 >
                   <Trash2 aria-hidden className="h-3.5 w-3.5" />
-                  删除项目
+                  {ui("删除项目")}
                 </button>
               </div>,
               document.body,
@@ -648,8 +647,8 @@ export function AppShell({
           })()
         : null}
       <ConfirmDialog
-        cancelLabel="取消"
-        confirmLabel="从列表移除"
+        cancelLabel={ui("取消")}
+        confirmLabel={ui("从列表移除")}
         onCancel={() => {
           setProjectToRemove(null);
         }}
@@ -658,7 +657,7 @@ export function AppShell({
           setProjectToRemove(null);
         }}
         open={projectToRemove !== null}
-        title="仅从项目列表移除，磁盘文件不会被删除"
+        title={ui("仅从项目列表移除，磁盘文件不会被删除")}
       />
     </div>
   );

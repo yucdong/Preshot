@@ -16,6 +16,7 @@ async function createDocumentationFixture(root: string) {
   await mkdir(path.join(root, "docs", "design_docs"), { recursive: true });
   await Promise.all([
     writeFile(path.join(root, "README.md"), "# Readme\n"),
+    writeFile(path.join(root, "README.en.md"), "# Readme\n"),
     writeFile(path.join(root, "AGENTS.md"), "# Agents\n"),
     writeFile(path.join(root, "CHANGELOG.md"), "# Changelog\n"),
     writeFile(path.join(root, "CLAUDE.md"), "See `AGENTS.md`.\n"),
@@ -44,6 +45,18 @@ async function createDocumentationFixture(root: string) {
       '{"features":[]}\n',
     ),
   ]);
+  for (const file of [
+    "features/projects.md", "features/editor.md", "features/images.md",
+    "features/material-library.md", "features/exports.md", "features/settings.md",
+    "development/architecture.md", "development/build-and-test.md",
+    "development/reliability.md", "development/i18n.md",
+    "release/windows-installer.md", "release/github.md", "release/licensing.md",
+    "demo/README.md",
+  ]) {
+    const target = path.join(root, "docs", file);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, "# Guide\n");
+  }
 }
 
 describe("documentation checker", () => {
@@ -124,18 +137,18 @@ describe("documentation checker", () => {
     }
   });
 
-  it("reports invalid featurelist JSON", async () => {
+  it("allows the Chinese README while still checking its links", async () => {
     const root = await createFixtureRoot();
     try {
       await createDocumentationFixture(root);
       await writeFile(
-        path.join(root, "docs", "design_docs", "featurelist.json"),
-        "{",
+        path.join(root, "README.md"),
+        "# 拍摄方案\n\n[English](README.en.md)\n\n[帮助](missing.md)\n",
       );
 
       const errors = await checkDocumentation(root);
 
-      expect(errors.some((error) => error.includes("invalid JSON"))).toBe(true);
+      expect(errors).toEqual(["README.md: broken local link missing.md"]);
     } finally {
       await rm(root, { recursive: true });
     }
@@ -145,10 +158,10 @@ describe("documentation checker", () => {
     const root = await createFixtureRoot();
     try {
       await createDocumentationFixture(root);
-      await rm(path.join(root, "docs", "WINDOWS_INSTALLER.md"));
+      await rm(path.join(root, "docs", "release", "windows-installer.md"));
 
       await expect(checkDocumentation(root)).resolves.toContain(
-        "docs/WINDOWS_INSTALLER.md: required documentation file is missing",
+        "docs/release/windows-installer.md: required documentation file is missing",
       );
     } finally {
       await rm(root, { recursive: true });

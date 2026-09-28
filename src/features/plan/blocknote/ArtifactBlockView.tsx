@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import {
   ContactRound,
   Copy,
@@ -58,6 +59,7 @@ interface CommittedTextFieldProps {
 }
 
 function CommittedTextField(props: CommittedTextFieldProps) {
+  useUiLanguage();
   return <CommittedTextFieldDraft key={props.value} {...props} />;
 }
 
@@ -70,6 +72,7 @@ function CommittedTextFieldDraft({
   required = false,
   value,
 }: CommittedTextFieldProps) {
+  useUiLanguage();
   const id = useId();
   const errorId = `${id}-error`;
   const [draft, setDraft] = useState(value);
@@ -87,7 +90,7 @@ function CommittedTextFieldDraft({
   };
   useArtifactDraftCommit(() => {
     const commit = prepareCommit();
-    if (!commit) throw new ArtifactDraftValidationError(`请输入${label}后再保存。`);
+    if (!commit) throw new ArtifactDraftValidationError(ui("请输入{{v0}}后再保存。", { v0: label }));
     return commit;
   }, () => { draftRef.current = value; setDraft(value); setError(false); });
   const commit = () => prepareCommit()?.();
@@ -147,7 +150,7 @@ function CommittedTextFieldDraft({
       )}
       {error ? (
         <span className="font-medium text-paper-danger" id={errorId}>
-          请输入{label}
+          {ui("请输入")}{label}
         </span>
       ) : null}
     </label>
@@ -161,6 +164,7 @@ interface CommittedTitleFieldProps {
 }
 
 function CommittedTitleField(props: CommittedTitleFieldProps) {
+  useUiLanguage();
   return <CommittedTitleFieldDraft key={props.value} {...props} />;
 }
 
@@ -169,6 +173,7 @@ function CommittedTitleFieldDraft({
   onCommit,
   value,
 }: CommittedTitleFieldProps) {
+  useUiLanguage();
   const [draft, setDraft] = useState(value);
   const draftRef = useRef(value);
   const [error, setError] = useState(false);
@@ -183,7 +188,7 @@ function CommittedTitleFieldDraft({
   };
   useArtifactDraftCommit(() => {
     const commit = prepareCommit();
-    if (!commit) throw new ArtifactDraftValidationError(`请输入${label}后再保存。`);
+    if (!commit) throw new ArtifactDraftValidationError(ui("请输入{{v0}}后再保存。", { v0: label }));
     return commit;
   }, () => { draftRef.current = value; setDraft(value); setError(false); });
   const change = (event: React.SyntheticEvent<HTMLInputElement>) => {
@@ -216,7 +221,7 @@ function CommittedTitleFieldDraft({
       />
       {error ? (
         <span className="text-[10px] font-semibold text-paper-danger" role="alert">
-          请输入{label}
+          {ui("请输入")}{label}
         </span>
       ) : null}
     </>
@@ -233,6 +238,7 @@ interface CommittedNumberFieldProps {
 }
 
 function CommittedNumberField(props: CommittedNumberFieldProps) {
+  useUiLanguage();
   return (
     <CommittedNumberFieldDraft
       key={props.value === null ? "empty" : props.value}
@@ -249,6 +255,7 @@ function CommittedNumberFieldDraft({
   suffix,
   value,
 }: CommittedNumberFieldProps) {
+  useUiLanguage();
   const id = useId();
   const [draft, setDraft] = useState(value === null ? "" : String(value));
   const draftRef = useRef(value === null ? "" : String(value));
@@ -270,7 +277,7 @@ function CommittedNumberFieldDraft({
   };
   useArtifactDraftCommit(() => {
     const commit = prepareCommit();
-    if (!commit) throw new ArtifactDraftValidationError(`${label}应为 ${min}–${max} ${suffix}，请修正后再保存。`);
+    if (!commit) throw new ArtifactDraftValidationError(ui("{{v0}}应为 {{v1}}–{{v2}} {{v3}}，请修正后再保存。", { v0: label, v1: min, v2: max, v3: suffix }));
     return commit;
   }, () => {
     const restored = value === null ? "" : String(value);
@@ -301,7 +308,7 @@ function CommittedNumberFieldDraft({
       </span>
       {error ? (
         <span className="font-medium text-paper-danger" id={`${id}-error`}>
-          {label}应为 {min}–{max} {suffix}
+          {label}{ui("应为")} {min}–{max} {suffix}
         </span>
       ) : null}
     </label>
@@ -315,6 +322,7 @@ function ReadonlyValue({
   label: string;
   value: string | number | null;
 }) {
+  useUiLanguage();
   if (value === "" || value === null) return null;
   return (
     <div className="grid gap-0.5">
@@ -337,6 +345,7 @@ function ArtifactGallery({
   collection: ImageCollection;
   label: string;
 }) {
+  useUiLanguage();
   const exporting = useOptionalImageGroupExportController() !== null;
   return (
     <section
@@ -348,7 +357,7 @@ function ArtifactGallery({
       {exporting && <div className="flex items-center justify-between">
         <h3 className="m-0 text-sm font-bold text-paper-ink">{label}</h3>
         <span className="text-[11px] font-semibold text-paper-muted">
-          {collection.images.length} 张图片
+          {collection.images.length} {ui("张图片")}
         </span>
       </div>}
       <ImageGroupBlockRenderer
@@ -403,6 +412,7 @@ function ArtifactMenu({
   blockId: string;
   title: string;
 }) {
+  useUiLanguage();
   const controller = useOptionalArtifactBlockController();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -435,7 +445,7 @@ function ArtifactMenu({
         <button
           aria-expanded={open}
           aria-haspopup="menu"
-          aria-label={`${title}更多操作`}
+          aria-label={ui("{{v0}}更多操作", { v0: title })}
           className="grid h-8 w-8 place-items-center rounded text-paper-muted hover:bg-paper-subtle hover:text-paper-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-primary"
           onClick={() => setOpen((value) => !value)}
           ref={triggerRef}
@@ -458,7 +468,7 @@ function ArtifactMenu({
                 role="menuitem"
                 type="button"
               >
-                <Library aria-hidden size={15} />保存到素材库
+                <Library aria-hidden size={15} />{ui("保存到素材库")}
               </button>
             ) : null}
             <button
@@ -470,7 +480,7 @@ function ArtifactMenu({
               role="menuitem"
               type="button"
             >
-              <Copy aria-hidden size={15} />复制组件
+              <Copy aria-hidden size={15} />{ui("复制组件")}
             </button>
             <button
               className="flex min-h-9 items-center gap-2 rounded px-2 text-left text-xs font-semibold text-paper-danger hover:bg-paper-danger-soft"
@@ -481,21 +491,21 @@ function ArtifactMenu({
               role="menuitem"
               type="button"
             >
-              <Trash2 aria-hidden size={15} />删除组件
+              <Trash2 aria-hidden size={15} />{ui("删除组件")}
             </button>
           </div>
         ) : null}
       </div>
       <ConfirmDialog
-        cancelLabel="取消"
-        confirmLabel="删除"
+        cancelLabel={ui("取消")}
+        confirmLabel={ui("删除")}
         onCancel={() => setConfirming(false)}
         onConfirm={() => {
           setConfirming(false);
           controller.removeArtifactBlock?.(blockId);
         }}
         open={confirming}
-        title={`删除“${title}”？`}
+        title={ui("删除“{{v0}}”？", { v0: title })}
       />
     </>
   );
@@ -512,6 +522,7 @@ function EditableArtifact({
   kindLabel?: string;
   update(next: ArtifactRecord): void;
 }) {
+  useUiLanguage();
   if (artifact.kind === "shootingLocation") {
     const location = artifact as ShootingLocationArtifact;
     return (
@@ -519,10 +530,10 @@ function EditableArtifact({
         <div className="grid min-h-0">
           <CommittedTextField
             balanced
-            label="场地信息"
+            label={ui("场地信息")}
             multiline
             onCommit={(value) => update(locationFromInfo(location, value))}
-            placeholder={"填写地址、入场时间、光线条件和其他说明"}
+            placeholder={ui("填写地址、入场时间、光线条件和其他说明")}
             value={locationInfo(location)}
           />
         </div>
@@ -530,7 +541,7 @@ function EditableArtifact({
           balanced
           blockId={blockId}
           collection={location.gallery}
-          label="场地图片"
+          label={ui("场地图片")}
         />
       </div>
     );
@@ -540,25 +551,25 @@ function EditableArtifact({
     return (
       <div className="preshot-artifact-balanced-layout">
         <fieldset
-          aria-label="模特信息"
+          aria-label={ui("模特信息")}
           className="preshot-balanced-model-info m-0 min-w-0 border-0 p-0"
         >
           <div className="flex min-h-8 items-start">
             <span className="text-xs font-semibold text-paper-muted">
-              模特信息
+              {ui("模特信息")}
             </span>
           </div>
           <div className="preshot-balanced-model-fields">
-            <CommittedTextField label="模特名称 / 编号" onCommit={(modelId) => update({ ...model, modelId })} required value={model.modelId} />
-            <CommittedNumberField label="身高" min={50} max={250} onCommit={(heightCm) => update({ ...model, heightCm })} suffix="cm" value={model.heightCm} />
-            <CommittedNumberField label="体重" min={10} max={300} onCommit={(weightKg) => update({ ...model, weightKg })} suffix="kg" value={model.weightKg} />
-            <CommittedTextField label="鞋码" onCommit={(shoeSize) => update({ ...model, shoeSize })} value={model.shoeSize} />
+            <CommittedTextField label={ui("模特名称 / 编号")} onCommit={(modelId) => update({ ...model, modelId })} required value={model.modelId} />
+            <CommittedNumberField label={ui("身高")} min={50} max={250} onCommit={(heightCm) => update({ ...model, heightCm })} suffix="cm" value={model.heightCm} />
+            <CommittedNumberField label={ui("体重")} min={10} max={300} onCommit={(weightKg) => update({ ...model, weightKg })} suffix="kg" value={model.weightKg} />
+            <CommittedTextField label={ui("鞋码")} onCommit={(shoeSize) => update({ ...model, shoeSize })} value={model.shoeSize} />
             <div className="preshot-balanced-model-notes">
               <CommittedTextField
-                label="其他信息"
+                label={ui("其他信息")}
                 multiline
                 onCommit={(notes) => update({ ...model, notes })}
-                placeholder="填写风格偏好、档期、妆发或其他说明"
+                placeholder={ui("填写风格偏好、档期、妆发或其他说明")}
                 value={model.notes ?? ""}
               />
             </div>
@@ -568,7 +579,7 @@ function EditableArtifact({
           balanced
           blockId={blockId}
           collection={model.samples}
-          label="样片"
+          label={ui("样片")}
         />
       </div>
     );
@@ -580,10 +591,10 @@ function EditableArtifact({
           <div className="grid min-h-0">
             <CommittedTextField
               balanced
-              label={`${kindLabel ?? "服装"}信息`}
+              label={ui("{{v0}}信息", { v0: kindLabel ?? ui("服装") })}
               multiline
               onCommit={(source) => update({ ...clothing, source })}
-              placeholder="填写品牌、链接、借样、购买和其他说明"
+              placeholder={ui("填写品牌、链接、借样、购买和其他说明")}
               value={clothing.source}
             />
           </div>
@@ -591,7 +602,7 @@ function EditableArtifact({
             balanced
             blockId={blockId}
             collection={clothing.mainGallery}
-            label={`${kindLabel ?? "服装"}图片`}
+            label={ui("{{v0}}图片", { v0: kindLabel ?? ui("服装") })}
           />
       </div>
     );
@@ -602,10 +613,10 @@ function EditableArtifact({
       <div className="grid min-h-0">
         <CommittedTextField
           balanced
-          label={`${kindLabel ?? "道具"}信息`}
+          label={ui("{{v0}}信息", { v0: kindLabel ?? ui("道具") })}
           multiline
           onCommit={(value) => update(propFromInfo(prop, value))}
-          placeholder="填写描述、来源、租赁和其他说明"
+          placeholder={ui("填写描述、来源、租赁和其他说明")}
           value={propInfo(prop)}
         />
       </div>
@@ -613,7 +624,7 @@ function EditableArtifact({
         balanced
         blockId={blockId}
         collection={prop.gallery}
-        label={`${kindLabel ?? "道具"}图片`}
+        label={ui("{{v0}}图片", { v0: kindLabel ?? ui("道具") })}
       />
     </div>
   );
@@ -628,17 +639,18 @@ function ReadonlyArtifact({
   blockId: string;
   kindLabel?: string;
 }) {
+  useUiLanguage();
   if (artifact.kind === "shootingLocation") {
     return (
       <div className="preshot-artifact-balanced-layout">
         <dl className="preshot-balanced-info-readonly grid content-start gap-3">
-          <ReadonlyValue label="场地信息" value={locationInfo(artifact)} />
+          <ReadonlyValue label={ui("场地信息")} value={locationInfo(artifact)} />
         </dl>
         <ArtifactGallery
           balanced
           blockId={blockId}
           collection={artifact.gallery}
-          label="场地图片"
+          label={ui("场地图片")}
         />
       </div>
     );
@@ -647,19 +659,19 @@ function ReadonlyArtifact({
     return (
       <div className="preshot-artifact-balanced-layout">
         <section
-          aria-label="模特信息"
+          aria-label={ui("模特信息")}
           className="preshot-balanced-model-info min-w-0"
         >
           <div className="flex min-h-8 items-start">
-            <h3 className="m-0 text-sm font-bold text-paper-ink">模特信息</h3>
+            <h3 className="m-0 text-sm font-bold text-paper-ink">{ui("模特信息")}</h3>
           </div>
           <dl className="preshot-balanced-model-fields m-0">
-            <ReadonlyValue label="模特名称 / 编号" value={artifact.modelId} />
-            <ReadonlyValue label="身高" value={artifact.heightCm === null ? null : `${artifact.heightCm} cm`} />
-            <ReadonlyValue label="体重" value={artifact.weightKg === null ? null : `${artifact.weightKg} kg`} />
-            <ReadonlyValue label="鞋码" value={artifact.shoeSize} />
+            <ReadonlyValue label={ui("模特名称 / 编号")} value={artifact.modelId} />
+            <ReadonlyValue label={ui("身高")} value={artifact.heightCm === null ? null : `${artifact.heightCm} cm`} />
+            <ReadonlyValue label={ui("体重")} value={artifact.weightKg === null ? null : `${artifact.weightKg} kg`} />
+            <ReadonlyValue label={ui("鞋码")} value={artifact.shoeSize} />
             <div className="preshot-balanced-model-notes">
-              <ReadonlyValue label="其他信息" value={artifact.notes ?? ""} />
+              <ReadonlyValue label={ui("其他信息")} value={artifact.notes ?? ""} />
             </div>
           </dl>
         </section>
@@ -667,7 +679,7 @@ function ReadonlyArtifact({
           balanced
           blockId={blockId}
           collection={artifact.samples}
-          label="样片"
+          label={ui("样片")}
         />
       </div>
     );
@@ -676,13 +688,13 @@ function ReadonlyArtifact({
     return (
       <div className="preshot-artifact-balanced-layout">
           <dl className="preshot-balanced-info-readonly grid content-start gap-3">
-            <ReadonlyValue label={`${kindLabel ?? "服装"}信息`} value={artifact.source} />
+            <ReadonlyValue label={ui("{{v0}}信息", { v0: kindLabel ?? ui("服装") })} value={artifact.source} />
           </dl>
           <ArtifactGallery
             balanced
             blockId={blockId}
             collection={artifact.mainGallery}
-            label={`${kindLabel ?? "服装"}图片`}
+            label={ui("{{v0}}图片", { v0: kindLabel ?? ui("服装") })}
           />
       </div>
     );
@@ -690,13 +702,13 @@ function ReadonlyArtifact({
   return (
     <div className="preshot-artifact-balanced-layout">
       <dl className="preshot-balanced-info-readonly grid content-start gap-3">
-        <ReadonlyValue label={`${kindLabel ?? "道具"}信息`} value={propInfo(artifact)} />
+        <ReadonlyValue label={ui("{{v0}}信息", { v0: kindLabel ?? ui("道具") })} value={propInfo(artifact)} />
       </dl>
       <ArtifactGallery
         balanced
         blockId={blockId}
         collection={artifact.gallery}
-        label={`${kindLabel ?? "道具"}图片`}
+        label={ui("{{v0}}图片", { v0: kindLabel ?? ui("道具") })}
       />
     </div>
   );
@@ -710,10 +722,10 @@ function artifactTitle(artifact: ArtifactRecord): string {
 
 function artifactTitleLabel(
   artifact: ArtifactRecord,
-): "场地名称" | "服装名称" | "道具名称" | null {
-  if (artifact.kind === "shootingLocation") return "场地名称";
-  if (artifact.kind === "clothing") return "服装名称";
-  if (artifact.kind === "prop") return "道具名称";
+): string | null {
+  if (artifact.kind === "shootingLocation") return ui("场地名称");
+  if (artifact.kind === "clothing") return ui("服装名称");
+  if (artifact.kind === "prop") return ui("道具名称");
   return null;
 }
 
@@ -726,6 +738,7 @@ export function ArtifactBlockView({
   blockId: string;
   expectedKind: ArtifactRecord["kind"];
 }) {
+  useUiLanguage();
   const reader = useArtifactBlockReader();
   const controller = useOptionalArtifactBlockController();
   const artifact = useSyncExternalStore(
@@ -741,17 +754,17 @@ export function ArtifactBlockView({
         contentEditable={false}
         role="alert"
       >
-        素材组件数据缺失：{artifactId}
+        {ui("素材组件数据缺失：")}{artifactId}
       </div>
     );
   }
 
   const kindLabel = reader.kindLabels?.[artifact.kind];
-  const meta = { ...ARTIFACT_META[artifact.kind], ...(kindLabel ? { label: kindLabel } : {}) };
+  const meta = { ...ARTIFACT_META[artifact.kind], label: kindLabel ?? ui(ARTIFACT_META[artifact.kind].label) };
   const Icon = meta.icon;
   const editable = controller !== null && "updateArtifact" in controller;
   const title = artifactTitle(artifact);
-  const titleLabel = kindLabel ? `${kindLabel}名称` : artifactTitleLabel(artifact);
+  const titleLabel = kindLabel ? ui("{{v0}}名称", { v0: kindLabel }) : artifactTitleLabel(artifact);
   return (
     <section
       className="preshot-artifact-block bn-drag-exclude relative my-3 grid min-w-0 content-start gap-4 rounded border border-paper-border bg-white p-4 text-paper-ink shadow-sm"
@@ -763,13 +776,13 @@ export function ArtifactBlockView({
       data-clipboard-component-label={editable ? meta.label : undefined}
       tabIndex={editable ? 0 : undefined}
       role="group"
-      aria-label={`${meta.label}组件`}
-      aria-description={editable ? "选中后，Ctrl+V 将图片粘贴到该组件的图片区域。" : undefined}
+      aria-label={ui("{{v0}}组件", { v0: meta.label })}
+      aria-description={editable ? ui("选中后，Ctrl+V 将图片粘贴到该组件的图片区域。") : undefined}
       style={{ width: "100%" }}
     >
       <header className="flex min-w-0 items-center gap-3 border-b border-paper-border pb-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded bg-paper-primary-soft text-paper-primary"
-          title={editable ? "选中组件，Ctrl+V 粘贴图片" : undefined}>
+          title={editable ? ui("选中组件，Ctrl+V 粘贴图片") : undefined}>
           <Icon aria-hidden size={19} />
         </span>
         <div className="min-w-0 flex-1">

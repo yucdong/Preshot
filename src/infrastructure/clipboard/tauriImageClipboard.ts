@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { unavailableImageClipboard, type ImageClipboardPort } from "../../domain/clipboard/imageClipboard";
 import { validateClipboardContents, validateClipboardInput } from "./validation";
@@ -18,7 +19,7 @@ export function createTauriImageClipboard(
       const message = error && typeof error === "object" && "message" in error
         ? error.message : error;
       throw new Error(typeof message === "string" && /[\u3400-\u9fff]/.test(message)
-        ? message : "无法访问系统图片剪贴板，请关闭正在占用剪贴板的应用后重试。");
+        ? message : ui("无法访问系统图片剪贴板，请关闭正在占用剪贴板的应用后重试。"));
     }
   }
   return {
@@ -31,7 +32,7 @@ export function createTauriImageClipboard(
     },
     async hasImage() {
       const result = await call("image_clipboard_has_image");
-      if (typeof result !== "boolean") throw new Error("图片剪贴板返回了无效状态，请重试。");
+      if (typeof result !== "boolean") throw new Error(ui("图片剪贴板返回了无效状态，请重试。"));
       return result;
     },
   };

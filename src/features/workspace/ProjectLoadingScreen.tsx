@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import { Check, FileText } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import "./ProjectLoadingScreen.css";
@@ -26,6 +27,7 @@ export function ProjectLoadingScreen({
   onRetry,
   onComplete,
 }: ProjectLoadingScreenProps) {
+  useUiLanguage();
   const [value, setValue] = useState(0);
   const valueRef = useRef(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -81,15 +83,15 @@ export function ProjectLoadingScreen({
 
   const stageIndex = displayed < 12 ? 0 : displayed < 30 ? 1 : displayed < 84 ? 2 : 3;
   const announcement = hasError
-    ? "项目加载未完成"
-    : complete ? "已准备就绪" : stages[stageIndex].message;
+    ? ui("项目加载未完成")
+    : complete ? ui("已准备就绪") : ui(stages[stageIndex].message);
   const visibleStatus = hasError || complete ? announcement : statusText || announcement;
   const state = hasError ? "error" : complete ? "complete" : "loading";
 
   return (
     <section
       className="project-loading-screen"
-      aria-label="项目加载"
+      aria-label={ui("项目加载")}
       data-testid="project-loading-screen"
       data-state={state}
     >
@@ -100,7 +102,7 @@ export function ProjectLoadingScreen({
           </span>
           <div className="project-loading-screen__identity">
             <p className="project-loading-screen__eyebrow">
-              {hasError ? "需要重试" : complete ? "项目已就绪" : "正在切换项目"}
+              {hasError ? ui("需要重试") : complete ? ui("项目已就绪") : ui("正在切换项目")}
             </p>
             <h1 ref={headingRef} tabIndex={-1} title={projectName} className="project-loading-screen__name">
               {projectName}
@@ -126,7 +128,7 @@ export function ProjectLoadingScreen({
         <div
           className="project-loading-screen__track"
           role="progressbar"
-          aria-label="项目加载进度"
+          aria-label={ui("项目加载进度")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={displayed}
@@ -138,20 +140,20 @@ export function ProjectLoadingScreen({
             style={{ transform: `scaleX(${(complete ? 100 : value) / 100})` }}
           />
         </div>
-        <ol className="project-loading-screen__steps" aria-label="加载阶段">
+        <ol className="project-loading-screen__steps" aria-label={ui("加载阶段")}>
           {stages.map((stage, index) => {
             const done = complete || index < stageIndex;
             const active = !complete && index === stageIndex;
             return (
               <li
-                key={stage.label}
+                key={ui(stage.label)}
                 data-state={done ? "done" : active ? "active" : "pending"}
                 aria-current={active ? "step" : undefined}
               >
                 <span className="project-loading-screen__step-dot" aria-hidden="true">
                   {done && <Check size={10} strokeWidth={1.6} />}
                 </span>
-                {stage.label}
+                {ui(stage.label)}
               </li>
             );
           })}
@@ -160,11 +162,11 @@ export function ProjectLoadingScreen({
           {hasError ? (
             <div className="project-loading-screen__failure">
               <p role="alert" tabIndex={0}>{error}</p>
-              {onRetry && <button type="button" onClick={onRetry}>重试加载</button>}
+              {onRetry && <button type="button" onClick={onRetry}>{ui("重试加载")}</button>}
             </div>
           ) : (
             <p className="project-loading-screen__hint">
-              {complete ? "即将进入项目" : "加载完成后，将自动进入项目"}
+              {complete ? ui("即将进入项目") : ui("加载完成后，将自动进入项目")}
             </p>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { ui } from "../../../../shared/i18n/ui";
 import type {
   PreshotBlock,
   ProjectPlanV14,
@@ -205,7 +206,7 @@ export function annotateLongImageExportBlocks(
         if (content) {
           const name = typeof block.props.name === "string" && block.props.name
             ? block.props.name
-            : "未命名媒体";
+            : ui("未命名媒体");
           content.dataset.preshotExportNativeMedia = block.type;
           content.dataset.preshotExportNativeMediaLabel =
             `${block.type.toUpperCase()} · ${name}`;

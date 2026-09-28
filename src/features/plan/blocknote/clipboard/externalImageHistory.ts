@@ -1,3 +1,4 @@
+import { ui } from "../../../../shared/i18n/ui";
 import { closeHistory } from "prosemirror-history";
 import { Step, StepMap, StepResult } from "prosemirror-transform";
 import type { PreshotBlockNoteEditor } from "../preshotBlockNoteSchema";
@@ -32,7 +33,7 @@ export class ExternalImageHistoryStep extends Step {
   }
 
   toJSON(): never {
-    throw new Error("图片粘贴历史仅限当前编辑器使用，不能序列化。");
+    throw new Error(ui("图片粘贴历史仅限当前编辑器使用，不能序列化。"));
   }
 }
 
@@ -68,11 +69,11 @@ export function attachExternalImageHistory(editor: PreshotBlockNoteEditor) {
   editor._tiptapEditor.on("transaction", onTransaction);
   return {
     recordExternalHistory(entry: ExternalImageHistoryEntry) {
-      if (disposed || editor.prosemirrorView.isDestroyed) throw new Error("当前图片粘贴历史已结束。");
+      if (disposed || editor.prosemirrorView.isDestroyed) throw new Error(ui("当前图片粘贴历史已结束。"));
       const view = editor.prosemirrorView;
       const tr = closeHistory(view.state.tr).step(new ExternalImageHistoryStep(entry, "record"));
       view.dispatch(tr);
-      if (!accepted.has(tr)) throw new Error("编辑器拒绝了图片粘贴历史，请重新选择目标后重试。");
+      if (!accepted.has(tr)) throw new Error(ui("编辑器拒绝了图片粘贴历史，请重新选择目标后重试。"));
       view.dispatch(closeHistory(view.state.tr));
     },
     dispose() {

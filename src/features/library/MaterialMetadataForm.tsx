@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { MaterialMetadata } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
@@ -26,6 +27,7 @@ export function MaterialMetadataForm({
   extraActions?: ReactNode;
   confirmDuplicateName?: boolean;
 }) {
+  useUiLanguage();
   const [draft, setDraft] = useState(() => createMetadataDraft(initial));
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -84,7 +86,7 @@ export function MaterialMetadataForm({
       await onSubmit(metadata);
     } catch (failure) {
       if (alive.current) setError(libraryError(failure,
-        checking ? "无法检查同名素材，请重试后保存" : "保存未完成"));
+        checking ? ui("无法检查同名素材，请重试后保存") : ui("保存未完成")));
     } finally {
       lock.current = false;
       if (alive.current) {
@@ -111,7 +113,7 @@ export function MaterialMetadataForm({
       try {
         metadata = readMetadataDraft(draft);
         if (omittedLegacyImages > 0 && !confirmed) {
-          setError("请先确认仅保存可见主图库，不包含旧版试穿参考。");
+          setError(ui("请先确认仅保存可见主图库，不包含旧版试穿参考。"));
           form.current?.querySelector<HTMLInputElement>('[name="confirm-legacy"]')?.focus();
           return;
         }
@@ -127,32 +129,32 @@ export function MaterialMetadataForm({
     <div className={`ml-form-body${preview ? " ml-form-with-preview" : ""}`}>
       {preview && <aside className="ml-save-preview">{preview}</aside>}
       <div className="ml-fields">
-        {unavailable && <p className="ml-banner" role="status">{unavailableMessage}</p>}
+        {unavailable && <p className="ml-banner" role="status">{ui(unavailableMessage)}</p>}
         <MaterialMetadataFields value={draft} onChange={setDraft} disabled={operating || disabled || unavailable}
           invalidField={invalidField} errorId={`${id}-error`} autoFocus nameFeedback={<>
           {duplicate?.name === normalizedName && duplicate.found &&
             <p className="ml-banner" role="status">{excludeId ?
-              "已有其他同名素材，修改不会覆盖其他素材。" : "已有同名素材，保存后会新增一份，不会覆盖。"}</p>}
+              ui("已有其他同名素材，修改不会覆盖其他素材。") : ui("已有同名素材，保存后会新增一份，不会覆盖。")}</p>}
           {duplicate?.name === normalizedName && duplicate.failed &&
             <p className="ml-help" role="status">{confirmDuplicateName
-              ? "暂时无法检查同名素材；点击保存时将重新检查。"
-              : "暂时无法检查同名素材；修改不会覆盖其他素材。"}</p>}
+              ? ui("暂时无法检查同名素材；点击保存时将重新检查。")
+              : ui("暂时无法检查同名素材；修改不会覆盖其他素材。")}</p>}
           </>}>
           {omittedLegacyImages > 0 && <div className="ml-banner">
-            <p>该服装包含 {omittedLegacyImages} 张隐藏的旧版试穿参考。本次仅保存可见主图库，不包含这些图片。</p>
+            <p>{ui("该服装包含")} {omittedLegacyImages} {ui("张隐藏的旧版试穿参考。本次仅保存可见主图库，不包含这些图片。")}</p>
             <label className="ml-check"><input type="checkbox" name="confirm-legacy" checked={confirmed}
-              onChange={(event) => setConfirmed(event.target.checked)} />我确认仅保存可见主图库</label>
+              onChange={(event) => setConfirmed(event.target.checked)} />{ui("我确认仅保存可见主图库")}</label>
           </div>}
         </MaterialMetadataFields>
         <p id={`${id}-error`} className="ml-error" role={error ? "alert" : undefined}>{error}</p>
       </div>
     </div>
     <footer className="ml-footer">
-      <p role="status">{checkingName ? "正在检查同名素材…" :
-        operating ? footerStatus || "正在保存，请稍候…" : footerStatus || "素材名称与组件内容互相独立。"}</p>
+      <p role="status">{checkingName ? ui("正在检查同名素材…") :
+        operating ? footerStatus || ui("正在保存，请稍候…") : footerStatus || ui("素材名称与组件内容互相独立。")}</p>
       <div className="ml-actions">
         {extraActions}
-        <button type="button" disabled={operating} onClick={onClose}>{disabled ? "完成" : "取消"}</button>
+        <button type="button" disabled={operating} onClick={onClose}>{disabled ? ui("完成") : ui("取消")}</button>
         {!disabled && <button type="submit" className="ml-primary" disabled={operating || unavailable}>{submitLabel}</button>}
       </div>
     </footer>

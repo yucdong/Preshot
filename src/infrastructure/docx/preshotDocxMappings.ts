@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import {
   COLORS_DEFAULT,
   mappingFactory,
@@ -95,27 +96,27 @@ function artifactCollections(artifact: ArtifactRecord): Array<{
 }> {
   if (artifact.kind === "shootingLocation") {
     return [{
-      label: "场地图片",
+      label: ui("场地图片"),
       collection: artifact.gallery,
       compact: false,
     }];
   }
   if (artifact.kind === "modelCard") {
     return [{
-      label: "样片",
+      label: ui("样片"),
       collection: artifact.samples,
       compact: false,
     }];
   }
   if (artifact.kind === "clothing") {
     return [{
-      label: "服装主图",
+      label: ui("服装主图"),
       collection: artifact.mainGallery,
       compact: false,
     }];
   }
   return [{
-    label: "道具图片",
+    label: ui("道具图片"),
     collection: artifact.gallery,
     compact: false,
   }];
@@ -124,17 +125,17 @@ function artifactCollections(artifact: ArtifactRecord): Array<{
 function artifactMetadata(artifact: ArtifactRecord): string[] {
   if (artifact.kind === "shootingLocation") {
     return [
-      ...(artifact.address ? [`地址：${artifact.address}`] : []),
+      ...(artifact.address ? [ui("地址：{{v0}}", { v0: artifact.address })] : []),
       ...(artifact.description ? [artifact.description] : []),
     ];
   }
   if (artifact.kind === "modelCard") {
     return [
-      ...(artifact.heightCm === null ? [] : [`身高：${artifact.heightCm} cm`]),
-      ...(artifact.weightKg === null ? [] : [`体重：${artifact.weightKg} kg`]),
-      ...(artifact.shoeSize ? [`鞋码：${artifact.shoeSize}`] : []),
+      ...(artifact.heightCm === null ? [] : [ui("身高：{{v0}} cm", { v0: artifact.heightCm })]),
+      ...(artifact.weightKg === null ? [] : [ui("体重：{{v0}} kg", { v0: artifact.weightKg })]),
+      ...(artifact.shoeSize ? [ui("鞋码：{{v0}}", { v0: artifact.shoeSize })] : []),
       ...(artifact.notes?.trim()
-        ? [`其他信息：${artifact.notes.trim()}`]
+        ? [ui("其他信息：{{v0}}", { v0: artifact.notes.trim() })]
         : []),
     ];
   }
@@ -322,7 +323,7 @@ function paragraphOptions(props: {
 }
 
 function mediaLabel(kind: "audio" | "file" | "video"): string {
-  return kind === "audio" ? "音频" : kind === "video" ? "视频" : "文件";
+  return kind === "audio" ? ui("音频") : kind === "video" ? ui("视频") : ui("文件");
 }
 
 function mediaFallback(
@@ -337,13 +338,13 @@ function mediaFallback(
   },
 ): Paragraph[] {
   const label = mediaLabel(kind);
-  const name = props.name || props.caption || `未命名${label}`;
+  const name = props.name || props.caption || ui("未命名{{v0}}", { v0: label });
   const external = /^https?:\/\//i.test(props.url ?? "");
   const suffix = external
     ? ""
     : props.url
-      ? "（项目本地资源，未嵌入）"
-      : "（未附加源文件）";
+      ? ui("（项目本地资源，未嵌入）")
+      : ui("（未附加源文件）");
   const text = `${label}：${name}${suffix}`;
   const content = external
     ? [
@@ -452,7 +453,7 @@ export function createPreshotDocxMappings(
             image.height,
             options,
           );
-      const alternative = block.props.caption || block.props.name || "图片";
+      const alternative = block.props.caption || block.props.name || ui("图片");
       return [
         new Paragraph({
           ...paragraphOptions(block.props),

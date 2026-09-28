@@ -1,10 +1,12 @@
 {
   "name": "preshot",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "packageManager": "pnpm@10.15.0",
   "scripts": {
+    "icons:generate": "node scripts/generate-brand-icons.mjs",
+    "i18n:check": "tsx scripts/i18n-check.ts",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",

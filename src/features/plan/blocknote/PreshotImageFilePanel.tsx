@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import { FilePanelExtension } from "@blocknote/core/extensions";
 import { EmbedTab, FilePanel, UploadTab, type FilePanelProps, useBlockNoteEditor } from "@blocknote/react";
 import { LoadingOverlay, Tabs } from "@mantine/core";
@@ -8,6 +9,7 @@ import type { PreshotBlockNoteEditor } from "./preshotBlockNoteSchema";
 import { CaptureBlockImageContext } from "./ImageBlockCaptureContext";
 
 export function PreshotImageFilePanel(props: FilePanelProps) {
+  useUiLanguage();
   const editor = useBlockNoteEditor() as PreshotBlockNoteEditor;
   const capture = useContext(CaptureBlockImageContext);
   const [loading, setLoading] = useState(false);
@@ -43,7 +45,7 @@ export function PreshotImageFilePanel(props: FilePanelProps) {
               },
             });
           }}>
-            <Camera size={16} aria-hidden="true" />截图
+            <Camera size={16} aria-hidden="true" />{ui("截图")}
           </button>
         </div>
         {editor.uploadFile ? <Tabs.Panel value="upload"><UploadTab {...props} setLoading={setLoading} /></Tabs.Panel> : null}

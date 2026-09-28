@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../../shared/i18n/ui";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import type {
@@ -45,6 +46,7 @@ const gestureSelector = "[data-image-resize-edge], .bn-resize-handle, [data-clip
 const modalSelector = "[role='dialog'], [role='alertdialog'], dialog";
 
 export function ImageClipboardScope(props: ImageClipboardScopeProps) {
+  useUiLanguage();
   const disabled = Boolean(props.disabled);
   const rootRef = useRef<HTMLDivElement>(null);
   const destinationAnnouncement = useComponentPasteSelection(rootRef, !disabled && !!props.pasteImage);
@@ -149,7 +151,7 @@ export function ImageClipboardScope(props: ImageClipboardScopeProps) {
     const current = propsRef.current;
     if (current.disabled || composingRef.current || gestureActive()) return;
     if (busyRef.current) {
-      notify({ message: "正在处理图片，请稍候再试。" });
+      notify({ message: ui("正在处理图片，请稍候再试。") });
       return;
     }
     if ("target" in command && !current.pasteImage) return;
@@ -158,36 +160,36 @@ export function ImageClipboardScope(props: ImageClipboardScopeProps) {
     const undoEpoch = contentInteractionEpochRef.current;
     const isCurrent = () => liveRef.current && !propsRef.current.disabled && operationEpochRef.current === epoch;
     setBusy(true);
-    notify({ message: "source" in command ? "正在复制图片…" : "正在粘贴图片，请稍候…" });
+    notify({ message: "source" in command ? ui("正在复制图片…") : ui("正在粘贴图片，请稍候…") });
     try {
       if (current.port.availability === "unavailable") {
-        throw new Error("当前环境不支持系统图片剪贴板，请在桌面应用中使用。");
+        throw new Error(ui("当前环境不支持系统图片剪贴板，请在桌面应用中使用。"));
       }
       if ("source" in command) {
         const input = await current.resolveImage(command.source);
         if (!isCurrent()) {
-          notify({ message: "图片操作已取消，请重新选择目标后重试。" }, 5_000);
+          notify({ message: ui("图片操作已取消，请重新选择目标后重试。") }, 5_000);
           return;
         }
         await current.port.write(input);
-        notify({ message: "已复制图片" }, 3_000);
+        notify({ message: ui("已复制图片") }, 3_000);
       } else {
         const contents = await current.port.read();
         if (!isCurrent()) {
-          notify({ message: "图片操作已取消，请重新选择目标后重试。" }, 5_000);
+          notify({ message: ui("图片操作已取消，请重新选择目标后重试。") }, 5_000);
           return;
         }
-        if (!contents) throw new Error("剪贴板中没有可用图片，请先复制一张图片。");
+        if (!contents) throw new Error(ui("剪贴板中没有可用图片，请先复制一张图片。"));
         if (contents.animated && command.target.kind === "gallery") {
           const confirmed = await confirmAnimationConversion();
           if (!confirmed || !isCurrent()) {
-            notify({ message: "已取消图片粘贴，未创建图片。" }, 3_000);
+            notify({ message: ui("已取消图片粘贴，未创建图片。") }, 3_000);
             return;
           }
         }
         const result = await current.pasteImage!(contents, command.target);
         notify({
-          message: command.target.kind === "gallery" ? "已粘贴图片到图片组" : "已粘贴图片到正文",
+          message: command.target.kind === "gallery" ? ui("已粘贴图片到图片组") : ui("已粘贴图片到正文"),
           undo: contentInteractionEpochRef.current === undoEpoch
             ? result === undefined ? current.onUndo : result.undo
             : undefined,
@@ -195,8 +197,8 @@ export function ImageClipboardScope(props: ImageClipboardScopeProps) {
         }, 5_000);
       }
     } catch (error) {
-      const detail = error instanceof Error ? error.message : "操作失败，请重新选择图片和目标后重试。";
-      notify({ message: `${"source" in command ? "复制" : "粘贴"}图片失败：${detail}`, error: true });
+      const detail = error instanceof Error ? error.message : ui("操作失败，请重新选择图片和目标后重试。");
+      notify({ message: ui("{{v0}}图片失败：{{v1}}", { v0: "source" in command ? ui("复制") : ui("粘贴"), v1: detail }), error: true });
     } finally {
       busyRef.current = false;
       if (liveRef.current) setBusy(false);
@@ -269,7 +271,7 @@ export function ImageClipboardScope(props: ImageClipboardScopeProps) {
           if (liveRef.current && menuRef.current === captured) setCanPaste(available);
         }).catch((error: unknown) => {
           if (liveRef.current && menuRef.current === captured) notify({
-            message: `无法检查剪贴板：${error instanceof Error ? error.message : "请关闭菜单后重试。"}`,
+            message: ui("无法检查剪贴板：{{v0}}", { v0: error instanceof Error ? error.message : ui("请关闭菜单后重试。") }),
             error: true,
           });
         });
@@ -316,7 +318,7 @@ export function ImageClipboardScope(props: ImageClipboardScopeProps) {
       if (isPlainClipboardField(element)) {
         if (kind === "image") {
           event.preventDefault();
-          notify({ message: "此处仅支持文本，请先选择图片区域或正文，再粘贴图片。" }, 5_000);
+          notify({ message: ui("此处仅支持文本，请先选择图片区域或正文，再粘贴图片。") }, 5_000);
         }
         return;
       }
@@ -326,7 +328,7 @@ export function ImageClipboardScope(props: ImageClipboardScopeProps) {
       if (event.type === "paste" && !target && clipboardComponent(element) && propsRef.current.pasteImage) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        notify({ message: "此组件的图片区域已不可用，请重新选择组件后再粘贴。" }, 5_000);
+        notify({ message: ui("此组件的图片区域已不可用，请重新选择组件后再粘贴。") }, 5_000);
         return;
       }
       if (!source && !target) return;
@@ -339,14 +341,14 @@ export function ImageClipboardScope(props: ImageClipboardScopeProps) {
         if (kind === "image") {
           event.preventDefault();
           event.stopImmediatePropagation();
-          notify({ message: "预览仅支持复制图片，请先打开可编辑的图片区域。" }, 5_000);
+          notify({ message: ui("预览仅支持复制图片，请先打开可编辑的图片区域。") }, 5_000);
         }
         return;
       }
       event.preventDefault();
       event.stopImmediatePropagation();
       if (propsRef.current.disabled) {
-        notify({ message: "当前编辑区域暂不可用，请等待操作完成后重试。" }, 5_000);
+        notify({ message: ui("当前编辑区域暂不可用，请等待操作完成后重试。") }, 5_000);
         return;
       }
       if (source) void operate({ source });
@@ -455,8 +457,8 @@ export function ImageClipboardScope(props: ImageClipboardScopeProps) {
         if (busyRef.current || propsRef.current.disabled || gestureActive() ||
           notice.undoEpoch !== contentInteractionEpochRef.current) return;
         try { notice.undo?.(); setNotice(null); }
-        catch (error) { notify({ message: `撤销失败：${error instanceof Error ? error.message : "请重试。"}`, error: true }); }
-      }}>撤销</button>}
+        catch (error) { notify({ message: ui("撤销失败：{{v0}}", { v0: error instanceof Error ? error.message : ui("请重试。") }), error: true }); }
+      }}>{ui("撤销")}</button>}
     </div>, notice.host)}
   </div>;
 }

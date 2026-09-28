@@ -208,6 +208,7 @@ describe("material library and the real project editor", () => {
     };
     const context = fixture(undefined, groupMaterial);
     await screen.findByRole("group", { name: "方案正文" });
+    await waitFor(() => expect(currentEditor()).toBeDefined());
     act(() => { currentEditor().setTextCursorPosition("initial", "end"); currentEditor().focus(); });
     await chooseMaterial();
     const dialog = await screen.findByRole("dialog", { name: "插入图片组素材" });

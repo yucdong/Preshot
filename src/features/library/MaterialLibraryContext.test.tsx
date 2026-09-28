@@ -751,7 +751,7 @@ describe("MaterialLibraryProvider", () => {
     }));
     expect(repo.updateMetadata).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog", { name: "编辑素材" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "预览" }));
+    await user.click(await screen.findByRole("button", { name: "预览" }));
     expect(await screen.findByRole("heading", { name: "原组件标题" })).toBeVisible();
   });
 

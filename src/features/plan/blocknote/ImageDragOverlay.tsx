@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import { type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { ReferenceImage } from "../../../domain/plan/canvas/models";
@@ -42,6 +43,7 @@ export function ImageDragOverlay({
   source,
   style,
 }: ImageDragOverlayProps) {
+  useUiLanguage();
   const prefersReducedMotion = usePrefersReducedMotion();
   const geometry = imageDragOverlayGeometry(image);
   const resolvedSource = resolveImageDragOverlaySource({
@@ -79,7 +81,7 @@ export function ImageDragOverlay({
             style={imageFrameContentCss(image)}
           />
         ) : (
-          <span className="preshot-image-drag-overlay-fallback">加载中…</span>
+          <span className="preshot-image-drag-overlay-fallback">{ui("加载中…")}</span>
         )}
       </div>
     </div>

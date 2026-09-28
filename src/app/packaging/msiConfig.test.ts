@@ -48,7 +48,7 @@ const productionVerify = readFileSync(
   "utf8",
 );
 const installerGuide = readFileSync(
-  resolve(root, "docs/WINDOWS_INSTALLER.md"),
+  resolve(root, "docs/release/windows-installer.md"),
   "utf8",
 );
 

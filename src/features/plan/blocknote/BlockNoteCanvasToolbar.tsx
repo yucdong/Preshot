@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import {
   useCallback,
   useEffect,
@@ -46,14 +47,15 @@ export function BlockNoteCanvasToolbar({
   onZoomIn,
   onZoomOut,
 }: BlockNoteCanvasToolbarProps) {
+  useUiLanguage();
   const exportBusy = exportingPdf || exportingDocx || exportingLongImage;
   const exportLabel = exportingPdf
-    ? "正在导出 PDF…"
+    ? ui("正在导出 PDF…")
     : exportingDocx
-      ? "正在导出 DOCX…"
+      ? ui("正在导出 DOCX…")
       : exportingLongImage
-        ? "正在导出长图…"
-      : "导出";
+        ? ui("正在导出长图…")
+      : ui("导出");
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [longImageDialogOpen, setLongImageDialogOpen] = useState(false);
   const exportMenuVisible = active && exportMenuOpen && !exportBusy;
@@ -176,7 +178,7 @@ export function BlockNoteCanvasToolbar({
       <div className="flex items-center gap-3">
         <div className="flex h-8 items-center rounded-md border border-white/10 bg-white/[0.06] p-0.5">
           <button
-            aria-label="缩小画布"
+            aria-label={ui("缩小画布")}
             className="grid h-7 w-7 place-items-center rounded text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
             onClick={onZoomOut}
             type="button"
@@ -184,7 +186,7 @@ export function BlockNoteCanvasToolbar({
             <Minus aria-hidden className="h-3.5 w-3.5" />
           </button>
           <button
-            aria-label="恢复 100% 缩放"
+            aria-label={ui("恢复 100% 缩放")}
             className="h-7 min-w-12 rounded px-1 text-[10px] tabular-nums text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
             onClick={onResetZoom}
             type="button"
@@ -192,7 +194,7 @@ export function BlockNoteCanvasToolbar({
             {Math.round(zoom * 100)}%
           </button>
           <button
-            aria-label="放大画布"
+            aria-label={ui("放大画布")}
             className="grid h-7 w-7 place-items-center rounded text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
             onClick={onZoomIn}
             type="button"
@@ -200,12 +202,12 @@ export function BlockNoteCanvasToolbar({
             <Plus aria-hidden className="h-3.5 w-3.5" />
           </button>
           <button
-            aria-label="适合宽度"
+            aria-label={ui("适合宽度")}
             className="ml-0.5 h-7 rounded px-2 text-[10px] font-semibold text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
             onClick={onFitWidth}
             type="button"
           >
-            适宽
+            {ui("适宽")}
           </button>
         </div>
         <SaveStatus state={saveState} />
@@ -241,7 +243,7 @@ export function BlockNoteCanvasToolbar({
           </button>
           {exportMenuVisible ? (
             <div
-              aria-label="导出格式"
+              aria-label={ui("导出格式")}
               className="absolute right-0 top-full z-50 mt-1 w-40 max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border border-white/15 bg-[#292d34] p-1 shadow-xl"
               id={exportMenuId}
               onBlur={closeAfterFocusLeaves}
@@ -249,9 +251,9 @@ export function BlockNoteCanvasToolbar({
               role="menu"
             >
               {([
-                { id: "PDF", label: "导出 PDF", icon: FileText },
-                { id: "DOCX", label: "导出 DOCX", icon: FileText },
-                { id: "LONG_IMAGE", label: "导出长图", icon: FileImage },
+                { id: "PDF", label: ui("导出 PDF"), icon: FileText },
+                { id: "DOCX", label: ui("导出 DOCX"), icon: FileText },
+                { id: "LONG_IMAGE", label: ui("导出长图"), icon: FileImage },
               ] as const).map(({ id, label, icon: Icon }, index) => (
                 <button
                   className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-xs font-semibold text-white/90 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-app-functional"

@@ -1,5 +1,6 @@
+import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import "@blocknote/core/fonts/inter.css";
-import { zh } from "@blocknote/core/locales";
+import { createLiveEditorDictionary, editorPlaceholderStyles } from "./editorLanguage";
 import {
   filterSuggestionItems,
   insertOrUpdateBlockForSlashMenu,
@@ -135,6 +136,7 @@ export function BlockNoteDocumentEditor({
   uploadFile,
   captureImage,
 }: BlockNoteDocumentEditorProps) {
+  const language = useUiLanguage();
   const { resolved } = useTheme();
   const documentRootRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
@@ -149,7 +151,7 @@ export function BlockNoteDocumentEditor({
   const [operationToast, setOperationToast] = useState<string | null>(null);
   const editor = useCreateBlockNote({
     schema: preshotBlockNoteSchema,
-    dictionary: zh,
+    dictionary: createLiveEditorDictionary(),
     initialContent: resolveBlockNoteDocumentAssets(document, resolveMediaUrl),
     uploadFile,
     resolveFileUrl: async (url) => resolveMediaUrl(url),
@@ -268,12 +270,12 @@ export function BlockNoteDocumentEditor({
       applyDocument: (next) => applyDocument(next, true),
       recordExternalHistory(entry) {
         const history = externalHistoryRef.current;
-        if (!history) throw new Error("当前图片粘贴历史已结束。");
+        if (!history) throw new Error(ui("当前图片粘贴历史已结束。"));
         history.recordExternalHistory(entry);
       },
       undo() {
-        if (!externalHistoryRef.current) throw new Error("当前图片粘贴历史已结束。");
-        if (!editor.undo()) throw new Error("当前没有可撤销的编辑，请重新确认图片操作。");
+        if (!externalHistoryRef.current) throw new Error(ui("当前图片粘贴历史已结束。"));
+        if (!editor.undo()) throw new Error(ui("当前没有可撤销的编辑，请重新确认图片操作。"));
       },
       focusBlock(blockId) {
         pendingClipboardFocusRef.current?.();
@@ -414,7 +416,7 @@ export function BlockNoteDocumentEditor({
       const block = editor.getBlock(blockId);
       if (!block || block.type !== "imageGroup") return;
       deleteBlockOrSelection(editor, block as PreshotEditorBlock);
-      notifyBlockOperation("已删除 block");
+      notifyBlockOperation(ui("已删除 block"));
     },
   }), [editor, imageGroupController, notifyBlockOperation]);
 
@@ -440,7 +442,7 @@ export function BlockNoteDocumentEditor({
           block,
           "after",
         );
-        notifyBlockOperation("已复制素材组件");
+        notifyBlockOperation(ui("已复制素材组件"));
       },
       removeArtifactBlock(blockId) {
         const block = editor.getBlock(blockId) as
@@ -450,7 +452,7 @@ export function BlockNoteDocumentEditor({
           return;
         }
         deleteBlockOrSelection(editor, block);
-        notifyBlockOperation("已删除素材组件");
+        notifyBlockOperation(ui("已删除素材组件"));
       },
     }),
     [artifactController, editor, notifyBlockOperation],
@@ -479,20 +481,20 @@ export function BlockNoteDocumentEditor({
         block,
         sidecarCloner,
       );
-      if (inserted.length > 0) notifyBlockOperation("已复制 block");
+      if (inserted.length > 0) notifyBlockOperation(ui("已复制 block"));
       return;
     }
     if (event.altKey && event.key === "ArrowUp") {
       event.preventDefault();
       if (moveSpecificBlock(editor, block, "up")) {
-        notifyBlockOperation("Block 已上移");
+        notifyBlockOperation(ui("Block 已上移"));
       }
       return;
     }
     if (event.altKey && event.key === "ArrowDown") {
       event.preventDefault();
       if (moveSpecificBlock(editor, block, "down")) {
-        notifyBlockOperation("Block 已下移");
+        notifyBlockOperation(ui("Block 已下移"));
       }
     }
   }, [editor, notifyBlockOperation, sidecarCloner]);
@@ -516,7 +518,9 @@ export function BlockNoteDocumentEditor({
       }}
       onKeyDownCapture={handleBlockShortcut}
       role="group"
+      data-preshot-editor-language={language}
     >
+      <style>{editorPlaceholderStyles(language)}</style>
       <ImageGroupBlockContext.Provider value={contextualImageGroupController}>
         <ArtifactBlockContext.Provider value={contextualArtifactController}>
         <CaptureBlockImageContext.Provider value={captureImage}>
@@ -561,10 +565,10 @@ export function BlockNoteDocumentEditor({
               };
               const items = [
                 {
-                  title: "图片组",
-                  subtext: "插入可拖拽、可缩放的参考图片组",
+                  title: ui("图片组"),
+                  subtext: ui("插入可拖拽、可缩放的参考图片组"),
                   aliases: ["图片", "参考图", "image", "gallery"],
-                  group: "素材组件",
+                  group: ui("素材组件"),
                   icon: <Images size={18} />,
                   onItemClick: () => {
                     const groupId = imageGroupController.createGroup();
@@ -575,42 +579,42 @@ export function BlockNoteDocumentEditor({
                   },
                 },
                 {
-                  title: "拍摄场地",
-                  subtext: "整理场地信息和参考图片",
+                  title: ui("拍摄场地"),
+                  subtext: ui("整理场地信息和参考图片"),
                   aliases: ["场地", "地址", "venue", "location"],
-                  group: "素材组件",
+                  group: ui("素材组件"),
                   icon: <MapPin size={18} />,
                   onItemClick: () => insertArtifact("shootingLocation"),
                 },
                 {
-                  title: "模特信息",
-                  subtext: "记录模特资料和样片",
+                  title: ui("模特信息"),
+                  subtext: ui("记录模特资料和样片"),
                   aliases: ["模特", "model", "talent"],
-                  group: "素材组件",
+                  group: ui("素材组件"),
                   icon: <ContactRound size={18} />,
                   onItemClick: () => insertArtifact("modelCard"),
                 },
                 {
-                  title: "服装",
-                  subtext: "整理服装信息和参考图片",
+                  title: ui("服装"),
+                  subtext: ui("整理服装信息和参考图片"),
                   aliases: ["衣服", "造型", "garment", "clothing"],
-                  group: "素材组件",
+                  group: ui("素材组件"),
                   icon: <Shirt size={18} />,
                   onItemClick: () => insertArtifact("clothing"),
                 },
                 {
-                  title: "道具",
-                  subtext: "整理道具图片和来源",
+                  title: ui("道具"),
+                  subtext: ui("整理道具图片和来源"),
                   aliases: ["物件", "props", "prop"],
-                  group: "素材组件",
+                  group: ui("素材组件"),
                   icon: <PackageOpen size={18} />,
                   onItemClick: () => insertArtifact("prop"),
                 },
                 ...(onInsertMaterial ? [{
-                  title: "从素材库插入",
-                  subtext: "预览并插入已保存组件的独立副本",
+                  title: ui("从素材库插入"),
+                  subtext: ui("预览并插入已保存组件的独立副本"),
                   aliases: ["素材库", "library", "saved"],
-                  group: "素材组件",
+                  group: ui("素材组件"),
                   icon: <Library size={18} />,
                   onItemClick: onInsertMaterial,
                 }] : []),
@@ -643,7 +647,7 @@ export function BlockNoteDocumentEditor({
               }}
               type="button"
             >
-              撤销
+              {ui("撤销")}
             </button>
           </div>
         ) : null}

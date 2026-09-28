@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import type { ScreenCapture } from "../../domain/plan/ports";
 
 const POLL_INTERVAL_MS = 250;
@@ -43,7 +44,7 @@ export async function captureScreenImage<T>(
     },
     (cause: unknown) => {
       if (!active) return;
-      failures.push(new Error(`无法确认截图取消状态：${errorMessage(cause)}`, { cause }));
+      failures.push(new Error(ui("无法确认截图取消状态：{{v0}}", { v0: errorMessage(cause) }), { cause }));
       stopDeadline();
       wake?.();
     },
@@ -54,10 +55,10 @@ export async function captureScreenImage<T>(
     await Promise.resolve();
     if (!stopped()) {
       deadline = setTimeout(() => {
-        failures.push(new Error("截图等待超时（90 秒），请取消系统截图后重试"));
+        failures.push(new Error(ui("截图等待超时（90 秒），请取消系统截图后重试")));
         wake?.();
       }, CAPTURE_TIMEOUT_MS);
-      token = await perform("无法启动截图", () => screenCapture.start());
+      token = await perform(ui("无法启动截图"), () => screenCapture.start());
       while (!stopped()) {
         await new Promise<void>((resolve) => {
           const finish = () => {
@@ -71,7 +72,7 @@ export async function captureScreenImage<T>(
         if (stopped()) break;
         const currentToken = token;
         // Drain native operations even after cancellation/timeout: a late poll can own a PNG.
-        const capture = await perform("无法读取截图", () => screenCapture.poll(currentToken));
+        const capture = await perform(ui("无法读取截图"), () => screenCapture.poll(currentToken));
         if (capture.status === "cancelled") {
           cancelled = true;
           // The native session is already retired. Do not send Escape again:
@@ -94,10 +95,10 @@ export async function captureScreenImage<T>(
     try {
       if (capturedPath !== undefined) {
         const path = capturedPath;
-        await perform("无法清理截图临时文件，请重试清理", () => screenCapture.discard(path));
+        await perform(ui("无法清理截图临时文件，请重试清理"), () => screenCapture.discard(path));
       } else if (token !== undefined) {
         const currentToken = token;
-        await perform("无法取消截图，请取消系统截图后重试", () => screenCapture.cancel(currentToken));
+        await perform(ui("无法取消截图，请取消系统截图后重试"), () => screenCapture.cancel(currentToken));
       }
     } catch (error) {
       failures.push(error);
@@ -111,6 +112,6 @@ export async function captureScreenImage<T>(
     throw new AggregateError(failures, failures.map(errorMessage).join("；"));
   }
   if (cancelled) return null;
-  if (!image) throw new Error("截图未返回有效图片，请重试");
+  if (!image) throw new Error(ui("截图未返回有效图片，请重试"));
   return image;
 }

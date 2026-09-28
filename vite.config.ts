@@ -23,6 +23,8 @@ export default defineConfig({
     },
   },
   test: {
+    // Editor/exporter suites load large module graphs; bound memory and CPU contention.
+    maxWorkers: 4,
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["./src/shared/testing/setup.ts"],

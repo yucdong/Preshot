@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import {
   useCallback,
   useEffect,
@@ -165,7 +166,7 @@ function createArtifactRecord(kind: ArtifactKind): ArtifactRecord {
     return {
       ...base,
       kind,
-      venueName: "未命名场地",
+      venueName: ui("未命名场地"),
       address: "",
       description: "",
       gallery: collection(),
@@ -175,7 +176,7 @@ function createArtifactRecord(kind: ArtifactKind): ArtifactRecord {
     return {
       ...base,
       kind,
-      modelId: "未命名模特",
+      modelId: ui("未命名模特"),
       heightCm: null,
       weightKg: null,
       shoeSize: "",
@@ -187,7 +188,7 @@ function createArtifactRecord(kind: ArtifactKind): ArtifactRecord {
     return {
       ...base,
       kind,
-      title: "未命名服装",
+      title: ui("未命名服装"),
       mainGallery: collection(),
       tryOn: {
         expanded: false,
@@ -199,7 +200,7 @@ function createArtifactRecord(kind: ArtifactKind): ArtifactRecord {
   return {
     ...base,
     kind,
-    title: "未命名道具",
+    title: ui("未命名道具"),
     gallery: collection(),
     source: "",
   };
@@ -224,21 +225,21 @@ function cloneArtifactRecord(artifact: ArtifactRecord): ArtifactRecord {
   if (base.kind === "shootingLocation") {
     return {
       ...base,
-      venueName: `${base.venueName} 副本`,
+      venueName: ui("{{v0}} 副本", { v0: base.venueName }),
       gallery: cloneCollection(base.gallery),
     };
   }
   if (base.kind === "modelCard") {
     return {
       ...base,
-      modelId: `${base.modelId} 副本`,
+      modelId: ui("{{v0}} 副本", { v0: base.modelId }),
       samples: cloneCollection(base.samples),
     };
   }
   if (base.kind === "clothing") {
     return {
       ...base,
-      title: `${base.title} 副本`,
+      title: ui("{{v0}} 副本", { v0: base.title }),
       mainGallery: cloneCollection(base.mainGallery),
       tryOn: {
         ...base.tryOn,
@@ -248,7 +249,7 @@ function cloneArtifactRecord(artifact: ArtifactRecord): ArtifactRecord {
   }
   return {
     ...base,
-    title: `${base.title} 副本`,
+    title: ui("{{v0}} 副本", { v0: base.title }),
     gallery: cloneCollection(base.gallery),
   };
 }
@@ -271,24 +272,24 @@ function longImageFailureMessage(
   ) {
     const format = settings.preset === "lossless-png" ? "PNG" : "JPEG";
     const formatRecovery = settings.preset === "lossless-png"
-      ? "如可接受 JPEG，也可选择体积更小的“微信兼容” JPEG 预设或降低图片细节；也可改用 PDF/DOCX。"
+      ? ui("如可接受 JPEG，也可选择体积更小的“微信兼容” JPEG 预设或降低图片细节；也可改用 PDF/DOCX。")
       : settings.preset === "high-quality"
-      ? "也可改用体积更小的“微信兼容” JPEG 预设、降低图片细节，或改用 PDF/DOCX。"
-      : "也可降低图片细节，或改用 PDF/DOCX。";
-    return `自动分图无法继续：当前完整区块或图片组单行仍超过 ${format} 的高度或体积限制。请缩短或拆分这个区块/图片组，或将方案分段导出。${formatRecovery}`;
+      ? ui("也可改用体积更小的“微信兼容” JPEG 预设、降低图片细节，或改用 PDF/DOCX。")
+      : ui("也可降低图片细节，或改用 PDF/DOCX。");
+    return ui("自动分图无法继续：当前完整区块或图片组单行仍超过 {{v0}} 的高度或体积限制。请缩短或拆分这个区块/图片组，或将方案分段导出。{{v1}}", { v0: format, v1: formatRecovery });
   }
   return error instanceof Error ? error.message : String(error);
 }
 
 function longImageProgressLabel(progress: LongImageUiProgress): string {
-  if (progress.phase === "prepare") return "正在准备长图文档…";
-  if (progress.phase === "assets") return "正在检查长图资源…";
-  if (progress.phase === "layout") return "正在计算长图排版…";
+  if (progress.phase === "prepare") return ui("正在准备长图文档…");
+  if (progress.phase === "assets") return ui("正在检查长图资源…");
+  if (progress.phase === "layout") return ui("正在计算长图排版…");
   if (progress.phase === "save") {
-    return `正在保存 ${progress.partCount} 张长图…`;
+    return ui("正在保存 {{v0}} 张长图…", { v0: progress.partCount });
   }
-  const action = progress.phase === "render" ? "渲染" : "压缩";
-  return `正在${action}第 ${progress.partNumber}/${progress.partCount} 张…`;
+  const action = progress.phase === "render" ? ui("渲染") : ui("压缩");
+  return ui("正在{{v0}}第 {{v1}}/{{v2}} 张…", { v0: action, v1: progress.partNumber, v2: progress.partCount });
 }
 
 function applyImportedImagesToLatest(
@@ -467,6 +468,7 @@ export function BlockNoteProjectCanvasProvider({
   service,
   imagePasteRepository,
 }: BlockNoteProjectCanvasProviderProps) {
+  useUiLanguage();
   const { resolved: resolvedTheme } = useTheme();
   const materialLibrary = useOptionalMaterialLibrary();
   const imageClipboard = useImageClipboardPort();
@@ -580,7 +582,7 @@ export function BlockNoteProjectCanvasProvider({
     await imageMutationTailRef.current;
     if (discardOnCloseRef.current || (savePausedRef.current && !explicitClose)) return;
     if (libraryRecoveryBlockedRef.current) {
-      throw new Error("素材插入恢复状态尚未确认，已暂停自动保存。请重新打开项目。");
+      throw new Error(ui("素材插入恢复状态尚未确认，已暂停自动保存。请重新打开项目。"));
     }
     const plan = planRef.current;
     if (!plan) return;
@@ -620,7 +622,7 @@ export function BlockNoteProjectCanvasProvider({
 
   useLayoutEffect(() => registerBeforeClose?.(projectPath, async (saveChanges = true) => {
     if (libraryBusyRef.current || exportInFlightRef.current) {
-      throw new Error("项目仍在处理素材或导出，请完成后再关闭。");
+      throw new Error(ui("项目仍在处理素材或导出，请完成后再关闭。"));
     }
     await captureTaskRef.current;
     await imageMutationTailRef.current;
@@ -685,12 +687,12 @@ export function BlockNoteProjectCanvasProvider({
         getLatestPlan() {
           if (planRevisionRef.current < baseRevision) {
             throw new Error(
-              "方案版本已失效，请重新执行图片操作",
+              ui("方案版本已失效，请重新执行图片操作"),
             );
           }
           const plan = planRef.current;
           if (!plan) {
-            throw new Error("当前方案不可用，请重新打开项目");
+            throw new Error(ui("当前方案不可用，请重新打开项目"));
           }
           return plan;
         },
@@ -777,7 +779,7 @@ export function BlockNoteProjectCanvasProvider({
   const confirmLightboxCrop = useCallback((crop: NormalizedImageCrop) => {
     if (!lightboxTarget) {
       return Promise.reject(
-        new Error("当前裁剪目标不可用，请重新打开参考图"),
+        new Error(ui("当前裁剪目标不可用，请重新打开参考图")),
       );
     }
     return commitImageCrop(
@@ -804,7 +806,7 @@ export function BlockNoteProjectCanvasProvider({
           updateLoadState(result);
           report({
             status: "failed",
-            message: `方案版本不兼容：当前项目版本为 ${result.foundSchemaVersion ?? "未知"}，需要版本 ${result.requiredSchemaVersion}。项目文件未被修改。`,
+            message: ui("方案版本不兼容：当前项目版本为 {{v0}}，需要版本 {{v1}}。项目文件未被修改。", { v0: result.foundSchemaVersion ?? ui("未知"), v1: result.requiredSchemaVersion }),
           });
           failed = true;
           return;
@@ -825,9 +827,9 @@ export function BlockNoteProjectCanvasProvider({
 
         setMigrationNotice(
           migration.migratedImageCount > 0
-            ? `已升级 ${migration.migratedImageCount} 张旧版默认尺寸图片；自定义尺寸未更改。请确认排版，系统将自动保存。`
+            ? ui("已升级 {{v0}} 张旧版默认尺寸图片；自定义尺寸未更改。请确认排版，系统将自动保存。", { v0: migration.migratedImageCount })
             : result.status === "migrated"
-              ? "项目已安全升级为素材组件格式；原有内容和图片组未更改。"
+              ? ui("项目已安全升级为素材组件格式；原有内容和图片组未更改。")
               : null,
         );
         const files = new Set(
@@ -1081,7 +1083,7 @@ export function BlockNoteProjectCanvasProvider({
   }, [editorMounted, loadState.status, onLoadProgress, projectPath]);
 
   if (loadState.status === "loading") {
-    return <div className="p-6 text-sm text-app-muted">正在加载方案…</div>;
+    return <div className="p-6 text-sm text-app-muted">{ui("正在加载方案…")}</div>;
   }
   if (loadState.status === "failed") {
     return <div className="m-6 rounded border border-app-danger bg-app-danger-soft p-4 text-sm" role="alert">{loadState.message}</div>;
@@ -1089,12 +1091,11 @@ export function BlockNoteProjectCanvasProvider({
   if (loadState.status === "incompatible") {
     return (
       <div className="m-6 rounded-lg border border-app-danger bg-app-danger-soft p-5 text-app-ink" role="alert">
-        <h2 className="mb-2 text-lg font-semibold">方案版本不兼容</h2>
+        <h2 className="mb-2 text-lg font-semibold">{ui("方案版本不兼容")}</h2>
         <p className="text-sm">
-          当前项目使用 schema {loadState.foundSchemaVersion ?? "未知"}，
-          此版本仅支持新建 schema {loadState.requiredSchemaVersion} 的 BlockNote 项目。
+          {ui("当前项目使用 schema")} {loadState.foundSchemaVersion ?? ui("未知")}{ui("，\r\n          此版本仅支持新建 schema")} {loadState.requiredSchemaVersion} {ui("的 BlockNote 项目。")}
         </p>
-        <p className="mt-2 text-xs text-app-muted">项目文件未被修改。</p>
+        <p className="mt-2 text-xs text-app-muted">{ui("项目文件未被修改。")}</p>
       </div>
     );
   }
@@ -1163,13 +1164,13 @@ export function BlockNoteProjectCanvasProvider({
 
   const requireLibraryReady = () => {
     if (!mountedRef.current || !planRef.current || !projectId) {
-      throw new Error("当前项目不可用，请重新打开项目后再操作素材库。");
+      throw new Error(ui("当前项目不可用，请重新打开项目后再操作素材库。"));
     }
     if (libraryRecoveryBlockedRef.current) {
-      throw new Error("素材插入存在未解决的恢复记录，请先重新打开项目。");
+      throw new Error(ui("素材插入存在未解决的恢复记录，请先重新打开项目。"));
     }
     if (libraryComposingRef.current) {
-      throw new Error("请先完成当前文字输入，再操作素材库。");
+      throw new Error(ui("请先完成当前文字输入，再操作素材库。"));
     }
   };
 
@@ -1191,7 +1192,7 @@ export function BlockNoteProjectCanvasProvider({
       const dimensions = block?.type === "image" && typeof block.props.url === "string" && block.props.url.startsWith("media/")
         ? await measureImageDimensions(resolveMediaUrl(block.props.url)) : undefined;
       requireLibraryReady();
-      if (planRevisionRef.current !== revision) throw new Error("图片已变化，请重新保存到素材库。");
+      if (planRevisionRef.current !== revision) throw new Error(ui("图片已变化，请重新保存到素材库。"));
       const snapshot = imageId || block?.type === "image"
         ? createImageMaterialSnapshot(current, blockId, imageId, dimensions)
         : createMaterialSnapshot(current, blockId);
@@ -1204,7 +1205,7 @@ export function BlockNoteProjectCanvasProvider({
         async onSave(metadata) {
           requireLibraryReady();
           if (libraryBusyRef.current || planRevisionRef.current !== revision) {
-            throw new Error("组件已变化，请关闭窗口后重新保存到素材库。");
+            throw new Error(ui("组件已变化，请关闭窗口后重新保存到素材库。"));
           }
           setLibraryOperationBusy(true);
           try {
@@ -1212,7 +1213,7 @@ export function BlockNoteProjectCanvasProvider({
             return await enqueueImageMutation(async () => {
               requireLibraryReady();
               if (planRevisionRef.current !== revision) {
-                throw new Error("组件已变化，请关闭窗口后重新保存到素材库。");
+                throw new Error(ui("组件已变化，请关闭窗口后重新保存到素材库。"));
               }
               return materialLibrary.repository.save({
                 operationId,
@@ -1236,22 +1237,22 @@ export function BlockNoteProjectCanvasProvider({
     try {
       requireLibraryReady();
       const editor = materialEditorRef.current;
-      if (!editor) throw new Error("编辑器尚未就绪，请稍后再试。");
+      if (!editor) throw new Error(ui("编辑器尚未就绪，请稍后再试。"));
       const afterBlockId = editor.getAnchor();
       const revision = planRevisionRef.current;
       const expectedPlan = structuredClone(planRef.current!);
       const targetGroup = expectedPlan.imageGroups.find((group) => group.id === targetGroupId);
       if (targetGroupId !== undefined && (!targetGroup || !editor.recordExternalHistory)) {
-        throw new Error("目标图片组或编辑器尚未就绪，请重新选择。");
+        throw new Error(ui("目标图片组或编辑器尚未就绪，请重新选择。"));
       }
       libraryOwnsDialogRef.current = true;
       materialLibrary.openBrowser({
-        targetLabel: `「${projectName}」· ${targetGroup ? `图片组「${targetGroup.name || "未命名"}」` : afterBlockId ? "当前光标所在内容之后" : "文档开头"}`,
+        targetLabel: `「${projectName}」· ${targetGroup ? ui("图片组「{{v0}}」", { v0: targetGroup.name || ui("未命名") }) : afterBlockId ? ui("当前光标所在内容之后") : ui("文档开头")}`,
         ...(targetGroup ? { imagesOnly: true } : {}),
         async onInsert(material, selection) {
           requireLibraryReady();
           if (libraryBusyRef.current || planRevisionRef.current !== revision) {
-            throw new Error("方案或插入位置已变化，请重新打开素材库。");
+            throw new Error(ui("方案或插入位置已变化，请重新打开素材库。"));
           }
           setLibraryOperationBusy(true);
           const importedSources: Record<string, string> = {};
@@ -1344,7 +1345,7 @@ export function BlockNoteProjectCanvasProvider({
 
   const resolveClipboardImage = async (selection: ImageClipboardSelection): Promise<ImageClipboardInput> => {
     requireLibraryReady();
-    if (libraryBusyRef.current || captureTaskRef.current || captureTokenRef.current) throw new Error("正在处理图片，请完成后再复制。");
+    if (libraryBusyRef.current || captureTaskRef.current || captureTokenRef.current) throw new Error(ui("正在处理图片，请完成后再复制。"));
     await imageMutationTailRef.current;
     requireLibraryReady();
     const current = planRef.current!;
@@ -1352,18 +1353,18 @@ export function BlockNoteProjectCanvasProvider({
     if (selection.kind === "gallery") {
       const image = allCollectionGroups(current).find(group => group.id === selection.groupId)
         ?.images.find(entry => entry.id === selection.imageId);
-      if (!image) throw new Error("选中的图片已不存在，请重新选择。");
+      if (!image) throw new Error(ui("选中的图片已不存在，请重新选择。"));
       const dataUrl = await service.loadImage(projectPath, image.file);
-      if (!mountedRef.current || planRevisionRef.current !== revision) throw new Error("图片或项目已变化，请重新复制。");
+      if (!mountedRef.current || planRevisionRef.current !== revision) throw new Error(ui("图片或项目已变化，请重新复制。"));
       const { id: _id, file: _file, ...presentation } = image;
       return { dataUrl, name: image.file.split(/[\\/]/).at(-1) ?? "image.png", presentation };
     }
     const block = findClipboardBlock(current.document.blocks, selection.blockId);
     if (block?.type !== "image" || typeof block.props.url !== "string" || !block.props.url.startsWith("media/")) {
-      throw new Error("正文图片尚未完成导入，请稍候再复制。");
+      throw new Error(ui("正文图片尚未完成导入，请稍候再复制。"));
     }
     const dataUrl = await service.loadMedia(projectPath, block.props.url);
-    if (!mountedRef.current || planRevisionRef.current !== revision) throw new Error("图片或项目已变化，请重新复制。");
+    if (!mountedRef.current || planRevisionRef.current !== revision) throw new Error(ui("图片或项目已变化，请重新复制。"));
     const alignment = block.props.textAlignment;
     return {
       dataUrl, name: imageClipboardFilename(typeof block.props.name === "string" ? block.props.name : "image.png"),
@@ -1380,9 +1381,9 @@ export function BlockNoteProjectCanvasProvider({
     const editor = materialEditorRef.current;
     if (!imagePasteRepository || !editor || !editor.undo ||
         (target.kind === "gallery" && !editor.recordExternalHistory)) {
-      throw new Error("图片粘贴服务或编辑器尚未就绪，请重新打开项目。");
+      throw new Error(ui("图片粘贴服务或编辑器尚未就绪，请重新打开项目。"));
     }
-    if (libraryBusyRef.current || captureTaskRef.current || captureTokenRef.current) throw new Error("正在处理图片，请稍候再粘贴。");
+    if (libraryBusyRef.current || captureTaskRef.current || captureTokenRef.current) throw new Error(ui("正在处理图片，请稍候再粘贴。"));
     setLibraryOperationBusy(true);
     try {
       await save();
@@ -1424,10 +1425,10 @@ export function BlockNoteProjectCanvasProvider({
             editor.recordExternalHistory!({
               undo() {
                 const current = planRef.current;
-                if (!current || !mountedRef.current) throw new Error("当前图片粘贴历史已结束。");
+                if (!current || !mountedRef.current) throw new Error(ui("当前图片粘贴历史已结束。"));
                 applyPlan(changeClipboardGallery(current, target.groupId, images => {
                   const index = images.findIndex(image => image.id === pasted.id);
-                  if (index < 0) throw new Error("粘贴图片已变化，无法撤销。");
+                  if (index < 0) throw new Error(ui("粘贴图片已变化，无法撤销。"));
                   restoredIndex = index;
                   return images.filter(image => image.id !== pasted.id);
                 }));
@@ -1438,7 +1439,7 @@ export function BlockNoteProjectCanvasProvider({
                     if (!mountedRef.current || libraryRecoveryBlockedRef.current || libraryBusyRef.current ||
                         materialEditorRef.current !== editor || planRevisionRef.current !== undoRevision ||
                         clipboardInputVersionRef.current !== inputVersion || !editor.undo) {
-                      throw new Error("粘贴之后已有其他编辑，请使用编辑器的撤销功能。");
+                      throw new Error(ui("粘贴之后已有其他编辑，请使用编辑器的撤销功能。"));
                     }
                     editor.undo();
                   },
@@ -1446,9 +1447,9 @@ export function BlockNoteProjectCanvasProvider({
               },
               redo() {
                 const current = planRef.current;
-                if (!current || !mountedRef.current) throw new Error("当前图片粘贴历史已结束。");
+                if (!current || !mountedRef.current) throw new Error(ui("当前图片粘贴历史已结束。"));
                 applyPlan(changeClipboardGallery(current, target.groupId, images => {
-                  if (images.some(image => image.id === pasted.id)) throw new Error("粘贴图片已存在，不能重复重做。");
+                  if (images.some(image => image.id === pasted.id)) throw new Error(ui("粘贴图片已存在，不能重复重做。"));
                   const index = Math.min(Math.max(0, restoredIndex), images.length);
                   return [...images.slice(0, index), pasted, ...images.slice(index)];
                 }));
@@ -1518,7 +1519,7 @@ export function BlockNoteProjectCanvasProvider({
       if (pending) {
         const next = update(structuredClone(pending));
         if (next.id !== pending.id || next.kind !== pending.kind) {
-          throw new Error("素材更新不能改变 artifactId 或类型");
+          throw new Error(ui("素材更新不能改变 artifactId 或类型"));
         }
         pendingArtifactsRef.current.set(artifactId, {
           ...next,
@@ -1534,7 +1535,7 @@ export function BlockNoteProjectCanvasProvider({
         if (artifact.id !== artifactId) return artifact;
         const next = update(structuredClone(artifact));
         if (next.id !== artifact.id || next.kind !== artifact.kind) {
-          throw new Error("素材更新不能改变 artifactId 或类型");
+          throw new Error(ui("素材更新不能改变 artifactId 或类型"));
         }
         changed = JSON.stringify(next) !== JSON.stringify(artifact);
         return changed
@@ -1553,7 +1554,7 @@ export function BlockNoteProjectCanvasProvider({
       const owner = current?.document.blocks.find((block) =>
         block.type === "imageGroup" ? block.props.groupId === groupId : artifact && block.props.artifactId === artifact.id);
       if (owner) requestMaterialSave(owner.id, imageId);
-      else reportImageMutationFailure(new Error("图片所在组件已变化，请重新选择。"));
+      else reportImageMutationFailure(new Error(ui("图片所在组件已变化，请重新选择。")));
     } } : {}),
     selectedImageId,
     subscribe(listener) {
@@ -1568,7 +1569,7 @@ export function BlockNoteProjectCanvasProvider({
         ...current,
         imageGroups: [...current.imageGroups, {
           id: groupId,
-          name: `图片组 ${current.imageGroups.length + 1}`,
+          name: ui("图片组 {{v0}}", { v0: current.imageGroups.length + 1 }),
           type: "reference",
           x: 0,
           width: BLOCKNOTE_DOCUMENT_CONTENT_WIDTH,
@@ -1589,7 +1590,7 @@ export function BlockNoteProjectCanvasProvider({
         imageGroups: [...current.imageGroups, {
           ...structuredClone(source),
           id: groupId,
-          name: `${source.name} 副本`,
+          name: ui("{{v0}} 副本", { v0: source.name }),
           images: source.images.map((image) => ({
             ...structuredClone(image),
             id: crypto.randomUUID(),
@@ -1609,7 +1610,7 @@ export function BlockNoteProjectCanvasProvider({
     addImages(groupId) {
       if (!planRef.current) return;
       void enqueueImageMutation(async (context) => {
-        const files = await picker.pickImageFiles("选择参考图片");
+        const files = await picker.pickImageFiles(ui("选择参考图片"));
         if (!files || files.length === 0) return;
         let serviceRevision = context.getLatestRevision();
         const result = await service.importImages(
@@ -1941,7 +1942,7 @@ export function BlockNoteProjectCanvasProvider({
   const captureBlockImage: CaptureBlockImage = async (target) => {
     if (!screenCapture?.captureMedia || !active || !mountedRef.current || !target.isCurrent()) return;
     if (captureTaskRef.current || libraryBusyRef.current || savePausedRef.current) {
-      setCanvasError("正在处理图片或关闭项目，请完成后再截图。");
+      setCanvasError(ui("正在处理图片或关闭项目，请完成后再截图。"));
       return;
     }
     let cancelled = false;
@@ -2021,17 +2022,13 @@ export function BlockNoteProjectCanvasProvider({
             { error, projectPath },
           );
           setExportNotice(
-            `${format} 已保存，但无法打开项目文件夹：${
-              error instanceof Error ? error.message : String(error)
-            }。请从文件资源管理器手动打开项目文件夹。`,
+            ui("{{v0}} 已保存，但无法打开项目文件夹：{{v1}}。请从文件资源管理器手动打开项目文件夹。", { v0: format, v1: error instanceof Error ? error.message : String(error) }),
           );
         }
       })
       .catch((error: unknown) => {
         setCanvasError(
-          `无法导出 ${format}：${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          ui("无法导出 {{v0}}：{{v1}}", { v0: format, v1: error instanceof Error ? error.message : String(error) }),
         );
       })
       .finally(() => {
@@ -2102,9 +2099,7 @@ export function BlockNoteProjectCanvasProvider({
             { error, projectPath },
           );
           setExportNotice(
-            `长图已保存，但无法打开项目文件夹：${
-              error instanceof Error ? error.message : String(error)
-            }。请从文件资源管理器手动打开项目文件夹。`,
+            ui("长图已保存，但无法打开项目文件夹：{{v0}}。请从文件资源管理器手动打开项目文件夹。", { v0: error instanceof Error ? error.message : String(error) }),
           );
         }
       })
@@ -2122,7 +2117,7 @@ export function BlockNoteProjectCanvasProvider({
           width: settings.width,
         });
         setCanvasError(
-          `无法导出长图：${longImageFailureMessage(error, settings)}`,
+          ui("无法导出长图：{{v0}}", { v0: longImageFailureMessage(error, settings) }),
         );
       })
       .finally(() => {
@@ -2168,7 +2163,7 @@ export function BlockNoteProjectCanvasProvider({
       />
       {exportingLongImage && longImageProgress ? (
         <div
-          aria-label="长图导出进度"
+          aria-label={ui("长图导出进度")}
           aria-live="polite"
           className="flex min-h-9 items-center justify-between gap-3 border-b border-sky-200 bg-sky-50 px-4 py-1.5 text-xs text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100"
           role="status"
@@ -2180,7 +2175,7 @@ export function BlockNoteProjectCanvasProvider({
               onClick={() => longImageAbortRef.current?.abort()}
               type="button"
             >
-              取消长图导出
+              {ui("取消长图导出")}
             </button>
           ) : null}
         </div>
@@ -2190,13 +2185,13 @@ export function BlockNoteProjectCanvasProvider({
           className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700"
           role="alert"
         >
-          无法保存方案：{saveError}
+          {ui("无法保存方案：")}{saveError}
         </div>
       ) : null}
       {active && capturingBlockImage ? (
         <div className="border-b border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-800" role="status">
-          请在屏幕上框选截图区域，完成后会自动插入当前图片块。
-          <button className="ml-3 underline" type="button" onClick={() => cancelBlockCaptureRef.current?.()}>取消截图</button>
+          {ui("请在屏幕上框选截图区域，完成后会自动插入当前图片块。")}
+          <button className="ml-3 underline" type="button" onClick={() => cancelBlockCaptureRef.current?.()}>{ui("取消截图")}</button>
         </div>
       ) : null}
       {canvasError ? (
@@ -2204,7 +2199,7 @@ export function BlockNoteProjectCanvasProvider({
           className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700"
           role="alert"
         >
-          操作失败：{canvasError}
+          {ui("操作失败：")}{canvasError}
         </div>
       ) : null}
       {exportNotice ? (
@@ -2279,7 +2274,7 @@ export function BlockNoteProjectCanvasProvider({
               onUndo={() => materialEditorRef.current?.undo?.()}
             >
             <BlockNoteDocumentEditor
-              ariaLabel="方案正文"
+              ariaLabel={ui("方案正文")}
               artifactController={artifactController}
               document={loadState.plan.document}
               imageGroupController={imageGroupController}
@@ -2299,7 +2294,7 @@ export function BlockNoteProjectCanvasProvider({
       </div>
       {active && lightboxTarget && imageSrc[lightboxTarget.file] ? (
         <ReferenceImageLightbox
-          alt="参考图"
+          alt={ui("参考图")}
           cropAction={(() => {
             const image = allCollectionGroups(loadState.plan)
               .find((group) => group.id === lightboxTarget.groupId)

@@ -58,10 +58,12 @@
 .ml-sort { max-width: 160px; }
 .ml-create-button { flex-shrink: 0; white-space: nowrap; }
 .ml-create-kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
-.material-library-dialog .ml-create-kinds button { justify-content: flex-start; min-height: 60px; }
+.material-library-dialog .ml-create-kinds button { justify-content: flex-start; min-height: 60px; min-width: 0; text-align: left; }
+.ml-type-rail button > svg, .ml-create-kinds button > svg { flex-shrink: 0; }
+.ml-category-label { min-width: 0; overflow-wrap: anywhere; }
 .ml-browser-body { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(280px, 370px); flex: 1; min-height: 0; }
 .ml-type-rail { padding: 18px 10px; background: var(--app-panel); border-right: 1px solid var(--app-border); overflow-y: auto; }
-.material-library-dialog .ml-type-rail button { width: 100%; margin-bottom: 5px; justify-content: flex-start; background: transparent; border-color: transparent; white-space: nowrap; }
+.material-library-dialog .ml-type-rail button { width: 100%; min-width: 0; margin-bottom: 5px; padding-inline: 8px; justify-content: flex-start; background: transparent; border-color: transparent; white-space: normal; text-align: left; }
 .material-library-dialog .ml-type-rail button[aria-pressed="true"] { font-weight: 600; background: var(--app-panel-strong); border-color: var(--app-border); }
 .ml-results, .ml-details { padding: 20px; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .ml-results-count { margin-bottom: 14px !important; font-size: 12px; color: var(--app-ink-muted); }
@@ -182,7 +184,7 @@
 @keyframes ml-loading { to { opacity: .5; } }
 @media (max-width: 1100px) {
   .material-library-overlay { padding: 14px; }
-  .ml-browser-body { grid-template-columns: 130px minmax(0, 1fr) minmax(260px, 320px); }
+  .ml-browser-body { grid-template-columns: 150px minmax(0, 1fr) minmax(260px, 320px); }
   .ml-results, .ml-details { padding: 14px; }
   .ml-grid { gap: 10px; }
 }

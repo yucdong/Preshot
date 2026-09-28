@@ -1,3 +1,4 @@
+import { ui, uiLocale } from "../../shared/i18n/ui";
 import {
   COLORS_DEFAULT,
   mapTableCell,
@@ -9,6 +10,7 @@ import {
   type StyledText,
 } from "@blocknote/core";
 import { zh } from "@blocknote/core/locales";
+import { editorDictionary } from "../../features/plan/blocknote/editorLanguage";
 import {
   PDFExporter,
   pdfDefaultSchemaMappings,
@@ -98,17 +100,17 @@ function artifactTitle(artifact: ArtifactRecord): string {
 function artifactMetadata(artifact: ArtifactRecord): string[] {
   if (artifact.kind === "shootingLocation") {
     return [
-      ...(artifact.address ? [`地址：${artifact.address}`] : []),
+      ...(artifact.address ? [ui("地址：{{v0}}", { v0: artifact.address })] : []),
       ...(artifact.description ? [artifact.description] : []),
     ];
   }
   if (artifact.kind === "modelCard") {
     return [
-      ...(artifact.heightCm === null ? [] : [`身高：${artifact.heightCm} cm`]),
-      ...(artifact.weightKg === null ? [] : [`体重：${artifact.weightKg} kg`]),
-      ...(artifact.shoeSize ? [`鞋码：${artifact.shoeSize}`] : []),
+      ...(artifact.heightCm === null ? [] : [ui("身高：{{v0}} cm", { v0: artifact.heightCm })]),
+      ...(artifact.weightKg === null ? [] : [ui("体重：{{v0}} kg", { v0: artifact.weightKg })]),
+      ...(artifact.shoeSize ? [ui("鞋码：{{v0}}", { v0: artifact.shoeSize })] : []),
       ...(artifact.notes?.trim()
-        ? [`其他信息：${artifact.notes.trim()}`]
+        ? [ui("其他信息：{{v0}}", { v0: artifact.notes.trim() })]
         : []),
     ];
   }
@@ -125,27 +127,27 @@ function artifactCollections(artifact: ArtifactRecord): Array<{
 }> {
   if (artifact.kind === "shootingLocation") {
     return [{
-      label: "场地图片",
+      label: ui("场地图片"),
       collection: artifact.gallery,
       compact: false,
     }];
   }
   if (artifact.kind === "modelCard") {
     return [{
-      label: "样片",
+      label: ui("样片"),
       collection: artifact.samples,
       compact: false,
     }];
   }
   if (artifact.kind === "clothing") {
     return [{
-      label: "服装主图",
+      label: ui("服装主图"),
       collection: artifact.mainGallery,
       compact: false,
     }];
   }
   return [{
-    label: "道具图片",
+    label: ui("道具图片"),
     collection: artifact.gallery,
     compact: false,
   }];
@@ -393,19 +395,19 @@ function mediaFallback(
   blockId: string,
 ): PdfBlockResult {
   const labels = {
-    audio: "音频",
-    file: "文件",
-    image: "图片",
-    video: "视频",
+    audio: ui("音频"),
+    file: ui("文件"),
+    image: ui("图片"),
+    video: ui("视频"),
   } as const;
   const url = props.url ?? "";
-  const defaultName = zh.file_blocks.add_button_text[kind];
+  const defaultName = editorDictionary().file_blocks.add_button_text[kind];
   const name = props.caption || props.name || defaultName;
   const sourceContext = /^https?:\/\//i.test(url)
-    ? "外部链接"
+    ? ui("外部链接")
     : url
-      ? `项目本地资源：${url}`
-      : "未附加源文件";
+      ? ui("项目本地资源：{{v0}}", { v0: url })
+      : ui("未附加源文件");
   const text = `[${labels[kind]}] ${name}（${sourceContext}）`;
   const textNode = (
     <Text
@@ -868,7 +870,7 @@ export class PreshotReactPdfExporter extends PDFExporter<
   PreshotStyleSchema,
   PreshotInlineContentSchema
 > {
-  readonly dictionary = PRESHOT_PDF_DICTIONARY;
+  readonly dictionary = editorDictionary();
   private preshotFontsRegistered = false;
   private readonly fontSources: {
     readonly regular: string;
@@ -1022,7 +1024,7 @@ export class PreshotReactPdfExporter extends PDFExporter<
   ): Promise<ReactElement> {
     await this.registerFonts();
     return (
-      <Document language="zh-CN">
+      <Document language={uiLocale()}>
         <Page
           dpi={72}
           size={[contract.page.width, contract.page.height]}

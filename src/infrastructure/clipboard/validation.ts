@@ -1,7 +1,8 @@
+import { ui } from "../../shared/i18n/ui";
 import type { ImageClipboardContents, ImageClipboardInput } from "../../domain/clipboard/imageClipboard";
 
 const MAX_ENCODED = 16 * 1024 * 1024;
-const invalid = () => new Error("图片剪贴板数据无效，请重新复制图片。");
+const invalid = () => new Error(ui("图片剪贴板数据无效，请重新复制图片。"));
 
 function record(value: unknown, keys: readonly string[]): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) ||
@@ -22,7 +23,7 @@ function number(value: unknown, minimum: number, maximum: number): number {
 function dataUrl(value: unknown, pngOnly = false): string {
   if (typeof value !== "string") throw invalid();
   if (value.length > 4 * Math.ceil(MAX_ENCODED / 3) + 32) {
-    throw new Error("图片超过剪贴板的 16 MiB 限制，请缩小图片后重试。");
+    throw new Error(ui("图片超过剪贴板的 16 MiB 限制，请缩小图片后重试。"));
   }
   const comma = value.indexOf(",");
   const header = value.slice(0, comma);
@@ -31,7 +32,7 @@ function dataUrl(value: unknown, pngOnly = false): string {
   if (!body || body.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(body)) throw invalid();
   const padding = body.endsWith("==") ? 2 : body.endsWith("=") ? 1 : 0;
   if (body.length / 4 * 3 - padding > MAX_ENCODED) {
-    throw new Error("图片超过剪贴板的 16 MiB 限制，请缩小图片后重试。");
+    throw new Error(ui("图片超过剪贴板的 16 MiB 限制，请缩小图片后重试。"));
   }
   return value;
 }

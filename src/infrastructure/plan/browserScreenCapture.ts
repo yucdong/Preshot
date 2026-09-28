@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import { captureScreenImage } from "./captureScreenImage";
 import { browserBlockNoteMediaStore } from "./browserBlockNotePlan";
 import type { ScreenCapture } from "../../domain/plan/ports";
@@ -9,7 +10,7 @@ export function createBrowserScreenCapture(): ScreenCapture {
   const capture: ScreenCapture = {
     async captureMedia(projectPath, cancellation) {
       return captureScreenImage(capture, cancellation, () => browserBlockNoteMediaStore.importMedia(projectPath, {
-        name: "截图.png", mimeType: "image/png",
+        name: ui("截图.png"), mimeType: "image/png",
         bytes: Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="), (char) => char.charCodeAt(0)),
       }));
     },

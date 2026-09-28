@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, type KeyboardEventHandler, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
@@ -47,6 +48,7 @@ export function LibraryDialog({
   onKeyDown?: KeyboardEventHandler<HTMLDivElement>;
   children: ReactNode;
 }) {
+  useUiLanguage();
   const overlay = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -140,7 +142,7 @@ export function LibraryDialog({
       onKeyDown={onKeyDown}>
       <header className="ml-dialog-header">
         <div><h2 id={titleId}>{title}</h2>{subtitle && <p id={subtitleId}>{subtitle}</p>}</div>
-        <button type="button" className="ml-icon-button" aria-label={`关闭${title}`} disabled={busy} onClick={onClose}>
+        <button type="button" className="ml-icon-button" aria-label={ui("关闭{{v0}}", { v0: title })} disabled={busy} onClick={onClose}>
           <X size={20} aria-hidden="true" />
         </button>
       </header>

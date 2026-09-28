@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { MaterialDetail, MaterialPreviewInput } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
@@ -40,7 +41,7 @@ function detail(error: unknown): string {
 function previewDeadline(): { controller: AbortController; clear(): void } {
   const controller = new AbortController();
   const timer = window.setTimeout(() => {
-    controller.abort(new Error("素材预览生成超时，请重试或减小素材尺寸。"));
+    controller.abort(new Error(ui("素材预览生成超时，请重试或减小素材尺寸。")));
   }, PREVIEW_TIMEOUT_MS);
   return { controller, clear: () => window.clearTimeout(timer) };
 }
@@ -71,7 +72,7 @@ function encodePng(canvas: HTMLCanvasElement, signal: AbortSignal): Promise<Blob
   return previewAbortable(new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob || blob.type !== "image/png") {
-        reject(new Error("无法编码 PNG 素材缩略图，请重试。"));
+        reject(new Error(ui("无法编码 PNG 素材缩略图，请重试。")));
       } else {
         resolve(blob);
       }
@@ -94,7 +95,7 @@ async function thumbnail(
       canvas.width = width;
       canvas.height = imageHeight + labelHeight;
       const context = canvas.getContext("2d");
-      if (!context) throw new Error("无法创建素材缩略图画布。");
+      if (!context) throw new Error(ui("无法创建素材缩略图画布。"));
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.imageSmoothingEnabled = true;
@@ -104,7 +105,7 @@ async function thumbnail(
         context.fillStyle = "#111827";
         context.font = "12px sans-serif";
         context.textBaseline = "middle";
-        context.fillText(PARTIAL_LABEL, 8, imageHeight + labelHeight / 2);
+        context.fillText(ui(PARTIAL_LABEL), 8, imageHeight + labelHeight / 2);
       }
       const blob = await encodePng(canvas, signal);
       if (blob.size <= MAX_THUMBNAIL_BYTES) {
@@ -116,7 +117,7 @@ async function thumbnail(
         };
       }
       if (width <= 240) {
-        throw new Error("素材 PNG 缩略图超过 2 MiB，请减少素材尺寸后重试。");
+        throw new Error(ui("素材 PNG 缩略图超过 2 MiB，请减少素材尺寸后重试。"));
       }
       width = Math.max(240, Math.floor(width * 0.8));
     }
@@ -170,7 +171,7 @@ async function persistPreview(
       !Number.isSafeInteger(measuredHeight) || measuredHeight <= 0 ||
       surface.measurements.outerWidth !== SURFACE_WIDTH
     ) {
-      throw new Error("素材组件布局尺寸无效，无法生成缩略图。");
+      throw new Error(ui("素材组件布局尺寸无效，无法生成缩略图。"));
     }
     const height = Math.min(
       measuredHeight, MAX_CAPTURE_HEIGHT, Math.floor(MAX_CAPTURE_PIXELS / SURFACE_WIDTH),
@@ -197,14 +198,14 @@ async function persistPreview(
       if (signal.aborted && result.output === "canvas") releaseCanvas(result.canvas);
     }, () => undefined);
     const result = await previewAbortable(capturing, signal);
-    if (result.output !== "canvas") throw new Error("素材截图未返回可缩放画布。");
+    if (result.output !== "canvas") throw new Error(ui("素材截图未返回可缩放画布。"));
     canvas = result.canvas;
     assertPreviewActive(signal);
     if (
       canvas.width !== SURFACE_WIDTH || canvas.height !== height ||
       canvas.width * canvas.height > MAX_CAPTURE_PIXELS
     ) {
-      throw new Error("素材截图尺寸超出安全边界。");
+      throw new Error(ui("素材截图尺寸超出安全边界。"));
     }
     const preview = await thumbnail(canvas, isPartial, signal);
     assertPreviewActive(signal);
@@ -215,11 +216,11 @@ async function persistPreview(
       await repository.markPreviewFailed(material.id, material.revision);
     } catch (persistenceError) {
       throw new Error(
-        `素材预览失败：${detail(error)}；无法记录预览失败状态：${detail(persistenceError)}`,
+        ui("素材预览失败：{{v0}}；无法记录预览失败状态：{{v1}}", { v0: detail(error), v1: detail(persistenceError) }),
         { cause: error },
       );
     }
-    throw new Error(`素材预览失败：${detail(error)}`, { cause: error });
+    throw new Error(ui("素材预览失败：{{v0}}", { v0: detail(error) }), { cause: error });
   } finally {
     deadline.clear();
     signal.removeEventListener("abort", abort);
@@ -256,6 +257,7 @@ interface PreviewProps {
 }
 
 function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode {
+  useUiLanguage();
   const container = useRef<HTMLDivElement>(null);
   const imageClipboard = useImageClipboardPort();
   const clipboardSources = useRef<PreparedMaterialPreview | null>(null);
@@ -322,7 +324,7 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
         assertPreviewActive(signal);
         applyPreviewPresentation(surface.element);
         const host = surface.element.parentElement;
-        if (!host) throw new Error("无法挂载完整素材预览。");
+        if (!host) throw new Error(ui("无法挂载完整素材预览。"));
         host.style.position = "relative";
         host.style.left = "0";
         host.style.top = "0";
@@ -365,7 +367,7 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
               target.frame = frame;
               const index = present.size;
               present.add(key);
-              target.button.setAttribute("aria-label", `选择素材图片 ${index + 1}`);
+              target.button.setAttribute("aria-label", ui("选择素材图片 {{v0}}", { v0: index + 1 }));
               if (imageTargets.children[index] !== target.button) {
                 imageTargets.insertBefore(target.button, imageTargets.children[index] ?? null);
               }
@@ -398,7 +400,7 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
         deadline.clear();
       } catch (error) {
         dispose();
-        if (mounted) setState({ status: "error", message: `素材预览加载失败：${detail(error)}` });
+        if (mounted) setState({ status: "error", message: ui("素材预览加载失败：{{v0}}", { v0: detail(error) }) });
       } finally {
         deadline.clear();
       }
@@ -415,13 +417,13 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
 
   const resolveImage = async (selection: ImageClipboardSelection) => {
     const prepared = clipboardSources.current;
-    if (!prepared || selection.kind !== "gallery") throw new Error("素材预览尚未就绪，请稍候再复制。");
+    if (!prepared || selection.kind !== "gallery") throw new Error(ui("素材预览尚未就绪，请稍候再复制。"));
     const groups = [...prepared.plan.imageGroups, ...artifactCollectionsInPlan(prepared.plan)];
     const image = groups.find(group => group.id === selection.groupId)?.images.find(image => image.id === selection.imageId);
     const token = image && prepared.sourceTokens.get(image.file);
-    if (!image || !token) throw new Error("找不到选中的素材原图，请重新打开预览。");
+    if (!image || !token) throw new Error(ui("找不到选中的素材原图，请重新打开预览。"));
     const dataUrl = await repository.loadImage(material.id, material.revision, token);
-    if (clipboardSources.current !== prepared) throw new Error("素材预览已关闭或改变，请重新复制。");
+    if (clipboardSources.current !== prepared) throw new Error(ui("素材预览已关闭或改变，请重新复制。"));
     const { id: _id, file: _file, ...presentation } = image;
     return { dataUrl, name: imageClipboardFilename(`${material.name}.png`), presentation };
   };
@@ -429,17 +431,17 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
   return (
     <ImageClipboardScope port={imageClipboard ?? unavailableImageClipboard} resolveImage={resolveImage}>
     <section
-      aria-label={`${material.name} · 完整预览`}
+      aria-label={ui("{{v0}} · 完整预览", { v0: material.name })}
       aria-busy={state.status === "loading"}
       role="region"
       tabIndex={0}
       style={{ position: "relative", width: "100%", minWidth: 0, maxHeight: "65vh", overflowY: "auto", overflowX: "hidden" }}
     >
-      {state.status === "loading" && <p role="status">正在加载完整素材预览…</p>}
-      {state.status === "error" && <p role="alert">{state.message} 请重试或重新保存素材。</p>}
+      {state.status === "loading" && <p role="status">{ui("正在加载完整素材预览…")}</p>}
+      {state.status === "error" && <p role="alert">{state.message} {ui("请重试或重新保存素材。")}</p>}
       {state.status === "ready" && (
         <div style={hiddenText}>
-          <p>{material.name}，只读完整组件，包含 {material.imageCount} 张图片。</p>
+          <p>{material.name}{ui("，只读完整组件，包含")} {material.imageCount} {ui("张图片。")}</p>
           <p>{state.text}</p>
         </div>
       )}
@@ -450,5 +452,6 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
 }
 
 export function MaterialComponentPreview(props: PreviewProps): ReactNode {
+  useUiLanguage();
   return <LiveMaterialPreview key={`${props.material.id}:${props.material.revision}:${props.material.metadataVersion}`} {...props} />;
 }

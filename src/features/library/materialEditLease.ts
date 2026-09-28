@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import {
   MaterialContentSaveError,
   type MaterialContentUpdate,
@@ -30,10 +31,10 @@ export class MaterialEditLease {
     const scoped = <T>(sessionId: string, operation: () => Promise<T>) =>
       sessionId === session.sessionId
         ? this.track(operation)
-        : Promise.reject(new Error("不能操作其他素材的草稿"));
+        : Promise.reject(new Error(ui("不能操作其他素材的草稿")));
     this.repository = {
-      beginCreate: async () => { throw new Error("单素材画布不能创建其他素材"); },
-      beginEdit: async () => { throw new Error("单素材画布不能打开其他素材"); },
+      beginCreate: async () => { throw new Error(ui("单素材画布不能创建其他素材")); },
+      beginEdit: async () => { throw new Error(ui("单素材画布不能打开其他素材")); },
       loadEditImage: (id, image) => scoped(id, () => native.loadEditImage(id, image)),
       importEditImages: (id) => scoped(id, () => native.importEditImages(id)),
       ...(native.importEditImageData ? {
@@ -44,8 +45,8 @@ export class MaterialEditLease {
         ? Promise.resolve(null)
         : native.captureEditImage(id, Promise.race([cancellation, this.captureCancellation]))),
       cropEditImage: (id, image, bounds) => scoped(id, () => native.cropEditImage(id, image, bounds)),
-      commitEdit: async () => { throw new Error("请使用画布外的“保存素材”操作"); },
-      discardEdit: async () => { throw new Error("请使用画布外的“取消”操作"); },
+      commitEdit: async () => { throw new Error(ui("请使用画布外的“保存素材”操作")); },
+      discardEdit: async () => { throw new Error(ui("请使用画布外的“取消”操作")); },
     };
   }
 
@@ -54,7 +55,7 @@ export class MaterialEditLease {
   get savedMaterial() { return this.saved; }
 
   private track<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.retired) return Promise.reject(new Error("素材编辑已结束"));
+    if (this.retired) return Promise.reject(new Error(ui("素材编辑已结束")));
     const promise = Promise.resolve().then(operation);
     this.pending.add(promise);
     void promise.then(
@@ -66,18 +67,18 @@ export class MaterialEditLease {
 
   async save(payload: MaterialPayload, metadata?: MaterialMetadata): Promise<MaterialDetail> {
     if (this.saved) return this.saved;
-    if (this.retired) throw new MaterialContentSaveError("素材编辑已结束", "rejected");
+    if (this.retired) throw new MaterialContentSaveError(ui("素材编辑已结束"), "rejected");
     if (this.saving) return this.saving;
-    if (this.attempt) throw new Error("请先重试确认上一次保存结果");
+    if (this.attempt) throw new Error(ui("请先重试确认上一次保存结果"));
     if (this.session.isNew && !metadata) {
-      throw new MaterialContentSaveError("创建素材必须填写素材信息", "rejected");
+      throw new MaterialContentSaveError(ui("创建素材必须填写素材信息"), "rejected");
     }
     const validated = validateMaterialPayload(payload);
     if (validated.component.kind === "image" && validated.component.images.length !== 1) {
-      throw new MaterialContentSaveError("请先添加一张图片，再保存图片素材。", "rejected");
+      throw new MaterialContentSaveError(ui("请先添加一张图片，再保存图片素材。"), "rejected");
     }
     if (validated.kind !== this.session.material.kind) {
-      throw new MaterialContentSaveError("不能更换素材类型", "rejected");
+      throw new MaterialContentSaveError(ui("不能更换素材类型"), "rejected");
     }
     this.attempt = {
       operationId: crypto.randomUUID(), sessionId: this.session.sessionId,
@@ -93,7 +94,7 @@ export class MaterialEditLease {
   async retrySave(): Promise<MaterialDetail> {
     if (this.saved) return this.saved;
     if (this.saving) return this.saving;
-    if (!this.attempt) throw new Error("没有需要确认的素材保存");
+    if (!this.attempt) throw new Error(ui("没有需要确认的素材保存"));
     return this.persistAttempt();
   }
 
@@ -104,14 +105,14 @@ export class MaterialEditLease {
         const result = await this.track(() => this.native.commitEdit(input));
         if (result.id !== this.session.material.id || result.kind !== input.payload.kind ||
             result.revision !== this.session.material.revision + 1) {
-          throw new Error("素材保存回执与当前草稿不一致");
+          throw new Error(ui("素材保存回执与当前草稿不一致"));
         }
         if (input.metadataUpdate) {
           const expected = input.metadataUpdate.metadata;
           if (result.metadataVersion !== input.metadataUpdate.expectedVersion + 1 ||
               result.name !== expected.name || result.description !== expected.description ||
               result.favorite !== expected.favorite || JSON.stringify(result.tags) !== JSON.stringify(expected.tags)) {
-            throw new Error("素材信息保存回执与当前草稿不一致");
+            throw new Error(ui("素材信息保存回执与当前草稿不一致"));
           }
         }
         this.saved = result;

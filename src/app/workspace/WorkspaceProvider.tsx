@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import {
   useCallback,
   useEffect,
@@ -60,6 +61,7 @@ export function WorkspaceProvider({
   dependencies,
   planDependencies = defaultPlanDependencies,
 }: WorkspaceProviderProps) {
+  useUiLanguage();
   const { t } = useTranslation();
   const [view, setView] = useState<AppView>({ kind: "launcher" });
   const [projects, setProjects] = useState<WorkspaceProjectView[]>([]);
@@ -94,7 +96,6 @@ export function WorkspaceProvider({
   const [createParentPath, setCreateParentPath] = useState<string | null>(null);
   const isMountedRef = useRef(false);
   const isBusyRef = useRef(false);
-  const unlistenRef = useRef<(() => void) | null>(null);
   const activeProjectRef = useRef<WorkspaceProjectView | null>(null);
   const activeLoadIdRef = useRef(0);
   const setMountedState = useCallback((update: () => void) => {
@@ -220,7 +221,7 @@ export function WorkspaceProvider({
     async (name: string, parentPath: string) => {
       if (createParentPath === null || !parentPath.trim()) {
         const error = new Error(
-          "请填写项目文件夹所在的上级目录",
+          ui("请填写项目文件夹所在的上级目录"),
         );
         reportActionError("Unable to create workspace project", error);
         throw error;
@@ -442,13 +443,14 @@ export function WorkspaceProvider({
 
   useEffect(() => {
     isMountedRef.current = true;
+    let active = true;
 
     function reportStartupError(message: string, error: unknown) {
       dependencies.logger.error(message, {
         error,
       });
 
-      if (!isMountedRef.current) {
+      if (!active) {
         return;
       }
 
@@ -458,7 +460,7 @@ export function WorkspaceProvider({
     async function loadInitialProjects() {
       try {
         const loadedProjects = await dependencies.service.loadProjects();
-        if (!isMountedRef.current) {
+        if (!active) {
           return;
         }
 
@@ -474,21 +476,32 @@ export function WorkspaceProvider({
         }
       } catch (error) {
         reportStartupError("Unable to load workspace projects", error);
-        if (!isMountedRef.current) {
+        if (!active) {
           return;
         }
 
         setProjects([]);
         setView({ kind: "launcher" });
       } finally {
-        if (isMountedRef.current) {
+        if (active) {
           setLoading(false);
         }
       }
     }
 
+    void loadInitialProjects();
+    return () => {
+      active = false;
+      isMountedRef.current = false;
+    };
+  }, [dependencies, showProject]);
+
+  // Menu labels change with the UI language; project startup must not rerun.
+  useEffect(() => {
+    let active = true;
+    let unlisten: (() => void) | undefined;
     async function handleMountedMenuAction(action: WorkspaceMenuAction) {
-      if (!isMountedRef.current) {
+      if (!active) {
         return;
       }
 
@@ -500,8 +513,6 @@ export function WorkspaceProvider({
       await openExistingProject();
     }
 
-    void loadInitialProjects();
-
     dependencies.native
       .onMenuAction((action) => {
         void handleMountedMenuAction(action).catch(() => {
@@ -509,24 +520,23 @@ export function WorkspaceProvider({
           // here so a native menu action never becomes an unhandled rejection.
         });
       })
-      .then((unlisten) => {
-        if (!isMountedRef.current) {
-          unlisten();
+      .then((dispose) => {
+        if (!active) {
+          dispose();
           return;
         }
 
-        unlistenRef.current = unlisten;
+        unlisten = dispose;
       })
       .catch((error) => {
-        reportStartupError("Unable to listen for workspace menu actions", error);
+        if (active) reportActionError("Unable to listen for workspace menu actions", error);
       });
 
     return () => {
-      isMountedRef.current = false;
-      unlistenRef.current?.();
-      unlistenRef.current = null;
+      active = false;
+      unlisten?.();
     };
-  }, [dependencies, openExistingProject, requestCreate, showProject]);
+  }, [dependencies, openExistingProject, reportActionError, requestCreate]);
 
   const orderedProjects = useMemo(
     () => sortProjectsByRecentEdit(projects),

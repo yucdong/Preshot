@@ -162,6 +162,9 @@ export const zh = {
     captionPlaceholder: "补充拍摄说明…",
   },
   settings: {
+    language: "界面语言",
+    languageHint: "立即生效，下次启动时保留。项目和素材内容不会被翻译。",
+    saveFailed: "无法保存设置。当前选择已生效，请重试以便下次启动时保留。",
     open: "设置",
     close: "关闭设置",
     title: "设置",

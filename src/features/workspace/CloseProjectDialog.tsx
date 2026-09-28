@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useDialogPortalHost } from "../../shared/ui/DialogPortalContext";
@@ -11,6 +12,7 @@ interface CloseProjectDialogProps {
 }
 
 export function CloseProjectDialog({ projectName, busy, error, onCancel, onClose }: CloseProjectDialogProps) {
+  useUiLanguage();
   const host = useDialogPortalHost();
   const dialogRef = useRef<HTMLDivElement>(null);
   const saveRef = useRef<HTMLButtonElement>(null);
@@ -48,16 +50,16 @@ export function CloseProjectDialog({ projectName, busy, error, onCancel, onClose
             }
           }
         }}>
-        <h2 id={titleId} className="text-lg font-semibold">关闭“{projectName}”前是否保存？</h2>
-        <p id={descriptionId} className="mt-3 text-sm text-app-muted">不保存将放弃尚未保存的修改，已自动保存的内容会保留。</p>
+        <h2 id={titleId} className="text-lg font-semibold">{ui("关闭“{{name}}”前是否保存？", { name: projectName })}</h2>
+        <p id={descriptionId} className="mt-3 text-sm text-app-muted">{ui("不保存将放弃尚未保存的修改，已自动保存的内容会保留。")}</p>
         {error ? <p role="alert" className="mt-3 text-sm text-app-danger">{error}</p> : null}
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button type="button" disabled={busy} onClick={onCancel}
-            className="rounded-lg border border-app-border px-3 py-2 text-sm disabled:opacity-50">取消</button>
+            className="rounded-lg border border-app-border px-3 py-2 text-sm disabled:opacity-50">{ui("取消")}</button>
           <button type="button" disabled={busy} onClick={() => onClose(false)}
-            className="rounded-lg border border-app-border px-3 py-2 text-sm text-app-danger disabled:opacity-50">不保存并关闭</button>
+            className="rounded-lg border border-app-border px-3 py-2 text-sm text-app-danger disabled:opacity-50">{ui("不保存并关闭")}</button>
           <button ref={saveRef} type="button" disabled={busy} onClick={() => onClose(true)}
-            className="rounded-lg bg-app-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "正在关闭…" : "保存并关闭"}</button>
+            className="rounded-lg bg-app-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? ui("正在关闭…") : ui("保存并关闭")}</button>
         </div>
       </div>
     </div>, host,

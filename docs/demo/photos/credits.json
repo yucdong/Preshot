@@ -1,0 +1,24 @@
+[
+  {
+    "file": "bridge-day.jpg",
+    "title": "File:Nanjing Yangtze River Bridge.jpg",
+    "author": "Jack No1",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Nanjing_Yangtze_River_Bridge.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/2/25/Nanjing_Yangtze_River_Bridge.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "changes": "Resized and recompressed to JPEG for the demo; framing is adjusted inside Preshot.",
+    "sha256": "98f891aec3fddbfea527bd389ca0ad63fd602d01ff0d51719af636a23fc578a9"
+  },
+  {
+    "file": "bridge-night.jpg",
+    "title": "File:Nanjing Yangtze River Bridge Night Pukou.jpg",
+    "author": "Vasily Astanin",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Nanjing_Yangtze_River_Bridge_Night_Pukou.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/8/85/Nanjing_Yangtze_River_Bridge_Night_Pukou.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "changes": "Resized and recompressed to JPEG for the demo; framing is adjusted inside Preshot.",
+    "sha256": "3a94cd47e069068c64fccd0d66c8724bd6f1910e8632c7b9ad8364937d6bcab2"
+  }
+]

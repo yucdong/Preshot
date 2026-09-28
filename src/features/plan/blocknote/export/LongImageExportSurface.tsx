@@ -1,5 +1,5 @@
 import "@blocknote/core/fonts/inter.css";
-import { zh } from "@blocknote/core/locales";
+import { editorDictionary } from "../editorLanguage";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
@@ -51,7 +51,7 @@ export function LongImageExportSurface({
   const scale = longImageExportScale(outerWidth);
   const editor = useCreateBlockNote({
     schema: preshotBlockNoteSchema,
-    dictionary: zh,
+    dictionary: editorDictionary(),
     initialContent: resolveBlockNoteDocumentAssets(
       plan.document,
       (url) => resolvedAssets[url] ?? url,

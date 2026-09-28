@@ -202,7 +202,7 @@ describe("ThemeProvider", () => {
     screen.getByText("Set Dark").click();
 
     await waitFor(() => {
-      expect(repository.write).toHaveBeenCalledWith({
+      expect(repository.write).toHaveBeenCalledWith({ language: "zh",
         theme: "dark",
         projectRailWidth: 192,
       });
@@ -256,7 +256,7 @@ describe("ThemeProvider", () => {
     screen.getByText("Set Panels").click();
 
     await waitFor(() => expect(screen.getByTestId("panel-widths")).toHaveTextContent("260"));
-    expect(repository.write).toHaveBeenCalledWith({
+    expect(repository.write).toHaveBeenCalledWith({ language: "zh",
       theme: "light",
       projectRailWidth: 260,
     });

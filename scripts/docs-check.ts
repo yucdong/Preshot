@@ -14,6 +14,7 @@ const MARKDOWN_EXTENSIONS = new Set([".md", ".mdx"]);
 const HAN_PATTERN = /\p{Script=Han}/u;
 const ROOT_DOCUMENTS = [
   "README.md",
+  "README.en.md",
   "AGENTS.md",
   "CHANGELOG.md",
   "CLAUDE.md",
@@ -21,13 +22,20 @@ const ROOT_DOCUMENTS = [
 ];
 const REQUIRED_DOCUMENTS = [
   "docs/README.md",
-  "docs/ARCHITECTURE.md",
-  "docs/TESTING.md",
-  "docs/RELIABILITY.md",
-  "docs/WINDOWS_INSTALLER.md",
-  "docs/design_docs/blocknote_v14_design.md",
-  "docs/design_docs/UI_UX_CONTRACT.md",
-  "docs/design_docs/featurelist.json",
+  "docs/features/projects.md",
+  "docs/features/editor.md",
+  "docs/features/images.md",
+  "docs/features/material-library.md",
+  "docs/features/exports.md",
+  "docs/features/settings.md",
+  "docs/development/architecture.md",
+  "docs/development/build-and-test.md",
+  "docs/development/reliability.md",
+  "docs/development/i18n.md",
+  "docs/release/windows-installer.md",
+  "docs/release/github.md",
+  "docs/release/licensing.md",
+  "docs/demo/README.md",
 ];
 const OLD_CANONICAL_REFERENCES = [
   /blocknote_v13_migration_design\.md/i,
@@ -186,7 +194,7 @@ export async function checkDocumentation(root: string): Promise<string[]> {
   for (const file of files) {
     const content = await readFile(file, "utf8");
     const relative = path.relative(root, file).replaceAll("\\", "/");
-    if (HAN_PATTERN.test(content)) {
+    if (relative !== "README.md" && HAN_PATTERN.test(content)) {
       errors.push(`${relative}: contains Han characters`);
     }
     if (MARKDOWN_EXTENSIONS.has(path.extname(file).toLowerCase())) {
@@ -209,20 +217,6 @@ export async function checkDocumentation(root: string): Promise<string[]> {
         `${relative}: contains stale canonical reference ${staleReference}`,
       );
     }
-  }
-
-  const featureListPath = path.join(
-    root,
-    "docs",
-    "design_docs",
-    "featurelist.json",
-  );
-  try {
-    JSON.parse(await readFile(featureListPath, "utf8"));
-  } catch (error) {
-    errors.push(
-      `docs/design_docs/featurelist.json: invalid JSON (${String(error)})`,
-    );
   }
 
   return errors;

@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../../app/theme/ThemeContext";
 import type { Theme } from "../../domain/settings/models";
+import { useLanguagePreferences } from "../../app/language/LanguageContext";
 
 interface SettingsPanelProps {
   open: boolean;
@@ -12,6 +13,7 @@ interface SettingsPanelProps {
 export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
+  const { language, setLanguage, saveError } = useLanguagePreferences();
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,6 +86,19 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         </div>
 
         <div className="space-y-6">
+          <section aria-labelledby="language-settings-heading">
+            <h3 id="language-settings-heading" className="mb-2 text-sm font-semibold">{t("settings.language")}</h3>
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-app-bg p-1" role="group" aria-label={t("settings.language")}>
+              {([['zh', '简体中文'], ['en', 'English']] as const).map(([value, label]) =>
+                <button key={value} type="button" lang={value === "zh" ? "zh-CN" : "en"}
+                  aria-pressed={language === value} onClick={() => setLanguage(value)}
+                  className={`rounded-md px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional ${language === value ? "bg-app-primary text-app-on-primary shadow-sm" : "text-app-muted hover:bg-app-panel-strong"}`}>
+                  {label}
+                </button>)}
+            </div>
+            <p className="mt-2 text-xs text-app-muted">{t("settings.languageHint")}</p>
+            {saveError && <p role="alert" className="mt-2 text-sm text-red-600">{t("settings.saveFailed")}</p>}
+          </section>
           <section aria-labelledby="appearance-settings-heading">
             <h3
               className="mb-2 text-sm font-semibold text-app-ink"

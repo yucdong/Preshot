@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import { SideMenuExtension } from "@blocknote/core/extensions";
 import {
   ArrowDown,
@@ -104,6 +105,7 @@ function QuickAction({
   icon,
   onClick,
 }: QuickActionProps) {
+  useUiLanguage();
   return (
     <button
       aria-label={label}
@@ -125,6 +127,7 @@ function DisabledMenuItem({
   children: ReactNode;
   reason: string;
 }) {
+  useUiLanguage();
   return (
     <div
       aria-disabled="true"
@@ -141,6 +144,7 @@ export function BlockOperationsMenu({
   controller,
   notify,
 }: BlockOperationsMenuProps) {
+  useUiLanguage();
   const Components = useComponentsContext();
   const imageController = useContext(ImageGroupBlockContext);
   const editor = useBlockNoteEditor<
@@ -184,45 +188,45 @@ export function BlockOperationsMenu({
       placement,
     );
     editor.setTextCursorPosition(inserted, "start");
-    notify(placement === "before" ? "已在上方插入段落" : "已在下方插入段落");
+    notify(placement === "before" ? ui("已在上方插入段落") : ui("已在下方插入段落"));
   };
 
   return (
     <Components.Generic.Menu.Dropdown className="bn-menu-dropdown bn-drag-handle-menu preshot-block-operations-menu">
       <span data-block-operation-id={block.id} hidden />
       <Components.Generic.Menu.Label className="preshot-block-operation-label">
-        <span>{BLOCK_TYPE_LABELS[block.type] ?? block.type}</span>
+        <span>{ui(BLOCK_TYPE_LABELS[block.type] ?? block.type)}</span>
         <span>
-          层级 {context?.depth ?? 0}
-          {childCount > 0 ? ` · ${childCount} 个子 block` : ""}
+          {ui("层级")} {context?.depth ?? 0}
+          {childCount > 0 ? ui("· {{v0}} 个子 block", { v0: childCount }) : ""}
         </span>
       </Components.Generic.Menu.Label>
       <div className="preshot-block-operation-quick-row">
         <QuickAction
           disabled={!canMoveUp}
-          disabledReason="已经是可移动范围内的第一个 block"
+          disabledReason={ui("已经是可移动范围内的第一个 block")}
           icon={<ArrowUp size={15} />}
-          label="上移 block"
+          label={ui("上移 block")}
           onClick={() => {
-            if (moveSpecificBlock(editor, block, "up")) notify("Block 已上移");
+            if (moveSpecificBlock(editor, block, "up")) notify(ui("Block 已上移"));
           }}
         />
         <QuickAction
           disabled={!canMoveDown}
-          disabledReason="已经是可移动范围内的最后一个 block"
+          disabledReason={ui("已经是可移动范围内的最后一个 block")}
           icon={<ArrowDown size={15} />}
-          label="下移 block"
+          label={ui("下移 block")}
           onClick={() => {
-            if (moveSpecificBlock(editor, block, "down")) notify("Block 已下移");
+            if (moveSpecificBlock(editor, block, "down")) notify(ui("Block 已下移"));
           }}
         />
         <QuickAction
           disabled={!canUnnest}
-          disabledReason="当前 block 已经位于顶层"
+          disabledReason={ui("当前 block 已经位于顶层")}
           icon={<IndentDecrease size={15} />}
-          label="减少缩进"
+          label={ui("减少缩进")}
           onClick={() => {
-            if (unnestSpecificBlock(editor, block)) notify("Block 已取消嵌套");
+            if (unnestSpecificBlock(editor, block)) notify(ui("Block 已取消嵌套"));
           }}
         />
         <QuickAction
@@ -233,13 +237,13 @@ export function BlockOperationsMenu({
             block.type === "modelCard" ||
             block.type === "clothing" ||
             block.type === "prop"
-              ? "素材组件必须保持顶层或位于分栏中"
-              : "前方没有可作为父级的同级 block"
+              ? ui("素材组件必须保持顶层或位于分栏中")
+              : ui("前方没有可作为父级的同级 block")
           }
           icon={<IndentIncrease size={15} />}
-          label="增加缩进"
+          label={ui("增加缩进")}
           onClick={() => {
-            if (nestSpecificBlock(editor, block)) notify("Block 已嵌套");
+            if (nestSpecificBlock(editor, block)) notify(ui("Block 已嵌套"));
           }}
         />
       </div>
@@ -249,21 +253,21 @@ export function BlockOperationsMenu({
           className="preshot-block-operation-item"
           icon={<Library size={15} />}
           onClick={() => imageController.saveBlock?.(block.id)}
-        >保存图片到素材库</Components.Generic.Menu.Item>
+        >{ui("保存图片到素材库")}</Components.Generic.Menu.Item>
       ) : null}
       <Components.Generic.Menu.Item
         className="preshot-block-operation-item"
         icon={<Plus size={15} />}
         onClick={() => insert("before")}
       >
-        <span>在上方插入</span>
+        <span>{ui("在上方插入")}</span>
       </Components.Generic.Menu.Item>
       <Components.Generic.Menu.Item
         className="preshot-block-operation-item"
         icon={<Plus size={15} />}
         onClick={() => insert("after")}
       >
-        <span>在下方插入</span>
+        <span>{ui("在下方插入")}</span>
       </Components.Generic.Menu.Item>
       <Components.Generic.Menu.Item
         className="preshot-block-operation-item"
@@ -273,13 +277,13 @@ export function BlockOperationsMenu({
           if (inserted.length > 0) {
             notify(
               childCount > 0
-                ? `已复制 block 与 ${childCount} 个子 block`
-                : "已复制 block",
+                ? ui("已复制 block 与 {{v0}} 个子 block", { v0: childCount })
+                : ui("已复制 block"),
             );
           }
         }}
       >
-        <span>复制 block</span>
+        <span>{ui("复制 block")}</span>
         <span className="preshot-block-operation-shortcut">Ctrl+D</span>
       </Components.Generic.Menu.Item>
       {canConvert ? (
@@ -290,7 +294,7 @@ export function BlockOperationsMenu({
               icon={<Type size={15} />}
               subTrigger={true}
             >
-              <span>转换为</span>
+              <span>{ui("转换为")}</span>
               <ChevronRight
                 aria-hidden
                 className="preshot-block-operation-chevron"
@@ -309,25 +313,25 @@ export function BlockOperationsMenu({
                 key={option.type}
                 onClick={() => {
                   convertBlock(editor, block, option.type);
-                  notify(`已转换为${option.label}`);
+                  notify(ui("已转换为{{v0}}", { v0: ui(option.label) }));
                 }}
               >
-                {option.label}
+                {ui(option.label)}
               </Components.Generic.Menu.Item>
             ))}
           </Components.Generic.Menu.Dropdown>
         </Components.Generic.Menu.Root>
       ) : (
-        <DisabledMenuItem reason="此 block 类型不能转换">
+        <DisabledMenuItem reason={ui("此 block 类型不能转换")}>
           <Type size={15} />
-          <span>转换为</span>
+          <span>{ui("转换为")}</span>
         </DisabledMenuItem>
       )}
       <Components.Generic.Menu.Divider className="preshot-block-operation-divider" />
       {isArtifact ? (
-        <DisabledMenuItem reason="请使用素材组件右上角菜单删除并确认">
+        <DisabledMenuItem reason={ui("请使用素材组件右上角菜单删除并确认")}>
           <Trash2 size={15} />
-          <span>删除组件（需要确认）</span>
+          <span>{ui("删除组件（需要确认）")}</span>
         </DisabledMenuItem>
       ) : (
         <Components.Generic.Menu.Item
@@ -337,14 +341,14 @@ export function BlockOperationsMenu({
             deleteBlockOrSelection(editor, block);
             notify(
               childCount > 0
-                ? `已删除 block 与 ${childCount} 个子 block`
-                : "已删除 block",
+                ? ui("已删除 block 与 {{v0}} 个子 block", { v0: childCount })
+                : ui("已删除 block"),
             );
           }}
         >
           {childCount > 0
-            ? `删除 block 与 ${childCount} 个子 block`
-            : "删除 block"}
+            ? ui("删除 block 与 {{v0}} 个子 block", { v0: childCount })
+            : ui("删除 block")}
         </Components.Generic.Menu.Item>
       )}
     </Components.Generic.Menu.Dropdown>

@@ -1,10 +1,11 @@
-import "../i18n/config";
+import i18n from "../i18n/config";
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await i18n.changeLanguage("zh");
 });
 
 // ProseMirror relies on browser APIs jsdom lacks. Shim the minimum.

@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import { useEffect, useState } from "react";
 import type { MaterialDetail, MaterialSearch, MaterialSearchResult, MaterialSummary } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
@@ -13,7 +14,7 @@ export function useMaterialSearch(repository: MaterialLibraryRepository, input: 
     const [request] = JSON.parse(key) as [MaterialSearch, number];
     repository.search(request).then(
       (result) => { if (current) setState({ key, result }); },
-      (error: unknown) => { if (current) setState({ key, error: libraryError(error, "无法读取素材库") }); },
+      (error: unknown) => { if (current) setState({ key, error: libraryError(error, ui("无法读取素材库")) }); },
     );
     return () => { current = false; };
   }, [repository, key]);
@@ -60,7 +61,7 @@ export function useMaterialDetail(
         await Promise.all(Array.from({ length: Math.min(4, detail.images.length) }, worker));
         if (current) setState({ key, detail, checking: false, missing: missing.sort((a, b) => a - b) });
       } catch (error) {
-        if (current) setState({ key, checking: false, missing: [], error: libraryError(error, "无法读取素材详情") });
+        if (current) setState({ key, checking: false, missing: [], error: libraryError(error, ui("无法读取素材详情")) });
       }
     })();
     return () => { current = false; };

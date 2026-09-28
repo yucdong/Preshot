@@ -1,3 +1,4 @@
+import { ui } from "../../../shared/i18n/ui";
 import type { CSSProperties } from "react";
 import {
   layoutDocumentImageGroupForWidth,
@@ -236,7 +237,7 @@ export function frameResizePreview({
       priority: 0,
       data: {
         kind: "height" as const,
-        label: `同高 ${Math.round(candidate.frameHeight)}`,
+        label: ui("同高 {{v0}}", { v0: Math.round(candidate.frameHeight) }),
       },
     }));
     const edgeTargets = [
@@ -245,12 +246,12 @@ export function frameResizePreview({
             {
               key: "group:top",
               y: groupRect.top,
-              label: "图片组上边缘",
+              label: ui("图片组上边缘"),
             },
             {
               key: "group:bottom",
               y: groupRect.bottom,
-              label: "图片组下边缘",
+              label: ui("图片组下边缘"),
             },
           ]
         : []),
@@ -258,12 +259,12 @@ export function frameResizePreview({
         {
           key: `image:${candidate.id}:top`,
           y: candidate.rect.top,
-          label: "图片上边缘",
+          label: ui("图片上边缘"),
         },
         {
           key: `image:${candidate.id}:bottom`,
           y: candidate.rect.bottom,
-          label: "图片下边缘",
+          label: ui("图片下边缘"),
         },
       ]),
     ];
@@ -360,7 +361,7 @@ export function frameResizePreview({
       priority: 0,
       data: {
         kind: "width" as const,
-        label: `同宽 ${Math.round(candidate.frameWidth)}`,
+        label: ui("同宽 {{v0}}", { v0: Math.round(candidate.frameWidth) }),
       },
     })),
     ...(corner
@@ -370,7 +371,7 @@ export function frameResizePreview({
           priority: 1,
           data: {
             kind: "height" as const,
-            label: `同高 ${Math.round(candidate.frameHeight)}`,
+            label: ui("同高 {{v0}}", { v0: Math.round(candidate.frameHeight) }),
           },
         }))
       : []),
@@ -381,12 +382,12 @@ export function frameResizePreview({
           {
             key: "group:left",
             x: groupRect.left,
-            label: "图片组左边缘",
+            label: ui("图片组左边缘"),
           },
           {
             key: "group:right",
             x: groupRect.right,
-            label: "图片组右边缘",
+            label: ui("图片组右边缘"),
           },
         ]
       : []),
@@ -394,12 +395,12 @@ export function frameResizePreview({
       {
         key: `image:${candidate.id}:left`,
         x: candidate.rect.left,
-        label: "图片左边缘",
+        label: ui("图片左边缘"),
       },
       {
         key: `image:${candidate.id}:right`,
         x: candidate.rect.right,
-        label: "图片右边缘",
+        label: ui("图片右边缘"),
       },
     ]),
   ];

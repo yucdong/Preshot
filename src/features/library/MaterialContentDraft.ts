@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import {
   createMaterialEditDraft,
   serializeMaterialEditDraft,
@@ -44,7 +45,7 @@ export class MaterialContentDraft {
     for (const [file, token] of this.draft.fileTokens) {
       const source = assets.get(token);
       const metadata = material.images.find(({ localImageId }) => localImageId === token);
-      if (!source || !metadata) throw new Error("素材图片尚未加载完成，请重新打开素材。");
+      if (!source || !metadata) throw new Error(ui("素材图片尚未加载完成，请重新打开素材。"));
       this.assets.set(file, source);
       this.dimensions.set(file, { width: metadata.width, height: metadata.height });
     }
@@ -68,13 +69,13 @@ export class MaterialContentDraft {
 
   getToken(file: string): string {
     const token = this.draft.fileTokens.get(file);
-    if (!token) throw new Error("图片不属于当前素材编辑会话。");
+    if (!token) throw new Error(ui("图片不属于当前素材编辑会话。"));
     return token;
   }
 
   getDimensions(file: string): { width: number; height: number } {
     const result = this.dimensions.get(file);
-    if (!result) throw new Error("图片尺寸尚未加载，无法裁剪，请重新打开素材。");
+    if (!result) throw new Error(ui("图片尺寸尚未加载，无法裁剪，请重新打开素材。"));
     return result;
   }
 
@@ -117,7 +118,7 @@ export class MaterialContentDraft {
   updateArtifact(id: string, update: (artifact: ArtifactRecord) => ArtifactRecord): void {
     const plan = this.snapshot.plan;
     if (!plan.artifacts.some((artifact) => artifact.id === id)) {
-      throw new Error("当前素材组件不存在，无法修改。");
+      throw new Error(ui("当前素材组件不存在，无法修改。"));
     }
     this.apply({
       ...plan,
@@ -131,7 +132,7 @@ export class MaterialContentDraft {
 
   updateGroup(id: string, update: { name?: string; description?: string }): void {
     const plan = this.snapshot.plan;
-    if (!plan.imageGroups.some((group) => group.id === id)) throw new Error("当前图片组不存在。");
+    if (!plan.imageGroups.some((group) => group.id === id)) throw new Error(ui("当前图片组不存在。"));
     this.apply({
       ...plan, imageGroups: plan.imageGroups.map((group) => group.id === id ? { ...group, ...update } : group),
     });
@@ -140,7 +141,7 @@ export class MaterialContentDraft {
   private updateImages(id: string, update: (images: ReferenceImage[]) => ReferenceImage[]): void {
     const plan = this.snapshot.plan;
     if (!this.snapshot.groups.some((group) => group.id === id)) {
-      throw new Error("只能编辑当前素材中的图片。");
+      throw new Error(ui("只能编辑当前素材中的图片。"));
     }
     const next = plan.imageGroups.some((group) => group.id === id)
       ? { ...plan, imageGroups: plan.imageGroups.map((group) =>
@@ -161,7 +162,7 @@ export class MaterialContentDraft {
         !["image/png", "image/jpeg"].includes(image.mimeType) ||
         !image.dataUrl.startsWith(`data:${image.mimeType};base64,`)
       ) {
-        throw new Error("导入图片数据无效或会话标识已被使用，请重新添加图片。");
+        throw new Error(ui("导入图片数据无效或会话标识已被使用，请重新添加图片。"));
       }
       used.add(image.localImageId);
     }
@@ -176,11 +177,11 @@ export class MaterialContentDraft {
   }
 
   addImages(groupId: string, images: readonly MaterialEditImage[], visuals?: readonly PortableImage[]): void {
-    if (visuals && visuals.length !== images.length) throw new Error("素材图片与显示信息不一致。");
+    if (visuals && visuals.length !== images.length) throw new Error(ui("素材图片与显示信息不一致。"));
     const group = this.snapshot.groups.find(({ id }) => id === groupId);
-    if (this.draft.kind === "image" && (group?.images.length ?? 0) + images.length > 1) throw new Error("图片素材只能保留一张图片，请先移除原图再添加。");
+    if (this.draft.kind === "image" && (group?.images.length ?? 0) + images.length > 1) throw new Error(ui("图片素材只能保留一张图片，请先移除原图再添加。"));
     if (!group || group.images.length + images.length > 128) {
-      throw new Error("每个素材最多保留 128 张图片，请先移除部分图片。");
+      throw new Error(ui("每个素材最多保留 128 张图片，请先移除部分图片。"));
     }
 
     if (images.length === 0) return;
@@ -204,13 +205,13 @@ export class MaterialContentDraft {
     presentation?: ClipboardImagePresentation, maxFrameWidth?: number,
   ): ReferenceImage {
     const group = this.snapshot.groups.find(entry => entry.id === groupId);
-    if (this.draft.kind === "image" && group?.images.length) throw new Error("图片素材只能保留一张图片，请先移除原图再粘贴。");
-    if (!group || group.images.length >= 128) throw new Error("图片区域不存在或已达到 128 张图片上限。");
+    if (this.draft.kind === "image" && group?.images.length) throw new Error(ui("图片素材只能保留一张图片，请先移除原图再粘贴。"));
+    if (!group || group.images.length >= 128) throw new Error(ui("图片区域不存在或已达到 128 张图片上限。"));
     const index = afterImageId === null ? group.images.length - 1 : group.images.findIndex(entry => entry.id === afterImageId);
-    if (afterImageId !== null && index < 0) throw new Error("目标图片已变化，请重新选择粘贴位置。");
+    if (afterImageId !== null && index < 0) throw new Error(ui("目标图片已变化，请重新选择粘贴位置。"));
     const id = this.makeId();
     if (this.snapshot.groups.some(entry => entry.images.some(existing => existing.id === id))) {
-      throw new Error("粘贴图片必须使用新的标识。");
+      throw new Error(ui("粘贴图片必须使用新的标识。"));
     }
     const pasted = pastedReferenceImage(id, "", image, presentation, maxFrameWidth);
     const [file] = this.stage([image]);
@@ -221,7 +222,7 @@ export class MaterialContentDraft {
 
   replaceImage(groupId: string, imageId: string, replacement: MaterialEditImage): void {
     if (!this.snapshot.groups.find(({ id }) => id === groupId)?.images.some(({ id }) => id === imageId)) {
-      throw new Error("裁剪目标图片已改变，请重新打开图片。");
+      throw new Error(ui("裁剪目标图片已改变，请重新打开图片。"));
     }
     const [file] = this.stage([replacement]);
     const ratio = replacement.width / replacement.height;
@@ -256,11 +257,11 @@ export class MaterialContentDraft {
 
   moveImage(from: string, imageId: string, to: string, index: number): void {
     if (from !== to || !Number.isInteger(index) || index < 0) {
-      throw new Error("不能将图片移动到当前素材以外的组件。");
+      throw new Error(ui("不能将图片移动到当前素材以外的组件。"));
     }
     this.updateImages(from, (images) => {
       const image = images.find(({ id }) => id === imageId);
-      if (!image || index >= images.length) throw new Error("图片移动目标已改变，请重试。");
+      if (!image || index >= images.length) throw new Error(ui("图片移动目标已改变，请重试。"));
       const next = images.filter(({ id }) => id !== imageId);
       next.splice(index, 0, image);
       return next;

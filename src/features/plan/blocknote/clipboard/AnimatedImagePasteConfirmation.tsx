@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../../shared/i18n/ui";
 import { useCallback, useId, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
@@ -5,6 +6,7 @@ export function AnimatedImagePasteConfirmation({ host, onDecision }: {
   host: HTMLElement;
   onDecision(confirmed: boolean): void;
 }) {
+  useUiLanguage();
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -48,13 +50,13 @@ export function AnimatedImagePasteConfirmation({ host, onDecision }: {
           }
         }
       }}>
-      <h2 id={titleId} className="text-base font-semibold">将动态图转换为第一帧静态图片？</h2>
-      <p id={descriptionId} className="mt-3 text-sm text-app-muted">图片组只支持静态图片。原始动态图保持不变；继续会粘贴其第一帧的新副本。</p>
+      <h2 id={titleId} className="text-base font-semibold">{ui("将动态图转换为第一帧静态图片？")}</h2>
+      <p id={descriptionId} className="mt-3 text-sm text-app-muted">{ui("图片组只支持静态图片。原始动态图保持不变；继续会粘贴其第一帧的新副本。")}</p>
       <div className="mt-5 flex justify-end gap-3">
         <button ref={cancelRef} type="button" className="min-h-10 rounded border border-app-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-app-accent"
-          onClick={() => decide(false)}>取消</button>
+          onClick={() => decide(false)}>{ui("取消")}</button>
         <button type="button" className="min-h-10 rounded bg-app-accent px-3 text-sm text-white focus-visible:outline-2 focus-visible:outline-app-accent"
-          onClick={() => decide(true)}>转换为静态图片并粘贴</button>
+          onClick={() => decide(true)}>{ui("转换为静态图片并粘贴")}</button>
       </div>
     </div>
   </div>, host);

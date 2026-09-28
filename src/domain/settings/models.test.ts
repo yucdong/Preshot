@@ -2,29 +2,35 @@ import { describe, it, expect } from "vitest";
 import { normalizeSettings, DEFAULT_SETTINGS } from "./models";
 
 describe("normalizeSettings", () => {
+  it("accepts English and recovers missing or unsupported languages to Chinese", () => {
+    expect(normalizeSettings({ language: "en" }).language).toBe("en");
+    expect(normalizeSettings({ language: "zh" }).language).toBe("zh");
+    expect(normalizeSettings({ language: "invalid" }).language).toBe("zh");
+    expect(normalizeSettings({}).language).toBe("zh");
+  });
   it("discards retired assistant settings while preserving the theme and custom project width", () => {
-    expect(normalizeSettings({
+    expect(normalizeSettings({ language: "zh",
       theme: "dark",
       projectRailWidth: 260,
       assistantWidth: 360,
       assistantOpen: true,
       agentModel: { settings: { enabled: true, modelId: "previous-model" } },
-    })).toEqual({ theme: "dark", projectRailWidth: 260 });
+    })).toEqual({ language: "zh", theme: "dark", projectRailWidth: 260 });
   });
 
   it("should accept valid light theme", () => {
     const result = normalizeSettings({ theme: "light" });
-    expect(result).toEqual({ theme: "light", projectRailWidth: 192 });
+    expect(result).toEqual({ language: "zh", theme: "light", projectRailWidth: 192 });
   });
 
   it("should accept valid dark theme", () => {
     const result = normalizeSettings({ theme: "dark" });
-    expect(result).toEqual({ theme: "dark", projectRailWidth: 192 });
+    expect(result).toEqual({ language: "zh", theme: "dark", projectRailWidth: 192 });
   });
 
   it("should accept valid system theme", () => {
     const result = normalizeSettings({ theme: "system" });
-    expect(result).toEqual({ theme: "system", projectRailWidth: 192 });
+    expect(result).toEqual({ language: "zh", theme: "system", projectRailWidth: 192 });
   });
 
   it("should default to system for empty object", () => {
@@ -58,32 +64,32 @@ describe("normalizeSettings", () => {
   });
 
   it("accepts and clamps persisted global panel widths", () => {
-    expect(normalizeSettings({
+    expect(normalizeSettings({ language: "zh",
       theme: "light",
       projectRailWidth: 100,
       assistantWidth: 900,
-    })).toEqual({
+    })).toEqual({ language: "zh",
       theme: "light",
       projectRailWidth: 176,
     });
   });
 
   it("migrates the former default panel widths without changing custom widths", () => {
-    expect(normalizeSettings({
+    expect(normalizeSettings({ language: "zh",
       theme: "light",
       projectRailWidth: 208,
       assistantWidth: 304,
-    })).toEqual({
+    })).toEqual({ language: "zh",
       theme: "light",
       projectRailWidth: 192,
     });
 
-    expect(normalizeSettings({
+    expect(normalizeSettings({ language: "zh",
       theme: "light",
       projectRailWidth: 208,
       assistantWidth: 320,
       assistantOpen: false,
-    })).toEqual({
+    })).toEqual({ language: "zh",
       theme: "light",
       projectRailWidth: 208,
     });
@@ -106,7 +112,7 @@ describe("normalizeSettings", () => {
         },
         capabilityCache: null,
       },
-    })).toEqual({
+    })).toEqual({ language: "zh",
       theme: "dark",
       projectRailWidth: 192,
     });

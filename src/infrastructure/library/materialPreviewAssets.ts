@@ -1,3 +1,4 @@
+import { ui } from "../../shared/i18n/ui";
 import { instantiateMaterial, materialPayloadText } from "../../domain/library";
 import type { MaterialDetail, MaterialImage } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
@@ -10,7 +11,7 @@ const MAX_IMAGE_DIMENSION = 8192;
 export function previewAbortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error
     ? signal.reason
-    : new DOMException("素材预览已取消。", "AbortError");
+    : new DOMException(ui("素材预览已取消。"), "AbortError");
 }
 
 export function assertPreviewActive(signal: AbortSignal): void {
@@ -36,17 +37,17 @@ export function previewAbortable<T>(
 
 function imageBytes(url: string, image: MaterialImage): Uint8Array<ArrayBuffer> {
   if (url.length > Math.ceil(MAX_SOURCE_BYTES / 3) * 4 + 64) {
-    throw new Error("素材图片超过 16 MiB，请重新保存较小的图片。");
+    throw new Error(ui("素材图片超过 16 MiB，请重新保存较小的图片。"));
   }
   const match = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/]+={0,2})$/.exec(url);
   if (!match || match[1] !== image.mimeType || match[2].length % 4 !== 0) {
-    throw new Error("素材图片必须是离线 PNG 或 JPEG，且类型必须与清单一致。");
+    throw new Error(ui("素材图片必须是离线 PNG 或 JPEG，且类型必须与清单一致。"));
   }
   const encoded = match[2];
   const length = encoded.length / 4 * 3 -
     (encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0);
   if (length !== image.byteLength || length > MAX_SOURCE_BYTES) {
-    throw new Error("素材图片大小与清单不一致，请重新保存素材。");
+    throw new Error(ui("素材图片大小与清单不一致，请重新保存素材。"));
   }
   const binary = atob(encoded);
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
@@ -83,7 +84,7 @@ function imageDimensions(bytes: Uint8Array, mime: MaterialImage["mimeType"]): {
       offset += length;
     }
   }
-  throw new Error("素材图片头已损坏，无法安全解码。");
+  throw new Error(ui("素材图片头已损坏，无法安全解码。"));
 }
 
 function validateImages(material: MaterialDetail): void {
@@ -93,7 +94,7 @@ function validateImages(material: MaterialDetail): void {
     new Set(material.images.map((image) => image.localImageId)).size !== material.images.length ||
     material.payload.kind !== material.kind
   ) {
-    throw new Error("素材图片清单或类型与组件不一致。");
+    throw new Error(ui("素材图片清单或类型与组件不一致。"));
   }
   let decoded = 0;
   let sourceBytes = 0;
@@ -106,16 +107,16 @@ function validateImages(material: MaterialDetail): void {
       image.width > MAX_IMAGE_DIMENSION || image.height > MAX_IMAGE_DIMENSION ||
       (image.mimeType !== "image/png" && image.mimeType !== "image/jpeg")
     ) {
-      throw new Error("素材图片超过安全限制（单张 16 MiB、边长 8192 像素），或清单已损坏。");
+      throw new Error(ui("素材图片超过安全限制（单张 16 MiB、边长 8192 像素），或清单已损坏。"));
     }
     decoded += image.width * image.height * 4;
     sourceBytes += image.byteLength;
   }
   if (decoded > MAX_DECODED_BYTES) {
-    throw new Error("素材图片解码内存超过 256 MiB，请减少图片数量或尺寸。");
+    throw new Error(ui("素材图片解码内存超过 256 MiB，请减少图片数量或尺寸。"));
   }
   if (sourceBytes > MAX_DECODED_BYTES) {
-    throw new Error("素材图片源数据超过 256 MiB，请减少图片数量或尺寸。");
+    throw new Error(ui("素材图片源数据超过 256 MiB，请减少图片数量或尺寸。"));
   }
 }
 
@@ -178,7 +179,7 @@ export async function prepareMaterialPreview(
       const bytes = imageBytes(url, image);
       const dimensions = imageDimensions(bytes, image.mimeType);
       if (dimensions.width !== image.width || dimensions.height !== image.height) {
-        throw new Error("素材图片尺寸与清单不一致，已停止预览以保护内存。");
+        throw new Error(ui("素材图片尺寸与清单不一致，已停止预览以保护内存。"));
       }
       const blob = new Blob([bytes], { type: image.mimeType });
       const decoding = createImageBitmap(blob, { imageOrientation: "none" });
@@ -196,7 +197,7 @@ export async function prepareMaterialPreview(
       try {
         assertPreviewActive(signal);
         if (bitmap.width * bitmap.height !== image.width * image.height) {
-          throw new Error("素材图片实际解码尺寸与清单不一致。");
+          throw new Error(ui("素材图片实际解码尺寸与清单不一致。"));
         }
       } finally {
         closeBitmap(bitmap);

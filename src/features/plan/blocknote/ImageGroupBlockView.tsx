@@ -1,3 +1,4 @@
+import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import {
   Camera,
   Images,
@@ -118,6 +119,7 @@ function InteractiveImageTile({
   onSelect(): void;
   onSave?(): void;
 }) {
+  useUiLanguage();
   const drag = useImageDragPreview();
   const {
     attributes,
@@ -210,7 +212,7 @@ function InteractiveImageTile({
       <button
         {...attributes}
         {...listeners}
-        aria-label={`选择参考图 ${index + 1}`}
+        aria-label={ui("选择参考图 {{v0}}", { v0: index + 1 })}
         aria-pressed={selected}
         className={`absolute inset-0 h-full w-full overflow-hidden ${
           src ? "cursor-grab active:cursor-grabbing" : "cursor-default"
@@ -241,7 +243,7 @@ function InteractiveImageTile({
       >
         {src ? (
           <img
-            alt="参考图"
+            alt={ui("参考图")}
             className="absolute max-w-none"
             draggable={false}
             src={src}
@@ -249,7 +251,7 @@ function InteractiveImageTile({
           />
         ) : (
           <span className="grid h-full place-items-center text-xs text-app-muted">
-            加载中…
+            {ui("加载中…")}
           </span>
         )}
       </button>
@@ -257,8 +259,8 @@ function InteractiveImageTile({
         <button
           aria-label={
             image.fitMode === "stretch"
-              ? `切换参考图 ${index + 1} 为裁切适配`
-              : `切换参考图 ${index + 1} 为自由变形`
+              ? ui("切换参考图 {{v0}} 为裁切适配", { v0: index + 1 })
+              : ui("切换参考图 {{v0}} 为自由变形", { v0: index + 1 })
           }
           className={`absolute left-1 top-1 z-[60] grid h-[22px] w-[22px] place-items-center rounded text-white transition-opacity ${
             image.fitMode === "stretch"
@@ -272,8 +274,8 @@ function InteractiveImageTile({
           onPointerDown={(event) => event.stopPropagation()}
           title={
             image.fitMode === "stretch"
-              ? "自由变形已开启；点击恢复裁切适配"
-              : "切换为自由变形"
+              ? ui("自由变形已开启；点击恢复裁切适配")
+              : ui("切换为自由变形")
           }
           type="button"
         >
@@ -283,7 +285,7 @@ function InteractiveImageTile({
         </button>
       ) : null}
       <button
-        aria-label={`删除参考图 ${index + 1}`}
+        aria-label={ui("删除参考图 {{v0}}", { v0: index + 1 })}
         className="absolute right-1 top-1 z-[60] grid h-[18px] w-[18px] place-items-center rounded bg-[#202329]/85 text-white opacity-0 group-hover:opacity-100 focus:opacity-100"
         onClick={(event) => {
           event.stopPropagation();
@@ -296,17 +298,17 @@ function InteractiveImageTile({
       </button>
       {onSave ? (
         <button
-          aria-label={`保存参考图 ${index + 1} 到素材库`}
+          aria-label={ui("保存参考图 {{v0}} 到素材库", { v0: index + 1 })}
           className={`absolute bottom-1 right-1 z-[60] grid h-[22px] w-[22px] place-items-center rounded bg-[#202329]/85 text-white ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"}`}
           onClick={(event) => { event.stopPropagation(); onSave(); }}
           onPointerDown={(event) => event.stopPropagation()}
-          title="保存图片到素材库"
+          title={ui("保存图片到素材库")}
           type="button"
         ><Library aria-hidden size={12} /></button>
       ) : null}
       {IMAGE_RESIZE_DIRECTIONS.map((direction) => (
         <span
-          aria-label={`从${direction}调整参考图 ${index + 1}`}
+          aria-label={ui("从{{v0}}调整参考图 {{v1}}", { v0: direction, v1: index + 1 })}
           aria-orientation={
             direction === "left" || direction === "right"
               ? "vertical"
@@ -332,7 +334,7 @@ export function ImageGroupBlockView({
   autoCompact = false,
   blockId,
   groupId,
-  label = "图片组",
+  label = ui("图片组"),
   variant = "block",
 }: {
   autoCompact?: boolean;
@@ -341,6 +343,7 @@ export function ImageGroupBlockView({
   label?: string;
   variant?: "block" | "embedded";
 }) {
+  useUiLanguage();
   const controller = useImageGroupBlockController();
   const drag = useImageDragPreview();
   const groupDroppable = useImageGroupDroppable(groupId);
@@ -384,7 +387,7 @@ export function ImageGroupBlockView({
         className="bn-drag-exclude rounded border border-app-danger bg-app-danger-soft p-3 text-xs text-app-danger"
         contentEditable={false}
       >
-        图片组数据缺失：{groupId}
+        {ui("图片组数据缺失：")}{groupId}
       </div>
     );
   }
@@ -660,8 +663,8 @@ export function ImageGroupBlockView({
       data-clipboard-component={variant === "block" ? groupId : undefined}
       data-clipboard-component-label={variant === "block" ? group.name || label : undefined}
       role={variant === "block" ? "group" : undefined}
-      aria-label={variant === "block" ? "图片组组件" : undefined}
-      aria-description={variant === "block" ? "选中后，Ctrl+V 将图片粘贴到此图片组。" : undefined}
+      aria-label={variant === "block" ? ui("图片组组件") : undefined}
+      aria-description={variant === "block" ? ui("选中后，Ctrl+V 将图片粘贴到此图片组。") : undefined}
       data-clipboard-gesture={drag.state.status !== "idle" || framePreview !== null ? "true" : undefined}
       tabIndex={variant === "block" ? 0 : -1}
     >
@@ -672,46 +675,46 @@ export function ImageGroupBlockView({
       <div className="preshot-image-group-heading bn-drag-exclude" data-clipboard-gallery-heading="">
         <div className="preshot-image-group-caption" onPointerDown={startGroupBlockDrag}>
           <Images aria-hidden size={16} />
-          <h3>{controller.singleImage ? "图片" : label}</h3>
-          <span className="preshot-image-group-count">{group.images.length} 张图片</span>
+          <h3>{controller.singleImage ? ui("图片") : label}</h3>
+          <span className="preshot-image-group-count">{group.images.length} {ui("张图片")}</span>
         </div>
-        <div className="preshot-blocknote-image-group-toolbar" role="group" aria-label={`${label}操作`}
+        <div className="preshot-blocknote-image-group-toolbar" role="group" aria-label={ui("{{v0}}操作", { v0: label })}
           onPointerDownCapture={(event) => event.stopPropagation()}
           onMouseDownCapture={(event) => event.stopPropagation()}>
-          <button disabled={controller.singleImage && group.images.length > 0} aria-label="添加图片" onClick={() => controller.addImages(groupId)} title={controller.singleImage && group.images.length > 0 ? "请先删除当前图片再添加" : "从文件添加图片"} type="button">
-            <Plus aria-hidden size={15} />添加图片
+          <button disabled={controller.singleImage && group.images.length > 0} aria-label={ui("添加图片")} onClick={() => controller.addImages(groupId)} title={controller.singleImage && group.images.length > 0 ? ui("请先删除当前图片再添加") : ui("从文件添加图片")} type="button">
+            <Plus aria-hidden size={15} />{ui("添加图片")}
           </button>
           {controller.captureImage ? (
-            <button disabled={controller.singleImage && group.images.length > 0} aria-label="截图" onClick={() => controller.captureImage?.(groupId)} title="截图插入当前图片组" type="button">
-              <Camera aria-hidden size={15} />截图
+            <button disabled={controller.singleImage && group.images.length > 0} data-image-capture="" aria-label={ui("截图")} onClick={() => controller.captureImage?.(groupId)} title={ui("截图插入当前图片组")} type="button">
+              <Camera aria-hidden size={15} />{ui("截图")}
             </button>
           ) : null}
           {variant === "block" && !controller.singleImage && controller.insertImagesFromLibrary ? (
-            <button aria-label="从素材库插入" type="button"
+            <button aria-label={ui("从素材库插入")} type="button"
               disabled={drag.state.status !== "idle" || framePreview !== null}
-              title="从图片或图片组素材中选择图片，插入当前图片组"
+              title={ui("从图片或图片组素材中选择图片，插入当前图片组")}
               onClick={() => controller.insertImagesFromLibrary?.(groupId)}>
-              <Library aria-hidden size={15} />从素材库插入
+              <Library aria-hidden size={15} />{ui("从素材库插入")}
             </button>
           ) : null}
           {controller.saveImage && group.images.some(({ id }) => id === controller.selectedImageId) ? (
-            <button aria-label="添加到素材库" type="button"
+            <button aria-label={ui("添加到素材库")} type="button"
               disabled={drag.state.status !== "idle" || framePreview !== null}
-              title="将选中的图片添加到素材库"
+              title={ui("将选中的图片添加到素材库")}
               onClick={() => {
                 const selected = group.images.find(({ id }) => id === controller.selectedImageId);
                 if (selected) controller.saveImage?.(groupId, selected.id);
               }}>
-              <Library aria-hidden size={15} />添加到素材库
+              <Library aria-hidden size={15} />{ui("添加到素材库")}
             </button>
           ) : null}
           {variant === "block" && controller.structureEditable !== false && controller.saveBlock ? (
-            <button aria-label="保存图片组到素材库" onClick={() => controller.saveBlock?.(blockId)} title="保存到素材库" type="button">
+            <button aria-label={ui("保存图片组到素材库")} onClick={() => controller.saveBlock?.(blockId)} title={ui("保存到素材库")} type="button">
               <Library aria-hidden size={15} />
             </button>
           ) : null}
           {variant === "block" && controller.structureEditable !== false ? (
-            <button aria-label="删除图片组" onClick={() => controller.removeBlock?.(blockId)} title="删除图片组" type="button">
+            <button aria-label={ui("删除图片组")} onClick={() => controller.removeBlock?.(blockId)} title={ui("删除图片组")} type="button">
               <Trash2 aria-hidden size={15} />
             </button>
           ) : null}
@@ -743,7 +746,7 @@ export function ImageGroupBlockView({
           ) : null}
           {group.images.length === 0 && drag.state.status === "idle" ? (
             <button data-clipboard-gallery-empty="" className="relative grid h-full w-full place-items-center rounded border border-dashed border-app-border bg-white text-xs text-app-muted" onClick={() => controller.addImages(groupId)} type="button">
-              添加图片
+              {ui("添加图片")}
             </button>
           ) : null}
           {sourcePlaceholderSlot ? (
@@ -820,12 +823,12 @@ export function ImageGroupBlockView({
         </div>
       </ImageDragTargetGroup>
       <ConfirmDialog
-        cancelLabel="取消"
-        confirmLabel="删除"
+        cancelLabel={ui("取消")}
+        confirmLabel={ui("删除")}
         onCancel={() => setPendingDelete(null)}
         onConfirm={() => { if (pendingDelete) controller.removeImage(groupId, pendingDelete); setPendingDelete(null); }}
         open={pendingDelete !== null}
-        title="删除图片？"
+        title={ui("删除图片？")}
       />
     </div>
   );

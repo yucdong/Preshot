@@ -1,4 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
+import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import {
   DndContext,
   DragOverlay,
@@ -410,6 +411,7 @@ function ImageDragAutoScroller({
   readonly enabled: boolean;
   readonly scrollContainerRef?: RefObject<HTMLElement | null>;
 }) {
+  useUiLanguage();
   const {
     droppableContainers,
     measureDroppableContainers,
@@ -549,6 +551,7 @@ export function ImageDragPreviewProvider({
   projectKey,
   scrollContainerRef,
 }: ImageDragPreviewProviderProps) {
+  useUiLanguage();
   const prefersReducedMotion = usePrefersReducedMotion();
   const [state, setState] = useState<ImageDragControllerState>(
     IDLE_IMAGE_DRAG_STATE,
@@ -592,7 +595,7 @@ export function ImageDragPreviewProvider({
     const index = order.indexOf(groupId);
     const name = imageGroupsRef.current.find((group) => group.id === groupId)
       ?.name ?? groupId;
-    return `第 ${Math.max(0, index) + 1} 个图片组“${name}”`;
+    return ui("第 {{v0}} 个图片组“{{v1}}”", { v0: Math.max(0, index) + 1, v1: name });
   }, []);
 
   const targetAnnouncement = useCallback((
@@ -600,15 +603,15 @@ export function ImageDragPreviewProvider({
     projection: ImageDragProjection,
   ) => {
     if (projection.kind === "outside") {
-      return "很抱歉，当前位置不能放置图片；继续移动，或按 Escape 键取消。";
+      return ui("很抱歉，当前位置不能放置图片；继续移动，或按 Escape 键取消。");
     }
     if (projection.kind === "invalid-target") {
-      return "很抱歉，该放置位置已失效；本次移动不会提交。";
+      return ui("很抱歉，该放置位置已失效；本次移动不会提交。");
     }
-    return `移动预览：将放到${groupDescription(
+    return ui("移动预览：将放到{{v0}}的第 {{v1}} 位。", { v0: groupDescription(
       projection.target.groupId,
       transaction.snapshot,
-    )}的第 ${projection.normalizedIndex + 1} 位。`;
+    ), v1: projection.normalizedIndex + 1 });
   }, [groupDescription]);
 
   useEffect(() => {
@@ -642,8 +645,8 @@ export function ImageDragPreviewProvider({
       if (result.kind === "invalid") {
         announce(
           result.reason === "group-boundary"
-            ? "很抱歉，已经没有相邻的图片组。"
-            : "很抱歉，已经到达当前图片组的边界。",
+            ? ui("很抱歉，已经没有相邻的图片组。")
+            : ui("很抱歉，已经到达当前图片组的边界。"),
         );
         return undefined;
       }
@@ -660,7 +663,7 @@ export function ImageDragPreviewProvider({
         ? context.droppableRects.get(groupContainer.id)
         : null;
       if (!groupRect) {
-        announce("很抱歉，目标图片组当前不可用。");
+        announce(ui("很抱歉，目标图片组当前不可用。"));
         return undefined;
       }
       const tiles = enabledContainers.flatMap((container) => {
@@ -775,16 +778,16 @@ export function ImageDragPreviewProvider({
         currentRevision: planRevisionRef.current,
       });
       const message = reason === "group-deleted"
-        ? "图片组已被删除，本次移动已取消，布局已恢复。"
+        ? ui("图片组已被删除，本次移动已取消，布局已恢复。")
         : reason === "image-removed"
-          ? "图片已被删除，本次移动已取消，布局已恢复。"
+          ? ui("图片已被删除，本次移动已取消，布局已恢复。")
           : reason === "asset-change"
-            ? "图片尺寸或解码状态已变化，本次移动已取消，布局已恢复。"
+            ? ui("图片尺寸或解码状态已变化，本次移动已取消，布局已恢复。")
             : reason === "plan-revision" || reason === "project-change"
-              ? "方案已发生变化，本次移动已取消，布局已恢复。"
+              ? ui("方案已发生变化，本次移动已取消，布局已恢复。")
               : reason === "window-blur" || reason === "visibility-hidden"
-                ? "窗口已失去焦点，本次移动已取消，布局已恢复。"
-                : "已取消移动，图片已恢复到原位置。";
+                ? ui("窗口已失去焦点，本次移动已取消，布局已恢复。")
+                : ui("已取消移动，图片已恢复到原位置。");
       announce(message);
     }
     clear();
@@ -806,7 +809,7 @@ export function ImageDragPreviewProvider({
       !imageSourcesRef.current[image.file] ||
       stateRef.current.status === "dragging"
     ) {
-      announce("很抱歉，图片尚未解码完成，暂时不能移动。");
+      announce(ui("很抱歉，图片尚未解码完成，暂时不能移动。"));
       return false;
     }
     resetProjectionScheduling();
@@ -825,10 +828,10 @@ export function ImageDragPreviewProvider({
     stateRef.current = next;
     setState(next);
     announce(
-      `已拿起${groupDescription(
+      ui("已拿起{{v0}}中的第 {{v1}} 张图片。{{v2}}", { v0: groupDescription(
         input.sourceGroupId,
         snapshot,
-      )}中的第 ${input.sourceIndex + 1} 张图片。${KEYBOARD_INSTRUCTIONS}`,
+      ), v1: input.sourceIndex + 1, v2: ui(KEYBOARD_INSTRUCTIONS) }),
     );
     return true;
   }, [announce, groupDescription, resetProjectionScheduling]);
@@ -870,8 +873,8 @@ export function ImageDragPreviewProvider({
     if (result.kind === "invalid") {
       announce(
         result.reason === "group-boundary"
-          ? "很抱歉，已经没有相邻的图片组。"
-          : "很抱歉，已经到达当前图片组的边界。",
+          ? ui("很抱歉，已经没有相邻的图片组。")
+          : ui("很抱歉，已经到达当前图片组的边界。"),
       );
       return;
     }
@@ -935,8 +938,8 @@ export function ImageDragPreviewProvider({
     if (finalization.kind !== "committed") {
       announce(
         finalization.reason === "stale-snapshot"
-          ? "方案已发生变化，本次移动已取消，布局已恢复。"
-          : "很抱歉，当前位置不能放置图片，本次移动已取消。",
+          ? ui("方案已发生变化，本次移动已取消，布局已恢复。")
+          : ui("很抱歉，当前位置不能放置图片，本次移动已取消。"),
       );
       clear();
       return;
@@ -945,7 +948,7 @@ export function ImageDragPreviewProvider({
     const projection = current.projection;
     clear();
     if (!finalization.commit) {
-      announce("图片位置未变化，已结束移动。");
+      announce(ui("图片位置未变化，已结束移动。"));
       return;
     }
     const move = finalization.commit;
@@ -956,14 +959,12 @@ export function ImageDragPreviewProvider({
       move.toIndex,
     );
     announce(
-      `已将图片放到${groupDescription(
+      ui("已将图片放到{{v0}}的第 {{v1}} 位。", { v0: groupDescription(
         move.toGroupId,
         transaction.snapshot,
-      )}的第 ${
-        projection.kind === "projected"
+      ), v1: projection.kind === "projected"
           ? projection.normalizedIndex + 1
-          : move.toIndex + 1
-      } 位。`,
+          : move.toIndex + 1 }),
     );
   }, [announce, clear, groupDescription]);
 
@@ -984,10 +985,10 @@ export function ImageDragPreviewProvider({
       announce(
         finalization.kind === "cancelled" &&
             finalization.reason === "stale-snapshot"
-          ? "方案已发生变化，本次移动已取消，布局已恢复。"
+          ? ui("方案已发生变化，本次移动已取消，布局已恢复。")
           : finalization.kind === "committed"
-            ? "图片位置未变化，已结束移动。"
-            : "很抱歉，当前位置不能放置图片，本次移动已取消。",
+            ? ui("图片位置未变化，已结束移动。")
+            : ui("很抱歉，当前位置不能放置图片，本次移动已取消。"),
       );
       clear();
       return;
@@ -1010,14 +1011,12 @@ export function ImageDragPreviewProvider({
       move.toIndex,
     );
     announce(
-      `已将图片放到${groupDescription(
+      ui("已将图片放到{{v0}}的第 {{v1}} 位。", { v0: groupDescription(
         move.toGroupId,
         current.transaction.snapshot,
-      )}的第 ${
-        current.projection.kind === "projected"
+      ), v1: current.projection.kind === "projected"
           ? current.projection.normalizedIndex + 1
-          : move.toIndex + 1
-      } 位。`,
+          : move.toIndex + 1 }),
     );
     landingTimerRef.current = window.setTimeout(
       clear,
@@ -1217,7 +1216,7 @@ export function ImageDragPreviewProvider({
   const controller = useMemo<ImageDragPreviewController>(() => ({
     enabled,
     state,
-    keyboardInstructions: KEYBOARD_INSTRUCTIONS,
+    get keyboardInstructions() { return ui(KEYBOARD_INSTRUCTIONS); },
     start,
     project,
     commit,
@@ -1228,7 +1227,7 @@ export function ImageDragPreviewProvider({
       );
       if (!source?.images.some((image) => image.id === imageId)) return;
       announce(
-        `已选择${groupDescription(groupId)}中的第 ${index + 1} 张图片。`,
+        ui("已选择{{v0}}中的第 {{v1}} 张图片。", { v0: groupDescription(groupId), v1: index + 1 }),
       );
     },
     getPreviewGroup(groupId) {
@@ -1300,7 +1299,7 @@ export function ImageDragPreviewProvider({
   return (
     <ImageDragPreviewContext.Provider value={controller}>
       <button
-        aria-label="键盘图片移动焦点"
+        aria-label={ui("键盘图片移动焦点")}
         className="sr-only"
         data-testid="image-drag-keyboard-focus"
         ref={keyboardFocusProxyRef}
@@ -1311,7 +1310,7 @@ export function ImageDragPreviewProvider({
         accessibility={{
           announcements: silentAnnouncements,
           screenReaderInstructions: {
-            draggable: KEYBOARD_INSTRUCTIONS,
+            draggable: ui(KEYBOARD_INSTRUCTIONS),
           },
         }}
         autoScroll={false}
@@ -1382,7 +1381,7 @@ export function useImageDragActivator(
       (file !== undefined && !controller.isImageReady(file)),
     attributes: {
       role: "button",
-      roleDescription: "可拖动参考图",
+      roleDescription: ui("可拖动参考图"),
       tabIndex: 0,
     },
   });

@@ -1,114 +1,21 @@
 # Changelog
 
-All notable changes to Preshot are documented in this file.
+## 0.0.2
 
-## [Unreleased]
+- Chinese and English interface switching, light/dark themes, and focus mode.
+- Cached open-project sessions, parallel image loading, and save-on-close prompts.
+- Language initialization and changes no longer repeat project startup.
+- Single-dialog project creation with an explicit parent directory.
+- Screenshot controls beside upload/embed, with cancellation and retry.
+- Image materials and flexible image-group selection/insertion.
+- Combined props/wardrobe category and library insertion into existing groups.
+- On-demand full material previews and improved English category layout.
+- PDF, editable DOCX, and long-image export up to the bounded 20,000px height.
+- Charcoal photographer logo throughout the application and Windows EXE/MSI.
+- Concise bilingual READMEs, feature-indexed documentation, and a bridge
+  portrait walkthrough with attributed photographs.
 
-### Added
+## 0.0.1
 
-- Production first-run workspace bootstrap that idempotently creates the
-  user-owned Preshot roots, adopts a valid default-root project, or atomically
-  creates and opens one localized schema-14 starter with contention-safe,
-  token-authorized rollback.
-- A source-controlled Tauri 2.11.4 WiX template for one limited per-user x64
-  MSI under LocalAppData, with HKCU registration, fixed major-upgrade family,
-  Start Menu default, Desktop opt-in, WebView2 bootstrap, and explicit
-  exclusion of project/profile data.
-- Production release commands for version synchronization, full validation,
-  explicit MSVC x64 MSI builds, signing enforcement, checksums, deterministic
-  release manifests, and non-destructive existing-artifact verification.
-- Canonical Windows installer operator documentation and packaging,
-  bootstrap, documentation, and PowerShell contract coverage.
-- Production DOCX export through the exact shared BlockNote schema, official
-  ordinary mappings, offline project assets, weighted columns, and the custom
-  composited image-group mapping.
-- Adjacent PDF/DOCX toolbar actions with independent progress, a cross-format
-  concurrency guard, dedicated native `save_docx` atomic writes, default
-  `<project>\output.docx`, post-save Explorer reveal, and browser/Midscene
-  `output.docx` downloads.
-- Production offline long-image export from a control-free export-only
-  BlockNote DOM surface through `modern-screenshot@4.7.0`, with default
-  900px WeChat/JPEG output, 890px compatibility, lossless PNG, block- and
-  image-row-aware automatic splitting, adaptive byte/quality limits, bounded
-  memory, cancellation, and deterministic multipart filenames.
-- An accessible long-image settings/progress workflow in the existing export
-  menu, rollback-safe native multipart commits with post-save Explorer reveal,
-  one-part browser downloads, same-origin worker/CSP enforcement, and retained
-  Playwright acceptance artifacts.
-- Cumulative long-image safeguards: 32 parts maximum, 24 MiB retained for
-  WeChat JPEG, 48 MiB for high-quality JPEG, 64 MiB for PNG, and a separate
-  64 MiB raw-image ceiling for the single native IPC batch.
-- Unicode-safe output naming with NFC-normalized project-title bases,
-  120-code-point and 120-UTF-16-unit base caps, a 128-UTF-16-unit final
-  component cap, Windows reserved/traversal checks, and authoritative validated
-  dialog renames.
-- Production dnd-kit image-tile dragging with immutable live same-/cross-/
-  empty-group reflow, body overlay and source/insertion placeholders,
-  pointer/keyboard sensors, Chinese announcements, 48px zoom-safe auto-scroll,
-  reduced-motion handling, stale/decode cancellation, one-step commit undo,
-  and preview isolation from autosave and every export format.
-- Production project-scoped assistant sessions through
-  `github-copilot-sdk@1.0.11` and the reviewed bundled Copilot CLI, with
-  Empty-mode capability isolation, no-key proxy/model probes, metadata-only
-  SQLite, immutable disclosed context, selected-image gating, bounded event
-  streaming, and proposal-first atomic text edits with persistent Undo.
-- Hardened agent review boundaries with fresh single-use attachment tokens
-  issued only at Send, typed unavailable-image recovery without text-only
-  fallback, serialized recoverable native session replacement, and a
-  schema-v4 durable Apply/Undo journal reconciled by exact document hashes.
-- Deterministic offline agent eval fixtures and report covering every
-  normalized event and typed error, capability/retest/vision gates,
-  adversarial tool/proposal inputs, all allowed text blocks and nesting,
-  no-mutation-before-Apply, stale/conflict/undo, and static privacy/tool
-  boundaries without a live model in CI.
-
-### Licensing
-
-- Open-source distributions that include the BlockNote XL DOCX exporter use
-  its `GPL-3.0 OR PROPRIETARY` license through the GPL-3.0 option, matching the
-  existing XL package obligations. The underlying `docx@9.6.1` library is MIT.
-- Long-image export does not use a BlockNote image exporter.
-  `modern-screenshot@4.7.0` is MIT-licensed and introduces no additional
-  BlockNote XL licensing obligation.
-- Added the MIT-licensed `github-copilot-sdk@1.0.11`, public-domain bundled
-  SQLite through MIT-licensed `rusqlite@0.37.0`, and the separately licensed
-  unmodified bundled GitHub Copilot CLI with exact provenance and checksums.
-
-## [0.0.1] - 2026-08-17
-
-### Added
-
-- Windows-first Tauri workspace with project creation, discovery, recovery,
-  settings, and MSI packaging.
-- Continuous BlockNote schema 14 document editor with native text blocks,
-  tables, columns, image, video, and audio blocks.
-- Custom photography image groups with project-managed assets, natural aspect
-  ratios, image reordering, resizing, Smart Guides, lightbox viewing, capture,
-  deletion, and undo-safe cleanup.
-- Pointer-driven block movement, nesting controls, same-row column creation,
-  adjustable column widths, and block operation menus.
-- Project-local `references/` and `media/` storage that copies source files
-  without modifying the originals.
-- Autosave, schema 13 to 14 migration, strict schema validation, and explicit
-  rejection of schema 1 to 12 projects.
-- Production PDF export through the official
-  `@blocknote/xl-pdf-exporter@0.53.0` mappings and
-  `@react-pdf/renderer@4.3.0`, with A4/24pt geometry, bundled Noto Sans SC,
-  weighted columns, native images, real links, tables, and video/audio
-  fallback labels.
-- Offline project-local preflight, crop-aware image caching, native tall-image
-  fitting, and WYSIWYG custom image-group geometry. Groups move intact to the
-  next page when possible and scale uniformly only when taller than one usable
-  page.
-- Explicit rollback-only `pdf-lib` adapter with no silent production fallback,
-  plus least-privilege Tauri CSP coverage for React-PDF WASM and self-hosted
-  fonts.
-- Deterministic Vitest, Playwright, PowerShell initializer, Rust, and Windows
-  installer validation.
-
-### Licensing
-
-- Preshot-authored source is available under the MIT License.
-- Builds containing `@blocknote/xl-multi-column` or
-  `@blocknote/xl-pdf-exporter` are distributed under GPL-3.0 as documented in
-  `THIRD_PARTY_NOTICES.md`.
+Initial desktop planning workspace, local projects, BlockNote editor,
+reference galleries, material library, and document export.

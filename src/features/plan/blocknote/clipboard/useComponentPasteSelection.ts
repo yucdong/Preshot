@@ -1,3 +1,4 @@
+import { ui } from "../../../../shared/i18n/ui";
 import { useEffect, useState, type RefObject } from "react";
 import {
   clipboardComponent, componentClipboardGallery, documentClipboardBridge, IMAGE_CLIPBOARD_SELECTION_CHANGE,
@@ -34,8 +35,8 @@ export function useComponentPasteSelection(rootRef: RefObject<HTMLElement | null
         markedComponent = component;
         markedGallery = gallery;
         component.setAttribute("data-clipboard-component-selected", "");
-        gallery.setAttribute("data-clipboard-paste-target", "粘贴到此处 · Ctrl+V");
-        setAnnouncement(`已选中${component.dataset.clipboardComponentLabel ?? "组件"}，Ctrl+V 将图片粘贴到此图片区域。`);
+        gallery.setAttribute("data-clipboard-paste-target", ui("粘贴到此处 · Ctrl+V"));
+        setAnnouncement(ui("已选中{{v0}}，Ctrl+V 将图片粘贴到此图片区域。", { v0: component.dataset.clipboardComponentLabel ?? ui("组件") }));
       } else setAnnouncement("");
     };
     const blur = () => { clear(); setAnnouncement(""); };

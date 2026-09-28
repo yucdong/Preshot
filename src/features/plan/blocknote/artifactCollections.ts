@@ -1,3 +1,4 @@
+import { ui } from "../../../shared/i18n/ui";
 import type {
   ArtifactRecord,
   ImageCollection,
@@ -25,7 +26,7 @@ export function collectionsForArtifact(
       artifactId: artifact.id,
       artifactKind: artifact.kind,
       collection: artifact.gallery,
-      label: "场地图片",
+      label: ui("场地图片"),
     }];
   }
   if (artifact.kind === "modelCard") {
@@ -33,7 +34,7 @@ export function collectionsForArtifact(
       artifactId: artifact.id,
       artifactKind: artifact.kind,
       collection: artifact.samples,
-      label: "样片",
+      label: ui("样片"),
     }];
   }
   if (artifact.kind === "clothing") {
@@ -41,14 +42,14 @@ export function collectionsForArtifact(
       artifactId: artifact.id,
       artifactKind: artifact.kind,
       collection: artifact.mainGallery,
-      label: "服装主图",
+      label: ui("服装主图"),
     }];
   }
   return [{
     artifactId: artifact.id,
     artifactKind: artifact.kind,
     collection: artifact.gallery,
-    label: "道具图片",
+    label: ui("道具图片"),
   }];
 }
 

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import i18n from "../../shared/i18n/config";
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -146,6 +147,9 @@ describe("WorkspaceProvider startup", () => {
     await waitFor(() => expect(screen.getByText(
       "Preshot 入门示例|C:\\Users\\me\\.preshot\\projects\\Preshot 入门示例",
     )).toBeVisible(), { timeout: 5000 });
+    expect(maximizeWindow).toHaveBeenCalledTimes(1);
+    await act(async () => { await i18n.changeLanguage("en"); });
+    expect(dependencies.service.loadProjects).toHaveBeenCalledTimes(1);
     expect(maximizeWindow).toHaveBeenCalledTimes(1);
   });
 });
