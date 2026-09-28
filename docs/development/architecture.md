@@ -49,8 +49,12 @@ PDF uses the BlockNote XL exporter and React-PDF; DOCX uses its XL exporter and
 `docx`; long images use an export-only DOM surface and `modern-screenshot`'s
 same-origin worker. Each pipeline prepares local assets before rendering.
 
-The logo source is `public/preshot-mark.svg`. `pnpm icons:generate` creates
-native resources; the Windows build watches the ICO file.
+The shared logo is `public/preshot-mark.png`, cropped from the supplied artwork
+in `resources/branding/preshot-logo-original.png`. Its exterior background is
+transparent; the photographer and charcoal frame retain the original artwork.
+The app, browser favicon, and both READMEs use this same image.
+`pnpm icons:generate` creates the native PNG, ICO, and ICNS resources from it;
+the Windows build watches the ICO file.
 
 See [Reliability](reliability.md), [Localization](i18n.md), and
 [Build and test](build-and-test.md).

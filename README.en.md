@@ -1,4 +1,4 @@
-<p align="center"><img src="public/preshot-mark.svg" width="80" alt="Preshot logo" /></p>
+<p align="center"><img src="public/preshot-mark.png" width="80" alt="Preshot logo" /></p>
 
 # Preshot
 

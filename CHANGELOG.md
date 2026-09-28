@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.3
+
+- Use the supplied photographer artwork for the application logo, browser
+  favicon, bilingual READMEs, Windows executable, and installer shortcuts.
+- Preserve the original artwork and generate native icons from one transparent
+  PNG so all branding stays consistent.
+- Document creating a Release through the GitHub website.
+
 ## 0.0.2
 
 - Chinese and English interface switching, light/dark themes, and focus mode.

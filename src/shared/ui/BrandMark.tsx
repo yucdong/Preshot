@@ -12,7 +12,7 @@ export function BrandMark({ className = "", size = 32 }: BrandMarkProps) {
       className={`shrink-0 ${className}`}
       draggable={false}
       height={size}
-      src={`${import.meta.env.BASE_URL}preshot-mark.svg`}
+      src={`${import.meta.env.BASE_URL}preshot-mark.png`}
       width={size}
     />
   );

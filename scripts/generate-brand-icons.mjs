@@ -11,7 +11,7 @@ mkdirSync(staging, { recursive: true });
 const generated = spawnSync(process.execPath, [
   resolve(root, "node_modules/@tauri-apps/cli/tauri.js"),
   "icon",
-  resolve(root, "public/preshot-mark.svg"),
+  resolve(root, "public/preshot-mark.png"),
   "--output",
   staging,
 ], { cwd: root, stdio: "inherit" });
@@ -28,4 +28,4 @@ mkdirSync(destination, { recursive: true });
 for (const file of files) {
   copyFileSync(resolve(staging, file.name), resolve(destination, file.name));
 }
-console.log(`Updated ${files.length} desktop icons from public/preshot-mark.svg.`);
+console.log(`Updated ${files.length} desktop icons from public/preshot-mark.png.`);
