@@ -250,6 +250,7 @@ describe("material library and the real project editor", () => {
     };
     const context = fixture(undefined, imageMaterial);
     await screen.findByRole("group", { name: "方案正文" });
+    await waitFor(() => expect(currentEditor().getBlock("initial")).toBeDefined());
     act(() => { currentEditor().setTextCursorPosition("initial", "end"); currentEditor().focus(); });
     await chooseMaterial();
     await waitFor(() => expect(context.repository.commitInsert).toHaveBeenCalledOnce());
