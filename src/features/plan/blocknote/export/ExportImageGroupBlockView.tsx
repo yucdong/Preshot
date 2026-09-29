@@ -81,6 +81,7 @@ export function ExportImageGroupBlockView({
   const [availableWidth, setAvailableWidth] = useState(
     BLOCKNOTE_DOCUMENT_CONTENT_WIDTH,
   );
+  const [inColumn, setInColumn] = useState(false);
 
   useLayoutEffect(() => {
     const content = variant === "embedded"
@@ -88,6 +89,7 @@ export function ExportImageGroupBlockView({
       : shellRef.current?.closest<HTMLElement>(".bn-block-content");
     if (!content || typeof ResizeObserver === "undefined") return;
     const update = () => {
+      setInColumn(Boolean(shellRef.current?.closest(".bn-block-column")));
       if (content.clientWidth > 0) setAvailableWidth(content.clientWidth);
     };
     const observer = new ResizeObserver(update);
@@ -108,12 +110,12 @@ export function ExportImageGroupBlockView({
   const displayImages = compactArtifactGalleryImages(
     group.images,
     width,
-    autoCompact,
+    autoCompact && !inColumn,
   );
-  const layout = layoutDocumentImageGroupForWidth(displayImages, width);
-  const height = autoCompact ? layout.height : Math.max(group.height, layout.height);
+  const layout = layoutDocumentImageGroupForWidth(displayImages, width, inColumn ? group.width : undefined);
+  const height = autoCompact || inColumn ? layout.height : Math.max(group.height, layout.height);
   const imagesById = new Map(displayImages.map((image) => [image.id, image]));
-  const rows = imageGroupRows(displayImages, layout.slots);
+  const rows = inColumn ? layout.rows.map(row => ({ ...row, top: row.y })) : imageGroupRows(displayImages, layout.slots);
 
   return (
     <div

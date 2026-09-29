@@ -70,11 +70,11 @@ function prop(
 
 function planWithArtifacts(artifacts: ArtifactRecord[]): ProjectPlanV15 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     title: "Artifacts",
     document: {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: artifacts.map(marker),
     },
     imageGroups: [],
@@ -102,11 +102,11 @@ describe("BlockNote plan v15", () => {
 
   it("creates schema-v15 document-v3 plans through canonical and compatibility APIs", () => {
     const expected = {
-      schemaVersion: 15,
+      schemaVersion: 16,
       title: "Editorial",
       document: {
         format: "preshot-blocks",
-        version: 3,
+        version: 4,
         blocks: [{
           id: "block-1",
           type: "paragraph",
@@ -348,7 +348,7 @@ describe("BlockNote plan v15", () => {
       ...planWithArtifacts([]),
       document: {
         format: "preshot-blocks",
-        version: 3,
+        version: 4,
         blocks: [{
           id: "legacy-marker",
           type: "imageGroup",
@@ -364,11 +364,11 @@ describe("BlockNote plan v15", () => {
 
   it("validates image groups only at the top level", () => {
     const plan: ProjectPlanV15 = {
-      schemaVersion: 15,
+      schemaVersion: 16,
       title: "Editorial",
       document: {
         format: "preshot-blocks",
-        version: 3,
+        version: 4,
         blocks: [{
           id: "block-1",
           type: "imageGroup",
@@ -438,8 +438,8 @@ describe("BlockNote plan v15", () => {
 
     expect(first).toEqual(second);
     expect(first).toMatchObject({
-      schemaVersion: 15,
-      document: { version: 3 },
+      schemaVersion: 16,
+      document: { version: 4 },
       artifacts: [],
     });
     expect(first.imageGroups.flatMap((entry) =>
@@ -481,10 +481,10 @@ describe("BlockNote plan v15", () => {
     });
     expect(migrateProjectPlanV13ToV15(legacy)).toEqual({
       ...legacy,
-      schemaVersion: 15,
+      schemaVersion: 16,
       document: {
         ...legacy.document,
-        version: 3,
+        version: 4,
       },
       artifacts: [],
     });
@@ -493,7 +493,7 @@ describe("BlockNote plan v15", () => {
   it("validates native media blocks and collects project media files", () => {
     const document = {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: [
         {
           id: "image",

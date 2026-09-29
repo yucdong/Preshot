@@ -719,6 +719,39 @@ fn library_insert_accepts_the_first_row_without_changing_existing_document_conte
 }
 
 #[test]
+fn column_material_save_insert_reopen_and_undo_keep_independent_assets() {
+    for kind in ["imageGroup", "shootingLocation", "modelCard", "prop", "clothing"] {
+        let mut fixture = Fixture::new(kind);
+        fixture.plan["schemaVersion"] = json!(16);
+        fixture.plan["document"]["version"] = json!(4);
+        let source = fixture.plan["document"]["blocks"][0].clone();
+        fixture.plan["document"]["blocks"] = json!([{"id":"row","type":"columnList","props":{},"children":[
+            {"id":"left","type":"column","props":{"width":1},"children":[source]},
+            {"id":"right","type":"column","props":{"width":2},"children":[{"id":"text","type":"paragraph","props":{},"content":[],"children":[]}]}
+        ]}]);
+        fixture.write_plan(&fixture.plan);
+        let mut store = fixture.store();
+        let material = store.save(fixture.save_request()).unwrap();
+        let prepared = store.prepare_insert(fixture.insert_request(&material)).unwrap();
+        let mut next = fixture.next_plan(&prepared);
+        let added = next["document"]["blocks"].as_array_mut().unwrap().pop().unwrap();
+        next["document"]["blocks"][0]["children"][1]["children"].as_array_mut().unwrap().push(added);
+        let mut invalid = next.clone();
+        invalid["document"]["blocks"][0]["children"][0]["props"]["width"] = json!(3);
+        assert!(insert::commit(fixture.commit_request(&prepared, &invalid)).is_err());
+        let commit = fixture.commit_request(&prepared, &next);
+        insert::commit(commit.clone()).unwrap();
+        insert::commit(commit).unwrap();
+        assert_eq!(crate::plan::read_project_plan_in(&fixture.project).unwrap(), next);
+        assert_ne!(prepared.images[0].file, "references/0001.png");
+        let copied = fixture.project.join(&prepared.images[0].file);
+        assert_eq!(fs::read(&copied).unwrap(), fixture.bytes);
+        crate::plan::save_project_plan_in(&fixture.project, fixture.plan.clone()).unwrap();
+        assert!(copied.exists());
+    }
+}
+
+#[test]
 fn library_insert_roundtrips_all_kinds_and_receipt_preserves_newer_plan_and_undo_files() {
     for kind in [
         "imageGroup",

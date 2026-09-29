@@ -19,6 +19,7 @@ const MEDIA_DIR: &str = "media";
 const MAX_REFERENCE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_AUDIO_BYTES: usize = 64 * 1024 * 1024;
 const MAX_VIDEO_BYTES: usize = 128 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
 
 fn before_regular_mutation(project_path: &Path) -> Result<(), CommandError> {
     crate::image_paste::before_regular_mutation(project_path)?;
@@ -106,6 +107,16 @@ fn media_kind(file_name: &str, mime_type: &str) -> Option<MediaKind> {
         .to_str()?
         .to_ascii_lowercase();
     let kind = match extension.as_str() {
+        "txt" => MediaKind {
+            extension: "txt",
+            mime_type: "text/plain",
+            max_bytes: MAX_DOCUMENT_BYTES,
+        },
+        "pdf" => MediaKind {
+            extension: "pdf",
+            mime_type: "application/pdf",
+            max_bytes: MAX_DOCUMENT_BYTES,
+        },
         "jpg" | "jpeg" => MediaKind {
             extension: "jpg",
             mime_type: "image/jpeg",
@@ -781,7 +792,7 @@ pub fn import_plan_media_into(
     let kind = media_kind(name, mime_type).ok_or_else(|| {
         CommandError::new(
             "media_unsupported_type",
-            "Only supported image, audio, and video files can be inserted",
+            "Only supported images, audio, video, PDF, and plain-text files can be inserted",
         )
     })?;
     if bytes.is_empty() || bytes.len() > kind.max_bytes {
@@ -1325,6 +1336,20 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(error.code, "media_unsupported_type");
+    }
+
+    #[test]
+    fn file_blocks_import_and_reopen_bounded_text_and_pdf_attachments() {
+        let parent = project();
+        let root = parent.path().join("Shoot");
+        for (name, mime, bytes) in [("shot-list.txt", "text/plain", b"Shot list".as_slice()), ("notes.pdf", "application/pdf", b"%PDF-1.7".as_slice())] {
+            let imported = import_plan_media_into(&root, name, mime, bytes).unwrap();
+            assert_eq!(load_plan_media_from(&root, &imported.file).unwrap(), imported.data_url);
+            assert_eq!(fs::read(root.join(&imported.file)).unwrap(), bytes);
+            assert!(import_plan_media_into(&root, name, "text/html", bytes).is_err());
+        }
+        assert!(import_plan_media_into(&root, "executable.exe", "application/octet-stream", b"MZ").is_err());
+        assert_eq!(import_plan_media_into(&root, "large.txt", "text/plain", &vec![b'x'; MAX_DOCUMENT_BYTES + 1]).unwrap_err().code, "media_invalid_size");
     }
 
     #[test]

@@ -25,7 +25,7 @@ const settings: SettingsRepository = {
 
 const document: PreshotBlockDocument = {
   format: "preshot-blocks",
-  version: 3,
+  version: 4,
   blocks: [
     {
       id: "paragraph",
@@ -50,7 +50,7 @@ describe("BlockNoteDocumentEditor", () => {
   it("keeps block drag geometry in the active editor when a hidden project has the same block IDs", async () => {
     let editor!: PreshotBlockNoteEditor;
     const blocks = validateBlockDocument({
-      format: "preshot-blocks", version: 3,
+      format: "preshot-blocks", version: 4,
       blocks: ["source", "target"].map((id) => ({ id, type: "paragraph", props: {}, content: [{ type: "text", text: id, styles: {} }], children: [] })),
     });
     const props = {
@@ -72,10 +72,10 @@ describe("BlockNoteDocumentEditor", () => {
     vi.spyOn(target, "getBoundingClientRect").mockReturnValue({ top: 100, bottom: 150, left: 0, right: 400, width: 400, height: 50, x: 0, y: 100, toJSON() {} });
     const hit = vi.spyOn(window.document, "elementFromPoint").mockReturnValue(target);
     act(() => startBlockPointerDrag({ editor, source: editor.getBlock("source")!, clientX: 0, clientY: 0 }));
-    fireEvent.pointerMove(window.document, { clientX: 10, clientY: 110 });
+    fireEvent.pointerMove(window.document, { clientX: 30, clientY: 110 });
     expect(target).toHaveAttribute("data-preshot-block-drop", "before");
     expect(current.querySelector('[data-id="source"][data-preshot-block-dragging]')).not.toBeNull();
-    fireEvent.pointerUp(window.document);
+    fireEvent.pointerUp(window.document, { clientX: 30, clientY: 110 });
     expect(editor.document.map((block) => block.id)).toEqual(["source", "target"]);
     hit.mockRestore();
   });
@@ -84,7 +84,7 @@ describe("BlockNoteDocumentEditor", () => {
     let editor!: PreshotBlockNoteEditor;
     let bridge!: MaterialEditorBridge;
     const planDocument = validateBlockDocument({
-      format: "preshot-blocks", version: 3, blocks: [
+      format: "preshot-blocks", version: 4, blocks: [
         { id: "text", type: "paragraph", props: {}, content: [{ type: "text", text: "继续编辑", styles: {} }], children: [] },
         { id: "image", type: "image", props: { url: "media/image.png", name: "粘贴图片", caption: "", showPreview: true }, children: [] },
       ],
@@ -135,7 +135,7 @@ describe("BlockNoteDocumentEditor", () => {
       return blockId === "copied-image" ? "media/copied.png" : "media/original.png";
     });
     const planDocument = validateBlockDocument({
-      format: "preshot-blocks", version: 3, blocks: [
+      format: "preshot-blocks", version: 4, blocks: [
         { id: "text", type: "paragraph", props: {}, content: [{ type: "text", text: "初始正文", styles: {} }], children: [] },
         { id: "original-image", type: "image", props: { url: "media/original.png", name: "原图", caption: "", showPreview: true }, children: [] },
         { id: "copied-image", type: "image", props: { url: "media/copied.png", name: "复制图", caption: "", showPreview: true }, children: [] },
@@ -168,7 +168,7 @@ describe("BlockNoteDocumentEditor", () => {
     let bridge!: MaterialEditorBridge;
     const onChange = vi.fn();
     const plain = validateBlockDocument({
-      format: "preshot-blocks", version: 3,
+      format: "preshot-blocks", version: 4,
       blocks: [{ id: "text", type: "paragraph", props: {}, content: [{ type: "text", text: "初始", styles: {} }], children: [] }],
     });
     const { unmount } = render(<ThemeProvider repository={settings}>
@@ -260,7 +260,7 @@ describe("BlockNoteDocumentEditor", () => {
     const pasteImage = vi.fn().mockResolvedValue(undefined);
     const uploadFile = vi.fn();
     const testDocument = validateBlockDocument({
-      format: "preshot-blocks", version: 3, blocks: [
+      format: "preshot-blocks", version: 4, blocks: [
         { id: "top-row", type: "paragraph", props: {}, content: [{ type: "text", text: "顶层段落", styles: {} }],
           children: [{ id: "nested-row", type: "paragraph", props: {}, content: [{ type: "text", text: "嵌套段落", styles: {} }], children: [] }] },
         { id: "native-image", type: "image", props: { url: "media/one.png", name: "正文原图", caption: "", showPreview: true }, children: [] },
@@ -500,7 +500,7 @@ describe("BlockNoteDocumentEditor", () => {
     editor!.updateBlock("paragraph", { content: "Earlier edit" });
     const beforeMaterial = validateBlockDocument({
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: JSON.parse(JSON.stringify(editor!.document)),
     });
     const insertedDocument: PreshotBlockDocument = {

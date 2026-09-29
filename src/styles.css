@@ -1164,12 +1164,6 @@ button:disabled {
   }
 }
 
-.bn-block-column .preshot-blocknote-image-group-toolbar {
-  top: 4px !important;
-  right: 4px !important;
-  z-index: 80 !important;
-}
-
 .preshot-blocknote-image-group-toolbar,
 .preshot-blocknote-image-group-toolbar * {
   cursor: default;
@@ -1784,3 +1778,20 @@ html.dark .tiptap-editor {
 .preshot-image-capture-button:hover {
   background: var(--bn-colors-hovered-background, #f3f4f6);
 }
+.preshot-blocknote-document .bn-block-column-list {
+  gap: 20px; overflow-x: auto; padding: 4px 0 12px; align-items: stretch;
+}
+.preshot-blocknote-document .bn-block-column {
+  padding: 0; min-width: 120px; overflow: visible; position: relative; isolation: isolate;
+}
+.preshot-blocknote-document .bn-block-column:not(:last-child)::after {
+  content: ""; position: absolute; right: -12px; top: 0; bottom: 0; width: 4px;
+  border-radius: 2px; background: var(--color-paper-border); cursor: col-resize;
+}
+.preshot-resizing-columns { cursor: col-resize; user-select: none; }
+.preshot-long-image-export-document .bn-block-column-list { gap: 20px; padding: 4px 0 12px; }
+.preshot-long-image-export-document .bn-block-column { padding: 0; min-width: 0; overflow: visible; }
+.bn-block-column .preshot-artifact-balanced-layout { grid-template-columns: minmax(0, 1fr); }
+.bn-block-column .preshot-artifact-block { max-width: 100%; min-width: 0; }
+.bn-block-column .preshot-artifact-block header { flex-wrap: wrap; }
+.bn-block-column .bn-visual-media-wrapper { max-width: 100%; }

@@ -42,7 +42,10 @@ function showDropIndicator(
   overlay.className = "preshot-block-drop-overlay";
   overlay.style.left = `${rect.left}px`;
   overlay.style.width = `${rect.width}px`;
-  if (placement === "inside") {
+  if (placement === "left" || placement === "right") {
+    overlay.style.left = `${placement === "left" ? rect.left - 3 : rect.right + 1}px`;
+    overlay.style.top = `${rect.top}px`; overlay.style.width = "2px"; overlay.style.height = `${rect.height}px`;
+  } else if (placement === "inside") {
     overlay.style.top = `${rect.top}px`;
     overlay.style.height = `${rect.height}px`;
   } else {
@@ -71,7 +74,7 @@ function validAtomicLayoutTarget(
     const parent = editor.getParentBlock(current) as
       | PreshotEditorBlock
       | undefined;
-    if (!parent) return current;
+    if (!parent || parent.type === "column") return current;
     current = parent;
   }
 }
@@ -86,12 +89,14 @@ export function startBlockPointerDrag({
   onFinish,
 }: BlockPointerDragOptions): void {
   const editorRoot = editor.prosemirrorView.dom;
+  const originalDocument = editor.prosemirrorView.state.doc;
   let dragging = false;
+  let finished = false;
   let targetBlock: PreshotEditorBlock | null = null;
   let placement: BlockDropPlacement | null = null;
 
   const move = (moveEvent: PointerEvent) => {
-    if (!editorRoot.isConnected || editorRoot.closest("[inert]")) {
+    if (!editorRoot.isConnected || editorRoot.closest("[inert]") || editor.prosemirrorView.state.doc !== originalDocument) {
       cancel();
       return;
     }
@@ -118,32 +123,42 @@ export function startBlockPointerDrag({
       moveEvent.clientY,
     );
     const outer = hit?.closest<HTMLElement>(
-      '[data-node-type="blockOuter"][data-id]',
+      '[data-node-type="blockOuter"][data-id], .bn-block-column[data-id], .bn-block-column-list[data-id]',
     );
     const targetId = outer && editorRoot.contains(outer) ? outer.dataset.id : undefined;
     let target = targetId
       ? editor.getBlock(targetId) as PreshotEditorBlock | undefined
       : undefined;
     if (!target || target.id === source.id) {
+      document.querySelectorAll("[data-preshot-block-drop-overlay]").forEach(element => element.remove());
       targetBlock = null;
       placement = null;
       return;
     }
-    if (isAtomicLayoutBlock(source)) {
+    if (isAtomicLayoutBlock(source) && target.type !== "column") {
       target = validAtomicLayoutTarget(editor, target);
     }
     const targetOuter = editorRoot.querySelector<HTMLElement>(
-      `[data-node-type="blockOuter"][data-id="${CSS.escape(target.id)}"]`,
+      `[data-id="${CSS.escape(target.id)}"]`,
     );
-    if (!targetOuter) return;
+    if (!targetOuter) { targetBlock = null; placement = null; return; }
     const rect = targetOuter.getBoundingClientRect();
     const verticalRatio =
       (moveEvent.clientY - rect.top) / Math.max(1, rect.height);
     const canDropInside =
       !isAtomicLayoutBlock(source) &&
       !isAtomicLayoutBlock(target) &&
+      source.type !== "columnList" && target.type !== "columnList" &&
       target.type !== "divider";
-    if (
+    if (target.type === "columnList") {
+      placement = verticalRatio < 0.5 ? "before" : "after";
+    } else if (target.type === "column") {
+      placement = "inside";
+    } else if (moveEvent.clientX <= rect.left + 12) {
+      placement = "left";
+    } else if (moveEvent.clientX >= rect.right - 12) {
+      placement = "right";
+    } else if (
       canDropInside &&
       verticalRatio >= 0.3 &&
       verticalRatio <= 0.7 &&
@@ -158,10 +173,17 @@ export function startBlockPointerDrag({
     showDropIndicator(targetOuter, placement);
   };
 
-  const finish = () => {
+  const finish = (event?: PointerEvent) => {
+    if (finished) return;
+    if (event && dragging) move(event);
+    // Release rechecks the live target and can cancel a stale document.
+    if (finished) return;
+    finished = true;
     document.removeEventListener("pointermove", move);
     document.removeEventListener("pointerup", finish);
     document.removeEventListener("pointercancel", cancel);
+    document.removeEventListener("keydown", key, true);
+    window.removeEventListener("blur", cancel);
     clearDropIndicators();
     if (
       dragging &&
@@ -171,6 +193,8 @@ export function startBlockPointerDrag({
       placement &&
       moveBlockRelative(editor, source, targetBlock, placement)
     ) {
+      if (source.type !== "columnList") editor.setTextCursorPosition(source.id, "start");
+      editor.focus();
       notify?.(
         placement === "inside"
           ? ui("Block 已移动并嵌套")
@@ -185,8 +209,16 @@ export function startBlockPointerDrag({
     placement = null;
     finish();
   };
+  const key = (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    cancel();
+  };
 
   document.addEventListener("pointermove", move, { passive: false });
   document.addEventListener("pointerup", finish);
   document.addEventListener("pointercancel", cancel);
+  document.addEventListener("keydown", key, true);
+  window.addEventListener("blur", cancel);
 }

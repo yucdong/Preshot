@@ -19,7 +19,7 @@ it("switches editor menus and placeholders without replacing the document, edito
   render(<ThemeProvider repository={createBrowserSettingsRepository()}>
     <SettingsPanel open onClose={() => undefined} />
     <BlockNoteDocumentEditor ariaLabel="测试正文" document={validateBlockDocument({
-      format: "preshot-blocks", version: 3,
+      format: "preshot-blocks", version: 4,
       blocks: [{ id: "text", type: "paragraph", props: {}, content: [{ type: "text", text: "素材库", styles: {} }], children: [] }],
     })}
       onChange={changed} onEditorReady={ready}

@@ -71,12 +71,12 @@ const settings: SettingsRepository = {
 
 function planWithImage(): ProjectPlanV14 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "Editorial",
     document: {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: [{
         id: "block-1",
         type: "imageGroup",

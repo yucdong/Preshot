@@ -139,9 +139,9 @@ export function buildMaterialInstance(
 
 export function instancePlan(instance: MaterialInstance): ProjectPlanV15 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     title: "Material validation",
-    document: { format: "preshot-blocks", version: 3, blocks: [instance.block] },
+    document: { format: "preshot-blocks", version: 4, blocks: [instance.block] },
     imageGroups: instance.imageGroup ? [instance.imageGroup] : [],
     artifacts: instance.artifact ? [instance.artifact] : [],
   };

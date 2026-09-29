@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use serde_json::{Map, Value};
 
 use super::{error, Destination, PreparedImagePaste, Result};
@@ -40,34 +38,6 @@ fn identifier(value: &Value) -> Result<&str> {
     id.ok_or_else(|| error("delta", "Expected a portable image/block identifier"))
 }
 
-fn blocks_valid(blocks: &[Value], seen: &mut HashSet<String>) -> Result<()> {
-    for block in blocks {
-        let id = block
-            .get("id")
-            .and_then(Value::as_str)
-            .filter(|id| !id.is_empty())
-            .ok_or_else(|| error("plan", "Document block is missing its identity"))?;
-        if !seen.insert(id.to_owned())
-            || matches!(block["type"].as_str(), None | Some("column" | "columnList"))
-            || !block["props"].is_object()
-        {
-            return Err(error(
-                "plan",
-                "Document block identity or structure is unsupported",
-            ));
-        }
-        if let Some(children) = block.get("children") {
-            blocks_valid(
-                children
-                    .as_array()
-                    .ok_or_else(|| error("plan", "Invalid document children"))?,
-                seen,
-            )?;
-        }
-    }
-    Ok(())
-}
-
 pub(super) fn plan(value: &Value) -> Result<()> {
     object(
         value,
@@ -81,9 +51,9 @@ pub(super) fn plan(value: &Value) -> Result<()> {
         &[],
     )?;
     object(&value["document"], &["format", "version", "blocks"], &[])?;
-    if value["schemaVersion"] != 15
-        || value["document"]["format"] != "preshot-blocks"
-        || value["document"]["version"] != 3
+    let active = value["schemaVersion"] == 16 && value["document"]["version"] == 4;
+    let legacy = value["schemaVersion"] == 15 && value["document"]["version"] == 3;
+    if (!active && !legacy) || value["document"]["format"] != "preshot-blocks"
         || !value["title"].is_string()
         || serde_json::to_vec(value)
             .map_err(|_| error("plan", "Invalid plan"))?
@@ -92,12 +62,12 @@ pub(super) fn plan(value: &Value) -> Result<()> {
     {
         return Err(error(
             "plan",
-            "Image paste requires a bounded active v15 plan and v3 document",
+            "Image paste requires a bounded v16 or legacy v15 document",
         ));
     }
     array(value, "imageGroups")?;
     array(value, "artifacts")?;
-    blocks_valid(array(&value["document"], "blocks")?, &mut HashSet::new())
+    crate::column_document::validate(&value["document"], active).map_err(|e| error("plan", e))
 }
 
 fn contains_id(value: &Value, id: &str) -> bool {
@@ -323,12 +293,10 @@ pub(super) fn insertion(
     let mut restored = next.clone();
     match destination {
         Destination::Media => {
-            let (index, image) = addition(
-                array(&base["document"], "blocks")?,
-                array(&next["document"], "blocks")?,
-            )?;
-            native_image(base, image, prepared)?;
-            restored["document"]["blocks"]
+            let (path, index, added) = crate::column_document::insertion(&base["document"], &next["document"], 1)
+                .map_err(|e| error("delta", e))?;
+            native_image(base, &added[0], prepared)?;
+            restored.pointer_mut(&format!("/document{path}")).unwrap()
                 .as_array_mut()
                 .unwrap()
                 .remove(index);

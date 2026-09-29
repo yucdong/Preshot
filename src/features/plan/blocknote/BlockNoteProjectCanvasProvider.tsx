@@ -63,6 +63,7 @@ import { getProjectRetirementCoordinator } from "../projectRetirementCoordinator
 import { BlockNoteCanvasToolbar } from "./BlockNoteCanvasToolbar";
 import { BlockNoteDocumentEditor } from "./BlockNoteDocumentEditor";
 import { materialGalleryHistory } from "./materialGalleryHistory";
+import { imageFrameHistory } from "./imageFrameHistory";
 import { ImageDragPreviewProvider } from "./ImageDragPreviewContext";
 import {
   BLOCKNOTE_DOCUMENT_CONTENT_WIDTH,
@@ -1819,7 +1820,7 @@ export function BlockNoteProjectCanvasProvider({
               },
         ),
       };
-      applyPlan(replaceArtifactCollection(
+      const resizedPlan = replaceArtifactCollection(
         next,
         groupId,
         (collection) => ({
@@ -1836,7 +1837,12 @@ export function BlockNoteProjectCanvasProvider({
                 }
           ),
         }),
-      ));
+      );
+      const history = imageFrameHistory(groupId, imageId, current, resizedPlan,
+        () => mountedRef.current ? planRef.current : null, applyPlan);
+      if (!history) return;
+      materialEditorRef.current?.recordExternalHistory?.(history);
+      applyPlan(resizedPlan);
     },
     setImageFitMode(groupId, imageId, fitMode) {
       const current = planRef.current;

@@ -1,0 +1,29 @@
+{
+  "recordedVersion": "0.0.12",
+  "plannedDurationSeconds": 57,
+  "mp4DurationSeconds": 57.63,
+  "gifDurationSeconds": 57.75,
+  "gifFrames": 231,
+  "pdfPages": 2,
+  "projectCount": 1,
+  "preparedMaterials": 6,
+  "createdMaterials": 1,
+  "copiedProjectImages": 6,
+  "artifacts": [
+    {
+      "file": "docs/media/preshot-demo.mp4",
+      "bytes": 2419198,
+      "sha256": "34476f3a1369f56c1efdbd832d09c79f219701e8440d7f0e48f279877f025aa8"
+    },
+    {
+      "file": "docs/media/preshot-demo.gif",
+      "bytes": 3983778,
+      "sha256": "5971f2d2f822d2974ace396438876b8c3cef8aad1df1f4c1c520b9e8521b8e3f"
+    },
+    {
+      "file": "docs/media/preshot-demo.pdf",
+      "bytes": 745755,
+      "sha256": "5f17e8962805455084f8632912642162e5690975d67db5f8abb386448981d4c7"
+    }
+  ]
+}

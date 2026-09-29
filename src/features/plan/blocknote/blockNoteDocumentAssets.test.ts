@@ -11,7 +11,7 @@ function media(id: string, url: string, type = "image") {
 describe("BlockNote document asset serialization", () => {
   it("keeps independent media paths when two blocks resolve to identical bytes", () => {
     const portable = validateBlockDocument({
-      format: "preshot-blocks", version: 3,
+      format: "preshot-blocks", version: 4,
       blocks: [media("original-image", "media/original.png"), media("copied-image", "media/copied.png")],
     });
     const rendered = resolveBlockNoteDocumentAssets(portable, () => renderedUrl);

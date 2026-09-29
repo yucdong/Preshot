@@ -8,6 +8,7 @@ import {
   type LongImageWidth,
 } from "../../../../domain/plan/blocknote/longImageExportContract";
 import { artifactCollectionGroups } from "../artifactCollections";
+import { columnExportWidths } from "../../../../domain/plan/canvas/columnLayout";
 
 const defaultGeometry = createLongImageGeometry(900);
 
@@ -114,6 +115,7 @@ export function validateLongImageExportAssets(
     ),
   );
   visitBlocks(plan.document.blocks, (block) => {
+    if (block.type === "columnList") columnExportWidths(block.children.map(column => Number(column.props.width)), 1008);
     if (block.type === "imageGroup") {
       const groupId = block.props.groupId;
       const group = typeof groupId === "string"
@@ -183,18 +185,18 @@ export function annotateLongImageExportBlocks(
   const blockElements = new Map(
     Array.from(
       root.querySelectorAll<HTMLElement>(
-        '[data-node-type="blockOuter"][data-id]',
+        '[data-node-type="blockOuter"][data-id], .bn-block-column-list[data-id], .bn-block-column[data-id]',
       ),
     ).map((element) => [element.dataset.id ?? "", element]),
   );
-  const annotate = (block: PreshotBlock, topLevel: boolean) => {
+  const annotate = (block: PreshotBlock, topLevel: boolean, inColumn = false) => {
     const element = blockElements.get(block.id);
     if (element) {
       element.dataset.preshotExportBlockType = block.type;
       if (topLevel) {
         element.dataset.preshotExportTopLevelBlock = block.id;
       }
-      if (ATOMIC_BLOCK_TYPES.has(block.type)) {
+      if (ATOMIC_BLOCK_TYPES.has(block.type) || (inColumn && block.type !== "column")) {
         element.dataset.preshotExportAtomicBlock = block.id;
       }
       // Images already have a static preview. Only non-image media need a
@@ -219,7 +221,7 @@ export function annotateLongImageExportBlocks(
         }
       }
     }
-    block.children.forEach((child) => annotate(child, false));
+    block.children.forEach((child) => annotate(child, false, inColumn || block.type === "columnList"));
   };
   blocks.forEach((block) => annotate(block, true));
 }

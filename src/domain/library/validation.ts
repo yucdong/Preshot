@@ -115,10 +115,10 @@ export function validateReferenceImages(images: ReferenceImage[]): void {
   // Use that same image contract for groups, without invoking material parsing.
   for (let start = 0; start < images.length; start += IMAGE_LIMIT) {
     validateProjectPlanV15({
-      schemaVersion: 15,
+      schemaVersion: 16,
       title: "Material image validation",
       document: {
-        format: "preshot-blocks", version: 3,
+        format: "preshot-blocks", version: 4,
         blocks: [{
           id: "validation-block", type: "prop", props: { artifactId: "validation-artifact" },
           content: undefined, children: [],

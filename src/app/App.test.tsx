@@ -43,11 +43,11 @@ function planDeps(): PlanDependencies {
       loadPlan: vi.fn().mockResolvedValue({
         status: "missing",
         plan: {
-          schemaVersion: 15,
+          schemaVersion: 16,
           title: "Demo",
           document: {
             format: "preshot-blocks",
-            version: 3,
+            version: 4,
             blocks: [{
               id: "block",
               type: "paragraph",
@@ -294,7 +294,7 @@ describe("App", () => {
       vi.mocked(plans.service.loadPlan).mockResolvedValueOnce({
         status: "incompatible",
         foundSchemaVersion: 99,
-        requiredSchemaVersion: 15,
+        requiredSchemaVersion: 16,
       });
     }
     await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 夜景" }));

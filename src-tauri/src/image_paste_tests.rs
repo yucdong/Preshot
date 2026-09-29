@@ -122,6 +122,32 @@ fn operation() -> String {
 }
 
 #[test]
+fn column_media_paste_commits_retries_and_reopens_without_changing_widths() {
+    let mut fixture = Fixture::new("imageGroup");
+    fixture.base["schemaVersion"] = json!(16);
+    fixture.base["document"]["version"] = json!(4);
+    let anchor = fixture.base["document"]["blocks"][0].clone();
+    fixture.base["document"]["blocks"] = json!([{"id":"row","type":"columnList","props":{},"children":[
+        {"id":"left","type":"column","props":{"width":2},"children":[anchor]},
+        {"id":"right","type":"column","props":{"width":1},"children":[{"id":"text","type":"paragraph","props":{},"content":[],"children":[]}]}
+    ]}]);
+    fixture.persist(&fixture.base);
+    let op = operation();
+    let prepared = fixture.prepare(&op, Destination::Media);
+    let mut next = fixture.native_next(&prepared);
+    let image = next["document"]["blocks"].as_array_mut().unwrap().pop().unwrap();
+    next["document"]["blocks"][0]["children"][0]["children"].as_array_mut().unwrap().push(image);
+    let mut invalid = next.clone();
+    invalid["document"]["blocks"][0]["children"][1]["props"]["width"] = json!(7);
+    assert!(fixture.commit(&op, invalid).is_err());
+    fixture.commit(&op, next.clone()).unwrap();
+    fixture.commit(&op, next.clone()).unwrap();
+    assert_eq!(manifest(&fixture.project).unwrap().plan, Some(next));
+    crate::plan::save_project_plan_in(&fixture.project, fixture.base.clone()).unwrap();
+    assert!(fixture.project.join(prepared.file).exists());
+}
+
+#[test]
 fn fresh_native_files_commit_retry_and_undo_retention() {
     let fixture = Fixture::new("imageGroup");
     let op = operation();

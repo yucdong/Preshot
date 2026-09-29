@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.0.13
+
+- Add drag-created multi-column rows with adjustable widths and proportional
+  image-group scaling. Preserve columns through save/reopen, undo/redo and exports.
+- Bundle a complete offline Nanjing bridge portrait sample with every supported
+  block type, illustrated materials, two-/three-column layouts and local media.
+- Fix offline TXT/PDF attachment loading and Chinese text wrapping in PDF exports.
+- Apply the supplied street-photographer artwork to the app and Windows icons.
+- Replace the README walkthrough with a 58-second installed-app recording:
+  create a blank project, reuse prepared materials, export/open its PDF, and
+  create one pictured material. Include bilingual captions and a matching GIF.
+- Versions 0.0.6 through 0.0.12 were local development and acceptance builds.
+
 ## 0.0.5
 
 - Fix installed material previews by permitting local blob images in the image CSP.

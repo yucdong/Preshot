@@ -358,6 +358,7 @@ export function ImageGroupBlockView({
   const [framePreview, setFramePreview] = useState<FramePreview | null>(null);
   const [guide, setGuide] = useState<GuideState>({});
   const [availableWidth, setAvailableWidth] = useState(group?.width ?? 0);
+  const [inColumn, setInColumn] = useState(false);
   const setRootNode = useCallback((node: HTMLDivElement | null) => {
     rootRef.current = node;
     groupDroppable.setNodeRef(node);
@@ -370,6 +371,7 @@ export function ImageGroupBlockView({
       : root?.closest<HTMLElement>(".bn-block-content");
     if (!container || typeof ResizeObserver === "undefined") return;
     const update = () => {
+      setInColumn(Boolean(root?.closest(".bn-block-column")));
       const width = container.clientWidth;
       if (Number.isFinite(width) && width > 0) {
         setAvailableWidth(width);
@@ -403,16 +405,19 @@ export function ImageGroupBlockView({
     imageWithPreview(item.image, framePreview),
   );
   const constrainedWidth = Math.max(1, availableWidth || group.width);
+  const referenceWidth = inColumn ? group.width : undefined;
+  const editingWidth = referenceWidth ?? constrainedWidth;
   const displayImages = compactArtifactGalleryImages(
     rawDisplayImages,
     constrainedWidth,
-    autoCompact,
+    autoCompact && !inColumn,
   );
   const layout = layoutDocumentImageGroupForWidth(
     displayImages,
     constrainedWidth,
+    referenceWidth,
   );
-  const displayedHeight = framePreview?.groupHeight ??
+  const displayedHeight = (inColumn ? undefined : framePreview?.groupHeight) ??
     (
       autoCompact
         ? Math.max(MIN_COMPONENT_HEIGHT, layout.height)
@@ -425,9 +430,10 @@ export function ImageGroupBlockView({
     compactArtifactGalleryImages(
       group.images,
       constrainedWidth,
-      autoCompact,
+      autoCompact && !inColumn,
     ),
     constrainedWidth,
+    referenceWidth,
   );
   const sourcePlaceholderSlot =
     drag.state.status === "dragging" &&
@@ -449,6 +455,7 @@ export function ImageGroupBlockView({
   ) => {
     event.preventDefault();
     event.stopPropagation();
+    event.currentTarget.focus({ preventScroll: true });
     const startX = event.clientX;
     const startY = event.clientY;
     const startWidth = image.frameWidth;
@@ -461,11 +468,10 @@ export function ImageGroupBlockView({
       renderedRect && renderedSlot.width > 0
         ? renderedRect.width / renderedSlot.width
         : 1;
-    const pointerScale =
-      Number.isFinite(zoomScale) && zoomScale > 0 ? zoomScale : 1;
+    const pointerScale = (Number.isFinite(zoomScale) && zoomScale > 0 ? zoomScale : 1) * layout.scale;
     const naturalLayout = layoutDocumentImageGroupForWidth(
       group.images,
-      constrainedWidth,
+      editingWidth,
     );
     const startSlot = naturalLayout.slots.find((slot) => slot.id === image.id);
     const startRect = startSlot
@@ -515,7 +521,7 @@ export function ImageGroupBlockView({
       const dy = (moveEvent.clientY - startY) / pointerScale;
       const result = imageGroupFrameResizePreview({
         images: group.images,
-        groupWidth: constrainedWidth,
+        groupWidth: editingWidth,
         start: {
           imageId: image.id,
           frameWidth: startWidth,
@@ -533,7 +539,7 @@ export function ImageGroupBlockView({
           left: 0,
           right: Math.max(
             1,
-            constrainedWidth - DOCUMENT_IMAGE_GROUP_INSET * 2,
+            editingWidth - DOCUMENT_IMAGE_GROUP_INSET * 2,
           ),
           top: 0,
           bottom: naturalLayout.height,
@@ -551,6 +557,7 @@ export function ImageGroupBlockView({
       setFramePreview(null);
       setGuide({});
       controller.setImageFrame(groupId, image.id, next);
+      frameElement?.closest<HTMLElement>('[contenteditable="true"]')?.focus({ preventScroll: true });
     };
     const cancel = () => {
       document.removeEventListener("pointermove", move);
@@ -569,7 +576,7 @@ export function ImageGroupBlockView({
     direction: ResizeDirection,
     event: ReactKeyboardEvent<HTMLSpanElement>,
   ) => {
-    const amount = event.shiftKey ? 16 : 4;
+    const amount = (event.shiftKey ? 16 : 4) / layout.scale;
     const deltaX = event.key === "ArrowRight"
       ? amount
       : event.key === "ArrowLeft" ? -amount : 0;
@@ -589,10 +596,11 @@ export function ImageGroupBlockView({
     }
     event.preventDefault();
     event.stopPropagation();
-    const slot = committedLayout.slots.find((entry) => entry.id === image.id);
+    const naturalLayout = layoutDocumentImageGroupForWidth(group.images, editingWidth);
+    const slot = naturalLayout.slots.find((entry) => entry.id === image.id);
     const result = imageGroupFrameResizePreview({
       images: group.images,
-      groupWidth: constrainedWidth,
+      groupWidth: editingWidth,
       start: {
         imageId: image.id,
         frameWidth: image.frameWidth,
@@ -622,10 +630,10 @@ export function ImageGroupBlockView({
         left: 0,
         right: Math.max(
           1,
-          constrainedWidth - DOCUMENT_IMAGE_GROUP_INSET * 2,
+          editingWidth - DOCUMENT_IMAGE_GROUP_INSET * 2,
         ),
         top: 0,
-        bottom: committedLayout.height,
+        bottom: naturalLayout.height,
       },
     });
     controller.setImageFrame(groupId, image.id, result.preview);
@@ -817,8 +825,8 @@ export function ImageGroupBlockView({
               />
             );
           })}
-          {guide.vertical ? <div className="pointer-events-none absolute inset-y-1 z-[70] border-l border-dashed border-app-accent" style={{ left: guide.vertical.x }}><span className="absolute left-1 top-1 whitespace-nowrap rounded bg-app-accent px-1.5 py-1 text-[8px] font-bold text-white">{guide.vertical.label}</span></div> : null}
-          {guide.horizontal ? <div className="pointer-events-none absolute inset-x-1 z-[70] border-t border-dashed border-app-accent" style={{ top: guide.horizontal.y }}><span className="absolute left-1 top-1 whitespace-nowrap rounded bg-app-accent px-1.5 py-1 text-[8px] font-bold text-white">{guide.horizontal.label}</span></div> : null}
+          {guide.vertical ? <div className="pointer-events-none absolute inset-y-1 z-[70] border-l border-dashed border-app-accent" style={{ left: guide.vertical.x * layout.scale }}><span className="absolute left-1 top-1 whitespace-nowrap rounded bg-app-accent px-1.5 py-1 text-[8px] font-bold text-white">{guide.vertical.label}</span></div> : null}
+          {guide.horizontal ? <div className="pointer-events-none absolute inset-x-1 z-[70] border-t border-dashed border-app-accent" style={{ top: guide.horizontal.y * layout.scale }}><span className="absolute left-1 top-1 whitespace-nowrap rounded bg-app-accent px-1.5 py-1 text-[8px] font-bold text-white">{guide.horizontal.label}</span></div> : null}
           {guide.dimension ? <span className="pointer-events-none absolute bottom-2 left-1/2 z-[80] -translate-x-1/2 rounded border border-app-accent bg-white px-2 py-1 text-[8px] font-bold text-app-accent">{guide.dimension}</span> : null}
         </div>
       </ImageDragTargetGroup>

@@ -3,6 +3,7 @@ import {
   type ArtifactRecord, type ImageCollection, type PreshotBlock, type ProjectPlanV15,
 } from "../plan/canvas/blockDocument";
 import { defaultImageFrame } from "../plan/canvas/plan";
+import { insertDocumentBlocks } from "../plan/canvas/columnTree";
 import type { ReferenceImage } from "../plan/canvas/models";
 import type { ClipboardImagePresentation, ClipboardNativeImageProps, ImagePasteTarget } from "./imageClipboard";
 
@@ -126,9 +127,6 @@ export function insertPastedImage(
     return { plan: validateProjectPlanV15(next), imageId: id, blockId: null, image };
   }
   if (!/^media\/[^/\\]+\.(png|jpe?g|gif|webp)$/i.test(file.file)) throw new Error("正文图片文件路径无效。");
-  const index = target.afterBlockId === null ? -1 : plan.document.blocks.findIndex(block =>
-    block.id === target.afterBlockId || findClipboardBlock(block.children, target.afterBlockId!) !== undefined);
-  if (target.afterBlockId !== null && index < 0) throw new Error("正文插入位置已变化，请重新选择。");
   const block: PreshotBlock = {
     id, type: "image", content: undefined, children: [],
     props: {
@@ -137,7 +135,7 @@ export function insertPastedImage(
       showPreview: true, previewWidth: Math.min(768, nativeProps?.previewWidth ?? 512),
     },
   };
-  const blocks = [...plan.document.blocks.slice(0, index + 1), block, ...plan.document.blocks.slice(index + 1)];
+  const blocks = insertDocumentBlocks(plan.document.blocks, [block], target.afterBlockId);
   return {
     plan: validateProjectPlanV15({ ...plan, document: { ...plan.document, blocks } }),
     imageId: id, blockId: id, image: null,

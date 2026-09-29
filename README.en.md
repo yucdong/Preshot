@@ -12,6 +12,7 @@ reusable material library. The interface supports Chinese and English.
 
 - **Projects:** create, open, autosave, and switch between loaded projects without losing editor state.
 - **Planning canvas:** text, headings, checklists, tables, images, image groups, location/model/prop cards.
+- **Columns:** add columns, adjust relative widths, move and merge content; galleries scale proportionally with undo support.
 - **Images:** upload, paste, embed, capture screen regions, crop, resize, and reorder.
 - **Material library:** reusable images, image groups, locations, models, and props/wardrobe, with descriptions and searchable tags.
 - **Export:** PDF, editable DOCX, and JPEG/PNG long images with optional splitting.
@@ -34,6 +35,13 @@ Projects default to `%USERPROFILE%\.preshot\projects`; the global library lives
 in `%USERPROFILE%\.preshot\library`. Uninstalling preserves these directories.
 Back up whole directories, including their image files.
 
+First launch in an empty workspace creates a complete **Nanjing bridge demo**:
+all supported blocks, two- and three-column layouts, pictures, fictional Model A,
+an umbrella, a bubble machine and offline attachments. Existing projects are
+preserved. After upgrading, copy `samples\nanjing-bridge` from the installation
+folder to your project directory and open the copy.
+[Editable sample and instructions](samples/README.md).
+
 ## Quick start
 
 1. Choose **New project**, enter a parent folder and name. Parent `D:\Shoots`
@@ -55,9 +63,12 @@ Back up whole directories, including their image files.
 
 ## Walkthrough
 
-A Nanjing Yangtze River Bridge portrait session: create a project, plan fictional
-Model A with a transparent umbrella and bubble machine, add sample pictures to
-their materials, reuse them, then export a PDF and open the finished pages.
+A Nanjing Yangtze River Bridge portrait session: start with a blank project,
+write the plan, reuse prepared location, model and prop materials, arrange
+columns, export and open the PDF, then create one pictured material with
+searchable notes and tags.
+Under one minute, recorded from the MSI-installed app with bilingual captions.
+File selection is accelerated. The complete offline sample ships with the installer.
 
 ![Preshot walkthrough](docs/media/preshot-demo.gif)
 

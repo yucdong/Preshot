@@ -17,6 +17,7 @@ import {
   type PreshotStyleSchema,
 } from "../../features/plan/blocknote/preshotBlockNoteSchema";
 import type { ArtifactRecord } from "../../domain/plan/canvas/blockDocument";
+import { columnExportWidths } from "../../domain/plan/canvas/columnLayout";
 import {
   createPreshotDocxMappings,
   type PreshotImageGroupDocxMapping,
@@ -110,6 +111,7 @@ class PreshotOfflineDocxExporter extends DOCXExporter<
 
       children = children.map((child) => {
         if (
+          block.type !== "column" && block.type !== "columnList" &&
           child instanceof Paragraph &&
           (child as unknown as {
             readonly properties: {
@@ -129,9 +131,9 @@ class PreshotOfflineDocxExporter extends DOCXExporter<
         children,
       );
       if (Array.isArray(mapped)) {
-        result.push(...mapped, ...children);
+        result.push(...mapped, ...(block.type === "column" || block.type === "columnList" ? [] : children));
       } else {
-        result.push(mapped, ...children);
+        result.push(mapped, ...(block.type === "column" || block.type === "columnList" ? [] : children));
       }
     }
 
@@ -212,8 +214,11 @@ function nativeImageContainerWidths(
     parentWidthTwips: number,
   ) => {
     for (const block of entries) {
-      if (block.type === "image") widths[block.id] = parentWidthTwips;
-      visit(block.children, parentWidthTwips);
+      widths[block.id] = parentWidthTwips;
+      if (block.type === "columnList") {
+        const values = columnExportWidths(block.children.map(column => column.type === "column" ? column.props.width : 1), parentWidthTwips / rootWidthTwips * 1008);
+        block.children.forEach((column, i) => visit([column], values[i] / 1008 * rootWidthTwips));
+      } else visit(block.children, parentWidthTwips);
     }
   };
   visit(blocks, rootWidthTwips);

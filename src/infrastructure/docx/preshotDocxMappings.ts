@@ -37,6 +37,7 @@ import type {
 import { layoutDocumentImageGroupForWidth } from "../../domain/plan/canvas/documentImageGroupLayout";
 import { imageCropForView } from "../../domain/plan/canvas/imageView";
 import { compactArtifactGalleryImages } from "../../features/plan/blocknote/artifactGallerySizing";
+import { COLUMN_GAP } from "../../domain/plan/canvas/columnLayout";
 
 type DocxBlockValue = Paragraph[] | Paragraph | Promise<
   Paragraph[] | Paragraph | Table
@@ -148,6 +149,8 @@ function artifactMetadata(artifact: ArtifactRecord): string[] {
 async function artifactDocxBlocks(
   artifact: ArtifactRecord,
   resolveFile: (source: string) => Promise<Blob>,
+  columnWidthTwips?: number,
+  rootWidthTwips = 10946,
 ): Promise<Paragraph[] | Table> {
   const heading = new Paragraph({
     text: artifactTitle(artifact),
@@ -177,8 +180,9 @@ async function artifactDocxBlocks(
       collection,
       resolveFile,
       compact,
+      columnWidthTwips === undefined ? undefined : columnWidthTwips / rootWidthTwips * 1008,
     );
-    const width = Math.min(520, prepared.width);
+    const width = Math.min(columnWidthTwips === undefined ? 520 : columnWidthTwips / 15, prepared.width);
     const height = width / prepared.width * prepared.height;
     galleries.push(new Paragraph({
       children: [new ImageRun({
@@ -188,11 +192,11 @@ async function artifactDocxBlocks(
       })],
     }));
   }
-  const horizontal =
+  const horizontal = columnWidthTwips === undefined && (
     artifact.kind === "shootingLocation" ||
     artifact.kind === "modelCard" ||
     artifact.kind === "clothing" ||
-    artifact.kind === "prop";
+    artifact.kind === "prop");
   if (!horizontal) return [heading, ...metadata, ...galleries];
 
   const left = [heading, ...metadata];
@@ -231,16 +235,18 @@ async function prepareArtifactCollectionImage(
   collection: ImageCollection,
   resolveFile: (source: string) => Promise<Blob>,
   compact: boolean,
+  columnWidth?: number,
 ) {
-  const logicalWidth = 1008;
+  const logicalWidth = columnWidth ?? 1008;
   const displayImages = compactArtifactGalleryImages(
     collection.images,
     logicalWidth,
-    compact,
+    compact && columnWidth === undefined,
   );
   const layout = layoutDocumentImageGroupForWidth(
     displayImages,
     logicalWidth,
+    columnWidth === undefined ? undefined : 1008,
   );
   const scale = Math.min(1.5, 8192 / Math.max(logicalWidth, layout.height));
   const canvas = document.createElement("canvas");
@@ -426,13 +432,27 @@ export function createPreshotDocxMappings(
   const defaultBlockMapping = {
     ...docxDefaultSchemaMappings.blockMapping,
   };
-  Reflect.deleteProperty(defaultBlockMapping, "column");
-  Reflect.deleteProperty(defaultBlockMapping, "columnList");
   const blockMapping = mapping.createBlockMapping<
     DocxBlockValue,
     ParagraphChild
   >({
     ...defaultBlockMapping,
+    column: (block, _exporter, _level, _index, children) => new TableCell({
+      borders: BORDERLESS,
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      width: { size: Math.round(options.nativeImageContainerWidthTwipsByBlockId?.[block.id] ?? options.contentWidthTwips), type: WidthType.DXA },
+      children: [...(children ?? []).flat() as Array<Paragraph | Table>, new Paragraph({ spacing: { after: 0, before: 0 }, children: [] })],
+    }) as unknown as Table,
+    columnList: (block, _exporter, _level, _index, children) => {
+      const gap = Math.round(COLUMN_GAP / 1008 * options.contentWidthTwips);
+      const cells = (children as unknown as TableCell[]).flatMap((cell, index) => index === 0 ? [cell] : [
+        new TableCell({ borders: BORDERLESS, margins: { top: 0, bottom: 0, left: 0, right: 0 }, width: { size: gap, type: WidthType.DXA }, children: [new Paragraph({ spacing: { after: 0, before: 0 }, children: [] })] }), cell,
+      ]);
+      if (cells.length > 63) throw new Error("This column row exceeds DOCX table capacity. Move some columns into a separate row before exporting.");
+      return new Table({ borders: BORDERLESS, layout: TableLayoutType.FIXED,
+        width: { size: Math.round(options.nativeImageContainerWidthTwipsByBlockId?.[block.id] ?? options.contentWidthTwips), type: WidthType.DXA },
+        columnWidths: cells.map(cell => Number(cell.options.width?.size)), rows: [new TableRow({ children: cells })] });
+    },
     audio: (block) => mediaFallback("audio", block.props),
     video: (block) => mediaFallback("video", block.props),
     file: (block) => mediaFallback("file", block.props),
@@ -489,7 +509,8 @@ export function createPreshotDocxMappings(
       if (!artifact || artifact.kind !== "shootingLocation") {
         throw new Error(`DOCX artifact "${block.props.artifactId}" is missing`);
       }
-      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source));
+      const width = options.nativeImageContainerWidthTwipsByBlockId?.[block.id];
+      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source), width !== undefined && width < options.contentWidthTwips ? width : undefined, options.contentWidthTwips);
     },
     modelCard: (block, exporter) => {
       const artifact = options.artifacts?.find(
@@ -498,7 +519,8 @@ export function createPreshotDocxMappings(
       if (!artifact || artifact.kind !== "modelCard") {
         throw new Error(`DOCX artifact "${block.props.artifactId}" is missing`);
       }
-      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source));
+      const width = options.nativeImageContainerWidthTwipsByBlockId?.[block.id];
+      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source), width !== undefined && width < options.contentWidthTwips ? width : undefined, options.contentWidthTwips);
     },
     clothing: (block, exporter) => {
       const artifact = options.artifacts?.find(
@@ -507,7 +529,8 @@ export function createPreshotDocxMappings(
       if (!artifact || artifact.kind !== "clothing") {
         throw new Error(`DOCX artifact "${block.props.artifactId}" is missing`);
       }
-      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source));
+      const width = options.nativeImageContainerWidthTwipsByBlockId?.[block.id];
+      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source), width !== undefined && width < options.contentWidthTwips ? width : undefined, options.contentWidthTwips);
     },
     prop: (block, exporter) => {
       const artifact = options.artifacts?.find(
@@ -516,7 +539,8 @@ export function createPreshotDocxMappings(
       if (!artifact || artifact.kind !== "prop") {
         throw new Error(`DOCX artifact "${block.props.artifactId}" is missing`);
       }
-      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source));
+      const width = options.nativeImageContainerWidthTwipsByBlockId?.[block.id];
+      return artifactDocxBlocks(artifact, (source) => exporter.resolveFile(source), width !== undefined && width < options.contentWidthTwips ? width : undefined, options.contentWidthTwips);
     },
   });
 

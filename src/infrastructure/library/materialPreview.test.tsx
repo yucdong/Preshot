@@ -300,7 +300,7 @@ describe("createMaterialPreview", () => {
     await createMaterialPreview(repo, item);
     const options = boundaries.mount.mock.calls[0][0] as MountLongImageExportSurfaceOptions;
     expect(options.includeImageGroupMetadata).toBe(true);
-    expect(options.plan.schemaVersion).toBe(15);
+    expect(options.plan.schemaVersion).toBe(16);
     expect(options.plan.document.blocks).toHaveLength(1);
     expect(options.plan.artifacts[0]).toMatchObject({
       kind: "shootingLocation", description: item.payload.component.kind === "shootingLocation"

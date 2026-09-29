@@ -5,6 +5,7 @@ import {
   type PreshotBlock,
   mediaFilesInBlockDocument,
 } from "../plan/canvas/blockDocument";
+import { findDocumentBlock, insertDocumentBlocks } from "../plan/canvas/columnTree";
 import { DEFAULT_REFERENCE_HEIGHT, type ReferenceImage } from "../plan/canvas/models";
 import {
   MATERIAL_KINDS,
@@ -61,7 +62,7 @@ function planImages(plan: ProjectPlanV15): ReferenceImage[] {
 
 export function createMaterialSnapshot(plan: ProjectPlanV15, blockId: string): MaterialSnapshot {
   const source = validateLibraryPlan(plan);
-  const block = source.document.blocks.find(({ id }) => id === blockId);
+  const block = findDocumentBlock(source.document.blocks, blockId);
   if (!block || block.type === "image" || !(MATERIAL_KINDS as readonly string[]).includes(block.type)) {
     throw new Error("Select one supported top-level material component");
   }
@@ -209,15 +210,6 @@ export function instantiateMaterial(
   return instance;
 }
 
-function topLevelAnchorIndex(blocks: PreshotBlock[], anchor: string | null): number {
-  if (anchor === null) return -1;
-  const contains = (block: PreshotBlock): boolean =>
-    block.id === anchor || block.children.some(contains);
-  const index = blocks.findIndex(contains);
-  if (index < 0) throw new Error("Material insertion anchor no longer exists");
-  return index;
-}
-
 function cloneData<T>(value: T): T {
   if (Array.isArray(value)) return value.map((entry) => cloneData(entry)) as T;
   if (value !== null && typeof value === "object") {
@@ -233,7 +225,6 @@ export function insertMaterialIntoPlan(
   afterBlockId: string | null,
 ): ProjectPlanV15 {
   const target = validateLibraryPlan(plan);
-  const index = topLevelAnchorIndex(target.document.blocks, afterBlockId);
   exactRecord(instance, ["block", "imageGroup", "artifact"], "Material instance");
   exactRecord(instance.block, ["id", "type", "props", "content", "children"], "Material block");
   if (
@@ -281,8 +272,7 @@ export function insertMaterialIntoPlan(
     }
   }
   const detached = cloneData(instance);
-  const blocks = [...target.document.blocks];
-  blocks.splice(index + 1, 0, detached.block);
+  const blocks = insertDocumentBlocks(target.document.blocks, [detached.block], afterBlockId);
   return validateLibraryPlan({
     ...target,
     document: { ...target.document, blocks },

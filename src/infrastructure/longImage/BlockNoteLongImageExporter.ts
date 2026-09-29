@@ -213,7 +213,7 @@ function measuredBlocksFrom(
         left.rowIndex - right.rowIndex || left.bottom - right.bottom
       );
     let previousRowBottom = top;
-    const imageGroupRows = rows.map((row, rowIndex) => {
+    let imageGroupRows = rows.map((row, rowIndex) => {
       if (
         row.rowIndex !== rowIndex ||
         !row.groupId ||
@@ -239,6 +239,28 @@ function measuredBlocksFrom(
       previousRowBottom = rowBottom;
       return Object.freeze({ rowIndex, bottom: rowBottom });
     });
+
+    if (boundary.blockType === "columnList") {
+      // A cut is valid only when it crosses no text/component/image row in ANY column.
+      const intervals = measurements.atomicBlocks
+        .filter(entry => entry.blockId !== boundary.blockId && entry.top >= boundary.top - .01 && entry.bottom <= boundary.bottom + .01)
+        .flatMap(entry => {
+          const galleryRows = measurements.imageGroupRows.filter(row => row.blockId === entry.blockId);
+          return entry.blockType === "imageGroup" && galleryRows.length ? [
+            { top: entry.top, bottom: galleryRows[0].top }, ...galleryRows,
+          ] : [entry];
+        })
+        .filter(entry => entry.bottom > entry.top)
+        .sort((a, b) => a.top - b.top || a.bottom - b.bottom);
+      const unions: Array<{ top: number; bottom: number }> = [];
+      for (const interval of intervals) {
+        const last = unions.at(-1);
+        if (last && interval.top < last.bottom + 1) last.bottom = Math.max(last.bottom, interval.bottom);
+        else unions.push({ top: interval.top, bottom: interval.bottom });
+      }
+      const cuts = [...new Set(unions.map(interval => Math.ceil(interval.bottom)).filter(cut => cut > top && cut < bottom))];
+      imageGroupRows = [...cuts, bottom].map((cut, rowIndex) => Object.freeze({ rowIndex, bottom: cut }));
+    }
 
     const measured = Object.freeze({
       blockId: boundary.blockId,

@@ -33,6 +33,8 @@ export type ConvertibleBlockType =
 export type BlockDropPlacement =
   | "before"
   | "after"
+  | "left"
+  | "right"
   | "inside";
 
 export function blockContext(
@@ -54,13 +56,25 @@ export function blockContext(
 
 function cloneForInsertion(
   block: PreshotEditorBlock,
-): PreshotEditorPartialBlock {
+  cloner: BlockGroupCloner,
+): PreshotEditorPartialBlock | null {
   const clone = structuredClone(block) as PreshotEditorBlock;
+  if (clone.type === "imageGroup") {
+    const groupId = cloner.cloneGroup(clone.props.groupId);
+    if (!groupId) return null;
+    (clone.props as { groupId: string }).groupId = groupId;
+  } else if (["shootingLocation", "modelCard", "clothing", "prop"].includes(clone.type)) {
+    const artifactId = cloner.cloneArtifact?.((clone.props as { artifactId: string }).artifactId);
+    if (!artifactId) return null;
+    (clone.props as { artifactId: string }).artifactId = artifactId;
+  }
+  const children = clone.children.map(child => cloneForInsertion(child, cloner));
+  if (children.some(child => child === null)) return null;
   const partial: Record<string, unknown> = {
     type: clone.type,
     props: clone.props,
     content: clone.content,
-    children: clone.children.map(cloneForInsertion),
+    children,
   };
   if (clone.type === "table" && clone.content.type === "tableContent") {
     partial.content = {
@@ -103,8 +117,10 @@ export function duplicateBlockTree(
       "after",
     ) as PreshotEditorBlock[];
   }
+  const copy = cloneForInsertion(block, groupCloner);
+  if (!copy) return [];
   return editor.insertBlocks(
-    [cloneForInsertion(block)],
+    [copy],
     block,
     "after",
   ) as PreshotEditorBlock[];
@@ -127,6 +143,7 @@ export function canNestSpecificBlock(
   block: PreshotEditorBlock,
 ): boolean {
   if (
+    block.type === "columnList" || block.type === "column" ||
     block.type === "imageGroup" ||
     block.type === "shootingLocation" ||
     block.type === "modelCard" ||
@@ -135,7 +152,7 @@ export function canNestSpecificBlock(
   ) return false;
   const context = blockContext(editor.document, block.id);
   if (!context || context.index === 0) return false;
-  return context.siblings[context.index - 1].type !== "imageGroup";
+  return !["imageGroup", "shootingLocation", "modelCard", "clothing", "prop", "column", "columnList"].includes(context.siblings[context.index - 1].type);
 }
 
 export function nestSpecificBlock(
@@ -153,7 +170,9 @@ export function canUnnestSpecificBlock(
   editor: PreshotBlockNoteEditor,
   block: PreshotEditorBlock,
 ): boolean {
-  return block.type !== "imageGroup" &&
+  const parent = blockContext(editor.document, block.id)?.parent;
+  return parent !== undefined && parent.type !== "column" && parent.type !== "columnList" &&
+    block.type !== "column" && block.type !== "columnList" && block.type !== "imageGroup" &&
     block.type !== "shootingLocation" &&
     block.type !== "modelCard" &&
     block.type !== "clothing" &&
@@ -212,7 +231,7 @@ function topLevelAncestor(
     const parent = editor.getParentBlock(current) as
       | PreshotEditorBlock
       | undefined;
-    if (!parent) return current;
+    if (!parent || parent.type === "column") return current;
     current = parent;
   }
 }
@@ -223,6 +242,11 @@ export function moveBlockRelative(
   requestedTarget: PreshotEditorBlock,
   placement: BlockDropPlacement,
 ): boolean {
+  if (source.type === "column") return false;
+  if (source.type === "columnList" &&
+      (placement !== "before" && placement !== "after" || editor.getParentBlock(requestedTarget))) return false;
+  if (requestedTarget.type === "columnList" && placement === "inside") return false;
+  if (requestedTarget.type === "columnList" && (placement === "left" || placement === "right")) return false;
   let target = requestedTarget;
   if (
     source.type === "imageGroup" ||
@@ -231,8 +255,8 @@ export function moveBlockRelative(
     source.type === "clothing" ||
     source.type === "prop"
   ) {
-    if (placement === "inside") return false;
-    target = topLevelAncestor(editor, requestedTarget);
+    if (placement === "inside" && target.type !== "column") return false;
+    if (requestedTarget.type !== "column") target = topLevelAncestor(editor, requestedTarget);
   }
   if (
     source.id === target.id ||
@@ -250,6 +274,51 @@ export function moveBlockRelative(
     )
   ) {
     return false;
+  }
+  const inColumn = (block: PreshotEditorBlock): boolean => {
+    let parent = editor.getParentBlock(block);
+    while (parent) { if (parent.type === "column") return true; parent = editor.getParentBlock(parent); }
+    return block.type === "column";
+  };
+  if (placement === "left" || placement === "right" || inColumn(source) || inColumn(target)) {
+    const blocks = structuredClone(editor.document);
+    const remove = (siblings: PreshotEditorBlock[]): void => {
+      const index = siblings.findIndex(block => block.id === source.id);
+      if (index >= 0) siblings.splice(index, 1);
+      else siblings.forEach(block => remove(block.children));
+    };
+    remove(blocks);
+    let destination = blockContext(blocks, target.id);
+    if (!destination) return false;
+    if (placement === "left" || placement === "right") {
+      while (destination.parent && destination.block.type !== "column") destination = blockContext(blocks, destination.parent.id)!;
+      const column = (children: PreshotEditorBlock[]): PreshotEditorBlock => ({ id: crypto.randomUUID(), type: "column", props: { width: 1 }, content: undefined, children });
+      const siblings = destination.siblings as PreshotEditorBlock[];
+      if (destination.block.type === "column") siblings.splice(destination.index + (placement === "right" ? 1 : 0), 0, column([source]));
+      else siblings.splice(destination.index, 1, {
+        id: crypto.randomUUID(), type: "columnList", props: {}, content: undefined,
+        children: placement === "left" ? [column([source]), column([destination.block])] : [column([destination.block]), column([source])],
+      });
+    } else if (target.type === "column") {
+      destination.block.children.push(source);
+    } else if (placement === "inside") {
+      destination.block.children.push(source);
+    } else {
+      (destination.siblings as PreshotEditorBlock[]).splice(destination.index + (placement === "after" ? 1 : 0), 0, source);
+    }
+    // A completed move owns the vacated column. Remove it instead of leaving
+    // a placeholder that would require a separate layout-management button.
+    for (let index = blocks.length - 1; index >= 0; index--) {
+      const row = blocks[index];
+      if (row.type !== "columnList") continue;
+      row.children = row.children.filter(column => column.children.length > 0);
+      if (row.children.length === 1) blocks.splice(index, 1, ...row.children[0].children);
+      else if (row.children.length === 0) blocks.splice(index, 1);
+    }
+    editor.prosemirrorView.dispatch(closeHistory(editor.prosemirrorView.state.tr));
+    editor.transact(() => editor.replaceBlocks(editor.document, blocks));
+    editor.prosemirrorView.dispatch(closeHistory(editor.prosemirrorView.state.tr));
+    return true;
   }
   editor.transact(() => {
     editor.removeBlocks([source]);
@@ -273,6 +342,7 @@ export function convertBlock(
   block: PreshotEditorBlock,
   type: ConvertibleBlockType,
 ): PreshotEditorBlock {
+  if (block.type === "column" || block.type === "columnList") return block;
   const update: PreshotEditorPartialBlock = type === "heading"
     ? { type, props: { level: 2 } }
     : { type };

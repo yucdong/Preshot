@@ -8,6 +8,7 @@ import {
   DOCUMENT_IMAGE_GROUP_INSET,
   layoutDocumentImageGroupForWidth,
 } from "../canvas/documentImageGroupLayout";
+import { columnExportWidths } from "../canvas/columnLayout";
 import type {
   ReferenceComponent,
   ReferenceImage,
@@ -97,6 +98,7 @@ export interface PreshotPdfBlockContext {
   readonly logicalParentWidth: EditorLogicalUnits;
   readonly pdfParentWidth: PdfPoints;
   readonly logicalToPdfScale: PdfScale;
+  readonly inColumn?: boolean;
 }
 
 export interface PreshotPdfNormalizedCrop {
@@ -365,6 +367,7 @@ function buildImageGroupPagination(input: {
   displayedHeight: number;
   layoutHeight: number;
   finalScale: number;
+  layoutScale: number;
   flowTopPadding: PdfPoints;
   pageHeight: PdfPoints;
   rows: readonly {
@@ -389,7 +392,7 @@ function buildImageGroupPagination(input: {
     emergencyScale: PdfScale;
   }
   const inset = points(DOCUMENT_IMAGE_GROUP_INSET * input.finalScale);
-  const gap = points(DOCUMENT_IMAGE_GROUP_GAP * input.finalScale);
+  const gap = points(DOCUMENT_IMAGE_GROUP_GAP * input.finalScale * input.layoutScale);
   const naturalSurfaceHeight = points(
     input.displayedHeight * input.finalScale,
   );
@@ -786,9 +789,11 @@ export function buildPreshotPdfLayoutManifest(
     parent: ParentDimensions,
     parentBlockId: string | null,
     path: readonly number[],
+    inColumn = false,
+    indexOffset = 0,
   ): void => {
     documentBlocks.forEach((block, index) => {
-      const blockPath = [...path, index];
+      const blockPath = [...path, index + indexOffset];
       const blockOrder = order;
       order += 1;
       blocks.push({
@@ -800,6 +805,7 @@ export function buildPreshotPdfLayoutManifest(
         logicalParentWidth: parent.logicalWidth,
         pdfParentWidth: parent.pdfWidth,
         logicalToPdfScale: parent.logicalToPdfScale,
+        ...(inColumn ? { inColumn: true } : {}),
       });
 
       if (block.type === "imageGroup") {
@@ -834,10 +840,10 @@ export function buildPreshotPdfLayoutManifest(
         );
         const layout = empty
           ? { scale: 1, height: 0, rows: [], slots: [] }
-          : layoutDocumentImageGroupForWidth(group.images, displayedWidth);
+          : layoutDocumentImageGroupForWidth(group.images, displayedWidth, inColumn ? group.width : undefined);
         const displayedHeight = empty
           ? group.height
-          : Math.max(group.height, layout.height);
+          : inColumn ? layout.height : Math.max(group.height, layout.height);
         const contentWidth = layout.slots.reduce(
           (maximum, slot) =>
             Math.max(
@@ -908,6 +914,7 @@ export function buildPreshotPdfLayoutManifest(
               displayedHeight,
               layoutHeight: layout.height,
               finalScale,
+              layoutScale: layout.scale,
               flowTopPadding,
               pageHeight: visualContract.page.contentHeight,
               rows: layout.rows,
@@ -953,7 +960,7 @@ export function buildPreshotPdfLayoutManifest(
             flowHeight: displayedFlowHeight,
             horizontalFitScale,
             inset: points(DOCUMENT_IMAGE_GROUP_INSET * finalScale),
-            gap: points(DOCUMENT_IMAGE_GROUP_GAP * finalScale),
+            gap: points(DOCUMENT_IMAGE_GROUP_GAP * finalScale * layout.scale),
           },
           docx: {
             exportOnlyGroupPhysicalScale:
@@ -1125,8 +1132,13 @@ export function buildPreshotPdfLayoutManifest(
         }
       }
 
-      if (block.children.length > 0) {
-        visit(block.children, parent, block.id, blockPath);
+      if (block.type === "columnList") {
+        const widths = columnExportWidths(block.children.map(column => Number(column.props.width)), parent.logicalWidth);
+        block.children.forEach((column, i) => visit([column], {
+          ...parent, logicalWidth: logicalUnits(widths[i]), pdfWidth: points(widths[i] * parent.logicalToPdfScale),
+        }, block.id, blockPath, true, i));
+      } else if (block.children.length > 0) {
+        visit(block.children, parent, block.id, blockPath, inColumn);
       }
     });
   };

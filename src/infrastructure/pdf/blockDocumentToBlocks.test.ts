@@ -6,7 +6,7 @@ describe("blockDocumentToPdfBlocks", () => {
   it("maps native BlockNote JSON and image groups without HTML", () => {
     const document: PreshotBlockDocument = {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: [
         {
           id: "heading",
@@ -38,7 +38,7 @@ describe("blockDocumentToPdfBlocks", () => {
   it("maps native media blocks to PDF images and fallback labels", () => {
     const document: PreshotBlockDocument = {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: [
         {
           id: "image",

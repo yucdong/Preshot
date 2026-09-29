@@ -11,7 +11,10 @@ The default parent is `%USERPROFILE%\.preshot\projects`. The dialog previews
 the result; browsing for another parent is optional.
 
 Use **Open project** to register an existing project directory. First startup
-provides an editable starter project. A project contains `.preshotproj`, copied
+on an empty profile copies the complete offline Nanjing bridge
+[demo project](../../samples/README.md), including every supported block type,
+columns, photographs and media attachments. Existing projects take precedence;
+an upgrade never replaces edited content. A project contains `.preshotproj`, copied
 reference images in `references/`, and document media in `media/`. Transfer or
 back up the whole directory, not just the manifest.
 

@@ -20,12 +20,12 @@ const TINY_PNG =
 
 function paragraphPlan(text = "中文拍摄计划"): ProjectPlanV14 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "PDF integration",
     document: {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: [{
         id: "paragraph",
         type: "paragraph",
@@ -40,12 +40,12 @@ function paragraphPlan(text = "中文拍摄计划"): ProjectPlanV14 {
 
 function imageGroupPlan(source: string): ProjectPlanV14 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "PDF image group",
     document: {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: [{
         id: "group-block",
         type: "imageGroup",

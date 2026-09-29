@@ -7,7 +7,7 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 ## Runtime snapshot
 
 - Active editor path: `src/features/plan/blocknote/BlockNoteProjectCanvasProvider.tsx`
-- Active plan schema: v15 with BlockNote document v3 (`format: "preshot-blocks"`)
+- Active plan schema: v16 with BlockNote document v4 (`format: "preshot-blocks"`)
 - Active UI languages: Simplified Chinese (default) and English (`src/shared/i18n/locales`)
 - Project manifest: `.preshotproj` with manifest `schemaVersion: 1`
 - Global material library: `%USERPROFILE%\.preshot\library\library.db`,
@@ -47,7 +47,7 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
 
 ## Data and persistence rules
 
-- The active editable plan is `schemaVersion: 15` with `document.version: 3`.
+- The active editable plan is `schemaVersion: 16` with `document.version: 4`.
 - Artifact blocks store only `artifactId`; normalized location, model,
   clothing, and prop records live in `plan.artifacts`.
 - Image frames use eight transparent continuous resize zones. Corners preserve
@@ -55,11 +55,13 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   edges change height only. `fitMode` defaults to crop/cover; stretch is
   explicit and exporters must preserve it.
 - Artifact cards and image-group containers are full-width, content-height
-  blocks without outer resize handles. Every document block remains in the
-  single vertical flow; no left/right drops or grouped rows exist. Keep card
+  blocks without outer resize handles. Root column rows contain independent vertical flows. Gallery geometry scales uniformly from a stable reference width in columns. Keep card
   contents 40/60 above 430px and stacked below it.
-- The active BlockNote document is single-column and stores exactly one block
-  per visible row. `columnList` and `column` documents are unsupported.
+- Root `columnList` rows hold two or more weighted `column` children without a preset count cap. Nested column rows are unsupported. Preserve finite positive weights and the document resource limits.
+- Columns are created by dropping blocks at another block's left/right edge,
+  without a column toolbar or column slash commands. Divider dragging changes
+  width. Moving the last block out removes its empty column; one remaining column
+  unwraps into normal document flow in the same undoable transaction.
 - `imageGroup` blocks store only `groupId`; the actual group metadata lives in `plan.imageGroups`.
 - Every image-group ID must appear exactly once in the BlockNote document and exactly once in `plan.imageGroups`.
 - Native BlockNote media persists as relative `media/<file>` paths; runtime data URLs must not be written back to the manifest.
@@ -95,7 +97,7 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   Keep project-local recovery receipts and copied files needed by undo/redo.
   Keep a single shell/launcher Material library button, with insertion inside
   the browser. Capture the active document's last user-focused block before
-  modal focus changes; insert after its top-level row, or prepend if no cursor
+  modal focus changes; insert after its row within the current column (or root), or prepend if no cursor
   exists. Do not treat the editor's default selection as a user cursor.
   Native image removal reports retained history files explicitly; retention
   must not prevent the provider from publishing a successful document removal.
@@ -186,10 +188,15 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   options must preserve one-image behavior or fail actionably at safety limits.
 - Long-image changes must not replace or alter the independent PDF and DOCX
   production pipelines.
-- New editor work should go through the BlockNote v15 path unless the task explicitly targets compatibility code.
+- New editor work should go through the BlockNote v16 path unless the task explicitly targets compatibility code.
 - The MSI owns only application files, shortcuts, and HKCU registration under
   `%LOCALAPPDATA%\Programs\Preshot`; application startup exclusively owns
   `%USERPROFILE%\.preshot`, project bootstrap, and the starter project.
+- The bundled Nanjing demo is a complete offline template under `samples/nanjing-bridge`.
+  Startup copies its assets before publishing a fresh manifest on an empty profile.
+  Preserve existing projects; bootstrap rollback must compare every owned sample
+  file and reject changed, extra or linked assets. The installed template remains
+  under the application directory for manual copying after upgrades.
 - Keep the MSI per-user and x64-only. Do not add `ALLUSERS`, HKLM writes,
   Program Files installation, or installer-authored project/profile data.
 - Keep the fixed MSI UpgradeCode stable, increment `x.y.z` before publishing,
@@ -267,8 +274,8 @@ pnpm migrate:project
 ## UI and platform notes
 
 - BlockNote 0.53 plus Mantine is the active rich-text/block editor stack.
-- The PDF export and DOCX export dependencies use
-  `@blocknote/xl-pdf-exporter` and `@blocknote/xl-docx-exporter` under their
+- The editor, PDF export and DOCX export dependencies use
+  `@blocknote/xl-multi-column`, `@blocknote/xl-pdf-exporter` and `@blocknote/xl-docx-exporter` under their
   GPL-3.0 options; distributed builds
   that include any of them follow the existing GPL-3.0 obligations.
 - `docx` bundles the browser shims used by `Packer`. Do not add an app-wide
@@ -297,7 +304,7 @@ pnpm migrate:project
   open; discard skips retirement saves and draft-based asset purges without
   rolling back previously persisted content. First-load image decoding uses at most four concurrent jobs,
   and actual canvas readiness dismisses loading without a hold or fade.
-- Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v15.
+- Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v16.
 
 ## Testing expectations
 

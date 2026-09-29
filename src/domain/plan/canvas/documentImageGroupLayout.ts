@@ -119,6 +119,18 @@ function layoutAtScale(
 export function layoutDocumentImageGroupForWidth(
   images: readonly ReferenceImage[],
   frameWidth: number,
+  referenceWidth?: number,
 ): DocumentImageGroupLayout {
+  if (referenceWidth !== undefined) {
+    const reference = layoutAtScale(images, availableFrameExtent(referenceWidth), 1);
+    const extent = Math.max(availableFrameExtent(referenceWidth), ...reference.slots.map(slot => slot.x + slot.width));
+    const scale = Math.min(1, availableFrameExtent(frameWidth) / extent);
+    return {
+      scale,
+      slots: reference.slots.map(slot => ({ ...slot, x: slot.x * scale, y: slot.y * scale, width: slot.width * scale, height: slot.height * scale })),
+      rows: reference.rows.map(row => ({ ...row, y: row.y * scale, height: row.height * scale })),
+      height: (reference.height - DOCUMENT_IMAGE_GROUP_INSET * 2) * scale + DOCUMENT_IMAGE_GROUP_INSET * 2,
+    };
+  }
   return layoutAtScale(images, availableFrameExtent(frameWidth), 1);
 }

@@ -43,12 +43,12 @@ function complexPlan(): ProjectPlanV14 {
       { level: index + 1 },
     ));
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "长图导出测试",
     document: {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: [
         textBlock("paragraph", "paragraph", "中文正文与字体测试"),
         ...headings,

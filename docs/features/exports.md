@@ -32,3 +32,17 @@ image-row boundaries. Single images can reach 20,000px high within the
 18-million-pixel / 72-million-byte decoded-memory budget. If a plan exceeds
 the limits, enable splitting, shorten it, or use PDF/DOCX. Up to 32 parts
 are allowed. The three formats use independent rendering pipelines.
+
+## Multi-column layout
+
+PDF preserves relative column widths and paginates vertical flows. DOCX uses
+borderless tables with the same relative widths. Long images render columns on
+the export surface; splitting chooses a cut that crosses no text, card or image
+row in any column. If no safe cut fits the resource budget, export fails with
+an actionable error instead of clipping content.
+
+The editor has no preset column-count limit, but an A4 page or 900px image has
+finite width. Exports reject layouts with a column narrower than 48 logical
+pixels after gaps. Widen very narrow columns or distribute them across multiple
+rows before exporting. DOCX also respects Word's 63-cell-per-table-row limit,
+including spacer cells. Editing expansion and scrolling do not affect exports.

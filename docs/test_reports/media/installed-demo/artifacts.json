@@ -1,0 +1,118 @@
+{
+  "version": "0.0.11",
+  "date": "2026-09-29",
+  "signing": "unsigned local test build",
+  "videoSeconds": 177.0315629,
+  "artifacts": [
+    {
+      "file": "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/Preshot_0.0.11_x64_en-US.msi",
+      "bytes": 25243648,
+      "sha256": "47ee28472d341cf75d3ab9baf68f057e783e954687f8a5503d36baf7ed112d89"
+    },
+    {
+      "file": "docs/media/preshot-demo.mp4",
+      "bytes": 5836519,
+      "sha256": "b126dc6741e7d7c90f578265b04ef3e926e0abe9ad96a456fcc0852bb07ef67a"
+    },
+    {
+      "file": "docs/media/preshot-demo.gif",
+      "bytes": 8289110,
+      "sha256": "3ef75983db5a782edf103b1996b40db1b75e7a0e5ddd0c289d889fc90b8d9d82"
+    },
+    {
+      "file": "docs/media/preshot-demo.pdf",
+      "bytes": 987157,
+      "sha256": "c924fea2d38287c019c7af96c8695e03e2dcff7a1cb57b39458eaedf40671891"
+    },
+    {
+      "file": ".preshot-build-cache/installed-demo-final/nanjing-bridge.docx",
+      "bytes": 2508532,
+      "sha256": "a52d4e54827d9bd9fac0cb7c8c2cea5ee1c03d01924d05c8dfbb9e38e60d7d20"
+    },
+    {
+      "file": ".preshot-build-cache/installed-demo-final/nanjing-bridge.jpg",
+      "bytes": 356135,
+      "sha256": "826b2435648e0165eec6494f2f28aaa8dbfb4a471d761b6815319af70927d277"
+    },
+    {
+      "file": ".preshot-build-cache/installed-demo-final/nanjing-bridge-final.pdf",
+      "bytes": 987157,
+      "sha256": "03b26ffc36c6398ef2a0d2b57be6f6c7b1a27975833db3546fd0924f2713ce1a"
+    }
+  ],
+  "installedExecutable": {
+    "file": "%LOCALAPPDATA%/Programs/Preshot/preshot.exe",
+    "bytes": 35542016,
+    "sha256": "a1943721b67d1558299eed04b82ca0885bdae4151e236454a3dfc06e5cb24421"
+  },
+  "sampleFiles": [
+    {
+      "file": ".preshotproj",
+      "bytes": 26322,
+      "sha256": "3f82783cac59cbaac33ca8ce799c7ba02a50a12311b46e60501fdf9dba396e19"
+    },
+    {
+      "file": "CREDITS.md",
+      "bytes": 3160,
+      "sha256": "098526875f7f281f4f29411ed5aa81a02ee6f3ed6dd12b69cfe97cf70248cb5d"
+    },
+    {
+      "file": "media/bridge-cover.jpg",
+      "bytes": 265952,
+      "sha256": "98f891aec3fddbfea527bd389ca0ad63fd602d01ff0d51719af636a23fc578a9"
+    },
+    {
+      "file": "media/bridge-motion.mp4",
+      "bytes": 183603,
+      "sha256": "a8027f6a421a3c4a04f9c93b75c34b4874452ab2ddd6ee63ecae899050d00400"
+    },
+    {
+      "file": "media/ready-tones.wav",
+      "bytes": 96044,
+      "sha256": "34d606d47bed759be8caa56a8f3c94136082df554f30ab489d4a3e898ddced09"
+    },
+    {
+      "file": "media/shot-list.txt",
+      "bytes": 181,
+      "sha256": "1e9cbeb67a24f7e6176540172e7c155b4562e54ac184c1bc5d70e8ea6521b5ac"
+    },
+    {
+      "file": "references/0001.jpg",
+      "bytes": 265952,
+      "sha256": "98f891aec3fddbfea527bd389ca0ad63fd602d01ff0d51719af636a23fc578a9"
+    },
+    {
+      "file": "references/0002.png",
+      "bytes": 86572,
+      "sha256": "1063658731a83293bf1eecd5bc151e732909d33144d94bf4a2c5611024a4f3ac"
+    },
+    {
+      "file": "references/0003.png",
+      "bytes": 117258,
+      "sha256": "81a8adfcaafe68efe617ca9d7187c75994a82cf9baa2e37735318bc4966cfe5f"
+    },
+    {
+      "file": "references/0004.png",
+      "bytes": 209694,
+      "sha256": "9d2c1938788527307e121ac3546c7fa60e4fde8bf50b5c4f717d7f7c08688f7c"
+    },
+    {
+      "file": "references/0005.png",
+      "bytes": 86572,
+      "sha256": "1063658731a83293bf1eecd5bc151e732909d33144d94bf4a2c5611024a4f3ac"
+    },
+    {
+      "file": "references/0006.jpg",
+      "bytes": 265952,
+      "sha256": "98f891aec3fddbfea527bd389ca0ad63fd602d01ff0d51719af636a23fc578a9"
+    },
+    {
+      "file": "references/0007.jpg",
+      "bytes": 184814,
+      "sha256": "3a94cd47e069068c64fccd0d66c8724bd6f1910e8632c7b9ad8364937d6bcab2"
+    }
+  ],
+  "recordingVersion": "0.0.10",
+  "recordingInstallerSha256": "3787a73183902b9c4977534835bc00eae7bbe52947fdcf8bf57f3e4c47f7b10e",
+  "finalPdfComparison": "All three pages render pixel-identically to the recorded 0.0.10 export."
+}

@@ -13,12 +13,12 @@ function pngBytes(): Uint8Array {
 
 function imageGroupPlan(): ProjectPlanV14 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "DOCX production",
     document: {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: [{
         id: "group-block",
         type: "imageGroup",

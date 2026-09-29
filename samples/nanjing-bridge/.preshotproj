@@ -1,0 +1,915 @@
+{
+  "schemaVersion": 1,
+  "id": "3fb391e1-ec49-42ce-9a6d-6db4e9fd4178",
+  "name": "南京长江大桥 · 演示项目",
+  "createdAt": "2026-09-29T00:00:00.000Z",
+  "updatedAt": "2026-09-29T00:00:00.000Z",
+  "coverImage": "media/bridge-cover.jpg",
+  "plan": {
+    "schemaVersion": 16,
+    "title": "南京长江大桥 · 江风与人像",
+    "document": {
+      "format": "preshot-blocks",
+      "version": 4,
+      "blocks": [
+        {
+          "id": "demo-title",
+          "type": "heading",
+          "props": {
+            "level": 1
+          },
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "南京长江大桥 · 江风与人像",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-intro",
+          "type": "paragraph",
+          "props": {},
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "一份可直接修改的完整拍摄方案。虚构模特 A 搭配透明伞、泡泡机与浅色服装，从日落拍到蓝调时刻。",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-cover",
+          "type": "image",
+          "props": {
+            "url": "media/bridge-cover.jpg",
+            "name": "南京长江大桥",
+            "caption": "桥梁线条作为构图骨架 · Jack No1 / CC BY 3.0",
+            "previewWidth": 760,
+            "showPreview": true
+          },
+          "children": []
+        },
+        {
+          "id": "demo-concept",
+          "type": "quote",
+          "props": {},
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "让人物融入桥梁与江风；先交代环境，再靠近情绪。",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-people-title",
+          "type": "heading",
+          "props": {
+            "level": 2
+          },
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "01 地点与人物",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-people",
+          "type": "columnList",
+          "props": {},
+          "children": [
+            {
+              "id": "demo-people-0",
+              "type": "column",
+              "props": {
+                "width": 1
+              },
+              "children": [
+                {
+                  "id": "demo-location-block",
+                  "type": "shootingLocation",
+                  "props": {
+                    "artifactId": "demo-location"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "demo-people-1",
+              "type": "column",
+              "props": {
+                "width": 1
+              },
+              "children": [
+                {
+                  "id": "demo-model-block",
+                  "type": "modelCard",
+                  "props": {
+                    "artifactId": "demo-model"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "demo-props-title",
+          "type": "heading",
+          "props": {
+            "level": 2
+          },
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "02 道具与服装",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-props",
+          "type": "columnList",
+          "props": {},
+          "children": [
+            {
+              "id": "demo-props-0",
+              "type": "column",
+              "props": {
+                "width": 1
+              },
+              "children": [
+                {
+                  "id": "demo-umbrella-block",
+                  "type": "prop",
+                  "props": {
+                    "artifactId": "demo-umbrella"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "demo-props-1",
+              "type": "column",
+              "props": {
+                "width": 1
+              },
+              "children": [
+                {
+                  "id": "demo-bubbles-block",
+                  "type": "prop",
+                  "props": {
+                    "artifactId": "demo-bubbles"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "demo-props-2",
+              "type": "column",
+              "props": {
+                "width": 1
+              },
+              "children": [
+                {
+                  "id": "demo-clothing-block",
+                  "type": "clothing",
+                  "props": {
+                    "artifactId": "demo-clothing"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "demo-mood-title",
+          "type": "heading",
+          "props": {
+            "level": 2
+          },
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "03 光线与画面参考",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-mood-block",
+          "type": "imageGroup",
+          "props": {
+            "groupId": "demo-moodboard"
+          },
+          "children": []
+        },
+        {
+          "id": "demo-divider",
+          "type": "divider",
+          "props": {},
+          "children": []
+        },
+        {
+          "id": "demo-schedule-title",
+          "type": "heading",
+          "props": {
+            "level": 2
+          },
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "04 拍摄流程",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-schedule",
+          "type": "table",
+          "props": {},
+          "children": [],
+          "content": {
+            "type": "tableContent",
+            "columnWidths": [
+              100,
+              230,
+              280
+            ],
+            "headerRows": 1,
+            "rows": [
+              {
+                "cells": [
+                  [
+                    {
+                      "type": "text",
+                      "text": "时间",
+                      "styles": {}
+                    }
+                  ],
+                  [
+                    {
+                      "type": "text",
+                      "text": "场景",
+                      "styles": {}
+                    }
+                  ],
+                  [
+                    {
+                      "type": "text",
+                      "text": "执行提示",
+                      "styles": {}
+                    }
+                  ]
+                ]
+              },
+              {
+                "cells": [
+                  [
+                    {
+                      "type": "text",
+                      "text": "16:30",
+                      "styles": {}
+                    }
+                  ],
+                  [
+                    {
+                      "type": "text",
+                      "text": "集合 / 踩点",
+                      "styles": {}
+                    }
+                  ],
+                  [
+                    {
+                      "type": "text",
+                      "text": "确认公共步道与风向",
+                      "styles": {}
+                    }
+                  ]
+                ]
+              },
+              {
+                "cells": [
+                  [
+                    {
+                      "type": "text",
+                      "text": "17:00",
+                      "styles": {}
+                    }
+                  ],
+                  [
+                    {
+                      "type": "text",
+                      "text": "透明伞逆光",
+                      "styles": {}
+                    }
+                  ],
+                  [
+                    {
+                      "type": "text",
+                      "text": "侧逆光；高光不过曝",
+                      "styles": {}
+                    }
+                  ]
+                ]
+              },
+              {
+                "cells": [
+                  [
+                    {
+                      "type": "text",
+                      "text": "17:30",
+                      "styles": {}
+                    }
+                  ],
+                  [
+                    {
+                      "type": "text",
+                      "text": "泡泡与江风",
+                      "styles": {}
+                    }
+                  ],
+                  [
+                    {
+                      "type": "text",
+                      "text": "连续对焦；注意背景",
+                      "styles": {}
+                    }
+                  ]
+                ]
+              },
+              {
+                "cells": [
+                  [
+                    {
+                      "type": "text",
+                      "text": "18:00",
+                      "styles": {}
+                    }
+                  ],
+                  [
+                    {
+                      "type": "text",
+                      "text": "蓝调桥景",
+                      "styles": {}
+                    }
+                  ],
+                  [
+                    {
+                      "type": "text",
+                      "text": "提高 ISO；人物保持静止",
+                      "styles": {}
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "demo-lists",
+          "type": "columnList",
+          "props": {},
+          "children": [
+            {
+              "id": "demo-lists-0",
+              "type": "column",
+              "props": {
+                "width": 1
+              },
+              "children": [
+                {
+                  "id": "demo-shots-title",
+                  "type": "heading",
+                  "props": {
+                    "level": 3
+                  },
+                  "children": [],
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "镜头清单",
+                      "styles": {}
+                    }
+                  ]
+                },
+                {
+                  "id": "demo-shot-1",
+                  "type": "numberedListItem",
+                  "props": {},
+                  "children": [],
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "广角：桥梁与江面的环境人像",
+                      "styles": {}
+                    }
+                  ]
+                },
+                {
+                  "id": "demo-shot-2",
+                  "type": "numberedListItem",
+                  "props": {},
+                  "children": [],
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "中景：透明伞下侧身回望",
+                      "styles": {}
+                    }
+                  ]
+                },
+                {
+                  "id": "demo-shot-3",
+                  "type": "numberedListItem",
+                  "props": {},
+                  "children": [],
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "特写：泡泡前景与逆光轮廓",
+                      "styles": {}
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "demo-lists-1",
+              "type": "column",
+              "props": {
+                "width": 1
+              },
+              "children": [
+                {
+                  "id": "demo-checks-title",
+                  "type": "heading",
+                  "props": {
+                    "level": 3
+                  },
+                  "children": [],
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "出发检查",
+                      "styles": {}
+                    }
+                  ]
+                },
+                {
+                  "id": "demo-check-1",
+                  "type": "checkListItem",
+                  "props": {
+                    "checked": true
+                  },
+                  "children": [],
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "电池、存储卡与备用雨具",
+                      "styles": {}
+                    }
+                  ]
+                },
+                {
+                  "id": "demo-check-2",
+                  "type": "checkListItem",
+                  "props": {
+                    "checked": false
+                  },
+                  "children": [],
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "确认集合位置与当日天气",
+                      "styles": {}
+                    }
+                  ]
+                },
+                {
+                  "id": "demo-check-3",
+                  "type": "checkListItem",
+                  "props": {
+                    "checked": false
+                  },
+                  "children": [],
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "拍完检查照片并备份",
+                      "styles": {}
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "demo-safety",
+          "type": "toggleListItem",
+          "props": {},
+          "children": [
+            {
+              "id": "demo-safety-1",
+              "type": "bulletListItem",
+              "props": {},
+              "children": [],
+              "content": [
+                {
+                  "type": "text",
+                  "text": "不进入车行道、铁路或封闭区域；沿公共步道取景。",
+                  "styles": {}
+                }
+              ]
+            },
+            {
+              "id": "demo-safety-2",
+              "type": "bulletListItem",
+              "props": {},
+              "children": [],
+              "content": [
+                {
+                  "type": "text",
+                  "text": "大风时收伞；泡泡机避开行人；收工带走所有物品。",
+                  "styles": {}
+                }
+              ]
+            }
+          ],
+          "content": [
+            {
+              "type": "text",
+              "text": "现场提醒（点击箭头展开）",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-page-break",
+          "type": "pageBreak",
+          "props": {},
+          "children": []
+        },
+        {
+          "id": "demo-attachments-title",
+          "type": "heading",
+          "props": {
+            "level": 2
+          },
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "05 动态参考与附件",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-motion-info",
+          "type": "paragraph",
+          "props": {},
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "下面是由桥景照片制作的 4 秒平移动画，以及人工合成的三声准备提示音。它们用于演示离线视频与音频组件，不是实地录像或现场录音。",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-video",
+          "type": "video",
+          "props": {
+            "url": "media/bridge-motion.mp4",
+            "name": "桥景构图移动示意.mp4",
+            "caption": "由 Jack No1 的桥景照片制作 · CC BY 3.0",
+            "previewWidth": 480,
+            "showPreview": true
+          },
+          "children": []
+        },
+        {
+          "id": "demo-audio",
+          "type": "audio",
+          "props": {
+            "url": "media/ready-tones.wav",
+            "name": "三声准备提示.wav",
+            "caption": "人工合成提示音",
+            "showPreview": true
+          },
+          "children": []
+        },
+        {
+          "id": "demo-file",
+          "type": "file",
+          "props": {
+            "url": "media/shot-list.txt",
+            "name": "现场镜头清单.txt",
+            "caption": "可下载随身携带的拍摄提醒",
+            "showPreview": false
+          },
+          "children": []
+        },
+        {
+          "id": "demo-settings",
+          "type": "codeBlock",
+          "props": {
+            "language": "text"
+          },
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "# 起始参数示例，请按实际光线调整\nlens = 50 mm\naperture = f/2.8\nshutter = 1/500 s\nISO = Auto",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-help-title",
+          "type": "heading",
+          "props": {
+            "level": 2
+          },
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "如何修改这份样例",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-help",
+          "type": "paragraph",
+          "props": {},
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "输入 / 插入组件。拖住 block 左侧六点手柄到其他 block 左右边缘即可分栏；拖动栏间分隔线调宽。图片组会等比缩放。单击图片可存入素材库；用图片组的“从素材库插入”追加图片。",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-export",
+          "type": "paragraph",
+          "props": {},
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "使用右上角“导出”生成 PDF、DOCX 或长图。视频和音频在静态导出中显示附件信息；需要播放时请打开项目。长图较长时可勾选自动分割。",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-credits-title",
+          "type": "heading",
+          "props": {
+            "level": 3
+          },
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "图片来源与许可",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "id": "demo-credits",
+          "type": "paragraph",
+          "props": {},
+          "children": [],
+          "content": [
+            {
+              "type": "text",
+              "text": "日间桥景：Jack No1，CC BY 3.0；夜景：Vasily Astanin，CC BY-SA 4.0，均来自 Wikimedia Commons。模特 A、透明伞与泡泡机为 Preshot 原创示意图（CC BY-SA 4.0）。照片已缩放与重新编码。详见项目中的 CREDITS.md。",
+              "styles": {}
+            }
+          ]
+        }
+      ]
+    },
+    "imageGroups": [
+      {
+        "id": "demo-moodboard",
+        "type": "reference",
+        "name": "桥畔光线参考",
+        "description": "白天桥梁线条与蓝调灯光，左右对照取景。",
+        "x": 0,
+        "width": 1008,
+        "height": 245,
+        "images": [
+          {
+            "id": "demo-image-6",
+            "file": "references/0006.jpg",
+            "aspectRatio": 1.3333333333333333,
+            "sourceWidth": 1200,
+            "sourceHeight": 900,
+            "frameWidth": 420,
+            "frameHeight": 260,
+            "fitMode": "cover",
+            "crop": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            }
+          },
+          {
+            "id": "demo-image-7",
+            "file": "references/0007.jpg",
+            "aspectRatio": 1.5005861664712778,
+            "sourceWidth": 1280,
+            "sourceHeight": 853,
+            "frameWidth": 420,
+            "frameHeight": 260,
+            "fitMode": "cover",
+            "crop": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            }
+          }
+        ]
+      }
+    ],
+    "artifacts": [
+      {
+        "id": "demo-location",
+        "kind": "shootingLocation",
+        "revision": 0,
+        "venueName": "南京长江大桥",
+        "address": "南京 · 长江南岸公共步道",
+        "description": "以桥梁线条和江面为背景。日落前踩点；选择允许停留的位置，留出行人通道。",
+        "gallery": {
+          "id": "demo-location-gallery",
+          "images": [
+            {
+              "id": "demo-image-1",
+              "file": "references/0001.jpg",
+              "aspectRatio": 1.3333333333333333,
+              "sourceWidth": 1200,
+              "sourceHeight": 900,
+              "frameWidth": 900,
+              "frameHeight": 600,
+              "fitMode": "cover",
+              "crop": {
+                "x": 0,
+                "y": 0,
+                "width": 1,
+                "height": 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "demo-model",
+        "kind": "modelCard",
+        "revision": 0,
+        "modelId": "模特 A（虚构）",
+        "heightCm": 170,
+        "weightKg": 52,
+        "shoeSize": "38",
+        "notes": "原创人物示意图。动作：缓慢行走、侧身回望、撑伞望向江面。所有资料仅用于演示。",
+        "samples": {
+          "id": "demo-model-gallery",
+          "images": [
+            {
+              "id": "demo-image-2",
+              "file": "references/0002.png",
+              "aspectRatio": 1.3333333333333333,
+              "sourceWidth": 960,
+              "sourceHeight": 720,
+              "frameWidth": 700,
+              "frameHeight": 920,
+              "fitMode": "cover",
+              "crop": {
+                "x": 0,
+                "y": 0,
+                "width": 1,
+                "height": 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "demo-umbrella",
+        "kind": "prop",
+        "revision": 0,
+        "title": "透明伞",
+        "source": "道具箱 · 逆光轮廓与前景",
+        "gallery": {
+          "id": "demo-umbrella-gallery",
+          "images": [
+            {
+              "id": "demo-image-3",
+              "file": "references/0003.png",
+              "aspectRatio": 1.3333333333333333,
+              "sourceWidth": 960,
+              "sourceHeight": 720,
+              "frameWidth": 900,
+              "frameHeight": 600,
+              "fitMode": "cover",
+              "crop": {
+                "x": 0,
+                "y": 0,
+                "width": 1,
+                "height": 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "demo-bubbles",
+        "kind": "prop",
+        "revision": 0,
+        "title": "泡泡机",
+        "source": "道具箱 · 顺风侧放置，避免湿滑",
+        "gallery": {
+          "id": "demo-bubbles-gallery",
+          "images": [
+            {
+              "id": "demo-image-4",
+              "file": "references/0004.png",
+              "aspectRatio": 1.3333333333333333,
+              "sourceWidth": 960,
+              "sourceHeight": 720,
+              "frameWidth": 900,
+              "frameHeight": 600,
+              "fitMode": "cover",
+              "crop": {
+                "x": 0,
+                "y": 0,
+                "width": 1,
+                "height": 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "demo-clothing",
+        "kind": "clothing",
+        "revision": 0,
+        "title": "浅色外套与长裙",
+        "source": "模特自备 · 无大面积图案",
+        "mainGallery": {
+          "id": "demo-clothing-gallery",
+          "images": [
+            {
+              "id": "demo-image-5",
+              "file": "references/0005.png",
+              "aspectRatio": 1.3333333333333333,
+              "sourceWidth": 960,
+              "sourceHeight": 720,
+              "frameWidth": 700,
+              "frameHeight": 920,
+              "fitMode": "cover",
+              "crop": {
+                "x": 0,
+                "y": 0,
+                "width": 1,
+                "height": 1
+              }
+            }
+          ]
+        },
+        "tryOn": {
+          "expanded": false,
+          "gallery": {
+            "id": "demo-tryon-gallery",
+            "images": []
+          }
+        }
+      }
+    ]
+  }
+}

@@ -675,6 +675,27 @@ describe("BlockNote React-PDF mappings", () => {
     expect(PRESHOT_PDF_DICTIONARY).toBe(zh);
   });
 
+  it("wraps long mixed Chinese instructions inside the printable width without losing characters", async () => {
+    const instructions = "输入 / 插入组件。拖住 block 左侧六点手柄到其他 block 左右边缘即可分栏；拖动栏间分隔线调宽。图片组会等比缩放。单击图片可存入素材库；用图片组的“从素材库插入”选择已有图片。";
+    const document = await exporter().toReactPDFDocument([
+      block("paragraph", {}, [{ type: "text", text: instructions, styles: {} }]),
+    ]);
+    type LayoutNode = { children?: LayoutNode[]; lines?: { string: string; xAdvance: number }[] };
+    let layout: LayoutNode | undefined;
+    await renderToBuffer(cloneElement(document as ReactElement<React.ComponentProps<typeof Document>>, {
+      onRender: result => { layout = (result as unknown as { _INTERNAL__LAYOUT__DATA_: LayoutNode })._INTERNAL__LAYOUT__DATA_; },
+    }));
+    const lines: { string: string; xAdvance: number }[] = [];
+    const visit = (node: LayoutNode) => {
+      if (node.lines) lines.push(...node.lines);
+      node.children?.forEach(visit);
+    };
+    visit(layout!);
+    expect(lines.length).toBeGreaterThan(1);
+    for (const line of lines) expect(line.xAdvance).toBeLessThanOrEqual(PDF_VISUAL_CONTRACT.page.contentWidth + 0.1);
+    expect(lines.map(line => line.string).join("").replace(/\s/g, "")).toBe(instructions.replace(/\s/g, ""));
+  });
+
   it("renders CJK and a real PDF link annotation with local fonts", async () => {
     const pdf = createPreshotReactPdfExporter(context(), {
       imageGroup: imageGroupMapping,

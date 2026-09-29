@@ -93,10 +93,10 @@ function plan(
   imageGroups: ProjectPlanV14["imageGroups"] = [],
 ): ProjectPlanV14 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "React-PDF acceptance",
-    document: { format: "preshot-blocks", version: 3, blocks },
+    document: { format: "preshot-blocks", version: 4, blocks },
     imageGroups,
   };
 }
@@ -377,6 +377,54 @@ describe("production React-PDF acceptance", () => {
     expect(new TextDecoder().decode(bytes)).not.toMatch(
       /添加图片|删除图片组|打开菜单|data-image-resize-edge/i,
     );
+  }, 30_000);
+
+  it("renders unequal columns exactly once with images contained in their own column", async () => {
+    const value = plan([block("row", "columnList", {}, undefined, [1, 2].map((weight, i) =>
+      block(`col-${i}`, "column", { width: weight }, undefined, [
+        paragraph(`title-${i}`, `第 ${i + 1} 栏`),
+        block(`image-${i}`, "image", { url: `media/${i}.png`, name: `${i}.png`, caption: "", previewWidth: 1008, showPreview: true }, undefined),
+      ]))), paragraph("after", "多栏后的正文")]);
+    const pdf = await PDFDocument.load(await exporter().export(value, assetsFor(value)));
+    expect(pdf.getPageCount()).toBe(1);
+    expect(imageDrawCount(pdf, 0)).toBe(2);
+    const draws = imageDraws(pdf, 0);
+    expect(draws[1].minX).toBeGreaterThan(draws[0].maxX);
+    expect(draws[1].maxX - draws[1].minX).toBeCloseTo(2 * (draws[0].maxX - draws[0].minX), 1);
+  }, 30_000);
+
+  it("paginates tall columns without duplicating images or losing the final paragraph", async () => {
+    const value = plan([block("row", "columnList", {}, undefined, [0, 1].map(i =>
+      block(`col-${i}`, "column", { width: 1 }, undefined, [
+        ...Array.from({ length: 75 }, (_, n) => paragraph(`text-${i}-${n}`, `Column ${i + 1}, paragraph ${n + 1}`)),
+        block(`image-${i}`, "image", { url: `media/${i}.png`, name: `${i}.png`, caption: "", previewWidth: 240, showPreview: true }, undefined),
+      ]))), paragraph("after", "Final paragraph")]);
+    const pdf = await PDFDocument.load(await exporter().export(value, assetsFor(value)));
+    expect(pdf.getPageCount()).toBeGreaterThan(1);
+    expect(pdf.getPages().reduce((n, _, i) => n + imageDrawCount(pdf, i), 0)).toBe(2);
+    for (let i = 0; i < pdf.getPageCount(); i++) {
+      for (const draw of imageDraws(pdf, i)) {
+        expect(draw.minY).toBeGreaterThanOrEqual(0);
+        expect(draw.maxX).toBeLessThanOrEqual(pdf.getPage(i).getWidth());
+      }
+    }
+  }, 30_000);
+
+  it("paginates a tall gallery inside a column with each row present once", async () => {
+    const group = imageGroup("gallery", { width: 1008, height: 8000,
+      images: Array.from({ length: 6 }, (_, i) => image(`g-${i}`, `references/${i}.png`, 900, 1200)) });
+    const value = plan([block("row", "columnList", {}, undefined, [
+      block("left", "column", { width: 1 }, undefined, [block("gallery-block", "imageGroup", { groupId: "gallery" }, undefined)]),
+      block("right", "column", { width: 1 }, undefined, [paragraph("right-text", "右栏说明")]),
+    ])], [group]);
+    const pdf = await PDFDocument.load(await exporter().export(value, assetsFor(value)));
+    expect(pdf.getPageCount()).toBeGreaterThan(1);
+    expect(pdf.getPages().reduce((n, _, i) => n + imageDrawCount(pdf, i), 0)).toBe(6);
+    for (let i = 0; i < pdf.getPageCount(); i++) for (const draw of imageDraws(pdf, i)) {
+      expect(draw.minX).toBeGreaterThanOrEqual(0);
+      expect(draw.maxX).toBeLessThan(pdf.getPage(i).getWidth() / 2);
+      expect(draw.minY).toBeGreaterThanOrEqual(0);
+    }
   }, 30_000);
 
   it("moves an image-heavy wrapped group wholly to the next page", async () => {

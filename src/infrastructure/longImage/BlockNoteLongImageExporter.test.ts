@@ -27,12 +27,12 @@ function planFor(
   imageGroupId?: string,
 ): ProjectPlanV14 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "Long export",
     document: {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: blockIds.map((id): PreshotBlock => {
         if (id === "image-group") {
           return {
@@ -230,6 +230,18 @@ function request(
 }
 
 describe("BlockNoteLongImageExporter", () => {
+  it("splits columns only after overlapping content in every column has ended", async () => {
+    const layout: LongImageExportMeasurements = {
+      ...measurements([12000]),
+      topLevelBlocks: [rect("columns", 0, 12000, "columnList")],
+      atomicBlocks: [rect("a", 100, 2000), rect("b", 2100, 5000), rect("c", 4500, 6500), rect("d", 6600, 12000)],
+    };
+    const test = harness(layout);
+    const result = await test.exporter.export(request(planFor(["columns"]), { options: { allowSplit: true } }));
+    expect(result.manifest.blocks[0].imageGroupRows?.map(row => row.bottom)).toEqual([2000, 6500, 12000]);
+    expect(result.parts.every(({ part }) => ![4500, 5000].includes(part.bottom))).toBe(true);
+  });
+
   it("exports one short JPEG with exact width, signature, manifest, and progress", async () => {
     const test = harness(measurements([1200], {
       blockIds: ["one"],

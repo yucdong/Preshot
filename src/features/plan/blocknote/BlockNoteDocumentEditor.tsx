@@ -33,6 +33,7 @@ import {
 } from "react";
 import { useTheme } from "../../../app/theme/ThemeContext";
 import type { PreshotBlockDocument } from "../../../domain/plan/canvas/blockDocument";
+import { documentInsertionAnchor } from "../../../domain/plan/canvas/columnTree";
 import {
   preshotBlockNoteSchema,
   type PreshotBlockNoteEditor,
@@ -63,6 +64,8 @@ import { attachExternalImageHistory } from "./clipboard/externalImageHistory";
 import { focusClipboardTargetWhenReady } from "./clipboard/focusClipboardTargetWhenReady";
 import { PreshotImageFilePanel } from "./PreshotImageFilePanel";
 import { PreshotFormattingToolbar } from "./PreshotFormattingToolbar";
+import { useColumnResize } from "./useColumnResize";
+import { attachColumnStructureGuard } from "./columnOperations";
 import { CaptureBlockImageContext, type CaptureBlockImage } from "./ImageBlockCaptureContext";
 
 interface BlockNoteDocumentEditorProps {
@@ -109,7 +112,7 @@ function invalidNestedSidecarBlock(
 ): { block: PreshotEditorBlock; topLevel: PreshotEditorBlock } | undefined {
   for (const block of blocks) {
     const topLevel = topLevelAncestor ?? block;
-    if (isSidecarBlock(block) && parent !== undefined) {
+    if (isSidecarBlock(block) && parent !== undefined && parent.type !== "column") {
       return { block, topLevel };
     }
     const nested = invalidNestedSidecarBlock(
@@ -150,12 +153,15 @@ export function BlockNoteDocumentEditor({
   const operationToastTimerRef = useRef<number | null>(null);
   const [operationToast, setOperationToast] = useState<string | null>(null);
   const editor = useCreateBlockNote({
+    disableExtensions: ["columnResize"],
     schema: preshotBlockNoteSchema,
     dictionary: createLiveEditorDictionary(),
     initialContent: resolveBlockNoteDocumentAssets(document, resolveMediaUrl),
     uploadFile,
     resolveFileUrl: async (url) => resolveMediaUrl(url),
   });
+  useColumnResize(editor, imageGroupController.structureEditable !== false);
+  useEffect(() => attachColumnStructureGuard(editor), [editor]);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -171,9 +177,7 @@ export function BlockNoteDocumentEditor({
     const root = documentRootRef.current;
     if (!root) return;
     const topLevelId = (id: string): string => {
-      const contains = (block: PreshotEditorBlock): boolean =>
-        block.id === id || block.children.some(contains);
-      return editor.document.find(contains)?.id ?? id;
+      return documentInsertionAnchor(editor.document, id) ?? id;
     };
     const unregister = registerImageClipboardDocument(root, {
       getSelectedComponent: () => selectedClipboardComponent(editor, root),

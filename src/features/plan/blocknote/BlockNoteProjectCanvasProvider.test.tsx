@@ -202,10 +202,14 @@ function longImageResult(partCount = 1): LongImageExportResult {
 const capturedMedia = { file: "media/0001.png", name: "截图.png", mimeType: "image/png",
   dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" };
 
-async function openCapture(captureMedia: NonNullable<ScreenCapture["captureMedia"]>) {
+async function openCapture(captureMedia: NonNullable<ScreenCapture["captureMedia"]>, inColumn = false) {
   vi.stubEnv("VITE_WORKSPACE_ADAPTER", "memory");
   const plan = createEmptyProjectPlanV14("Editorial", { makeId: () => "initial" });
   plan.document.blocks = [{ id: "native-image", type: "image", props: { url: "" }, content: undefined, children: [] }];
+  if (inColumn) plan.document.blocks = [{ id: "capture-row", type: "columnList", props: {}, content: undefined, children: [
+    { id: "capture-column", type: "column", props: { width: 1 }, content: undefined, children: plan.document.blocks },
+    { id: "other-column", type: "column", props: { width: 2 }, content: undefined, children: [{ id: "other-text", type: "paragraph", props: {}, content: [], children: [] }] },
+  ] }];
   const service = serviceWith({ loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }),
     savePlan: vi.fn().mockResolvedValue(undefined) });
   let close!: (saveChanges?: boolean) => Promise<void>;
@@ -222,7 +226,7 @@ async function openCapture(captureMedia: NonNullable<ScreenCapture["captureMedia
 }
 
 describe("BlockNoteProjectCanvasProvider", () => {
-  it("clears the pending screenshot after system cancellation and lets the same block capture again", async () => {
+  it.each([false, true])("clears the pending screenshot and lets the same block capture again (in column: %s)", async (inColumn) => {
     let starts = 0;
     const invokeCommand = vi.fn(async (command: string) => {
       if (command === "start_screen_capture") return `token-${++starts}`;
@@ -230,7 +234,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       if (command === "import_screen_capture_media") return capturedMedia;
       return null;
     });
-    const { editor } = await openCapture(createTauriScreenCapture({ invokeCommand }).captureMedia!);
+    const { editor, close, service } = await openCapture(createTauriScreenCapture({ invokeCommand }).captureMedia!, inColumn);
     await waitFor(() => expect(screen.queryByRole("button", { name: "取消截图" })).not.toBeInTheDocument());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(editor.getBlock("native-image")?.props).toMatchObject({ url: "" });
@@ -239,6 +243,11 @@ describe("BlockNoteProjectCanvasProvider", () => {
     await waitFor(() => expect(editor.getBlock("native-image")?.props).toMatchObject({ url: capturedMedia.file }));
     expect(starts).toBe(2);
     expect(invokeCommand).not.toHaveBeenCalledWith("cancel_screen_capture", expect.anything());
+    await act(async () => close());
+    const persisted = vi.mocked(service.savePlan).mock.calls.at(-1)![1];
+    const image = inColumn ? persisted.document.blocks[0].children[0].children[0] : persisted.document.blocks[0];
+    expect(image).toMatchObject({ id: "native-image", type: "image", props: { url: capturedMedia.file } });
+    if (inColumn) expect(persisted.document.blocks[0].children.map(column => column.props.width)).toEqual([1, 2]);
   });
   it("captures into the same image block, renders local media, and saves relative paths with undo/redo", async () => {
     const captureMedia = vi.fn().mockResolvedValue(capturedMedia);
@@ -413,11 +422,11 @@ describe("BlockNoteProjectCanvasProvider", () => {
     vi.stubGlobal("Image", MeasuredImage);
 
     let persisted = {
-      schemaVersion: 15 as const,
+      schemaVersion: 16 as const,
       title: "Editorial",
       document: {
         format: "preshot-blocks" as const,
-        version: 3 as const,
+        version: 4 as const,
         blocks: [{
           id: "group-block",
           type: "imageGroup" as const,

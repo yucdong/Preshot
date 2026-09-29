@@ -152,9 +152,9 @@ export async function prepareMaterialPreview(
   // Instantiation validates the exact payload/image bijection and removes legacy outer geometry.
   const instance = instantiateMaterial(material.payload, files, makeId, "libraryCanvas");
   const plan: ProjectPlanV15 = {
-    schemaVersion: 15,
+    schemaVersion: 16,
     title: material.name,
-    document: { format: "preshot-blocks", version: 3, blocks: [instance.block] },
+    document: { format: "preshot-blocks", version: 4, blocks: [instance.block] },
     imageGroups: instance.imageGroup ? [instance.imageGroup] : [],
     artifacts: instance.artifact ? [instance.artifact] : [],
   };

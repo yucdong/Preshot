@@ -17,7 +17,7 @@ use crate::error::CommandError;
 const MANIFEST_FILE_NAME: &str = ".preshotproj";
 const LEGACY_MANIFEST_FILE_NAME: &str = ".preshot";
 const MANIFEST_TEMP_FILE_NAME: &str = ".preshotproj.tmp";
-const STARTER_PROJECT_NAME: &str = "Preshot 入门示例";
+const STARTER_PROJECT_NAME: &str = "南京长江大桥 · 演示项目";
 const STARTER_CONTENTION_ATTEMPTS: usize = 100;
 const STARTER_CONTENTION_DELAY: Duration = Duration::from_millis(10);
 const MAX_COVER_BYTES: u64 = 16 * 1024 * 1024;
@@ -324,38 +324,7 @@ fn default_projects_path() -> Result<PathBuf, CommandError> {
 }
 
 fn starter_project_plan() -> serde_json::Value {
-    let intro = [
-        "欢迎使用 Preshot。这是一份可以直接编辑的入门拍摄方案。",
-        "在这里写下拍摄目标、镜头清单、时间安排和现场提醒。",
-        "你可以修改或删除这些文字，也可以继续添加图片、表格和更多内容。",
-    ];
-    let blocks = intro
-        .into_iter()
-        .map(|text| {
-            serde_json::json!({
-                "id": Uuid::new_v4().to_string(),
-                "type": "paragraph",
-                "props": {},
-                "content": [{
-                    "type": "text",
-                    "text": text,
-                    "styles": {}
-                }],
-                "children": []
-            })
-        })
-        .collect::<Vec<_>>();
-
-    serde_json::json!({
-        "schemaVersion": 14,
-        "title": STARTER_PROJECT_NAME,
-        "document": {
-            "format": "preshot-blocks",
-            "version": 2,
-            "blocks": blocks
-        },
-        "imageGroups": []
-    })
+    crate::bundled_demo::plan()
 }
 
 fn create_starter_project_in(projects_root: &Path) -> Result<StarterProject, CommandError> {
@@ -385,10 +354,15 @@ where
                 name: STARTER_PROJECT_NAME.to_string(),
                 created_at: now.clone(),
                 updated_at: now,
-                cover_image: None,
+                cover_image: Some("media/bridge-cover.jpg".to_string()),
                 plan: Some(starter_project_plan()),
             };
-            if let Err(error) = manifest_writer(&project_path, &manifest) {
+            // Publish the manifest only after all offline assets are durable.
+            if let Err(error) = crate::bundled_demo::write_assets(&project_path)
+                .and_then(|_| manifest_writer(&project_path, &manifest)) {
+                crate::bundled_demo::remove_unchanged_assets(&project_path).map_err(|cleanup| {
+                    CommandError::new("starter_cleanup_failed", format!("{}; {}", error.message, cleanup.message))
+                })?;
                 remove_dir_if_empty(&project_path);
                 return Err(error);
             }
@@ -865,7 +839,9 @@ where
     let manifest_bytes = read_manifest_bytes(&project_path)?;
     ensure_manifest_matches_project_id(&manifest_bytes, project_id)?;
     ensure_manifest_is_unchanged(&manifest_bytes, expected_manifest_bytes)?;
-    ensure_marker_only_directory(&project_path)?;
+    let demo = crate::bundled_demo::is_demo_manifest(expected_manifest_bytes);
+    if demo { crate::bundled_demo::ensure_unchanged(&project_path)?; }
+    else { ensure_marker_only_directory(&project_path)?; }
     before_quarantine(&project_path);
 
     let quarantine_path = unique_quarantine_path(&project_path);
@@ -883,8 +859,11 @@ where
         let bytes = read_manifest_bytes(&quarantine_path)?;
         ensure_manifest_matches_project_id(&bytes, project_id)?;
         ensure_manifest_is_unchanged(&bytes, expected_manifest_bytes)?;
-        ensure_marker_only_directory(&quarantine_path)?;
+        if demo { crate::bundled_demo::ensure_unchanged(&quarantine_path)?; }
+        else { ensure_marker_only_directory(&quarantine_path)?; }
         manifest_bytes = Some(bytes);
+
+        if demo { crate::bundled_demo::remove_unchanged_assets(&quarantine_path)?; }
 
         fs::remove_file(quarantine_path.join(MANIFEST_FILE_NAME)).map_err(|error| {
             CommandError::new(
@@ -902,12 +881,15 @@ where
 
     match rollback_result {
         Ok(()) => Ok(()),
-        Err(error) => restore_quarantined_project(
+        Err(error) => {
+            if demo && manifest_bytes.is_some() { crate::bundled_demo::restore_missing_assets(&quarantine_path)?; }
+            restore_quarantined_project(
             &project_path,
             &quarantine_path,
             manifest_bytes.as_deref(),
             error,
-        ),
+            )
+        },
     }
 }
 
@@ -1315,7 +1297,7 @@ mod tests {
     }
 
     #[test]
-    fn bootstrap_creates_absent_roots_and_one_schema_14_starter() {
+    fn bootstrap_creates_absent_roots_and_one_complete_offline_demo() {
         let profile = tempfile::tempdir().unwrap();
         let user_root = profile.path().join(".preshot");
         let pending = PendingProjectRollbacks::default();
@@ -1327,10 +1309,12 @@ mod tests {
         assert!(user_root.is_dir());
         assert!(user_root.join("projects").is_dir());
         assert_eq!(project.manifest.name, STARTER_PROJECT_NAME);
-        assert_eq!(plan["schemaVersion"], 14);
-        assert_eq!(plan["document"]["version"], 2);
-        assert_eq!(plan["imageGroups"], serde_json::json!([]));
-        assert_eq!(plan["document"]["blocks"].as_array().unwrap().len(), 3);
+        assert_eq!(plan["schemaVersion"], 16);
+        assert_eq!(plan["document"]["version"], 4);
+        assert_eq!(plan["imageGroups"].as_array().unwrap().len(), 1);
+        assert_eq!(plan["artifacts"].as_array().unwrap().len(), 5);
+        assert!(plan["document"]["blocks"].as_array().unwrap().len() > 20);
+        crate::bundled_demo::ensure_unchanged(Path::new(&project.path)).unwrap();
         assert!(result.rollback_token.is_some());
         assert_eq!(fs::read_dir(user_root.join("projects")).unwrap().count(), 1);
     }
@@ -1901,6 +1885,38 @@ mod tests {
         rollback_created_project_with_token(&pending, &result.rollback_token.unwrap()).unwrap();
 
         assert!(!project_path.exists());
+    }
+
+    #[test]
+    fn demo_rollback_preserves_changed_or_additional_user_assets() {
+        for extra in [false, true] {
+            let profile = tempfile::tempdir().unwrap();
+            let pending = PendingProjectRollbacks::default();
+            let result = bootstrap_user_data_in(profile.path(), &[], &pending).unwrap();
+            let root = PathBuf::from(result.project.unwrap().path);
+            let changed = root.join(if extra { "media/user.txt" } else { "references/0001.jpg" });
+            fs::write(&changed, b"user content").unwrap();
+            assert!(rollback_created_project_with_token(&pending, &result.rollback_token.unwrap()).is_err());
+            assert_eq!(fs::read(&changed).unwrap(), b"user content");
+            assert!(root.join(".preshotproj").is_file());
+            assert!(root.join("media/bridge-motion.mp4").is_file());
+        }
+    }
+
+    #[test]
+    fn demo_rollback_does_not_restore_an_asset_deleted_before_verification() {
+        let profile = tempfile::tempdir().unwrap();
+        let pending = PendingProjectRollbacks::default();
+        let result = bootstrap_user_data_in(profile.path(), &[], &pending).unwrap();
+        let authorization = pending.take(&result.rollback_token.unwrap()).unwrap();
+        let error = rollback_created_project_directory_with_hooks(
+            &authorization.project_path, &authorization.project_id, &authorization.manifest_bytes,
+            &|_| {}, &|root| { fs::remove_file(root.join("references/0001.jpg")).unwrap(); },
+        ).unwrap_err();
+        assert_eq!(error.code, "bundled_demo_io_failed");
+        assert!(authorization.project_path.join(".preshotproj").is_file());
+        assert!(!authorization.project_path.join("references/0001.jpg").exists());
+        assert!(authorization.project_path.join("references/0002.png").is_file());
     }
 
     #[test]

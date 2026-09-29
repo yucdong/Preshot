@@ -88,10 +88,10 @@ function plan(
   imageGroups: ProjectPlanV14["imageGroups"],
 ): ProjectPlanV14 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "Preflight",
-    document: { format: "preshot-blocks", version: 3, blocks },
+    document: { format: "preshot-blocks", version: 4, blocks },
     imageGroups,
   };
 }

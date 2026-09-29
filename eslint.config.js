@@ -6,6 +6,7 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
+      ".preshot-build-cache",
       "dist",
       "playwright-report",
       "src-tauri/target",

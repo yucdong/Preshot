@@ -1,4 +1,6 @@
 mod byte_write;
+mod bundled_demo;
+mod column_document;
 mod docx;
 mod error;
 mod image_clipboard;

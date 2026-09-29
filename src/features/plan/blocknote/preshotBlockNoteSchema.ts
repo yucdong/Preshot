@@ -3,6 +3,7 @@ import {
   defaultBlockSpecs,
   withPageBreak,
 } from "@blocknote/core";
+import { ColumnBlock, withMultiColumn } from "@blocknote/xl-multi-column";
 import { imageGroupBlockSpec } from "./imageGroupBlockSpec";
 import {
   clothingBlockSpec,
@@ -35,7 +36,19 @@ const preshotBaseBlockNoteSchema = BlockNoteSchema.create({
   },
 });
 
-export const preshotBlockNoteSchema = withPageBreak(preshotBaseBlockNoteSchema);
+// Keep the official node/schema/drop contracts. Preshot owns column gestures so
+// preview-only widths become one undoable commit instead of upstream's non-history writes.
+export const preshotBlockNoteSchema = withMultiColumn(withPageBreak(preshotBaseBlockNoteSchema)).extend({
+  blockSpecs: {
+    column: {
+      ...ColumnBlock,
+      implementation: {
+        ...ColumnBlock.implementation,
+        node: ColumnBlock.implementation.node!.extend({ addExtensions: () => [] }),
+      },
+    },
+  },
+});
 
 export type PreshotBlockNoteSchema = typeof preshotBlockNoteSchema;
 export type PreshotBlockNoteEditor =

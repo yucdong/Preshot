@@ -579,14 +579,14 @@ test("creates and persists a merged prop information field", async ({
   const persisted = await page.evaluate(() => {
     const values = Object.values(sessionStorage);
     const raw = values.find((value) =>
-      value.includes('"schemaVersion":15') &&
+      value.includes('"schemaVersion":16') &&
       value.includes('"kind":"prop"')
     );
     return raw ? JSON.parse(raw) : null;
   });
   expect(persisted).toMatchObject({
-    schemaVersion: 15,
-    document: { version: 3 },
+    schemaVersion: 16,
+    document: { version: 4 },
     artifacts: [{
       kind: "prop",
       title: "磨砂铝反光板",
@@ -622,11 +622,11 @@ test("keeps model information and samples compact and equal-height", async ({
     sessionStorage.setItem(
       key,
       JSON.stringify({
-        schemaVersion: 15,
+        schemaVersion: 16,
         title: "Compact model card",
         document: {
           format: "preshot-blocks",
-          version: 3,
+          version: 4,
           blocks: [{
             id: "model-block",
             type: "modelCard",
@@ -720,11 +720,11 @@ test("keeps artifact cards full-width and ignores legacy card layout", async ({
     sessionStorage.setItem(
       key,
       JSON.stringify({
-        schemaVersion: 15,
+        schemaVersion: 16,
         title: "Artifact row layout",
         document: {
           format: "preshot-blocks",
-          version: 3,
+          version: 4,
           blocks: [
             {
               id: "model-block",
@@ -824,11 +824,11 @@ test("does not group an artifact card beside text", async ({
       `preshot.browser-blocknote-plan-v15:${encodeURIComponent(projectPath)}`;
     if (sessionStorage.getItem(key)) return;
     sessionStorage.setItem(key, JSON.stringify({
-      schemaVersion: 15,
+      schemaVersion: 16,
       title: "Artifact beside text",
       document: {
         format: "preshot-blocks",
-        version: 3,
+        version: 4,
         blocks: [
           {
             id: "text-block",
@@ -911,11 +911,11 @@ test("balances autosizing location information with wrapped images", async ({
     sessionStorage.setItem(
       `preshot.browser-blocknote-plan-v15:${encodeURIComponent(projectPath)}`,
       JSON.stringify({
-        schemaVersion: 15,
+        schemaVersion: 16,
         title: "Balanced location",
         document: {
           format: "preshot-blocks",
-          version: 3,
+          version: 4,
           blocks: [{
             id: "location-block",
             type: "shootingLocation",
@@ -1174,11 +1174,11 @@ test("previews and commits a cross-group image drag transaction", async ({
     sessionStorage.setItem(
       `preshot.browser-blocknote-plan-v15:${encodeURIComponent(projectPath)}`,
       JSON.stringify({
-        schemaVersion: 15,
+        schemaVersion: 16,
         title: "Image drag transaction",
         document: {
           format: "preshot-blocks",
-          version: 3,
+          version: 4,
           blocks: [
             {
               id: "source-block",
@@ -2049,7 +2049,7 @@ test("blocks schema-v12 projects without opening the canvas", async ({ page }) =
   await page.goto("/");
 
   await expect(page.getByRole("alert")).toContainText("方案版本不兼容");
-  await expect(page.getByRole("alert")).toContainText("当前项目版本为 12，需要版本 15");
+  await expect(page.getByRole("alert")).toContainText("当前项目版本为 12，需要版本 16");
   await expect(page.locator('[data-editor-engine="blocknote"]')).toHaveCount(0);
   await expect(page.getByRole("button", { name: "导出" })).toHaveCount(0);
   await expect(page.getByRole("menu")).toHaveCount(0);
@@ -2097,7 +2097,7 @@ test("migrates schema-v13 projects to artifact-capable schema v15", async ({
     return plan
       ? [plan.schemaVersion, plan.document?.version]
       : null;
-  })).toEqual([15, 3]);
+  })).toEqual([16, 4]);
 });
 
 test("operates nested blocks from the block side menu", async ({ page }) => {

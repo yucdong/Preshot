@@ -33,3 +33,5 @@ test-results/
 .worktrees/
 .superpowers/sdd/
 .preshot-build-cache/
+__pycache__/
+*.py[cod]

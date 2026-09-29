@@ -2,6 +2,7 @@ import {
   ARTIFACT_COLLECTION_IMAGE_LIMIT,
   ARTIFACT_IMAGE_LIMIT,
   BLOCKNOTE_PLAN_SCHEMA_VERSION,
+  migrateProjectPlanV15ToV16,
   artifactCollectionsInPlan,
   createEmptyProjectPlanV15,
   mediaFilesInBlockDocument,
@@ -490,6 +491,11 @@ export function createBlockNotePlanService({
       }
       if (foundSchemaVersion === 14) {
         const plan = migrateProjectPlanV14ToV15(raw);
+        await saveValidatedPlan(projectPath, plan);
+        return { status: "migrated", plan };
+      }
+      if (foundSchemaVersion === 15) {
+        const plan = migrateProjectPlanV15ToV16(raw);
         await saveValidatedPlan(projectPath, plan);
         return { status: "migrated", plan };
       }

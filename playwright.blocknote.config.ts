@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "blocknote-v14.spec.ts",
+  testMatch: ["blocknote-v14.spec.ts", "multi-column.spec.ts"],
   fullyParallel: false,
   timeout: 120_000,
   reporter: "list",

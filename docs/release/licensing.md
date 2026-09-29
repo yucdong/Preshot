@@ -8,7 +8,7 @@ Preshot-authored source code is available under the MIT License in
 
 Preshot's open-source application distributions use the GPL-3.0 option for:
 
-- `@blocknote/xl-multi-column@0.53.0` (a transitive exporter dependency; the editor remains single-column)
+- `@blocknote/xl-multi-column@0.53.0` (a direct dependency for editor columns and shared export schemas)
 - `@blocknote/xl-pdf-exporter@0.53.0`
 - `@blocknote/xl-docx-exporter@0.53.0`
 

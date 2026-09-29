@@ -358,12 +358,12 @@ describe("legacy default image-frame migration", () => {
 describe("BlockNote image natural dimensions", () => {
   it("upgrades a legacy default frame to the 240-unit default", () => {
     const plan: ProjectPlanV14 = {
-      schemaVersion: 15,
+      schemaVersion: 16,
       artifacts: [],
       title: "Demo",
       document: {
         format: "preshot-blocks",
-        version: 3,
+        version: 4,
         blocks: [{
           id: "group-block",
           type: "imageGroup",
@@ -559,12 +559,12 @@ function planWithGroups(
   imageGroups: ProjectPlanV14["imageGroups"],
 ): ProjectPlanV14 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "Demo",
     document: {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: imageGroups.map((entry) => ({
         id: `${entry.id}-block`,
         type: "imageGroup",
@@ -584,12 +584,12 @@ function planWithImage(
   >,
 ): ProjectPlanV14 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "Demo",
     document: {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: [{
         id: "group-block",
         type: "imageGroup",

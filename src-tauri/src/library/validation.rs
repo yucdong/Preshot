@@ -312,13 +312,13 @@ pub fn plan(value: &Value) -> Result<()> {
         ],
         &[],
     )?;
-    if value["schemaVersion"] != 15
-        || value["document"]["format"] != "preshot-blocks"
-        || value["document"]["version"] != 3
+    let active = value["schemaVersion"] == 16 && value["document"]["version"] == 4;
+    let legacy = value["schemaVersion"] == 15 && value["document"]["version"] == 3;
+    if (!active && !legacy) || value["document"]["format"] != "preshot-blocks"
     {
         return Err(error(
             "plan",
-            "Library operations require an active v15 plan",
+            "Library operations require a supported v16 or legacy v15 plan",
         ));
     }
     object(&value["document"], &["format", "version", "blocks"], &[])?;
@@ -326,6 +326,7 @@ pub fn plan(value: &Value) -> Result<()> {
     array(&value["document"], "blocks")?;
     array(value, "imageGroups")?;
     array(value, "artifacts")?;
+    crate::column_document::validate(&value["document"], active).map_err(|e| error("plan", e))?;
     if serde_json::to_vec(value)
         .map_err(|e| error("plan", e))?
         .len()
@@ -362,14 +363,10 @@ pub fn snapshot_from_plan(
         block_id,
         &mut found,
     )?;
-    if found.len() != 1
-        || !array(&plan_value["document"], "blocks")?
-            .iter()
-            .any(|b| b["id"] == block_id)
-    {
+    if found.len() != 1 {
         return Err(error(
             "source",
-            "Select one uniquely owned top-level component",
+            "Select one uniquely owned component",
         ));
     }
     let block = found[0];
@@ -609,28 +606,10 @@ pub fn insertion(base: &Value, next: &Value, prepared: &PreparedMaterialInsert) 
     }
     plan(base)?;
     plan(next)?;
-    let before = array(&base["document"], "blocks")?;
-    let after = array(&next["document"], "blocks")?;
-    if after.len() != before.len() + 1 {
-        return Err(error(
-            "insert",
-            "Insertion must add exactly one top-level block",
-        ));
-    }
-    let index = after
-        .iter()
-        .enumerate()
-        .find_map(|(i, candidate)| {
-            let mut remaining = after.clone();
-            remaining.remove(i);
-            if remaining == *before && candidate["type"] == prepared.payload.kind.as_str() {
-                Some(i)
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| error("insert", "Insertion changed an existing document block"))?;
-    let marker = &after[index];
+    let (path, index, added) = crate::column_document::insertion(&base["document"], &next["document"], 1)
+        .map_err(|e| error("insert", e))?;
+    let marker = &added[0];
+    if marker["type"] != prepared.payload.kind.as_str() { return Err(error("insert", "Inserted component kind differs from the receipt")); }
     object(marker, &["id", "type", "props", "children"], &[])?;
     if !array(marker, "children")?.is_empty() {
         return Err(error(
@@ -746,7 +725,7 @@ pub fn insertion(base: &Value, next: &Value, prepared: &PreparedMaterialInsert) 
     fresh_ids(marker, &mut ids)?;
     fresh_ids(record, &mut ids)?;
     let mut remainder = next.clone();
-    remainder["document"]["blocks"]
+    remainder.pointer_mut(&format!("/document{path}")).unwrap()
         .as_array_mut()
         .unwrap()
         .remove(index);
@@ -777,21 +756,14 @@ fn native_image_insertion(base: &Value, next: &Value, prepared: &PreparedMateria
             _ => false,
         }
     }
-    let before = array(&base["document"], "blocks")?;
-    let after = array(&next["document"], "blocks")?;
-    if after.len() != before.len() + count {
-        return Err(error("insert", "Insertion must add exactly the selected number of images"));
-    }
-    let index = (0..=before.len()).find(|&i| {
-        let mut remainder = after.clone();
-        remainder.drain(i..i + count);
-        remainder == *before && after[i..i + count].iter().all(|block| block["type"] == "image")
-    }).ok_or_else(|| error("insert", "Image insertion changed existing document content"))?;
+    let (path, index, added) = crate::column_document::insertion(&base["document"], &next["document"], count)
+        .map_err(|e| error("insert", e))?;
+    if added.iter().any(|block| block["type"] != "image") { return Err(error("insert", "Expected only native image blocks")); }
     let mut ids = HashSet::new();
     collect_ids(base, &mut ids);
     for image in images { ids.insert(string(image, "localImageId")?.to_owned()); }
     let mut files = HashSet::new();
-    for (block, image) in after[index..index + count].iter().zip(images) {
+    for (block, image) in added.iter().zip(images) {
         let source = prepared.images.iter().find(|source| image["localImageId"] == source.local_image_id)
             .ok_or_else(|| error("insert", "Missing selected image copy"))?;
         let file = &source.file;
@@ -809,7 +781,7 @@ fn native_image_insertion(base: &Value, next: &Value, prepared: &PreparedMateria
         fresh_ids(block, &mut ids)?;
     }
     let mut remainder = next.clone();
-    remainder["document"]["blocks"].as_array_mut().unwrap().drain(index..index + count);
+    remainder.pointer_mut(&format!("/document{path}")).unwrap().as_array_mut().unwrap().drain(index..index + count);
     if remainder != *base { return Err(error("insert", "Image insertion changed unrelated plan content")); }
     Ok(())
 }

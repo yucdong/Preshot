@@ -13,8 +13,8 @@ afterEach(() => {
 describe("applyMeasuredImages", () => {
   it("decodes concurrently without exceeding the worker limit", async () => {
     const plan: ProjectPlanV14 = {
-      schemaVersion: 15, title: "Parallel", artifacts: [], imageGroups: [],
-      document: { format: "preshot-blocks", version: 3, blocks: [] },
+      schemaVersion: 16, title: "Parallel", artifacts: [], imageGroups: [],
+      document: { format: "preshot-blocks", version: 4, blocks: [] },
     };
     const pending: Array<() => void> = [];
     const measure = vi.fn(() => new Promise<{ sourceWidth: number; sourceHeight: number }>((resolve) => {
@@ -33,8 +33,8 @@ describe("applyMeasuredImages", () => {
 
   it("surfaces decode failure and stops scheduling remaining images", async () => {
     const plan: ProjectPlanV14 = {
-      schemaVersion: 15, title: "Failure", artifacts: [], imageGroups: [],
-      document: { format: "preshot-blocks", version: 3, blocks: [] },
+      schemaVersion: 16, title: "Failure", artifacts: [], imageGroups: [],
+      document: { format: "preshot-blocks", version: 4, blocks: [] },
     };
     const remaining: Array<() => void> = [];
     const measure = vi.fn((source: string) => source === "0"
@@ -52,11 +52,11 @@ describe("applyMeasuredImages", () => {
 
   it("hydrates a captured location image with its measured aspect ratio", async () => {
     const plan: ProjectPlanV14 = {
-      schemaVersion: 15,
+      schemaVersion: 16,
       title: "Captured location",
       document: {
         format: "preshot-blocks",
-        version: 3,
+        version: 4,
         blocks: [{
           id: "location-block",
           type: "shootingLocation",
@@ -105,12 +105,12 @@ describe("applyMeasuredImages", () => {
 
   it("hydrates matching image records through an injected decoder", async () => {
     const plan: ProjectPlanV14 = {
-      schemaVersion: 15,
+      schemaVersion: 16,
       artifacts: [],
       title: "Hydration",
       document: {
         format: "preshot-blocks",
-        version: 3,
+        version: 4,
         blocks: [{
           id: "group-block",
           type: "imageGroup",
@@ -159,12 +159,12 @@ describe("applyMeasuredImages", () => {
 
   it("hydrates a batch at one 240-unit height with aspect-derived widths", async () => {
     const plan: ProjectPlanV14 = {
-      schemaVersion: 15,
+      schemaVersion: 16,
       artifacts: [],
       title: "Batch",
       document: {
         format: "preshot-blocks",
-        version: 3,
+        version: 4,
         blocks: [{
           id: "group-block",
           type: "imageGroup",

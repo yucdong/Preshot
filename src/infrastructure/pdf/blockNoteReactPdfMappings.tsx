@@ -42,12 +42,14 @@ import type {
   ImageCollection,
 } from "../../domain/plan/canvas/blockDocument";
 import { layoutDocumentImageGroupForWidth } from "../../domain/plan/canvas/documentImageGroupLayout";
+import { COLUMN_GAP } from "../../domain/plan/canvas/columnLayout";
 import {
   imageFrameContentCss,
 } from "../../domain/plan/canvas/imageView";
 import { compactArtifactGalleryImages } from "../../features/plan/blocknote/artifactGallerySizing";
 import { layoutPdfCaption } from "../../domain/plan/blocknote/pdfCaptionLayout";
 import { createReactPdfCaptionTextMeasurer } from "./reactPdfCaptionMetrics";
+import { pdfWordBreaks } from "./pdfWordBreaks";
 
 export const PRESHOT_PDF_FONT_FAMILY = "Preshot Noto Sans SC";
 export const PRESHOT_PDF_DICTIONARY = zh;
@@ -160,15 +162,18 @@ async function artifactPdfBlock(
   resolvedAssets: Readonly<Record<string, string>>,
   blockId: string,
   fontSources?: PreshotReactPdfMappingOptions["fontSources"],
+  columnWidth?: number,
 ): Promise<PdfBlockResult> {
   const scale = contract.editor.rootLogicalToPdfScale;
   const inset = contract.spacing.table.cellPaddingHorizontal + contract.borders.hairline;
-  const innerWidth = contract.page.contentWidth - inset * 2;
+  const cardWidth = columnWidth ?? contract.page.contentWidth;
+  const innerWidth = cardWidth - inset * 2;
   const collections = artifactCollections(artifact).filter(({ collection }) => collection.images.length > 0);
   const hasImages = collections.length > 0;
   const columnsWidth = innerWidth - contract.spacing.artifact.regionGap;
-  const metadataWidth = hasImages ? columnsWidth * 0.4 : innerWidth;
-  const galleryWidth = columnsWidth * 0.6;
+  const horizontal = hasImages && columnWidth === undefined;
+  const metadataWidth = horizontal ? columnsWidth * 0.4 : innerWidth;
+  const galleryWidth = horizontal ? columnsWidth * 0.6 : innerWidth;
   const measureText = await createReactPdfCaptionTextMeasurer(fontSources?.regular);
   const measureTitle = await createReactPdfCaptionTextMeasurer(fontSources?.bold ?? boldFontUrl);
   const titleSize = contract.typography.body.fontSize * 1.2;
@@ -185,6 +190,7 @@ async function artifactPdfBlock(
   }));
   const metadata = metadataLayouts.map((layout, index) => (
     <Text
+      hyphenationCallback={pdfWordBreaks}
       key={`artifact-${blockId}-metadata-${index}`}
       style={{
         ...bodyTextStyle({}),
@@ -198,7 +204,7 @@ async function artifactPdfBlock(
   let galleriesHeight = 0;
   const galleries = collections.map(
     ({ label, collection, compact }) => {
-      const gallery = artifactPdfGallery(collection, resolvedAssets, compact, galleryWidth / scale);
+      const gallery = artifactPdfGallery(collection, resolvedAssets, compact, galleryWidth / scale, columnWidth !== undefined);
       galleriesHeight += gallery.height + contract.typography.body.lineHeight + contract.spacing.paragraph.after;
       return (
         <View
@@ -206,6 +212,7 @@ async function artifactPdfBlock(
           style={{ marginTop: contract.spacing.paragraph.after / 2 }}
         >
           <Text
+            hyphenationCallback={pdfWordBreaks}
             style={{
               ...bodyTextStyle({}),
               width: galleryWidth,
@@ -220,16 +227,14 @@ async function artifactPdfBlock(
       );
     },
   );
-  const cardHeight = inset * 2 + titleLayout.height + Math.max(
-    metadataLayouts.reduce((height, layout) => height + layout.height, 0),
-    galleriesHeight,
-  ) + contract.spacing.paragraph.after;
+  const metadataHeight = metadataLayouts.reduce((height, layout) => height + layout.height, 0);
+  const cardHeight = inset * 2 + titleLayout.height + (horizontal ? Math.max(metadataHeight, galleriesHeight) : metadataHeight + galleriesHeight) + contract.spacing.paragraph.after;
   return (
     <View
       key={`artifact-${blockId}`}
       wrap={cardHeight > contract.page.contentHeight - REACT_PDF_PAGE_ROUNDING_TOLERANCE}
       style={{
-        width: contract.page.contentWidth,
+        width: cardWidth,
         borderColor: contract.colors.border,
         borderWidth: contract.borders.hairline,
         borderRadius: contract.borders.radius,
@@ -238,6 +243,7 @@ async function artifactPdfBlock(
       }}
     >
       <Text
+        hyphenationCallback={pdfWordBreaks}
         style={{
           ...bodyTextStyle({}),
           width: innerWidth,
@@ -248,7 +254,7 @@ async function artifactPdfBlock(
       >
         {titleLayout.lines.join("\n")}
       </Text>
-      {hasImages ? (
+      {horizontal ? (
         <View
           style={{
             display: "flex",
@@ -275,15 +281,17 @@ function artifactPdfGallery(
   resolvedAssets: Readonly<Record<string, string>>,
   compact: boolean,
   logicalWidth: number,
+  inColumn = false,
 ): { element: ReactElement; height: number } {
   const displayImages = compactArtifactGalleryImages(
     collection.images,
     logicalWidth,
-    compact,
+    compact && !inColumn,
   );
   const layout = layoutDocumentImageGroupForWidth(
     displayImages,
     logicalWidth,
+    inColumn ? contract.editor.contentWidth : undefined,
   );
   const scale =
     contract.page.contentWidth / contract.editor.contentWidth;
@@ -398,6 +406,7 @@ function listItem(
       }}
     >
       <Text
+        hyphenationCallback={pdfWordBreaks}
         style={{
           fontFamily: PRESHOT_PDF_FONT_FAMILY,
           fontSize: contract.typography.body.fontSize,
@@ -406,7 +415,7 @@ function listItem(
       >
         {marker}
       </Text>
-      <Text style={{ flex: 1 }}>{content}</Text>
+      <Text hyphenationCallback={pdfWordBreaks} style={{ flex: 1 }}>{content}</Text>
     </View>
   ) as PdfBlockResult;
 }
@@ -437,6 +446,7 @@ function mediaFallback(
   const text = `[${labels[kind]}] ${name}（${sourceContext}）`;
   const textNode = (
     <Text
+      hyphenationCallback={pdfWordBreaks}
       style={{
         ...bodyTextStyle({}),
         color: contract.colors.mutedInk,
@@ -485,6 +495,7 @@ function caption(
   if (!value) return undefined;
   return (
     <Text
+      hyphenationCallback={pdfWordBreaks}
       style={{
         ...bodyTextStyle({}),
         width,
@@ -521,15 +532,20 @@ export function createPreshotReactPdfMappings(
   const defaultBlockMapping = {
     ...pdfDefaultSchemaMappings.blockMapping,
   };
-  Reflect.deleteProperty(defaultBlockMapping, "column");
-  Reflect.deleteProperty(defaultBlockMapping, "columnList");
   const blockMapping = mapping.createBlockMapping<
     PdfBlockResult,
     PdfInlineResult
   >({
     ...defaultBlockMapping,
+    column: (block, _exporter, _level, _index, children) => (
+      <View key={block.id} style={{ width: context.blocksById[block.id].pdfParentWidth, flexShrink: 0 }}>{children}</View>
+    ) as PdfBlockResult,
+    columnList: (block, _exporter, _level, _index, children) => (
+      <View key={block.id} style={{ flexDirection: "row", gap: COLUMN_GAP * context.blocksById[block.id].logicalToPdfScale, width: context.blocksById[block.id].pdfParentWidth }}>{children}</View>
+    ) as PdfBlockResult,
     paragraph: (block, exporter) => (
       <Text
+        hyphenationCallback={pdfWordBreaks}
         key={`paragraph-${block.id}`}
         style={{
           ...bodyTextStyle(block.props),
@@ -548,6 +564,7 @@ export function createPreshotReactPdfMappings(
         ];
       return (
         <Text
+          hyphenationCallback={pdfWordBreaks}
           key={`heading-${block.id}`}
           style={{
             ...blockTextStyle(block.props),
@@ -604,6 +621,7 @@ export function createPreshotReactPdfMappings(
         }}
       >
         <Text
+          hyphenationCallback={pdfWordBreaks}
           style={{
             ...bodyTextStyle(block.props),
             color: contract.colors.mutedInk,
@@ -630,6 +648,7 @@ export function createPreshotReactPdfMappings(
         }}
       >
         <Text
+          hyphenationCallback={pdfWordBreaks}
           style={{
             fontFamily: PRESHOT_PDF_FONT_FAMILY,
             fontSize: contract.typography.code.fontSize,
@@ -710,6 +729,7 @@ export function createPreshotReactPdfMappings(
                     }}
                   >
                     <Text
+                      hyphenationCallback={pdfWordBreaks}
                       style={{
                         ...bodyTextStyle(cell.props),
                         fontWeight: isHeader ? 700 : 400,
@@ -776,6 +796,7 @@ export function createPreshotReactPdfMappings(
         options.resolvedAssets ?? {},
         block.id,
         options.fontSources,
+        context.blocksById[block.id]?.inColumn ? context.blocksById[block.id].pdfParentWidth : undefined,
       );
     },
     modelCard: (block) => {
@@ -790,6 +811,7 @@ export function createPreshotReactPdfMappings(
         options.resolvedAssets ?? {},
         block.id,
         options.fontSources,
+        context.blocksById[block.id]?.inColumn ? context.blocksById[block.id].pdfParentWidth : undefined,
       );
     },
     clothing: (block) => {
@@ -804,6 +826,7 @@ export function createPreshotReactPdfMappings(
         options.resolvedAssets ?? {},
         block.id,
         options.fontSources,
+        context.blocksById[block.id]?.inColumn ? context.blocksById[block.id].pdfParentWidth : undefined,
       );
     },
     prop: (block) => {
@@ -818,6 +841,7 @@ export function createPreshotReactPdfMappings(
         options.resolvedAssets ?? {},
         block.id,
         options.fontSources,
+        context.blocksById[block.id]?.inColumn ? context.blocksById[block.id].pdfParentWidth : undefined,
       );
     },
   });
@@ -968,6 +992,7 @@ export class PreshotReactPdfExporter extends PDFExporter<
       );
       if (
         block.type === "pageBreak" ||
+        block.type === "column" || block.type === "columnList" ||
         block.type === "imageGroup"
       ) {
         transformed.push(mapped);
@@ -1039,7 +1064,7 @@ export class PreshotReactPdfExporter extends PDFExporter<
       styles.textDecoration = "underline line-through";
     }
     return (
-      <Text style={styles} key={styledText.text}>
+      <Text hyphenationCallback={pdfWordBreaks} style={styles} key={styledText.text}>
         {styledText.text}
       </Text>
     );

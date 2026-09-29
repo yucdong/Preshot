@@ -20,6 +20,9 @@ importers:
       '@blocknote/xl-docx-exporter':
         specifier: 0.53.0
         version: 0.53.0(@floating-ui/dom@1.8.0)(@tiptap/pm@3.29.2)(@types/hast@3.0.5)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@blocknote/xl-multi-column':
+        specifier: 0.53.0
+        version: 0.53.0(@floating-ui/dom@1.8.0)(@tiptap/pm@3.29.2)(@types/hast@3.0.5)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@blocknote/xl-pdf-exporter':
         specifier: 0.53.0
         version: 0.53.0(@floating-ui/dom@1.8.0)(@tiptap/pm@3.29.2)(@types/hast@3.0.5)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

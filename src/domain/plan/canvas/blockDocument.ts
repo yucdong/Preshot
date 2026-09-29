@@ -1,7 +1,9 @@
 import type { ReferenceComponent, ReferenceImage } from "./models";
 
-export const BLOCK_DOCUMENT_SCHEMA_VERSION = 3 as const;
-export const BLOCKNOTE_PLAN_SCHEMA_VERSION = 15 as const;
+export const BLOCK_DOCUMENT_SCHEMA_VERSION = 4 as const;
+export const BLOCKNOTE_PLAN_SCHEMA_VERSION = 16 as const;
+export const DOCUMENT_BLOCK_LIMIT = 20_000;
+export const DOCUMENT_DEPTH_LIMIT = 32;
 export const ARTIFACT_RECORD_LIMIT = 512;
 export const ARTIFACT_COLLECTION_IMAGE_LIMIT = 128;
 export const ARTIFACT_IMAGE_LIMIT = 2_048;
@@ -66,6 +68,8 @@ export const ARTIFACT_KINDS = [
 export const PRESHOT_BLOCK_TYPES = [
   ...LEGACY_PRESHOT_BLOCK_TYPES,
   ...ARTIFACT_KINDS,
+  "columnList",
+  "column",
 ] as const;
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
@@ -151,13 +155,16 @@ export type ArtifactRecord =
   | PropArtifact
   | ShootingLocationArtifact;
 
-export interface ProjectPlanV15 {
+export interface ProjectPlanV16 {
   schemaVersion: typeof BLOCKNOTE_PLAN_SCHEMA_VERSION;
   title: string;
   document: PreshotBlockDocument;
   imageGroups: ReferenceComponent[];
   artifacts: ArtifactRecord[];
 }
+
+/** Compatibility name for callers of the active plan API. */
+export type ProjectPlanV15 = ProjectPlanV16;
 
 export interface LegacyProjectPlanV14 {
   schemaVersion: typeof LEGACY_BLOCKNOTE_PLAN_SCHEMA_VERSION;
@@ -347,7 +354,11 @@ function assertBlock(
   artifactMarkers: ArtifactMarker[],
   parentType: PreshotBlockType | null,
   allowedBlockTypes: readonly string[],
+  depth = 0,
 ): asserts value is PreshotBlock {
+  if (depth > DOCUMENT_DEPTH_LIMIT || blockIds.size >= DOCUMENT_BLOCK_LIMIT) {
+    throw new Error("Stored document exceeds its block or nesting limit");
+  }
   if (
     !isRecord(value) ||
     typeof value.id !== "string" ||
@@ -365,8 +376,20 @@ function assertBlock(
   assertPrimitiveRecord(value.props, context);
 
   const blockType = value.type as PreshotBlockType;
-  if (blockType === "imageGroup") {
-    if (parentType !== null) {
+  if (blockType === "columnList") {
+    if (parentType !== null || value.content !== undefined || Object.keys(value.props).length !== 0 ||
+      value.children.length < 2 || value.children.some((child: unknown) => !isRecord(child) || child.type !== "column")) {
+      throw new Error(`${context} column row is malformed`);
+    }
+  } else if (blockType === "column") {
+    if (parentType !== "columnList" || value.content !== undefined || value.children.length === 0 ||
+      Object.keys(value.props).length !== 1 || typeof value.props.width !== "number" ||
+      !Number.isFinite(value.props.width) || value.props.width <= 0 ||
+      value.children.some((child: unknown) => isRecord(child) && (child.type === "column" || child.type === "columnList"))) {
+      throw new Error(`${context} column is malformed`);
+    }
+  } else if (blockType === "imageGroup") {
+    if (parentType !== null && parentType !== "column") {
       throw new Error(
         `Image group block "${value.id}" must be top-level`,
       );
@@ -381,7 +404,7 @@ function assertBlock(
     }
     imageGroupIds.push(value.props.groupId);
   } else if (isArtifactKind(blockType)) {
-    if (parentType !== null) {
+    if (parentType !== null && parentType !== "column") {
       throw new Error(
         `Artifact marker block "${value.id}" must be top-level`,
       );
@@ -453,13 +476,14 @@ function assertBlock(
       artifactMarkers,
       blockType,
       allowedBlockTypes,
+      depth + 1,
     ),
   );
 }
 
 function validateBlockDocumentVersion(
   value: unknown,
-  version: 2 | 3,
+  version: 2 | 3 | 4,
 ): {
   document: PreshotBlockDocument | LegacyPreshotBlockDocumentV2;
   imageGroupIds: string[];
@@ -478,7 +502,7 @@ function validateBlockDocumentVersion(
   const artifactMarkers: ArtifactMarker[] = [];
   const allowedBlockTypes = version === BLOCK_DOCUMENT_SCHEMA_VERSION
     ? PRESHOT_BLOCK_TYPES
-    : LEGACY_PRESHOT_BLOCK_TYPES;
+    : version === 3 ? [...LEGACY_PRESHOT_BLOCK_TYPES, ...ARTIFACT_KINDS] : LEGACY_PRESHOT_BLOCK_TYPES;
   value.blocks.forEach((block, index) =>
     assertBlock(
       block,
@@ -1028,14 +1052,14 @@ function validateLegacyProjectPlanV14(value: unknown): LegacyProjectPlanV14 {
   };
 }
 
-export function validateProjectPlanV15(value: unknown): ProjectPlanV15 {
-  assertPlanHeader(value, BLOCKNOTE_PLAN_SCHEMA_VERSION, "15");
+function validatePlanVersion(value: unknown, schemaVersion: 15 | 16, documentVersion: 3 | 4): ProjectPlanV16 {
+  assertPlanHeader(value, schemaVersion, String(schemaVersion));
   if (!Array.isArray(value.artifacts)) {
-    throw new Error("Stored plan schema version 15 artifacts are malformed");
+    throw new Error(`Stored plan schema version ${schemaVersion} artifacts are malformed`);
   }
   const validatedDocument = validateBlockDocumentVersion(
     value.document,
-    BLOCK_DOCUMENT_SCHEMA_VERSION,
+    documentVersion,
   );
   const imageIds = new Set<string>();
   const { groups, groupIds } = validateImageGroups(value.imageGroups, imageIds);
@@ -1053,10 +1077,20 @@ export function validateProjectPlanV15(value: unknown): ProjectPlanV15 {
   return {
     schemaVersion: BLOCKNOTE_PLAN_SCHEMA_VERSION,
     title: value.title,
-    document: validatedDocument.document as PreshotBlockDocument,
+    document: { ...validatedDocument.document, version: BLOCK_DOCUMENT_SCHEMA_VERSION } as PreshotBlockDocument,
     imageGroups: groups,
     artifacts,
   };
+}
+
+export function validateProjectPlanV16(value: unknown): ProjectPlanV16 {
+  return validatePlanVersion(value, 16, 4);
+}
+
+export const validateProjectPlanV15 = validateProjectPlanV16;
+
+export function migrateProjectPlanV15ToV16(value: unknown): ProjectPlanV16 {
+  return validatePlanVersion(value, 15, 3);
 }
 
 export function createEmptyBlockDocument(
@@ -1087,6 +1121,8 @@ export function createEmptyProjectPlanV15(
     artifacts: [],
   };
 }
+
+export const createEmptyProjectPlanV16 = createEmptyProjectPlanV15;
 
 /** @deprecated Use createEmptyProjectPlanV15. */
 export const createEmptyProjectPlanV14 = createEmptyProjectPlanV15;

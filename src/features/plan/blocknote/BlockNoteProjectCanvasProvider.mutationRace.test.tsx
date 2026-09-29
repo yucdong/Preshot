@@ -120,12 +120,12 @@ function image(id: string, aspectRatio = 1.5): ReferenceImage {
 
 function initialPlan(): ProjectPlanV14 {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifacts: [],
     title: "Race",
     document: {
       format: "preshot-blocks",
-      version: 3,
+      version: 4,
       blocks: [
         {
           id: "source-block",

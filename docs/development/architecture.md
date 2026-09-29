@@ -26,7 +26,7 @@ shortcuts, clipboard, drag, or material insertion.
 
 ## Persisted data
 
-- `.preshotproj`: manifest schema 1, editable plan schema 15, document version 3,
+- `.preshotproj`: manifest schema 1, editable plan schema 16, document version 4,
   `format: "preshot-blocks"`.
 - Artifact blocks reference records in `plan.artifacts` by `artifactId`.
 - Image-group blocks reference `plan.imageGroups` by `groupId`, exactly once
@@ -40,8 +40,12 @@ shortcuts, clipboard, drag, or material insertion.
 
 ## Rendering
 
-The editor is one vertical flow with one block per visible row. Cards and
-groups are full-width and content-height. Image frames have eight resize zones.
+The editor has a root vertical flow and optional root `columnList` rows with
+two or more weighted `column` children. Columns hold vertical block flows;
+nested column rows are rejected. v15/document-v3 inputs migrate before editing.
+Cards and groups fill their container and grow with content. Gallery geometry
+scales from a stable reference width in columns without rewriting image frames.
+Image frames have eight resize zones.
 dnd-kit previews image moves and commits only a valid drop. DOM queries stay
 scoped to the owning editor across open projects.
 
@@ -51,7 +55,8 @@ same-origin worker. Each pipeline prepares local assets before rendering.
 
 The shared logo is `public/preshot-mark.png`, cropped from the supplied artwork
 in `resources/branding/preshot-logo-original.png`. Its exterior background is
-transparent; the photographer and charcoal frame retain the original artwork.
+transparent; the street photographer, diagonal light and rounded charcoal frame
+retain the supplied artwork without stretching. The square master is 1024px.
 The app, browser favicon, and both READMEs use this same image.
 `pnpm icons:generate` creates the native PNG, ICO, and ICNS resources from it;
 the Windows build watches the ICO file.
