@@ -1449,6 +1449,21 @@ describe("ImageDragPreviewProvider dnd-kit boundary", () => {
       .toHaveAttribute("aria-disabled", "true");
   });
 
+  it("restores a removed image's activator immediately when undo restores its source", async () => {
+    const onController = vi.fn();
+    const renderGroups = (images: ReferenceImage[]) => (
+      <ProviderHarness groups={[group("source", images)]} onController={onController}>
+        <KeyboardGroup groupId="source" imageIds={images.map(entry => entry.id)} />
+      </ProviderHarness>
+    );
+    const view = render(renderGroups([sourceImage]));
+    expect(screen.getByRole("button", { name: "source-image" })).toHaveAttribute("aria-disabled", "false");
+    view.rerender(renderGroups([]));
+    expect(screen.queryByRole("button", { name: "source-image" })).not.toBeInTheDocument();
+    view.rerender(renderGroups([sourceImage]));
+    await waitFor(() => expect(screen.getByRole("button", { name: "source-image" })).toHaveAttribute("aria-disabled", "false"));
+  });
+
   it("supports row-major keyboard movement, group switching, commit, cancel, and polite stable announcements", async () => {
     const onMoveImage = vi.fn();
     let controller: ImageDragPreviewController | null = null;

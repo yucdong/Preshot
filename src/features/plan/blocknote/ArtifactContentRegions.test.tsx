@@ -9,6 +9,45 @@ const children = [<p key="text">拍摄说明</p>, <div key="images">道具图片
 
 afterEach(cleanup);
 describe("card height transactions", () => {
+  it("commits the final divider position instead of the previous move event", () => {
+    const update = vi.fn();
+    const view = render(<ArtifactContentRegions artifact={artifact} update={update}>{children}</ArtifactContentRegions>);
+    const regions = view.container.querySelector<HTMLElement>("[data-card-orientation]")!;
+    vi.spyOn(regions, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 800, 400));
+    const divider = screen.getByRole("separator", { name: "调整图文比例" });
+    fireEvent.pointerDown(divider, { button: 0, pointerId: 1, clientY: 160 });
+    fireEvent.pointerMove(document, { pointerId: 1, clientY: 200 });
+    expect(update).not.toHaveBeenCalled();
+    fireEvent.pointerUp(document, { pointerId: 1, clientY: 300 });
+    expect(update).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      contentLayout: expect.objectContaining({ textShare: 0.75 }),
+    }));
+  });
+
+  it.each(["blur", "inactive"] as const)("cancels divider movement on %s", reason => {
+    const update = vi.fn();
+    const view = render(<ArtifactContentRegions artifact={artifact} update={update}>{children}</ArtifactContentRegions>);
+    const regions = view.container.querySelector<HTMLElement>("[data-card-orientation]")!;
+    vi.spyOn(regions, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 800, 400));
+    fireEvent.pointerDown(screen.getByRole("separator"), { button: 0, pointerId: 1, clientY: 160 });
+    fireEvent.pointerMove(document, { pointerId: 1, clientY: 200 });
+    if (reason === "blur") fireEvent(window, new Event("blur"));
+    else view.container.setAttribute("inert", "");
+    fireEvent.pointerUp(document, { pointerId: 1, clientY: 300 });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("moves the divider in the requested keyboard direction after swapping image and text", () => {
+    const update = vi.fn();
+    render(<ArtifactContentRegions artifact={{ ...artifact, contentLayout: {
+      orientation: "horizontal", textFirst: false, textShare: 0.4, minHeight: 160,
+    } }} update={update}>{children}</ArtifactContentRegions>);
+    fireEvent.keyDown(screen.getByRole("separator"), { key: "ArrowLeft" });
+    expect(update).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      contentLayout: expect.objectContaining({ textShare: 0.45 }),
+    }));
+  });
+
   it.each(["escape", "pointercancel", "blur"])("discards a height preview on %s", reason => {
     const update = vi.fn();
     render(<ArtifactContentRegions artifact={artifact} update={update}>{children}</ArtifactContentRegions>);

@@ -277,7 +277,7 @@ afterAll(() => {
 });
 
 describe("production React-PDF acceptance", () => {
-  it("retains every illustration when the sample's three-card row crosses a page boundary", async () => {
+  it("retains all twelve sample illustrations across multi-image cards and two-column props", async () => {
     const sample = migrateProjectPlanV16ToV17(JSON.parse(readFileSync("samples/nanjing-bridge/.preshotproj", "utf8")).plan);
     const assets = assetsFor(sample);
     for (const collection of artifactCollectionsInPlan(sample)) {
@@ -285,7 +285,7 @@ describe("production React-PDF acceptance", () => {
     }
     const pdf = await PDFDocument.load(await exporter().export(sample, assets));
     const draws = pdf.getPages().flatMap((_, index) => imageDraws(pdf, index));
-    expect(draws).toHaveLength(8);
+    expect(draws).toHaveLength(12);
     for (const draw of draws) expect(draw.maxY - draw.minY).toBeGreaterThan(20);
     for (const [index, page] of pdf.getPages().entries()) for (const draw of imageDraws(pdf, index)) {
       expect(draw.minY).toBeGreaterThanOrEqual(0);

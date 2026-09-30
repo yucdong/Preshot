@@ -26,8 +26,15 @@ shortcuts, clipboard, drag, or material insertion.
 
 ## Persisted data
 
-- `.preshotproj`: manifest schema 1, editable plan schema 17, document version 5,
-  `format: "preshot-blocks"`.
+- `.preshotproj`: manifest schema 1, document version 5, `format: "preshot-blocks"`.
+  Ordinary plans retain schema 17. Adding an image with explicit EXIF presentation
+  promotes the plan to schema 18 so older apps cannot silently discard its direction.
+  A promoted plan retains schema 18 through undo and subsequent image removal.
+- Image presentation axes are independent of original integrity metadata.
+  Absent `presentationAxes` means legacy raw pixel coordinates; `exif` uses the
+  camera orientation for display and crops. New nonidentity EXIF imports store
+  that marker and display dimensions. Original bytes, hashes and immutable
+  library dimensions remain raw. Renderer/derivative keys include the axes.
 - Artifact blocks reference records in `plan.artifacts` by `artifactId`.
 - Image-group blocks reference `plan.imageGroups` by `groupId`, exactly once
   in the document and once in the collection.

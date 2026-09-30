@@ -11,6 +11,25 @@ afterEach(() => {
 });
 
 describe("applyMeasuredImages", () => {
+  it("keeps legacy raw crop axes separate from EXIF display axes for one source file", async () => {
+    const plan: ProjectPlanV14 = {
+      schemaVersion: 17, title: "Mixed axes", artifacts: [],
+      document: { format: "preshot-blocks", version: 5, blocks: [] },
+      imageGroups: [{ id: "g", type: "reference", name: "", description: "", x: 0, width: 800, height: 200,
+        images: [
+          { id: "old", file: "references/photo.jpg", aspectRatio: 1, frameWidth: 100, frameHeight: 100 },
+          { id: "new", file: "references/photo.jpg", presentationAxes: "exif", aspectRatio: 1, frameWidth: 100, frameHeight: 100 },
+        ],
+      }],
+    };
+    const next = await applyMeasuredImages(plan, [
+      ["references/photo.jpg", "raw"], ["references/photo.jpg#preshot-exif", "oriented"],
+    ], async source => source === "raw" ? { sourceWidth: 1200, sourceHeight: 800 } : { sourceWidth: 800, sourceHeight: 1200 });
+    expect(next.imageGroups[0].images[0]).toMatchObject({ sourceWidth: 1200, sourceHeight: 800, frameWidth: 100 });
+    expect(next.imageGroups[0].images[1]).toMatchObject({ sourceWidth: 800, sourceHeight: 1200, frameWidth: 100, presentationAxes: "exif" });
+    expect(plan.imageGroups[0].images.every(image => image.aspectRatio === 1)).toBe(true);
+  });
+
   it("decodes concurrently without exceeding the worker limit", async () => {
     const plan: ProjectPlanV14 = {
       schemaVersion: 17, title: "Parallel", artifacts: [], imageGroups: [],

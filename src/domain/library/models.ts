@@ -1,5 +1,5 @@
 import type { ArtifactContentLayout } from "../plan/canvas/artifactContentLayout";
-import type { ReferenceImage } from "../plan/canvas/models";
+import type { ImagePresentationAxes, ReferenceImage } from "../plan/canvas/models";
 import type { ProjectPlanV15 } from "../plan/canvas/blockDocument";
 
 export const MATERIAL_KINDS = [
@@ -103,6 +103,10 @@ export interface MaterialEditImage {
   byteLength: number;
   width: number;
   height: number;
+  /** Display axes are separate from the immutable encoded-file dimensions. */
+  presentationAxes?: ImagePresentationAxes;
+  displayWidth?: number;
+  displayHeight?: number;
   dataUrl: string;
   previewError?: string;
 }

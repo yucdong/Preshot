@@ -1,6 +1,7 @@
 import { artifactCollectionsInPlan } from "../../../domain/plan/canvas/blockDocument";
 import { setBlockNoteImageNaturalDimensions } from "../../../domain/plan/blocknote/plan";
 import type { ProjectPlanV14 } from "../../../domain/plan/canvas/blockDocument";
+import { imageAssetKey, imageAssetSource } from "../../../domain/plan/canvas/imagePresentation";
 
 export interface SourceImageDimensions {
   sourceWidth: number;
@@ -41,7 +42,7 @@ export async function applyMeasuredImages(
     while (!failed && cursor < entries.length) {
       const index = cursor++;
       try {
-        const existing = [...plan.imageGroups, ...artifactCollectionsInPlan(plan)].flatMap(group => group.images).find(image => image.file === entries[index][0]);
+        const existing = [...plan.imageGroups, ...artifactCollectionsInPlan(plan)].flatMap(group => group.images).find(image => imageAssetKey(image.file, image.presentationAxes) === entries[index][0]);
         dimensions[index] = measure === measureImageDimensions && existing?.sourceWidth && existing.sourceHeight
           ? { sourceWidth: existing.sourceWidth, sourceHeight: existing.sourceHeight }
           : await measure(entries[index][1], entries[index][0]);
@@ -54,7 +55,7 @@ export async function applyMeasuredImages(
   let next = plan;
   for (const [index, [file]] of entries.entries()) {
     next = setBlockNoteImageNaturalDimensions(next, {
-      file,
+      ...imageAssetSource(file),
       ...dimensions[index],
     });
   }

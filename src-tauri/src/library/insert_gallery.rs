@@ -55,6 +55,8 @@ pub(super) fn validate(base: &Value, next: &Value, prepared: &PreparedMaterialIn
     }
     let mut expected = base.clone();
     expected["imageGroups"][index]["images"] = Value::Array(after.clone());
-    if expected != *next { return Err(error("insert_target", "Insertion changed unrelated project content")); }
+    let mut comparable = next.clone();
+    crate::column_document::restore_version_for_comparison(base, next, &mut comparable);
+    if expected != comparable { return Err(error("insert_target", "Insertion changed unrelated project content")); }
     Ok(())
 }

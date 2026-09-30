@@ -39,6 +39,37 @@ vi.mock("../layout/Workspace", () => ({
 }));
 
 describe("WorkspaceProvider startup", () => {
+  it("reports a failed project-folder reveal without an unhandled rejection and permits retry", async () => {
+    const source: WorkspaceProjectView = {
+      projectId: "source", path: "C:\\source", name: "原项目", status: "available", coverImage: null, coverDataUrl: null,
+      createdAt: "2026-09-01", updatedAt: "2026-09-01", lastOpenedAt: "2026-09-01",
+    };
+    const reveal = vi.fn().mockRejectedValueOnce(new Error("项目目录已移动，请重新定位"))
+      .mockResolvedValueOnce(undefined);
+    const dependencies: WorkspaceDependencies = {
+      service: {
+        loadProjects: vi.fn().mockResolvedValue([source]), openProject: vi.fn(),
+        createProject: vi.fn(), relocateProject: vi.fn(), removeRecord: vi.fn(), deleteProject: vi.fn(),
+      },
+      directoryPicker: { getDefaultProjectsDirectory: vi.fn(), pickDirectory: vi.fn() },
+      native: { onMenuAction: vi.fn().mockResolvedValue(vi.fn()), maximizeWindow: vi.fn().mockResolvedValue(undefined) },
+      projectDirectoryRevealer: { revealProjectDirectory: reveal },
+      logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    };
+    render(<ThemeProvider repository={{ read: async () => ({ theme: "light" }), write: async () => {} }}>
+      <WorkspaceProvider dependencies={dependencies} planDependencies={{} as PlanDependencies} />
+    </ThemeProvider>);
+    const user = userEvent.setup();
+    await screen.findByRole("textbox", { name: "原项目 草稿" });
+    await user.click(screen.getByRole("button", { name: "更多项目操作 原项目" }));
+    await user.click(screen.getByRole("menuitem", { name: "打开项目目录" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("项目目录已移动，请重新定位");
+    await user.click(screen.getByRole("button", { name: "更多项目操作 原项目" }));
+    await user.click(screen.getByRole("menuitem", { name: "打开项目目录" }));
+    expect(reveal).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("textbox", { name: "原项目 草稿" })).toBeVisible();
+  });
+
   it.each(["copying", "finishing", "completed"])("does not re-save the source while resuming a %s operation", async phase => {
     prepareCopy.mockClear();
     const source: WorkspaceProjectView = { projectId: "source", path: "C:\\source", name: "原项目", status: "available", coverImage: null, coverDataUrl: null,

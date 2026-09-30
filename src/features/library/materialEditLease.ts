@@ -35,7 +35,7 @@ export class MaterialEditLease {
     this.repository = {
       beginCreate: async () => { throw new Error(ui("单素材画布不能创建其他素材")); },
       beginEdit: async () => { throw new Error(ui("单素材画布不能打开其他素材")); },
-      loadEditImage: (id, image) => scoped(id, () => native.loadEditImage(id, image)),
+      loadEditImage: (id, image, axes) => scoped(id, () => axes === undefined ? native.loadEditImage(id, image) : native.loadEditImage(id, image, axes)),
       ...(native.revealEditImage ? {
         revealEditImage: (id: string, image: string) => scoped(id, () => native.revealEditImage!(id, image)),
       } : {}),
@@ -54,7 +54,7 @@ export class MaterialEditLease {
       captureEditImage: (id, cancellation, review) => scoped(id, () => this.retired
         ? Promise.resolve(null)
         : native.captureEditImage(id, Promise.race([cancellation, this.captureCancellation]), review)),
-      cropEditImage: (id, image, bounds) => scoped(id, () => native.cropEditImage(id, image, bounds)),
+      cropEditImage: (id, image, bounds, axes) => scoped(id, () => axes === undefined ? native.cropEditImage(id, image, bounds) : native.cropEditImage(id, image, bounds, axes)),
       commitEdit: async () => { throw new Error(ui("请使用画布外的“保存素材”操作")); },
       discardEdit: async () => { throw new Error(ui("请使用画布外的“取消”操作")); },
     };

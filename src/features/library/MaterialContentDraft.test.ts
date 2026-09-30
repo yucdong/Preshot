@@ -27,6 +27,60 @@ const staged: MaterialEditImage = {
 };
 
 describe("MaterialContentDraft", () => {
+  it("uses EXIF display dimensions for new imports while preserving raw originals and legacy crops", () => {
+    const original = material();
+    const before = structuredClone(original);
+    const draft = new MaterialContentDraft(original, new Map(original.images.map(image => [image.localImageId, source])), vi.fn());
+    const group = draft.getSnapshot().groups[0];
+    const imported = { ...staged, width: 80, height: 40, displayWidth: 40, displayHeight: 80, presentationAxes: "exif" as const };
+    draft.addImages(group.id, [imported]);
+    expect(draft.getSnapshot().plan.schemaVersion).toBe(18);
+    const added = draft.getSnapshot().groups[0].images.at(-1)!;
+    expect(added).toMatchObject({ presentationAxes: "exif", sourceWidth: 40, sourceHeight: 80, aspectRatio: 0.5 });
+    expect(added.frameWidth / added.frameHeight).toBe(0.5);
+    expect(imported).toMatchObject({ width: 80, height: 40 });
+    const saved = draft.readPayload();
+    expect(componentImages(saved.component).at(-1)).toMatchObject({ presentationAxes: "exif", sourceWidth: 40, sourceHeight: 80 });
+    const reopened = new MaterialContentDraft({ ...original, payload: saved, imageCount: 3, images: [...original.images,
+      { localImageId: imported.localImageId, width: imported.width, height: imported.height, mimeType: imported.mimeType,
+        byteLength: imported.byteLength, blobId: "unchanged-original-hash" }] },
+    new Map([...original.images.map(image => [image.localImageId, source] as const), [imported.localImageId, source]]), vi.fn());
+    const reopenedImage = reopened.getSnapshot().groups[0].images.at(-1)!;
+    expect(reopened.getDimensions(reopenedImage.file)).toEqual({ width: 40, height: 80 });
+    expect(reopened.getSnapshot().sources[`${reopenedImage.file}#preshot-exif`]).toBe(source);
+    draft.undo();
+    expect(draft.readPayload()).toEqual(original.payload);
+    expect(draft.getSnapshot().plan.schemaVersion).toBe(18);
+    draft.redo();
+    expect(draft.readPayload()).toEqual(saved);
+    expect(original).toEqual(before);
+  });
+
+  it("retains EXIF axes and crop when reusing selected library images", () => {
+    const original = material();
+    const draft = new MaterialContentDraft(original, new Map(original.images.map(image => [image.localImageId, source])), vi.fn());
+    const visual = { localImageId: "source-exif", presentationAxes: "exif" as const,
+      aspectRatio: 0.5, sourceWidth: 40, sourceHeight: 80, frameWidth: 100, frameHeight: 200,
+      crop: { x: 0, y: 0.2, width: 0.5, height: 0.5 } };
+    const imported = { ...staged, width: 80, height: 40, displayWidth: 40, displayHeight: 80, presentationAxes: "exif" as const };
+    draft.addImages(draft.getSnapshot().groups[0].id, [imported], [visual]);
+    expect(componentImages(draft.readPayload().component).at(-1)).toEqual({ ...visual, localImageId: staged.localImageId });
+  });
+
+  it("uses replacement display dimensions and clears EXIF axes after a normalized crop", () => {
+    const original = material();
+    const draft = new MaterialContentDraft(original, new Map(original.images.map(image => [image.localImageId, source])), vi.fn());
+    const group = draft.getSnapshot().groups[0];
+    const id = group.images[0].id;
+    draft.replaceImage(group.id, id, { ...staged, width: 80, height: 40, displayWidth: 40, displayHeight: 80, presentationAxes: "exif" });
+    expect(draft.getSnapshot().groups[0].images[0]).toMatchObject({ presentationAxes: "exif", aspectRatio: 0.5, sourceWidth: 40, sourceHeight: 80 });
+    draft.replaceImage(group.id, id, { ...staged, localImageId: "normalized-crop", width: 20, height: 80 });
+    expect(draft.getSnapshot().groups[0].images[0]).toMatchObject({ presentationAxes: "raw", aspectRatio: 0.25, sourceWidth: 20, sourceHeight: 80 });
+    draft.undo();
+    expect(draft.getSnapshot().groups[0].images[0].presentationAxes).toBe("exif");
+    expect(draft.getSnapshot().plan.schemaVersion).toBe(18);
+  });
+
   it("fits new wide captures to the gallery without changing original dimensions or older frames", () => {
     const original = material();
     const draft = new MaterialContentDraft(original, new Map(original.images.map(image => [image.localImageId, source])), vi.fn());

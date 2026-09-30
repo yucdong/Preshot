@@ -42,6 +42,7 @@ export function NewProjectDialog({ defaultParentPath, onPickDirectory, onClose, 
   const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isSubmittingRef = useRef(isSubmitting);
+  const composingRef = useRef(false);
   const triggerRef = useRef<HTMLElement | null>(null);
   const trimmedValue = value.trim();
   const trimmedPath = parentPath.trim();
@@ -65,6 +66,7 @@ export function NewProjectDialog({ defaultParentPath, onPickDirectory, onClose, 
     inputRef.current?.focus();
 
     function handleDocumentKeyDown(event: KeyboardEvent) {
+      if (composingRef.current || event.isComposing || event.keyCode === 229) return;
       if (event.key === "Escape") {
         if (isSubmittingRef.current) {
           return;
@@ -137,7 +139,7 @@ export function NewProjectDialog({ defaultParentPath, onPickDirectory, onClose, 
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!trimmedValue || !trimmedPath || isSubmittingRef.current) return;
+    if (!trimmedValue || !trimmedPath || isSubmittingRef.current || composingRef.current) return;
     isSubmittingRef.current = true;
     setValue(trimmedValue);
     setParentPath(trimmedPath);
@@ -173,7 +175,9 @@ export function NewProjectDialog({ defaultParentPath, onPickDirectory, onClose, 
             </h2>
           </div>
         </div>
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}
+          onCompositionStartCapture={() => { composingRef.current = true; }}
+          onCompositionEndCapture={() => { composingRef.current = false; }}>
           <div>
             <label className="block text-sm font-medium text-app-muted" htmlFor={inputId + "-path"}>
               {t("dialog.projectPath")}

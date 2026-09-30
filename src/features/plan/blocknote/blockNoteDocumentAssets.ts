@@ -5,6 +5,7 @@ import {
   type PreshotBlock,
 } from "../../../domain/plan/canvas/blockDocument";
 import type { PreshotEditorPartialBlock } from "./preshotBlockNoteSchema";
+import { imageAssetKey } from "../../../domain/plan/canvas/imagePresentation";
 
 const NATIVE_MEDIA_TYPES = new Set([
   "audio",
@@ -26,6 +27,7 @@ export function serializeBlockNoteDocumentAssets(
 ): PreshotBlockDocument {
   const jsonSafeBlocks = JSON.parse(JSON.stringify(blocks)) as SerializableEditorBlock[];
   const normalize = (block: SerializableEditorBlock) => {
+    if (block.type === "image" && block.props.presentationAxes === "") delete block.props.presentationAxes;
     if (NATIVE_MEDIA_TYPES.has(block.type) && typeof block.props.url === "string") {
       block.props.url = persistMediaUrl(block.props.url, block.id);
     }
@@ -60,7 +62,7 @@ function resolveBlock(
     ...block,
     props:
       NATIVE_MEDIA_TYPES.has(block.type) && typeof url === "string"
-        ? { ...block.props, url: resolveMediaUrl(url) }
+        ? { ...block.props, url: resolveMediaUrl(imageAssetKey(url, block.type === "image" && block.props.presentationAxes === "exif" ? "exif" : undefined)) }
         : block.props,
     content: normalizedContent,
     children: block.children.map((child) =>

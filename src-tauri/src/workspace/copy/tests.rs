@@ -52,6 +52,28 @@ fn independent_copy_keeps_complete_document_and_only_referenced_originals() {
 }
 
 #[test]
+fn exif_project_copy_preserves_schema_axes_shared_references_and_original_hashes() {
+    let (_root, home, request) = fixture();
+    let source = Path::new(&request.source_path);
+    let path = source.join(".preshotproj");
+    let mut manifest: ProjectManifest = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    let plan = manifest.plan.as_mut().unwrap();
+    plan["schemaVersion"] = json!(18); plan["document"]["version"] = json!(5);
+    plan["imageGroups"][0]["images"][0]["presentationAxes"] = json!("exif");
+    let first = plan["imageGroups"][0]["images"][0].clone();
+    let mut raw_view = first.clone(); raw_view["id"] = json!("same-file-legacy-raw");
+    raw_view.as_object_mut().unwrap().remove("presentationAxes");
+    plan["imageGroups"][0]["images"].as_array_mut().unwrap().push(raw_view);
+    fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+    let copied = copy_in(&home, &request, &AtomicBool::new(false), &|_| {}).unwrap().project.unwrap();
+    let copied_plan = copied.manifest.plan.unwrap();
+    assert_eq!(copied_plan["schemaVersion"], 18);
+    assert_eq!(copied_plan["imageGroups"], manifest.plan.unwrap()["imageGroups"]);
+    let file = first["file"].as_str().unwrap();
+    assert_eq!(crate::original_image::fingerprint(&Path::new(&copied.path).join(file)).unwrap(), crate::original_image::fingerprint(&source.join(file)).unwrap());
+}
+
+#[test]
 fn copy_refuses_collisions_missing_files_and_descendant_targets_without_publication() {
     for failure in ["collision", "missing", "descendant", "identity", "invalid-name"] {
         let (root, home, mut request) = fixture();

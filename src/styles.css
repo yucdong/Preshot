@@ -1,6 +1,8 @@
 @import "@fontsource-variable/nunito-sans/wght.css";
 @import "@fontsource-variable/outfit/wght.css";
-@import "tailwindcss";
+@import "tailwindcss" source("./");
+@source "../e2e/fixtures";
+@source not "./app/packaging/.docs-check-*/**";
 
 .preshot-image-import-progress {
   flex: none;
@@ -306,6 +308,16 @@ html.dark {
   color: var(--paper-muted);
   font-size: 11px;
   white-space: nowrap;
+}
+
+/* Standalone galleries share BlockNote's themed surface. Embedded card galleries
+   retain the paper colors above, including when the app theme is dark. */
+.bn-block-content[data-content-type="imageGroup"] .preshot-image-group-caption {
+  color: var(--bn-colors-editor-text, var(--paper-ink));
+}
+
+.bn-block-content[data-content-type="imageGroup"] .preshot-image-group-count {
+  color: color-mix(in srgb, var(--bn-colors-editor-text, var(--paper-ink)) 80%, var(--bn-colors-editor-background, white));
 }
 
 .preshot-blocknote-image-group-toolbar {
@@ -1880,6 +1892,8 @@ html.dark .tiptap-editor {
 .preshot-image-resize-zone::after { content: ""; position: absolute; inset: 40%; border-radius: 2px; }
 [data-image-id]:focus-within > .preshot-image-resize-zone::after { background: var(--paper-primary); }
 
+/* Image resize/fit layers must stay below workspace dialogs and their backdrop. */
+.preshot-native-image { isolation: isolate; }
 .preshot-native-fit { position: absolute; top: 4px; left: 4px; z-index: 60; padding: 3px 6px; border-radius: 4px; color: white; background: #202329; font-size: 11px; opacity: 0; }
 .preshot-native-image:hover .preshot-native-fit, .preshot-native-image:focus-within .preshot-native-fit { opacity: 1; }
 .preshot-native-image:focus-within .bn-visual-media-wrapper { outline: 1px solid var(--paper-primary); }

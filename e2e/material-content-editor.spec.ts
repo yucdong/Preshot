@@ -146,13 +146,12 @@ test("material image edits persist owned images and reopen on the full canvas", 
   await expect(lightbox).toBeHidden();
   await expect(editor).toBeVisible();
   await firstImage.dblclick();
-  await lightbox.getByRole("button", { name: "裁剪", exact: true }).click();
-  await lightbox.getByRole("button", { name: "1:1", exact: true }).click();
-  await lightbox.getByRole("button", { name: "确认裁剪", exact: true }).click();
-  await expect(lightbox.getByRole("button", { name: "裁剪", exact: true })).toBeVisible();
+  await expect(lightbox.getByRole("button", { name: /裁剪|裁切/ })).toHaveCount(0);
+  await expect(lightbox.getByRole("slider")).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath("material-image-preview.png"), animations: "disabled" });
   await lightbox.getByRole("button", { name: "关闭图片", exact: true }).click();
   await expect(lightbox).toBeHidden();
-  await expect(firstImage.locator("img")).not.toHaveAttribute("src", originalSrc!);
+  await expect(firstImage.locator("img")).toHaveAttribute("src", originalSrc!);
 
   await editor.getByRole("button", { name: "删除参考图 1", exact: true }).click();
   const imageConfirmation = page.getByRole("dialog", { name: "删除图片？", exact: true });

@@ -64,6 +64,8 @@ export function clampContentScale(scale: number): number {
 }
 
 export type ImageFitMode = "cover" | "stretch";
+/** Missing means legacy encoded-pixel axes; new file imports opt into EXIF axes. */
+export type ImagePresentationAxes = "raw" | "exif";
 
 export interface ReferenceImage {
   id: string;
@@ -73,6 +75,7 @@ export interface ReferenceImage {
   aspectRatio: number;
   sourceWidth?: number;
   sourceHeight?: number;
+  presentationAxes?: ImagePresentationAxes;
   /** Independent frame dimensions in canvas points; they do not derive from aspectRatio. */
   frameWidth: number;
   frameHeight: number;

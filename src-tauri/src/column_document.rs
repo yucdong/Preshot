@@ -1,6 +1,22 @@
 use serde_json::Value;
 use std::collections::HashSet;
 
+pub(crate) fn has_exif_presentation(value: &Value) -> bool {
+    match value {
+        Value::Object(fields) => fields.get("presentationAxes").is_some_and(|axes| axes == "exif") || fields.values().any(has_exif_presentation),
+        Value::Array(values) => values.iter().any(has_exif_presentation),
+        _ => false,
+    }
+}
+
+/// An otherwise exact insertion may opt its document into the EXIF-aware schema.
+/// Existing receipts keep their prior versions and byte-for-byte comparisons.
+pub(crate) fn restore_version_for_comparison(base: &Value, next: &Value, restored: &mut Value) {
+    if base["schemaVersion"] == 17 && next["schemaVersion"] == 18 && has_exif_presentation(next) {
+        restored["schemaVersion"] = base["schemaVersion"].clone();
+    }
+}
+
 pub(crate) fn validate(document: &Value, columns: bool) -> Result<(), String> {
     fn visit(blocks: &[Value], parent: Option<&str>, columns: bool, depth: usize, ids: &mut HashSet<String>) -> Result<(), String> {
         if depth > 32 { return Err("Document nesting exceeds its limit".into()); }

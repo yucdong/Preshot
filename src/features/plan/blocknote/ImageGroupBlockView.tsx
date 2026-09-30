@@ -66,6 +66,7 @@ import {
   type ResizeDirection,
 } from "./imageGroupInteraction";
 import { compactArtifactGalleryImages } from "./artifactGallerySizing";
+import { imageAssetKey } from "../../../domain/plan/canvas/imagePresentation";
 
 function imageSlotRows(
   slots: readonly DocumentImageGroupSlot[],
@@ -128,7 +129,7 @@ function InteractiveImageTile({
     listeners,
     setActivatorNodeRef,
     setNodeRef: setDraggableNodeRef,
-  } = useImageDragActivator(groupId, image.id, index, image.file);
+  } = useImageDragActivator(groupId, image.id, index, imageAssetKey(image.file, image.presentationAxes));
   const {
     setNodeRef: setDroppableNodeRef,
   } = useImageTileDroppable(groupId, image.id, index, row);
@@ -370,6 +371,8 @@ export function ImageGroupBlockView({
   }, [group]);
   const [framePreview, setFramePreview] = useState<FramePreview | null>(null);
   const [guide, setGuide] = useState<GuideState>({});
+  const cancelResizeRef = useRef<(() => void) | null>(null);
+  useLayoutEffect(() => () => cancelResizeRef.current?.(), [group]);
   const [availableWidth, setAvailableWidth] = useState(group?.width ?? 0);
   const [inColumn, setInColumn] = useState(false);
   const setRootNode = useCallback((node: HTMLDivElement | null) => {
@@ -466,11 +469,14 @@ export function ImageGroupBlockView({
     direction: ResizeDirection,
     event: ReactPointerEvent<HTMLSpanElement>,
   ) => {
+    if (event.button !== 0 || rootRef.current?.closest("[inert]")) return;
+    cancelResizeRef.current?.();
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.focus({ preventScroll: true });
     const startX = event.clientX;
     const startY = event.clientY;
+    const pointerId = event.pointerId;
     const startWidth = image.frameWidth;
     const startHeight = image.frameHeight;
     const startOffsetX = image.frameOffsetX ?? 0;
@@ -529,7 +535,12 @@ export function ImageGroupBlockView({
       frameOffsetY: startOffsetY,
     };
 
+    const isCurrent = () => Boolean(rootRef.current?.isConnected &&
+      !rootRef.current.closest("[inert]") && controller.getGroup(groupId) === group);
+
     const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      if (!isCurrent()) { cancel(); return; }
       const dx = (moveEvent.clientX - startX) / pointerScale;
       const dy = (moveEvent.clientY - startY) / pointerScale;
       const result = imageGroupFrameResizePreview({
@@ -563,25 +574,42 @@ export function ImageGroupBlockView({
       setFramePreview(next);
       setGuide(result.guide);
     };
-    const finish = () => {
+    const cleanup = () => {
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", finish);
-      document.removeEventListener("pointercancel", cancel);
+      document.removeEventListener("pointercancel", pointerCancel);
+      document.removeEventListener("keydown", keyDown, true);
+      window.removeEventListener("blur", cancel);
+      cancelResizeRef.current = null;
       setFramePreview(null);
       setGuide({});
-      controller.setImageFrame(groupId, image.id, next);
+    };
+    const finish = (endEvent: PointerEvent) => {
+      if (endEvent.pointerId !== pointerId) return;
+      if (!isCurrent()) { cancel(); return; }
+      move(endEvent);
+      cleanup();
+      if (next.frameWidth !== startWidth || next.frameHeight !== startHeight ||
+        next.frameOffsetX !== startOffsetX || next.frameOffsetY !== startOffsetY) {
+        controller.setImageFrame(groupId, image.id, next);
+      }
       frameElement?.closest<HTMLElement>('[contenteditable="true"]')?.focus({ preventScroll: true });
     };
-    const cancel = () => {
-      document.removeEventListener("pointermove", move);
-      document.removeEventListener("pointerup", finish);
-      document.removeEventListener("pointercancel", cancel);
-      setFramePreview(null);
-      setGuide({});
+    const cancel = () => cleanup();
+    const pointerCancel = (cancelEvent: PointerEvent) => {
+      if (cancelEvent.pointerId === pointerId) cancel();
     };
+    const keyDown = (keyEvent: KeyboardEvent) => {
+      if (keyEvent.key !== "Escape") return;
+      if (isCurrent()) { keyEvent.preventDefault(); keyEvent.stopPropagation(); }
+      cancel();
+    };
+    cancelResizeRef.current = cancel;
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", finish);
-    document.addEventListener("pointercancel", cancel);
+    document.addEventListener("pointercancel", pointerCancel);
+    document.addEventListener("keydown", keyDown, true);
+    window.addEventListener("blur", cancel);
   };
 
   const resizeImageWithKeyboard = (
@@ -844,7 +872,7 @@ export function ImageGroupBlockView({
               );
             }
             if (committedIndex < 0) return null;
-            const src = controller.getImageSrc(image.file);
+            const src = controller.getImageSrc(image.file, image.presentationAxes);
             const selected = controller.selectedImageId === image.id;
             return (
               <InteractiveImageTile

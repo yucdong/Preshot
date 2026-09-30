@@ -23,6 +23,7 @@ proposals and prototypes remain available through Git history.
 | Topic | Guide |
 | --- | --- |
 | Prerequisites, commands, and test coverage | [Build and test](development/build-and-test.md) |
+| 0.0.24 code review, user stories, regression fixes and fresh recordings | [Release review](test_reports/release-0.0.24-review.md) |
 | Modules, boundaries, and persisted data | [Architecture](development/architecture.md) |
 | Saves, ownership, recovery, and undo | [Reliability](development/reliability.md) |
 | Chinese/English interface rules | [Localization](development/i18n.md) |
@@ -42,7 +43,8 @@ proposals and prototypes remain available through Git history.
 | Multi-column implementation, test evidence, and remaining constraints | [Multi-column acceptance](test_reports/multi-column-acceptance.md) |
 | Bundled Nanjing sample, installed recording and export verification | [Installed demo acceptance](test_reports/installed-demo-acceptance.md) |
 | Under-one-minute blank-project recording with prepared materials | [Short demo acceptance](test_reports/short-demo-acceptance.md) |
-| Latest 0.0.19 installed recording, fresh document and opened PDF | [0.0.19 demo acceptance](test_reports/demo-0.0.19-acceptance.md) |
+| Expanded walkthrough: three-picture cards, two-column props and shooting notes | [Expanded demo acceptance](test_reports/demo-rich-acceptance.md) |
+| Historical 0.0.19 installed recording, fresh document and opened PDF | [0.0.19 demo acceptance](test_reports/demo-0.0.19-acceptance.md) |
 | Installed 0.0.20 material tutorials and regression results | [Material tutorial acceptance](test_reports/material-tutorials-acceptance.md) |
 | Application and dependency licenses | [Licensing](release/licensing.md) |
 | Contributor rules | [AGENTS.md](../AGENTS.md) |

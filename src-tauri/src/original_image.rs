@@ -1,13 +1,49 @@
 //! File-backed originals. Encoded file size is not an application limit.
 use std::{fs::{File, OpenOptions}, io::{BufReader, Read, Write, Cursor}, path::Path, sync::{Mutex, OnceLock, Arc, atomic::{AtomicBool, Ordering}}};
 use base64::{engine::general_purpose::STANDARD, Engine};
-use image::{ImageFormat, ImageReader};
+use image::{ImageDecoder, ImageFormat, ImageReader};
 use sha2::{Digest, Sha256};
 use crate::error::CommandError;
 
 type Result<T> = std::result::Result<T, CommandError>;
 fn error(e: impl std::fmt::Display) -> CommandError {
     CommandError::new("original_image", format!("Unable to process the original image: {e}"))
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PresentationAxes {
+    #[default]
+    Raw,
+    Exif,
+}
+impl PresentationAxes {
+    fn key(self) -> &'static str { match self { Self::Raw => "raw", Self::Exif => "exif" } }
+}
+
+pub fn presentation_axes(value: &serde_json::Value) -> Result<PresentationAxes> {
+    value.get("presentationAxes").map(|value| serde_json::from_value(value.clone()).map_err(error))
+        .unwrap_or(Ok(PresentationAxes::Raw))
+}
+
+pub fn display_dimensions(path: &Path, axes: PresentationAxes) -> Result<(u32, u32)> {
+    let (_, width, height) = info(path)?;
+    if axes == PresentationAxes::Raw { return Ok((width, height)); }
+    use image::metadata::Orientation::*;
+    Ok(match original_orientation(path)? {
+        Rotate90 | Rotate270 | Rotate90FlipH | Rotate270FlipH => (height, width),
+        _ => (width, height),
+    })
+}
+fn original_orientation(path: &Path) -> Result<image::metadata::Orientation> {
+    crate::library::files::no_links(path)?;
+    let mut reader = ImageReader::open(path).map_err(error)?.with_guessed_format().map_err(error)?;
+    reader.no_limits();
+    let mut decoder = reader.into_decoder().map_err(error)?;
+    decoder.orientation().map_err(error)
+}
+pub fn import_axes(path: &Path) -> Result<Option<PresentationAxes>> {
+    Ok((original_orientation(path)? != image::metadata::Orientation::NoTransforms).then_some(PresentationAxes::Exif))
 }
 
 pub fn fingerprint(path: &Path) -> Result<(u64, String)> {
@@ -36,23 +72,42 @@ pub fn verify(path: &Path, length: u64, hash: &str) -> Result<()> {
 /// Destination must already have a durable owner. Short writes remain owned by
 /// that journal, and must never be mistaken for a successfully published file.
 pub fn copy_new(source: &Path, destination: &Path, length: u64, hash: &str) -> Result<()> {
+    copy_new_inner(source, destination, length, hash, false)
+}
+
+/// Imports without a resumable file journal discard only a destination that
+/// this invocation successfully created. A failed allocation owns nothing.
+pub fn copy_new_cleaned(source: &Path, destination: &Path, length: u64, hash: &str) -> Result<()> {
+    copy_new_inner(source, destination, length, hash, true)
+}
+
+fn copy_new_inner(source: &Path, destination: &Path, length: u64, hash: &str, clean_failure: bool) -> Result<()> {
     crate::library::files::no_links(source)?;
     crate::library::files::check_leaf(destination)?;
     let mut input = File::open(source).map_err(error)?;
     let mut output = OpenOptions::new().create_new(true).write(true).open(destination).map_err(error)?;
-    let mut actual = Sha256::new();
-    let mut copied = 0u64;
-    let mut buffer = [0u8; 64 * 1024];
-    loop {
-        let count = input.read(&mut buffer).map_err(error)?;
-        if count == 0 { break; }
-        output.write_all(&buffer[..count]).map_err(error)?;
-        actual.update(&buffer[..count]);
-        copied = copied.checked_add(count as u64).ok_or_else(|| error("File length overflow"))?;
+    let result = (|| {
+        let mut actual = Sha256::new();
+        let mut copied = 0u64;
+        let mut buffer = [0u8; 64 * 1024];
+        loop {
+            let count = input.read(&mut buffer).map_err(error)?;
+            if count == 0 { break; }
+            output.write_all(&buffer[..count]).map_err(error)?;
+            actual.update(&buffer[..count]);
+            copied = copied.checked_add(count as u64).ok_or_else(|| error("File length overflow"))?;
+        }
+        output.sync_all().map_err(error)?;
+        if copied != length || format!("{:x}", actual.finalize()) != hash { return Err(error("Source changed during copying")); }
+        Ok(())
+    })();
+    drop(output);
+    if clean_failure {
+        if let Err(cause) = &result {
+            std::fs::remove_file(destination).map_err(|cleanup| error(format!("{cause}; copied-file cleanup failed: {cleanup}")))?;
+        }
     }
-    output.sync_all().map_err(error)?;
-    if copied != length || format!("{:x}", actual.finalize()) != hash { return Err(error("Source changed during copying")); }
-    Ok(())
+    result
 }
 
 pub fn is_prefix(partial: &Path, source: &Path) -> Result<bool> {
@@ -84,7 +139,7 @@ pub fn info(path: &Path) -> Result<(&'static str, u32, u32)> {
 
 // Serialize native raster allocations; copies and hashes need only fixed buffers.
 static DECODE: Mutex<()> = Mutex::new(());
-fn decode_original(path: &Path) -> Result<image::DynamicImage> {
+fn decode_original(path: &Path, axes: PresentationAxes) -> Result<image::DynamicImage> {
     let mut reader = ImageReader::open(path).map_err(error)?.with_guessed_format().map_err(error)?;
     reader.no_limits();
     #[cfg(windows)] {
@@ -97,16 +152,20 @@ fn decode_original(path: &Path) -> Result<image::DynamicImage> {
             reader.limits(limits);
         }
     }
-    reader.decode().map_err(error)
+    let mut decoder = reader.into_decoder().map_err(error)?;
+    let orientation = if axes == PresentationAxes::Exif { decoder.orientation().map_err(error)? } else { image::metadata::Orientation::NoTransforms };
+    let mut decoded = image::DynamicImage::from_decoder(decoder).map_err(error)?;
+    decoded.apply_orientation(orientation);
+    Ok(decoded)
 }
 
-pub fn raster_for_edit(path: &Path) -> Result<(image::DynamicImage, std::sync::MutexGuard<'static, ()>)> {
+pub fn raster_for_edit_with_axes(path: &Path, axes: PresentationAxes) -> Result<(image::DynamicImage, std::sync::MutexGuard<'static, ()>)> {
     let guard = DECODE.lock().map_err(error)?;
-    Ok((decode_original(path)?, guard))
+    Ok((decode_original(path, axes)?, guard))
 }
 
-fn render_display(path: &Path, output: &Path, edge: u32) -> Result<()> {
-    let decoded = decode_original(path)?;
+fn render_display(path: &Path, output: &Path, edge: u32, axes: PresentationAxes) -> Result<()> {
+    let decoded = decode_original(path, axes)?;
     let edge = edge.clamp(1, 4096);
     let display = decoded.thumbnail(edge.min(decoded.width()), edge.min(decoded.height()));
     drop(decoded);
@@ -122,10 +181,13 @@ fn render_display(path: &Path, output: &Path, edge: u32) -> Result<()> {
 pub fn run_worker_if_requested() -> bool {
     let args: Vec<_> = std::env::args_os().collect();
     if args.get(1).is_none_or(|arg| arg != "--preshot-original-image-worker") { return false; }
-    let result = if args.len() == 5 {
+    let result = if args.len() == 6 {
         args[4].to_str().and_then(|s| s.parse::<u32>().ok())
             .ok_or_else(|| error("Invalid image worker request"))
-            .and_then(|edge| render_display(Path::new(&args[2]), Path::new(&args[3]), edge))
+            .and_then(|edge| {
+                let axes = match args[5].to_str() { Some("raw") => PresentationAxes::Raw, Some("exif") => PresentationAxes::Exif, _ => return Err(error("Invalid image axes")) };
+                render_display(Path::new(&args[2]), Path::new(&args[3]), edge, axes)
+            })
     } else { Err(error("Invalid image worker request")) };
     std::process::exit(if result.is_ok() { 0 } else { 1 });
 }
@@ -141,7 +203,9 @@ impl DisplayJob {
         jobs.insert(id.clone(), cancelled.clone());
         Ok(Self { id, cancelled })
     }
-    pub fn render(&self, path: &Path, edge: u32) -> Result<String> { display_url_cancel(path, edge, &self.cancelled) }
+    #[cfg(test)]
+    pub fn render(&self, path: &Path, edge: u32) -> Result<String> { self.render_with_axes(path, edge, PresentationAxes::Raw) }
+    pub fn render_with_axes(&self, path: &Path, edge: u32, axes: PresentationAxes) -> Result<String> { display_url_cancel(path, edge, axes, &self.cancelled) }
 }
 impl Drop for DisplayJob {
     fn drop(&mut self) { if let Ok(mut jobs) = JOBS.get_or_init(Default::default).lock() { jobs.remove(&self.id); } }
@@ -152,8 +216,36 @@ pub fn cancel_image_display(id: String) -> Result<()> {
     if let Some(cancelled) = JOBS.get_or_init(Default::default).lock().map_err(error)?.get(&id) { cancelled.store(true, Ordering::Relaxed); }
     Ok(())
 }
-pub fn display_url(path: &Path, edge: u32) -> Result<String> { display_url_cancel(path, edge, &AtomicBool::new(false)) }
-fn display_url_cancel(path: &Path, edge: u32, cancelled: &AtomicBool) -> Result<String> {
+pub fn display_url(path: &Path, edge: u32) -> Result<String> { display_url_with_axes(path, edge, PresentationAxes::Raw) }
+pub fn display_url_with_axes(path: &Path, edge: u32, axes: PresentationAxes) -> Result<String> { display_url_cancel(path, edge, axes, &AtomicBool::new(false)) }
+
+fn valid_cached_display(path: &Path, edge: u32) -> bool {
+    let validate = || -> Result<()> {
+        let file = File::open(path).map_err(error)?;
+        let metadata = file.metadata().map_err(error)?;
+        if !metadata.is_file() || metadata.len() == 0 || metadata.len() > 68 * 1024 * 1024 {
+            return Err(error("Invalid cached preview size"));
+        }
+        let mut decoder = png::Decoder::new(BufReader::new(file));
+        decoder.set_limits(png::Limits { bytes: 8 * 1024 * 1024 });
+        decoder.set_ignore_text_chunk(true);
+        decoder.set_ignore_iccp_chunk(true);
+        let mut reader = decoder.read_info().map_err(error)?;
+        let info = reader.info();
+        if info.width == 0 || info.height == 0 || info.width > edge || info.height > edge
+            || info.animation_control.is_some()
+        {
+            return Err(error("Invalid cached preview dimensions"));
+        }
+        // A valid IHDR does not establish that IDAT pixels are readable. Verify
+        // rows and trailing checksums without allocating a second full raster.
+        while reader.next_row().map_err(error)?.is_some() {}
+        reader.finish().map_err(error)
+    };
+    validate().is_ok()
+}
+
+fn display_url_cancel(path: &Path, edge: u32, axes: PresentationAxes, cancelled: &AtomicBool) -> Result<String> {
     let edge = edge.clamp(1, 4096);
     let (_, hash) = fingerprint(path)?;
     let _guard = loop {
@@ -167,9 +259,9 @@ fn display_url_cancel(path: &Path, edge: u32, cancelled: &AtomicBool) -> Result<
     let root = std::env::temp_dir().join("Preshot-derived-images-v2");
     std::fs::create_dir_all(&root).map_err(error)?;
     crate::library::files::no_links(&root)?;
-    let cached = root.join(format!("{hash}-{edge}.png"));
+    let cached = root.join(if axes == PresentationAxes::Raw { format!("{hash}-{edge}.png") } else { format!("{hash}-{edge}-{}.png", axes.key()) });
     crate::library::files::check_leaf(&cached)?;
-    if cached.exists() && !matches!(info(&cached), Ok(("image/png", width, height)) if width <= edge && height <= edge) {
+    if cached.exists() && !valid_cached_display(&cached, edge) {
         // This file is an owned, disposable derivative. Retry regenerates it;
         // the source and durable original receipts remain untouched.
         std::fs::remove_file(&cached).map_err(error)?;
@@ -177,11 +269,11 @@ fn display_url_cancel(path: &Path, edge: u32, cancelled: &AtomicBool) -> Result<
     if !cached.exists() {
         let temporary = root.join(format!("{}.pending", uuid::Uuid::new_v4()));
         #[cfg(test)]
-        let result = render_display(path, &temporary, edge);
+        let result = render_display(path, &temporary, edge, axes);
         #[cfg(not(test))]
         let result = (|| {
             let mut command = std::process::Command::new(std::env::current_exe().map_err(error)?);
-            command.arg("--preshot-original-image-worker").arg(path).arg(&temporary).arg(edge.to_string());
+            command.arg("--preshot-original-image-worker").arg(path).arg(&temporary).arg(edge.to_string()).arg(axes.key());
             #[cfg(windows)] {
                 use std::os::windows::process::CommandExt;
                 command.creation_flags(0x08000000);
@@ -214,11 +306,30 @@ fn display_url_cancel(path: &Path, edge: u32, cancelled: &AtomicBool) -> Result<
 }
 
 /// A committed original must remain usable even when its disposable preview fails.
+#[cfg(test)]
 pub fn preview_result(path: &Path, edge: u32) -> (String, Option<String>) {
-    match display_url(path, edge) {
+    preview_result_with_axes(path, edge, PresentationAxes::Raw)
+}
+pub fn preview_result_with_axes(path: &Path, edge: u32, axes: PresentationAxes) -> (String, Option<String>) {
+    match display_url_with_axes(path, edge, axes) {
         Ok(url) => (url, None),
         Err(_) => (String::new(), Some("Original saved; preview unavailable. Retry preview.".into())),
     }
+}
+
+#[cfg(test)]
+pub(crate) fn test_jpeg_with_orientation(width: u32, height: u32, direction: u8) -> Vec<u8> {
+    let pixels = image::RgbImage::from_fn(width, height, |x, y| image::Rgb([(x * 29) as u8, (y * 37) as u8, ((x + y) * 17) as u8]));
+    let mut jpeg = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 95).encode_image(&pixels).unwrap();
+    let mut exif = b"Exif\0\0II\x2a\0\x08\0\0\0\x01\0\x12\x01\x03\0\x01\0\0\0\x01\0\0\0\0\0\0\0".to_vec();
+    exif[24] = direction;
+    let mut bytes = jpeg[..2].to_vec();
+    bytes.extend_from_slice(&[0xff, 0xe1]);
+    bytes.extend_from_slice(&((exif.len() + 2) as u16).to_be_bytes());
+    bytes.extend_from_slice(&exif);
+    bytes.extend_from_slice(&jpeg[2..]);
+    bytes
 }
 
 #[cfg(test)]
@@ -266,5 +377,43 @@ mod tests {
         std::fs::write(&cached, b"interrupted cache write").unwrap();
         assert_eq!(display_url(&source, 37).unwrap(), first);
         assert_eq!(fingerprint(&source).unwrap(), before);
+    }
+
+    #[test]
+    fn corrupt_cached_pixels_with_valid_dimensions_are_regenerated() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("source.png");
+        image::DynamicImage::new_rgb8(31, 13).save(&source).unwrap();
+        let before = fingerprint(&source).unwrap();
+        let first = display_url(&source, 41).unwrap();
+        let cached = std::env::temp_dir().join("Preshot-derived-images-v2")
+            .join(format!("{}-41.png", before.1));
+        let mut damaged = std::fs::read(&cached).unwrap();
+        let idat = damaged.windows(4).position(|bytes| bytes == b"IDAT").unwrap();
+        damaged[idat + 4] ^= 0xff;
+        std::fs::write(&cached, &damaged).unwrap();
+        assert_eq!(info(&cached).unwrap(), ("image/png", 31, 13));
+        assert!(image::load_from_memory(&damaged).is_err());
+        assert_eq!(display_url(&source, 41).unwrap(), first);
+        assert_eq!(fingerprint(&source).unwrap(), before);
+    }
+
+    #[test]
+    fn cleaned_copy_removes_failed_owned_output_but_preserves_collisions() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("source.png");
+        let target = root.path().join("copy.png");
+        std::fs::write(&source, b"source bytes").unwrap();
+        let (size, hash) = fingerprint(&source).unwrap();
+        std::fs::write(&target, b"foreign file").unwrap();
+        assert!(copy_new_cleaned(&source, &target, size, &hash).is_err());
+        assert_eq!(std::fs::read(&target).unwrap(), b"foreign file");
+        std::fs::remove_file(&target).unwrap();
+        assert!(copy_new_cleaned(&source, &target, size + 1, &hash).is_err());
+        assert!(!target.exists());
+        // Durable journal callers still retain partial output for exact recovery.
+        assert!(copy_new(&source, &target, size + 1, &hash).is_err());
+        assert_eq!(std::fs::read(&target).unwrap(), b"source bytes");
+        assert_eq!(fingerprint(&source).unwrap(), (size, hash));
     }
 }

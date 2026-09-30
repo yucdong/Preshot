@@ -129,6 +129,12 @@ pub fn payload_images(payload: &MaterialPayload) -> Result<&Vec<Value>> {
     }
 }
 
+pub(super) fn image_axes(payload: &MaterialPayload, local_id: &str) -> Result<crate::original_image::PresentationAxes> {
+    let image = payload_images(payload)?.iter().find(|image| image["localImageId"] == local_id)
+        .ok_or_else(|| error("image_not_found", "Image presentation is missing from this revision"))?;
+    crate::original_image::presentation_axes(image)
+}
+
 fn image(value: &Value) -> Result<()> {
     object(
         value,
@@ -141,9 +147,11 @@ fn image(value: &Value) -> Result<()> {
             "frameOffsetY",
             "fitMode",
             "crop",
+            "presentationAxes",
         ],
     )?;
     local_image_identifier(string(value, "localImageId")?)?;
+    crate::original_image::presentation_axes(value)?;
     for key in ["aspectRatio", "frameWidth", "frameHeight"] {
         numeric(value, key, true)?;
     }
@@ -207,6 +215,9 @@ pub fn payload(value: &MaterialPayload) -> Result<()> {
             > 1024 * 1024
     {
         return Err(error("payload", "Unsupported material payload"));
+    }
+    if value.version < 2 && crate::column_document::has_exif_presentation(&value.component) {
+        return Err(error("payload", "EXIF-aware images require material payload v2"));
     }
     let (fields, optional, strings, collection): (&[&str], &[&str], &[&str], Option<&str>) =
         match value.kind {
@@ -324,13 +335,14 @@ pub fn plan(value: &Value) -> Result<()> {
         ],
         &[],
     )?;
-    let active = (value["schemaVersion"] == 17 && value["document"]["version"] == 5) || (value["schemaVersion"] == 16 && value["document"]["version"] == 4);
+    let active = (matches!(value["schemaVersion"].as_u64(), Some(17 | 18)) && value["document"]["version"] == 5) || (value["schemaVersion"] == 16 && value["document"]["version"] == 4);
     let legacy = value["schemaVersion"] == 15 && value["document"]["version"] == 3;
     if (!active && !legacy) || value["document"]["format"] != "preshot-blocks"
+        || (crate::column_document::has_exif_presentation(value) && value["schemaVersion"] != 18)
     {
         return Err(error(
             "plan",
-            "Library operations require a supported v16 or legacy v15 plan",
+            "Library operations require a supported plan; EXIF-aware images require schema v18",
         ));
     }
     object(&value["document"], &["format", "version", "blocks"], &[])?;
@@ -492,7 +504,7 @@ pub fn snapshot_from_plan(
     }
     let result = MaterialPayload {
         format: "preshot-material".into(),
-        version: if plan_value["schemaVersion"] == 17 { 2 } else { 1 },
+        version: if matches!(plan_value["schemaVersion"].as_u64(), Some(17 | 18)) { 2 } else { 1 },
         kind,
         component: Value::Object(component),
     };
@@ -747,6 +759,7 @@ pub fn insertion(base: &Value, next: &Value, prepared: &PreparedMaterialInsert) 
         .unwrap()
         .remove(index);
     remainder[sidecars].as_array_mut().unwrap().pop();
+    crate::column_document::restore_version_for_comparison(base, next, &mut remainder);
     if remainder != *base {
         return Err(error("insert", "Insertion changed unrelated plan content"));
     }
@@ -793,13 +806,14 @@ fn native_image_insertion(base: &Value, next: &Value, prepared: &PreparedMateria
         if !array(block, "children")?.is_empty() { return Err(error("insert", "Inserted image must not contain child blocks")); }
         let mut expected = json!({"url":file,"name":prepared.payload.component["name"],
             "caption":image["caption"].as_str().unwrap_or(""),"showPreview":true,"previewWidth":image["frameWidth"]});
-        if next["schemaVersion"] == 17 {
+        if matches!(next["schemaVersion"].as_u64(), Some(17 | 18)) {
             expected["previewHeight"] = image["frameHeight"].clone();
             expected["fitMode"] = image.get("fitMode").cloned().unwrap_or(json!("cover"));
             for (prop, field, default) in [("cropX", "x", 0.0), ("cropY", "y", 0.0), ("cropWidth", "width", 1.0), ("cropHeight", "height", 1.0)] {
                 expected[prop] = image.get("crop").and_then(|crop| crop.get(field)).cloned().unwrap_or(json!(default));
             }
         }
+        if let Some(axes) = image.get("presentationAxes") { expected["presentationAxes"] = axes.clone(); }
         // JSON.stringify normalizes integral floats (0.0 -> 0). Compare visual
         // numbers by exact value while retaining the complete, closed prop set.
         let actual = block["props"].as_object().ok_or_else(|| error("insert", "Expected image props"))?;
@@ -816,6 +830,7 @@ fn native_image_insertion(base: &Value, next: &Value, prepared: &PreparedMateria
     }
     let mut remainder = next.clone();
     remainder.pointer_mut(&format!("/document{path}")).unwrap().as_array_mut().unwrap().drain(index..index + count);
+    crate::column_document::restore_version_for_comparison(base, next, &mut remainder);
     if remainder != *base { return Err(error("insert", "Image insertion changed unrelated plan content")); }
     Ok(())
 }

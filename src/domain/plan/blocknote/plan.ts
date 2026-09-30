@@ -218,6 +218,7 @@ export function setBlockNoteImageNaturalDimensions(
     file: string;
     sourceWidth: number;
     sourceHeight: number;
+    presentationAxes?: "raw" | "exif";
   },
 ): ProjectPlanV14 {
   if (
@@ -235,7 +236,7 @@ export function setBlockNoteImageNaturalDimensions(
     changed: boolean;
     defaultFrameHydrated: boolean;
   } => {
-    if (image.file !== input.file) {
+    if (image.file !== input.file || (image.presentationAxes ?? "raw") !== (input.presentationAxes ?? "raw")) {
       return { image, changed: false, defaultFrameHydrated: false };
     }
     const defaultFrame = hasHydratableDefaultFrame(image);

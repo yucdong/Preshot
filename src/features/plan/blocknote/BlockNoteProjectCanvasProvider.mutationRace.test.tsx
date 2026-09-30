@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../../../app/theme/ThemeProvider";
 import type { BlockNotePlanService } from "../../../domain/plan/blocknote/service";
@@ -55,18 +54,18 @@ vi.mock("./BlockNoteDocumentEditor", () => ({
         <button
           onClick={() => {
             if (moving) {
-              imageGroupController.openImage(
+              imageGroupController.setImageFrame(
                 moving.id === "moving" &&
                     source?.images.some((image) => image.id === moving.id)
                   ? "source"
                   : "target",
                 moving.id,
-                moving.file,
+                { frameWidth: 90, frameHeight: 90, frameOffsetX: 0, frameOffsetY: 0 },
               );
             }
           }}
         >
-          打开裁剪
+          调整裁切框
         </button>
         <button
           onClick={() =>
@@ -410,60 +409,44 @@ describe("BlockNote image mutation serialization", () => {
     expect(new Set(ids).size).toBe(ids?.length);
   });
 
-  it("rebases a deferred crop onto the latest reorder", async () => {
-    const user = userEvent.setup();
+  it("preserves an inline crop and reorder when a deferred import completes", async () => {
     const gate = deferred<void>();
     const saved: ProjectPlanV14[] = [];
-    const commitImageCrop = vi.fn(async (
+    const imported = image("imported");
+    const importImages = vi.fn(async (
       _projectPath: string,
       getLatestPlan: () => ProjectPlanV14,
     ) => {
       await gate.promise;
-      const plan = {
-        ...getLatestPlan(),
-        imageGroups: getLatestPlan().imageGroups.map((group) => ({
-          ...group,
-          images: group.images.map((entry) =>
-            entry.id === "moving"
-              ? {
-                  ...entry,
-                  aspectRatio: 1,
-                  sourceWidth: 600,
-                  sourceHeight: 600,
-                  frameWidth: 90,
-                  crop: { x: 0, y: 0, width: 1, height: 1 },
-                }
-              : entry
-          ),
-        })),
-      };
-      const cropped = plan.imageGroups[0]!.images[0]!;
+      const plan = replaceGroup(getLatestPlan(), "source", group => ({
+        ...group, images: [...group.images, imported],
+      }));
       saved.push(structuredClone(plan));
       return {
         plan,
-        image: cropped,
-        dataUrl: "data:image/png;base64,cropped",
+        images: [{ image: imported, dataUrl: "data:image/png;base64,new" }],
       };
     });
-    renderProvider(serviceWith({ commitImageCrop }, saved));
-    await screen.findByRole("button", { name: "打开裁剪" });
+    const service = serviceWith({ importImages }, saved);
+    renderProvider(service);
+    await screen.findByRole("button", { name: "调整裁切框" });
 
-    await user.click(screen.getByRole("button", { name: "打开裁剪" }));
-    await user.click(await screen.findByRole("button", { name: "裁剪" }));
-    await user.click(screen.getByRole("button", { name: "1:1" }));
-    await user.click(screen.getByRole("button", { name: "确认裁剪" }));
-    await waitFor(() => expect(commitImageCrop).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "导入测试图片" }));
+    await waitFor(() => expect(importImages).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "调整裁切框" }));
     fireEvent.click(screen.getByRole("button", { name: "完成重新排序" }));
     gate.resolve();
 
-    await expectReorderedWith("remove");
-    expect(screen.getByTestId("moving-ratio")).toHaveTextContent("1");
+    await expectReorderedWith("remove,imported");
+    expect(screen.getByTestId("moving-ratio")).toHaveTextContent("1.5");
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
     await waitFor(() => expect(saved).toHaveLength(2));
     expect(saved.at(-1)?.imageGroups[1].images[0]).toMatchObject({
-      id: "moving",
-      aspectRatio: 1,
+      id: "moving", file: "references/moving.png", aspectRatio: 1.5,
+      sourceWidth: 900, sourceHeight: 600, frameWidth: 90, frameHeight: 90,
+      crop: { x: 0.166667, y: 0, width: 0.666667, height: 1 },
     });
+    expect(service.commitImageCrop).not.toHaveBeenCalled();
   });
 
   it("cancels a reorder preview when an operation changes the revision", async () => {

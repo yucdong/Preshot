@@ -9,6 +9,7 @@ import type { ImagePasteRepository } from "../../../domain/clipboard/projectImag
 import { ImageClipboardContext } from "../ImageClipboardContext";
 import { BlockNoteProjectCanvasProvider } from "./BlockNoteProjectCanvasProvider";
 import type { PreshotBlockNoteEditor } from "./blockOperations";
+import { closeHistory } from "prosemirror-history";
 
 const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aJ/8AAAAASUVORK5CYII=";
 const decode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "decode");
@@ -29,7 +30,7 @@ function currentEditor(): PreshotBlockNoteEditor {
   if (!editor) throw new Error("Editor is not mounted");
   return editor;
 }
-function fixture() {
+function fixture(galleryKind: "imageGroup" | "prop" = "imageGroup", presentationAxes?: "exif") {
   let plan: ProjectPlanV15 = createEmptyProjectPlanV15("图片测试", { makeId: () => "intro" });
   plan.document.blocks.push(
     { id: "native", type: "image", props: { url: "media/original.png", name: "原图.png", caption: "保留图注", showPreview: true, previewWidth: 300, textAlignment: "left", backgroundColor: "default" }, content: undefined, children: [] },
@@ -39,6 +40,16 @@ function fixture() {
     id: "gallery", type: "reference", name: "图片组", description: "", x: 0, width: 700, height: 240,
     images: [{ id: "source", file: "references/0001.png", aspectRatio: 1, frameWidth: 240, frameHeight: 240, sourceWidth: 1, sourceHeight: 1 }],
   });
+  if (presentationAxes) {
+    plan.schemaVersion = 18;
+    plan.imageGroups[0].images[0].presentationAxes = presentationAxes;
+  }
+  if (galleryKind === "prop") {
+    plan.artifacts.push({ id: "prop", kind: "prop", revision: 0, title: "透明伞", source: "拍摄道具",
+      gallery: { id: "gallery", images: plan.imageGroups[0].images } });
+    plan.imageGroups = [];
+    plan.document.blocks[2] = { id: "group", type: "prop", props: { artifactId: "prop" }, content: undefined, children: [] };
+  }
   let clipboard: ImageClipboardContents | null = null;
   const port: ImageClipboardPort = {
     availability: "test",
@@ -89,6 +100,69 @@ async function paste(element: Element) {
 }
 
 describe("production editor image clipboard integration", () => {
+  it.each(["imageGroup", "prop"] as const)("copies oriented %s pixels without leaking original-file axes into the clipboard", async kind => {
+    const context = fixture(kind, "exif");
+    const source = await screen.findByRole("button", { name: "选择参考图 1" });
+    await copy(source);
+    expect(context.service.loadImage).toHaveBeenCalledWith("C:\\\\clipboard-test", "references/0001.png", "exif");
+    const copied = vi.mocked(context.port.write).mock.calls[0][0];
+    expect(copied.dataUrl).toBe(pixel);
+    expect(copied.presentation).toMatchObject({ frameWidth: 240, frameHeight: 240, sourceWidth: 1, sourceHeight: 1 });
+    expect(copied.presentation).not.toHaveProperty("presentationAxes");
+    expect(copied.presentation).not.toHaveProperty("file");
+    expect(copied.presentation).not.toHaveProperty("id");
+    await paste(source);
+    await waitFor(() => expect(context.repository.commitImagePaste).toHaveBeenCalledOnce());
+    const saved = context.getPlan();
+    const images = kind === "imageGroup" ? saved.imageGroups[0].images : saved.artifacts.find(artifact => artifact.kind === "prop")!.gallery!.images;
+    expect(images[0].presentationAxes).toBe("exif");
+    expect(images[1]).not.toHaveProperty("presentationAxes");
+  });
+
+  it("retains the mounted editor and prior history across schema-18 promotion and undo", async () => {
+    const context = fixture();
+    await screen.findByRole("button", { name: "选择参考图 1" });
+    const editor = currentEditor();
+    act(() => {
+      editor.updateBlock("intro", { content: "导入图片前的文字" });
+      editor.prosemirrorView.dispatch(closeHistory(editor.prosemirrorView.state.tr));
+      editor.updateBlock("native", { props: { presentationAxes: "exif" } });
+    });
+    await waitFor(() => expect(currentEditor()).toBe(editor));
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await waitFor(() => expect(context.getPlan().schemaVersion).toBe(18));
+    act(() => { editor.undo(); });
+    expect(editor.getBlock("intro")?.content).toMatchObject([{ text: "导入图片前的文字" }]);
+    expect(editor.getBlock("native")?.props).not.toMatchObject({ presentationAxes: "exif" });
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await waitFor(() => expect(context.getPlan().document.blocks.find(block => block.id === "native")?.props).not.toHaveProperty("presentationAxes"));
+    expect(context.getPlan().schemaVersion).toBe(18);
+    act(() => { editor.undo(); });
+    expect(editor.getBlock("intro")?.content).toEqual([]);
+    expect(currentEditor()).toBe(editor);
+  });
+
+  it.each(["imageGroup", "prop"] as const)("undoes %s fit changes before earlier resize without a history conflict", async kind => {
+    fixture(kind);
+    const handle = await screen.findByLabelText("从right调整参考图 1");
+    const frame = handle.closest<HTMLElement>("[data-image-id]")!;
+    const initialWidth = frame.style.width;
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    const resizedWidth = frame.style.width;
+    expect(resizedWidth).not.toBe(initialWidth);
+    fireEvent.click(screen.getByRole("button", { name: "切换参考图 1 为自由变形" }));
+    expect(screen.getByRole("button", { name: "切换参考图 1 为裁切适配" })).toBeVisible();
+    act(() => { currentEditor().undo(); });
+    expect(screen.getByRole("button", { name: "切换参考图 1 为自由变形" })).toBeVisible();
+    expect(frame.style.width).toBe(resizedWidth);
+    act(() => { currentEditor().undo(); });
+    expect(frame.style.width).toBe(initialWidth);
+    act(() => { currentEditor().redo(); });
+    expect(frame.style.width).toBe(resizedWidth);
+    act(() => { currentEditor().redo(); });
+    expect(screen.getByRole("button", { name: "切换参考图 1 为裁切适配" })).toBeVisible();
+  });
+
   it("pastes independent group files and undoes/redoes without changing the source", async () => {
     const context = fixture();
     const source = await screen.findByRole("button", { name: "选择参考图 1" });

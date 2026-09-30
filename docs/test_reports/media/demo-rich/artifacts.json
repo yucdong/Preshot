@@ -1,0 +1,36 @@
+{
+  "recordedVersion": "0.0.24",
+  "mp4Seconds": 57.63,
+  "gifSeconds": 57.75,
+  "gifFrames": 231,
+  "pdfPages": 2,
+  "pdfCharacters": 1598,
+  "propHeadingPages": [
+    2
+  ],
+  "imageDrawsPerPage": [
+    6,
+    4
+  ],
+  "projectImages": 10,
+  "locationImages": 3,
+  "modelImages": 3,
+  "propColumns": 2,
+  "artifacts": [
+    {
+      "file": "preshot-demo.mp4",
+      "bytes": 4041610,
+      "sha256": "5b7f3d0f9fb677e9610bab327eb5f83e442f21f38f0173ad31fabbcaf0ecbec6"
+    },
+    {
+      "file": "preshot-demo.gif",
+      "bytes": 5572936,
+      "sha256": "935d45d2143f14ef0f9e82694f7511456d74ef76799cdda0595005e5dfb3095c"
+    },
+    {
+      "file": "preshot-demo.pdf",
+      "bytes": 1922647,
+      "sha256": "836bbf33cc2cb849236d707946e448c71d3b3a94e10d4157d747ba143d2a02fa"
+    }
+  ]
+}

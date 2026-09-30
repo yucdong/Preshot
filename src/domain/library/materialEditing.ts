@@ -14,7 +14,8 @@ export interface MaterialEditDraft {
 
 function structure(plan: ProjectPlanV15): string {
   return JSON.stringify({
-    schemaVersion: plan.schemaVersion,
+    // Presentation compatibility does not change the locked component structure.
+    schemaVersion: plan.schemaVersion === 18 ? 17 : plan.schemaVersion,
     title: plan.title,
     document: plan.document,
     imageGroups: plan.imageGroups.map(({ images, name, description, ...outer }) => {
@@ -70,6 +71,7 @@ export function serializeMaterialEditDraft(
   if (draft.kind === "image" && snapshot.payload.component.kind === "imageGroup") {
     snapshot.payload = { ...snapshot.payload, kind: "image", component: { ...snapshot.payload.component, kind: "image" } };
   }
-  snapshot.payload.version = snapshot.payload.component.contentLayout ? 2 : draft.payloadVersion;
+  snapshot.payload.version = snapshot.payload.component.contentLayout ||
+    componentImages(snapshot.payload.component).some(image => image.presentationAxes === "exif") ? 2 : draft.payloadVersion;
   return validateMaterialPayload(snapshot.payload);
 }

@@ -7,6 +7,9 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   clearScreen: false,
+  optimizeDeps: {
+    entries: ["index.html", "e2e/fixtures/*.html"],
+  },
   server: {
     host: host || false,
     port: 1420,
@@ -19,7 +22,16 @@ export default defineConfig({
         }
       : undefined,
     watch: {
-      ignored: ["**/src-tauri/**", "**/.docs-check-*/**"],
+      // Trace HTML and WebView capture profiles are generated output, not app edits.
+      ignored: [
+        "**/src-tauri/**",
+        "**/.docs-check-*/**",
+        "**/.production-tools-*/**",
+        "**/.preshot-build-cache/**",
+        "**/test-results/**",
+        "**/playwright-report/**",
+        "**/midscene_run/**",
+      ],
     },
   },
   test: {

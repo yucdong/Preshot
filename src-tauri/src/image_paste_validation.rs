@@ -51,9 +51,10 @@ pub(super) fn plan(value: &Value) -> Result<()> {
         &[],
     )?;
     object(&value["document"], &["format", "version", "blocks"], &[])?;
-    let active = (value["schemaVersion"] == 17 && value["document"]["version"] == 5) || (value["schemaVersion"] == 16 && value["document"]["version"] == 4);
+    let active = (matches!(value["schemaVersion"].as_u64(), Some(17 | 18)) && value["document"]["version"] == 5) || (value["schemaVersion"] == 16 && value["document"]["version"] == 4);
     let legacy = value["schemaVersion"] == 15 && value["document"]["version"] == 3;
     if (!active && !legacy) || value["document"]["format"] != "preshot-blocks"
+        || (crate::column_document::has_exif_presentation(value) && value["schemaVersion"] != 18)
         || !value["title"].is_string()
         || serde_json::to_vec(value)
             .map_err(|_| error("plan", "Invalid plan"))?
@@ -113,8 +114,9 @@ fn native_image(base: &Value, block: &Value, prepared: &PreparedImagePaste) -> R
     let props = object(
         &block["props"],
         &["url", "name", "caption", "showPreview"],
-        &["textAlignment", "backgroundColor", "previewWidth"],
+        &["textAlignment", "backgroundColor", "previewWidth", "presentationAxes"],
     )?;
+    crate::original_image::presentation_axes(&block["props"])?;
     if props["url"] != prepared.file
         || props["name"] != prepared.name
         || !text(&props["caption"])
@@ -147,9 +149,11 @@ fn reference_image(base: &Value, image: &Value, prepared: &PreparedImagePaste) -
             "frameOffsetY",
             "fitMode",
             "crop",
+            "presentationAxes",
         ],
     )?;
     let id = identifier(&image["id"])?;
+    crate::original_image::presentation_axes(image)?;
     if contains_id(base, id) || image["file"] != prepared.file {
         return Err(error(
             "delta",
@@ -368,6 +372,7 @@ pub(super) fn insertion(
             }
         }
     }
+    crate::column_document::restore_version_for_comparison(base, next, &mut restored);
     if restored != *base {
         return Err(error(
             "delta",

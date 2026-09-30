@@ -1,15 +1,17 @@
 ﻿param(
     [Parameter(Mandatory)][string]$Case,
-    [string]$Work='.preshot-build-cache/material-tutorials-0.0.20'
+    [string]$Work='.preshot-build-cache/material-tutorials-0.0.24'
 )
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'demo-native-tools.ps1')
-$workRoot=(Resolve-Path $Work).Path
-$appId=[int](Get-Content (Join-Path $workRoot 'app-pid.txt'))
-$demoVersion=(Get-Item (Get-Process -Id $appId).Path).VersionInfo.FileVersion
-$script:DemoHandle=(Get-Process -Id $appId).MainWindowHandle
+. (Join-Path $PSScriptRoot 'demo-native-session.ps1')
+$session=Assert-DemoNativeSession $Work
+$workRoot=$session.WorkRoot
+$appId=$session.AppId
+$demoVersion=$session.Version
+$script:DemoHandle=$session.Handle
 [DemoNative]::ShowWindow($script:DemoHandle,9) | Out-Null
-$output=Join-Path $workRoot $Case
+$output=Assert-DemoOwnedPath (Join-Path $workRoot $Case) $session.CacheRoot $false
 if(Test-Path -LiteralPath $output){throw "Archive the previous take before retrying: $output"}
 New-Item -ItemType Directory $output | Out-Null
 $chapters=[System.Collections.Generic.List[object]]::new()
@@ -57,21 +59,48 @@ function Fit-Material {
     $null=Show-DemoElement '素材名称' 'Edit'
     Start-Sleep -Seconds 1
 }
+function Focus-VisibleParagraph([string]$Name) {
+    $paragraph=Show-DemoDocumentTarget $Name 'Text'
+    $rect=$paragraph.Current.BoundingRectangle
+    if($paragraph.Current.IsOffscreen -or [double]::IsNaN($rect.X) -or $rect.Width -le 0){throw 'Paragraph must be visible before physical focus'}
+    [void][DemoNative]::SetForegroundWindow($script:DemoHandle)
+    if([DemoNative]::GetForegroundWindow() -ne $script:DemoHandle){throw 'Owned document must be foreground'}
+    [DemoNative]::Click([int]($rect.X+20),[int]($rect.Y+$rect.Height/2))
+    Start-Sleep -Milliseconds 700
+}
 function Show-OriginalFolder {
-    Click-Demo '打开原图所在位置' 'Button'
     $shell=New-Object -ComObject Shell.Application
-    $window=$null
-    for($attempt=0;$attempt -lt 40;$attempt++) {
+    $libraryRoot=[IO.Path]::GetFullPath((Join-Path $workRoot 'profile\.preshot\library')).TrimEnd('\')
+    $ownedWindows={
         foreach($candidate in $shell.Windows()) {
             try {
-                $url=[Uri]::UnescapeDataString([string]$candidate.LocationURL).Replace('/','\')
-                if($url.Contains($workRoot.Replace('/','\')) -and $url.Contains('\library\')) {$window=$candidate;break}
+                $uri=[Uri]([string]$candidate.LocationURL)
+                if(-not $uri.IsAbsoluteUri -or -not $uri.IsFile -or [IO.Path]::GetFileName([string]$candidate.FullName) -ine 'explorer.exe'){continue}
+                $folder=[IO.Path]::GetFullPath($uri.LocalPath).TrimEnd('\')
+                if($folder.Equals($libraryRoot,[StringComparison]::OrdinalIgnoreCase) -or $folder.StartsWith($libraryRoot+'\',[StringComparison]::OrdinalIgnoreCase)) {
+                    [pscustomobject]@{Window=$candidate;Folder=$folder}
+                }
             } catch { }
         }
+    }
+    # Each reveal gets a fresh owned Explorer window. Otherwise a minimized
+    # earlier gallery window could be recorded for the single-image action.
+    # Only this isolated profile's library windows are closed; no files change.
+    foreach($owned in @(& $ownedWindows)) {$owned.Window.Quit()}
+    for($attempt=0;$attempt -lt 40 -and @(& $ownedWindows).Count;$attempt++) {Start-Sleep -Milliseconds 250}
+    if(@(& $ownedWindows).Count){throw 'The previous isolated library folder did not close'}
+    Click-Demo '打开原图所在位置' 'Button'
+    $window=$null
+    $openedFolder=$null
+    for($attempt=0;$attempt -lt 40;$attempt++) {
+        $opened=@(& $ownedWindows)
+        if($opened.Count -gt 1){throw 'Multiple isolated library windows opened; cannot identify the revealed folder'}
+        if($opened.Count -eq 1){$window=$opened[0].Window;$openedFolder=$opened[0].Folder}
         if($window){break}
         Start-Sleep -Milliseconds 250
     }
     if(-not $window){throw 'The isolated library originals folder did not open'}
+    $openedFolder | Add-Content -LiteralPath (Join-Path $output 'revealed-folders.txt') -Encoding UTF8
     $folderHandle=[IntPtr]([long]$window.HWND)
     [DemoNative]::ShowWindow($folderHandle,9) | Out-Null
     [DemoNative]::SetWindowPos($folderHandle,[IntPtr]::Zero,30,30,1600,1060,0x0040) | Out-Null
@@ -89,8 +118,8 @@ try {
         $config=switch($Case) {
             'C01' { @{Category='图片';Name='桥畔蓝调 · 单图';Description='南京长江大桥蓝调时刻，参考灯光与纵深。';Photos=@('bridge-night.jpg');Fields=@{}} }
             'C02' { @{Category='图片组';Name='桥畔光线 · 图片组';Description='日间与蓝调对照，选取同一地点的不同光线。';Photos=@('bridge-day.jpg','bridge-night.jpg');Fields=@{}} }
-            'C03' { @{Category='场地';Name='南京长江大桥 · 地点';Description='江边公共步道，日落与蓝调人像拍摄地点。';Photos=@('bridge-day.jpg');Fields=[ordered]@{'场地名称'='南京长江大桥';'场地信息'='从允许停留的江边步道拍摄；留意风向与行人。'}} }
-            'C04' { @{Category='模特';Name='模特 A · 人像';Description='虚构模特，用于南京长江大桥风光人像方案。';Photos=@('model-a.png');Fields=[ordered]@{'模特名称 / 编号'='模特 A（虚构）';'身高 cm'='168';'鞋码'='38';'其他信息'='浅色服装，侧身回望，缓慢行走。样片为原创示意图。'}} }
+            'C03' { @{Category='场地';Name='南京长江大桥 · 地点';Description='江边公共步道，日落与蓝调人像拍摄地点。';Photos=@('bridge-day.jpg','bridge-night.jpg','bridge-panorama.jpg');Fields=[ordered]@{'场地名称'='南京长江大桥';'场地信息'='从允许停留的江边步道拍摄；留意风向与行人。'}} }
+            'C04' { @{Category='模特';Name='模特 A · 人像';Description='虚构模特，用于南京长江大桥风光人像方案。';Photos=@('model-a.png','model-a-walking.png','model-a-umbrella.png');Fields=[ordered]@{'模特名称 / 编号'='模特 A（虚构）';'身高 cm'='168';'鞋码'='38';'其他信息'='浅色服装，侧身回望，缓慢行走。样片为原创示意图。'}} }
             'C05' { @{Category='道具与服装';Name='透明伞 · 道具';Description='日落逆光道具，透明材质保留人物轮廓。';Photos=@('transparent-umbrella.png');Fields=[ordered]@{'道具与服装名称'='透明伞';'道具与服装信息'='自备一把透明伞；江边大风时收起。'}} }
         }
         Chapter ('新建'+$config.Category+'素材') ('Create a '+(@{C01='single image';C02='gallery';C03='location';C04='model';C05='prop'}[$Case])+' material') 5
@@ -354,13 +383,22 @@ try {
         Click-Demo '重做' 'Button'
         Chapter '切换自由变形，再恢复裁切填满' 'Switch to stretch, or use crop-to-fill for the frame' 7
         Click-Demo '切换参考图 1 为自由变形' 'Button'
+        Click-Demo '撤销' 'Button'
+        $null=Wait-DemoElement '切换参考图 1 为自由变形' 'Button'
+        Click-Demo '重做' 'Button'
+        $null=Wait-DemoElement '切换参考图 1 为裁切适配' 'Button'
         Click-Demo '切换参考图 1 为裁切适配' 'Button'
-        Chapter '打开大图，选择裁剪比例并调整构图' 'Open the image, choose a crop ratio and adjust composition' 10
+        Chapter '双击打开只读大图，裁切适配保留在画布中' 'Open the read-only image preview; crop-to-fill stays in the canvas' 10
         Click-Demo '选择参考图 1' 'Button'
         Send-DemoKeys '{ENTER}'
-        Click-Demo '裁剪' 'Button'
-        Click-Demo '1:1' 'Button'
-        Click-Demo '确认裁剪' 'Button'
+        $null=Wait-DemoElement '关闭图片' 'Button'
+        $previewRoot=[System.Windows.Automation.AutomationElement]::FromHandle($script:DemoHandle)
+        $cropControls=@($previewRoot.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition) | Where-Object {
+            $_.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -and $_.Current.Name -in @('裁剪','确认裁剪')
+        })
+        if($cropControls.Count){throw 'Enlarged image preview unexpectedly offers cropping'}
+        Save-DemoFrame $script:DemoHandle (Join-Path $output 'read-only-preview.png')
+        Start-Sleep -Seconds 2
         Click-Demo '关闭图片' 'Button'
         Chapter '保存后关闭，预览使用已提交的图片与排版' 'Save and close; preview the committed pictures and layout' 8
         Click-Demo '保存素材' 'Button'
@@ -388,6 +426,11 @@ try {
         Click-Demo '重做' 'Button'
         Wait-DemoGone '选择参考图 2' 'Button'
         Click-Demo '撤销' 'Button'
+        # Restored images must become selectable immediately; a stale source
+        # readiness cache previously left this button permanently disabled.
+        Click-Demo '选择参考图 2' 'Button'
+        $null=Wait-DemoElement '从right调整参考图 2' 'Thumb'
+        Save-DemoFrame $script:DemoHandle (Join-Path $output 'restored-image-ready.png')
         Chapter '保存排序结果，关闭后更新素材预览' 'Save the reordered gallery and refresh its preview' 6
         Click-Demo '保存素材' 'Button'
         $null=Wait-DemoElement '素材已保存，可继续编辑；关闭后更新预览。' 'Text'
@@ -442,17 +485,30 @@ try {
         Chapter '在文档中输入斜杠，从素材库插入' 'Type slash in the document to insert from the library' 7
         Open-Library
         Click-Demo '关闭素材库' 'Button'
-        Add-DemoText '桥畔拍摄 · 快捷插入'
-        Add-DemoBlock '从素材库插入'
+        Focus-VisibleParagraph '桥畔构图参考'
+        [void][DemoNative]::SetForegroundWindow($script:DemoHandle)
+        [System.Windows.Forms.SendKeys]::SendWait('{END}{ENTER}')
+        [DemoNative]::TypeText('/')
+        Start-Sleep -Milliseconds 600
+        [DemoNative]::TypeText('从素材库插入')
+        Click-Demo '从素材库插入 *' 'ListItem'
         Set-DemoText '搜索素材名称、标签和全部文字' '桥畔蓝调 · 单图'
         Click-Demo '选择素材：桥畔蓝调 · 单图' 'Button'
         Click-Demo '插入到当前文档' 'Button'
         Wait-DemoGone '关闭素材库' 'Button'
         Chapter '也可以点击段落左侧加号，打开插入菜单' 'Use the plus beside a paragraph to open the insert menu' 8
-        Add-DemoText '文档末尾也可以插入素材'
-        $r=(Show-DemoElement '文档末尾也可以插入素材' 'Text').Current.BoundingRectangle
-        Move-DemoPointer ([int]($r.X+15)) ([int]($r.Y+8))
-        Click-Demo '添加块' 'Button'
+        # Native-image insertion can leave a node selection. Use an existing
+        # visible paragraph; UIA SetFocus on the editor is not a text caret.
+        Focus-VisibleParagraph '桥畔构图参考'
+        $r=(Show-DemoDocumentTarget '桥畔构图参考' 'Text').Current.BoundingRectangle
+        if([double]::IsNaN($r.X) -or [double]::IsNaN($r.Y) -or $r.Width -le 0){throw 'The visible paragraph must have finite bounds before hovering its plus button'}
+        [void][DemoNative]::SetCursorPos([int]($r.X+15),[int]($r.Y+8))
+        Start-Sleep -Milliseconds 700
+        $plus=Wait-DemoElement '添加块' 'Button'
+        $plusRect=$plus.Current.BoundingRectangle
+        if($plus.Current.IsOffscreen -or [double]::IsNaN($plusRect.X) -or $plusRect.Width -le 0){throw 'Paragraph plus must be visible before physical click'}
+        [DemoNative]::Click([int]($plusRect.X+$plusRect.Width/2),[int]($plusRect.Y+$plusRect.Height/2))
+        $null=Wait-DemoElement '从素材库插入 *' 'ListItem'
         Save-DemoFrame $script:DemoHandle (Join-Path $output 'bottom-menu.png')
         Chapter '菜单随可用空间展开，选取素材后插入当前位置' 'Choose a material from the menu at the current document position' 8
         Click-Demo '从素材库插入 *' 'ListItem'
@@ -460,6 +516,37 @@ try {
         Click-Demo '选择素材：模特 A · 人像' 'Button'
         Click-Demo '插入到当前文档' 'Button'
         Wait-DemoGone '关闭素材库' 'Button'
+    } elseif($Case -eq 'C19') {
+        Chapter '导入带相机旋转信息的 JPEG' 'Import a JPEG with camera orientation metadata' 7
+        Open-Library
+        Click-Demo '创建素材' 'Button'
+        Click-Demo '图片' 'Button'
+        Metadata '大桥相机原图 · 方向保留' '照片按相机方向显示，原图字节独立保留。' '南京，长江大桥，相机，原图'
+        Click-Demo '添加图片' 'Button'
+        Select-DemoFile (Join-Path $workRoot 'fixtures\bridge-camera-rotation.jpg')
+        $null=Wait-DemoElement '选择参考图 1' 'Button'
+        Chapter '画布与大图预览保持正确方向' 'The canvas and enlarged preview preserve the intended orientation' 9
+        Click-Demo '选择参考图 1' 'Button'
+        Send-DemoKeys '{ENTER}'
+        $null=Wait-DemoElement '关闭图片' 'Button'
+        Save-DemoFrame $script:DemoHandle (Join-Path $output 'camera-preview.png')
+        Start-Sleep -Seconds 2
+        Click-Demo '关闭图片' 'Button'
+        Chapter '保存为图片素材，插入文档后仍保持方向' 'Save an image material and reuse it in the document' 9
+        Save-New '大桥相机原图 · 方向保留'
+        Pick-Material '大桥相机原图 · 方向保留'
+        Click-Demo '插入到当前文档' 'Button'
+        Wait-DemoGone '关闭素材库' 'Button'
+        $cameraManifest=Join-Path $workRoot 'profile\.preshot\projects\南京长江大桥 · 演示项目\.preshotproj'
+        $cameraSaved=$false
+        for($attempt=0;$attempt -lt 40;$attempt++) {
+            $cameraPlan=(Get-Content -LiteralPath $cameraManifest -Raw -Encoding UTF8 | ConvertFrom-Json).plan
+            if($cameraPlan.schemaVersion -eq 18 -and ($cameraPlan | ConvertTo-Json -Depth 40) -match '"presentationAxes"\s*:\s*"exif"') {$cameraSaved=$true;break}
+            Start-Sleep -Milliseconds 250
+        }
+        if(-not $cameraSaved){throw 'The inserted camera image did not persist its EXIF presentation'}
+        Start-Sleep -Seconds 2
+        Save-DemoFrame $script:DemoHandle (Join-Path $output 'camera-inserted.png')
     } elseif($Case -eq 'C12') {
         Chapter '在正文中插入一个独立图片块' 'Insert an independent image block in the document' 7
         Open-Library
@@ -498,9 +585,9 @@ finally {
     New-Item -ItemType File -Path (Join-Path $output 'stop') -Force | Out-Null
     if(-not $capture.WaitForExit(30000)){throw 'Recorder did not finish'}
     if($capture.ExitCode -ne 0){throw "Recorder failed: $($capture.ExitCode)"}
-    $data=Get-Content (Join-Path $output 'frames.json') -Raw | ConvertFrom-Json
+    $data=Get-Content (Join-Path $output 'frames.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $timeline=@($chapters.ToArray()|ForEach-Object {@{seconds=($_.timestamp-$data.started)/1000;zh=$_.zh;en=$_.en;targetSeconds=$_.targetSeconds}})
-    @{phase=$Case;version=$demoVersion;chapters=$timeline;frames=$data.frames;duration=$data.duration;errors=@($(if($failure){$failure}));crop=@{x=10;y=75;width=1580;height=974}} | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 (Join-Path $output 'recording.json')
+    @{phase=$Case;version=$demoVersion;chapters=$timeline;frames=$data.frames;duration=$data.duration;errors=@($(if($failure){$failure}));crop=@{x=10;y=51;width=1580;height=998}} | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 (Join-Path $output 'recording.json')
     Save-DemoFrame $script:DemoHandle (Join-Path $output 'last.png')
 }
 if($failure){throw $failure}

@@ -9,6 +9,7 @@ import { libraryError, materialKindLabels, metadataValidationError, useLibraryLi
 import { MaterialMetadataFields } from "./MaterialMetadataFields";
 import { createMetadataDraft, readMetadataDraft } from "./materialMetadataDraft";
 import { MaterialDuplicateNameDialog } from "./MaterialDuplicateNameDialog";
+import { componentImages } from "../../domain/library/materialStructure";
 
 type Assets = { sessionId: string } & (
   | { status: "loading" }
@@ -70,7 +71,8 @@ export function MaterialContentEditor({
       try {
         const images = new Map<string, string>();
         for (const image of material.images) {
-          const src = await lease.repository.loadEditImage(sessionId, image.localImageId);
+          const axes = componentImages(material.payload.component).find(visual => visual.localImageId === image.localImageId)?.presentationAxes;
+          const src = await lease.repository.loadEditImage(sessionId, image.localImageId, axes);
           if (!active) return;
           images.set(image.localImageId, src);
         }

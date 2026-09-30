@@ -3,6 +3,7 @@ import type { ReferenceComponent, ReferenceImage } from "./models";
 
 export const BLOCK_DOCUMENT_SCHEMA_VERSION = 5 as const;
 export const BLOCKNOTE_PLAN_SCHEMA_VERSION = 17 as const;
+export const EXIF_PLAN_SCHEMA_VERSION = 18 as const;
 export const DOCUMENT_BLOCK_LIMIT = 20_000;
 export const DOCUMENT_DEPTH_LIMIT = 32;
 export const ARTIFACT_RECORD_LIMIT = 512;
@@ -158,7 +159,7 @@ export type ArtifactRecord =
   | ShootingLocationArtifact;
 
 export interface ProjectPlanV16 {
-  schemaVersion: typeof BLOCKNOTE_PLAN_SCHEMA_VERSION;
+  schemaVersion: typeof BLOCKNOTE_PLAN_SCHEMA_VERSION | typeof EXIF_PLAN_SCHEMA_VERSION;
   title: string;
   document: PreshotBlockDocument;
   imageGroups: ReferenceComponent[];
@@ -456,6 +457,7 @@ function assertBlock(
     }
     if (blockType === "image") {
       const props = value.props;
+      if (props.presentationAxes !== undefined && props.presentationAxes !== "raw" && props.presentationAxes !== "exif") throw new Error("Invalid image presentation axes");
       if (props.previewHeight !== undefined && (typeof props.previewHeight !== "number" || !Number.isFinite(props.previewHeight) || props.previewHeight < 0) ||
           props.fitMode !== undefined && props.fitMode !== "cover" && props.fitMode !== "stretch") throw new Error("Invalid image presentation");
       for (const key of ["cropX", "cropY", "cropWidth", "cropHeight"]) {
@@ -622,6 +624,7 @@ function assertReferenceImage(
     "aspectRatio",
     "sourceWidth",
     "sourceHeight",
+    "presentationAxes",
     "frameWidth",
     "frameHeight",
     "frameOffsetX",
@@ -630,6 +633,12 @@ function assertReferenceImage(
     "crop",
   ], context);
   assertIdentifier(value.id, `${context} id`);
+  if (value.presentationAxes !== undefined && value.presentationAxes !== "raw" && value.presentationAxes !== "exif") {
+    throw new Error(`${context} has invalid presentation axes`);
+  }
+  if (value.presentationAxes === "exif" && (value.sourceWidth === undefined || value.sourceHeight === undefined)) {
+    throw new Error(`${context} EXIF presentation requires display dimensions`);
+  }
   if (
     typeof value.file !== "string" ||
     !/^references\/[^/\\]+$/i.test(value.file)
@@ -1069,7 +1078,18 @@ function validateLegacyProjectPlanV14(value: unknown): LegacyProjectPlanV14 {
   };
 }
 
-function validatePlanVersion(value: unknown, schemaVersion: 15 | 16 | 17, documentVersion: 3 | 4 | 5): ProjectPlanV16 {
+/** Preserve old plan identity until a view explicitly opts into EXIF axes. */
+export function promoteImagePresentationPlan(plan: ProjectPlanV16): ProjectPlanV16 {
+  if (plan.schemaVersion === EXIF_PLAN_SCHEMA_VERSION) return plan;
+  const usesExifBlocks = (blocks: PreshotBlock[]): boolean => blocks.some(block =>
+    block.type === "image" && block.props.presentationAxes === "exif" || usesExifBlocks(block.children));
+  const usesExifReferences = [...plan.imageGroups, ...artifactCollectionsInPlan(plan)]
+    .some(group => group.images.some(image => image.presentationAxes === "exif"));
+  return usesExifReferences || usesExifBlocks(plan.document.blocks)
+    ? { ...plan, schemaVersion: EXIF_PLAN_SCHEMA_VERSION } : plan;
+}
+
+function validatePlanVersion(value: unknown, schemaVersion: 15 | 16 | 17 | 18, documentVersion: 3 | 4 | 5): ProjectPlanV16 {
   assertPlanHeader(value, schemaVersion, String(schemaVersion));
   if (!Array.isArray(value.artifacts)) {
     throw new Error(`Stored plan schema version ${schemaVersion} artifacts are malformed`);
@@ -1091,18 +1111,20 @@ function validatePlanVersion(value: unknown, schemaVersion: 15 | 16 | 17, docume
     groupIds,
     imageIds,
   );
-  return {
-    schemaVersion: BLOCKNOTE_PLAN_SCHEMA_VERSION,
+  return promoteImagePresentationPlan({
+    // Older releases must reject marked native-image-only documents instead of
+    // silently dropping the unknown block property and changing their crop axes.
+    schemaVersion: schemaVersion === EXIF_PLAN_SCHEMA_VERSION ? EXIF_PLAN_SCHEMA_VERSION : BLOCKNOTE_PLAN_SCHEMA_VERSION,
     title: value.title,
     document: { ...validatedDocument.document, version: BLOCK_DOCUMENT_SCHEMA_VERSION } as PreshotBlockDocument,
     imageGroups: groups,
     artifacts,
-  };
+  });
 }
 
 export function validateProjectPlanV16(value: unknown): ProjectPlanV16 {
   return isRecord(value) && value.schemaVersion === 16
-    ? validatePlanVersion(value, 16, 4) : validatePlanVersion(value, 17, 5);
+    ? validatePlanVersion(value, 16, 4) : validatePlanVersion(value, isRecord(value) && value.schemaVersion === 18 ? 18 : 17, 5);
 }
 
 export const validateProjectPlanV15 = validateProjectPlanV16;

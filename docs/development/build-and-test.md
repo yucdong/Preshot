@@ -33,6 +33,7 @@ The Tauri wrapper resolves the default Cargo location if PATH is stale.
 | `pnpm test` | Domain, UI, adapters, packaging |
 | `pnpm test:init` | Initializer regression harness |
 | `pnpm test:production-scripts` | Version, signatures, MSI, release metadata |
+| `pnpm test:dev-server` | Vite watcher and Tailwind exclude generated output while retaining application and fixture styles |
 | `cargo test --manifest-path src-tauri\Cargo.toml --target x86_64-pc-windows-msvc --all-features --all-targets --locked` | Full native tests |
 | `pnpm test:e2e` / `pnpm test:e2e:blocknote` | Browser integration and editor workflows |
 | `pnpm production:verify` | Existing-artifact verification without rebuilding/installing |
@@ -43,6 +44,16 @@ Vitest defaults to four workers to bound editor/exporter memory pressure.
 Tests own temporary projects, libraries, and injected clipboard adapters.
 Never use developer data or the live clipboard unattended. Set
 `PRESHOT_E2E_PORT` to avoid the user's dev server; Playwright uses headless Edge.
+Playwright stores disposable output under `.preshot-build-cache/playwright`
+(separate folders for the default, BlockNote and capture configurations).
+Failed cases retain a screenshot and trace. Do not override output to
+`test-results`: that directory contains user-maintained bug lists and evidence.
+Vite ignores generated output under `.preshot-build-cache`, `test-results`,
+`playwright-report`, `midscene_run`, and temporary `.production-tools-*` directories.
+Dependency scanning starts from `index.html` and `e2e/fixtures/*.html` only.
+Tailwind scans `src` and browser fixtures, excluding temporary documentation
+fixtures. Trace HTML, recording profiles, release-test files, and documentation
+must not trigger application reloads or become generated UI styles.
 
 Install/upgrade/repair/uninstall acceptance requires a disposable Windows VM.
 Static MSI inspection does not replace clean-machine acceptance.

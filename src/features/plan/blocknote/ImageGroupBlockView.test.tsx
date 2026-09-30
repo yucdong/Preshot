@@ -105,6 +105,64 @@ function renderGroups(
 }
 
 describe("ImageGroupBlockView image tile interactions", () => {
+  it.each(["Escape", "blur", "unmount", "inactive"] as const)(
+    "cancels an unfinished resize on %s without a late commit",
+    (reason) => {
+      const groups = [group("gallery", "image")];
+      const controller = controllerFor(groups);
+      const view = renderGroups(groups, controller);
+      const handle = screen.getByLabelText("从right调整参考图 1");
+      fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
+      fireEvent.pointerMove(document, { pointerId: 1, clientX: 40, clientY: 0 });
+      if (reason === "Escape") fireEvent.keyDown(handle, { key: "Escape" });
+      else if (reason === "blur") fireEvent(window, new Event("blur"));
+      else if (reason === "unmount") view.unmount();
+      else view.container.setAttribute("inert", "");
+      fireEvent.pointerUp(document, { pointerId: 1, clientX: 60, clientY: 0 });
+      expect(controller.setImageFrame).not.toHaveBeenCalled();
+    },
+  );
+
+  it("uses the releasing pointer's latest coordinates and commits only once", () => {
+    const groups = [group("gallery", "image")];
+    const controller = controllerFor(groups);
+    renderGroups(groups, controller);
+    fireEvent.pointerDown(screen.getByLabelText("从right调整参考图 1"), {
+      button: 0, pointerId: 1, clientX: 0, clientY: 0,
+    });
+    fireEvent.pointerMove(document, { pointerId: 1, clientX: 20, clientY: 0 });
+    fireEvent.pointerUp(document, { pointerId: 1, clientX: 60, clientY: 0 });
+    fireEvent.pointerUp(document, { pointerId: 1, clientX: 90, clientY: 0 });
+    expect(controller.setImageFrame).toHaveBeenCalledExactlyOnceWith("gallery", "image",
+      expect.objectContaining({ frameWidth: 180, frameHeight: 80 }));
+  });
+
+  it("ignores a different pointer during an active resize", () => {
+    const groups = [group("gallery", "image")];
+    const controller = controllerFor(groups);
+    renderGroups(groups, controller);
+    fireEvent.pointerDown(screen.getByLabelText("从right调整参考图 1"), {
+      button: 0, pointerId: 1, clientX: 0, clientY: 0,
+    });
+    fireEvent.pointerMove(document, { pointerId: 2, clientX: 80, clientY: 0 });
+    fireEvent.pointerUp(document, { pointerId: 2, clientX: 80, clientY: 0 });
+    expect(controller.setImageFrame).not.toHaveBeenCalled();
+    fireEvent.pointerUp(document, { pointerId: 1, clientX: 40, clientY: 0 });
+    expect(controller.setImageFrame).toHaveBeenCalledExactlyOnceWith("gallery", "image",
+      expect.objectContaining({ frameWidth: 160, frameHeight: 80 }));
+  });
+
+  it("does not start a resize from the secondary mouse button", () => {
+    const groups = [group("gallery", "image")];
+    const controller = controllerFor(groups);
+    renderGroups(groups, controller);
+    fireEvent.pointerDown(screen.getByLabelText("从right调整参考图 1"), {
+      button: 2, clientX: 0, clientY: 0,
+    });
+    fireEvent.pointerUp(document, { button: 2, clientX: 40, clientY: 0 });
+    expect(controller.setImageFrame).not.toHaveBeenCalled();
+  });
+
   it("opens one confirmation for Delete and exposes deletion outside an oversized image", () => {
     const wide = group("gallery", "wide");
     wide.images[0].frameWidth = 1440;

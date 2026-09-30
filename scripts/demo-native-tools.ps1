@@ -8,6 +8,7 @@ public static class DemoNative {
  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X,Y; }
  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+ [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h,int n);
  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h,IntPtr z,int x,int y,int width,int height,uint flags);
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h,out RECT r);
@@ -48,20 +49,49 @@ function Save-DemoFrame([IntPtr]$Handle,[string]$Path) {
     $bitmap = New-Object System.Drawing.Bitmap ($r.Right-$r.Left),($r.Bottom-$r.Top)
     $g = [System.Drawing.Graphics]::FromImage($bitmap)
     try {
-        $dc = $g.GetHdc()
-        try { if (-not [DemoNative]::PrintWindow($Handle,$dc,2)) { throw 'PrintWindow failed' } }
-        finally { $g.ReleaseHdc($dc) }
+        $captureApplication = {
+            $dc = $g.GetHdc()
+            try { if (-not [DemoNative]::PrintWindow($Handle,$dc,2)) { throw "PrintWindow failed for application window $Handle" } }
+            finally { $g.ReleaseHdc($dc) }
+        }
+        & $captureApplication
         $popup = [DemoNative]::GetLastActivePopup($Handle)
         if ($popup -ne $Handle -and [DemoNative]::IsWindowVisible($popup)) {
             $p = New-Object DemoNative+RECT
-            [DemoNative]::GetWindowRect($popup,[ref]$p) | Out-Null
-            $overlay = New-Object System.Drawing.Bitmap ($p.Right-$p.Left),($p.Bottom-$p.Top)
-            $pg = [System.Drawing.Graphics]::FromImage($overlay)
-            try {
-                $pdc = $pg.GetHdc()
-                try { [DemoNative]::PrintWindow($popup,$pdc,2) | Out-Null } finally { $pg.ReleaseHdc($pdc) }
-                $g.DrawImageUnscaled($overlay,$p.Left-$r.Left,$p.Top-$r.Top)
-            } finally { $pg.Dispose(); $overlay.Dispose() }
+            $hasBounds = [DemoNative]::GetWindowRect($popup,[ref]$p) -and $p.Right -gt $p.Left -and $p.Bottom -gt $p.Top
+            if (-not $hasBounds) {
+                if ([DemoNative]::GetLastActivePopup($Handle) -eq $popup -and [DemoNative]::IsWindowVisible($popup)) {
+                    throw "Unable to read visible popup window bounds: $popup"
+                }
+                & $captureApplication
+            } else {
+                $overlay = New-Object System.Drawing.Bitmap ($p.Right-$p.Left),($p.Bottom-$p.Top)
+                $pg = [System.Drawing.Graphics]::FromImage($overlay)
+                try {
+                    $pdc = $pg.GetHdc()
+                    try { $popupCaptured = [DemoNative]::PrintWindow($popup,$pdc,2) } finally { $pg.ReleaseHdc($pdc) }
+                    $after = New-Object DemoNative+RECT
+                    $sameVisiblePopup = [DemoNative]::GetLastActivePopup($Handle) -eq $popup -and [DemoNative]::IsWindowVisible($popup)
+                    $hasCurrentBounds = $sameVisiblePopup -and [DemoNative]::GetWindowRect($popup,[ref]$after)
+                    if ($sameVisiblePopup -and -not $hasCurrentBounds) {
+                        if ([DemoNative]::GetLastActivePopup($Handle) -eq $popup -and [DemoNative]::IsWindowVisible($popup)) {
+                            throw "Unable to read visible popup window bounds after capture: $popup"
+                        }
+                        $sameVisiblePopup = $false
+                    }
+                    $sameBounds = $hasCurrentBounds -and
+                        $after.Left -eq $p.Left -and $after.Top -eq $p.Top -and $after.Right -eq $p.Right -and $after.Bottom -eq $p.Bottom
+                    if (-not $sameVisiblePopup -or -not $sameBounds) {
+                        # A closing/moving picker invalidates this overlay. Refresh
+                        # the real app frame rather than compositing stale/black pixels.
+                        & $captureApplication
+                    } elseif (-not $popupCaptured) {
+                        throw "PrintWindow failed for visible popup window $popup"
+                    } else {
+                        $g.DrawImageUnscaled($overlay,$p.Left-$r.Left,$p.Top-$r.Top)
+                    }
+                } finally { $pg.Dispose(); $overlay.Dispose() }
+            }
         }
         $cursor = New-Object DemoNative+POINT
         [DemoNative]::GetCursorPos([ref]$cursor) | Out-Null
@@ -109,7 +139,7 @@ function Click-Demo([string]$Name,[string]$Type='', [int]$Index=0) {
         if ($element.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern,[ref]$pattern)) { $pattern.ScrollIntoView(); Start-Sleep -Milliseconds 200; $rect=$element.Current.BoundingRectangle }
     }
     $invoke=$null
-    if($Name -notmatch '上传|添加图片|添加块|导出 PDF|导出 DOCX' -and $element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern,[ref]$invoke)) { $invoke.Invoke() }
+    if($Type -notin @('MenuItem','ListItem') -and $Name -notmatch '上传|添加图片|添加块|导出 PDF|导出 DOCX' -and $element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern,[ref]$invoke)) { $invoke.Invoke() }
     else { [DemoNative]::PostClick($script:DemoHandle,[int]($rect.X+$rect.Width/2),[int]($rect.Y+$rect.Height/2)) }
     Start-Sleep -Milliseconds 450
 }
@@ -131,21 +161,14 @@ function Send-DemoKeys([string]$Keys) {
 }
 function Set-DemoDocumentEnd {
     $element=Wait-DemoElement '' 'Edit'
+    [void][DemoNative]::SetForegroundWindow($script:DemoHandle)
     $element.SetFocus()
-    $pattern=$element.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
-    $range=$pattern.DocumentRange.Clone()
-    $hasText=-not [string]::IsNullOrWhiteSpace($range.GetText(-1))
-    $range.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start,$range,[System.Windows.Automation.Text.TextPatternRangeEndpoint]::End)
-    $range.Select()
-    # WebView2 rejects scrolling the degenerate range of a brand-new document.
-    if($hasText){
-        try { $range.ScrollIntoView($false) }
-        catch [System.Runtime.InteropServices.COMException] {
-            # WebView2 also rejects some empty trailing paragraphs in a
-            # populated document. The selected end range is still valid.
-            [DemoNative]::Key($script:DemoHandle,35)
-        }
-    }
+    Start-Sleep -Milliseconds 200
+    if([DemoNative]::GetForegroundWindow() -ne $script:DemoHandle){throw 'The owned Preshot window must be foreground before document navigation'}
+    # WebView2 TextPattern ranges include nested card controls and can report
+    # Select() success without moving the editable caret. Use the ordinary
+    # keyboard shortcut in the focused editor, including an empty document.
+    [System.Windows.Forms.SendKeys]::SendWait('^{END}')
     Start-Sleep -Milliseconds 400
 }
 function Add-DemoText([string]$Text,[string]$Prefix='') {
@@ -173,6 +196,30 @@ function Move-DemoPointer([int]$X,[int]$Y) {
     [DemoNative]::Point($script:DemoHandle,0x200,$X,$Y,$false)
     Start-Sleep -Milliseconds 400
 }
+function Show-DemoDocumentTarget([string]$Name,[string]$Type='Text') {
+    $element=Show-DemoElement $Name $Type
+    $toolbar=(Get-DemoElement '导出' 'Button').Current.BoundingRectangle
+    $window=New-Object DemoNative+RECT
+    [DemoNative]::GetWindowRect($script:DemoHandle,[ref]$window)|Out-Null
+    for($attempt=0;$attempt -lt 8;$attempt++) {
+        $r=$element.Current.BoundingRectangle
+        if($r.Top -ge $toolbar.Bottom+25 -and $r.Bottom -le $window.Bottom-40){return $element}
+        # UIA does not account for the editor's sticky toolbar when scrolling.
+        $delta=if($r.Top -lt $toolbar.Bottom+25){120}else{-120}
+        $point=[IntPtr]((([int]($toolbar.Bottom+180)) -shl 16) -bor ([int]($r.X+30)))
+        [DemoNative]::PostMessage([DemoNative]::Renderer($script:DemoHandle),0x020A,[IntPtr]($delta -shl 16),$point)|Out-Null
+        Start-Sleep -Milliseconds 600
+    }
+    throw "Document target remains covered by the toolbar: $Name"
+}
+function Focus-DemoDocumentText([string]$Name) {
+    # Focus first: focusing the editor after clicking can restore its old caret.
+    (Get-DemoElement '' 'Edit').SetFocus()
+    Start-Sleep -Milliseconds 300
+    $r=(Show-DemoDocumentTarget $Name 'Text').Current.BoundingRectangle
+    [DemoNative]::PostClick($script:DemoHandle,[int]($r.X+20),[int]($r.Y+10))
+    Start-Sleep -Milliseconds 700
+}
 function Drag-DemoPointer([int]$X,[int]$Y,[int]$ToX,[int]$ToY) {
     [DemoNative]::Point($script:DemoHandle,0x200,$X,$Y,$false)
     [DemoNative]::Point($script:DemoHandle,0x201,$X,$Y,$true)
@@ -193,23 +240,25 @@ function New-DemoColumns([string]$Source,[string]$Target) {
     Drag-DemoPointer ([int]($handle.X+$handle.Width/2)) ([int]($handle.Y+$handle.Height/2)) ([int]($editor.Right-3)) ([int]($targetRect.Y+10))
 }
 function Select-DemoFile([string]$Files) {
-    $dialog = $null
+    # Native handles remain stable while opening the picker invalidates UIA.
+    $popup=[IntPtr]::Zero
     for ($n=0;$n -lt 40;$n++) {
-        try {
-            $root=[System.Windows.Automation.AutomationElement]::FromHandle($script:DemoHandle)
-            $dialog=@($root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition) | Where-Object {$_.Current.ClassName -eq '#32770'}) | Select-Object -Last 1
-        } catch [System.Runtime.InteropServices.COMException] {
-            # The native picker can invalidate the WebView accessibility tree while opening.
-            $dialog=$null
+        $candidate=[DemoNative]::GetLastActivePopup($script:DemoHandle)
+        $class=New-Object System.Text.StringBuilder 100
+        [DemoNative]::GetClassName($candidate,$class,100)|Out-Null
+        if($candidate -ne $script:DemoHandle -and $class.ToString() -eq '#32770' -and [DemoNative]::IsWindowVisible($candidate)) {
+            $popup=$candidate
+            break
         }
-        if($null -ne $dialog) { $popup=[IntPtr]$dialog.Current.NativeWindowHandle; break }
         Start-Sleep -Milliseconds 250
     }
-    if ($null -eq $dialog) { throw 'Native file dialog missing' }
-    $controls = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+    if ($popup -eq [IntPtr]::Zero) { throw 'Native file dialog missing' }
     $field=[DemoNative]::ChildById($popup,1148)
     if ($field -ne [IntPtr]::Zero) { $field=[DemoNative]::ChildByClass($field,'Edit') }
+    if ($field -eq [IntPtr]::Zero) { $field=[DemoNative]::ChildById($popup,1152) }
     if ($field -eq [IntPtr]::Zero) {
+        $dialog=[System.Windows.Automation.AutomationElement]::FromHandle($popup)
+        $controls = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
         $nativeEdit=@($controls | Where-Object {$_.Current.ClassName -eq 'Edit' -and $_.Current.AutomationId -eq '1001'}) | Select-Object -First 1
         if ($null -ne $nativeEdit) { $field=[IntPtr]$nativeEdit.Current.NativeWindowHandle }
     }

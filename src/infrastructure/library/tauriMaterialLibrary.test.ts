@@ -29,6 +29,14 @@ const material = {
 };
 
 describe("Tauri material library boundary", () => {
+  it("keeps raw image metadata separate from EXIF import display dimensions", async () => {
+    const staged = { localImageId: "exif", mimeType: "image/jpeg", byteLength: 3, width: 80, height: 40,
+      displayWidth: 40, displayHeight: 80, presentationAxes: "exif", dataUrl: "data:image/png;base64,YWJj" };
+    const invokeCommand = vi.fn().mockResolvedValue([staged]);
+    const editor = createTauriMaterialLibrary({ invokeCommand, imagePicker: { pickImageFiles: vi.fn().mockResolvedValue(["C:\\portrait.jpg"]) } }).contentEditor!;
+    expect(await editor.importEditImages("draft")).toEqual([staged]);
+  });
+
   it("reveals originals by pinned material or draft identity without exposing paths", async () => {
     const invokeCommand = vi.fn().mockResolvedValue(undefined);
     const repository = createTauriMaterialLibrary({ invokeCommand });

@@ -37,9 +37,16 @@ Material content editing also shows a loading bar outside its locked canvas.
 Its native batch import reports the selected count, so that bar is indeterminate
 until the batch finishes. Loading state is transient and is never saved or exported.
 
-Select an image for crop, fit, resize, remove, and library actions. Corners
+Select an image for frame cropping, fit, resize, removal, and library actions. Corners
 preserve the frame ratio; side edges change width and top/bottom edges change
 height. Default fit fills the frame by cropping; stretch is explicit.
+
+New camera JPEG imports respect EXIF rotation and mirroring without rewriting
+the original file. Existing unmarked images retain their saved orientation and
+crop coordinates. Re-import the original to correct an older sideways photo;
+existing framing is not silently reinterpreted. A project containing an explicitly oriented image requires
+Preshot 0.0.23 or later; earlier released versions reject its schema 18 format. Normal
+images and projects without this feature retain schema 17.
 
 New gallery imports and captures fit their initial frame to the available width
 without changing the original pixels or resolution. Existing saved frames keep
@@ -51,7 +58,8 @@ inside a text field continues to edit text.
 
 Drag images to reorder them, including between groups. A valid drop is one
 undo action; previews never modify saves or exports. Opening an image displays
-a larger preview. Previews and lightboxes support copying; editable galleries
+a larger, read-only preview with no crop button or crop toolbar. Crop and fit
+controls in the document remain available. Previews and lightboxes support copying; editable galleries
 receive pasted images after you select the target.
 
 ## Save to the library

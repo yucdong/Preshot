@@ -200,7 +200,7 @@ describe("MaterialContentCanvas", () => {
     await waitFor(() => expect(cancelled).toBe(true));
   });
 
-  it("finishes started import and crop when the parent mirrors canvas busy into disabled", async () => {
+  it("finishes started import and opens a read-only preview when the parent mirrors canvas busy into disabled", async () => {
     const material = model();
     const repo = repository();
     const ref = createRef<MaterialContentCanvasHandle>();
@@ -208,9 +208,7 @@ describe("MaterialContentCanvas", () => {
     const onError = vi.fn();
     const onClose = vi.fn();
     let finishImport!: (images: MaterialEditImage[]) => void;
-    let finishCrop!: (image: MaterialEditImage) => void;
     vi.mocked(repo.importEditImages).mockReturnValue(new Promise((resolve) => { finishImport = resolve; }));
-    vi.mocked(repo.cropEditImage).mockReturnValue(new Promise((resolve) => { finishCrop = resolve; }));
     function ParentBusyHarness() {
       const [busy, setBusy] = useState(false);
       return <LibraryDialog title="编辑素材内容" onClose={onClose} busy={busy}>
@@ -233,17 +231,11 @@ describe("MaterialContentCanvas", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "关闭编辑素材内容" })).toBeEnabled());
     expect(componentImages(ref.current!.readPayload().component)[0].localImageId).toBe("busy-import");
     fireEvent.doubleClick(await screen.findByRole("button", { name: "选择参考图 1" }));
-    fireEvent.click(await screen.findByRole("button", { name: "裁剪" }));
-    fireEvent.click(screen.getByRole("button", { name: "1:1" }));
-    fireEvent.click(screen.getByRole("button", { name: "确认裁剪" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "关闭编辑素材内容" })).toBeDisabled());
-    expect(repo.cropEditImage).toHaveBeenCalledWith(
-      "busy-session", "busy-import", { x: 150, y: 0, width: 600, height: 600 },
-    );
-    await act(async () => finishCrop({ ...imported, localImageId: "busy-crop", width: 600 }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "关闭编辑素材内容" })).toBeEnabled());
-    expect(componentImages(ref.current!.readPayload().component)[0].localImageId).toBe("busy-crop");
-    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole("button", { name: "关闭图片" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /裁剪|裁切/ })).not.toBeInTheDocument();
+    expect(repo.cropEditImage).not.toHaveBeenCalled();
+    expect(componentImages(ref.current!.readPayload().component)[0].localImageId).toBe("busy-import");
+    expect(onChange).toHaveBeenCalledTimes(1);
     expect(onError).not.toHaveBeenCalled();
     fireEvent.keyDown(screen.getByRole("button", { name: "关闭图片" }), { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
@@ -327,7 +319,7 @@ describe("MaterialContentCanvas", () => {
     expect(onBusyChange).toHaveBeenLastCalledWith(false);
   });
 
-  it("crops a staged copy through the real lightbox, removes images, and restores native identities on undo", async () => {
+  it("previews without changing staged images, removes images, and restores native identities on undo", async () => {
     const original = model();
     const repo = repository();
     const ref = createRef<MaterialContentCanvasHandle>();
@@ -336,34 +328,22 @@ describe("MaterialContentCanvas", () => {
       localImageId: "staged-original", mimeType: "image/png", byteLength: 1,
       width: 900, height: 600, dataUrl: "data:image/png;base64,AA",
     }]);
-    vi.mocked(repo.cropEditImage).mockResolvedValue({
-      localImageId: "staged-cropped", mimeType: "image/png", byteLength: 1,
-      width: 600, height: 600, dataUrl: "data:image/png;base64,AQ",
-    });
     render(<MaterialContentCanvas material={original} assets={new Map()} sessionId="crop-session"
       repository={repo} onChange={vi.fn()} onBusyChange={onBusyChange} onError={vi.fn()} ref={ref} />);
     fireEvent.click((await screen.findAllByRole("button", { name: "添加图片" }))[0]);
     await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
     await waitFor(() => expect(screen.getByRole("button", { name: "选择参考图 1" })).toBeEnabled());
     fireEvent.doubleClick(screen.getByRole("button", { name: "选择参考图 1" }));
-    fireEvent.click(await screen.findByRole("button", { name: "裁剪" }));
-    fireEvent.click(screen.getByRole("button", { name: "1:1" }));
-    fireEvent.click(screen.getByRole("button", { name: "确认裁剪" }));
-    await waitFor(() => expect(repo.cropEditImage).toHaveBeenCalledWith(
-      "crop-session", "staged-original", { x: 150, y: 0, width: 600, height: 600 },
-    ));
-    await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
-    expect(componentImages(ref.current!.readPayload().component)[0].localImageId).toBe("staged-cropped");
+    expect((await screen.findByRole("dialog")).querySelector("img")).toHaveAttribute("src", "data:image/png;base64,AA");
+    expect(screen.queryByRole("button", { name: /裁剪|裁切/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "关闭图片" }));
-    fireEvent.click(screen.getByRole("button", { name: "撤销" }));
+    expect(repo.cropEditImage).not.toHaveBeenCalled();
     expect(componentImages(ref.current!.readPayload().component)[0].localImageId).toBe("staged-original");
-    fireEvent.click(screen.getByRole("button", { name: "重做" }));
-    expect(componentImages(ref.current!.readPayload().component)[0].localImageId).toBe("staged-cropped");
     fireEvent.click(screen.getByRole("button", { name: "删除参考图 1" }));
     fireEvent.click(screen.getByRole("button", { name: /^删除$/ }));
     expect(componentImages(ref.current!.readPayload().component)).toEqual([]);
     fireEvent.click(screen.getByRole("button", { name: "撤销" }));
-    expect(componentImages(ref.current!.readPayload().component)[0].localImageId).toBe("staged-cropped");
+    expect(componentImages(ref.current!.readPayload().component)[0].localImageId).toBe("staged-original");
     expect(original.images).toEqual([]);
   });
 

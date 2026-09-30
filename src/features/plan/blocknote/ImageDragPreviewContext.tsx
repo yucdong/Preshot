@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { ui, useUiLanguage } from "../../../shared/i18n/ui";
+import { imageAssetKey } from "../../../domain/plan/canvas/imagePresentation";
 import {
   DndContext,
   DragOverlay,
@@ -806,7 +807,7 @@ export function ImageDragPreviewProvider({
       !source ||
       !image ||
       image.id !== input.activeImageId ||
-      !imageSourcesRef.current[image.file] ||
+      !imageSourcesRef.current[imageAssetKey(image.file, image.presentationAxes)] ||
       stateRef.current.status === "dragging"
     ) {
       announce(ui("很抱歉，图片尚未解码完成，暂时不能移动。"));
@@ -823,7 +824,7 @@ export function ImageDragPreviewProvider({
     const next = previewState(
       transaction,
       projection,
-      imageSourcesRef.current[transaction.activeImage.file] ?? null,
+      imageSourcesRef.current[imageAssetKey(transaction.activeImage.file, transaction.activeImage.presentationAxes)] ?? null,
     );
     stateRef.current = next;
     setState(next);
@@ -1138,7 +1139,8 @@ export function ImageDragPreviewProvider({
       active.aspectRatio !== snapshotImage.aspectRatio ||
       active.frameWidth !== snapshotImage.frameWidth ||
       active.frameHeight !== snapshotImage.frameHeight ||
-      imageSources[active.file] !== stateRef.current.active?.decodedSource
+      active.presentationAxes !== snapshotImage.presentationAxes ||
+      imageSources[imageAssetKey(active.file, active.presentationAxes)] !== stateRef.current.active?.decodedSource
     ) {
       cancel("asset-change");
       return;
@@ -1266,7 +1268,9 @@ export function ImageDragPreviewProvider({
       );
     },
     isImageReady(file) {
-      return Boolean(imageSourcesRef.current[file]);
+      // Activators read readiness while rendering. An effect-updated ref would
+      // leave restored/imported images disabled until an unrelated render.
+      return Boolean(imageSources[file]);
     },
     isViewerSuppressed() {
       return Date.now() < suppressViewerUntilRef.current;
@@ -1277,6 +1281,7 @@ export function ImageDragPreviewProvider({
     commit,
     enabled,
     groupDescription,
+    imageSources,
     project,
     start,
     state,

@@ -167,9 +167,16 @@ function editImage(value: unknown): MaterialEditImage {
   const width = integer(item.width, 1, 0xffffffff);
   const height = integer(item.height, 1, 0xffffffff);
   const byteLength = integer(item.byteLength, 1);
+  const axes = item.presentationAxes;
+  if (axes !== undefined && axes !== "raw" && axes !== "exif") throw new Error("Invalid image presentation axes");
+  const display = item.displayWidth !== undefined || item.displayHeight !== undefined ? {
+    displayWidth: integer(item.displayWidth, 1, 0xffffffff), displayHeight: integer(item.displayHeight, 1, 0xffffffff),
+  } : {};
+  if (axes === "exif" && (!display.displayWidth || !display.displayHeight)) throw new Error("Missing EXIF display dimensions");
   const previewError = typeof item.previewError === "string" && item.previewError ? item.previewError : undefined;
   const url = item.dataUrl === "" && previewError ? "" : dataUrl(item.dataUrl, MATERIAL_IMAGE_MAX_BYTES);
-  return { localImageId: item.localImageId, mimeType, byteLength, width, height, dataUrl: url, ...(previewError ? { previewError } : {}) };
+  return { localImageId: item.localImageId, mimeType, byteLength, width, height, dataUrl: url,
+    ...(axes === undefined ? {} : { presentationAxes: axes }), ...display, ...(previewError ? { previewError } : {}) };
 }
 function prepared(value: unknown): PreparedMaterialInsert {
   const item = record(value);
@@ -284,8 +291,8 @@ export function createTauriMaterialLibrary({
           return { sessionId: identifier(item.sessionId), material };
         },
       ),
-      loadEditImage: (sessionId, localImageId) => call(
-        ui("无法读取素材草稿图片"), "library_load_edit_image", { sessionId, localImageId },
+      loadEditImage: (sessionId, localImageId, axes) => call(
+        ui("无法读取素材草稿图片"), "library_load_edit_image", { sessionId, localImageId, ...(axes === undefined ? {} : { presentationAxes: axes }) },
         (value) => dataUrl(value, MATERIAL_IMAGE_MAX_BYTES),
       ),
       revealEditImage: (sessionId, localImageId) => call(
@@ -352,8 +359,8 @@ export function createTauriMaterialLibrary({
           throw new MaterialLibraryNativeError(ui("无法截图到素材草稿"), error);
         }
       },
-      cropEditImage: (sessionId, localImageId, bounds) => call(
-        ui("无法裁切素材图片"), "library_crop_edit_image", { sessionId, localImageId, bounds }, editImage,
+      cropEditImage: (sessionId, localImageId, bounds, axes) => call(
+        ui("无法裁切素材图片"), "library_crop_edit_image", { sessionId, localImageId, bounds, ...(axes === undefined ? {} : { presentationAxes: axes }) }, editImage,
       ),
       async commitEdit(input) {
         try {

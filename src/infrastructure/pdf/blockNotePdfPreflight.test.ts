@@ -55,6 +55,21 @@ function plan(
 }
 
 describe("createPreshotPdfExportContext", () => {
+  it("does not merge raw and EXIF uses of the same original and crop", async () => {
+    const groups: ProjectPlanV14["imageGroups"] = [imageGroup("raw", "references/photo.jpg", 80), imageGroup("exif", "references/photo.jpg", 80)];
+    groups[1].images[0].presentationAxes = "exif";
+    const input = plan(groups.map(group => ({ id: `b-${group.id}`, type: "imageGroup", props: { groupId: group.id }, children: [], content: undefined })), groups);
+    input.schemaVersion = 18;
+    const oriented = "data:image/png;base64,b3JpZW50ZWQ=";
+    const optimizeImage = vi.fn(async (url: string) => imageDataFromDataUrl(url));
+    const context = await createPreshotPdfExportContext({ schema: preshotBlockNoteSchema, plan: input,
+      resolvedAssets: { "references/photo.jpg": TINY_PNG, "references/photo.jpg#preshot-exif": oriented }, visualContract: PDF_VISUAL_CONTRACT,
+    }, { optimizeImage });
+    expect(optimizeImage.mock.calls.map(call => call[0])).toEqual([TINY_PNG, oriented]);
+    expect(context.groupsByGroupId.raw.slots[0].assetId).not.toBe(context.groupsByGroupId.exif.slots[0].assetId);
+    expect(input.imageGroups[1].images[0].file).toBe("references/photo.jpg");
+  });
+
   it("normalizes full crops and optimizes repeated sources once at the largest draw box", async () => {
     const optimizeImage = vi.fn(async (
       dataUrl: string,

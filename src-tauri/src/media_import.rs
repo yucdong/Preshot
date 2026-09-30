@@ -71,8 +71,11 @@ fn finish(project_path: &str, id: &str) -> Result<ImportedPlanMedia> {
     original_image::verify(&destination, receipt.size, hash)?;
     let (mime, _, _) = original_image::info(&destination)?;
     // Preview failure is separate from the durable original. Retrying finish is exact.
-    let (data_url, preview_error) = original_image::preview_result(&destination, 2048);
-    Ok(ImportedPlanMedia { file: file.clone(), name: receipt.name, mime_type: mime.into(), data_url, preview_error })
+    let presentation_axes = original_image::import_axes(&destination)?;
+    let (display_width, display_height) = original_image::display_dimensions(&destination, presentation_axes.unwrap_or_default())?;
+    let (data_url, preview_error) = original_image::preview_result_with_axes(&destination, 2048, presentation_axes.unwrap_or_default());
+    Ok(ImportedPlanMedia { file: file.clone(), name: receipt.name, mime_type: mime.into(), data_url, preview_error,
+        presentation_axes, display_width: Some(display_width), display_height: Some(display_height) })
 }
 
 #[tauri::command]
@@ -96,6 +99,27 @@ pub fn abort_image_import(project_path: String, id: String) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn chunked_exif_original_keeps_bytes_and_returns_effective_display_metadata() {
+        use base64::Engine;
+        let root = tempfile::tempdir().unwrap();
+        let project = crate::workspace::create_project_in(root.path(), "Camera").unwrap().path;
+        let bytes = crate::original_image::test_jpeg_with_orientation(3, 2, 6);
+        let id = uuid::Uuid::new_v4().to_string();
+        begin_image_import(project.clone(), id.clone(), "camera.jpg".into(), bytes.len() as u64).unwrap();
+        append_image_import(project.clone(), id.clone(), 0, bytes.clone()).unwrap();
+        let saved = finish(&project, &id).unwrap();
+        assert_eq!(saved.presentation_axes, Some(original_image::PresentationAxes::Exif));
+        assert_eq!((saved.display_width, saved.display_height), (Some(2), Some(3)));
+        let pixels = image::load_from_memory(&base64::engine::general_purpose::STANDARD.decode(saved.data_url.split_once(',').unwrap().1).unwrap()).unwrap();
+        assert_eq!((pixels.width(), pixels.height()), (2, 3));
+        assert_eq!(fs::read(Path::new(&project).join(&saved.file)).unwrap(), bytes);
+        assert_eq!(finish(&project, &id).unwrap(), saved);
+        abort_image_import(project.clone(), id).unwrap();
+        let legacy = crate::plan::load_plan_media_from(Path::new(&project), &saved.file).unwrap();
+        let pixels = image::load_from_memory(&base64::engine::general_purpose::STANDARD.decode(legacy.split_once(',').unwrap().1).unwrap()).unwrap();
+        assert_eq!((pixels.width(), pixels.height()), (3, 2));
+    }
     #[test]
     fn chunked_original_is_exact_and_abort_never_removes_a_published_image() {
         let root = tempfile::tempdir().unwrap();

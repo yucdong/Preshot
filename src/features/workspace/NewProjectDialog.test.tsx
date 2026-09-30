@@ -1,9 +1,26 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { NewProjectDialog } from "./NewProjectDialog";
 
 describe("NewProjectDialog", () => {
+  it.each(["项目名称", "项目所在路径"])("keeps %s IME composition from submitting or closing the dialog", async (label) => {
+    const onCreate = vi.fn();
+    const onClose = vi.fn();
+    render(<NewProjectDialog defaultParentPath={"C:\\Preshot"} onPickDirectory={vi.fn()} onCreate={onCreate} onClose={onClose} />);
+    const name = screen.getByLabelText("项目名称");
+    fireEvent.change(name, { target: { value: "南京" } });
+    const field = screen.getByLabelText(label);
+    fireEvent.compositionStart(field);
+    fireEvent.keyDown(field, { key: "Escape", isComposing: true });
+    fireEvent.submit(field.closest("form")!);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onCreate).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(field);
+    fireEvent.submit(field.closest("form")!);
+    await waitFor(() => expect(onCreate).toHaveBeenCalledExactlyOnceWith("南京", "C:\\Preshot"));
+  });
+
   it("shows both fields and creates beneath the entered parent with the trimmed name", async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn();

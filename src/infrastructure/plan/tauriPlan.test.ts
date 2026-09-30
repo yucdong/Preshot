@@ -3,6 +3,27 @@ import { createTauriPlan } from "./tauriPlan";
 import { createEmptyProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
 
 describe("createTauriPlan", () => {
+  it("preserves EXIF axes and display dimensions from original file imports", async () => {
+    const imported = { file: "references/0001.jpg", dataUrl: "data:image/png;base64,AA==",
+      sourceWidth: 40, sourceHeight: 80, presentationAxes: "exif" };
+    const invokeCommand = vi.fn().mockResolvedValue(imported);
+    expect(await createTauriPlan({ invokeCommand }).importImage("C:\\p", "C:\\portrait.jpg")).toEqual(imported);
+  });
+
+  it("pins display and crop commands to their view axes without changing legacy command arguments", async () => {
+    const invokeCommand = vi.fn().mockResolvedValue("data:image/png;base64,AA==");
+    const plan = createTauriPlan({ invokeCommand });
+    await plan.loadImage("C:\\p", "references/0001.jpg", "exif");
+    expect(invokeCommand).toHaveBeenLastCalledWith("load_reference_image", { projectPath: "C:\\p", file: "references/0001.jpg", presentationAxes: "exif" });
+    await plan.loadImage("C:\\p", "references/0001.jpg");
+    expect(invokeCommand).toHaveBeenLastCalledWith("load_reference_image", { projectPath: "C:\\p", file: "references/0001.jpg" });
+    await plan.imageDisplay!("C:\\p", "references/0001.jpg", 512, undefined, "exif");
+    expect(invokeCommand).toHaveBeenLastCalledWith("project_image_display", expect.objectContaining({ presentationAxes: "exif", edge: 512 }));
+    invokeCommand.mockResolvedValue([40, 80]);
+    expect(await plan.imageDimensions!("C:\\p", "references/0001.jpg", "exif")).toEqual({ sourceWidth: 40, sourceHeight: 80 });
+    expect(invokeCommand).toHaveBeenLastCalledWith("project_image_dimensions", { projectPath: "C:\\p", file: "references/0001.jpg", presentationAxes: "exif" });
+  });
+
   it("streams large originals in bounded chunks and resolves an uncertain finish with the same receipt", async () => {
     const saved = { file: "media/original.png", name: "original.png", mimeType: "image/png", dataUrl: "data:image/png;base64,AA==" };
     let finishes = 0;

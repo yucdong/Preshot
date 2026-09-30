@@ -4,6 +4,7 @@ const port = process.env.PRESHOT_E2E_PORT ?? "1420";
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: "./.preshot-build-cache/playwright/default",
   expect: {
     timeout: 10_000,
   },
@@ -16,7 +17,8 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     navigationTimeout: 60_000,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
   },
   projects: [
     {

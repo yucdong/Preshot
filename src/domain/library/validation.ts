@@ -25,6 +25,7 @@ const TEXT_LIMIT = 200_000;
 const PAYLOAD_BYTE_LIMIT = 1024 * 1024;
 const IMAGE_KEYS = [
   "localImageId", "caption", "aspectRatio", "sourceWidth", "sourceHeight",
+  "presentationAxes",
   "frameWidth", "frameHeight", "frameOffsetX", "frameOffsetY", "fitMode", "crop",
 ] as const;
 
@@ -157,6 +158,9 @@ export function validateMaterialPayload(input: unknown): MaterialPayload {
   const images = (value: unknown): PortableImage[] =>
     boundedArray(value, IMAGE_LIMIT, "Material images").map((entry) => {
       const image = exactRecord(entry, IMAGE_KEYS, "Material image");
+      if (image.presentationAxes === "exif" && header.version !== 2) {
+        throw new Error("EXIF image presentation requires material payload version 2");
+      }
       assertLocalImageId(image.localImageId);
       if (seen.has(image.localImageId)) {
         throw new Error("Material localImageId must be unique");

@@ -257,7 +257,7 @@ describe("material library and the real project editor", () => {
     const inserted = context.getPlan().document.blocks[1];
     expect(inserted).toMatchObject({ type: "image", props: { url: "media/0001.png", caption: "图片说明" } });
     expect(context.getPlan().imageGroups).toEqual([]);
-    expect(context.service.loadMedia).toHaveBeenCalledWith("C:\\library-provider-fixture", "media/0001.png");
+    expect(context.service.loadMedia).toHaveBeenCalledWith("C:\\library-provider-fixture", "media/0001.png", undefined);
     expect(context.events.indexOf("load-media")).toBeLessThan(context.events.indexOf("commit"));
     const editor = currentEditor();
     expect(editor.getBlock(inserted.id)).toMatchObject({ type: "image", props: { url: pixel } });
@@ -425,7 +425,7 @@ describe("material library and the real project editor", () => {
     expect(await screen.findByDisplayValue("玻璃杯")).toBeVisible();
     const tile = await screen.findByRole("button", { name: "选择参考图 1" });
     expect(tile.querySelector("img")).toHaveAttribute("src", pixel);
-    expect(context.service.loadImage).toHaveBeenCalledWith("C:\\library-provider-fixture", "references/0001.png");
+    expect(context.service.loadImage).toHaveBeenCalledWith("C:\\library-provider-fixture", "references/0001.png", undefined);
     expect(context.events.indexOf("load-image")).toBeLessThan(context.events.indexOf("commit"));
   });
 });

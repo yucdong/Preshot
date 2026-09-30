@@ -37,18 +37,33 @@ function requireString(value: unknown): string {
   return value;
 }
 
+function presentationAxes(value: Record<string, unknown>): { presentationAxes?: "raw" | "exif" } {
+  const axes = value.presentationAxes;
+  if (axes === undefined) return {};
+  if (axes !== "raw" && axes !== "exif") throw new Error("Malformed image presentation axes");
+  return { presentationAxes: axes };
+}
+
 function validateImported(value: unknown): ImportedImage {
   if (!isRecord(value)) {
     throw new Error("Malformed native response");
   }
+  if (value.presentationAxes === "exif" && (value.sourceWidth === undefined || value.sourceHeight === undefined)) {
+    throw new Error("Missing EXIF display dimensions");
+  }
   return { file: requireString(value.file), dataUrl: value.dataUrl === "" && typeof value.previewError === "string" ? "" : requireString(value.dataUrl),
+    ...presentationAxes(value),
     ...(typeof value.previewError === "string" ? { previewError: value.previewError } : {}),
-    ...(typeof value.sourceWidth === "number" && typeof value.sourceHeight === "number" ? { sourceWidth: value.sourceWidth, sourceHeight: value.sourceHeight } : {}) };
+    ...(value.sourceWidth !== undefined || value.sourceHeight !== undefined
+      ? { sourceWidth: requirePositiveInteger(value.sourceWidth), sourceHeight: requirePositiveInteger(value.sourceHeight) } : {}) };
 }
 
 function validateImportedMedia(value: unknown): ImportedPlanMedia {
   if (!isRecord(value)) {
     throw new Error("Malformed native response");
+  }
+  if (value.presentationAxes === "exif" && (value.displayWidth === undefined || value.displayHeight === undefined)) {
+    throw new Error("Missing EXIF display dimensions");
   }
   return {
     file: requireString(value.file),
@@ -56,6 +71,10 @@ function validateImportedMedia(value: unknown): ImportedPlanMedia {
     ...(typeof value.previewError === "string" ? { previewError: value.previewError } : {}),
     name: requireString(value.name),
     mimeType: requireString(value.mimeType),
+    ...presentationAxes(value),
+    ...(value.displayWidth !== undefined || value.displayHeight !== undefined ? {
+      displayWidth: requirePositiveInteger(value.displayWidth), displayHeight: requirePositiveInteger(value.displayHeight),
+    } : {}),
   };
 }
 
@@ -115,15 +134,15 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
       try { await invokeCommand("abort_image_paste", { projectPath, operationId }); }
       catch (error) { throw new Error(ui("无法清理未提交的图片粘贴：{{v0}}", { v0: detail(error) }), { cause: error }); }
     },
-    async imageDisplay(projectPath, file, edge, cancellation) {
+    async imageDisplay(projectPath, file, edge, cancellation, axes) {
       const id = crypto.randomUUID();
       let finished = false;
-      const pending = invokeCommand("project_image_display", { projectPath, file, edge, id });
+      const pending = invokeCommand("project_image_display", { projectPath, file, edge, id, ...(axes === undefined ? {} : { presentationAxes: axes }) });
       void cancellation?.then(() => { if (!finished) void invokeCommand("cancel_image_display", { id }).catch(() => undefined); });
       try { return requireString(await pending); } finally { finished = true; }
     },
-    async imageDimensions(projectPath, file) {
-      const dimensions = await invokeCommand("project_image_dimensions", { projectPath, file });
+    async imageDimensions(projectPath, file, axes) {
+      const dimensions = await invokeCommand("project_image_dimensions", { projectPath, file, ...(axes === undefined ? {} : { presentationAxes: axes }) });
       if (!Array.isArray(dimensions) || dimensions.length !== 2 || dimensions.some(v => !Number.isInteger(v) || v <= 0)) throw new Error("Invalid original image dimensions");
       return { sourceWidth: dimensions[0], sourceHeight: dimensions[1] };
     },
@@ -136,9 +155,9 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         throw new Error(`Unable to import the reference image: ${detail(error)}`, { cause: error });
       }
     },
-    async loadImage(projectPath, file) {
+    async loadImage(projectPath, file, axes) {
       try {
-        return requireString(await invokeCommand("load_reference_image", { projectPath, file }));
+        return requireString(await invokeCommand("load_reference_image", { projectPath, file, ...(axes === undefined ? {} : { presentationAxes: axes }) }));
       } catch (error) {
         throw new Error(`Unable to load the reference image: ${detail(error)}`, { cause: error });
       }
@@ -160,6 +179,7 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
           projectPath,
           file: input.file,
           bounds: input.bounds,
+          ...(input.presentationAxes === undefined ? {} : { presentationAxes: input.presentationAxes }),
         });
         if (!isRecord(value)) {
           throw new Error("Malformed native response");
@@ -213,6 +233,7 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
           projectPath,
           file: input.file,
           bounds: input.bounds,
+          ...(input.presentationAxes === undefined ? {} : { presentationAxes: input.presentationAxes }),
         });
         if (!isRecord(value)) {
           throw new Error("Malformed native response");
@@ -271,11 +292,12 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         });
       }
     },
-    async loadMedia(projectPath, file) {
+    async loadMedia(projectPath, file, axes) {
       try {
         return requireString(await invokeCommand("load_plan_media", {
           projectPath,
           file,
+          ...(axes === undefined ? {} : { presentationAxes: axes }),
         }));
       } catch (error) {
         throw new Error(`Unable to load plan media: ${detail(error)}`, {

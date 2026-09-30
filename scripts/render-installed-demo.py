@@ -55,7 +55,7 @@ for phase in phases:
     raw = folder / "raw.mp4"
     crop = data.get("crop")
     if args.short and not crop:
-        crop = dict(x=10, y=75, width=1580, height=974)
+        crop = dict(x=10, y=51, width=1580, height=998)
     framing = f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}," if crop else ""
     run("-f", "concat", "-safe", "0", "-i", folder / "frames.txt", "-vf", framing + "scale=1280:800:force_original_aspect_ratio=decrease,pad=1280:800:(ow-iw)/2:(oh-ih)/2:color=white", "-r", "24", "-c:v", "libx264", "-preset", "fast", "-crf", "21", "-pix_fmt", "yuv420p", raw)
     for i, chapter in enumerate(data["chapters"]):

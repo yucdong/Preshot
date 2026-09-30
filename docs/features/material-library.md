@@ -13,7 +13,9 @@ Five categories are available: **Image**, **Image group**, **Location**,
 Choose **Create material**, choose a category, and fill in the content, name,
 description, and keyword tags. Image and image-group materials use only these
 shared metadata fields; their image canvas has no separate name or description
-inputs. Use the canvas to add, capture, crop, resize, and arrange images.
+inputs. Use the canvas to add, capture, resize, and arrange images. Frame resizing
+uses crop-to-fill by default; the fit control also offers explicit stretch.
+Double-click previews are read-only, with no separate crop button or crop toolbar.
 The first successful save creates the material, closes its editor,
 and selects it in the library. Editing an existing material supports repeated
 saves without closing. Duplicate names prompt for confirmation without

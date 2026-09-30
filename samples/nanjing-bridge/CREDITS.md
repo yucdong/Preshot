@@ -58,6 +58,37 @@ Original illustrations: https://github.com/yucdong/Preshot/tree/main/docs/demo/i
     "source": "../illustrations/bubble-machine.svg",
     "changes": "Original vector mock illustration rasterized to PNG for the demo.",
     "sha256": "9d2c1938788527307e121ac3546c7fa60e4fde8bf50b5c4f717d7f7c08688f7c"
+  },
+  {
+    "file": "bridge-panorama.jpg",
+    "title": "File:20240817-\u5357\u4eac\u957f\u6c5f\u5927\u6865\u5168\u8c8c.jpg",
+    "author": "Saigyouji-Noriko",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:20240817-%E5%8D%97%E4%BA%AC%E9%95%BF%E6%B1%9F%E5%A4%A7%E6%A1%A5%E5%85%A8%E8%B2%8C.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/4/40/20240817-%E5%8D%97%E4%BA%AC%E9%95%BF%E6%B1%9F%E5%A4%A7%E6%A1%A5%E5%85%A8%E8%B2%8C.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "changes": "Resized and recompressed to JPEG for the demo.",
+    "sha256": "ed784fd5c64dc572961690398decf51175b1372cd19afbe12e1d907da01f3f5c"
+  },
+  {
+    "file": "model-a-walking.png",
+    "title": "Fictional Model A walking pose",
+    "author": "Preshot contributors",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "source": "../illustrations/model-a-walking.svg",
+    "changes": "Original vector pose illustration rasterized to PNG; not a real model photograph.",
+    "sha256": "a870db2ba7f222cdfd5d65066a2ab3b2a6b2780822fdc53cbca943dd7fa3036d"
+  },
+  {
+    "file": "model-a-umbrella.png",
+    "title": "Fictional Model A umbrella pose",
+    "author": "Preshot contributors",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "source": "../illustrations/model-a-umbrella.svg",
+    "changes": "Original vector pose illustration rasterized to PNG; not a real model photograph.",
+    "sha256": "0f9d2a3b21b0704c26ab6e2a34e4e63f3d16869e740297ee565445b24253f941"
   }
 ]
 

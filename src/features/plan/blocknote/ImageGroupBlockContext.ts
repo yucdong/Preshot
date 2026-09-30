@@ -20,7 +20,7 @@ export interface ImageGroupBlockController {
   revealImageGroup?(): void;
   revealImageGroupDisabled?: boolean;
   getGroup(groupId: string): ReferenceComponent | undefined;
-  getImageSrc(file: string): string | undefined;
+  getImageSrc(file: string, presentationAxes?: "raw" | "exif"): string | undefined;
   getImportProgress?(groupId: string): ImageImportProgressState | undefined;
   addImages(groupId: string, maxFrameWidth?: number): void;
   insertImagesFromLibrary?(groupId: string): void;

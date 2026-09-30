@@ -78,9 +78,10 @@ fn local_files(manifest: &ProjectManifest) -> Result<BTreeSet<String>> {
     if let Some(cover) = &manifest.cover_image { relative_file(cover)?; files.insert(cover.clone()); }
     let Some(plan) = &manifest.plan else { return Ok(files) };
     let version = plan["schemaVersion"].as_u64().ok_or_else(|| failure("项目格式无效"))?;
-    if !(13..=17).contains(&version) || plan["document"]["version"].as_u64() != Some(version - 12) || plan["document"]["format"] != "preshot-blocks" || !plan["title"].is_string() {
+    if !(13..=18).contains(&version) || plan["document"]["version"].as_u64() != Some((version - 12).min(5)) || plan["document"]["format"] != "preshot-blocks" || !plan["title"].is_string() {
         return Err(failure("无法完整识别此项目，请先使用兼容版本打开并保存"));
     }
+    if crate::column_document::has_exif_presentation(plan) && version != 18 { return Err(failure("EXIF 图片需要 v18 项目，请先打开并保存")); }
     crate::column_document::validate(&plan["document"], version >= 16).map_err(failure)?;
     fn array<'a>(value: &'a Value, field: &str) -> Result<&'a Vec<Value>> { value[field].as_array().ok_or_else(|| failure(format!("项目缺少 {field}"))) }
     fn gallery(value: &Value, files: &mut BTreeSet<String>) -> Result<()> {

@@ -35,6 +35,7 @@ export function CopyProjectDialog(props: Props) {
   const nameInput = useRef<HTMLInputElement>(null);
   const intent = useRef<ProjectCopyRequest | null>(props.recovery ?? null);
   const running = useRef(false);
+  const composing = useRef(false);
   const cancelled = useRef(false);
   const abort = useRef<AbortController | null>(null);
   const mounted = useRef(true);
@@ -57,7 +58,7 @@ export function CopyProjectDialog(props: Props) {
   const finalPath = parentPath.trim().replace(/[\\/]+$/, "") + (parentPath.includes("\\") ? "\\" : "/") + name.trim();
 
   async function start() {
-    if (running.current || picking || !name.trim() || !parentPath.trim()) return;
+    if (running.current || picking || composing.current || !name.trim() || !parentPath.trim()) return;
     running.current = true; cancelled.current = false; abort.current = new AbortController();
     setBusy(true); setError(null); setProgress(null); setPhase("saving");
     const input = intent.current ?? { operationId: crypto.randomUUID(), sourcePath: props.sourcePath, sourceProjectId: props.sourceProjectId, parentPath: parentPath.trim(), name: name.trim() };
@@ -111,6 +112,7 @@ export function CopyProjectDialog(props: Props) {
     <div ref={surface} role="dialog" aria-modal="true" aria-labelledby="copy-project-title" tabIndex={-1}
       className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-app-border bg-app-panel-strong p-6 text-app-ink shadow-[var(--app-shadow)]"
       onKeyDown={event => {
+        if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) return;
         if (event.key === "Escape" && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); close(); }
         if (event.key === "Tab") {
           const nodes = Array.from(surface.current?.querySelectorAll<HTMLElement>(focusable) ?? []);
@@ -122,7 +124,9 @@ export function CopyProjectDialog(props: Props) {
       <p className="mt-3 text-sm">{ui("源项目")}：{props.sourceName}</p>
       <p className="break-all text-xs text-app-muted">{props.sourcePath}</p>
       <p className="mt-3 text-sm text-app-muted">{ui("将复制项目内容和本地图片、附件。已打开的项目会先保存；网络嵌入图片保留原网址。")}</p>
-      <form className="mt-5 space-y-4" onSubmit={event => { event.preventDefault(); void start(); }}>
+      <form className="mt-5 space-y-4" onSubmit={event => { event.preventDefault(); void start(); }}
+        onCompositionStartCapture={() => { composing.current = true; }}
+        onCompositionEndCapture={() => { composing.current = false; }}>
         <div>
           <label htmlFor="copy-project-parent" className="block text-sm">{ui("存放目录")}</label>
           <div className="mt-2 flex gap-2">

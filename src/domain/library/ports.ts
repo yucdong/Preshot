@@ -1,4 +1,5 @@
 import type { ScreenCaptureReviewer } from "../plan/ports";
+import type { ImagePresentationAxes } from "../plan/canvas/models";
 import type {
   MaterialContentUpdate,
   MaterialDetail,
@@ -21,7 +22,7 @@ import type { ReferenceImageCropBounds } from "../plan/ports";
 export interface MaterialContentEditorRepository {
   beginCreate(payload: MaterialPayload): Promise<MaterialEditSession>;
   beginEdit(materialId: string, revision: number): Promise<MaterialEditSession>;
-  loadEditImage(sessionId: string, localImageId: string): Promise<string>;
+  loadEditImage(sessionId: string, localImageId: string, presentationAxes?: ImagePresentationAxes): Promise<string>;
   revealEditImage?(sessionId: string, localImageId: string): Promise<void>;
   revealEditImageGroup?(sessionId: string): Promise<void>;
   importEditImages(sessionId: string, onSelected?: (total: number) => void): Promise<MaterialEditImage[]>;
@@ -33,7 +34,7 @@ export interface MaterialContentEditorRepository {
   /** Resolving cancellation stops capture; null means explicitly cancelled, never a failure. */
   captureEditImage(sessionId: string, cancellation: Promise<void>, review?: ScreenCaptureReviewer): Promise<MaterialEditImage | null>;
   cropEditImage(
-    sessionId: string, localImageId: string, bounds: ReferenceImageCropBounds,
+    sessionId: string, localImageId: string, bounds: ReferenceImageCropBounds, presentationAxes?: ImagePresentationAxes,
   ): Promise<MaterialEditImage>;
   commitEdit(input: MaterialContentUpdate): Promise<MaterialDetail>;
   discardEdit(sessionId: string): Promise<void>;

@@ -1,3 +1,4 @@
+import { imageAssetKey } from "../canvas/imagePresentation";
 import {
   type PreshotBlock,
   type ProjectPlanV14,
@@ -999,7 +1000,8 @@ export function buildPreshotPdfLayoutManifest(
               width: points(slot.width * finalScale * emergencyScale),
               height: points(slot.height * finalScale * emergencyScale),
             };
-            const key = addAssetUse(image.file, crop, {
+            const source = imageAssetKey(image.file, image.presentationAxes);
+            const key = addAssetUse(source, crop, {
               blockId: block.id,
               groupId: group.id,
               imageId: image.id,
@@ -1009,7 +1011,7 @@ export function buildPreshotPdfLayoutManifest(
             return {
               imageId: image.id,
               rowIndex: slot.rowIndex,
-              source: image.file,
+              source,
               assetKey: key,
               crop,
               logical: {

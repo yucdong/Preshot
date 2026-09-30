@@ -100,6 +100,7 @@ test("uses a viewport-safe project overflow menu with confirmed removal", async 
   await expect(menu).toBeVisible();
   expect(await menu.getByRole("menuitem").allTextContents()).toEqual([
     "打开项目目录",
+    "复制项目",
     "删除项目",
   ]);
   const box = await menu.boundingBox();

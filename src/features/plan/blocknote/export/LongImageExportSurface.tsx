@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { ProjectPlanV14 } from "../../../../domain/plan/canvas/blockDocument";
 import { resolveBlockNoteDocumentAssets } from "../blockNoteDocumentAssets";
+import { imageAssetKey } from "../../../../domain/plan/canvas/imagePresentation";
 import { preshotBlockNoteSchema } from "../preshotBlockNoteSchema";
 import { ImageGroupExportContext } from "./ImageGroupExportContext";
 import { ArtifactBlockContext, type ArtifactBlockReader } from "../ArtifactBlockContext";
@@ -66,7 +67,7 @@ export function LongImageExportSurface({
       includeImageGroupMetadata,
       getGroup: (groupId: string) =>
         groups.find((group) => group.id === groupId),
-      getImageSrc: (file: string) => resolvedAssets[file],
+      getImageSrc: (file: string, presentationAxes?: "raw" | "exif") => resolvedAssets[imageAssetKey(file, presentationAxes)],
     };
   }, [plan, resolvedAssets, includeImageGroupMetadata]);
   const artifactReader = useMemo(() => ({

@@ -6,10 +6,12 @@ import { nativeImagePresentation, nativeImagePresentationProps } from "../../../
 import { imageFrameContentCss } from "../../../domain/plan/canvas/imageView";
 import { IMAGE_RESIZE_DIRECTIONS, resizeHandleStyle, type ResizeDirection } from "./imageGroupInteraction";
 import { ui } from "../../../shared/i18n/ui";
+import { imageAssetKey } from "../../../domain/plan/canvas/imagePresentation";
 
 const config = {
   ...createImageBlockConfig({}),
   propSchema: { ...createImageBlockConfig({}).propSchema,
+    presentationAxes: { default: "", values: ["", "raw", "exif"] as const },
     previewHeight: { default: 0 }, fitMode: { default: "cover", values: ["cover", "stretch"] as const },
     cropX: { default: 0 }, cropY: { default: 0 }, cropWidth: { default: 1 }, cropHeight: { default: 1 },
   },
@@ -26,7 +28,7 @@ function PreshotImageFrame(props: ReactCustomBlockRenderProps<typeof config>) {
   const cleanup = useRef<(() => void) | null>(null);
   const [natural, setNatural] = useState({ width: 600, height: 400 });
   const [preview, setPreview] = useState<{ width: number; height: number } | null>(null);
-  const resolved = useResolveUrl(block.props.url);
+  const resolved = useResolveUrl(imageAssetKey(block.props.url, block.props.presentationAxes === "exif" ? "exif" : undefined));
   useEffect(() => () => cleanup.current?.(), []);
   const image = nativeImagePresentation(preview ? { ...block.props, previewWidth: preview.width, previewHeight: preview.height } : block.props, natural.width, natural.height);
   const width = preview?.width ?? image.frameWidth;
@@ -37,11 +39,21 @@ function PreshotImageFrame(props: ReactCustomBlockRenderProps<typeof config>) {
     editor.prosemirrorView.dispatch(closeHistory(editor.prosemirrorView.state.tr));
   };
   const resize = (direction: ResizeDirection, event: React.PointerEvent) => {
+    if (event.button !== 0 || !editor.isEditable || root.current?.closest("[inert]")) return;
+    cleanup.current?.();
+    const rect = root.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return;
     event.preventDefault(); event.stopPropagation();
-    const rect = root.current!.getBoundingClientRect();
     const scale = rect.width / width;
     const startX = event.clientX, startY = event.clientY;
+    const pointerId = event.pointerId;
+    let active = true;
     let next = { width, height };
+    const isCurrent = () => {
+      const current = editor.getBlock(block.id);
+      return Boolean(root.current?.isConnected && !root.current.closest("[inert]") &&
+        editor.isEditable && current?.type === "image" && JSON.stringify(current.props) === JSON.stringify(block.props));
+    };
     const calculate = (dx: number, dy: number) => {
       let w = width + (direction.includes("left") ? -dx : direction.includes("right") ? dx : 0);
       let h = height + (direction.includes("top") ? -dy : direction.includes("bottom") ? dy : 0);
@@ -51,21 +63,33 @@ function PreshotImageFrame(props: ReactCustomBlockRenderProps<typeof config>) {
       }
       next = { width: Math.max(24, w), height: Math.max(24, h) }; setPreview(next);
     };
-    const move = (e: PointerEvent) => calculate((e.clientX - startX) / scale, (e.clientY - startY) / scale);
+    const move = (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) return;
+      if (!isCurrent()) { cancel(); return; }
+      calculate((e.clientX - startX) / scale, (e.clientY - startY) / scale);
+    };
     const finish = (save: boolean) => {
+      if (!active) return;
+      active = false;
       document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", end);
-      document.removeEventListener("pointercancel", cancel); document.removeEventListener("keydown", key);
+      document.removeEventListener("pointercancel", pointerCancel); document.removeEventListener("keydown", key, true);
+      window.removeEventListener("blur", cancel);
       cleanup.current = null; setPreview(null);
-      const current = editor.getBlock(block.id);
-      if (save && current?.type === "image" && JSON.stringify(current.props) === JSON.stringify(block.props)
+      if (save && isCurrent()
         && (next.width !== width || next.height !== height)) commit(next.width, next.height);
     };
-    const end = (e: PointerEvent) => { move(e); finish(true); };
+    const end = (e: PointerEvent) => { if (e.pointerId === pointerId) { move(e); finish(true); } };
     const cancel = () => finish(false);
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); cancel(); } };
+    const pointerCancel = (e: PointerEvent) => { if (e.pointerId === pointerId) cancel(); };
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (isCurrent()) { e.preventDefault(); e.stopPropagation(); }
+      cancel();
+    };
     cleanup.current = cancel;
     document.addEventListener("pointermove", move); document.addEventListener("pointerup", end);
-    document.addEventListener("pointercancel", cancel); document.addEventListener("keydown", key);
+    document.addEventListener("pointercancel", pointerCancel); document.addEventListener("keydown", key, true);
+    window.addEventListener("blur", cancel);
   };
   return <figure className="bn-file-block-content-wrapper preshot-native-image" contentEditable={false} style={{ margin: 0, maxWidth: "100%" }}>
     <div className="bn-visual-media-wrapper bn-drag-exclude" ref={root} tabIndex={0}
@@ -125,5 +149,6 @@ export const preshotImageBlockSpec = createReactBlockSpec(config, {
     height={block.props.previewHeight || undefined} data-preshot-presentation={JSON.stringify({
       previewWidth: block.props.previewWidth, previewHeight: block.props.previewHeight, fitMode: block.props.fitMode,
       cropX: block.props.cropX, cropY: block.props.cropY, cropWidth: block.props.cropWidth, cropHeight: block.props.cropHeight,
+      presentationAxes: block.props.presentationAxes,
     })} />,
 });

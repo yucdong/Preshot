@@ -40,8 +40,8 @@ pub async fn library_begin_edit(material_id: String, revision: u32) -> Result<Ma
 }
 
 #[tauri::command]
-pub async fn library_load_edit_image(session_id: String, local_image_id: String) -> Result<String> {
-    blocking(move || store()?.load_edit_image(&session_id, &local_image_id)).await
+pub async fn library_load_edit_image(session_id: String, local_image_id: String, presentation_axes: Option<crate::original_image::PresentationAxes>) -> Result<String> {
+    blocking(move || store()?.load_edit_image_with_axes(&session_id, &local_image_id, presentation_axes.unwrap_or_default())).await
 }
 
 #[tauri::command]
@@ -94,8 +94,9 @@ pub async fn library_crop_edit_image(
     session_id: String,
     local_image_id: String,
     bounds: MaterialEditCropBounds,
+    presentation_axes: Option<crate::original_image::PresentationAxes>,
 ) -> Result<MaterialEditImage> {
-    blocking(move || store()?.crop_edit_image(&session_id, &local_image_id, bounds)).await
+    blocking(move || store()?.crop_edit_image_with_axes(&session_id, &local_image_id, bounds, presentation_axes.unwrap_or_default())).await
 }
 
 #[tauri::command]
@@ -200,6 +201,7 @@ pub async fn library_image_display(material_id: String, revision: u32, local_ima
         let material = store.revision(&material_id, revision)?;
         let image = material.images.iter().find(|image| image.local_image_id == local_image_id)
             .ok_or_else(|| error("image_not_found", "Image is not owned by this material version"))?;
-        job.render(&store.verified_image_path(image)?, edge)
+        let axes = super::validation::image_axes(&material.payload, &local_image_id)?;
+        job.render_with_axes(&store.verified_image_path(image)?, edge, axes)
     }).await
 }

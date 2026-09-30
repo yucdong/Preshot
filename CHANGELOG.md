@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.0.24
+
+- Keep Settings above selected-image controls and editor tooltips so modal
+  actions cannot change images behind the dialog.
+- Keep gallery headers and their controls readable in the dark theme.
+- Use a new MSI version for the final installed-app regression run while
+  preserving the earlier 0.0.23 acceptance recordings and original-file evidence.
+
+## 0.0.23
+
+- Preserve camera JPEG orientation for new imports, with separate display axes
+  and immutable originals; legacy crops retain their original interpretation.
+- Cancel unfinished image and card-divider drags safely, sample the final pointer
+  position, and keep image fit changes in real editor undo/redo history.
+- Recover the material browser's last page after deletion, restoration or
+  unfavoriting; protect project/setup dialogs during Chinese IME composition.
+- Keep Settings keyboard focus inside its dialog and handle failed folder reveals.
+- Keep PDF heading space hints on their document-block wrapper so short following
+  content is considered during pagination.
+- Preserve foreign files on exclusive-copy collisions and regenerate corrupt
+  cached previews from their unchanged originals.
+- Remove crop controls from enlarged image previews while retaining canvas
+  frame crop-to-fill and stretch controls.
+- Expand the Nanjing sample with three location and model pictures, side-by-side
+  props and detailed shooting notes; refresh the walkthrough and affected tutorials.
+- Keep disposable Playwright output separate from user-authored bug reports.
+- Restore image readiness immediately after undoing material-image deletion.
+- Exclude generated test and recording files from the development watcher and
+  Tailwind content scan to avoid unrelated editor reloads.
+
 ## 0.0.21
 
 - Fix native validation rejecting single-image materials and galleries inserted

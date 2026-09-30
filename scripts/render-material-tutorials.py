@@ -1,12 +1,15 @@
 """Render each successful installed material take as a separate captioned MP4."""
 import argparse
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
 
+from material_tutorial_frames import STRICT_DECODE_OPTIONS, prepared_tutorial_frames
+
 parser = argparse.ArgumentParser()
-parser.add_argument('--work', default='.preshot-build-cache/material-tutorials-0.0.20')
+parser.add_argument('--work', default='.preshot-build-cache/material-tutorials-0.0.24')
 parser.add_argument('--ffmpeg', required=True)
 parser.add_argument('--cases', nargs='*')
 args = parser.parse_args()
@@ -20,7 +23,8 @@ for font in (root / 'src/infrastructure/pdf/fonts').glob('*.ttf'):
     shutil.copyfile(font, fonts / font.name)
 
 def run(*arguments):
-    subprocess.run([args.ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', *map(str, arguments)], cwd=root, check=True)
+    subprocess.run([args.ffmpeg, '-hide_banner', '-loglevel', 'error', '-y',
+                    *STRICT_DECODE_OPTIONS, *map(str, arguments)], cwd=root, check=True)
 
 style = '''[Script Info]
 ScriptType: v4.00+
@@ -34,8 +38,11 @@ Style: English,Segoe UI,18,&H00B9BEC6,&H00B9BEC6,&H0017191D,&H0017191D,0,0,0,0,1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
-cases = args.cases or sorted(p.parent.name for p in work.glob('*/recording.json') if p.parent.name[0] in 'CIM')
+cases = args.cases or sorted(p.parent.name for p in work.glob('*/recording.json')
+                             if re.fullmatch(r'[CIMW][0-9]{2}', p.parent.name))
 for case in cases:
+    if not re.fullmatch(r'[CIMW][0-9]{2}', case):
+        raise RuntimeError(f'Invalid tutorial case (archived takes cannot be published): {case}')
     folder = work / case
     data = json.loads((folder / 'recording.json').read_text(encoding='utf-8-sig'))
     if data['errors'] or not data['frames']:
@@ -44,15 +51,16 @@ for case in cases:
     if not 0 < total < 59:
         raise RuntimeError(f'Tutorial needs a timeline below 59 seconds: {case} {total}')
     frames = data['frames']
-    concat = 'ffconcat version 1.0\n'
-    for i, frame in enumerate(frames):
-        stop = frames[i+1]['seconds'] if i+1 < len(frames) else data['duration']
-        concat += f"file '{frame['file']}'\nduration {max(0.04, stop-frame['seconds']):.4f}\n"
-    concat += f"file '{frames[-1]['file']}'\n"
-    (folder / 'frames.txt').write_text(concat, encoding='utf-8')
     crop = data['crop']
     framing = f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']},"
-    run('-f', 'concat', '-safe', '0', '-i', folder / 'frames.txt', '-vf', framing+'scale=1280:800:force_original_aspect_ratio=decrease,pad=1280:800:(ow-iw)/2:(oh-ih)/2:color=white,setsar=1', '-r', '24', '-c:v', 'libx264', '-preset', 'fast', '-crf', '21', '-pix_fmt', 'yuv420p', folder / 'raw.mp4')
+    with prepared_tutorial_frames(folder, case, frames) as presentation_frames:
+        concat = 'ffconcat version 1.0\n'
+        for i, frame in enumerate(presentation_frames):
+            stop = frames[i+1]['seconds'] if i+1 < len(frames) else data['duration']
+            concat += f"file '{frame['file']}'\nduration {max(0.04, stop-frame['seconds']):.4f}\n"
+        concat += f"file '{presentation_frames[-1]['file']}'\n"
+        (folder / 'frames.txt').write_text(concat, encoding='utf-8')
+        run('-f', 'concat', '-safe', '0', '-i', folder / 'frames.txt', '-vf', framing+'scale=1280:800:force_original_aspect_ratio=decrease,pad=1280:800:(ow-iw)/2:(oh-ih)/2:color=white,setsar=1', '-r', '24', '-c:v', 'libx264', '-preset', 'fast', '-crf', '21', '-pix_fmt', 'yuv420p', folder / 'raw.mp4')
     segments = []
     for i, chapter in enumerate(data['chapters']):
         begin = max(0, chapter['seconds']-frames[0]['seconds'])

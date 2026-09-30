@@ -444,6 +444,40 @@ describe("MaterialLibraryProvider", () => {
     expect(screen.getByText("第 1 / 1 页 · 每页 50 份")).toBeVisible();
   });
 
+  it.each(["delete", "restore", "unfavorite"] as const)(
+    "returns to a populated page after %s removes the last result on page two",
+    async (action) => {
+      const user = userEvent.setup();
+      const trash = action === "restore";
+      const first = { ...material, id: "first", name: "保留素材", deletedAt: trash ? 10 : null, favorite: true };
+      const last = { ...material, deletedAt: trash ? 10 : null, favorite: true };
+      let removed = false;
+      const search = vi.fn<MaterialLibraryRepository["search"]>(async ({ offset }) => ({
+        items: offset === 50 ? removed ? [] : [last] : [first],
+        total: removed ? 50 : 51, indexState: "ready",
+      }));
+      render(<MaterialLibraryProvider repository={repository({
+        search, get: vi.fn(async (id) => id === first.id ? first : last),
+        setDeleted: vi.fn(async () => { removed = true; return last; }),
+        updateMetadata: vi.fn(async () => { removed = true; return { ...last, favorite: false }; }),
+      })}><Launcher /></MaterialLibraryProvider>);
+      await user.click(screen.getByRole("button", { name: "管理素材" }));
+      if (trash) await user.click(screen.getByRole("button", { name: "回收站" }));
+      if (action === "unfavorite") await user.click(screen.getByRole("button", { name: "收藏" }));
+      await screen.findByRole("button", { name: "选择素材：保留素材" });
+      await user.click(screen.getByRole("button", { name: "下一页" }));
+      await screen.findByRole("button", { name: "选择素材：窗边参考" });
+      const details = screen.getByRole("complementary", { name: "所选素材详情" });
+      await user.click(await within(details).findByRole("button", {
+        name: action === "restore" ? "恢复素材" : action === "unfavorite" ? "取消收藏" : "删除",
+      }));
+      if (action === "delete") await user.click(screen.getByRole("button", { name: "确认删除" }));
+      await screen.findByRole("button", { name: "选择素材：保留素材" });
+      expect(search).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 0 }));
+      expect(screen.getByText("第 1 / 1 页 · 每页 50 份")).toBeVisible();
+    },
+  );
+
   it("shows unavailable desktop-only guidance without issuing repository calls", async () => {
     const user = userEvent.setup();
     const repo = repository({ availability: "unavailable" });

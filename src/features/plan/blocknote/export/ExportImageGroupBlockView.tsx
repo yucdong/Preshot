@@ -159,7 +159,7 @@ export function ExportImageGroupBlockView({
           {layout.slots.map((slot) => {
             const image = imagesById.get(slot.id);
             if (!image) return null;
-            const src = controller.getImageSrc(image.file);
+            const src = controller.getImageSrc(image.file, image.presentationAxes);
             if (!src) {
               throw new Error(
                 `Long-image export is missing local image data for "${image.file}".`,

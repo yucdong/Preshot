@@ -458,7 +458,7 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
     if (!image || !token) throw new Error(ui("找不到选中的素材原图，请重新打开预览。"));
     const dataUrl = await repository.loadImage(material.id, material.revision, token);
     if (clipboardSources.current !== prepared) throw new Error(ui("素材预览已关闭或改变，请重新复制。"));
-    const { id: _id, file: _file, ...presentation } = image;
+    const { id: _id, file: _file, presentationAxes: _axes, ...presentation } = image;
     return { dataUrl, name: imageClipboardFilename(`${material.name}.png`), presentation };
   };
 

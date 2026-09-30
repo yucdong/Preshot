@@ -23,6 +23,7 @@ export function FirstLaunchSetup() {
   const keep = useRef<HTMLButtonElement>(null);
   const back = useRef<HTMLButtonElement>(null);
   const pickingRef = useRef(false);
+  const composing = useRef(false);
   useEffect(() => {
     if (confirming) back.current?.focus();
     else if (choosing) input.current?.focus();
@@ -32,7 +33,7 @@ export function FirstLaunchSetup() {
   const busy = storage.busy || picking;
   const changed = !!existing && comparable(path) !== comparable(existing);
   const submit = () => {
-    if (busy || !path.trim()) return;
+    if (busy || composing.current || !path.trim()) return;
     if (changed) setConfirming(true);
     else void storage.configure(path.trim());
   };
@@ -49,7 +50,9 @@ export function FirstLaunchSetup() {
           onClick={() => void storage.configure(existing!)}>{t("storage.keep")}</button>
         <button type="button" className={button} disabled={busy}
           onClick={() => setChoosing(true)}>{t("storage.change")}</button>
-      </div> : <form className="space-y-3" onSubmit={event => { event.preventDefault(); submit(); }}>
+      </div> : <form className="space-y-3" onSubmit={event => { event.preventDefault(); submit(); }}
+        onCompositionStartCapture={() => { composing.current = true; }}
+        onCompositionEndCapture={() => { composing.current = false; }}>
         <label className="block text-sm font-medium" htmlFor="working-directory">{t("storage.destination")}</label>
         <div className="flex flex-wrap gap-2">
           <input ref={input} id="working-directory" aria-describedby="working-directory-hint"

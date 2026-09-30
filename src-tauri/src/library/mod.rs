@@ -308,9 +308,13 @@ impl Store {
             } else { files::reference(&project, &source.file, true)? };
             let (length, hash) = crate::original_image::fingerprint(&path)?;
             let (mime, width, height) = crate::original_image::info(&path)?;
-            if input.snapshot.payload.kind == MaterialKind::Image && source.file.starts_with("media/") &&
-                (portable["sourceWidth"] != width || portable["sourceHeight"] != height) {
-                return Err(error("source", "Native image dimensions do not match the original file"));
+            if input.snapshot.payload.kind == MaterialKind::Image && source.file.starts_with("media/") {
+                let axes = crate::original_image::presentation_axes(portable)?;
+                let (display_width, display_height) = if axes == crate::original_image::PresentationAxes::Raw { (width, height) }
+                    else { crate::original_image::display_dimensions(&path, axes)? };
+                if portable["sourceWidth"] != display_width || portable["sourceHeight"] != display_height {
+                    return Err(error("source", "Native image dimensions do not match the original file"));
+                }
             }
             let extension = path
                 .extension()
@@ -480,7 +484,8 @@ impl Store {
                     "Image does not belong to this material revision",
                 )
             })?;
-        crate::original_image::display_url(&self.verified_image_path(image)?, 2048)
+        let axes = validation::image_axes(&detail.payload, local_id)?;
+        crate::original_image::display_url_with_axes(&self.verified_image_path(image)?, 2048, axes)
     }
 
     fn original_image_path(&self, id: &str, revision: u32, local_id: &str) -> Result<PathBuf> {

@@ -24,6 +24,19 @@ function renderPanel(options: {
 }
 
 describe("SettingsPanel", () => {
+  it("keeps reverse keyboard navigation inside the newly opened settings dialog", async () => {
+    const user = userEvent.setup();
+    render(<ThemeProvider repository={createBrowserSettingsRepository()}>
+      <button>背景工作区按钮</button>
+      <SettingsPanel open onClose={vi.fn()} />
+    </ThemeProvider>);
+    expect(screen.getByRole("dialog", { name: "设置" })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "跟随系统" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "关闭设置" })).toHaveFocus();
+  });
+
   it("switches immediately in both directions and restores the saved language on remount", async () => {
     const user = userEvent.setup();
     const repository = createBrowserSettingsRepository();

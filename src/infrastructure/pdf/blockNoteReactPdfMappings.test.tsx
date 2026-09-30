@@ -145,7 +145,7 @@ function renderedNodes(node: RenderedPdfNode): RenderedPdfNode[] {
   return [node, ...(node.children ?? []).flatMap(renderedNodes)];
 }
 
-async function renderArtifactLayout(spacerHeight = 0, repetitions = 1) {
+async function renderArtifactLayout(spacerHeight = 0, repetitions = 1, withHeading = false) {
   const source = "自备一把透明长柄伞；擦净伞面，半侧身举伞，露出面部。拍摄前检查伞骨，并在安全步道上使用。".repeat(repetitions);
   const artifact = {
     id: "layout-prop", kind: "prop" as const, revision: 0,
@@ -165,6 +165,7 @@ async function renderArtifactLayout(spacerHeight = 0, repetitions = 1) {
     },
   });
   const document = await pdf.toReactPDFDocument([
+    ...(withHeading ? [block("heading", { level: 2 }, [{ type: "text", text: "道具与执行方法", styles: {} }])] : []),
     block("prop", { artifactId: artifact.id }, undefined),
   ]);
   const page = childElements(document)[0];
@@ -224,6 +225,33 @@ describe("BlockNote React-PDF mappings", () => {
       renderedNodes(page).some((node) => node.value === "透明伞") ? index : -1).filter((index) => index >= 0);
     expect(titlePages).toEqual([1]);
     expect(renderedNodes(layout.children![1]).filter((node) => node.type === "IMAGE")).toHaveLength(1);
+  }, 30_000);
+
+  it("moves a bottom heading with its following illustrated card when the presence reserve cannot fit", async () => {
+    const { layout } = await renderArtifactLayout(PDF_VISUAL_CONTRACT.page.contentHeight - 40, 1, true);
+    expect(layout.children).toHaveLength(2);
+    const pagesContaining = (value: string) => layout.children!.flatMap((page, index) =>
+      renderedNodes(page).some((node) => node.value === value) ? [index] : []);
+    expect(pagesContaining("道具与执行方法")).toEqual([1]);
+    expect(pagesContaining("透明伞")).toEqual([1]);
+    expect(renderedNodes(layout).filter((node) => node.type === "IMAGE")).toHaveLength(1);
+  }, 30_000);
+
+  it.each([false, true])("does not move a trailing heading across an explicit boundary (page break: %s)", async (pageBreak) => {
+    const document = await exporter().toReactPDFDocument([
+      block("heading", { level: 2 }, [{ type: "text", text: "结尾标题", styles: {} }]),
+      ...(pageBreak ? [block("pageBreak"), block("paragraph", {}, [{ type: "text", text: "下一页", styles: {} }])] : []),
+    ]);
+    const page = childElements(document)[0];
+    let layout: RenderedPdfNode | undefined;
+    await renderToBuffer(cloneElement(
+      document as ReactElement<React.ComponentProps<typeof Document>>,
+      { onRender: (data) => { layout = (data as unknown as { _INTERNAL__LAYOUT__DATA_: RenderedPdfNode })._INTERNAL__LAYOUT__DATA_; } },
+      cloneElement(page, {}, <View style={{ height: PDF_VISUAL_CONTRACT.page.contentHeight - 40 }} />, props(page).children as React.ReactNode),
+    ));
+    expect(layout!.children).toHaveLength(pageBreak ? 2 : 1);
+    expect(renderedNodes(layout!.children![0]).some((node) => node.value === "结尾标题")).toBe(true);
+    if (pageBreak) expect(renderedNodes(layout!.children![1]).some((node) => node.value === "下一页")).toBe(true);
   }, 30_000);
 
   it("still paginates illustrated cards with descriptions taller than a page", async () => {

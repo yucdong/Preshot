@@ -12,6 +12,8 @@ pub(crate) const FILES: &[(&str, &[u8])] = &[
     asset!("references/0001.jpg"), asset!("references/0002.png"),
     asset!("references/0003.png"), asset!("references/0004.png"),
     asset!("references/0005.png"), asset!("references/0006.jpg"), asset!("references/0007.jpg"),
+    asset!("references/0008.jpg"), asset!("references/0009.jpg"),
+    asset!("references/0010.png"), asset!("references/0011.png"),
     asset!("media/bridge-cover.jpg"), asset!("media/bridge-motion.mp4"),
     asset!("media/ready-tones.wav"), asset!("media/shot-list.txt"), asset!("CREDITS.md"),
 ];

@@ -1,7 +1,7 @@
 {
   "name": "preshot",
   "private": true,
-  "version": "0.0.21",
+  "version": "0.0.24",
   "type": "module",
   "packageManager": "pnpm@10.15.0",
   "scripts": {
@@ -21,6 +21,7 @@
     "test": "vitest run",
     "test:init": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/init.Tests.ps1",
     "test:production-scripts": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/production-tools.Tests.ps1",
+    "test:dev-server": "node --test scripts/vite-watch.test.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:blocknote": "playwright test --config playwright.blocknote.config.ts",

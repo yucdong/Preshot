@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720">
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#ead6bd"/><stop offset="1" stop-color="#d5e1dd"/></linearGradient></defs>
+  <rect width="960" height="720" fill="url(#sky)"/><circle cx="708" cy="175" r="98" fill="#fff5dc"/>
+  <path d="M0 408Q230 375 440 415T960 390V720H0Z" fill="#abc3c1"/>
+  <g stroke="#819a9a" fill="none" opacity=".65"><path d="M0 352H960M65 352V413M230 352V413M395 352V413M560 352V413M725 352V413M890 352V413" stroke-width="8"/><path d="M65 347L148 292L230 347L313 292L395 347L478 292L560 347L643 292L725 347L808 292L890 347" stroke-width="5"/></g>
+  <path d="M220 266Q269 88 537 88Q771 100 823 270Q767 246 722 280Q665 248 612 278Q558 248 505 278Q449 247 397 277Q337 247 285 278Z" fill="#f4fbf9" fill-opacity=".42" stroke="#f8f6ed" stroke-width="5"/>
+  <g fill="none" stroke="#f6f3e8" stroke-width="3"><path d="M537 88Q397 137 397 277M537 88Q488 172 505 278M537 88Q608 162 612 278M537 88Q710 155 722 280"/><path d="M537 72V493Q537 520 513 511" stroke="#6d7f80" stroke-width="6"/></g>
+  <ellipse cx="449" cy="662" rx="180" ry="20" fill="#78928e" opacity=".3"/>
+  <path d="M348 350Q322 263 395 238Q460 221 493 276L491 415L350 417Z" fill="#303941"/>
+  <path d="M370 280Q395 251 423 261L469 289L464 336Q445 377 408 364L376 329Z" fill="#efc5a8"/>
+  <path d="M422 303L434 303M461 303L473 320L460 324" stroke="#66564f" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M405 355L434 359L439 401L399 400Z" fill="#dbad92"/>
+  <path d="M368 395L412 413L454 389L510 458L552 649H313L326 460Z" fill="#eee3d2"/>
+  <path d="M393 405L414 494L440 402" fill="#a6b9b6"/>
+  <path d="M368 395L345 463L383 450L366 493L417 551L454 389" fill="none" stroke="#c5b69f" stroke-width="5"/>
+  <path d="M350 474L370 564L450 532" fill="none" stroke="#e8dcc9" stroke-width="40" stroke-linecap="round"/><path d="M450 532L481 516" stroke="#efc5a8" stroke-width="23" stroke-linecap="round"/>
+  <path d="M481 447L508 471L535 400" fill="none" stroke="#ddceb8" stroke-width="34" stroke-linecap="round"/><path d="M535 400L539 374" stroke="#efc5a8" stroke-width="22" stroke-linecap="round"/>
+  <rect x="38" y="35" width="295" height="48" rx="24" fill="white" opacity=".85"/>
+  <text x="59" y="66" font-family="Arial,sans-serif" font-size="19" letter-spacing="2" fill="#3d5557">MODEL A / UMBRELLA</text>
+  <text x="47" y="688" font-family="Arial,sans-serif" font-size="18" letter-spacing="3" fill="#3d5557">SIDE LIGHT / CLEAR FACE / MOCK POSE</text>
+</svg>

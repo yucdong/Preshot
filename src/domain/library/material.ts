@@ -243,7 +243,7 @@ export function insertMaterialIntoPlan(
     throw new Error("Material insertion requires exactly one supported block and sidecar");
   }
   exactRecord(instance.block.props, instance.block.type === "image"
-    ? ["url", "name", "caption", "showPreview", "previewWidth", "previewHeight", "fitMode", "cropX", "cropY", "cropWidth", "cropHeight"]
+    ? ["url", "name", "caption", "showPreview", "previewWidth", "previewHeight", "fitMode", "cropX", "cropY", "cropWidth", "cropHeight", "presentationAxes"]
     : [instance.block.type === "imageGroup" ? "groupId" : "artifactId"], "Material marker");
   if (instance.block.type === "image") {
     const url = instance.block.props.url;

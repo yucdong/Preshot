@@ -6,9 +6,11 @@ import {
 } from "../../domain/library/materialEditing";
 import type { MaterialDetail, MaterialEditImage, MaterialPayload, PortableImage } from "../../domain/library/models";
 import { assertLocalImageId } from "../../domain/library/validation";
+import { componentImages } from "../../domain/library/materialStructure";
+import { imageAssetKey } from "../../domain/plan/canvas/imagePresentation";
 import type { ClipboardImagePresentation } from "../../domain/clipboard/imageClipboard";
 import { pastedReferenceImage } from "../../domain/clipboard/projectImagePaste";
-import type { ArtifactRecord, ProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
+import { EXIF_PLAN_SCHEMA_VERSION, promoteImagePresentationPlan, type ArtifactRecord, type ProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
 import { cropForResizedFrame } from "../../domain/plan/canvas/imageView";
 import type { ImageFitMode, ReferenceComponent, ReferenceImage } from "../../domain/plan/canvas/models";
 import { defaultImageFrame } from "../../domain/plan/canvas/plan";
@@ -47,7 +49,10 @@ export class MaterialContentDraft {
       const metadata = material.images.find(({ localImageId }) => localImageId === token);
       if (!source || !metadata) throw new Error(ui("素材图片尚未加载完成，请重新打开素材。"));
       this.assets.set(file, source);
-      this.dimensions.set(file, { width: metadata.width, height: metadata.height });
+      const visual = componentImages(material.payload.component).find(image => image.localImageId === token);
+      this.dimensions.set(file, visual?.presentationAxes === "exif"
+        ? { width: visual.sourceWidth ?? metadata.width, height: visual.sourceHeight ?? metadata.height }
+        : { width: metadata.width, height: metadata.height });
     }
     this.snapshot = this.buildSnapshot(this.draft.plan, 0);
   }
@@ -87,15 +92,19 @@ export class MaterialContentDraft {
   }
 
   private buildSnapshot(plan: ProjectPlanV15, revision: number): DraftSnapshot {
+    const groups = [...plan.imageGroups, ...artifactCollectionGroups(plan)];
     return {
-      plan, revision, groups: [...plan.imageGroups, ...artifactCollectionGroups(plan)],
-      sources: Object.fromEntries(this.assets),
+      plan, revision, groups,
+      sources: Object.fromEntries(groups.flatMap(group => group.images.map(image =>
+        [imageAssetKey(image.file, image.presentationAxes), this.assets.get(image.file) ?? ""]))),
       canUndo: this.past.length > 0, canRedo: this.future.length > 0,
     };
   }
 
   private publish(plan: ProjectPlanV15, payload: MaterialPayload): void {
-    this.snapshot = this.buildSnapshot(plan, this.snapshot.revision + 1);
+    const compatible = this.snapshot.plan.schemaVersion === EXIF_PLAN_SCHEMA_VERSION
+      ? { ...plan, schemaVersion: EXIF_PLAN_SCHEMA_VERSION } : promoteImagePresentationPlan(plan);
+    this.snapshot = this.buildSnapshot(compatible, this.snapshot.revision + 1);
     this.onChange(payload);
     this.listeners.forEach((listener) => listener());
   }
@@ -158,6 +167,9 @@ export class MaterialContentDraft {
       if (
         used.has(image.localImageId) || !Number.isInteger(image.width) ||
         !Number.isInteger(image.height) || image.width <= 0 || image.height <= 0 ||
+        (image.presentationAxes !== undefined && image.presentationAxes !== "raw" && image.presentationAxes !== "exif") ||
+        (image.presentationAxes === "exif" && (!Number.isInteger(image.displayWidth) || !Number.isInteger(image.displayHeight) ||
+          (image.displayWidth ?? 0) <= 0 || (image.displayHeight ?? 0) <= 0)) ||
         !["image/png", "image/jpeg"].includes(image.mimeType) ||
         (!/^data:image\/(png|jpeg);base64,/.test(image.dataUrl) && !(image.dataUrl === "" && image.previewError))
       ) {
@@ -170,7 +182,8 @@ export class MaterialContentDraft {
       const file = `references/${String(this.draft.fileTokens.size + 1).padStart(4, "0")}.${suffix}`;
       this.draft.fileTokens.set(file, image.localImageId);
       this.assets.set(file, image.dataUrl);
-      this.dimensions.set(file, { width: image.width, height: image.height });
+      this.dimensions.set(file, image.presentationAxes === "exif"
+        ? { width: image.displayWidth!, height: image.displayHeight! } : { width: image.width, height: image.height });
       return file;
     });
   }
@@ -190,11 +203,14 @@ export class MaterialContentDraft {
         const { localImageId: _sourceId, ...visual } = visuals[index];
         return { ...structuredClone(visual), id: this.makeId(), file: files[index] };
       }
+      const width = image.presentationAxes === "exif" ? image.displayWidth! : image.width;
+      const height = image.presentationAxes === "exif" ? image.displayHeight! : image.height;
       return {
         id: this.makeId(), file: files[index],
-        aspectRatio: image.width / image.height,
-        sourceWidth: image.width, sourceHeight: image.height,
-        ...defaultImageFrame(image.width / image.height, maxFrameWidth),
+        aspectRatio: width / height,
+        sourceWidth: width, sourceHeight: height,
+        ...(image.presentationAxes === undefined ? {} : { presentationAxes: image.presentationAxes }),
+        ...defaultImageFrame(width / height, maxFrameWidth),
       };
     })]);
   }
@@ -224,10 +240,12 @@ export class MaterialContentDraft {
       throw new Error(ui("裁剪目标图片已改变，请重新打开图片。"));
     }
     const [file] = this.stage([replacement]);
-    const ratio = replacement.width / replacement.height;
+    const dimensions = this.getDimensions(file);
+    const ratio = dimensions.width / dimensions.height;
     this.updateImages(groupId, (images) => images.map((image) => image.id !== imageId ? image : ({
       ...image, file, aspectRatio: ratio,
-      sourceWidth: replacement.width, sourceHeight: replacement.height,
+      ...(image.presentationAxes === undefined && replacement.presentationAxes === undefined ? {} : { presentationAxes: replacement.presentationAxes ?? "raw" }),
+      sourceWidth: dimensions.width, sourceHeight: dimensions.height,
       frameWidth: image.frameHeight * ratio, frameOffsetX: 0, frameOffsetY: 0,
       crop: { x: 0, y: 0, width: 1, height: 1 },
     })));

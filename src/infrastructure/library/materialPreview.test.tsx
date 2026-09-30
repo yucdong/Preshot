@@ -251,8 +251,13 @@ describe("createMaterialPreview", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "选择素材图片 1" })).not.toBeInTheDocument());
   });
 
-  it("copies an original-backed preview image outside the inert surface and Escape only closes its menu", async () => {
+  it.each([false, true])("copies an original-backed preview image outside the inert surface and Escape only closes its menu (EXIF: %s)", async (exif) => {
     const repo = repository();
+    const item = material();
+    if (exif && item.payload.component.kind === "shootingLocation") {
+      item.payload.version = 2;
+      item.payload.component.gallery.images[0].presentationAxes = "exif";
+    }
     const port: ImageClipboardPort = {
       availability: "test", write: vi.fn(async () => undefined),
       read: vi.fn(async () => null), hasImage: vi.fn(async () => false),
@@ -271,7 +276,7 @@ describe("createMaterialPreview", () => {
     });
     render(<LibraryDialog title="预览素材" onClose={onClose}>
       <ImageClipboardContext.Provider value={port}>
-        <MaterialComponentPreview repository={repo} material={material()} />
+        <MaterialComponentPreview repository={repo} material={item} />
       </ImageClipboardContext.Provider>
     </LibraryDialog>);
     const target = await screen.findByRole("button", { name: "选择素材图片 1" });
@@ -289,6 +294,7 @@ describe("createMaterialPreview", () => {
     expect(port.write).toHaveBeenCalledWith(expect.objectContaining({
       dataUrl: source, presentation: expect.objectContaining({ fitMode: "stretch" }),
     }));
+    expect(vi.mocked(port.write).mock.calls[0][0].presentation).not.toHaveProperty("presentationAxes");
     expect(repo.loadImage).toHaveBeenLastCalledWith(material().id, 1, "image-1");
     expect(repo.savePreview).not.toHaveBeenCalled();
   });

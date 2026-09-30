@@ -74,6 +74,59 @@ fn add_image(request: &mut MaterialContentUpdate, image: &MaterialEditImage) {
 }
 
 #[test]
+fn exif_materials_keep_raw_integrity_and_pinned_raw_or_oriented_presentations() {
+    use crate::original_image::PresentationAxes;
+    for kind in ["image", "imageGroup", "shootingLocation", "modelCard", "prop", "clothing"] {
+        let fixture = CreateFixture::new();
+        let source = fixture.root.path().join("camera.jpg");
+        let bytes = crate::original_image::test_jpeg_with_orientation(3, 2, 6);
+        fs::write(&source, &bytes).unwrap();
+        let hash = files::hash(&bytes);
+        let mut store = fixture.store();
+        let raw = store.begin_create(payload("imageGroup")).unwrap();
+        let raw_image = store.import_edit_images(&raw.session_id, vec![source.to_string_lossy().into_owned()]).unwrap().remove(0);
+        let mut raw_request = create_request(&raw);
+        add_image(&mut raw_request, &raw_image);
+        let legacy = store.commit_edit(raw_request).unwrap();
+        let session = store.begin_create(payload(kind)).unwrap();
+        let imported = store.import_edit_images(&session.session_id, vec![source.to_string_lossy().into_owned()]).unwrap().remove(0);
+        assert_eq!((imported.width, imported.height), (3, 2));
+        assert_eq!((imported.display_width, imported.display_height), (Some(2), Some(3)));
+        assert_eq!(imported.presentation_axes, Some(PresentationAxes::Exif));
+        let mut request = create_request(&session); request.payload.version = 2;
+        add_image(&mut request, &imported);
+        let visual = &mut images_mut(&mut request.payload)[0];
+        visual["presentationAxes"] = json!("exif");
+        visual["sourceWidth"] = json!(2); visual["sourceHeight"] = json!(3);
+        visual["aspectRatio"] = json!(2.0 / 3.0); visual["frameWidth"] = json!(100); visual["frameHeight"] = json!(150);
+        let saved = store.commit_edit(request.clone()).unwrap();
+        assert_eq!(store.commit_edit(request).unwrap(), saved, "exact retry");
+        assert_eq!((saved.images[0].width, saved.images[0].height), (3, 2));
+        assert_eq!(saved.images[0].blob_id, hash);
+        assert_ne!(saved.images[0].storage_id, legacy.images[0].storage_id);
+        drop(store);
+        let store = fixture.store();
+        assert_eq!(store.get(&saved.summary.id).unwrap(), saved);
+        for (material, expected_axes, dimensions) in [(&legacy, None, (3, 2)), (&saved, Some(PresentationAxes::Exif), (2, 3))] {
+            let url = store.load_image(&material.summary.id, 1, &material.images[0].local_image_id).unwrap();
+            let pixels = image::load_from_memory(&base64::engine::general_purpose::STANDARD.decode(url.split_once(',').unwrap().1).unwrap()).unwrap();
+            assert_eq!((pixels.width(), pixels.height()), dimensions, "{kind}");
+            let target = store.begin_create(payload("imageGroup")).unwrap();
+            let reused = store.import_library_images(&target.session_id, &material.summary.id, 1, vec![material.images[0].local_image_id.clone()]).unwrap().remove(0);
+            assert_eq!(reused.presentation_axes, expected_axes);
+            assert_eq!((reused.display_width.unwrap(), reused.display_height.unwrap()), dimensions);
+            assert_eq!((reused.width, reused.height), (3, 2));
+            store.discard_edit(&target.session_id).unwrap();
+        }
+        let cropped = store.crop_edit_image_with_axes(&session.session_id, &imported.local_image_id, MaterialEditCropBounds { x: 0, y: 1, width: 2, height: 2 }, PresentationAxes::Exif).unwrap();
+        assert_eq!((cropped.width, cropped.height), (2, 2));
+        assert_eq!(cropped.presentation_axes, None, "crop raster no longer contains orientation metadata");
+        assert_eq!(fs::read(store.verified_image_path(&saved.images[0]).unwrap()).unwrap(), bytes);
+        assert_eq!(fs::read(&source).unwrap(), bytes);
+    }
+}
+
+#[test]
 fn buglist1_large_original_survives_create_reopen_and_draft_reuse() {
     // A valid PNG with trailing bytes exercises encoded-file size independently
     // of pixel allocation. Real high-resolution fixtures are covered separately.

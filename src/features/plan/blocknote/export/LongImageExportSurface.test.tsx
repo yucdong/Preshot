@@ -175,6 +175,19 @@ const assets = {
 };
 
 describe("LongImageExportSurface", () => {
+  it("renders raw and EXIF views separately and rejects a missing oriented derivative", async () => {
+    const plan = complexPlan();
+    plan.schemaVersion = 18;
+    plan.document.blocks = plan.document.blocks.filter(block => block.type === "imageGroup");
+    plan.imageGroups[0].images[1] = { ...plan.imageGroups[0].images[1], file: "references/0001.png", presentationAxes: "exif" };
+    const oriented = "data:image/png;base64,b3JpZW50ZWQ=";
+    const sources = { "references/0001.png": LOCAL_PNG, "references/0001.png#preshot-exif": oriented };
+    const { container } = render(<LongImageExportSurface plan={plan} resolvedAssets={sources} />);
+    await waitFor(() => expect(container.querySelectorAll("img")).toHaveLength(2));
+    expect([...container.querySelectorAll("img")].map(image => image.src)).toEqual([LOCAL_PNG, oriented]);
+    expect(() => validateLongImageExportAssets(plan, { "references/0001.png": LOCAL_PNG })).toThrow(/local image data/);
+  });
+
   it("includes saved image-group text only for explicit material-preview surfaces", async () => {
     const plan = complexPlan();
     plan.document.blocks = plan.document.blocks.filter((block) => block.type === "imageGroup");

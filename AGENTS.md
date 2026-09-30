@@ -7,7 +7,8 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 ## Runtime snapshot
 
 - Active editor path: `src/features/plan/blocknote/BlockNoteProjectCanvasProvider.tsx`
-- Active plan schema: v17 with BlockNote document v5 (`format: "preshot-blocks"`)
+- Active plan schema: v17, promoted to v18 for explicit EXIF image presentation,
+  with BlockNote document v5 (`format: "preshot-blocks"`)
 - Active UI languages: Simplified Chinese (default) and English (`src/shared/i18n/locales`)
 - Project manifest: `.preshotproj` with manifest `schemaVersion: 1`
 - Global material library: defaults to `%USERPROFILE%\.preshot\library\library.db`,
@@ -48,7 +49,12 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
 
 ## Data and persistence rules
 
-- The active editable plan is `schemaVersion: 17` with `document.version: 5`.
+- The active editable plan uses `schemaVersion: 17 | 18` with `document.version: 5`.
+  Explicit EXIF image presentation promotes a plan to v18; undo/removal never
+  lowers that barrier. Unmarked images retain raw axes and existing v17 plans.
+  `presentationAxes` affects display dimensions, crops and derivative keys, never
+  immutable original bytes/hash/raw library dimensions. Preserve axes through
+  material snapshots/reuse, project copy, clipboard rasterization and all exports.
 - Artifact blocks store only `artifactId`; normalized location, model,
   clothing, and prop records live in `plan.artifacts`.
 - Image frames use eight transparent continuous resize zones. Corners preserve

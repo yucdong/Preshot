@@ -1,4 +1,5 @@
 import { resolveArtifactContentLayout } from "../../domain/plan/canvas/artifactContentLayout";
+import { imageAssetKey } from "../../domain/plan/canvas/imagePresentation";
 import { ui, uiLocale } from "../../shared/i18n/ui";
 import {
   COLORS_DEFAULT,
@@ -302,7 +303,7 @@ function artifactPdfGallery(
       {layout.slots.map((slot) => {
         const image = images.get(slot.id);
         if (!image) return null;
-        const source = resolvedAssets[image.file];
+        const source = resolvedAssets[imageAssetKey(image.file, image.presentationAxes)];
         if (!source) {
           throw new Error(
             `PDF artifact image "${image.file}" is unresolved`,
@@ -595,7 +596,6 @@ export function createPreshotReactPdfMappings(
             lineHeight: heading.lineHeight / heading.fontSize,
             marginBottom: contract.spacing.paragraph.after,
           }}
-          minPresenceAhead={heading.lineHeight}
           orphans={2}
           widows={2}
         >
@@ -971,7 +971,7 @@ export class PreshotReactPdfExporter extends PDFExporter<
   ): Promise<ReactElement<Text>[]> {
     const transformed: ReactElement<Text>[] = [];
     let numberedListIndex = 0;
-    for (const block of blocks) {
+    for (const [blockIndex, block] of blocks.entries()) {
       numberedListIndex = block.type === "numberedListItem"
         ? numberedListIndex + 1
         : 0;
@@ -1001,6 +1001,13 @@ export class PreshotReactPdfExporter extends PDFExporter<
       transformed.push((
         <Fragment key={block.id}>
           <View
+            // Presence is evaluated between siblings. The heading Text is
+            // alone inside this wrapper, so the document-level hint belongs here.
+            minPresenceAhead={block.type === "heading" && (
+              children.length > 0 || (blocks[blockIndex + 1] && blocks[blockIndex + 1].type !== "pageBreak")
+            ) ? contract.typography.headings[
+                `h${block.props.level}` as keyof typeof contract.typography.headings
+              ].lineHeight : undefined}
             style={{
               paddingVertical: 2.25,
               ...this.styles.block,

@@ -1,4 +1,6 @@
 import { imageDerivativeRequests } from "../../../domain/plan/canvas/imageDerivativeRequests";
+import { imageAssetKey, imageAssetSource, nativeMediaAssets, referenceImageAssets } from "../../../domain/plan/canvas/imagePresentation";
+import { promoteImagePresentationPlan } from "../../../domain/plan/canvas/blockDocument";
 import { ArtifactDraftContext, createArtifactDraftRegistry } from "./ArtifactDraftContext";
 import { prepareProjectCopy } from "./projectCopyPreparation";
 import { ui, useUiLanguage } from "../../../shared/i18n/ui";
@@ -21,7 +23,6 @@ import {
 import type {
   ArtifactKind,
   ArtifactRecord,
-  ImageCollection,
   PreshotBlockDocument,
   ProjectPlanV15,
   ProjectPlanV14,
@@ -40,7 +41,6 @@ import {
 } from "../../../domain/plan/canvas/models";
 import {
   cropForResizedFrame,
-  type NormalizedImageCrop,
 } from "../../../domain/plan/canvas/imageView";
 import type { PlanImagePicker, ScreenCapture } from "../../../domain/plan/ports";
 import type { CaptureBlockImage } from "./ImageBlockCaptureContext";
@@ -356,82 +356,6 @@ function applyImportedImagesToLatest(
   });
 }
 
-function applyCropToLatest(
-  latest: ProjectPlanV15,
-  result: Awaited<ReturnType<BlockNotePlanService["commitImageCrop"]>>,
-  expectedSourceFile?: string,
-): ProjectPlanV15 {
-  const updatedById = new Map(
-    allCollectionGroups(result.plan).flatMap((group) =>
-      group.images
-        .filter((image) => image.file === result.image.file)
-        .map((image) => [image.id, image] as const)
-    ),
-  );
-  const next = {
-    ...latest,
-    imageGroups: latest.imageGroups.map((group) => {
-      let changed = false;
-      const images = group.images.map((image) => {
-        const updated = updatedById.get(image.id);
-        if (
-          !updated ||
-          (expectedSourceFile !== undefined &&
-            image.file !== expectedSourceFile)
-        ) {
-          return image;
-        }
-        changed = true;
-        return updated;
-      });
-      if (!changed) return group;
-      return {
-        ...group,
-        images,
-        height: Math.max(
-          MIN_COMPONENT_HEIGHT,
-          layoutDocumentImageGroupForWidth(images, group.width).height,
-        ),
-      };
-    }),
-  };
-  return {
-    ...next,
-    artifacts: next.artifacts.map((artifact) => {
-      const replace = (collection: ImageCollection): ImageCollection => ({
-          ...collection,
-          images: collection.images.map((image) => {
-            const updated = updatedById.get(image.id);
-            return updated &&
-                (
-                  expectedSourceFile === undefined ||
-                  image.file === expectedSourceFile
-                )
-              ? updated
-              : image;
-          }),
-        });
-      if (artifact.kind === "shootingLocation") {
-        return { ...artifact, gallery: replace(artifact.gallery) };
-      }
-      if (artifact.kind === "modelCard") {
-        return { ...artifact, samples: replace(artifact.samples) };
-      }
-      if (artifact.kind === "clothing") {
-        return {
-          ...artifact,
-          mainGallery: replace(artifact.mainGallery),
-          tryOn: {
-            ...artifact.tryOn,
-            gallery: replace(artifact.tryOn.gallery),
-          },
-        };
-      }
-      return { ...artifact, gallery: replace(artifact.gallery) };
-    }),
-  };
-}
-
 function applyImageRemovalToLatest(
   latest: ProjectPlanV15,
   groupId: string,
@@ -698,6 +622,8 @@ export function BlockNoteProjectCanvasProvider({
   }, [zoom]);
 
   const applyPlan = useCallback((plan: ProjectPlanV15) => {
+    plan = promoteImagePresentationPlan(plan);
+    if (planRef.current?.schemaVersion === 18 && plan.schemaVersion === 17) plan = { ...plan, schemaVersion: 18 };
     if (imageMoveUndoRef.current?.after !== plan) {
       imageMoveUndoRef.current = null;
     }
@@ -755,75 +681,6 @@ export function BlockNoteProjectCanvasProvider({
     setCanvasError(error instanceof Error ? error.message : String(error));
   }, []);
 
-  const commitImageCrop = useCallback(async (
-    groupId: string,
-    imageId: string,
-    crop: NormalizedImageCrop,
-  ) => {
-    await enqueueImageMutation(async (context) => {
-      const before = context.getLatestPlan();
-      const beforeImage = allCollectionGroups(before)
-        .find((group) => group.id === groupId)
-        ?.images.find((image) => image.id === imageId);
-      let serviceRevision = context.getLatestRevision();
-      const result = await service.commitImageCrop(
-        projectPath,
-        () => {
-          serviceRevision = context.getLatestRevision();
-          return context.getLatestPlan();
-        },
-        groupId,
-        imageId,
-        crop,
-      );
-      const copyOnWrite =
-        beforeImage !== undefined && result.image.file !== beforeImage.file;
-      if (mountedRef.current) {
-        setImageSrc((existing) => ({
-          ...existing,
-          [result.image.file]: result.dataUrl,
-        }));
-        if (copyOnWrite) {
-          setLightboxTarget((current) =>
-            current?.groupId === groupId && current.imageId === imageId
-              ? { ...current, file: result.image.file }
-              : current
-          );
-        }
-      }
-      const next =
-        serviceRevision === context.getLatestRevision()
-          ? result.plan
-          : applyCropToLatest(
-              context.getLatestPlan(),
-              result,
-              beforeImage?.file,
-            );
-      applyPlan(next);
-      if (copyOnWrite) {
-        imageMoveUndoRef.current = { before, after: next };
-      }
-    });
-  }, [
-    applyPlan,
-    enqueueImageMutation,
-    projectPath,
-    service,
-  ]);
-
-  const confirmLightboxCrop = useCallback((crop: NormalizedImageCrop) => {
-    if (!lightboxTarget) {
-      return Promise.reject(
-        new Error(ui("当前裁剪目标不可用，请重新打开参考图")),
-      );
-    }
-    return commitImageCrop(
-      lightboxTarget.groupId,
-      lightboxTarget.imageId,
-      crop,
-    );
-  }, [commitImageCrop, lightboxTarget]);
-
   useEffect(() => {
     let cancelled = false;
     let failed = false;
@@ -867,12 +724,8 @@ export function BlockNoteProjectCanvasProvider({
               ? ui("项目已安全升级为素材组件格式；原有内容和图片组未更改。")
               : null,
         );
-        const files = new Set(
-          allCollectionGroups(plan).flatMap((group) =>
-            group.images.map((image) => image.file),
-          ),
-        );
-        const mediaFiles = new Set(mediaFilesInBlockDocument(plan.document));
+        const files = referenceImageAssets(plan);
+        const mediaFiles = nativeMediaAssets(plan.document);
         const total = files.size * 2 + mediaFiles.size;
         let completed = 0;
         const assetFinished = () => {
@@ -882,17 +735,17 @@ export function BlockNoteProjectCanvasProvider({
         };
         report({ status: "loading", percent: assetLoadPercent(0, total) });
         const imageEntriesPromise = Promise.all(
-          [...files].map(async (file) => {
-            const source = await service.loadImage(projectPath, file);
+          [...files].map(async ([key, image]) => {
+            const source = await service.loadImage(projectPath, image.file, image.presentationAxes);
             assetFinished();
-            return [file, source] as const;
+            return [key, source] as const;
           }),
         );
         const mediaEntriesPromise = Promise.all(
-          [...mediaFiles].map(async (file) => {
-            const source = await service.loadMedia(projectPath, file);
+          [...mediaFiles].map(async ([key, image]) => {
+            const source = await service.loadMedia(projectPath, image.file, image.presentationAxes);
             assetFinished();
-            return [file, source] as const;
+            return [key, source] as const;
           }),
         );
         const [imageEntries, mediaEntries] = await Promise.all([
@@ -905,7 +758,8 @@ export function BlockNoteProjectCanvasProvider({
         mediaSrcRef.current = nextMedia;
         setMediaSrc(nextMedia);
         const measured = await applyMeasuredImages(plan, imageEntries, async (source, file) => {
-          const dimensions = await service.imageDimensions?.(projectPath, file) ?? await measureImageDimensions(source);
+          const asset = imageAssetSource(file);
+          const dimensions = await service.imageDimensions?.(projectPath, asset.file, asset.presentationAxes) ?? await measureImageDimensions(source);
           assetFinished();
           return dimensions;
         });
@@ -1090,9 +944,9 @@ export function BlockNoteProjectCanvasProvider({
     const current = planRef.current;
     const block = current && blockId ? findClipboardBlock(current.document.blocks, blockId) : undefined;
     const ownedFile = block?.props.url;
-    if (typeof ownedFile === "string" && mediaSrcRef.current[ownedFile] === url) return ownedFile;
+    if (typeof ownedFile === "string" && mediaSrcRef.current[imageAssetKey(ownedFile, block?.props.presentationAxes === "exif" ? "exif" : undefined)] === url) return ownedFile;
     for (const [file, dataUrl] of Object.entries(mediaSrcRef.current)) {
-      if (dataUrl === url) return file;
+      if (dataUrl === url) return imageAssetSource(file).file;
     }
     return url;
   }, []);
@@ -1225,7 +1079,7 @@ export function BlockNoteProjectCanvasProvider({
       const revision = planRevisionRef.current;
       const block = findImageMaterialBlock(current, blockId);
       const dimensions = block?.type === "image" && typeof block.props.url === "string" && block.props.url.startsWith("media/")
-        ? await service.imageDimensions?.(projectPath, block.props.url) ?? await measureImageDimensions(resolveMediaUrl(block.props.url)) : undefined;
+        ? await service.imageDimensions?.(projectPath, block.props.url, block.props.presentationAxes === "exif" ? "exif" : undefined) ?? await measureImageDimensions(resolveMediaUrl(imageAssetKey(block.props.url, block.props.presentationAxes === "exif" ? "exif" : undefined))) : undefined;
       requireLibraryReady();
       if (planRevisionRef.current !== revision) throw new Error(ui("图片已变化，请重新保存到素材库。"));
       const snapshot = imageId || block?.type === "image"
@@ -1313,22 +1167,13 @@ export function BlockNoteProjectCanvasProvider({
                 planRevisionRef.current === revision &&
                 materialEditorRef.current === editor,
               async preparePublication(nextPlan) {
-                const currentFiles = new Set(
-                  allCollectionGroups(expectedPlan).flatMap((group) =>
-                    group.images.map((image) => image.file),
-                  ),
-                );
-                const addedFiles = new Set(
-                  allCollectionGroups(nextPlan).flatMap((group) =>
-                    group.images.map((image) => image.file),
-                  ).filter((file) => !currentFiles.has(file)),
-                );
-                for (const file of addedFiles) {
-                  importedSources[file] = await service.loadImage(projectPath, file);
+                const currentFiles = referenceImageAssets(expectedPlan);
+                for (const [key, image] of referenceImageAssets(nextPlan)) {
+                  if (!currentFiles.has(key)) importedSources[key] = await service.loadImage(projectPath, image.file, image.presentationAxes);
                 }
-                const currentMedia = new Set(mediaFilesInBlockDocument(expectedPlan.document));
-                for (const file of mediaFilesInBlockDocument(nextPlan.document)) {
-                  if (!currentMedia.has(file)) importedMedia[file] = await service.loadMedia(projectPath, file);
+                const currentMedia = nativeMediaAssets(expectedPlan.document);
+                for (const [key, image] of nativeMediaAssets(nextPlan.document)) {
+                  if (!currentMedia.has(key)) importedMedia[key] = await service.loadMedia(projectPath, image.file, image.presentationAxes);
                 }
               },
               publish(nextPlan, insertedBlockId) {
@@ -1389,16 +1234,17 @@ export function BlockNoteProjectCanvasProvider({
       const image = allCollectionGroups(current).find(group => group.id === selection.groupId)
         ?.images.find(entry => entry.id === selection.imageId);
       if (!image) throw new Error(ui("选中的图片已不存在，请重新选择。"));
-      const dataUrl = await service.loadImage(projectPath, image.file);
+      const dataUrl = await service.loadImage(projectPath, image.file, image.presentationAxes);
       if (!mountedRef.current || planRevisionRef.current !== revision) throw new Error(ui("图片或项目已变化，请重新复制。"));
-      const { id: _id, file: _file, ...presentation } = image;
+      // The copied derivative already has its orientation applied to the pixels.
+      const { id: _id, file: _file, presentationAxes: _presentationAxes, ...presentation } = image;
       return { dataUrl, name: image.file.split(/[\\/]/).at(-1) ?? "image.png", presentation };
     }
     const block = findClipboardBlock(current.document.blocks, selection.blockId);
     if (block?.type !== "image" || typeof block.props.url !== "string" || !block.props.url.startsWith("media/")) {
       throw new Error(ui("正文图片尚未完成导入，请稍候再复制。"));
     }
-    const dataUrl = await service.loadMedia(projectPath, block.props.url);
+    const dataUrl = await service.loadMedia(projectPath, block.props.url, block.props.presentationAxes === "exif" ? "exif" : undefined);
     if (!mountedRef.current || planRevisionRef.current !== revision) throw new Error(ui("图片或项目已变化，请重新复制。"));
     const alignment = block.props.textAlignment;
     return {
@@ -1640,8 +1486,8 @@ export function BlockNoteProjectCanvasProvider({
       if (!current) return undefined;
       return allCollectionGroups(current).find((group) => group.id === groupId);
     },
-    getImageSrc(file) {
-      return imageSrc[file];
+    getImageSrc(file, axes) {
+      return imageSrc[imageAssetKey(file, axes)];
     },
     addImages(groupId, maxFrameWidth) {
       if (!planRef.current || imageImportsRef.current.has(groupId)) return;
@@ -1674,13 +1520,13 @@ export function BlockNoteProjectCanvasProvider({
           setImageSrc((existing) => ({
             ...existing,
             ...Object.fromEntries(
-              result.images.map((entry) => [entry.image.file, entry.dataUrl]),
+              result.images.map((entry) => [imageAssetKey(entry.image.file, entry.image.presentationAxes), entry.dataUrl]),
             ),
           }));
         }
         if (result.images.some(entry => !entry.dataUrl)) setPreviewWarning(true);
         const entries = result.images.map((entry) => [
-          entry.image.file,
+          imageAssetKey(entry.image.file, entry.image.presentationAxes),
           entry.dataUrl,
         ] as const);
         const measured = await applyMeasuredImages(result.plan, entries);
@@ -1753,14 +1599,14 @@ export function BlockNoteProjectCanvasProvider({
                     ...existing,
                     ...Object.fromEntries(
                       imported.images.map((entry) => [
-                        entry.image.file,
+                        imageAssetKey(entry.image.file, entry.image.presentationAxes),
                         entry.dataUrl,
                       ]),
                     ),
                   }));
                 }
                 const entries = imported.images.map((entry) => [
-                  entry.image.file,
+                  imageAssetKey(entry.image.file, entry.image.presentationAxes),
                   entry.dataUrl,
                 ] as const);
                 const measured = await applyMeasuredImages(
@@ -1848,7 +1694,8 @@ export function BlockNoteProjectCanvasProvider({
       }
     },
     openImage(groupId, imageId, file) {
-      setLightboxTarget({ groupId, imageId, file });
+      const image = planRef.current && allCollectionGroups(planRef.current).find(group => group.id === groupId)?.images.find(image => image.id === imageId);
+      setLightboxTarget({ groupId, imageId, file: imageAssetKey(file, image?.presentationAxes) });
     },
     setImageFrame(groupId, imageId, frame) {
       const current = planRef.current;
@@ -1929,7 +1776,7 @@ export function BlockNoteProjectCanvasProvider({
               ),
             }
       );
-      applyPlan(replaceArtifactCollection(
+      const fittedPlan = replaceArtifactCollection(
         { ...current, imageGroups },
         groupId,
         (collection) => ({
@@ -1940,7 +1787,12 @@ export function BlockNoteProjectCanvasProvider({
               : image
           ),
         }),
-      ));
+      );
+      const history = imageFrameHistory(groupId, imageId, current, fittedPlan,
+        () => mountedRef.current ? planRef.current : null, applyPlan);
+      if (!history) return;
+      materialEditorRef.current?.recordExternalHistory?.(history);
+      applyPlan(fittedPlan);
     },
     moveImage(fromGroupId, imageId, toGroupId, toIndex) {
       void enqueueImageMutation((context) => {
@@ -2031,7 +1883,7 @@ export function BlockNoteProjectCanvasProvider({
       if (cancelled || !mountedRef.current || !target.isCurrent()) return;
       const imported = await screenCapture.captureMedia!(projectPath, cancellation, reviewCapture);
       if (!imported || cancelled || !mountedRef.current || !target.isCurrent()) return;
-      mediaSrcRef.current = { ...mediaSrcRef.current, [imported.file]: imported.dataUrl };
+      mediaSrcRef.current = { ...mediaSrcRef.current, [imageAssetKey(imported.file, imported.presentationAxes)]: imported.dataUrl };
       setMediaSrc(mediaSrcRef.current);
       target.publish(imported);
     }).catch(reportImageMutationFailure);
@@ -2045,7 +1897,7 @@ export function BlockNoteProjectCanvasProvider({
     }
   };
 
-  const performMediaUpload = async (file: File): Promise<string> => {
+  const performMediaUpload = async (file: File): Promise<string | { props: { url: string; name: string; presentationAxes: "exif" } }> => {
     async function* chunks() {
       for (let offset = 0; offset < file.size; offset += 1024 * 1024) {
         if (!mountedRef.current) throw new Error("Image import cancelled because the project was closed");
@@ -2061,14 +1913,16 @@ export function BlockNoteProjectCanvasProvider({
     });
     mediaSrcRef.current = {
       ...mediaSrcRef.current,
-      [imported.file]: imported.dataUrl,
+      [imageAssetKey(imported.file, imported.presentationAxes)]: imported.dataUrl,
     };
     setMediaSrc(mediaSrcRef.current);
     if (imported.previewError) setPreviewWarning(true);
-    return imported.dataUrl || imported.file;
+    return imported.presentationAxes === "exif"
+      ? { props: { url: imported.dataUrl || imported.file, name: imported.name, presentationAxes: "exif" } }
+      : imported.dataUrl || imported.file;
   };
 
-  const uploadMedia = (file: File): Promise<string> => {
+  const uploadMedia = (file: File): ReturnType<typeof performMediaUpload> => {
     if (copyLockedRef.current) return Promise.reject(new Error(ui("项目正在复制，请完成后再编辑。")));
     const task = performMediaUpload(file);
     mediaUploadsRef.current.add(task);
@@ -2082,7 +1936,8 @@ export function BlockNoteProjectCanvasProvider({
         signal?.throwIfAborted();
         let cancel!: () => void;
         const cancellation = signal ? new Promise<void>(resolve => { cancel = resolve; signal.addEventListener("abort", cancel, { once: true }); }) : undefined;
-        try { assets[file] = await service.imageDisplay(projectPath, file, edge, cancellation); }
+        const source = imageAssetSource(file);
+        try { assets[file] = await service.imageDisplay(projectPath, source.file, edge, cancellation, source.presentationAxes); }
         finally { if (cancel) signal?.removeEventListener("abort", cancel); }
       }
     }
@@ -2308,13 +2163,13 @@ export function BlockNoteProjectCanvasProvider({
           void (async () => {
             const current = planRef.current;
             if (!current) return;
-            const references = [...current.imageGroups, ...artifactCollectionGroups(current)].flatMap(group => group.images);
-            for (const { file } of references) if (!imageSrcRef.current[file]) {
-              const url = await service.loadImage(projectPath, file);
-              setImageSrc(previous => ({ ...previous, [file]: url }));
+            for (const [key, image] of referenceImageAssets(current)) if (!imageSrcRef.current[key]) {
+              const url = await service.loadImage(projectPath, image.file, image.presentationAxes);
+              setImageSrc(previous => ({ ...previous, [key]: url }));
             }
             for (const [file, url] of Object.entries(mediaSrcRef.current)) if (!url) {
-              mediaSrcRef.current[file] = await service.loadMedia(projectPath, file);
+              const source = imageAssetSource(file);
+              mediaSrcRef.current[file] = await service.loadMedia(projectPath, source.file, source.presentationAxes);
             }
             setMediaSrc({ ...mediaSrcRef.current });
             setPreviewWarning(false);
@@ -2406,7 +2261,7 @@ export function BlockNoteProjectCanvasProvider({
               artifactController={artifactController}
               document={loadState.plan.document}
               imageGroupController={imageGroupController}
-              key={`${projectPath}:${loadState.plan.schemaVersion}`}
+              key={projectPath}
               onChange={updateDocument}
               onEditorReady={reportEditorMounted}
               onMaterialEditorReady={registerMaterialEditor}
@@ -2423,26 +2278,6 @@ export function BlockNoteProjectCanvasProvider({
       {active && lightboxTarget && imageSrc[lightboxTarget.file] ? (
         <ReferenceImageLightbox
           alt={ui("参考图")}
-          cropAction={(() => {
-            const image = allCollectionGroups(loadState.plan)
-              .find((group) => group.id === lightboxTarget.groupId)
-              ?.images.find((entry) => entry.id === lightboxTarget.imageId);
-            if (
-              !image ||
-              !Number.isFinite(image.sourceWidth) ||
-              !Number.isFinite(image.sourceHeight) ||
-              (image.sourceWidth ?? 0) <= 0 ||
-              (image.sourceHeight ?? 0) <= 0
-            ) {
-              return undefined;
-            }
-            return {
-              sourceWidth: image.sourceWidth!,
-              sourceHeight: image.sourceHeight!,
-              // Invoked by the crop dialog after user confirmation, not during render.
-              confirm: confirmLightboxCrop,
-            };
-          })()}
           onClose={() => setLightboxTarget(null)}
           src={imageSrc[lightboxTarget.file]}
         />

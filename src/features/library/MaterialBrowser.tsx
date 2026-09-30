@@ -120,6 +120,12 @@ export function MaterialBrowser({
   const detailState = useMaterialDetail(repository, selected, refresh);
   const detail = detailState.detail;
   const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / 50));
+  // A successful search may report that the current page disappeared after a
+  // delete, restore, unfavorite, or another window's edit. Adjust before children
+  // render, so an invalid page/detail selection is never exposed to interaction.
+  if (result && preferences.page >= totalPages) {
+    setPreferences({ ...preferences, page: totalPages - 1 });
+  }
   const knownMissing = detailState.missing.length > 0;
   const canInsert = !unavailable && !busy && !loading && Boolean(input && detail && detail.deletedAt === null) &&
     (!imagesOnly || Boolean(detail && ["image", "imageGroup"].includes(detail.kind) && detail.imageCount > 0)) &&

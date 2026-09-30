@@ -304,7 +304,7 @@ describe("App", () => {
       children: [],
     });
     await act(async () => loaded.resolve(result));
-    await waitFor(() => expect(plans.service.loadMedia).toHaveBeenCalledWith(second.path, "media/delayed.png"));
+    await waitFor(() => expect(plans.service.loadMedia).toHaveBeenCalledWith(second.path, "media/delayed.png", undefined));
     expect(screen.getByRole("progressbar")).toBeVisible();
     await act(async () => media.resolve("data:image/png;base64,AA"));
     await canvasReady();

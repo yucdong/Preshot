@@ -12,8 +12,6 @@ import {
 } from "react";
 import type { MaterialDetail, MaterialPayload } from "../../domain/library/models";
 import type { MaterialContentEditorRepository } from "../../domain/library/ports";
-import type { NormalizedImageCrop } from "../../domain/plan/canvas/imageView";
-import type { ReferenceImageCropBounds } from "../../domain/plan/ports";
 import { ArtifactBlockContext, type ArtifactBlockController } from "../plan/blocknote/ArtifactBlockContext";
 import { materialArtifactLabels } from "./libraryUi";
 import { MaterialBrowser } from "./MaterialBrowser";
@@ -30,6 +28,7 @@ import { ImageImportProgress, type ImageImportProgressState } from "../plan/bloc
 import { preshotBlockNoteSchema, type PreshotEditorPartialBlock } from "../plan/blocknote/preshotBlockNoteSchema";
 import { ReferenceImageLightbox } from "../plan/ReferenceImageLightbox";
 import { MaterialContentDraft } from "./MaterialContentDraft";
+import { imageAssetKey } from "../../domain/plan/canvas/imagePresentation";
 import { lockMaterialContentEditor } from "./materialStructureLock";
 import type { ImageClipboardContents, ImageClipboardSelection, ImagePasteTarget } from "../../domain/clipboard/imageClipboard";
 import { unavailableImageClipboard } from "../../domain/clipboard/imageClipboard";
@@ -62,24 +61,6 @@ export interface MaterialContentCanvasProps {
   onBusyChange(busy: boolean): void;
   onError(message: string): void;
   ref?: Ref<MaterialContentCanvasHandle>;
-}
-
-function cropPixels(
-  crop: NormalizedImageCrop, width: number, height: number,
-): ReferenceImageCropBounds {
-  if (
-    ![crop.x, crop.y, crop.width, crop.height].every(Number.isFinite) ||
-    crop.x < 0 || crop.y < 0 || crop.width <= 0 || crop.height <= 0 ||
-    crop.x + crop.width > 1 || crop.y + crop.height > 1 ||
-    !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0
-  ) throw new Error(ui("裁剪范围或原图尺寸无效，请重新打开图片。"));
-  const x = Math.min(width - 1, Math.max(0, Math.round(crop.x * width)));
-  const y = Math.min(height - 1, Math.max(0, Math.round(crop.y * height)));
-  return {
-    x, y,
-    width: Math.min(width, Math.max(x + 1, Math.round((crop.x + crop.width) * width))) - x,
-    height: Math.min(height, Math.max(y + 1, Math.round((crop.y + crop.height) * height))) - y,
-  };
 }
 
 function rejectStructure(): never {
@@ -260,7 +241,7 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
     createGroup: rejectStructure,
     cloneGroup: rejectStructure,
     getGroup: (id) => store.getSnapshot().groups.find((group) => group.id === id),
-    getImageSrc: (file) => store.getSnapshot().sources[file],
+    getImageSrc: (file, axes) => store.getSnapshot().sources[imageAssetKey(file, axes)],
     addImages: (id, maxFrameWidth) => {
       void runImageOperation(async () => {
         setImportProgress({ phase: "waiting" });
@@ -342,9 +323,9 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
     const image = store.getSnapshot().groups.find(group => group.id === selection.groupId)
       ?.images.find(entry => entry.id === selection.imageId);
     if (!image) throw new Error(ui("选中的素材图片已不存在。"));
-    const dataUrl = store.getSnapshot().sources[image.file];
+    const dataUrl = store.getSnapshot().sources[imageAssetKey(image.file, image.presentationAxes)];
     if (!dataUrl) throw new Error(ui("素材原图尚未加载，请稍候再复制。"));
-    const { id: _id, file: _file, ...presentation } = image;
+    const { id: _id, file: _file, presentationAxes: _axes, ...presentation } = image;
     return { dataUrl, name: ui("素材图片.png"), presentation };
   };
 
@@ -406,7 +387,6 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
   };
   const opened = lightbox && snapshot.groups.find(({ id }) => id === lightbox.groupId)
     ?.images.find(({ id }) => id === lightbox.imageId);
-  const dimensions = opened ? store.getDimensions(opened.file) : null;
 
   return <section className="ml-content-canvas" aria-label={ui("素材内容编辑画布")} aria-busy={locked && !captureState}
     onPointerDownCapture={() => { clipboardFocusVersion.current += 1; }}
@@ -442,13 +422,13 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
       }}><Maximize aria-hidden size={17} />{ui("适应宽度")}</button>
       <span className="ml-content-canvas-hint">{ui("仅编辑当前组件 · 不影响项目方案")}</span>
     </div>
-    {snapshot.groups.some(group => group.images.some(image => !snapshot.sources[image.file])) && <div role="status">
+    {snapshot.groups.some(group => group.images.some(image => !snapshot.sources[imageAssetKey(image.file, image.presentationAxes)])) && <div role="status">
       {ui("原图已导入，预览生成失败。请点击重试预览。")}
       <button type="button" disabled={locked} onClick={() => {
         void runImageOperation(async () => {
           for (const group of store.getSnapshot().groups) for (const image of group.images) {
-            if (!store.getSnapshot().sources[image.file]) {
-              const preview = await repository.loadEditImage(sessionId, store.getToken(image.file));
+            if (!store.getSnapshot().sources[imageAssetKey(image.file, image.presentationAxes)]) {
+              const preview = await repository.loadEditImage(sessionId, store.getToken(image.file), image.presentationAxes);
               if (mounted.current) store.setPreview(image.file, preview);
             }
           }
@@ -504,23 +484,8 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
         </ArtifactDraftContext.Provider>
       </fieldset>
     </div>
-    {opened && lightbox && dimensions ? <ReferenceImageLightbox
-      src={snapshot.sources[opened.file]} alt={ui("参考图")} copyScope="draft" onClose={() => { if (!busyRef.current) setLightbox(null); }}
-      cropAction={disabled ? undefined : {
-        sourceWidth: dimensions.width, sourceHeight: dimensions.height,
-        confirm: async (crop) => {
-          try {
-            await runImageOperation(async () => {
-              const replacement = await repository.cropEditImage(sessionId, store.getToken(opened.file),
-                cropPixels(crop, dimensions.width, dimensions.height));
-              if (mounted.current) store.replaceImage(lightbox.groupId, lightbox.imageId, replacement);
-            });
-          } catch (error) {
-            report(error);
-            throw error;
-          }
-        },
-      }}
+    {opened && snapshot.sources[imageAssetKey(opened.file, opened.presentationAxes)] ? <ReferenceImageLightbox
+      src={snapshot.sources[imageAssetKey(opened.file, opened.presentationAxes)]} alt={ui("参考图")} copyScope="draft" onClose={() => { if (!busyRef.current) setLightbox(null); }}
     /> : null}
     {libraryTarget && library && <MaterialBrowser repository={library.repository}
       initialPreferences={{ query: "", filter: "all", sort: "auto", page: 0, selectedId: null }}

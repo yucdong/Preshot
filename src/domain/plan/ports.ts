@@ -1,16 +1,19 @@
+import type { ImagePresentationAxes } from "./canvas/models";
+
 export interface ImportedImage {
   previewError?: string;
   sourceWidth?: number;
   sourceHeight?: number;
+  presentationAxes?: ImagePresentationAxes;
   file: string;
   dataUrl: string;
 }
 
 export interface ReferenceImageStore {
-  imageDisplay?(projectPath: string, file: string, edge: number, cancellation?: Promise<void>): Promise<string>;
-  imageDimensions?(projectPath: string, file: string): Promise<{ sourceWidth: number; sourceHeight: number }>;
+  imageDisplay?(projectPath: string, file: string, edge: number, cancellation?: Promise<void>, presentationAxes?: ImagePresentationAxes): Promise<string>;
+  imageDimensions?(projectPath: string, file: string, presentationAxes?: ImagePresentationAxes): Promise<{ sourceWidth: number; sourceHeight: number }>;
   importImage(projectPath: string, sourcePath: string): Promise<ImportedImage>;
-  loadImage(projectPath: string, file: string): Promise<string>;
+  loadImage(projectPath: string, file: string, presentationAxes?: ImagePresentationAxes): Promise<string>;
   removeImage(projectPath: string, file: string): Promise<void | "removed" | "retainedForMaterialHistory">;
 }
 
@@ -44,6 +47,7 @@ export interface ReferenceImageCropStore {
     input: {
       file: string;
       bounds: ReferenceImageCropBounds;
+      presentationAxes?: ImagePresentationAxes;
     },
   ): Promise<ReferenceImageCropTransaction>;
   copyImageCrop?(
@@ -51,11 +55,15 @@ export interface ReferenceImageCropStore {
     input: {
       file: string;
       bounds: ReferenceImageCropBounds;
+      presentationAxes?: ImagePresentationAxes;
     },
   ): Promise<CopiedReferenceImage>;
 }
 
 export interface ImportedPlanMedia {
+  presentationAxes?: ImagePresentationAxes;
+  displayWidth?: number;
+  displayHeight?: number;
   previewError?: string;
   file: string;
   dataUrl: string;
@@ -73,7 +81,7 @@ export interface PlanMediaStore {
       bytes: number[];
     },
   ): Promise<ImportedPlanMedia>;
-  loadMedia(projectPath: string, file: string): Promise<string>;
+  loadMedia(projectPath: string, file: string, presentationAxes?: ImagePresentationAxes): Promise<string>;
   removeMedia(projectPath: string, file: string): Promise<void>;
 }
 

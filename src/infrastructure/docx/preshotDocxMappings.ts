@@ -1,5 +1,6 @@
 import { resolveArtifactContentLayout } from "../../domain/plan/canvas/artifactContentLayout";
 import { ui } from "../../shared/i18n/ui";
+import { imageAssetKey } from "../../domain/plan/canvas/imagePresentation";
 import {
   COLORS_DEFAULT,
   mappingFactory,
@@ -262,7 +263,7 @@ async function prepareArtifactCollectionImage(
     for (const slot of layout.slots) {
       const image = images.get(slot.id);
       if (!image) continue;
-      const bitmap = await createImageBitmap(await resolveFile(image.file));
+      const bitmap = await createImageBitmap(await resolveFile(imageAssetKey(image.file, image.presentationAxes)));
       bitmaps.push(bitmap);
       const crop = image.fitMode === "stretch"
         ? { x: 0, y: 0, width: 1, height: 1 }

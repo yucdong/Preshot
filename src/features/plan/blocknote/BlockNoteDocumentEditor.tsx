@@ -82,7 +82,7 @@ interface BlockNoteDocumentEditorProps {
   onInsertMaterial?(): void;
   persistMediaUrl(url: string, blockId?: string): string;
   resolveMediaUrl(url: string): string;
-  uploadFile(file: File): Promise<string>;
+  uploadFile(file: File): Promise<string | { props: { url: string; name: string; presentationAxes: "exif" } }>;
   captureImage?: CaptureBlockImage;
 }
 

@@ -577,16 +577,15 @@ test("creates and persists a merged prop information field", async ({
   await page.keyboard.press("Control+S");
   await expect(page.getByText("已保存所有更改")).toBeVisible();
   const persisted = await page.evaluate(() => {
-    const values = Object.values(sessionStorage);
-    const raw = values.find((value) =>
-      value.includes('"schemaVersion":16') &&
-      value.includes('"kind":"prop"')
+    const projectPath = "C:\\Preshot Demo\\编辑大片示例";
+    const raw = sessionStorage.getItem(
+      `preshot.browser-blocknote-plan-v15:${encodeURIComponent(projectPath)}`,
     );
     return raw ? JSON.parse(raw) : null;
   });
   expect(persisted).toMatchObject({
-    schemaVersion: 16,
-    document: { version: 4 },
+    schemaVersion: 17,
+    document: { version: 5 },
     artifacts: [{
       kind: "prop",
       title: "磨砂铝反光板",
@@ -891,7 +890,7 @@ test("does not group an artifact card beside text", async ({
   await expect(page.locator('[data-artifact-kind="prop"]')).toBeVisible();
 });
 
-test("balances autosizing location information with wrapped images", async ({
+test("stacks autosizing location information above wrapped images", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -948,6 +947,7 @@ test("balances autosizing location information with wrapped images", async ({
   await expect(title).toHaveValue("118 广场");
   await expect(information).toHaveValue("虹口区东大名路\n朝北落地窗");
   await expect(gallery.locator("[data-image-id]")).toHaveCount(6);
+  await expect(location.locator("[data-card-orientation]")).toHaveAttribute("data-card-orientation", "vertical");
 
   const measure = () => location.evaluate((element) => {
     const textarea = element.querySelector("textarea")!;
@@ -957,7 +957,9 @@ test("balances autosizing location information with wrapped images", async ({
     const frames = [...element.querySelectorAll<HTMLElement>("[data-image-id]")];
     return {
       informationHeight: textarea.getBoundingClientRect().height,
+      informationBottom: textarea.getBoundingClientRect().bottom,
       imageRegionHeight: imageRegion.getBoundingClientRect().height,
+      imageRegionTop: imageRegion.getBoundingClientRect().top,
       scrollHeight: textarea.scrollHeight,
       clientHeight: textarea.clientHeight,
       rows: new Set(frames.map((frame) =>
@@ -976,8 +978,7 @@ test("balances autosizing location information with wrapped images", async ({
     )
   ).toBe(true);
   const initial = await measure();
-  expect(Math.abs(initial.informationHeight - initial.imageRegionHeight))
-    .toBeLessThan(1);
+  expect(initial.imageRegionTop).toBeGreaterThanOrEqual(initial.informationBottom - 1);
   expect(initial.rows).toBeGreaterThan(1);
   expect(initial.scrollHeight).toBeLessThanOrEqual(initial.clientHeight);
   expect(Math.max(...initial.frameHeights) / Math.min(...initial.frameHeights))
@@ -1130,8 +1131,7 @@ test("balances autosizing location information with wrapped images", async ({
   expect(expanded.informationHeight).toBeGreaterThan(
     initial.informationHeight,
   );
-  expect(Math.abs(expanded.informationHeight - expanded.imageRegionHeight))
-    .toBeLessThan(1);
+  expect(expanded.imageRegionTop).toBeGreaterThanOrEqual(expanded.informationBottom - 1);
   expect(expanded.scrollHeight).toBeLessThanOrEqual(expanded.clientHeight);
 
   await title.fill("北外滩 118 广场");
@@ -2049,13 +2049,13 @@ test("blocks schema-v12 projects without opening the canvas", async ({ page }) =
   await page.goto("/");
 
   await expect(page.getByRole("alert")).toContainText("方案版本不兼容");
-  await expect(page.getByRole("alert")).toContainText("当前项目版本为 12，需要版本 16");
+  await expect(page.getByRole("alert")).toContainText("当前项目版本为 12，需要版本 17");
   await expect(page.locator('[data-editor-engine="blocknote"]')).toHaveCount(0);
   await expect(page.getByRole("button", { name: "导出" })).toHaveCount(0);
   await expect(page.getByRole("menu")).toHaveCount(0);
 });
 
-test("migrates schema-v13 projects to artifact-capable schema v15", async ({
+test("migrates schema-v13 projects to schema v17 and document v5", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -2097,7 +2097,7 @@ test("migrates schema-v13 projects to artifact-capable schema v15", async ({
     return plan
       ? [plan.schemaVersion, plan.document?.version]
       : null;
-  })).toEqual([16, 4]);
+  })).toEqual([17, 5]);
 });
 
 test("operates nested blocks from the block side menu", async ({ page }) => {

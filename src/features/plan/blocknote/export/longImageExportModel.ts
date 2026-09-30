@@ -1,4 +1,5 @@
 import { ui } from "../../../../shared/i18n/ui";
+import { imageAssetKey } from "../../../../domain/plan/canvas/imagePresentation";
 import type {
   PreshotBlock,
   ProjectPlanV14,
@@ -127,7 +128,7 @@ export function validateLongImageExportAssets(
         );
       }
       group.images.forEach((image) => {
-        const source = resolvedAssets[image.file];
+        const source = resolvedAssets[imageAssetKey(image.file, image.presentationAxes)];
         if (!source || !isLocalLongImageAsset(source)) {
           throw new Error(
             `Long-image export requires local image data for "${image.file}".`,
@@ -151,7 +152,7 @@ export function validateLongImageExportAssets(
       }
       artifactCollectionGroups({ artifacts: [artifact] }).forEach((group) => {
         group.images.forEach((image) => {
-          const source = resolvedAssets[image.file];
+          const source = resolvedAssets[imageAssetKey(image.file, image.presentationAxes)];
           if (!source || !isLocalLongImageAsset(source)) {
             throw new Error(
               `Long-image export requires local image data for "${image.file}".`,
@@ -164,7 +165,7 @@ export function validateLongImageExportAssets(
     if (!NATIVE_MEDIA_TYPES.has(block.type)) return;
     const url = block.props.url;
     if (typeof url !== "string" || url === "") return;
-    const source = resolvedAssets[url] ?? url;
+    const source = resolvedAssets[imageAssetKey(url, block.type === "image" && block.props.presentationAxes === "exif" ? "exif" : undefined)] ?? url;
     if (!isLocalLongImageAsset(source)) {
       throw new Error(
         `Long-image export requires a resolved local asset for "${url}".`,

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720">
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#dce9e8"/><stop offset="1" stop-color="#f3eadc"/></linearGradient></defs>
+  <rect width="960" height="720" fill="url(#sky)"/>
+  <circle cx="750" cy="145" r="85" fill="#fff5dc"/>
+  <path d="M0 385Q220 365 440 400T960 380V580H0Z" fill="#b1c9c8"/>
+  <g stroke="#8da5a5" fill="none" opacity=".7"><path d="M0 325H960M45 325V395M210 325V395M375 325V395M540 325V395M705 325V395M870 325V395" stroke-width="8"/><path d="M45 320L127 265L210 320L292 265L375 320L457 265L540 320L622 265L705 320L787 265L870 320" stroke-width="5"/></g>
+  <path d="M0 560L960 490V720H0Z" fill="#d6d0c2"/><path d="M0 640L960 550" stroke="#eee6d5" stroke-width="8"/>
+  <ellipse cx="510" cy="650" rx="180" ry="20" fill="#78928e" opacity=".3"/>
+  <path d="M411 204Q390 145 449 120Q511 94 541 160L542 262L416 265Z" fill="#303941"/>
+  <path d="M432 165Q451 134 475 143L520 169L516 215Q500 251 466 241L435 211Z" fill="#efc5a8"/>
+  <path d="M487 184L500 185M515 186L524 202L511 205" fill="none" stroke="#7f675f" stroke-width="3" stroke-linecap="round"/>
+  <path d="M460 228L491 233L493 279L456 282Z" fill="#dbad92"/>
+  <path d="M441 268L480 281L511 261L546 324L570 463L394 462L406 320Z" fill="#eee3d2"/>
+  <path d="M459 276L476 354L496 275" fill="#a6b9b6"/>
+  <path d="M442 268L418 323L450 325L437 350L478 397L511 261" fill="none" stroke="#c5b69f" stroke-width="5"/>
+  <path d="M427 323L383 399L350 425" fill="none" stroke="#eee3d2" stroke-width="34" stroke-linecap="round"/><path d="M350 425L328 441" stroke="#efc5a8" stroke-width="20" stroke-linecap="round"/>
+  <path d="M526 320L560 375L609 349" fill="none" stroke="#ddceb8" stroke-width="32" stroke-linecap="round"/><path d="M609 349L627 337" stroke="#efc5a8" stroke-width="19" stroke-linecap="round"/>
+  <path d="M406 455L553 454L585 547L466 572L393 536Z" fill="#f7efe1"/>
+  <path d="M430 541L405 596L367 632M535 554L568 601L620 634" fill="none" stroke="#d8b49b" stroke-width="26" stroke-linecap="round"/>
+  <path d="M365 624L399 640L349 655Q328 650 343 639Z M608 628L631 635L657 650L601 650Z" fill="#f9f7ef" stroke="#b1a698" stroke-width="3"/>
+  <rect x="38" y="35" width="280" height="48" rx="24" fill="white" opacity=".85"/>
+  <text x="59" y="66" font-family="Arial,sans-serif" font-size="19" letter-spacing="2" fill="#3d5557">MODEL A / WALKING</text>
+  <text x="47" y="688" font-family="Arial,sans-serif" font-size="18" letter-spacing="3" fill="#3d5557">SMALL STEPS / RELAXED HANDS / MOCK POSE</text>
+</svg>

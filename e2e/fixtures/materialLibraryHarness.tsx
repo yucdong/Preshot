@@ -67,6 +67,22 @@ if (variant) {
 }
 materials.set(seed.id, seed);
 
+// A full page plus one item exercises navigation after metadata mutations.
+// Fixture seeding stays at the persistence boundary; all actions use real UI.
+if (new URLSearchParams(location.search).has("pagination")) {
+  materials.clear();
+  const trash = new URLSearchParams(location.search).has("trash");
+  for (let index = 1; index <= 51; index++) {
+    const item = structuredClone(seed);
+    item.id = `9bcd08d4-05e8-4b70-ad27-${String(index).padStart(12, "0")}`;
+    item.name = `分页素材 ${String(index).padStart(2, "0")}`;
+    item.favorite = true;
+    item.deletedAt = trash ? 1 : null;
+    item.updatedAt = index;
+    materials.set(item.id, item);
+  }
+}
+
 function get(id: string): MaterialDetail {
   const value = materials.get(id);
   if (!value) throw new Error("素材不存在");

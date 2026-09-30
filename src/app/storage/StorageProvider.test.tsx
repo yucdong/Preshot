@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { StorageInfo, StorageRepository } from "../../domain/storage/ports";
@@ -12,6 +12,19 @@ function repo(info = initial): StorageRepository {
     move: vi.fn(), cancelMove: vi.fn(), pickDirectory: vi.fn().mockResolvedValue(null), reveal: vi.fn() };
 }
 describe("persistent storage setup", () => {
+  it("does not initialize storage until the working path IME composition is committed", async () => {
+    const repository = repo();
+    render(<StorageProvider repository={repository}><p>工作区已打开</p></StorageProvider>);
+    const input = await screen.findByRole("textbox", { name: "项目工作路径" });
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: "D:\\摄影" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(repository.configure).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(input);
+    fireEvent.submit(input.closest("form")!);
+    await waitFor(() => expect(repository.configure).toHaveBeenCalledExactlyOnceWith("D:\\摄影"));
+  });
+
   it("waits for a valid storage configuration before mounting the workspace", async () => {
     const repository = repo();
     render(<StorageProvider repository={repository}><p>工作区已打开</p></StorageProvider>);

@@ -39,7 +39,7 @@ export function PreshotImageFilePanel(props: FilePanelProps) {
                 if (!isCurrent()) return;
                 editor.prosemirrorView.dispatch(closeHistory(editor.prosemirrorView.state.tr));
                 editor.updateBlock(block.id, {
-                  type: "image", props: { url: media.file, name: media.name, showPreview: true },
+                  type: "image", props: { url: media.file, name: media.name, showPreview: true, presentationAxes: media.presentationAxes ?? "" },
                 });
                 editor.prosemirrorView.dispatch(closeHistory(editor.prosemirrorView.state.tr));
               },

@@ -12,7 +12,8 @@ export function imageClipboardFilename(label: string): string {
   return `${prefix}${base}${extension}`;
 }
 
-export type ClipboardImagePresentation = Omit<ReferenceImage, "id" | "file">;
+// Clipboard pixels are already oriented; original-file axes never cross this boundary.
+export type ClipboardImagePresentation = Omit<ReferenceImage, "id" | "file" | "presentationAxes">;
 
 export interface ClipboardNativeImageProps {
   caption?: string;

@@ -100,6 +100,7 @@ fn exposed(image: &MaterialImage, bytes: &[u8]) -> MaterialEditImage {
         width: image.width,
         height: image.height,
         data_url: data_url(image, bytes),
+        presentation_axes: None, display_width: None, display_height: None,
         preview_error: None,
     }
 }
@@ -451,10 +452,14 @@ impl Store {
         })
     }
 
+    #[cfg(test)]
     pub(super) fn load_edit_image(&self, session_id: &str, local_image_id: &str) -> Result<String> {
+        self.load_edit_image_with_axes(session_id, local_image_id, crate::original_image::PresentationAxes::Raw)
+    }
+    pub(super) fn load_edit_image_with_axes(&self, session_id: &str, local_image_id: &str, axes: crate::original_image::PresentationAxes) -> Result<String> {
         let draft = self.read_draft(session_id)?;
         let (_, path) = self.edit_image_path(&draft, local_image_id)?;
-        crate::original_image::display_url(&path, 2048)
+        crate::original_image::display_url_with_axes(&path, 2048, axes)
     }
 
     pub(super) fn edit_original_image_path(&self, session_id: &str, local_image_id: &str) -> Result<PathBuf> {
@@ -480,7 +485,13 @@ impl Store {
     }
 
     fn stage_file(&self, draft: &mut Draft, source: &Path) -> Result<MaterialEditImage> {
+        self.stage_file_with_axes(draft, source, crate::original_image::import_axes(source)?)
+    }
+    fn stage_file_with_axes(&self, draft: &mut Draft, source: &Path, presentation_axes: Option<crate::original_image::PresentationAxes>) -> Result<MaterialEditImage> {
         let (mime, width, height) = crate::original_image::info(source)?;
+        let axes = presentation_axes.unwrap_or_default();
+        let (display_width, display_height) = if axes == crate::original_image::PresentationAxes::Raw { (width, height) }
+            else { crate::original_image::display_dimensions(source, axes)? };
         let (byte_length, blob_id) = crate::original_image::fingerprint(source)?;
         let image = MaterialImage { local_image_id: Uuid::new_v4().to_string(),
             storage_id: Some(Uuid::new_v4().to_string()), blob_id, byte_length,
@@ -489,17 +500,13 @@ impl Store {
         let path = self.stage_path(draft, &image)?;
         draft.pending.push(image.clone());
         self.write_draft(draft)?;
-        if let Err(failure) = crate::original_image::copy_new(source, &path, byte_length, &image.blob_id) {
-            // This invocation just created this exclusively owned file. A source
-            // change or short write is never exposed as an editable image.
-            if path.exists() { fs::remove_file(&path).map_err(|e| error("edit_cleanup", e))?; }
-            return Err(failure);
-        }
-        let (data_url, preview_error) = match crate::original_image::display_url(&path, 2048) {
+        crate::original_image::copy_new_cleaned(source, &path, byte_length, &image.blob_id)?;
+        let (data_url, preview_error) = match crate::original_image::display_url_with_axes(&path, 2048, presentation_axes.unwrap_or_default()) {
             Ok(url) => (url, None),
             Err(_) => (String::new(), Some("原图已导入，预览生成失败。请点击重试预览。".into())),
         };
-        Ok(MaterialEditImage { local_image_id: image.local_image_id, mime_type: mime.into(), byte_length, width, height, data_url, preview_error })
+        Ok(MaterialEditImage { local_image_id: image.local_image_id, mime_type: mime.into(), byte_length, width, height, data_url, preview_error,
+            presentation_axes, display_width: Some(display_width), display_height: Some(display_height) })
     }
 
     pub(super) fn import_library_images(&self, session_id: &str, material_id: &str, revision: u32, image_ids: Vec<String>) -> Result<Vec<MaterialEditImage>> {
@@ -509,12 +516,15 @@ impl Store {
         }
         let sources = image_ids.iter().map(|id| {
             let image = material.images.iter().find(|i| &i.local_image_id == id).ok_or_else(|| error("source", "Source image is missing"))?;
-            self.verified_image_path(image)
+            let portable = validation::payload_images(&material.payload)?.iter().find(|image| image["localImageId"] == *id)
+                .ok_or_else(|| error("source", "Source presentation is missing"))?;
+            let axes = portable.get("presentationAxes").map(|value| serde_json::from_value(value.clone()).map_err(|e| error("source", e))).transpose()?;
+            Ok((self.verified_image_path(image)?, axes))
         }).collect::<Result<Vec<_>>>()?;
         let mut draft = self.read_draft(session_id)?;
         self.verify_draft_entries(&draft)?;
         self.clear_pending(&mut draft)?;
-        let result = sources.iter().map(|source| self.stage_file(&mut draft, source)).collect();
+        let result = sources.iter().map(|(source, axes)| self.stage_file_with_axes(&mut draft, source, *axes)).collect();
         self.finish_batch(&mut draft, result)
     }
 
@@ -643,16 +653,21 @@ impl Store {
         self.finish_batch(&mut draft, result).map(|mut images| images.remove(0))
     }
 
+    #[cfg(test)]
     pub(super) fn crop_edit_image(
         &self,
         session_id: &str,
         local_image_id: &str,
         bounds: MaterialEditCropBounds,
     ) -> Result<MaterialEditImage> {
+        self.crop_edit_image_with_axes(session_id, local_image_id, bounds, crate::original_image::PresentationAxes::Raw)
+    }
+    pub(super) fn crop_edit_image_with_axes(&self, session_id: &str, local_image_id: &str, bounds: MaterialEditCropBounds, axes: crate::original_image::PresentationAxes) -> Result<MaterialEditImage> {
         let mut draft = self.read_draft(session_id)?;
         self.verify_draft_entries(&draft)?;
         self.clear_pending(&mut draft)?;
         let (image, original) = self.edit_image_path(&draft, local_image_id)?;
+        let (source_width, source_height) = crate::original_image::display_dimensions(&original, axes)?;
         let converted = (
             u32::try_from(bounds.x),
             u32::try_from(bounds.y),
@@ -664,8 +679,8 @@ impl Store {
                 (Ok(x), Ok(y), Ok(w), Ok(h))
                     if w > 0
                         && h > 0
-                        && x.checked_add(w).is_some_and(|r| r <= image.width)
-                        && y.checked_add(h).is_some_and(|b| b <= image.height) =>
+                        && x.checked_add(w).is_some_and(|r| r <= source_width)
+                        && y.checked_add(h).is_some_and(|b| b <= source_height) =>
                 {
                     (x, y, w, h)
                 }
@@ -679,7 +694,7 @@ impl Store {
         } else {
             ImageFormat::Jpeg
         };
-        let (decoded, decode_guard) = crate::original_image::raster_for_edit(&original)?;
+        let (decoded, decode_guard) = crate::original_image::raster_for_edit_with_axes(&original, axes)?;
         let cropped = decoded.crop_imm(x, y, width, height);
         let mut encoded = Cursor::new(Vec::new());
         cropped

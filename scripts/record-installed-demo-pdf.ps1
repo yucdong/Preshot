@@ -1,16 +1,21 @@
-﻿param([Parameter(Mandatory)][long]$WindowHandle,[string]$Work='.preshot-build-cache/installed-demo-final',[int]$Pages=3)
+﻿param([Parameter(Mandatory)][long]$WindowHandle,[string]$Work='.preshot-build-cache/installed-demo-final',[int]$Pages=3,[double]$TotalSeconds=8)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'demo-native-tools.ps1')
-$workRoot=(Resolve-Path $Work).Path
+. (Join-Path $PSScriptRoot 'demo-native-session.ps1')
+$cacheRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../.preshot-build-cache'))
+$workRoot=Assert-DemoOwnedPath (Resolve-Path -LiteralPath $Work).Path $cacheRoot
+$expectedPdf=Assert-DemoOwnedPath (Join-Path $workRoot 'nanjing-bridge.pdf') $cacheRoot
 $output=Join-Path $workRoot 'pdf'
-if(Test-Path -LiteralPath (Join-Path $output 'recording.json')) { throw 'Archive the previous PDF take before recording again.' }
-New-Item -ItemType Directory -Force $output | Out-Null
+if(Test-Path -LiteralPath $output) { throw 'Archive the previous PDF take before recording again.' }
 $script:DemoHandle=[IntPtr]$WindowHandle
 [DemoNative]::ShowWindow($script:DemoHandle,9) | Out-Null
 [DemoNative]::SetForegroundWindow($script:DemoHandle) | Out-Null
 $address=Get-DemoElement 'Address and search bar' 'Edit'
 $actual=($address.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)).Current.Value
-if($actual.Replace('/','\') -notlike ('*'+(Join-Path $workRoot 'nanjing-bridge.pdf')+'*')) { throw 'The reader must show the PDF exported by this isolated run.' }
+$readerUri=$null
+if(-not [Uri]::TryCreate($actual,[UriKind]::Absolute,[ref]$readerUri) -or -not $readerUri.IsFile -or
+    [IO.Path]::GetFullPath($readerUri.LocalPath) -ine $expectedPdf) { throw 'The reader must show the exact PDF exported by this isolated run.' }
+New-Item -ItemType Directory $output | Out-Null
 $windowRect=New-Object DemoNative+RECT
 [DemoNative]::GetWindowRect($script:DemoHandle,[ref]$windowRect) | Out-Null
 $pageRect=(Get-DemoElement 'Page number' 'Edit').Current.BoundingRectangle
@@ -28,7 +33,7 @@ try {
         [DemoNative]::Key($script:DemoHandle,13)
         Start-Sleep -Seconds 1
         if(($edit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)).Current.Value -ne [string]$number) { throw "Reader did not navigate to page $number" }
-        $chapters.Add(@{seconds=$clock.Elapsed.TotalSeconds;zh="打开实际导出的 PDF · 第 $number / $Pages 页";en="Review the exported PDF · page $number of $Pages"})
+        $chapters.Add(@{seconds=$clock.Elapsed.TotalSeconds;zh="打开实际导出的 PDF · 第 $number / $Pages 页";en="Review the exported PDF · page $number of $Pages";targetSeconds=$TotalSeconds/$Pages})
         Save-DemoFrame $script:DemoHandle (Join-Path $workRoot "pdf-page-$number.png")
         for($n=0;$n -lt 24;$n++) {
             $name='{0:D6}.jpg' -f $frames.Count

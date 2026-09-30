@@ -15,6 +15,26 @@ function referenceImage(id: string) {
 }
 
 describe("BlockNote plan service", () => {
+  it("preserves EXIF display axes and promotes only the newly marked imported plan", async () => {
+    const plan: ProjectPlanV15 = { schemaVersion: 17, title: "Portrait", artifacts: [],
+      document: { format: "preshot-blocks", version: 5, blocks: [{ id: "b", type: "imageGroup", props: { groupId: "g" }, children: [], content: undefined }] },
+      imageGroups: [{ id: "g", type: "reference", name: "", description: "", x: 0, width: 800, height: 300, images: [] }],
+    };
+    const saveRawPlan = vi.fn();
+    const service = createBlockNotePlanService({
+      repository: { loadRawPlan: vi.fn(), saveRawPlan },
+      imageStore: { importImage: vi.fn(async () => ({ file: "references/photo.jpg", dataUrl: "portrait", sourceWidth: 800, sourceHeight: 1200, presentationAxes: "exif" as const })), loadImage: vi.fn(), removeImage: vi.fn() },
+      imageCropStore: { beginImageCrop: vi.fn() }, mediaStore: { importMedia: vi.fn(), loadMedia: vi.fn(), removeMedia: vi.fn() },
+      createId: () => "portrait", logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    });
+    const result = await service.importImages("C:\\project", () => plan, "g", ["C:\\camera.jpg"]);
+    expect(result.plan.schemaVersion).toBe(18);
+    expect(result.plan.imageGroups[0].images[0]).toMatchObject({ file: "references/photo.jpg", sourceWidth: 800, sourceHeight: 1200, aspectRatio: 2 / 3, presentationAxes: "exif" });
+    expect(saveRawPlan).toHaveBeenCalledWith("C:\\project", expect.objectContaining({ schemaVersion: 18 }));
+    expect(plan.schemaVersion).toBe(17);
+    expect(plan.imageGroups[0].images).toEqual([]);
+  });
+
   it("uses copy-on-write when a standalone image is retained by clipboard paste history", async () => {
     const target = referenceImage("retained");
     const plan: ProjectPlanV15 = {

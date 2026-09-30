@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: "./.preshot-build-cache/playwright/capture",
   testMatch: "long-image-capture.spec.ts",
   fullyParallel: false,
   timeout: 90_000,
@@ -9,7 +10,8 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:1440",
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
   },
   projects: [{
     name: "chromium",

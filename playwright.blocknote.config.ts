@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: "./.preshot-build-cache/playwright/blocknote",
   testMatch: ["blocknote-v14.spec.ts", "multi-column.spec.ts"],
   fullyParallel: false,
   timeout: 120_000,
@@ -9,7 +10,8 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:1430",
     navigationTimeout: 90_000,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
   },
   projects: [{
     name: "chromium",

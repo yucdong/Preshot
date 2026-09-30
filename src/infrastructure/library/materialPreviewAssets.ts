@@ -1,6 +1,9 @@
 import { ui } from "../../shared/i18n/ui";
 import { MATERIAL_IMAGE_MAX_BYTES } from "../../domain/library/imageLimits";
 import { instantiateMaterial, materialPayloadText } from "../../domain/library";
+import { componentImages } from "../../domain/library/materialStructure";
+import { imageAssetKey } from "../../domain/plan/canvas/imagePresentation";
+import { promoteImagePresentationPlan } from "../../domain/plan/canvas/blockDocument";
 import type { MaterialDetail, MaterialImage } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
 import type { ProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
@@ -178,13 +181,13 @@ export async function prepareMaterialPreview(
   };
   // Instantiation validates the exact payload/image bijection and removes legacy outer geometry.
   const instance = instantiateMaterial(material.payload, files, makeId, "libraryCanvas");
-  const plan: ProjectPlanV15 = {
+  const plan: ProjectPlanV15 = promoteImagePresentationPlan({
     schemaVersion: 17,
     title: material.name,
     document: { format: "preshot-blocks", version: 5, blocks: [instance.block] },
     imageGroups: instance.imageGroup ? [instance.imageGroup] : [],
     artifacts: instance.artifact ? [instance.artifact] : [],
-  };
+  });
   const resolvedAssets: Record<string, string> = {};
   const objectUrls: string[] = [];
   let disposed = false;
@@ -199,6 +202,8 @@ export async function prepareMaterialPreview(
     for (let index = 0; index < material.images.length; index++) {
       assertPreviewActive(signal);
       const image = material.images[index];
+      const axes = componentImages(material.payload.component).find(visual => visual.localImageId === image.localImageId)?.presentationAxes;
+      const assetKey = imageAssetKey(files[index].file, axes);
       let cancel!: () => void;
       const cancellation = new Promise<void>(resolve => { cancel = resolve; });
       signal.addEventListener("abort", cancel, { once: true });
@@ -247,11 +252,11 @@ export async function prepareMaterialPreview(
       if (assetUrl === "data") {
         // Capture embeds offline images inside an SVG. Large originals use the
         // reduced raster so mounting/capture cannot decode the full source again.
-        resolvedAssets[files[index].file] = reduced ? await previewDataUrl(blob, signal) : url;
+        resolvedAssets[assetKey] = reduced ? await previewDataUrl(blob, signal) : url;
       } else {
         const objectUrl = URL.createObjectURL(blob);
         objectUrls.push(objectUrl);
-        resolvedAssets[files[index].file] = objectUrl;
+        resolvedAssets[assetKey] = objectUrl;
       }
     }
     return {

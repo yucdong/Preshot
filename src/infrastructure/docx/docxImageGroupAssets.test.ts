@@ -98,6 +98,18 @@ function context(plan: ProjectPlanV14): PreshotPdfExportContext {
 }
 
 describe("DOCX image-group assets", () => {
+  it("keeps raw and EXIF source rasters separate even when original path and crop match", async () => {
+    const { plan } = fixture();
+    plan.schemaVersion = 18;
+    plan.imageGroups[0].images[1].presentationAxes = "exif";
+    const optimizer = vi.fn().mockResolvedValue({ mime: "image/png", bytes: PNG, sourceWidth: 2000, sourceHeight: 1500 });
+    const prepared = await prepareDocxImageGroupAssets(context(plan), {
+      "references/shared.webp": "raw-data", "references/shared.webp#preshot-exif": "oriented-data",
+    }, optimizer);
+    expect(optimizer.mock.calls.map(call => call[0])).toEqual(["raw-data", "oriented-data"]);
+    expect(prepared.cacheKeys).toHaveLength(2);
+  });
+
   it("requests the true largest DOCX crop box and reuses its source/crop cache", async () => {
     const { plan } = fixture();
     const optimizer = vi.fn().mockResolvedValue({

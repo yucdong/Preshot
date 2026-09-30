@@ -28,6 +28,48 @@ fn library_image_kind_schema_preserves_v5_instances() {
 }
 
 #[test]
+fn exif_insert_receipts_allow_only_the_exact_v17_to_v18_presentation_upgrade() {
+    for mode in ["group", "images", "append"] {
+        let mut fixture = Fixture::new("imageGroup");
+        fixture.plan["schemaVersion"] = json!(18); fixture.plan["document"]["version"] = json!(5);
+        fixture.plan["imageGroups"][0]["images"][0]["presentationAxes"] = json!("exif");
+        fixture.plan["imageGroups"][0]["images"][0]["sourceWidth"] = json!(3);
+        fixture.plan["imageGroups"][0]["images"][0]["sourceHeight"] = json!(2);
+        fixture.write_plan(&fixture.plan);
+        let mut store = fixture.store();
+        let material = store.save(fixture.save_request()).unwrap();
+        assert_eq!(material.payload.version, 2);
+        fixture.plan["schemaVersion"] = json!(17);
+        fixture.plan["imageGroups"][0]["images"][0].as_object_mut().unwrap().remove("presentationAxes");
+        fixture.write_plan(&fixture.plan);
+        let mut input = fixture.insert_request(&material);
+        if mode == "images" { input.selection = Some(MaterialImageSelection { image_ids: vec![material.images[0].local_image_id.clone()], mode: MaterialImageInsertMode::Images }); }
+        if mode == "append" { input.target_group_id = Some("source".into()); }
+        let prepared = store.prepare_insert(input).unwrap();
+        let next = if mode == "append" {
+            let mut next = fixture.plan.clone();
+            let mut image = validation::payload_images(&prepared.payload).unwrap()[0].clone();
+            image.as_object_mut().unwrap().remove("localImageId");
+            image["id"] = json!(Uuid::new_v4().to_string()); image["file"] = json!(prepared.images[0].file);
+            next["imageGroups"][0]["images"].as_array_mut().unwrap().push(image);
+            next["schemaVersion"] = json!(18); next
+        } else { fixture.next_plan(&prepared) };
+        assert_eq!(next["schemaVersion"], 18);
+        let mut wrong_version = next.clone(); wrong_version["schemaVersion"] = json!(17);
+        assert!(validation::plan(&wrong_version).is_err());
+        let mut unrelated_edit = next.clone(); unrelated_edit["title"] = json!("unrelated change");
+        assert!(validation::insertion(&fixture.plan, &unrelated_edit, &prepared).is_err());
+        let commit = fixture.commit_request(&prepared, &next);
+        insert::commit(commit.clone()).unwrap();
+        insert::commit(commit).unwrap();
+        assert_eq!(crate::workspace::read_manifest(&fixture.project).unwrap().plan.unwrap(), next);
+        crate::original_image::verify(&fixture.project.join(&prepared.images[0].file), material.images[0].byte_length, &material.images[0].blob_id).unwrap();
+        let mut sticky = fixture.plan.clone(); sticky["schemaVersion"] = json!(18);
+        assert!(validation::plan(&sticky).is_ok());
+    }
+}
+
+#[test]
 fn library_edit_schema_migrates_v1_without_losing_content() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
@@ -246,15 +288,17 @@ impl Fixture {
                     "caption":image["caption"].as_str().unwrap_or(""),
                     "showPreview":true,"previewWidth":image["frameWidth"]}
             }));
-            if next["schemaVersion"] == 17 {
+            if matches!(next["schemaVersion"].as_u64(), Some(17 | 18)) {
                 let props = &mut next["document"]["blocks"].as_array_mut().unwrap().last_mut().unwrap()["props"];
                 props["previewHeight"] = image["frameHeight"].clone();
                 props["fitMode"] = image.get("fitMode").cloned().unwrap_or(json!("cover"));
                 for (prop, field, default) in [("cropX", "x", 0.0), ("cropY", "y", 0.0), ("cropWidth", "width", 1.0), ("cropHeight", "height", 1.0)] {
                     props[prop] = image.get("crop").and_then(|crop| crop.get(field)).cloned().unwrap_or(json!(default));
                 }
+                if let Some(axes) = image.get("presentationAxes") { props["presentationAxes"] = axes.clone(); }
             }
             }
+            if crate::column_document::has_exif_presentation(&next) { next["schemaVersion"] = json!(18); }
             return next;
         }
         let mut record = prepared.payload.component.clone();
@@ -309,6 +353,7 @@ impl Fixture {
             "id":Uuid::new_v4().to_string(),"type":kind,"children":[],
             "props":if kind == "imageGroup" { json!({"groupId":record_id}) } else { json!({"artifactId":record_id}) }
         }));
+        if crate::column_document::has_exif_presentation(&next) { next["schemaVersion"] = json!(18); }
         next
     }
 

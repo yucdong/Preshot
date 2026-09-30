@@ -146,6 +146,12 @@ pub struct MaterialEditImage {
     pub height: u32,
     pub data_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation_axes: Option<crate::original_image::PresentationAxes>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_height: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview_error: Option<String>,
 }
 

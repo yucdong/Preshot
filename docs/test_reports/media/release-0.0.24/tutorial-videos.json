@@ -1,0 +1,2725 @@
+{
+  "reportVersion": 1,
+  "expectedVersion": "0.0.24",
+  "verifiedAtUtc": "2026-09-30T18:24:01.715011+00:00",
+  "recordingWorkDirectory": ".preshot-build-cache/material-tutorials-0.0.24",
+  "requestedCases": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C09",
+    "C10",
+    "C11",
+    "C12",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "C19",
+    "I01",
+    "I02",
+    "I03",
+    "I04",
+    "M01",
+    "M02",
+    "M03",
+    "M04",
+    "M05",
+    "M06",
+    "M07",
+    "M08",
+    "M09",
+    "W01",
+    "W02"
+  ],
+  "videoCount": 33,
+  "allDecoded": true,
+  "totalBytes": 21127077,
+  "scope": "Encoded-file integrity, timing, recording provenance and representative frames; UI semantics require human review.",
+  "limitations": "C18 uses browser in-memory clipboard/persistence; it does not verify Windows clipboard or MSI integration. Recorded EXE versions are supplied by the native recorder.",
+  "videos": [
+    {
+      "case": "C01",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C01/recording.json",
+      "recordingSha256": "8d9c7882bbf750990d766f946ff36b947432dabded5585a646396ac8ec568664",
+      "rawDurationSeconds": 22.077,
+      "frameCount": 84,
+      "frameTimelineSha256": "74d3f9806c7a2d38ac4d8d1007efb37aa74f4bbd3f3d020d8617d0a3b6736b22",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.609,
+          "bytes": 84268,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "a19193f35096691e9bbdb424396eee932f825ae07a57e88136ec41cb63ff9396"
+        },
+        {
+          "file": "000042.jpg",
+          "seconds": 12.026,
+          "bytes": 154865,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "23e4bedacceef4bfec4fbe0e599c6f79af2eb11e55ac7c1a79bd3e76a693a7bd"
+        },
+        {
+          "file": "000083.jpg",
+          "seconds": 21.848,
+          "bytes": 150531,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "8666e066ed0b61a13f244f6109218fdbc77f5b0db731ec0958ff62f7b991bfe2"
+        }
+      ],
+      "chapterCount": 4,
+      "chapters": [
+        {
+          "zh": "\u65b0\u5efa\u56fe\u7247\u7d20\u6750",
+          "seconds": 1.674,
+          "en": "Create a single image material",
+          "targetSeconds": 5
+        },
+        {
+          "zh": "\u586b\u5199\u7d20\u6750\u540d\u79f0\u3001\u8bf4\u660e\u548c\u68c0\u7d22\u6807\u7b7e",
+          "seconds": 4.808,
+          "en": "Add a name, description and searchable tags",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u6dfb\u52a0\u6837\u4f8b\u56fe\u7247\uff0c\u67e5\u770b\u5bfc\u5165\u540e\u7684\u5b9e\u9645\u6548\u679c",
+          "seconds": 6.789,
+          "en": "Import sample pictures and inspect the result",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u4fdd\u5b58\u540e\u81ea\u52a8\u8fd4\u56de\u7d20\u6750\u5e93\uff0c\u7d20\u6750\u53ef\u8de8\u9879\u76ee\u590d\u7528",
+          "seconds": 17.133,
+          "en": "Save and return to the library, ready for another project",
+          "targetSeconds": 6
+        }
+      ],
+      "plannedSeconds": 27,
+      "recordingMtimeNs": 1790789826672502800,
+      "video": "docs/media/material-tutorials/C01.mp4",
+      "seconds": 27.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 452089,
+      "sha256": "3a25369c0fe40b1b0d8ba9bddda4d3be5a34693dfb4afee770bfba54e4374bdc",
+      "decodedFrames": 650,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-001.jpg",
+      "encodedSamplesSeconds": [
+        4.062,
+        13.54,
+        24.372
+      ]
+    },
+    {
+      "case": "C02",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C02/recording.json",
+      "recordingSha256": "abfe4dc7a2ed3e9fddea7209d6b574e92c69842cc3769a8d1e83c245974dc5d3",
+      "rawDurationSeconds": 19.244,
+      "frameCount": 81,
+      "frameTimelineSha256": "605d9190dd52da5223b37ab8f566e91ddfbbf7b43d7a01a0824eadb849175b78",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.498,
+          "bytes": 150470,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "7a6a7f3cbfa296654d8eef7988e348ff80a035d9fbbd9be7d90bed85ba40e10d"
+        },
+        {
+          "file": "000040.jpg",
+          "seconds": 9.964,
+          "bytes": 184421,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "d13645d20763ef5d645426e7332d022cea4b0aa8c8aef3d61166a747da5f3f35"
+        },
+        {
+          "file": "000080.jpg",
+          "seconds": 18.999,
+          "bytes": 163537,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "f5b01781454fc71f40461584243ca38c1b6487c07741ce61fd7c28f20bc560ac"
+        }
+      ],
+      "chapterCount": 4,
+      "chapters": [
+        {
+          "zh": "\u65b0\u5efa\u56fe\u7247\u7ec4\u7d20\u6750",
+          "seconds": 1.694,
+          "en": "Create a gallery material",
+          "targetSeconds": 5
+        },
+        {
+          "zh": "\u586b\u5199\u7d20\u6750\u540d\u79f0\u3001\u8bf4\u660e\u548c\u68c0\u7d22\u6807\u7b7e",
+          "seconds": 3.723,
+          "en": "Add a name, description and searchable tags",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u6dfb\u52a0\u6837\u4f8b\u56fe\u7247\uff0c\u67e5\u770b\u5bfc\u5165\u540e\u7684\u5b9e\u9645\u6548\u679c",
+          "seconds": 5.572,
+          "en": "Import sample pictures and inspect the result",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u4fdd\u5b58\u540e\u81ea\u52a8\u8fd4\u56de\u7d20\u6750\u5e93\uff0c\u7d20\u6750\u53ef\u8de8\u9879\u76ee\u590d\u7528",
+          "seconds": 14.716,
+          "en": "Save and return to the library, ready for another project",
+          "targetSeconds": 6
+        }
+      ],
+      "plannedSeconds": 27,
+      "recordingMtimeNs": 1790792250951213500,
+      "video": "docs/media/material-tutorials/C02.mp4",
+      "seconds": 27.13,
+      "width": 1280,
+      "height": 900,
+      "bytes": 521738,
+      "sha256": "0a77f14e8eb62148f644a7a492151696e6fe68173c7ac03211816957588c48c8",
+      "decodedFrames": 651,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-001.jpg",
+      "encodedSamplesSeconds": [
+        4.069,
+        13.565,
+        24.417
+      ]
+    },
+    {
+      "case": "C03",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C03/recording.json",
+      "recordingSha256": "2c31f74542bc6557698ca208fae2bd58a69ffa1365994713623d9a59127facaf",
+      "rawDurationSeconds": 20.976,
+      "frameCount": 89,
+      "frameTimelineSha256": "5bb943bde4115d88fc78648bd483338527228d90e0971b7a7a67f67a67a4e72c",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.509,
+          "bytes": 163727,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "12951865ac5636e96639a50aeff0b77ba20f4e7e176ec407464d78ba8ad6c5d2"
+        },
+        {
+          "file": "000044.jpg",
+          "seconds": 10.905,
+          "bytes": 212201,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "da26de48a9b87b5539b4e9619c38ba0d763bc3bcb8f82d97b38ae54d55ab6406"
+        },
+        {
+          "file": "000088.jpg",
+          "seconds": 20.738,
+          "bytes": 172228,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "2a8ef77cb85f6798da2d6fd02b81015e6f78d92b7c07860b79ae5c976fdcf37c"
+        }
+      ],
+      "chapterCount": 5,
+      "chapters": [
+        {
+          "zh": "\u65b0\u5efa\u573a\u5730\u7d20\u6750",
+          "seconds": 1.711,
+          "en": "Create a location material",
+          "targetSeconds": 5
+        },
+        {
+          "zh": "\u586b\u5199\u7d20\u6750\u540d\u79f0\u3001\u8bf4\u660e\u548c\u68c0\u7d22\u6807\u7b7e",
+          "seconds": 3.724,
+          "en": "Add a name, description and searchable tags",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u8865\u5145\u7ec4\u4ef6\u5185\u5bb9\uff0c\u63d2\u5165\u6587\u6863\u540e\u53ef\u7ee7\u7eed\u4fee\u6539",
+          "seconds": 5.808,
+          "en": "Complete the card details for reuse in your document",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u6dfb\u52a0\u6837\u4f8b\u56fe\u7247\uff0c\u67e5\u770b\u5bfc\u5165\u540e\u7684\u5b9e\u9645\u6548\u679c",
+          "seconds": 7.137,
+          "en": "Import sample pictures and inspect the result",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u4fdd\u5b58\u540e\u81ea\u52a8\u8fd4\u56de\u7d20\u6750\u5e93\uff0c\u7d20\u6750\u53ef\u8de8\u9879\u76ee\u590d\u7528",
+          "seconds": 16.382,
+          "en": "Save and return to the library, ready for another project",
+          "targetSeconds": 6
+        }
+      ],
+      "plannedSeconds": 34,
+      "recordingMtimeNs": 1790792273979094000,
+      "video": "docs/media/material-tutorials/C03.mp4",
+      "seconds": 34.25,
+      "width": 1280,
+      "height": 900,
+      "bytes": 697656,
+      "sha256": "08339603e179bcee5c8f96207e65dfa4fd580c7ca12d716dd7963f3a003973dc",
+      "decodedFrames": 822,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-001.jpg",
+      "encodedSamplesSeconds": [
+        5.138,
+        17.125,
+        30.825
+      ]
+    },
+    {
+      "case": "C04",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C04/recording.json",
+      "recordingSha256": "1835906dfd89841d11ed517b6a347530a6d4951d4d12800a2402db41cb143113",
+      "rawDurationSeconds": 23.421,
+      "frameCount": 96,
+      "frameTimelineSha256": "9517a6700b55832e616cb692784a873ef80152642f0eb3ed77da491c0a3549b6",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.497,
+          "bytes": 172115,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "40b252829778393dd0dc731cb26f57bba5b7059a133bef0a39b78a39d9e2175b"
+        },
+        {
+          "file": "000048.jpg",
+          "seconds": 12.562,
+          "bytes": 175541,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "d0ef827881a69140b98698680ea24308d7aebad7470544acb5a9693bc9d9fc8c"
+        },
+        {
+          "file": "000095.jpg",
+          "seconds": 23.185,
+          "bytes": 180417,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "8909493daddf5a1b0299f600644a4eb2be96838b26ea02de7b6c22664b01e20e"
+        }
+      ],
+      "chapterCount": 5,
+      "chapters": [
+        {
+          "zh": "\u65b0\u5efa\u6a21\u7279\u7d20\u6750",
+          "seconds": 1.702,
+          "en": "Create a model material",
+          "targetSeconds": 5
+        },
+        {
+          "zh": "\u586b\u5199\u7d20\u6750\u540d\u79f0\u3001\u8bf4\u660e\u548c\u68c0\u7d22\u6807\u7b7e",
+          "seconds": 3.795,
+          "en": "Add a name, description and searchable tags",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u8865\u5145\u7ec4\u4ef6\u5185\u5bb9\uff0c\u63d2\u5165\u6587\u6863\u540e\u53ef\u7ee7\u7eed\u4fee\u6539",
+          "seconds": 5.959,
+          "en": "Complete the card details for reuse in your document",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u6dfb\u52a0\u6837\u4f8b\u56fe\u7247\uff0c\u67e5\u770b\u5bfc\u5165\u540e\u7684\u5b9e\u9645\u6548\u679c",
+          "seconds": 8.767,
+          "en": "Import sample pictures and inspect the result",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u4fdd\u5b58\u540e\u81ea\u52a8\u8fd4\u56de\u7d20\u6750\u5e93\uff0c\u7d20\u6750\u53ef\u8de8\u9879\u76ee\u590d\u7528",
+          "seconds": 18.754,
+          "en": "Save and return to the library, ready for another project",
+          "targetSeconds": 6
+        }
+      ],
+      "plannedSeconds": 34,
+      "recordingMtimeNs": 1790792299480068800,
+      "video": "docs/media/material-tutorials/C04.mp4",
+      "seconds": 34.13,
+      "width": 1280,
+      "height": 900,
+      "bytes": 604279,
+      "sha256": "3b9c05e23cadd2e5a44dfbdaeda668a60ee46fd693068c7b5d4fc7c6ae9075b2",
+      "decodedFrames": 819,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-002.jpg",
+      "encodedSamplesSeconds": [
+        5.12,
+        17.065,
+        30.717
+      ]
+    },
+    {
+      "case": "C05",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C05/recording.json",
+      "recordingSha256": "7a6907b4d210754059f78ef3bbbadb997ee9833e3655866d4ead5a36a467f450",
+      "rawDurationSeconds": 20.984,
+      "frameCount": 83,
+      "frameTimelineSha256": "e884d7f31d97add779714507231e8b0ecba1ea391826fe00687b96dfbb8b60c8",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.5,
+          "bytes": 180581,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "ff2931eabea214a26954e2f2259e8e3d6a81236b348088cfe2eee532d163daf1"
+        },
+        {
+          "file": "000041.jpg",
+          "seconds": 11.638,
+          "bytes": 173017,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "2ff74be9d18b1870b5705da51a61ccb2608974ec0e89d9aab59b7be64328dc52"
+        },
+        {
+          "file": "000082.jpg",
+          "seconds": 20.747,
+          "bytes": 179597,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "413dd0ab3ef5254474ed3a8de6f88950f4b8471a171886143e56322f4a512f21"
+        }
+      ],
+      "chapterCount": 5,
+      "chapters": [
+        {
+          "zh": "\u65b0\u5efa\u9053\u5177\u4e0e\u670d\u88c5\u7d20\u6750",
+          "seconds": 1.685,
+          "en": "Create a prop material",
+          "targetSeconds": 5
+        },
+        {
+          "zh": "\u586b\u5199\u7d20\u6750\u540d\u79f0\u3001\u8bf4\u660e\u548c\u68c0\u7d22\u6807\u7b7e",
+          "seconds": 3.775,
+          "en": "Add a name, description and searchable tags",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u8865\u5145\u7ec4\u4ef6\u5185\u5bb9\uff0c\u63d2\u5165\u6587\u6863\u540e\u53ef\u7ee7\u7eed\u4fee\u6539",
+          "seconds": 5.513,
+          "en": "Complete the card details for reuse in your document",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u6dfb\u52a0\u6837\u4f8b\u56fe\u7247\uff0c\u67e5\u770b\u5bfc\u5165\u540e\u7684\u5b9e\u9645\u6548\u679c",
+          "seconds": 6.665,
+          "en": "Import sample pictures and inspect the result",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u4fdd\u5b58\u540e\u81ea\u52a8\u8fd4\u56de\u7d20\u6750\u5e93\uff0c\u7d20\u6750\u53ef\u8de8\u9879\u76ee\u590d\u7528",
+          "seconds": 16.19,
+          "en": "Save and return to the library, ready for another project",
+          "targetSeconds": 6
+        }
+      ],
+      "plannedSeconds": 34,
+      "recordingMtimeNs": 1790792322654645900,
+      "video": "docs/media/material-tutorials/C05.mp4",
+      "seconds": 34.25,
+      "width": 1280,
+      "height": 900,
+      "bytes": 580915,
+      "sha256": "c7b01ac4eef27cb0409fca3d8fdcd409cc8dfd23b482ad840581169e6eccba3b",
+      "decodedFrames": 822,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-002.jpg",
+      "encodedSamplesSeconds": [
+        5.138,
+        17.125,
+        30.825
+      ]
+    },
+    {
+      "case": "C06",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C06/recording.json",
+      "recordingSha256": "d3748cbe515f132d9c829cb0195e00a756416e25404abff58ccddf9be855b198",
+      "rawDurationSeconds": 22.028,
+      "frameCount": 84,
+      "frameTimelineSha256": "47ccafbe77f6601ac24f6e9894c400cc3b4042c62b97c33e76f6e34f71e77612",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 1.326,
+          "bytes": 179462,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "364ea9e3ac76fcabd00272e02996cccd274e758569677e301b242c9c8a022b2d"
+        },
+        {
+          "file": "000042.jpg",
+          "seconds": 12.11,
+          "bytes": 168964,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "ddf04c26360bc83bb0b7ea524473592a027f3322c9139d74b220a158b5b270fc"
+        },
+        {
+          "file": "000083.jpg",
+          "seconds": 21.805,
+          "bytes": 163738,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "922c03f5802c3656b70c0ef668f34bb6831c6aa3abbe473528891d28ddfd706a"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5c06\u573a\u5730\u5361\u7247\u63d2\u5165\u5f53\u524d\u6587\u6863",
+          "seconds": 1.307,
+          "en": "Insert the location card into your document",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u6253\u5f00\u5361\u7247\u53f3\u4e0a\u89d2\u7684\u66f4\u591a\u64cd\u4f5c",
+          "seconds": 6.087,
+          "en": "Open the card menu in its top-right corner",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u586b\u5199\u6536\u7eb3\u540d\u79f0\u3001\u8bf4\u660e\u548c\u6807\u7b7e\uff0c\u4fdd\u5b58\u72ec\u7acb\u526f\u672c",
+          "seconds": 9.295,
+          "en": "Name and tag the snapshot, then save an independent copy",
+          "targetSeconds": 10
+        }
+      ],
+      "plannedSeconds": 22,
+      "recordingMtimeNs": 1790789960603331300,
+      "video": "docs/media/material-tutorials/C06.mp4",
+      "seconds": 22.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 635110,
+      "sha256": "730786a3e13414414449800525303aee5dbb4d6e46add5d350034af97d46aa8c",
+      "decodedFrames": 530,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-002.jpg",
+      "encodedSamplesSeconds": [
+        3.312,
+        11.04,
+        19.872
+      ]
+    },
+    {
+      "case": "C07",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C07/recording.json",
+      "recordingSha256": "c0ca0bf0cb84d543e8f7f133f5a5a3da6aa1bf81498c8ce1252774ff3dff1885",
+      "rawDurationSeconds": 19.337,
+      "frameCount": 80,
+      "frameTimelineSha256": "211eb2d1baf2e3759ae754601b9ac12d7f24e7263b8d1471f2b68dd0a0e1f4c6",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.604,
+          "bytes": 163738,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "922c03f5802c3656b70c0ef668f34bb6831c6aa3abbe473528891d28ddfd706a"
+        },
+        {
+          "file": "000040.jpg",
+          "seconds": 10.211,
+          "bytes": 180074,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "17b819c8ad28187f1f8667e91b8efb91e7e06c55f61b0273530749fa0e73d207"
+        },
+        {
+          "file": "000079.jpg",
+          "seconds": 19.091,
+          "bytes": 154194,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "a015843e7e5bdd599e53caaf8a4914b87474dfaa5b18a7f36eb3e38bd8aa6bbc"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5c06\u6a21\u7279\u5361\u7247\u63d2\u5165\u5f53\u524d\u6587\u6863",
+          "seconds": 1.661,
+          "en": "Insert the model card into your document",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u6253\u5f00\u5361\u7247\u53f3\u4e0a\u89d2\u7684\u66f4\u591a\u64cd\u4f5c",
+          "seconds": 5.004,
+          "en": "Open the card menu in its top-right corner",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u586b\u5199\u6536\u7eb3\u540d\u79f0\u3001\u8bf4\u660e\u548c\u6807\u7b7e\uff0c\u4fdd\u5b58\u72ec\u7acb\u526f\u672c",
+          "seconds": 8.029,
+          "en": "Name and tag the snapshot, then save an independent copy",
+          "targetSeconds": 10
+        }
+      ],
+      "plannedSeconds": 22,
+      "recordingMtimeNs": 1790789982698329400,
+      "video": "docs/media/material-tutorials/C07.mp4",
+      "seconds": 22.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 691117,
+      "sha256": "2cb39c3fac51fb58b8e042ca0811191d90ae3c4cbd8900ec12976eb2b1ba64b0",
+      "decodedFrames": 530,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-003.jpg",
+      "encodedSamplesSeconds": [
+        3.312,
+        11.04,
+        19.872
+      ]
+    },
+    {
+      "case": "C08",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C08/recording.json",
+      "recordingSha256": "04514ba9e5c768cf77deb6c675c307c97161924f1e7b0bf1c14c8b364ebd4827",
+      "rawDurationSeconds": 18.851,
+      "frameCount": 78,
+      "frameTimelineSha256": "5302daa612c50ff9916c2db5e06e7ace9a792c87255f4ca73e1844c7885d513c",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.629,
+          "bytes": 154194,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "a015843e7e5bdd599e53caaf8a4914b87474dfaa5b18a7f36eb3e38bd8aa6bbc"
+        },
+        {
+          "file": "000039.jpg",
+          "seconds": 9.747,
+          "bytes": 150164,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "0779d735e88513f2911d1bb2fc014c5ce8caaa039964fb09f66269c194806cac"
+        },
+        {
+          "file": "000077.jpg",
+          "seconds": 18.593,
+          "bytes": 149291,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "6432401e36740de051cf6504ea29bb262eb8046e42fcb058fd65e2bcb84fa163"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5c06\u9053\u5177\u5361\u7247\u63d2\u5165\u5f53\u524d\u6587\u6863",
+          "seconds": 1.668,
+          "en": "Insert the prop card into your document",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u6253\u5f00\u5361\u7247\u53f3\u4e0a\u89d2\u7684\u66f4\u591a\u64cd\u4f5c",
+          "seconds": 5.145,
+          "en": "Open the card menu in its top-right corner",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u586b\u5199\u6536\u7eb3\u540d\u79f0\u3001\u8bf4\u660e\u548c\u6807\u7b7e\uff0c\u4fdd\u5b58\u72ec\u7acb\u526f\u672c",
+          "seconds": 8.214,
+          "en": "Name and tag the snapshot, then save an independent copy",
+          "targetSeconds": 10
+        }
+      ],
+      "plannedSeconds": 22,
+      "recordingMtimeNs": 1790790004340204000,
+      "video": "docs/media/material-tutorials/C08.mp4",
+      "seconds": 22.04,
+      "width": 1280,
+      "height": 900,
+      "bytes": 567849,
+      "sha256": "9ed76673e60a5d9f447a2cb2b2e2753750ebf37f6e486fb2e27545a44c2924e7",
+      "decodedFrames": 529,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-003.jpg",
+      "encodedSamplesSeconds": [
+        3.306,
+        11.02,
+        19.836
+      ]
+    },
+    {
+      "case": "C09",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C09/recording.json",
+      "recordingSha256": "1460ec337158a2aceef138debdcbb62075666a2b027a6486c4c92ed3d964cfd0",
+      "rawDurationSeconds": 20.484,
+      "frameCount": 79,
+      "frameTimelineSha256": "8c4768ab87c4a3bee07b66f84bb8a7d1d5811480d02722c42db1d753428cb46c",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 1.451,
+          "bytes": 149291,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "6432401e36740de051cf6504ea29bb262eb8046e42fcb058fd65e2bcb84fa163"
+        },
+        {
+          "file": "000039.jpg",
+          "seconds": 11.079,
+          "bytes": 157597,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "ca43f64d5e1cac9b8b5fcb1139eee88e52fe2865821d06065a57fc4465f5ba39"
+        },
+        {
+          "file": "000078.jpg",
+          "seconds": 20.239,
+          "bytes": 154313,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "f2f7db0738504cd681ad1bcec6d3a0c1d6fb231045272126fdf446b44e2abe15"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5c06\u56fe\u7247\u7ec4\u653e\u5165\u6587\u6863\uff0c\u5b8c\u6574\u4fdd\u7559\u56fe\u7247\u987a\u5e8f",
+          "seconds": 1.523,
+          "en": "Insert the complete gallery into the document",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u4ece\u56fe\u7247\u7ec4\u5de5\u5177\u680f\u5c06\u6574\u7ec4\u6536\u7eb3\u5165\u7d20\u6750\u5e93",
+          "seconds": 5.987,
+          "en": "Save the entire group from its toolbar",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u8bbe\u7f6e\u7d20\u6750\u4fe1\u606f\uff0c\u7ec4\u5185\u6240\u6709\u539f\u56fe\u4e00\u8d77\u4fdd\u5b58",
+          "seconds": 8.609,
+          "en": "Save metadata and independent copies of all group pictures",
+          "targetSeconds": 10
+        }
+      ],
+      "plannedSeconds": 22,
+      "recordingMtimeNs": 1790790028937120100,
+      "video": "docs/media/material-tutorials/C09.mp4",
+      "seconds": 22.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 549290,
+      "sha256": "ce86939fdda683b82c6f978324e14d518a9db58f6c1160d15766514fb77f62a3",
+      "decodedFrames": 530,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-003.jpg",
+      "encodedSamplesSeconds": [
+        3.312,
+        11.04,
+        19.872
+      ]
+    },
+    {
+      "case": "C10",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C10/recording.json",
+      "recordingSha256": "2362208ceffafd32804470f89fd0951a68c5b1200cb5aa3c160c9ed4eb87515f",
+      "rawDurationSeconds": 16.564,
+      "frameCount": 68,
+      "frameTimelineSha256": "ae66f2c0b8084d075ed7c70bfd9eef5caac12d0e8bce72997520c52ff5dcd779",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.51,
+          "bytes": 154313,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "f2f7db0738504cd681ad1bcec6d3a0c1d6fb231045272126fdf446b44e2abe15"
+        },
+        {
+          "file": "000034.jpg",
+          "seconds": 8.64,
+          "bytes": 165602,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "b3da727e7536d677eaff618986dd66ea9f754a4df0a6f41aa13cef8c80f49a45"
+        },
+        {
+          "file": "000067.jpg",
+          "seconds": 16.325,
+          "bytes": 159396,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "fcf09e83669697877b587476a6869ade8f1770487a60ba6c216a3b73dc47d71c"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5355\u51fb\u9009\u4e2d\u56fe\u7247\u7ec4\u91cc\u7684\u4e00\u5f20\u56fe\u7247",
+          "seconds": 1.699,
+          "en": "Select one picture inside a document gallery",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u5c06\u9009\u4e2d\u7684\u56fe\u7247\u4fdd\u5b58\u4e3a\u5355\u5f20\u56fe\u7247\u7d20\u6750",
+          "seconds": 5.094,
+          "en": "Save the selected picture as an image material",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u5355\u56fe\u62e5\u6709\u72ec\u7acb\u7684\u540d\u79f0\u3001\u8bf4\u660e\u548c\u68c0\u7d22\u6807\u7b7e",
+          "seconds": 6.483,
+          "en": "Give the individual image its own name, description and tags",
+          "targetSeconds": 10
+        }
+      ],
+      "plannedSeconds": 22,
+      "recordingMtimeNs": 1790790047844662400,
+      "video": "docs/media/material-tutorials/C10.mp4",
+      "seconds": 22.17,
+      "width": 1280,
+      "height": 900,
+      "bytes": 730903,
+      "sha256": "4a336fd893bbc68d9402c26f13274b3677c7018d949dfcc8d751c37accd50b8e",
+      "decodedFrames": 532,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-004.jpg",
+      "encodedSamplesSeconds": [
+        3.326,
+        11.085,
+        19.953
+      ]
+    },
+    {
+      "case": "C11",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C11/recording.json",
+      "recordingSha256": "7e4113d5986f1d89682dbbe496a37f560ce6e0d6825a1e70eec4828a155abf8e",
+      "rawDurationSeconds": 15.113,
+      "frameCount": 61,
+      "frameTimelineSha256": "d834f8a4f0f3300f007928fc265e08f9aaa29a3f1dee68c2f3f535a23ea54070",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.661,
+          "bytes": 335700,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "829115272d8d65e6ec081b95bac9a559e0378a1d9136263d0b20fa23b44f2834"
+        },
+        {
+          "file": "000030.jpg",
+          "seconds": 7.904,
+          "bytes": 235363,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "0ce62e72e5e7b357ed0e95295640f8e2fb96a4901c3823f1e5e7bc00166aa842"
+        },
+        {
+          "file": "000060.jpg",
+          "seconds": 14.876,
+          "bytes": 164155,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "c1abde153354ac1c77e4bf5c736b18e2c53161901d49e06815d9db4c69c0116b"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5355\u51fb\u9009\u4e2d\u6b63\u6587\u91cc\u7684\u72ec\u7acb\u56fe\u7247",
+          "seconds": 1.656,
+          "en": "Select an independent image in your document",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u70b9\u51fb\u6dfb\u52a0\u5230\u7d20\u6750\u5e93\uff0c\u6253\u5f00\u7d20\u6750\u4fe1\u606f\u5f39\u6846",
+          "seconds": 2.96,
+          "en": "Click Add to material library to open the metadata dialog",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u4fdd\u5b58\u56fe\u7247\u7d20\u6750\uff0c\u539f\u9879\u76ee\u548c\u7d20\u6750\u5404\u81ea\u4fdd\u7559\u72ec\u7acb\u56fe\u7247",
+          "seconds": 4.324,
+          "en": "Save an image material with an original independent of the project",
+          "targetSeconds": 10
+        }
+      ],
+      "plannedSeconds": 22,
+      "recordingMtimeNs": 1790790108601303400,
+      "video": "docs/media/material-tutorials/C11.mp4",
+      "seconds": 22.21,
+      "width": 1280,
+      "height": 900,
+      "bytes": 793383,
+      "sha256": "6b775d206fa24295e51b3f3d73e390bebc286cb44e69cdfab0cabf8b3a7a9edf",
+      "decodedFrames": 533,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-004.jpg",
+      "encodedSamplesSeconds": [
+        3.332,
+        11.105,
+        19.989
+      ]
+    },
+    {
+      "case": "C12",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C12/recording.json",
+      "recordingSha256": "bbf0e0c5bac780580f23159e92e522adf514260aad90f074521418c97d970af2",
+      "rawDurationSeconds": 17.006,
+      "frameCount": 65,
+      "frameTimelineSha256": "84c8ea438353a59d7a2bb32e3eeab0a115d3ae7348432078fb219293a776ca48",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.502,
+          "bytes": 142070,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "fabe7384f45eb0f12001fdbb08b09517dbb7311c294d5a5c45e3e83f2cecb27b"
+        },
+        {
+          "file": "000032.jpg",
+          "seconds": 7.706,
+          "bytes": 99702,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "4567088571c57e6cb4908534c73bf4450a778103c72c47581e983973e3e9285f"
+        },
+        {
+          "file": "000064.jpg",
+          "seconds": 16.768,
+          "bytes": 336488,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "d37e0e664945639c8ec11d041d0792efdb7056a3b7da5bd088b901698773e787"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5728\u6b63\u6587\u4e2d\u63d2\u5165\u4e00\u4e2a\u72ec\u7acb\u56fe\u7247\u5757",
+          "seconds": 1.718,
+          "en": "Insert an independent image block in the document",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u9009\u62e9\u4e0a\u4f20\uff0c\u4ece\u78c1\u76d8\u5bfc\u5165\u539f\u59cb\u56fe\u7247",
+          "seconds": 7.361,
+          "en": "Choose Upload and select an original picture from disk",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u56fe\u7247\u663e\u793a\u5728\u6b63\u6587\u4e2d\uff0c\u9879\u76ee\u4fdd\u7559\u72ec\u7acb\u7684\u672c\u5730\u526f\u672c",
+          "seconds": 12.057,
+          "en": "The image appears in the document as a project-local copy",
+          "targetSeconds": 6
+        }
+      ],
+      "plannedSeconds": 21,
+      "recordingMtimeNs": 1790792445082482500,
+      "video": "docs/media/material-tutorials/C12.mp4",
+      "seconds": 20.96,
+      "width": 1280,
+      "height": 900,
+      "bytes": 699757,
+      "sha256": "82bca2a1889ea490d58234ced95ecf6e3ca286b492b4bccd1e7371de6055ed61",
+      "decodedFrames": 503,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-004.jpg",
+      "encodedSamplesSeconds": [
+        3.144,
+        10.48,
+        18.864
+      ]
+    },
+    {
+      "case": "C14",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C14/recording.json",
+      "recordingSha256": "8c02376c8ebc763e66ab8d98b24c7a4b820a137148a3e90b5b58bf3d64386c0b",
+      "rawDurationSeconds": 26.09,
+      "frameCount": 102,
+      "frameTimelineSha256": "23b2a3307175635eab02442fe800f07a8c27c74d6001dbc25f2407e1e443927b",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.658,
+          "bytes": 164155,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "c1abde153354ac1c77e4bf5c736b18e2c53161901d49e06815d9db4c69c0116b"
+        },
+        {
+          "file": "000051.jpg",
+          "seconds": 13.493,
+          "bytes": 182842,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "810c62daed57f9d69f119c0cfec1a0f6ac6ad1f38f2e9200b16e3d317dc768a1"
+        },
+        {
+          "file": "000101.jpg",
+          "seconds": 25.86,
+          "bytes": 202666,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "851ad5793e22b3b44f362495a8d92ebb29c74f38da6892e3e3bfb16c557d5aa4"
+        }
+      ],
+      "chapterCount": 4,
+      "chapters": [
+        {
+          "zh": "\u521b\u5efa\u56fe\u7247\u7ec4\uff0c\u4e0d\u5fc5\u91cd\u65b0\u9009\u62e9\u78c1\u76d8\u4e0a\u7684\u539f\u56fe",
+          "seconds": 1.661,
+          "en": "Create a gallery using pictures already in your library",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u4ece\u56fe\u7247\u7ec4\u7d20\u6750\u91cc\u9009\u62e9\u9700\u8981\u7684\u7167\u7247",
+          "seconds": 5.835,
+          "en": "Choose individual photos from an existing gallery material",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u4e5f\u53ef\u4ee5\u8ffd\u52a0\u5355\u5f20\u56fe\u7247\u7d20\u6750",
+          "seconds": 11.602,
+          "en": "Append a single-image material to the same gallery",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u4fdd\u5b58\u4e3a\u65b0\u7684\u7d20\u6750\uff0c\u6765\u6e90\u7d20\u6750\u4fdd\u6301\u72ec\u7acb",
+          "seconds": 15.906,
+          "en": "Save a new material with its own copies of the originals",
+          "targetSeconds": 6
+        }
+      ],
+      "plannedSeconds": 28,
+      "recordingMtimeNs": 1790790147373812200,
+      "video": "docs/media/material-tutorials/C14.mp4",
+      "seconds": 28.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 828643,
+      "sha256": "cd01347bb33758929df62d1dda0ccde0c902e83c88da149f93ae377ee71e784f",
+      "decodedFrames": 674,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-005.jpg",
+      "encodedSamplesSeconds": [
+        4.212,
+        14.04,
+        25.272
+      ]
+    },
+    {
+      "case": "C15",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C15/recording.json",
+      "recordingSha256": "b273b396041fc45ca25d4b3100469d935095566db4b29c9ad7f7d9e63cb33646",
+      "rawDurationSeconds": 26.52,
+      "frameCount": 95,
+      "frameTimelineSha256": "017f9335fc3d54944b0f8838d65c91a814e242dc255d3e00ed8d44678414542f",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.599,
+          "bytes": 217034,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "1b1bfbf8d982235337341eb5d0b43f286b834432e33de581a33d8c37afcfd2f7"
+        },
+        {
+          "file": "000047.jpg",
+          "seconds": 12.683,
+          "bytes": 164449,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "2e7c6cfc5db41f5723cc7c9b8de4fd5c4fc71bf916c7230ffc6f6b8683ca4e80"
+        },
+        {
+          "file": "000094.jpg",
+          "seconds": 26.292,
+          "bytes": 165383,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "6de5737e342291fdfefa2827165ae369936a559f32d6a1c749f761b93f4db73e"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5173\u95ed\u5f53\u524d\u9879\u76ee\uff0c\u56de\u5230\u9879\u76ee\u542f\u52a8\u9875\u9762",
+          "seconds": 1.654,
+          "en": "Return to the launcher by closing the current project",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u6ca1\u6709\u6253\u5f00\u9879\u76ee\uff0c\u4e5f\u53ef\u4ee5\u521b\u5efa\u7d20\u6750",
+          "seconds": 7.175,
+          "en": "Create library materials without an open project",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u6dfb\u52a0\u56fe\u7247\u540e\u4fdd\u5b58\uff0c\u4eca\u540e\u53ef\u63d2\u5165\u4efb\u610f\u9879\u76ee",
+          "seconds": 14.357,
+          "en": "Add its picture and save for use in future projects",
+          "targetSeconds": 9
+        }
+      ],
+      "plannedSeconds": 22,
+      "recordingMtimeNs": 1790790302941557000,
+      "video": "docs/media/material-tutorials/C15.mp4",
+      "seconds": 22.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 693775,
+      "sha256": "d6ebb0a9b0c623dcc0bfb6b259caaaa4996d74b270eb38c17f717f6bd9108b26",
+      "decodedFrames": 530,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-005.jpg",
+      "encodedSamplesSeconds": [
+        3.312,
+        11.04,
+        19.872
+      ]
+    },
+    {
+      "case": "C16",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C16/recording.json",
+      "recordingSha256": "fce92029de3cb44fbfe7ac688e5409315b97f5dc76e25dd6c44087625d7f1f65",
+      "rawDurationSeconds": 16.493,
+      "frameCount": 67,
+      "frameTimelineSha256": "4ba43652a5aa46dca3abed8cd79231466c0bc8e87765e97f78696300e21d106c",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.772,
+          "bytes": 159396,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "fcf09e83669697877b587476a6869ade8f1770487a60ba6c216a3b73dc47d71c"
+        },
+        {
+          "file": "000033.jpg",
+          "seconds": 8.664,
+          "bytes": 165683,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "d92ab7736d202f93600bdbee99ef665b6ebc0e305bfb9af75073e076bcdd0f7a"
+        },
+        {
+          "file": "000066.jpg",
+          "seconds": 16.268,
+          "bytes": 159356,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "f162b553d9f01320246d246c01d16a95423c199d736e694ab9a984ebf476891d"
+        }
+      ],
+      "chapterCount": 2,
+      "chapters": [
+        {
+          "zh": "\u6bcf\u5f20\u53c2\u8003\u56fe\u7684\u5feb\u6377\u6309\u94ae\u4e5f\u53ef\u4ee5\u5355\u72ec\u6536\u7eb3\u56fe\u7247",
+          "seconds": 1.649,
+          "en": "Use a picture tile shortcut to save an individual image",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u8bbe\u7f6e\u72ec\u7acb\u7d20\u6750\u540d\u79f0\u548c\u6807\u7b7e\uff0c\u4fdd\u5b58\u5373\u53ef\u8de8\u9879\u76ee\u590d\u7528",
+          "seconds": 5.561,
+          "en": "Add metadata and save for reuse across projects",
+          "targetSeconds": 10
+        }
+      ],
+      "plannedSeconds": 17,
+      "recordingMtimeNs": 1790790067043163200,
+      "video": "docs/media/material-tutorials/C16.mp4",
+      "seconds": 17.0,
+      "width": 1280,
+      "height": 900,
+      "bytes": 548014,
+      "sha256": "95a7510ab96766f10089332e017b79c4063afd8f9e2c73782cb5d4a5a92c8fe7",
+      "decodedFrames": 408,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-005.jpg",
+      "encodedSamplesSeconds": [
+        2.55,
+        8.5,
+        15.3
+      ]
+    },
+    {
+      "case": "C17",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C17/recording.json",
+      "recordingSha256": "3ab942e1da3bc96a8c9653feb116bc41fe3b168688c32251cc0b4e40ce734b9c",
+      "rawDurationSeconds": 19.432,
+      "frameCount": 78,
+      "frameTimelineSha256": "a640e7f1c2005f7c1aa12f26219cf5165fca87e3ceba2d549d5595a01c92f0ad",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.502,
+          "bytes": 176789,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "fc95f8c5d604d4dc64220196e26c20ef5ee42e9e2686fc5cd4dbab3e6c8925ac"
+        },
+        {
+          "file": "000039.jpg",
+          "seconds": 10.615,
+          "bytes": 173816,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "c27d10855aa47a5fee07f74db115ed27e19a0587187682306b13ec2d15e0e991"
+        },
+        {
+          "file": "000077.jpg",
+          "seconds": 19.193,
+          "bytes": 142070,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "fabe7384f45eb0f12001fdbb08b09517dbb7311c294d5a5c45e3e83f2cecb27b"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u65b0\u5efa\u7d20\u6750\u65f6\uff0c\u5df2\u6709\u540d\u79f0\u4f1a\u63d0\u793a\u518d\u6b21\u786e\u8ba4",
+          "seconds": 1.684,
+          "en": "Creating a material with an existing name asks for confirmation",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u53d6\u6d88\u540c\u540d\u4fdd\u5b58\uff0c\u8fd4\u56de\u8349\u7a3f\u4fee\u6539\u540d\u79f0",
+          "seconds": 12.525,
+          "en": "Cancel the duplicate-name confirmation and rename the draft",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u65b0\u8349\u7a3f\u53ef\u968f\u65f6\u653e\u5f03\uff0c\u4e0d\u4f1a\u4fee\u6539\u5df2\u6709\u7d20\u6750",
+          "seconds": 13.925,
+          "en": "Discard the draft without changing an existing material",
+          "targetSeconds": 7
+        }
+      ],
+      "plannedSeconds": 22,
+      "recordingMtimeNs": 1790792426009978600,
+      "video": "docs/media/material-tutorials/C17.mp4",
+      "seconds": 22.13,
+      "width": 1280,
+      "height": 900,
+      "bytes": 522520,
+      "sha256": "42294be698c889d00ebd54432c08cf57cfda95ec5475fe4d0753b2bd773469ef",
+      "decodedFrames": 531,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-006.jpg",
+      "encodedSamplesSeconds": [
+        3.319,
+        11.065,
+        19.917
+      ]
+    },
+    {
+      "case": "C18",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": null,
+      "environment": "browser-fixture",
+      "environmentDetail": "browser fixture; in-memory clipboard and persistence",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C18/recording.json",
+      "recordingSha256": "974f15dcc9cdf03ae698307f2e446957ac7fa92e155e194ff6a7bee781469e97",
+      "rawDurationSeconds": 14.02,
+      "frameCount": 46,
+      "frameTimelineSha256": "1718ea1869b03f0cddf4d1598edbcb21f7d1ba285bd3e850374730c986de7d7f",
+      "representativeRawFrames": [
+        {
+          "file": "frame-00000.jpg",
+          "seconds": 0,
+          "bytes": 70746,
+          "width": 1280,
+          "height": 800,
+          "sha256": "96e4fbb945be8dfb42f865dd744384a72ce1bdb8cacd943ad40805c532dca5b7"
+        },
+        {
+          "file": "frame-00023.jpg",
+          "seconds": 6.995,
+          "bytes": 85172,
+          "width": 1280,
+          "height": 800,
+          "sha256": "febc9f7fb342a0e2f69d93e9725a546c18dd841b5f42dc4575ea54bf57dd5f55"
+        },
+        {
+          "file": "frame-00045.jpg",
+          "seconds": 13.723,
+          "bytes": 100289,
+          "width": 1280,
+          "height": 800,
+          "sha256": "9e862ac385ad5e1c883e197d10a0320ed8df4f65022489d61f6a3798d48bb736"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "seconds": 0.001,
+          "zh": "\u53f3\u952e\u590d\u5236\u7d20\u6750\u56fe\u7247\uff08\u9694\u79bb\u6d4b\u8bd5\u754c\u9762\uff09",
+          "en": "Copy a picture with the context menu (isolated test UI)",
+          "targetSeconds": 8
+        },
+        {
+          "seconds": 3.085,
+          "zh": "\u65b0\u5efa\u56fe\u7247\u7d20\u6750\uff0c\u5728\u56fe\u7247\u533a\u57df\u53f3\u952e\u7c98\u8d34",
+          "en": "Create an image material and paste into its image area",
+          "targetSeconds": 11
+        },
+        {
+          "seconds": 7.775,
+          "zh": "\u9884\u89c8\u4e2d\u7684\u56fe\u7247\u53ef\u590d\u5236\uff0c\u518d\u7c98\u8d34\u5230\u6587\u6863",
+          "en": "Copy from the read-only preview and paste into a document",
+          "targetSeconds": 11
+        }
+      ],
+      "plannedSeconds": 30,
+      "recordingMtimeNs": 1790789756248870600,
+      "video": "docs/media/material-tutorials/C18.mp4",
+      "seconds": 30.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 713581,
+      "sha256": "9e240be85f7f3bdcc2ed5771d0815b8468ce21841f24bc3734da54e60610008f",
+      "decodedFrames": 722,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-006.jpg",
+      "encodedSamplesSeconds": [
+        4.512,
+        15.04,
+        27.072
+      ]
+    },
+    {
+      "case": "C19",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/C19/recording.json",
+      "recordingSha256": "077358a4256e6fb1d6cf9b0bd1d4e41abd1a753b890c53d0a87b09e3615d43dc",
+      "rawDurationSeconds": 29.181,
+      "frameCount": 118,
+      "frameTimelineSha256": "e9f30ba9b1cca969cda7a4639c8b59bb750edc9d6ad18e0521f85d66de1fad13",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.486,
+          "bytes": 140565,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "772fea07f9e6ab4965569dd2128412a4a6a69f0e9288156b3d2ac8005097eb40"
+        },
+        {
+          "file": "000059.jpg",
+          "seconds": 15.537,
+          "bytes": 244698,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "de0f8c2efce37fcdd7937223b558c0af2080bac30d9a523c7f26ab83eeb4f3ea"
+        },
+        {
+          "file": "000117.jpg",
+          "seconds": 28.945,
+          "bytes": 161994,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "598a13cf807f91ae1b45c459139f60fbc7f895687e76f2deb88e243d3141fc19"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5bfc\u5165\u5e26\u76f8\u673a\u65cb\u8f6c\u4fe1\u606f\u7684 JPEG",
+          "seconds": 1.673,
+          "en": "Import a JPEG with camera orientation metadata",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u753b\u5e03\u4e0e\u5927\u56fe\u9884\u89c8\u4fdd\u6301\u6b63\u786e\u65b9\u5411",
+          "seconds": 12.868,
+          "en": "The canvas and enlarged preview preserve the intended orientation",
+          "targetSeconds": 9
+        },
+        {
+          "zh": "\u4fdd\u5b58\u4e3a\u56fe\u7247\u7d20\u6750\uff0c\u63d2\u5165\u6587\u6863\u540e\u4ecd\u4fdd\u6301\u65b9\u5411",
+          "seconds": 17.233,
+          "en": "Save an image material and reuse it in the document",
+          "targetSeconds": 9
+        }
+      ],
+      "plannedSeconds": 25,
+      "recordingMtimeNs": 1790791097728282800,
+      "video": "docs/media/material-tutorials/C19.mp4",
+      "seconds": 25.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 789023,
+      "sha256": "4ff18babe5c9c62920045503ab6228f0251e7c0bf94575c023a213be39f9010c",
+      "decodedFrames": 602,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-006.jpg",
+      "encodedSamplesSeconds": [
+        3.762,
+        12.54,
+        22.572
+      ]
+    },
+    {
+      "case": "I01",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/I01/recording.json",
+      "recordingSha256": "089ea9b6dbd2ab528c9df0b4010e44aab2e99b38aaf669f0823e7663dbeb45ef",
+      "rawDurationSeconds": 24.475,
+      "frameCount": 99,
+      "frameTimelineSha256": "744cb40cc47993665d65855dd1898c9b7a4ed037d6c6b8584c431be26eb04ece",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.828,
+          "bytes": 221026,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "912937b54ec4c543e80a361370d9ed52d0fa27cb04e636eeb6f6ddea02060f74"
+        },
+        {
+          "file": "000049.jpg",
+          "seconds": 12.47,
+          "bytes": 144727,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "d3084056d4b958b2fbe22a206827ccee6108beddc104ae3feb0393dcf570f468"
+        },
+        {
+          "file": "000098.jpg",
+          "seconds": 24.217,
+          "bytes": 148719,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "b906075044a178dbd49036f94a63f645a769284bea9868837df40da3e7afc148"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5148\u5b9a\u4f4d\u6587\u6863\u5149\u6807\uff0c\u518d\u6253\u5f00\u9876\u90e8\u7d20\u6750\u5e93",
+          "seconds": 1.552,
+          "en": "Place the document cursor, then open the header library",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u63d2\u5165\u5b8c\u6574\u5361\u7247\uff0c\u6587\u5b57\u4e0e\u539f\u56fe\u4fdd\u5b58\u4e3a\u9879\u76ee\u526f\u672c",
+          "seconds": 10.759,
+          "en": "Insert the card with independent project text and image copies",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u9879\u76ee\u4e2d\u53ef\u4ee5\u8c03\u6574\u4fe1\u606f\uff0c\u7d20\u6750\u5e93\u4fdd\u7559\u539f\u59cb\u5185\u5bb9",
+          "seconds": 13.219,
+          "en": "Customize project details without changing the library original",
+          "targetSeconds": 8
+        }
+      ],
+      "plannedSeconds": 22,
+      "recordingMtimeNs": 1790790373457574600,
+      "video": "docs/media/material-tutorials/I01.mp4",
+      "seconds": 22.17,
+      "width": 1280,
+      "height": 900,
+      "bytes": 826382,
+      "sha256": "c9e9c0dcd5d32b16a5b190f17acab6ddc84d28be37018abd2e0b4a5a0df5a318",
+      "decodedFrames": 532,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-007.jpg",
+      "encodedSamplesSeconds": [
+        3.326,
+        11.085,
+        19.953
+      ]
+    },
+    {
+      "case": "I02",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/I02/recording.json",
+      "recordingSha256": "1eaba67740677f2a42e54dd48551208a55ffd75b647dd7483c2f35e3bbfb1290",
+      "rawDurationSeconds": 28.003,
+      "frameCount": 121,
+      "frameTimelineSha256": "10091d5c2011c9106221d1a2eda54497fb31425eee2c8ff4147e7002fe240030",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.509,
+          "bytes": 206735,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "f5157bb0cd0361d92ca0e7c080db91a92affd11721cdbed2bb65f9c5f882cf23"
+        },
+        {
+          "file": "000060.jpg",
+          "seconds": 14.166,
+          "bytes": 196513,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "23f2e22a170137787aeb7a363e6e8814a30af5583c31e71669c01b1fe5c2ffca"
+        },
+        {
+          "file": "000120.jpg",
+          "seconds": 27.765,
+          "bytes": 147331,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "f42f4c8fc9b33dfb22d49b43456cb4076e201006d174b3e25f3a0f8648f389c5"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5728\u6587\u6863\u4e2d\u8f93\u5165\u659c\u6760\uff0c\u4ece\u7d20\u6750\u5e93\u63d2\u5165",
+          "seconds": 1.705,
+          "en": "Type slash in the document to insert from the library",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u4e5f\u53ef\u4ee5\u70b9\u51fb\u6bb5\u843d\u5de6\u4fa7\u52a0\u53f7\uff0c\u6253\u5f00\u63d2\u5165\u83dc\u5355",
+          "seconds": 12.97,
+          "en": "Use the plus beside a paragraph to open the insert menu",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u83dc\u5355\u968f\u53ef\u7528\u7a7a\u95f4\u5c55\u5f00\uff0c\u9009\u53d6\u7d20\u6750\u540e\u63d2\u5165\u5f53\u524d\u4f4d\u7f6e",
+          "seconds": 20.096,
+          "en": "Choose a material from the menu at the current document position",
+          "targetSeconds": 8
+        }
+      ],
+      "plannedSeconds": 23,
+      "recordingMtimeNs": 1790790875050558500,
+      "video": "docs/media/material-tutorials/I02.mp4",
+      "seconds": 23.04,
+      "width": 1280,
+      "height": 900,
+      "bytes": 832176,
+      "sha256": "92bccf8008029c213d76c31be66d7b4ededdd8ef8b7d2f5da1d227267fa6601c",
+      "decodedFrames": 553,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-007.jpg",
+      "encodedSamplesSeconds": [
+        3.456,
+        11.52,
+        20.736
+      ]
+    },
+    {
+      "case": "I03",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/I03/recording.json",
+      "recordingSha256": "d7e5d576b652977a83d26f15e6becf135dd621b1ee9d8f39d8ab1b0debd20eb6",
+      "rawDurationSeconds": 25.726,
+      "frameCount": 107,
+      "frameTimelineSha256": "544d1b45dfc1369a316232fec1f8d32e131355ad63b4d42e9b2802434acacc8c",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.624,
+          "bytes": 173976,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "8497c88ead00c7a10886249bb2e71ed95e766ff2b49e986a5980dce91c4b8d8f"
+        },
+        {
+          "file": "000053.jpg",
+          "seconds": 13.322,
+          "bytes": 138985,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "c460ae39d376a93090f72317e8cdc7da87a1118a9bbd17fd00737f8c2bb29bda"
+        },
+        {
+          "file": "000106.jpg",
+          "seconds": 25.506,
+          "bytes": 222045,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "05f39083aa15c404f5d90a2accb25d039456e6de173ec32c1ab800c8ca277b1a"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u6574\u7ec4\u63d2\u5165\uff0c\u4fdd\u7559\u5168\u90e8\u56fe\u7247\u548c\u987a\u5e8f",
+          "seconds": 1.653,
+          "en": "Insert the whole gallery in its original order",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u53ea\u9009\u62e9\u9700\u8981\u7684\u56fe\u7247\uff0c\u63d2\u5165\u4e00\u4e2a\u65b0\u56fe\u7247\u7ec4",
+          "seconds": 6.47,
+          "en": "Choose a subset and insert it as a new gallery",
+          "targetSeconds": 9
+        },
+        {
+          "zh": "\u5207\u6362\u4e3a\u72ec\u7acb\u56fe\u7247\uff0c\u6bcf\u5f20\u7167\u7247\u751f\u6210\u4e00\u4e2a\u56fe\u7247\u5757",
+          "seconds": 14.709,
+          "en": "Choose independent images to create separate image blocks",
+          "targetSeconds": 9
+        }
+      ],
+      "plannedSeconds": 25,
+      "recordingMtimeNs": 1790790239315510300,
+      "video": "docs/media/material-tutorials/I03.mp4",
+      "seconds": 25.04,
+      "width": 1280,
+      "height": 900,
+      "bytes": 945422,
+      "sha256": "4f5b753797dfc74dda4e1b457915d9e0c7e9b448d337d891546771de4b7104bd",
+      "decodedFrames": 601,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-007.jpg",
+      "encodedSamplesSeconds": [
+        3.756,
+        12.52,
+        22.536
+      ]
+    },
+    {
+      "case": "I04",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/I04/recording.json",
+      "recordingSha256": "ba0a9597973b49f70086d2df47feb6de243deef1403111b6b77fc987d4b3add7",
+      "rawDurationSeconds": 24.819,
+      "frameCount": 98,
+      "frameTimelineSha256": "e2dd1e15f2f2e96f73f0862390f5a0f7c1e65394b299e3c7d326720f738750fa",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.564,
+          "bytes": 222045,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "05f39083aa15c404f5d90a2accb25d039456e6de173ec32c1ab800c8ca277b1a"
+        },
+        {
+          "file": "000049.jpg",
+          "seconds": 12.496,
+          "bytes": 130408,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "b32f56a7833cf74a8805b22c6166e15fc63eff46e216128ff7e8cd04cdb614d4"
+        },
+        {
+          "file": "000097.jpg",
+          "seconds": 24.601,
+          "bytes": 217034,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "1b1bfbf8d982235337341eb5d0b43f286b834432e33de581a33d8c37afcfd2f7"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u6253\u5f00\u5f53\u524d\u56fe\u7247\u7ec4\u7684\u4ece\u7d20\u6750\u5e93\u63d2\u5165\u6309\u94ae",
+          "seconds": 1.685,
+          "en": "Open the library from the current gallery toolbar",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u9009\u62e9\u56fe\u7247\u7ec4\u91cc\u7684\u90e8\u5206\u7167\u7247\u8ffd\u52a0",
+          "seconds": 8.491,
+          "en": "Append selected photos from a gallery material",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u4e5f\u53ef\u76f4\u63a5\u63d2\u5165\u5355\u56fe\uff0c\u5df2\u6709\u56fe\u7247\u7ee7\u7eed\u4fdd\u7559",
+          "seconds": 14.421,
+          "en": "Append a single image while keeping existing pictures",
+          "targetSeconds": 8
+        }
+      ],
+      "plannedSeconds": 22,
+      "recordingMtimeNs": 1790790266707413000,
+      "video": "docs/media/material-tutorials/I04.mp4",
+      "seconds": 22.13,
+      "width": 1280,
+      "height": 900,
+      "bytes": 849128,
+      "sha256": "de4273c49dd04a68700af3f3354675063ea2ce4588be5fbc7be1e469226491f1",
+      "decodedFrames": 531,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-008.jpg",
+      "encodedSamplesSeconds": [
+        3.319,
+        11.065,
+        19.917
+      ]
+    },
+    {
+      "case": "M01",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/M01/recording.json",
+      "recordingSha256": "18e62b3d1739af0036423ec963ab71f0a4c5eee9a66c9dc632b4ec29fd7d4461",
+      "rawDurationSeconds": 16.917,
+      "frameCount": 72,
+      "frameTimelineSha256": "21f058424dc9572e315b745ffd0a05691a38c222838ecf849595a905bc9b9036",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.501,
+          "bytes": 147244,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "240e6b75170a77b6b668971c8a794be5c683e67809139cc8214b020d6747a707"
+        },
+        {
+          "file": "000036.jpg",
+          "seconds": 8.826,
+          "bytes": 125950,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "0f42bdd565af8ffcbe756118411bc1a6150d0c30f58bdae622dcbf0c550916e9"
+        },
+        {
+          "file": "000071.jpg",
+          "seconds": 16.672,
+          "bytes": 183279,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "e3636db4ef0ef152567abec2a2b5e08399b5ee130eea81bb108588534bfc54e4"
+        }
+      ],
+      "chapterCount": 4,
+      "chapters": [
+        {
+          "zh": "\u6309\u540d\u79f0\u67e5\u627e\u5df2\u4fdd\u5b58\u7684\u7d20\u6750",
+          "seconds": 1.688,
+          "en": "Search saved materials by name",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u6807\u7b7e\u548c\u7d20\u6750\u8bf4\u660e\u540c\u6837\u652f\u6301\u68c0\u7d22",
+          "seconds": 5.367,
+          "en": "Search by tags and description as well",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u5207\u6362\u5206\u7c7b\uff0c\u5feb\u901f\u5b9a\u4f4d\u56fe\u7247\u3001\u6a21\u7279\u548c\u9053\u5177",
+          "seconds": 8.7,
+          "en": "Filter images, models and props by category",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u652f\u6301\u6700\u8fd1\u66f4\u65b0\u3001\u76f8\u5173\u5ea6\u548c\u540d\u79f0\u6392\u5e8f",
+          "seconds": 11.108,
+          "en": "Sort by recent updates, relevance or name",
+          "targetSeconds": 6
+        }
+      ],
+      "plannedSeconds": 26,
+      "recordingMtimeNs": 1790790930721126100,
+      "video": "docs/media/material-tutorials/M01.mp4",
+      "seconds": 26.0,
+      "width": 1280,
+      "height": 900,
+      "bytes": 499551,
+      "sha256": "7c2e77901f4b6315e0d7c59c6d5fd4bef3649f035f559d0feb5a9b40ab84065b",
+      "decodedFrames": 624,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-008.jpg",
+      "encodedSamplesSeconds": [
+        3.9,
+        13.0,
+        23.4
+      ]
+    },
+    {
+      "case": "M02",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/M02/recording.json",
+      "recordingSha256": "d7959865e881a3790eb0be256f534a918cade345f4b2f2bf5ce0cddda0d3b33b",
+      "rawDurationSeconds": 14.856,
+      "frameCount": 62,
+      "frameTimelineSha256": "b80806fdf64b621934b05797d886a6422b6dabd83c62cf20ab8debc7cff9f2fb",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.56,
+          "bytes": 183279,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "e3636db4ef0ef152567abec2a2b5e08399b5ee130eea81bb108588534bfc54e4"
+        },
+        {
+          "file": "000031.jpg",
+          "seconds": 7.777,
+          "bytes": 153059,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "84987ee5f40c89f56e2a353c4f31bb2d5ab65309ac1aacdd09ea84e1f3cb58b9"
+        },
+        {
+          "file": "000061.jpg",
+          "seconds": 14.621,
+          "bytes": 151273,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "99c47a72a583495f135d26de7099edd4ba80d35a5182fb453fb2c863d93fb8bd"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u9009\u4e2d\u7d20\u6750\uff0c\u70b9\u51fb\u6536\u85cf",
+          "seconds": 1.68,
+          "en": "Select a material and add it to favorites",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u6536\u85cf\u5206\u7c7b\u96c6\u4e2d\u663e\u793a\u5e38\u7528\u7d20\u6750",
+          "seconds": 4.752,
+          "en": "Find frequently used materials in Favorites",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u53d6\u6d88\u6536\u85cf\uff0c\u7d20\u6750\u4ecd\u4fdd\u7559\u5728\u5168\u90e8\u7d20\u6750\u4e2d",
+          "seconds": 9.173,
+          "en": "Unfavorite an item without deleting it",
+          "targetSeconds": 7
+        }
+      ],
+      "plannedSeconds": 20,
+      "recordingMtimeNs": 1790790947829338500,
+      "video": "docs/media/material-tutorials/M02.mp4",
+      "seconds": 20.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 302999,
+      "sha256": "f12b02c8869c41b9d6e612fa73a94b256dc5d30e6c81605c4739a890a6003f00",
+      "decodedFrames": 482,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-008.jpg",
+      "encodedSamplesSeconds": [
+        3.012,
+        10.04,
+        18.072
+      ]
+    },
+    {
+      "case": "M03",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/M03/recording.json",
+      "recordingSha256": "1f78ddbe23374460f5448d55c1db25435d2e645c686d7a4bba8017fded0ec669",
+      "rawDurationSeconds": 18.502,
+      "frameCount": 78,
+      "frameTimelineSha256": "f2a027c20dd760baea36f602d3b9a3a3929c7d39c056572b0ecb81dfb6512788",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.479,
+          "bytes": 151273,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "99c47a72a583495f135d26de7099edd4ba80d35a5182fb453fb2c863d93fb8bd"
+        },
+        {
+          "file": "000039.jpg",
+          "seconds": 9.713,
+          "bytes": 145008,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "43b77c5d7342428749b5fb5e6f0a540f975f040b96aaf7b11df41b3f37a01318"
+        },
+        {
+          "file": "000077.jpg",
+          "seconds": 18.263,
+          "bytes": 149590,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "468f2f92595dc5917babd8c3e2613208e0142aa3f5dfa563bd3be77d34505a54"
+        }
+      ],
+      "chapterCount": 4,
+      "chapters": [
+        {
+          "zh": "\u7f16\u8f91\u7d20\u6750\uff0c\u540d\u79f0\u548c\u8bf4\u660e\u53ef\u968f\u65f6\u66f4\u65b0",
+          "seconds": 1.722,
+          "en": "Edit a material name and description",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u4fee\u6539\u5185\u5bb9\u540e\u4fdd\u5b58\uff0c\u7f16\u8f91\u6846\u4fdd\u6301\u6253\u5f00",
+          "seconds": 6.681,
+          "en": "Save the card changes and continue editing",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u5173\u95ed\u672a\u4fdd\u5b58\u4fee\u6539\u65f6\uff0c\u53ef\u9009\u62e9\u7ee7\u7eed\u6216\u653e\u5f03",
+          "seconds": 8.332,
+          "en": "Keep editing or discard changes made after your last save",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u5df2\u4fdd\u5b58\u7684\u5185\u5bb9\u4ecd\u7136\u4fdd\u7559\uff0c\u9879\u76ee\u4e2d\u7684\u526f\u672c\u4e0d\u53d7\u5f71\u54cd",
+          "seconds": 12.504,
+          "en": "Saved changes remain; inserted project copies stay independent",
+          "targetSeconds": 5
+        }
+      ],
+      "plannedSeconds": 26,
+      "recordingMtimeNs": 1790790968416256000,
+      "video": "docs/media/material-tutorials/M03.mp4",
+      "seconds": 26.17,
+      "width": 1280,
+      "height": 900,
+      "bytes": 502947,
+      "sha256": "534ba8db9cdac6bb638c18284155f32b0f01839c0ab38aaf57b880aa78f35e5a",
+      "decodedFrames": 628,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-009.jpg",
+      "encodedSamplesSeconds": [
+        3.925,
+        13.085,
+        23.553
+      ]
+    },
+    {
+      "case": "M04",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/M04/recording.json",
+      "recordingSha256": "e44eb7b32ebd7f48d88bccd25dc7ff59e48d687a7142faf00a2c7ca9b2d742e1",
+      "rawDurationSeconds": 12.752,
+      "frameCount": 53,
+      "frameTimelineSha256": "e514f67f2c53487f11debb104daabd24be6719c522a887290dd88731c693063a",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.505,
+          "bytes": 149590,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "468f2f92595dc5917babd8c3e2613208e0142aa3f5dfa563bd3be77d34505a54"
+        },
+        {
+          "file": "000026.jpg",
+          "seconds": 6.573,
+          "bytes": 141114,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "f8ea5cffd4d10b26fe1146f26ecf34a91e4d353a2d6aac3ab84f17c9ef7219e0"
+        },
+        {
+          "file": "000052.jpg",
+          "seconds": 12.513,
+          "bytes": 154480,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "bc95f59c6a096df502302180474042b87dddf90a3833b59c354a81a3d1490483"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u9009\u62e9\u7d20\u6750\u53ea\u770b\u8be6\u60c5\uff0c\u70b9\u51fb\u9884\u89c8\u624d\u6253\u5f00\u5b8c\u6574\u5185\u5bb9",
+          "seconds": 1.716,
+          "en": "Select an item for details; click Preview to open its content",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u67e5\u770b\u5b8c\u6574\u56fe\u7247\u7ec4\uff0c\u70b9\u9009\u56fe\u7247\u8fdb\u884c\u68c0\u67e5",
+          "seconds": 6.774,
+          "en": "Inspect the full gallery and select a picture",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u9884\u89c8\u4e3a\u53ea\u8bfb\uff0c\u5173\u95ed\u540e\u7ee7\u7eed\u7ba1\u7406\u6216\u63d2\u5165\u7d20\u6750",
+          "seconds": 9.607,
+          "en": "Preview is read-only; close it to manage or insert the material",
+          "targetSeconds": 5
+        }
+      ],
+      "plannedSeconds": 18,
+      "recordingMtimeNs": 1790790983282700700,
+      "video": "docs/media/material-tutorials/M04.mp4",
+      "seconds": 18.04,
+      "width": 1280,
+      "height": 900,
+      "bytes": 289556,
+      "sha256": "eb8cbeae338a753d6d283ab357d9a0bd6b2bb44c025d19f99bbc9b6d04c1ffe7",
+      "decodedFrames": 433,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-009.jpg",
+      "encodedSamplesSeconds": [
+        2.706,
+        9.02,
+        16.236
+      ]
+    },
+    {
+      "case": "M05",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/M05/recording.json",
+      "recordingSha256": "a8e8788fd34c5bb2bc06ac6459cc0c8ec5e458de6fcd5388ba81dd5e5a9fdb70",
+      "rawDurationSeconds": 38.138,
+      "frameCount": 161,
+      "frameTimelineSha256": "ad6779081da4cf8703169015c491beb5011fae33ce48b035e3c62bb9bdd8f355",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.504,
+          "bytes": 154480,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "bc95f59c6a096df502302180474042b87dddf90a3833b59c354a81a3d1490483"
+        },
+        {
+          "file": "000080.jpg",
+          "seconds": 19.524,
+          "bytes": 153818,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "79fbb4297969fcf247324c6c73fc5528de6a441039bd92665d076c50653f89ae"
+        },
+        {
+          "file": "000160.jpg",
+          "seconds": 37.898,
+          "bytes": 150275,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "3fe44afd08972104064e800324c891d7572da39f28eaab6fd308ae08a2d5ba72"
+        }
+      ],
+      "chapterCount": 4,
+      "chapters": [
+        {
+          "zh": "\u56fe\u7247\u7ec4\u8be6\u60c5\u53ef\u76f4\u63a5\u6253\u5f00\u6574\u7ec4\u539f\u56fe\u76ee\u5f55",
+          "seconds": 1.697,
+          "en": "Open a gallery original folder directly from its details",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u5b8c\u6574\u9884\u89c8\u4e2d\u4e5f\u80fd\u6253\u5f00\u539f\u56fe\u76ee\u5f55",
+          "seconds": 10.758,
+          "en": "The full preview provides the same original-folder action",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u7f16\u8f91\u65f6\u5b9a\u4f4d\u5df2\u4fdd\u5b58\u7684\u539f\u56fe\uff0c\u539f\u6587\u4ef6\u72ec\u7acb\u4fdd\u7559",
+          "seconds": 19.508,
+          "en": "Locate saved originals while editing the material",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u5355\u5f20\u56fe\u7247\u65e0\u9700\u5148\u9009\u62e9\uff0c\u76f4\u63a5\u5b9a\u4f4d\u5230\u539f\u56fe",
+          "seconds": 27.727,
+          "en": "Locate a single-image original without selecting its picture first",
+          "targetSeconds": 8
+        }
+      ],
+      "plannedSeconds": 32,
+      "recordingMtimeNs": 1790791023508547400,
+      "video": "docs/media/material-tutorials/M05.mp4",
+      "seconds": 32.17,
+      "width": 1280,
+      "height": 900,
+      "bytes": 643989,
+      "sha256": "af4d6a78b8feee77254a73c6e81c565c3030ac8252359e55c74e2cd8ff8b3eb2",
+      "decodedFrames": 772,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-009.jpg",
+      "encodedSamplesSeconds": [
+        4.825,
+        16.085,
+        28.953
+      ]
+    },
+    {
+      "case": "M06",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/M06/recording.json",
+      "recordingSha256": "365142386ce4e3e90e3a9c25e7d333c54063ce8ccb0df3cfcabdc761be81c9a0",
+      "rawDurationSeconds": 14.821,
+      "frameCount": 62,
+      "frameTimelineSha256": "0504ee216e8dddfaa8c1d506b9f023164cc2ae4c50a7bbb0044a1610b1b0f36f",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.524,
+          "bytes": 150275,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "3fe44afd08972104064e800324c891d7572da39f28eaab6fd308ae08a2d5ba72"
+        },
+        {
+          "file": "000031.jpg",
+          "seconds": 7.627,
+          "bytes": 151035,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "65d9e8a8b7313527f7a3dcf142efb84e0fba7f4dda035c9a753cfe3c5de23ae2"
+        },
+        {
+          "file": "000061.jpg",
+          "seconds": 14.582,
+          "bytes": 151335,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "931821459a802512c4eb809d88a184e78838069a4a2e5a7a84a77edf94b5dc7c"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5220\u9664\u524d\u786e\u8ba4\uff0c\u53d6\u6d88\u4e0d\u4f1a\u79fb\u9664\u7d20\u6750",
+          "seconds": 1.718,
+          "en": "Cancel a deletion to keep the material unchanged",
+          "targetSeconds": 6
+        },
+        {
+          "zh": "\u786e\u8ba4\u5220\u9664\u540e\uff0c\u7d20\u6750\u8fdb\u5165\u56de\u6536\u7ad9",
+          "seconds": 5.066,
+          "en": "Confirm deletion to move a material to the recycle bin",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u6062\u590d\u7d20\u6750\uff0c\u91cd\u65b0\u56de\u5230\u5168\u90e8\u7d20\u6750\u5217\u8868",
+          "seconds": 9.004,
+          "en": "Restore the material and return to the active library",
+          "targetSeconds": 7
+        }
+      ],
+      "plannedSeconds": 20,
+      "recordingMtimeNs": 1790791040412354300,
+      "video": "docs/media/material-tutorials/M06.mp4",
+      "seconds": 19.96,
+      "width": 1280,
+      "height": 900,
+      "bytes": 408161,
+      "sha256": "551e9742db1e63124d3b4cfe92694c84e716d40c823f104abca4faacad021304",
+      "decodedFrames": 479,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-010.jpg",
+      "encodedSamplesSeconds": [
+        2.994,
+        9.98,
+        17.964
+      ]
+    },
+    {
+      "case": "M07",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/M07/recording.json",
+      "recordingSha256": "280341f8e6182d1f42ed8e0e66a0a541761b4d901af694426388c8331504f3a8",
+      "rawDurationSeconds": 15.747,
+      "frameCount": 67,
+      "frameTimelineSha256": "5e45a8487237cd404a99f0d8e9e172cc7ca0f8fea858c240012477ce95e2ca64",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.477,
+          "bytes": 151335,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "931821459a802512c4eb809d88a184e78838069a4a2e5a7a84a77edf94b5dc7c"
+        },
+        {
+          "file": "000033.jpg",
+          "seconds": 8.031,
+          "bytes": 149934,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "049e1ee8e67b51a6f11c3fbc7a5af5e17a7d057b40512f6d32c7e0d5a23ec677"
+        },
+        {
+          "file": "000066.jpg",
+          "seconds": 15.518,
+          "bytes": 140565,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "772fea07f9e6ab4965569dd2128412a4a6a69f0e9288156b3d2ac8005097eb40"
+        }
+      ],
+      "chapterCount": 4,
+      "chapters": [
+        {
+          "zh": "\u5148\u79fb\u5165\u56de\u6536\u7ad9\uff1b\u9879\u76ee\u91cc\u5df2\u7ecf\u63d2\u5165\u7684\u526f\u672c\u4e0d\u53d7\u5f71\u54cd",
+          "seconds": 1.712,
+          "en": "Move a saved snapshot to the bin; project copies stay independent",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u6c38\u4e45\u5220\u9664\u9700\u8981\u518d\u6b21\u786e\u8ba4\uff0c\u4e5f\u53ef\u4ee5\u53d6\u6d88",
+          "seconds": 6.531,
+          "en": "Permanent deletion requires confirmation and can be cancelled",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u786e\u8ba4\u540e\u4ec5\u5220\u9664\u8fd9\u4efd\u7d20\u6750\uff0c\u64cd\u4f5c\u4e0d\u53ef\u6062\u590d",
+          "seconds": 8.226,
+          "en": "Confirm to permanently delete this material only",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u8fd4\u56de\u9879\u76ee\uff0c\u900f\u660e\u4f1e\u5361\u7247\u53ca\u5176\u56fe\u7247\u4ecd\u7136\u5b8c\u6574",
+          "seconds": 10.177,
+          "en": "Return to the document: its umbrella card and picture remain",
+          "targetSeconds": 6
+        }
+      ],
+      "plannedSeconds": 27,
+      "recordingMtimeNs": 1790791058205081100,
+      "video": "docs/media/material-tutorials/M07.mp4",
+      "seconds": 27.0,
+      "width": 1280,
+      "height": 900,
+      "bytes": 537853,
+      "sha256": "08c9a3e63df72d30c3db9aceac79307f34b133306f5d38e8ce0949e347747434",
+      "decodedFrames": 648,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-010.jpg",
+      "encodedSamplesSeconds": [
+        4.05,
+        13.5,
+        24.3
+      ]
+    },
+    {
+      "case": "M08",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/M08/recording.json",
+      "recordingSha256": "8ce891c998785ebb8f81cdcc4c74dca0c50757fd6234e4532d82e22844f57d31",
+      "rawDurationSeconds": 30.071,
+      "frameCount": 126,
+      "frameTimelineSha256": "23aded21783c50bc1cac47b6880c850dfa67b996c296022789a4ade61ece74d0",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.698,
+          "bytes": 202666,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "851ad5793e22b3b44f362495a8d92ebb29c74f38da6892e3e3bfb16c557d5aa4"
+        },
+        {
+          "file": "000063.jpg",
+          "seconds": 15.284,
+          "bytes": 213480,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "54da7d80a21d371eb262a209d2dbb5f6df5ecd9bb2b69721ae4d5c52ba09402c"
+        },
+        {
+          "file": "000125.jpg",
+          "seconds": 29.821,
+          "bytes": 166662,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "92e40ecd8b354a70f7c0e4dc9ecc94310b61039f611a9057aed72db454b86190"
+        }
+      ],
+      "chapterCount": 4,
+      "chapters": [
+        {
+          "zh": "\u7f16\u8f91\u56fe\u7247\u7ec4\uff0c\u70b9\u9009\u56fe\u7247\u67e5\u770b\u516b\u65b9\u5411\u7f29\u653e\u533a\u57df",
+          "seconds": 1.621,
+          "en": "Edit a gallery and select a picture to resize its frame",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u5207\u6362\u81ea\u7531\u53d8\u5f62\uff0c\u518d\u6062\u590d\u88c1\u5207\u586b\u6ee1",
+          "seconds": 11.487,
+          "en": "Switch to stretch, or use crop-to-fill for the frame",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u53cc\u51fb\u6253\u5f00\u53ea\u8bfb\u5927\u56fe\uff0c\u88c1\u5207\u9002\u914d\u4fdd\u7559\u5728\u753b\u5e03\u4e2d",
+          "seconds": 15.708,
+          "en": "Open the read-only image preview; crop-to-fill stays in the canvas",
+          "targetSeconds": 10
+        },
+        {
+          "zh": "\u4fdd\u5b58\u540e\u5173\u95ed\uff0c\u9884\u89c8\u4f7f\u7528\u5df2\u63d0\u4ea4\u7684\u56fe\u7247\u4e0e\u6392\u7248",
+          "seconds": 20.338,
+          "en": "Save and close; preview the committed pictures and layout",
+          "targetSeconds": 8
+        }
+      ],
+      "plannedSeconds": 32,
+      "recordingMtimeNs": 1790790180408029800,
+      "video": "docs/media/material-tutorials/M08.mp4",
+      "seconds": 32.17,
+      "width": 1280,
+      "height": 900,
+      "bytes": 1120609,
+      "sha256": "3d32173f71af40b37c4774da5cc0742e3d445b412e2c0d53a863be02fae545e8",
+      "decodedFrames": 772,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-010.jpg",
+      "encodedSamplesSeconds": [
+        4.825,
+        16.085,
+        28.953
+      ]
+    },
+    {
+      "case": "M09",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/M09/recording.json",
+      "recordingSha256": "76982727f67126dc70deedf5296276b97d75c88abea5dec2c58a63ee526db2e7",
+      "rawDurationSeconds": 27.918,
+      "frameCount": 113,
+      "frameTimelineSha256": "7b5adf1b7b515706ed2fd92dc4f4961d19cff7871ebf9f232a21a2a849711eb4",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.555,
+          "bytes": 166662,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "92e40ecd8b354a70f7c0e4dc9ecc94310b61039f611a9057aed72db454b86190"
+        },
+        {
+          "file": "000056.jpg",
+          "seconds": 14.284,
+          "bytes": 163179,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "0bda9e14698e1aecab09795ab41aacb18708428cc7f202f2e4be2787e377b325"
+        },
+        {
+          "file": "000112.jpg",
+          "seconds": 27.686,
+          "bytes": 173832,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "6632a6d9a29c1450bfde742ed958f9e0a09137ea55caccef5d4825ee9435b50b"
+        }
+      ],
+      "chapterCount": 4,
+      "chapters": [
+        {
+          "zh": "\u7f16\u8f91\u56fe\u7247\u7ec4\uff0c\u62d6\u52a8\u56fe\u7247\u6539\u53d8\u987a\u5e8f",
+          "seconds": 1.671,
+          "en": "Edit a gallery and drag pictures to reorder them",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u5220\u9664\u9009\u4e2d\u7684\u56fe\u7247\uff0c\u786e\u8ba4\u540e\u4ece\u5f53\u524d\u8349\u7a3f\u79fb\u9664",
+          "seconds": 9.102,
+          "en": "Remove a selected picture after confirmation",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u64a4\u9500\u548c\u91cd\u505a\u53ef\u6062\u590d\u56fe\u7247\uff0c\u4fdd\u5b58\u524d\u90fd\u80fd\u7ee7\u7eed\u8c03\u6574",
+          "seconds": 12.264,
+          "en": "Undo and redo restore pictures while you continue editing",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u4fdd\u5b58\u6392\u5e8f\u7ed3\u679c\uff0c\u5173\u95ed\u540e\u66f4\u65b0\u7d20\u6750\u9884\u89c8",
+          "seconds": 17.442,
+          "en": "Save the reordered gallery and refresh its preview",
+          "targetSeconds": 6
+        }
+      ],
+      "plannedSeconds": 29,
+      "recordingMtimeNs": 1790790210901908700,
+      "video": "docs/media/material-tutorials/M09.mp4",
+      "seconds": 29.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 692418,
+      "sha256": "4fd690ce3b15d517a663baf9d18fdcfaaadbb21d803a31b9f7162444e0f28360",
+      "decodedFrames": 698,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-011.jpg",
+      "encodedSamplesSeconds": [
+        4.362,
+        14.54,
+        26.172
+      ]
+    },
+    {
+      "case": "W01",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/W01/recording.json",
+      "recordingSha256": "361f0e8509c99fd16867e64e7f0229d7649ed6dde590a5888f3dc78e25cf8b86",
+      "rawDurationSeconds": 21.355,
+      "frameCount": 92,
+      "frameTimelineSha256": "47a875c576ead014ec634637fb9365684edde23eab5353beea789fdc9a0fb49a",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.501,
+          "bytes": 161994,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "598a13cf807f91ae1b45c459139f60fbc7f895687e76f2deb88e243d3141fc19"
+        },
+        {
+          "file": "000046.jpg",
+          "seconds": 11.072,
+          "bytes": 142170,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "16d584b293d3d189cdb2107fb4d1f14ce3c9d64837026e9ad5628937e703c172"
+        },
+        {
+          "file": "000091.jpg",
+          "seconds": 21.134,
+          "bytes": 176312,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "78497bc065dd77ea3b4f19c6d342fb1fecd2f0f6716f09c40b0bb626ac87f2dc"
+        }
+      ],
+      "chapterCount": 4,
+      "chapters": [
+        {
+          "zh": "\u4ece\u9879\u76ee\u83dc\u5355\u590d\u5236\u5b8c\u6574\u62cd\u6444\u65b9\u6848",
+          "seconds": 1.71,
+          "en": "Copy the complete shooting plan from its project menu",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u9009\u62e9\u526f\u672c\u7684\u7236\u76ee\u5f55\u548c\u65b0\u540d\u79f0",
+          "seconds": 4.582,
+          "en": "Choose the parent directory and a new project name",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u4fdd\u5b58\u539f\u9879\u76ee\uff0c\u590d\u5236\u672c\u5730\u6587\u4ef6\uff0c\u7136\u540e\u81ea\u52a8\u6253\u5f00\u526f\u672c",
+          "seconds": 5.844,
+          "en": "Save the source, copy local files and open the new project",
+          "targetSeconds": 8
+        },
+        {
+          "zh": "\u539f\u9879\u76ee\u4fdd\u6301\u6253\u5f00\uff0c\u526f\u672c\u53ef\u4ee5\u72ec\u7acb\u7f16\u8f91",
+          "seconds": 11.172,
+          "en": "The original stays open while you edit the independent copy",
+          "targetSeconds": 8
+        }
+      ],
+      "plannedSeconds": 30,
+      "recordingMtimeNs": 1790791121282209400,
+      "video": "docs/media/material-tutorials/W01.mp4",
+      "seconds": 30.17,
+      "width": 1280,
+      "height": 900,
+      "bytes": 444407,
+      "sha256": "778478ee6ea8afe4c84c7d4635a414ffbe531039d34c39c282c189d910260076",
+      "decodedFrames": 724,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-011.jpg",
+      "encodedSamplesSeconds": [
+        4.526,
+        15.085,
+        27.153
+      ]
+    },
+    {
+      "case": "W02",
+      "recordedVersion": "0.0.24",
+      "recordedExeVersion": "0.0.24",
+      "environment": "native-windows-exe",
+      "environmentDetail": "Windows UI Automation / PrintWindow; EXE version from recorder",
+      "versionSource": "recording.json:version",
+      "recording": ".preshot-build-cache/material-tutorials-0.0.24/W02/recording.json",
+      "recordingSha256": "9e01a228d15a2066bd0bb5f2db8098863f34a820e719d9ee2604def64c384cab",
+      "rawDurationSeconds": 17.445,
+      "frameCount": 75,
+      "frameTimelineSha256": "852f40b046dc2fd6e155533e6e36d723ad088b9404390e66944d66fd3d36f6aa",
+      "representativeRawFrames": [
+        {
+          "file": "000000.jpg",
+          "seconds": 0.499,
+          "bytes": 176384,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "de69fd9961eb2f73e0df007f46cfb6ede7aecda667aea67771346e7b85be615e"
+        },
+        {
+          "file": "000037.jpg",
+          "seconds": 9.05,
+          "bytes": 184933,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "d9df85084e0e34d31f5d7fd4cd4a377755d08073a536cefe7d25a45f6b2c24dc"
+        },
+        {
+          "file": "000074.jpg",
+          "seconds": 17.205,
+          "bytes": 177361,
+          "width": 1600,
+          "height": 1060,
+          "sha256": "f969ac2ee776fedc520b9a7d16d0e9f6a1d6b7bfc06aa6bce9faf60b24aa6e65"
+        }
+      ],
+      "chapterCount": 3,
+      "chapters": [
+        {
+          "zh": "\u5728\u8bbe\u7f6e\u4e2d\u5207\u6362\u754c\u9762\u8bed\u8a00",
+          "seconds": 1.687,
+          "en": "Switch the interface language in Settings",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u5207\u6362\u6df1\u8272\u4e3b\u9898\uff0c\u9879\u76ee\u5185\u5bb9\u4fdd\u6301\u539f\u6837",
+          "seconds": 5.261,
+          "en": "Use dark mode while keeping your document content unchanged",
+          "targetSeconds": 7
+        },
+        {
+          "zh": "\u8bed\u8a00\u4e0e\u4e3b\u9898\u968f\u65f6\u53ef\u4ee5\u6062\u590d",
+          "seconds": 9.816,
+          "en": "Change language and theme whenever needed",
+          "targetSeconds": 7
+        }
+      ],
+      "plannedSeconds": 21,
+      "recordingMtimeNs": 1790791213084838900,
+      "video": "docs/media/material-tutorials/W02.mp4",
+      "seconds": 21.08,
+      "width": 1280,
+      "height": 900,
+      "bytes": 611837,
+      "sha256": "0e3df5ae9207fa848418101b0fe41d4ded8aba0cd3816d37fb1a06229e43c3c6",
+      "decodedFrames": 506,
+      "fullDecode": "passed",
+      "sourceFreshness": "video mtime is not older than recording.json",
+      "contactSheet": "tutorial-contact-011.jpg",
+      "encodedSamplesSeconds": [
+        3.162,
+        10.54,
+        18.972
+      ]
+    }
+  ],
+  "contactSheets": [
+    {
+      "file": "tutorial-contact-001.jpg",
+      "sha256": "f7b671299115c40830d8af3ecb37a3fb509dac32e1a1afea2aa0b7b61c722376"
+    },
+    {
+      "file": "tutorial-contact-002.jpg",
+      "sha256": "46654f324d82b2ca77b262d03c082ca9fec6188574ef8e5f1f0e327b29dc8a33"
+    },
+    {
+      "file": "tutorial-contact-003.jpg",
+      "sha256": "98529f65b9f5928b8859ea642a9d375d24b026dda23d5e39f7d5a254887db708"
+    },
+    {
+      "file": "tutorial-contact-004.jpg",
+      "sha256": "33fe15aa2cdc0eed901b92d680ff4aef67d07c3a5e9e5c8b956c7c05b407ff18"
+    },
+    {
+      "file": "tutorial-contact-005.jpg",
+      "sha256": "fc84853380faf069a0b828132212bd99e594e6da3016854af1dfc09f7a70cd6b"
+    },
+    {
+      "file": "tutorial-contact-006.jpg",
+      "sha256": "1fcc770dffc9e6d74e0a51471ac9d2b6b98de9000906036f14d08ff03f11efdf"
+    },
+    {
+      "file": "tutorial-contact-007.jpg",
+      "sha256": "d9b2cc1e3304a01629ae462a69f95b33048d753d4316b455289e1a7cc6ac4a43"
+    },
+    {
+      "file": "tutorial-contact-008.jpg",
+      "sha256": "1140940315e9e0d8710ca6c37b7481283d20ca18746f2d77922ede8d3036cb07"
+    },
+    {
+      "file": "tutorial-contact-009.jpg",
+      "sha256": "f11e95db3828a6af24aa83426137f6629b5621e39b04b66dacea066efaad77e0"
+    },
+    {
+      "file": "tutorial-contact-010.jpg",
+      "sha256": "047cb5be38ba527f63776a160530156a4c30a16dcfc258c99396c506bef3837b"
+    },
+    {
+      "file": "tutorial-contact-011.jpg",
+      "sha256": "b8370e739149b8c2702e86609ba1695ae901cd5d83c3e926e3ea1e7d6615ed68"
+    }
+  ]
+}

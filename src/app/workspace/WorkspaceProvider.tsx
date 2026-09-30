@@ -682,7 +682,9 @@ export function WorkspaceProvider({
             onRemoveProject={requestRemoveProject}
             onCopyProject={project => { void requestCopyProject(project).catch(() => undefined); }}
             onRevealProject={(project) => {
-              void revealProjectDirectory(project);
+              void revealProjectDirectory(project).catch(() => {
+                // The guarded action already logs and displays the failure.
+              });
             }}
             onSelectProject={selectProject}
             projects={orderedProjects}

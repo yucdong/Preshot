@@ -71,17 +71,25 @@ folder to your project directory and open the copy.
 ## Walkthrough
 
 A Nanjing Yangtze River Bridge portrait session: start with a blank project,
-write the plan, reuse prepared location, model and prop materials, arrange
-columns, export and open the PDF, then create one pictured material with
-searchable notes and tags.
-Under one minute, recorded from an empty workspace in **MSI-installed 0.0.19** with bilingual captions.
-File selection is accelerated. The complete offline sample ships with the installer.
+write the plan and reuse prepared materials. Location and model cards each have
+three reference pictures; the umbrella and bubble machine share a two-column
+row. Add composition, exposure, direction and field notes, export and open the
+PDF, then create one pictured material with searchable notes and tags.
+**Recorded and verified with MSI-installed 0.0.24: about 58 seconds**, with bilingual
+captions and accelerated file selection. The video opens both pages of the
+actual exported PDF. See the [acceptance report](docs/test_reports/release-0.0.24-review.md).
+The complete offline [sample](samples/README.md) is available separately.
 
 ![Preshot walkthrough](docs/media/preshot-demo.gif)
 
 [Full video](docs/media/preshot-demo.mp4) · [Sample PDF](docs/media/preshot-demo.pdf) · [Demo and photo credits](docs/demo/README.md) · [Installer](https://github.com/yucdong/Preshot/releases)
 
-[Material library video tutorials](docs/demo/material-tutorials.md): separate clips for material types, document save actions, insertion and management. Each stays below one minute with Chinese and English captions.
+[Focused video tutorials](docs/demo/material-tutorials.md): **33 updated clips
+for 0.0.24**, covering material creation, document save actions, insertion and
+management, plus camera-photo orientation, project copying and language/theme
+settings. Each runs for less than one minute with Chinese and English captions.
+32 clips use the MSI-installed app; clipboard tutorial C18 uses an isolated
+browser test UI.
 
 ## Build from source
 

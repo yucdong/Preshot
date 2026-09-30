@@ -2,33 +2,40 @@
 
 [Documentation index](../README.md) · [Editable sample](../../samples/README.md)
 
-The current walkthrough is recorded from **MSI-installed Preshot 0.0.19** with
-the new project logo. It starts in an empty recording workspace and builds one
-new project through the application UI. The final edit stays below one minute,
-with Chinese/English captions and accelerated file selection.
+Recorded and verified with **MSI-installed Preshot 0.0.24**. The 57.6-second
+walkthrough starts in an empty recording workspace and builds one project
+through the application UI, with Chinese/English captions and accelerated file
+selection. The actual two-page PDF is exported and opened in the reader.
+See the [release review](../test_reports/release-0.0.24-review.md) for validation.
 
-Location, fictional Model A, transparent umbrella, bubble machine, image-group
-and single-image materials are prepared before recording. The video writes a
-concept and schedule, drags text blocks into two columns, reuses pictured
-materials, adds a checklist, customizes prop names, exports the new document and
-opens both PDF pages in Edge. The final chapter creates one additional pictured
-material, including its description and search keywords, saves it and previews
-its committed content.
+Location, fictional Model A, transparent umbrella, bubble machine and lighting
+reference materials are prepared before recording. The location includes three
+credited bridge photos; Model A includes three original pose illustrations.
+The walkthrough writes a complete shoot plan, inserts those materials at its
+section headings, then drags the bubble-machine card beside the umbrella into
+one two-column row. It reviews framing, exposure, direction, weather alternatives
+and field checks, exports the document and opens every PDF page in Edge. The
+final chapter creates one additional pictured material with searchable notes.
 
-The recording profile contains only this new project. The startup sample was
-removed from that profile's project list and archived outside its projects
-folder before recording. Real user projects and the real library are untouched.
-The complete bundled sample remains available separately; this short video does
-not switch to it or claim to demonstrate all 22 supported blocks.
+The recording profile must contain only this new project. Remove the startup
+sample from that profile's project list and archive it outside its projects
+folder before recording. Real user projects and the real library remain
+untouched. The complete bundled sample is available separately; this short
+workflow focuses on document authoring rather than every supported block.
 
 ## Media
 
-- [Separate material creation, insertion and management tutorials](material-tutorials.md), recorded with MSI-installed 0.0.20.
+- [33 focused tutorials for 0.0.24](material-tutorials.md), covering material
+  creation, insertion and management, camera-photo orientation, project copying
+  and settings. 32 use the installed app; C18 explicitly uses a browser
+  clipboard/persistence fixture.
 
-- [README GIF](../media/preshot-demo.gif), 880 px wide, 57.75 seconds, approximately 4.28 MB.
-- [Captioned MP4](../media/preshot-demo.mp4), 1280 × 900, 57.71 seconds, approximately 2.45 MB.
-- [Exported PDF](../media/preshot-demo.pdf), the two-page document created on camera.
-- [Current recording acceptance](../test_reports/demo-0.0.19-acceptance.md).
+- [README GIF](../media/preshot-demo.gif), 880 px wide, 231 frames, 57.75 seconds.
+- [Captioned MP4](../media/preshot-demo.mp4), 1280 × 900, 57.63 seconds.
+- [Exported PDF](../media/preshot-demo.pdf), with ten images and expanded
+  shooting notes; both exported pages are shown in the reader.
+- [0.0.24 recording and release acceptance](../test_reports/release-0.0.24-review.md).
+- [0.0.24 main recording acceptance](../test_reports/demo-rich-acceptance.md).
 - [Historical 0.0.12 recording acceptance](../test_reports/short-demo-acceptance.md).
 - [Earlier full installed acceptance and limitations](../test_reports/installed-demo-acceptance.md).
 - [Photo credits and source hashes](photos/credits.json).
@@ -40,16 +47,17 @@ playback and divider resizing are outside this condensed recording.
 
 ## Reproduce the short installed recording
 
-Use Windows, the installed 0.0.19 MSI, Edge, Python with Pillow and FFmpeg with
+Use Windows, the installed 0.0.24 MSI, Edge, Python with Pillow and FFmpeg with
 libass/libx264. Always use an isolated recording profile, never a real profile.
-Prepare the six pictured materials first. A copy of the earlier isolated demo
-library can be used: take a read-only SQLite backup and copy its assets before
-the destination app starts. The launcher defaults to
+Prepare the five pictured materials first, by saving the location, model, two
+props and gallery from an isolated copy of the revised bundled sample through
+the application's component menus. This preserves their three-picture galleries
+and independent originals. The launcher defaults to
 `%ProgramFiles%\Preshot\preshot.exe`; set `PRESHOT_DEMO_EXECUTABLE` for a custom
 installation directory.
 
 ```powershell
-$demoWork = '.preshot-build-cache/demo-0.0.19'
+$demoWork = '.preshot-build-cache/demo-rich-0.0.24'
 node scripts/launch-installed-demo.mjs $demoWork
 $demoProcess = [int](Get-Content "$demoWork/app-pid.txt")
 powershell -NoProfile -File scripts/demo-desktop.ps1 -Action position -AppId $demoProcess
@@ -76,17 +84,17 @@ Pass that reader's native window handle; its address and page numbers are checke
 Then return to the installed app for the closing material-creation chapter.
 
 ```powershell
-powershell -NoProfile -File scripts/record-installed-demo-pdf.ps1 -WindowHandle <reader-window-handle> -Work $demoWork -Pages 2
+powershell -NoProfile -File scripts/record-installed-demo-pdf.ps1 -WindowHandle <reader-window-handle> -Work $demoWork -Pages <actual-page-count> -TotalSeconds 8
 powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase material -Work $demoWork
 python scripts/render-installed-demo.py --short --ffmpeg <path-to-ffmpeg.exe> --work $demoWork
+python scripts/verify-rich-demo.py --ffmpeg <path-to-ffmpeg.exe> --work $demoWork
 ```
 
 The Windows helpers operate UI controls, native file dialogs and `PrintWindow`.
 They are calibrated to a 1600 × 1060 app window and English Windows dialogs.
-Midscene desktop connection, screenshot and mouse health checks passed for this
-recording. The deterministic UI Automation helpers drive the recorded workflow.
-No browser adapters,
-application IPC injection or live clipboard operations are used.
+Per-window `PrintWindow` capture and Windows UI Automation drive this recording.
+No browser adapters, application IPC injection or live clipboard operations are
+used. The visible desktop must remain available throughout recording.
 
 The renderer rejects failed phases, assigns explicit chapter durations, crops
 OS/browser chrome and rejects a short timeline of 60 seconds or more. Inspect
@@ -103,7 +111,8 @@ complete offline template; it does not generate the document shown in this video
 | --- | --- | --- | --- |
 | Daylight bridge | Jack No1 | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Nanjing_Yangtze_River_Bridge.jpg) |
 | Night bridge, Pukou | Vasily Astanin | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Nanjing_Yangtze_River_Bridge_Night_Pukou.jpg) |
-| Model A, umbrella, bubble machine | Preshot contributors | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | [Original SVG illustrations](illustrations) |
+| Bridge panorama | Saigyouji-Noriko | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | [Source and hash](photos/credits.json) |
+| Model A (three poses), umbrella, bubble machine | Preshot contributors | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | [Original SVG illustrations](illustrations) |
 
 Photos were resized/recompressed and display frames may be cropped in Preshot.
 Their original licenses apply. The sample plan, video/GIF and captions use

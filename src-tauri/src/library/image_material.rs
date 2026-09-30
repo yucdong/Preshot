@@ -19,6 +19,7 @@ pub(super) fn insertion_path(project: &Path, file: &str, exists: bool) -> Result
 pub(super) fn insertion_bytes(bytes: &[u8], image: &Value) -> Result<Vec<u8>> {
     let mut visual = image.clone();
     visual.as_object_mut().unwrap().remove("localImageId");
+    visual.as_object_mut().unwrap().remove("presentationAxes");
     let presentation = serde_json::from_value(visual).map_err(|e| error("image_presentation", e))?;
     crate::image_clipboard::render_encoded_image(bytes, &presentation, files::MAX_IMAGE_BYTES)
         .map_err(|e| error("image_render", e))
@@ -136,7 +137,7 @@ fn native_snapshot(
         "sourceWidth",
         "sourceHeight",
         "frameWidth",
-        "frameHeight", "fitMode", "crop",
+        "frameHeight", "fitMode", "crop", "presentationAxes",
     ];
     if image
         .as_object()
@@ -150,6 +151,9 @@ fn native_snapshot(
         ));
     }
     let width = image["sourceWidth"].as_f64().unwrap_or(0.0);
+    if crate::original_image::presentation_axes(image)? != crate::original_image::presentation_axes(props)? {
+        return Err(error("source", "Native image presentation axes differ"));
+    }
     let height = image["sourceHeight"].as_f64().unwrap_or(0.0);
     let ratio = width / height;
     let frame = props["previewWidth"]

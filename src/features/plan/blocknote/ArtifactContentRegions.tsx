@@ -36,28 +36,46 @@ export function ArtifactContentRegions({ artifact, children, update }: {
     }
   };
   const drag = (event: React.PointerEvent) => {
+    if (event.button !== 0 || root.current?.closest("[inert]")) return;
+    cleanup.current?.();
+    const bounds = root.current?.getBoundingClientRect();
+    if (!bounds || (horizontal ? bounds.width : bounds.height) <= 0) return;
     event.preventDefault(); event.stopPropagation();
-    const bounds = root.current!.getBoundingClientRect();
+    const pointerId = event.pointerId;
+    let active = true;
     let next = stored;
+    const isCurrent = () => Boolean(root.current?.isConnected && !root.current.closest("[inert]") &&
+      currentArtifact.current === artifact);
     const finish = (save: boolean) => {
+      if (!active) return;
+      active = false;
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", end);
-      document.removeEventListener("pointercancel", cancel);
-      document.removeEventListener("keydown", key);
+      document.removeEventListener("pointercancel", pointerCancel);
+      document.removeEventListener("keydown", key, true);
+      window.removeEventListener("blur", cancel);
       cleanup.current = null; setPreview(null);
-      if (save && currentArtifact.current === artifact) commit(next);
+      if (save && isCurrent() && next.textShare !== stored.textShare) commit(next);
     };
     const move = (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) return;
+      if (!isCurrent()) { cancel(); return; }
       const fraction = horizontal ? (e.clientX - bounds.left) / bounds.width : (e.clientY - bounds.top) / bounds.height;
       next = { ...stored, textShare: Math.max(0.1, Math.min(0.9, layout.textFirst ? fraction : 1 - fraction)) };
       setPreview(next);
     };
-    const end = () => finish(true);
+    const end = (e: PointerEvent) => { if (e.pointerId === pointerId) { move(e); finish(true); } };
     const cancel = () => finish(false);
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); cancel(); } };
+    const pointerCancel = (e: PointerEvent) => { if (e.pointerId === pointerId) cancel(); };
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (isCurrent()) { e.preventDefault(); e.stopPropagation(); }
+      cancel();
+    };
     cleanup.current = cancel;
     document.addEventListener("pointermove", move); document.addEventListener("pointerup", end);
-    document.addEventListener("pointercancel", cancel); document.addEventListener("keydown", key);
+    document.addEventListener("pointercancel", pointerCancel); document.addEventListener("keydown", key, true);
+    window.addEventListener("blur", cancel);
   };
   const style: CSSProperties = horizontal ? {
     display: "grid", gridTemplateColumns: `minmax(0, ${firstShare}fr) 8px minmax(0, ${1 - firstShare}fr)`, gap: 6,
@@ -96,7 +114,8 @@ export function ArtifactContentRegions({ artifact, children, update }: {
         onKeyDown={e => {
           if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
           e.preventDefault(); e.stopPropagation();
-          commit({ ...stored, textShare: Math.max(0.1, Math.min(0.9, layout.textShare + (e.key === "ArrowLeft" || e.key === "ArrowUp" ? -0.05 : 0.05))) });
+          const direction = e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 1;
+          commit({ ...stored, textShare: Math.max(0.1, Math.min(0.9, layout.textShare + direction * (layout.textFirst ? 0.05 : -0.05))) });
         }} /> : <div aria-hidden />}
       <div style={{ minWidth: 0, minHeight: horizontal ? layout.minHeight : layout.minHeight * (1 - firstShare) }}>{parts[layout.textFirst ? 1 : 0]}</div>
     </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { validateBlockDocument } from "../../../domain/plan/canvas/blockDocument";
+import { validateBlockDocument, type PreshotBlockDocument } from "../../../domain/plan/canvas/blockDocument";
 import { resolveBlockNoteDocumentAssets, serializeBlockNoteDocumentAssets } from "./blockNoteDocumentAssets";
 
 const renderedUrl = "data:image/png;base64,aWRlbnRpY2FsLWJ5dGVz";
@@ -9,6 +9,17 @@ function media(id: string, url: string, type = "image") {
 }
 
 describe("BlockNote document asset serialization", () => {
+  it("resolves raw and EXIF presentations of one native original independently", () => {
+    const portable: PreshotBlockDocument = { format: "preshot-blocks", version: 5, blocks: [
+      { ...media("raw", "media/photo.jpg"), type: "image", content: undefined },
+      { ...media("oriented", "media/photo.jpg"), type: "image", props: { ...media("oriented", "media/photo.jpg").props, presentationAxes: "exif" }, content: undefined },
+    ] };
+    const sources: Record<string, string> = { "media/photo.jpg": "raw-data", "media/photo.jpg#preshot-exif": "exif-data" };
+    const rendered = resolveBlockNoteDocumentAssets(portable, url => sources[url]);
+    expect(rendered).toMatchObject([{ props: { url: "raw-data" } }, { props: { url: "exif-data" } }]);
+    expect(portable.blocks.map(block => block.props.url)).toEqual(["media/photo.jpg", "media/photo.jpg"]);
+  });
+
   it("keeps independent media paths when two blocks resolve to identical bytes", () => {
     const portable = validateBlockDocument({
       format: "preshot-blocks", version: 4,

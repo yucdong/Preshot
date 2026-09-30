@@ -4,6 +4,7 @@ import type {
   PreshotBlock,
   ProjectPlanV15,
 } from "../plan/canvas/blockDocument";
+import { promoteImagePresentationPlan } from "../plan/canvas/blockDocument";
 import { DEFAULT_REFERENCE_HEIGHT, type ReferenceComponent } from "../plan/canvas/models";
 import type {
   MaterialImageSource,
@@ -138,13 +139,13 @@ export function buildMaterialInstance(
 }
 
 export function instancePlan(instance: MaterialInstance): ProjectPlanV15 {
-  return {
+  return promoteImagePresentationPlan({
     schemaVersion: 17,
     title: "Material validation",
     document: { format: "preshot-blocks", version: 5, blocks: [instance.block] },
     imageGroups: instance.imageGroup ? [instance.imageGroup] : [],
     artifacts: instance.artifact ? [instance.artifact] : [],
-  };
+  });
 }
 
 export function sourceMap(sources: readonly MaterialImageSource[]): Map<string, string> {
