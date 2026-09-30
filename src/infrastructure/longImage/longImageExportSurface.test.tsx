@@ -7,11 +7,11 @@ import {
 } from "./longImageExportSurface";
 
 const plan: ProjectPlanV14 = {
-  schemaVersion: 16,
+  schemaVersion: 17,
   title: "Mount test",
   document: {
     format: "preshot-blocks",
-    version: 4,
+    version: 5,
     blocks: [{
       id: "paragraph",
       type: "paragraph",

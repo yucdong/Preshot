@@ -6,6 +6,8 @@ export interface ExternalImageHistoryEntry {
 }
 
 export interface MaterialEditorBridge {
+  setEditable?(editable: boolean): void;
+  flushDocument?(): void;
   getAnchor(): string | null;
   applyDocument(document: PreshotBlockDocument): void;
   focusBlock(blockId: string): void;

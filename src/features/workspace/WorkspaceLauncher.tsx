@@ -22,6 +22,7 @@ export interface WorkspaceLauncherProps {
   onOpenExisting(): Promise<void> | void;
   onRelocate(project: WorkspaceProjectView): Promise<void> | void;
   onRemove(project: WorkspaceProjectView): Promise<void> | void;
+  onCopy?(project: WorkspaceProjectView): Promise<void> | void;
 }
 
 const actionButtonClassName =
@@ -41,6 +42,7 @@ export function WorkspaceLauncher({
   onOpenExisting,
   onRelocate,
   onRemove,
+  onCopy,
 }: WorkspaceLauncherProps) {
   useUiLanguage();
   const { t } = useTranslation();
@@ -148,6 +150,7 @@ export function WorkspaceLauncher({
               onRemove={(project) =>
                 runAction(`remove:${project.projectId}`, () => onRemove(project))
               }
+              onCopy={onCopy ? project => runAction(`copy:${project.projectId}`, () => onCopy(project)) : undefined}
               projects={projects}
             />
           ) : (

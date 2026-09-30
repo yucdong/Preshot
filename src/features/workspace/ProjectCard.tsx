@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { ui } from "../../shared/i18n/ui";
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 
 interface ProjectCardProps {
@@ -7,6 +8,7 @@ interface ProjectCardProps {
   onOpen(project: WorkspaceProjectView): Promise<void> | void;
   onRelocate(project: WorkspaceProjectView): Promise<void> | void;
   onRemove(project: WorkspaceProjectView): Promise<void> | void;
+  onCopy?(project: WorkspaceProjectView): Promise<void> | void;
   primaryActionRef?: (element: HTMLButtonElement | null) => void;
 }
 
@@ -57,6 +59,7 @@ export function ProjectCard({
   onOpen,
   onRelocate,
   onRemove,
+  onCopy,
   primaryActionRef,
 }: ProjectCardProps) {
   const { t } = useTranslation();
@@ -90,6 +93,8 @@ export function ProjectCard({
           <ProjectArt project={project} />
           <div className="absolute inset-0 transition group-hover:bg-white/4 dark:group-hover:bg-white/4">{details}</div>
         </button>
+        {onCopy && <button type="button" disabled={disabled} className={actionButtonClassName + " absolute right-3 top-3 bg-app-panel"}
+          aria-label={ui("复制项目 {{v0}}", { v0: project.name })} onClick={() => onCopy(project)}>{ui("复制项目")}</button>}
       </article>
     );
   }

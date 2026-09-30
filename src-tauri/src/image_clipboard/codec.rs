@@ -283,7 +283,10 @@ fn view_crop(p: &Presentation) -> Crop {
     }
 }
 
-pub(super) fn render_encoded(bytes: &[u8], p: &Presentation) -> Result<Vec<u8>, CommandError> {
+pub(super) fn render_encoded(bytes: &[u8], p: &Presentation, maximum_bytes: usize) -> Result<Vec<u8>, CommandError> {
+    if bytes.is_empty() || bytes.len() > maximum_bytes || maximum_bytes > 64 * MIB {
+        return Err(invalid());
+    }
     let crop = view_crop(p);
     // Preserve original JPEG/PNG bytes when the native block can display them directly.
     if crop.x == 0.0 && crop.y == 0.0 && crop.width == 1.0 && crop.height == 1.0
@@ -293,13 +296,31 @@ pub(super) fn render_encoded(bytes: &[u8], p: &Presentation) -> Result<Vec<u8>, 
     }
     let format = image::guess_format(bytes).map_err(|_| invalid())?;
     if !matches!(format, ImageFormat::Jpeg | ImageFormat::Png) { return Err(invalid()); }
-    let (source, _) = decode(bytes, format, 0, 0)?;
-    encode_png(&render(source, Some(p))?)
+    // Owned material files have their own encoded-byte budget. Clipboard IPC
+    // continues to use the isolated decoder and its smaller MAX_ENCODED cap.
+    // Material originals have no fixed resolution cap. Keep clipboard-specific
+    // dimensions and allocation budgets in the separate clipboard decode path.
+    let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
+    reader.no_limits();
+    let mut decoder = reader.into_decoder().map_err(|_| invalid())?;
+    let orientation = decoder.orientation().map_err(|_| invalid())?;
+    let mut decoded = DynamicImage::from_decoder(decoder).map_err(|_| invalid())?;
+    decoded.apply_orientation(orientation);
+    let source = decoded.into_rgba8();
+    encode_png_with_limit(&render_pixels(source, Some(p), false)?, maximum_bytes)
 }
 
 pub(super) fn render(
     source: RgbaImage,
     presentation: Option<&Presentation>,
+) -> Result<RgbaImage, CommandError> {
+    render_pixels(source, presentation, true)
+}
+
+fn render_pixels(
+    source: RgbaImage,
+    presentation: Option<&Presentation>,
+    clipboard_limits: bool,
 ) -> Result<RgbaImage, CommandError> {
     let Some(p) = presentation else {
         return Ok(source);
@@ -313,8 +334,14 @@ pub(super) fn render(
     let scale = (sw / p.frame_width).min(sh / p.frame_height);
     let width = (p.frame_width * scale + 1e-9).floor() as u32;
     let height = (p.frame_height * scale + 1e-9).floor() as u32;
-    check_dimensions(width, height)?;
-    let mut result = RgbaImage::new(width, height);
+    if clipboard_limits { check_dimensions(width, height)?; }
+    if width == 0 || height == 0 { return Err(invalid()); }
+    let length = (width as usize).checked_mul(height as usize)
+        .and_then(|pixels| pixels.checked_mul(4)).ok_or_else(invalid)?;
+    let mut pixels = Vec::new();
+    pixels.try_reserve_exact(length).map_err(|_| invalid())?;
+    pixels.resize(length, 0);
+    let mut result = RgbaImage::from_raw(width, height, pixels).ok_or_else(invalid)?;
     // Bilinear sampling in premultiplied alpha avoids dark transparent-edge halos.
     for (x, y, target) in result.enumerate_pixels_mut() {
         let px = (sx + (x as f64 + 0.5) * sw / width as f64 - 0.5)
@@ -365,11 +392,11 @@ pub(super) fn render(
     Ok(result)
 }
 
-struct BoundedPng(Vec<u8>);
+struct BoundedPng(Vec<u8>, usize);
 impl Write for BoundedPng {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        if self.0.len().saturating_add(bytes.len()) > MAX_ENCODED {
-            return Err(std::io::Error::other("clipboard PNG exceeds 16 MiB"));
+        if self.0.len().saturating_add(bytes.len()) > self.1 {
+            return Err(std::io::Error::other("PNG exceeds its encoded-byte limit"));
         }
         self.0.extend_from_slice(bytes);
         Ok(bytes.len())
@@ -380,7 +407,11 @@ impl Write for BoundedPng {
 }
 
 pub(super) fn encode_png(image: &RgbaImage) -> Result<Vec<u8>, CommandError> {
-    let mut output = BoundedPng(Vec::new());
+    encode_png_with_limit(image, MAX_ENCODED)
+}
+
+fn encode_png_with_limit(image: &RgbaImage, maximum_bytes: usize) -> Result<Vec<u8>, CommandError> {
+    let mut output = BoundedPng(Vec::new(), maximum_bytes);
     {
         let mut encoder = png::Encoder::new(&mut output, image.width(), image.height());
         encoder.set_color(png::ColorType::Rgba);

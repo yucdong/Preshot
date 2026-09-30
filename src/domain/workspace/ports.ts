@@ -1,3 +1,4 @@
+import type { NativeProjectCopy, WorkspaceProjectCopy } from "./projectCopy";
 import type {
   CreatedProject,
   InspectedProject,
@@ -15,7 +16,7 @@ export interface WorkspaceRegistry {
   save(metadata: WorkspaceMetadata): Promise<void>;
 }
 
-export interface NativeWorkspace {
+export interface NativeWorkspace extends Partial<NativeProjectCopy> {
   ensureUserDataRoots(): Promise<UserDataRoots>;
 
   bootstrapUserData(
@@ -25,6 +26,8 @@ export interface NativeWorkspace {
   createProject(parentPath: string, name: string): Promise<CreatedProject>;
 
   inspectProject(path: string): Promise<InspectedProject>;
+
+  deleteProject(path: string, projectId: string): Promise<void>;
 
   rollbackCreatedProject(rollbackToken: string): Promise<void>;
 
@@ -68,7 +71,7 @@ export interface WorkspaceLogger {
 
 export type WorkspaceMenuAction = "new-project" | "open-project";
 
-export interface WorkspaceService {
+export interface WorkspaceService extends Partial<WorkspaceProjectCopy> {
   loadProjects(): Promise<WorkspaceProjectView[]>;
 
   createProject(
@@ -84,4 +87,6 @@ export interface WorkspaceService {
   ): Promise<WorkspaceProjectView>;
 
   removeRecord(projectId: string): Promise<WorkspaceProjectView[]>;
+
+  deleteProject(project: RegisteredProjectIdentity): Promise<WorkspaceProjectView[]>;
 }

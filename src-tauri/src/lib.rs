@@ -7,12 +7,16 @@ mod image_clipboard;
 mod image_paste;
 mod long_image;
 mod library;
+mod original_image;
+mod media_import;
 mod menu;
 mod pdf;
 mod plan;
 mod reveal;
 mod screenshot;
 mod settings;
+mod installer_launch;
+mod storage;
 mod workspace;
 
 #[derive(Debug, PartialEq, serde::Serialize)]
@@ -33,9 +37,11 @@ fn platform_info() -> PlatformInfo {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if original_image::run_worker_if_requested() { return; }
     if image_clipboard::run_codec_worker_if_requested() {
         return;
     }
+    if installer_launch::handle_request() { return; }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -49,10 +55,24 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             platform_info,
+            storage::storage_status,
+            storage::storage_configure,
+            storage::storage_move,
+            storage::storage_cancel_move,
+            storage::storage_reveal,
+            storage::read_workspace_registry,
+            storage::write_workspace_registry,
             workspace::ensure_user_data_roots,
             workspace::bootstrap_user_data,
             workspace::create_project,
+            workspace::copy::copy_project,
+            workspace::copy::project_copy_status,
+            workspace::copy::cancel_project_copy,
+            workspace::copy::pending_project_copies,
+            workspace::copy::acknowledge_project_copy,
+            workspace::copy::suggest_project_copy,
             workspace::inspect_project,
+            workspace::delete_project,
             workspace::default_projects_dir,
             workspace::rollback_created_project,
             workspace::forget_created_project,
@@ -65,8 +85,15 @@ pub fn run() {
             plan::commit_reference_image_crop,
             plan::rollback_reference_image_crop,
             plan::load_reference_image,
+            plan::project_image_dimensions,
+            plan::project_image_display,
             plan::remove_reference_image,
             plan::import_plan_media,
+            original_image::cancel_image_display,
+            media_import::begin_image_import,
+            media_import::append_image_import,
+            media_import::finish_image_import,
+            media_import::abort_image_import,
             plan::load_plan_media,
             plan::remove_plan_media,
             image_clipboard::image_clipboard_write,
@@ -83,6 +110,7 @@ pub fn run() {
             library::library_begin_create,
             library::library_load_edit_image,
             library::library_import_edit_images,
+            library::library_import_library_images,
             library::library_import_edit_image_data,
             library::library_crop_edit_image,
             library::library_commit_edit,
@@ -91,6 +119,11 @@ pub fn run() {
             library::library_set_deleted,
             library::library_purge,
             library::library_load_image,
+            library::library_image_display,
+            library::library_reveal_image,
+            library::library_reveal_image_group,
+            library::library_reveal_edit_image_group,
+            library::library_reveal_edit_image,
             library::library_load_preview,
             library::library_save_preview,
             library::library_mark_preview_failed,

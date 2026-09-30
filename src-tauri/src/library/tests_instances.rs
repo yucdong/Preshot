@@ -237,12 +237,9 @@ fn library_instances_encoded_jpeg_import_preserves_original_bytes_without_recomp
             },
         )
         .unwrap();
-    assert_eq!(
-        STANDARD
-            .decode(image.data_url.split(',').nth(1).unwrap())
-            .unwrap(),
-        bytes
-    );
+    assert!(image.data_url.starts_with("data:image/png;base64,"));
+    let preview = STANDARD.decode(image.data_url.split(',').nth(1).unwrap()).unwrap();
+    assert_eq!(files::image_info(&preview, false).unwrap(), ("image/png", 5, 4));
     let mut request = update(&session);
     append(&mut request, &image);
     let saved = store.commit_edit(request).unwrap();
@@ -740,7 +737,7 @@ fn library_instances_v4_migration_preserves_exact_old_receipts_trash_and_interru
             .conn
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        6
+        10
     );
     let migrated_json: String = store
         .conn
@@ -772,7 +769,7 @@ fn library_instances_rejects_newer_database_without_downgrading_or_rebuilding() 
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
     let saved = store.save(fixture.save_request()).unwrap();
-    store.conn.pragma_update(None, "user_version", 7).unwrap();
+    store.conn.pragma_update(None, "user_version", 11).unwrap();
     drop(store);
     let failure = Store::open(&fixture.home).err().unwrap();
     assert_eq!(failure.code, "library_database_version");
@@ -782,7 +779,7 @@ fn library_instances_rejects_newer_database_without_downgrading_or_rebuilding() 
         connection
             .pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        7
+        11
     );
     let json: String = connection
         .query_row(

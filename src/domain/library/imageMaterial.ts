@@ -1,3 +1,4 @@
+import { nativeImagePresentation } from "../plan/canvas/nativeImagePresentation";
 import { artifactCollectionsInPlan, type ProjectPlanV15, type PreshotBlock } from "../plan/canvas/blockDocument";
 import type { ReferenceImage } from "../plan/canvas/models";
 import type { MaterialSnapshot } from "./models";
@@ -34,11 +35,7 @@ export function createImageMaterialSnapshot(
     if (!Number.isInteger(sourceWidth) || !Number.isInteger(sourceHeight) || sourceWidth <= 0 || sourceHeight <= 0) {
       throw new Error("无法读取图片尺寸，请重新加载图片。");
     }
-    const aspectRatio = sourceWidth / sourceHeight;
-    const previewWidth = block.props.previewWidth;
-    const frameWidth = typeof previewWidth === "number" && previewWidth > 0 ? previewWidth : Math.min(sourceWidth, 1008);
-    image = { id: blockId, file, aspectRatio, sourceWidth, sourceHeight, frameWidth,
-      frameHeight: frameWidth / aspectRatio,
+    image = { ...nativeImagePresentation(block.props, sourceWidth, sourceHeight), id: blockId, file,
       caption: typeof block.props.caption === "string" ? block.props.caption : "" };
     name = typeof block.props.name === "string" && block.props.name ? block.props.name : "图片";
   } else {
@@ -55,7 +52,7 @@ export function createImageMaterialSnapshot(
   const localImageId = "material-image-1";
   return {
     sourceBlockId: blockId,
-    payload: validateMaterialPayload({ format: "preshot-material", version: 1, kind: "image",
+    payload: validateMaterialPayload({ format: "preshot-material", version: 2, kind: "image",
       component: { kind: "image", name, description: "", images: [{ ...visual, localImageId }] } }),
     sources: [{ localImageId, file }], omittedLegacyImages: 0,
   };

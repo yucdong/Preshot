@@ -1,3 +1,4 @@
+import { prepareNativeImageExport } from "../plan/prepareNativeImageExport";
 import {
   LONG_IMAGE_PRESETS,
   LongImageContractError,
@@ -464,7 +465,8 @@ export class BlockNoteLongImageExporter {
     }
     const width = request.options?.width ?? preset.width;
     const allowSplit = request.options?.allowSplit ?? false;
-    const assets = Object.freeze({ ...request.resolvedAssets });
+    const assets = { ...request.resolvedAssets };
+    await prepareNativeImageExport(plan, assets, request.signal);
 
     try {
       report(request.onProgress, "assets");

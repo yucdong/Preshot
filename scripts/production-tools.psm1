@@ -2,10 +2,11 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $script:ReleaseTarget = "x86_64-pc-windows-msvc"
-$script:PerUserUpgradeCode = "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6"
+$script:MachineUpgradeCode = "C91F6BC2-1F30-4D43-B878-3D09737227F2"
+$script:HistoricalPerUserUpgradeCode = "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6"
 $script:HistoricalPerMachineUpgradeCode = "97EE9B44-6313-52EB-A67E-A1334832EB86"
 $script:HistoricalPerMachineVersion = "0.0.1"
-$script:FirstPerUserPublishVersion = "0.0.2"
+$script:FirstMachinePublishVersion = "0.0.14"
 $script:LegacyMachineDetectionProperty = "LEGACY_MACHINE_PRESHOT_FOUND"
 
 function Write-Utf8File {
@@ -170,11 +171,11 @@ function Get-ReleaseConfiguration {
     }
 
     $upgradeCode = ([string]$tauri.bundle.windows.wix.upgradeCode).Trim().ToUpperInvariant()
-    if ($upgradeCode -ne $script:PerUserUpgradeCode) {
-        throw "src-tauri\tauri.conf.json must use the fixed per-user UpgradeCode '$script:PerUserUpgradeCode'."
+    if ($upgradeCode -ne $script:MachineUpgradeCode) {
+        throw "src-tauri\tauri.conf.json must use the fixed machine-wide UpgradeCode '$script:MachineUpgradeCode'."
     }
     if ($upgradeCode -eq $script:HistoricalPerMachineUpgradeCode) {
-        throw "The per-user MSI must not reuse the historical per-machine UpgradeCode."
+        throw "The machine-wide MSI must not reuse the historical per-machine UpgradeCode."
     }
 
     $releaseDirectory = Join-Path $root "src-tauri\target\$script:ReleaseTarget\release"
@@ -199,7 +200,7 @@ function Get-ReleaseConfiguration {
         UpgradeCode = $upgradeCode
         HistoricalPerMachineUpgradeCode = $script:HistoricalPerMachineUpgradeCode
         HistoricalPerMachineVersion = $script:HistoricalPerMachineVersion
-        FirstPerUserPublishVersion = $script:FirstPerUserPublishVersion
+        FirstMachinePublishVersion = $script:FirstMachinePublishVersion
         LegacyMachineDetectionProperty = $script:LegacyMachineDetectionProperty
         TauriConfig = $tauri
     }
@@ -212,7 +213,7 @@ function Get-ReleasePublicationState {
     )
 
     $blockers = @()
-    if (-not (Test-ReleaseVersionAtLeast -Version $Configuration.Version -Minimum $Configuration.FirstPerUserPublishVersion)) {
+    if (-not (Test-ReleaseVersionAtLeast -Version $Configuration.Version -Minimum $Configuration.FirstMachinePublishVersion)) {
         $blockers += "version-must-exceed-historical-per-machine-$($Configuration.HistoricalPerMachineVersion)"
     }
     if (-not $Signing.Publishable) {
@@ -233,9 +234,9 @@ function Assert-ReleasePublicationPolicy {
 
     if (
         $Publish -and
-        (-not (Test-ReleaseVersionAtLeast -Version $Configuration.Version -Minimum $Configuration.FirstPerUserPublishVersion))
+        (-not (Test-ReleaseVersionAtLeast -Version $Configuration.Version -Minimum $Configuration.FirstMachinePublishVersion))
     ) {
-        throw "Publishing the per-user MSI requires version '$($Configuration.FirstPerUserPublishVersion)' or newer because historical per-machine version '$($Configuration.HistoricalPerMachineVersion)' may already be public. Increment the release version first."
+        throw "Publishing the machine-wide MSI requires version '$($Configuration.FirstMachinePublishVersion)' or newer because historical per-machine version '$($Configuration.HistoricalPerMachineVersion)' may already be public. Increment the release version first."
     }
 }
 
@@ -532,6 +533,18 @@ function Get-MsiRuntimeContractData {
         }
 
         [pscustomobject]@{
+            Properties = @(Read-MsiRows `
+                    "SELECT ``Property``, ``Value`` FROM ``Property``" `
+                    @("Property", "Value"))
+            Directories = @(Read-MsiRows `
+                    "SELECT ``Directory``, ``Directory_Parent``, ``DefaultDir`` FROM ``Directory``" `
+                    @("Directory", "Parent", "DefaultDir"))
+            RegistryWrites = @(Read-MsiRows `
+                    "SELECT ``Root``, ``Key``, ``Name`` FROM ``Registry``" `
+                    @("Root", "Key", "Name"))
+            RegistrySearches = @(Read-MsiRows `
+                    "SELECT ``Signature_``, ``Root``, ``Key``, ``Name`` FROM ``RegLocator``" `
+                    @("Signature", "Root", "Key", "Name"))
             Features = @(Read-MsiRows `
                     "SELECT ``Feature``, ``Feature_Parent``, ``Attributes`` FROM ``Feature``" `
                     @("Feature", "Parent", "Attributes"))
@@ -563,6 +576,26 @@ function Get-MsiRuntimeContractData {
 
 function Assert-MsiRuntimeContracts {
     param([Parameter(Mandatory)]$Contract)
+
+    if (@($Contract.Properties | Where-Object { $_.Property -eq "ALLUSERS" -and $_.Value -eq "1" }).Count -ne 1) {
+        throw "Compiled MSI must install machine-wide with ALLUSERS=1."
+    }
+    if (@($Contract.Directories | Where-Object { $_.Directory -eq "INSTALLDIR" -and $_.Parent -eq "ProgramFiles64Folder" }).Count -ne 1) {
+        throw "Compiled MSI must default INSTALLDIR to the x64 Program Files directory."
+    }
+    if (@($Contract.RegistryWrites | Where-Object { $_.Root -ne "2" }).Count -ne 0) {
+        throw "Compiled MSI registration writes must belong to HKLM."
+    }
+    foreach ($search in @(@("LegacyUserInstall", "1"), @("PreviousMachineInstallDir", "2"))) {
+        $entry = @($Contract.RegistrySearches | Where-Object Signature -eq $search[0])
+        if ($entry.Count -ne 1 -or $entry[0].Root -ne $search[1] -or $entry[0].Key -ne 'Software\yucdong\Preshot' -or $entry[0].Name -ne "InstallDir") {
+            throw "Compiled MSI registry search '$($search[0])' must resolve the real installation registry key. Check Handlebars backslash escaping."
+        }
+    }
+    $launch = @($Contract.CustomActions | Where-Object Action -eq "LaunchApplication")
+    if ($launch.Count -ne 1 -or $launch[0].Target -ne "--from-installer" -or $launch[0].Source -ne "Path" -or [int]$launch[0].Type -ne 210) {
+        throw "Compiled MSI must use the immediate user-session launcher, never initialize an editor with installer credentials."
+    }
 
     $mainProgram = @($Contract.Features | Where-Object Feature -eq "MainProgram")
     if ($mainProgram.Count -ne 1 -or (([int]$mainProgram[0].Attributes -band 16) -eq 0)) {
@@ -766,7 +799,7 @@ function Assert-ReleaseArtifacts {
         throw "MSI version '$($artifact.Metadata.ProductVersion)' does not match release version '$($Configuration.Version)'."
     }
     if ($artifact.Metadata.UpgradeCode -ne $Configuration.UpgradeCode) {
-        throw "MSI UpgradeCode '$($artifact.Metadata.UpgradeCode)' does not match the per-user lineage '$($Configuration.UpgradeCode)'."
+        throw "MSI UpgradeCode '$($artifact.Metadata.UpgradeCode)' does not match the machine-wide lineage '$($Configuration.UpgradeCode)'."
     }
     if ($artifact.Metadata.LegacyUpgradeCode -ne $Configuration.HistoricalPerMachineUpgradeCode) {
         throw "MSI does not detect the historical per-machine UpgradeCode '$($Configuration.HistoricalPerMachineUpgradeCode)'."
@@ -1286,15 +1319,19 @@ function Get-ReleaseMetadataContent {
             validForPublication = [bool]$Signing.Publishable
         }
         installer = [ordered]@{
-            scope = "perUser"
+            scope = "perMachine"
             upgradeCode = $Configuration.UpgradeCode
+            historicalPerUser = [ordered]@{
+                upgradeCode = $script:HistoricalPerUserUpgradeCode
+                action = "block-and-uninstall-first"
+            }
             historicalPerMachine = [ordered]@{
                 upgradeCode = $Configuration.HistoricalPerMachineUpgradeCode
                 lastPublishedVersion = $Configuration.HistoricalPerMachineVersion
                 detectionProperty = $Configuration.LegacyMachineDetectionProperty
                 action = "block-and-uninstall-first"
             }
-            firstPublishableVersion = $Configuration.FirstPerUserPublishVersion
+            firstPublishableVersion = $Configuration.FirstMachinePublishVersion
         }
         publication = [ordered]@{
             publishable = [bool]$publication.Publishable
@@ -1408,9 +1445,9 @@ function Set-ReleaseVersionFiles {
     Assert-ReleaseVersion $Version
     if (
         (Test-PublishingMode -Publish:$Publish) -and
-        (-not (Test-ReleaseVersionAtLeast -Version $Version -Minimum $script:FirstPerUserPublishVersion))
+        (-not (Test-ReleaseVersionAtLeast -Version $Version -Minimum $script:FirstMachinePublishVersion))
     ) {
-        throw "Publishing the per-user MSI requires version '$script:FirstPerUserPublishVersion' or newer because historical per-machine version '$script:HistoricalPerMachineVersion' may already be public."
+        throw "Publishing the machine-wide MSI requires version '$script:FirstMachinePublishVersion' or newer because historical per-machine version '$script:HistoricalPerMachineVersion' may already be public."
     }
     $configuration = Get-ReleaseConfiguration $RepositoryRoot
     if ($configuration.Version -eq $Version) {

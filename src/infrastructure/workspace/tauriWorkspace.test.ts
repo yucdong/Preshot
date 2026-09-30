@@ -62,6 +62,15 @@ function expectNativeError(
 }
 
 describe("createTauriWorkspace", () => {
+  it("deletes only the identified folder and preserves native failure context", async () => {
+    const invokeCommand = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce({ code: "project_delete_failed", message: "file locked" });
+    const workspace = createTauriWorkspace({ invokeCommand });
+    await workspace.deleteProject("C:\\shoots\\project-1", "project-1");
+    expect(invokeCommand).toHaveBeenCalledWith("delete_project", { path: "C:\\shoots\\project-1", projectId: "project-1" });
+    await expect(workspace.deleteProject("C:\\shoots\\project-1", "project-1"))
+      .rejects.toMatchObject({ code: "project_delete_failed", message: "Unable to delete Preshot project folder: file locked" });
+  });
+
   let invokeCommand: ReturnType<typeof vi.fn<InvokeCommand>>;
   let listenForEvent: ReturnType<typeof vi.fn<ListenForEvent>>;
   let warn: ReturnType<typeof vi.fn<WorkspaceLogger["warn"]>>;

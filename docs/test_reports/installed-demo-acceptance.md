@@ -4,7 +4,7 @@
 
 This report preserves the historical full walkthrough and 0.0.10/0.0.11 test
 evidence. The README media has since been replaced by the
-[short 0.0.12 recording](short-demo-acceptance.md); the current linked MP4, GIF
+[short 0.0.19 recording](demo-0.0.19-acceptance.md); the current linked MP4, GIF
 and PDF belong to that new blank-project flow. Historical screenshots and
 artifact hashes below still describe the earlier run.
 

@@ -74,7 +74,8 @@ test("creates and searches a single image material, previews it and reopens its 
   await editor.getByRole("textbox", { name: "素材名称", exact: true }).fill("窗边肖像");
   await editor.getByRole("textbox", { name: "素材说明", exact: true }).fill("午后自然光");
   await editor.getByRole("textbox", { name: "标签", exact: true }).fill("人像，逆光");
-  await editor.getByRole("textbox", { name: "图片说明", exact: true }).fill("柔和的光线");
+  await expect(editor.locator(".ml-material-metadata").getByRole("textbox")).toHaveCount(3);
+  await expect(editor.locator(".ml-content-canvas").locator("input, textarea")).toHaveCount(0);
   await editor.getByRole("button", { name: "保存素材", exact: true }).click();
   await expect(editor.getByText(/请先添加一张图片/)).toBeVisible();
   await editor.getByRole("button", { name: "添加图片", exact: true }).first().click();
@@ -99,6 +100,8 @@ test("creates and searches a single image material, previews it and reopens its 
   await library.getByRole("button", { name: "编辑素材", exact: true }).click();
   await expect(editor.getByRole("textbox", { name: "素材说明", exact: true })).toHaveValue("午后自然光");
   await expect(editor.getByRole("textbox", { name: "标签", exact: true })).toHaveValue("人像，逆光");
+  await expect(editor.locator(".ml-material-metadata").getByRole("textbox")).toHaveCount(3);
+  await expect(editor.locator(".ml-content-canvas").locator("input, textarea")).toHaveCount(0);
   await expect(editor.locator("[data-image-id]")).toHaveCount(1);
   await page.screenshot({ path: test.info().outputPath("image-material-editor.png"), animations: "disabled" });
   expect(errors).toEqual([]);

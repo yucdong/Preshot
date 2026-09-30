@@ -18,8 +18,8 @@ describe("BlockNote plan service", () => {
   it("uses copy-on-write when a standalone image is retained by clipboard paste history", async () => {
     const target = referenceImage("retained");
     const plan: ProjectPlanV15 = {
-      schemaVersion: 16, title: "Clipboard crop", artifacts: [],
-      document: { format: "preshot-blocks", version: 4, blocks: [{
+      schemaVersion: 17, title: "Clipboard crop", artifacts: [],
+      document: { format: "preshot-blocks", version: 5, blocks: [{
         id: "block", type: "imageGroup", props: { groupId: "group" }, content: undefined, children: [],
       }] },
       imageGroups: [{ id: "group", type: "reference", name: "Group", description: "", x: 0, width: 700, height: 300, images: [target] }],
@@ -52,8 +52,8 @@ describe("BlockNote plan service", () => {
       x: 0, width: 1008, height: 320, description: "", images: [retained],
     };
     const plan: ProjectPlanV15 = {
-      schemaVersion: 16, title: "Material removal",
-      document: { format: "preshot-blocks", version: 4, blocks: [{
+      schemaVersion: 17, title: "Material removal",
+      document: { format: "preshot-blocks", version: 5, blocks: [{
         id: "block", type: "imageGroup", props: { groupId: "group" },
         content: undefined, children: [],
       }] },
@@ -78,7 +78,7 @@ describe("BlockNote plan service", () => {
   });
 
   it("creates and loads v15, migrates v14 and v13, and blocks older schemas", async () => {
-    const paragraph = (version: 1 | 2 | 3 | 4) => ({
+    const paragraph = (version: 1 | 2 | 3 | 4 | 5) => ({
       format: "preshot-blocks",
       version,
       blocks: [{
@@ -93,9 +93,9 @@ describe("BlockNote plan service", () => {
       loadRawPlan: vi.fn()
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({
-          schemaVersion: 16,
+          schemaVersion: 17,
           title: "Active",
-          document: paragraph(4),
+          document: paragraph(5),
           imageGroups: [],
           artifacts: [],
         })
@@ -141,9 +141,9 @@ describe("BlockNote plan service", () => {
     await expect(service.loadPlan("C:\\new", "New")).resolves.toMatchObject({
       status: "missing",
       plan: {
-        schemaVersion: 16,
+        schemaVersion: 17,
         title: "New",
-        document: { version: 4 },
+        document: { version: 5 },
         artifacts: [],
       },
     });
@@ -151,8 +151,8 @@ describe("BlockNote plan service", () => {
       .toMatchObject({
         status: "loaded",
         plan: {
-          schemaVersion: 16,
-          document: { version: 4 },
+          schemaVersion: 17,
+          document: { version: 5 },
           artifacts: [],
         },
       });
@@ -160,8 +160,8 @@ describe("BlockNote plan service", () => {
       .toMatchObject({
         status: "migrated",
         plan: {
-          schemaVersion: 16,
-          document: { version: 4 },
+          schemaVersion: 17,
+          document: { version: 5 },
           artifacts: [],
         },
       });
@@ -169,30 +169,31 @@ describe("BlockNote plan service", () => {
       .toMatchObject({
         status: "migrated",
         plan: {
-          schemaVersion: 16,
-          document: { version: 4 },
+          schemaVersion: 17,
+          document: { version: 5 },
           artifacts: [],
         },
       });
     expect(repository.saveRawPlan).toHaveBeenNthCalledWith(
       1,
       "C:\\v14",
-      expect.objectContaining({ schemaVersion: 16 }),
+      expect.objectContaining({ schemaVersion: 17 }),
     );
     expect(repository.saveRawPlan).toHaveBeenNthCalledWith(
       2,
       "C:\\v13",
-      expect.objectContaining({ schemaVersion: 16 }),
+      expect.objectContaining({ schemaVersion: 17 }),
     );
     await expect(service.loadPlan("C:\\old", "Old")).resolves.toEqual({
       status: "incompatible",
       foundSchemaVersion: 12,
-      requiredSchemaVersion: 16,
+      requiredSchemaVersion: 17,
     });
   });
 
   it("imports a batch at the 240-unit default and grows wrapped group height", async () => {
     let id = 0;
+    const onProgress = vi.fn();
     const saveRawPlan = vi.fn();
     const importImage = vi.fn()
       .mockResolvedValueOnce({
@@ -225,11 +226,11 @@ describe("BlockNote plan service", () => {
       },
     });
     const plan: ProjectPlanV15 = {
-      schemaVersion: 16,
+      schemaVersion: 17,
       title: "Import",
       document: {
         format: "preshot-blocks",
-        version: 4,
+        version: 5,
         blocks: [{
           id: "block",
           type: "imageGroup",
@@ -256,8 +257,10 @@ describe("BlockNote plan service", () => {
       () => plan,
       "group",
       ["C:\\one.png", "C:\\two.png"],
+      onProgress,
     );
 
+    expect(onProgress.mock.calls).toEqual([[0, 2], [1, 2], [2, 2]]);
     expect(result.images.map(({ image }) => image)).toMatchObject([
       { id: "image-1", frameWidth: 240, frameHeight: 240 },
       { id: "image-2", frameWidth: 240, frameHeight: 240 },
@@ -295,11 +298,11 @@ describe("BlockNote plan service", () => {
         },
       });
       const activePlan = {
-        schemaVersion: 16 as const,
+        schemaVersion: 17 as const,
         title: "Media",
         document: {
           format: "preshot-blocks" as const,
-          version: 4 as const,
+          version: 5 as const,
           blocks: [{
             id: "audio",
             type: "audio" as const,
@@ -390,11 +393,11 @@ describe("BlockNote plan service", () => {
       crop: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 },
     };
     const plan = {
-      schemaVersion: 16 as const,
+      schemaVersion: 17 as const,
       title: "Crop",
       document: {
         format: "preshot-blocks" as const,
-        version: 4 as const,
+        version: 5 as const,
         blocks: [{
           id: "block",
           type: "imageGroup" as const,
@@ -525,11 +528,11 @@ describe("BlockNote plan service", () => {
       images: [image],
     };
     const plan = {
-      schemaVersion: 16 as const,
+      schemaVersion: 17 as const,
       title: "Queue",
       document: {
         format: "preshot-blocks" as const,
-        version: 4 as const,
+        version: 5 as const,
         blocks: [{
           id: "block",
           type: "imageGroup" as const,
@@ -614,11 +617,11 @@ describe("BlockNote plan service", () => {
       },
     });
     const plan = {
-      schemaVersion: 16 as const,
+      schemaVersion: 17 as const,
       title: "Before queued save",
       document: {
         format: "preshot-blocks" as const,
-        version: 4 as const,
+        version: 5 as const,
         blocks: [{
           id: "block",
           type: "imageGroup" as const,
@@ -732,11 +735,11 @@ describe("BlockNote plan service", () => {
       },
     });
     const plan = {
-      schemaVersion: 16 as const,
+      schemaVersion: 17 as const,
       title: "Rollback",
       document: {
         format: "preshot-blocks" as const,
-        version: 4 as const,
+        version: 5 as const,
         blocks: [{
           id: "block",
           type: "imageGroup" as const,
@@ -858,11 +861,11 @@ describe("BlockNote plan service", () => {
       },
     });
     const plan = {
-      schemaVersion: 16 as const,
+      schemaVersion: 17 as const,
       title: "Small",
       document: {
         format: "preshot-blocks" as const,
-        version: 4 as const,
+        version: 5 as const,
         blocks: [{
           id: "block",
           type: "imageGroup" as const,
@@ -943,11 +946,11 @@ describe("BlockNote plan service", () => {
       },
     });
     const plan = {
-      schemaVersion: 16 as const,
+      schemaVersion: 17 as const,
       title: "Bounds",
       document: {
         format: "preshot-blocks" as const,
-        version: 4 as const,
+        version: 5 as const,
         blocks: [{
           id: "block",
           type: "imageGroup" as const,
@@ -1021,11 +1024,11 @@ describe("BlockNote plan service", () => {
       },
     });
     const original: ProjectPlanV15 = {
-      schemaVersion: 16,
+      schemaVersion: 17,
       title: "Latest",
       document: {
         format: "preshot-blocks",
-        version: 4,
+        version: 5,
         blocks: [{
           id: "block",
           type: "imageGroup",
@@ -1111,11 +1114,11 @@ describe("BlockNote plan service", () => {
     });
     const retained = referenceImage("retained");
     const plan: ProjectPlanV15 = {
-      schemaVersion: 16,
+      schemaVersion: 17,
       title: "Artifact import",
       document: {
         format: "preshot-blocks",
-        version: 4,
+        version: 5,
         blocks: [{
           id: "prop-block",
           type: "prop",
@@ -1237,11 +1240,11 @@ describe("BlockNote plan service", () => {
       const beginImageCrop = vi.fn();
       const shared = referenceImage("group-image");
       const plan: ProjectPlanV15 = {
-        schemaVersion: 16,
+        schemaVersion: 17,
         title: "Shared crop",
         document: {
           format: "preshot-blocks",
-          version: 4,
+          version: 5,
           blocks: [
             {
               id: "group-block",
@@ -1330,11 +1333,11 @@ describe("BlockNote plan service", () => {
     const removeImage = vi.fn();
     const target = referenceImage("shared");
     const plan: ProjectPlanV15 = {
-      schemaVersion: 16,
+      schemaVersion: 17,
       title: "Artifact crop rollback",
       document: {
         format: "preshot-blocks",
-        version: 4,
+        version: 5,
         blocks: [{
           id: "prop-block",
           type: "prop",
@@ -1422,11 +1425,11 @@ describe("BlockNote plan service", () => {
     const persisted: ProjectPlanV15[] = [];
     const target = referenceImage("shared");
     const plan: ProjectPlanV15 = {
-      schemaVersion: 16,
+      schemaVersion: 17,
       title: "Before artifact crop",
       document: {
         format: "preshot-blocks",
-        version: 4,
+        version: 5,
         blocks: [{
           id: "prop-block",
           type: "prop",
@@ -1543,11 +1546,11 @@ describe("BlockNote plan service", () => {
       },
     });
     const plan: ProjectPlanV15 = {
-      schemaVersion: 16,
+      schemaVersion: 17,
       title: "Rollback",
       document: {
         format: "preshot-blocks",
-        version: 4,
+        version: 5,
         blocks: [{
           id: "block",
           type: "imageGroup",

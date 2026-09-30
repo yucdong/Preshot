@@ -51,7 +51,7 @@ pub(super) fn plan(value: &Value) -> Result<()> {
         &[],
     )?;
     object(&value["document"], &["format", "version", "blocks"], &[])?;
-    let active = value["schemaVersion"] == 16 && value["document"]["version"] == 4;
+    let active = (value["schemaVersion"] == 17 && value["document"]["version"] == 5) || (value["schemaVersion"] == 16 && value["document"]["version"] == 4);
     let legacy = value["schemaVersion"] == 15 && value["document"]["version"] == 3;
     if (!active && !legacy) || value["document"]["format"] != "preshot-blocks"
         || !value["title"].is_string()

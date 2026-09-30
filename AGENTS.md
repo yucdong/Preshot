@@ -7,11 +7,12 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 ## Runtime snapshot
 
 - Active editor path: `src/features/plan/blocknote/BlockNoteProjectCanvasProvider.tsx`
-- Active plan schema: v16 with BlockNote document v4 (`format: "preshot-blocks"`)
+- Active plan schema: v17 with BlockNote document v5 (`format: "preshot-blocks"`)
 - Active UI languages: Simplified Chinese (default) and English (`src/shared/i18n/locales`)
 - Project manifest: `.preshotproj` with manifest `schemaVersion: 1`
-- Global material library: `%USERPROFILE%\.preshot\library\library.db`,
-  database v6 and portable payload v1
+- Global material library: defaults to `%USERPROFILE%\.preshot\library\library.db`,
+  under the first-launch working directory recorded in `%USERPROFILE%\.preshot\profile.json`; settings and workspace registry share that root;
+  database v10 and portable payload v2 (v1 remains compatible)
 - Legacy `.preshot` and schema v13 plans are compatibility input only
 
 ## Repository map
@@ -27,7 +28,7 @@ Preshot is a Windows-first desktop application for photography planning. The cur
 - `e2e`: Playwright browser-shell smoke suites
 - `tests`: PowerShell initializer regression harness
 - `scripts`: the Windows Tauri wrapper, Midscene helpers, and maintenance scripts
-- `src-tauri/wix`: the reviewed Tauri-pinned WiX template for the per-user MSI
+- `src-tauri/wix`: the reviewed Tauri-pinned WiX template for the machine-wide MSI
 - `docs`: architecture, testing, reliability, and design documentation
 
 ## Dependency rules
@@ -47,7 +48,7 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
 
 ## Data and persistence rules
 
-- The active editable plan is `schemaVersion: 16` with `document.version: 4`.
+- The active editable plan is `schemaVersion: 17` with `document.version: 5`.
 - Artifact blocks store only `artifactId`; normalized location, model,
   clothing, and prop records live in `plan.artifacts`.
 - Image frames use eight transparent continuous resize zones. Corners preserve
@@ -55,8 +56,9 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   edges change height only. `fitMode` defaults to crop/cover; stretch is
   explicit and exporters must preserve it.
 - Artifact cards and image-group containers are full-width, content-height
-  blocks without outer resize handles. Root column rows contain independent vertical flows. Gallery geometry scales uniformly from a stable reference width in columns. Keep card
-  contents 40/60 above 430px and stacked below it.
+  blocks without outer resize handles. Root column rows contain independent vertical flows. Gallery geometry scales uniformly from a stable reference width in columns. Model cards keep 40/60 above 430px and stack below it. Other cards default
+  to text above images, persist contentLayout orientation/order/share/minHeight,
+  and stack below 430px without discarding the stored layout preference.
 - Root `columnList` rows hold two or more weighted `column` children without a preset count cap. Nested column rows are unsupported. Preserve finite positive weights and the document resource limits.
 - Columns are created by dropping blocks at another block's left/right edge,
   without a column toolbar or column slash commands. Divider dragging changes
@@ -69,6 +71,15 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
 - Library saves own independent original-image copies; insertion allocates
   fresh identities and new project-local reference files. Preserve individual
   image crop/fit/frame fields, not outer component layout or source identities.
+- Image-group materials keep new original instances in `library/groups/<material-id>/originals`.
+  Physical locations are journaled separately from immutable IDs and receipts.
+  Existing instances relocate on directory access; shared legacy hash objects keep
+  their resolver and gain owned group copies. Never fall back from a missing
+  relocated instance. Directory access in an editor shows committed originals only.
+- JPG/PNG original files have no fixed byte, batch, or draft-byte cap. Stream
+  hashes and copies; preserve independent identities and exact receipts. Native
+  file decoding produces bounded disposable derivatives; file imports never use
+  clipboard decoding. Preview failure preserves the saved original and offers retry.
 - Image clipboard commands receive bounded image bytes/metadata, never source
   paths. Preserve native text, IME and multi-block clipboard behavior. Previews
   and lightboxes are copy-only; material paste targets only the current gallery.
@@ -123,7 +134,8 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
 - Direct library creation chooses one of the five categories and uses that same editor.
   Image materials contain exactly one image (unsaved drafts may be empty), retain
   individual crop/frame/fit fields. Project insertion creates a native image block
-  with its own media file; render crop/fit into that copy when needed. The isolated
+  with its own unchanged original media file; preserve frame/crop/fit props in
+  v17 and rasterize only disposable export derivatives (legacy insertion retains its receipt contract). The isolated
   library canvas keeps its one-image group representation for editing and previews.
   `beginCreate` allocates only a draft; first Save atomically publishes its UUID
   at content/metadata version 1. No project or dummy canonical record is required.
@@ -188,17 +200,26 @@ React UI -> domain service/use case -> domain port -> infrastructure adapter -> 
   options must preserve one-image behavior or fail actionably at safety limits.
 - Long-image changes must not replace or alter the independent PDF and DOCX
   production pipelines.
-- New editor work should go through the BlockNote v16 path unless the task explicitly targets compatibility code.
-- The MSI owns only application files, shortcuts, and HKCU registration under
-  `%LOCALAPPDATA%\Programs\Preshot`; application startup exclusively owns
+- New editor work should go through the BlockNote v17 path unless the task explicitly targets compatibility code.
+- The MSI owns only application files, shortcuts, and HKLM registration under
+  configurable `%ProgramFiles%\Preshot`; application startup exclusively owns
   `%USERPROFILE%\.preshot`, project bootstrap, and the starter project.
 - The bundled Nanjing demo is a complete offline template under `samples/nanjing-bridge`.
   Startup copies its assets before publishing a fresh manifest on an empty profile.
   Preserve existing projects; bootstrap rollback must compare every owned sample
   file and reject changed, extra or linked assets. The installed template remains
   under the application directory for manual copying after upgrades.
-- Keep the MSI per-user and x64-only. Do not add `ALLUSERS`, HKLM writes,
-  Program Files installation, or installer-authored project/profile data.
+- Keep the MSI machine-wide and x64-only, with ALLUSERS=1. Never initialize user
+  data from elevated installer actions. The finish-page `--from-installer` launcher
+  must return to the desktop user token/environment before starting the editor.
+  Preserve user data during uninstall. The new family is c91f6bc2-1f30-4d43-b878-3d09737227f2;
+  both earlier families are detect-only with uninstall-first migration guidance.
+- Storage changes use the shared profile lock before resolving a library root.
+  Preserve immutable library IDs, images, drafts and exact receipts across moves.
+  Copy, checkpoint, hash-verify, then atomically switch configuration; retain the
+  source. Pending moves block new library writes and support explicit resume/end.
+  Missing paths never silently create replacement libraries. Project registry
+  migration validates and retains the legacy Tauri file without replaying it.
 - Keep the fixed MSI UpgradeCode stable, increment `x.y.z` before publishing,
   and let WiX generate ProductCode and PackageCode.
 ## Commands
@@ -304,7 +325,7 @@ pnpm migrate:project
   open; discard skips retirement saves and draft-based asset purges without
   rolling back previously persisted content. First-load image decoding uses at most four concurrent jobs,
   and actual canvas readiness dismisses loading without a hold or fade.
-- Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v16.
+- Legacy canvas modules still exist for compatibility and shared logic, but the mounted editor in the app is BlockNote v17.
 
 ## Testing expectations
 

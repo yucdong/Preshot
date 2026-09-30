@@ -273,6 +273,7 @@ impl Store {
     }
 
     fn finish_purge(&mut self, id: &str) -> Result<()> {
+        self.purge_legacy_group_originals(id)?;
         let assets = {
             let mut statement = self.conn.prepare(
                 "SELECT kind,hash,mime_type FROM purge_files WHERE material_id=?1 ORDER BY kind,hash,mime_type",
@@ -306,13 +307,8 @@ impl Store {
                     .map_err(|e| error("database", e))?;
                 if !referenced(&tx, &asset, &draft_blobs)? {
                     if let Some(path) = owned_path(&self.root, &asset)? {
-                        let cap = if asset.kind == "preview" {
-                            2 * 1024 * 1024
-                        } else {
-                            files::MAX_IMAGE_BYTES
-                        };
-                        let bytes = files::read_limited(&path, cap)?;
-                        if files::hash(&bytes) != asset.hash {
+                        let (_, actual_hash) = crate::original_image::fingerprint(&path)?;
+                        if actual_hash != asset.hash {
                             return Err(error(
                                 "image_corrupt",
                                 "Cleanup target was replaced; preserve the library",
@@ -394,8 +390,8 @@ impl Store {
                 return Err(error("image_corrupt", "Purge instance integrity mapping differs"));
             }
             if path.try_exists().map_err(|e| error("path", e))? {
-                let bytes = files::read_limited(&path, files::MAX_IMAGE_BYTES)?;
-                if files::hash(&bytes) != hash {
+                let (_, actual_hash) = crate::original_image::fingerprint(&path)?;
+                if actual_hash != hash {
                     return Err(error("image_corrupt", "Instance cleanup target was replaced; preserve the library"));
                 }
                 fs::remove_file(&path).map_err(|e| error("cleanup", e))?;
@@ -404,6 +400,8 @@ impl Store {
                     .map_err(|e| error("cleanup", e))?;
             }
             tx.execute("DELETE FROM image_instances WHERE storage_id=?1", [&storage_id])
+                .map_err(|e| error("database", e))?;
+            tx.execute("DELETE FROM group_instance_locations WHERE storage_id=?1", [&storage_id])
                 .map_err(|e| error("database", e))?;
             tx.execute("DELETE FROM blobs WHERE hash=?1
                 AND NOT EXISTS(SELECT 1 FROM image_instances WHERE blob_hash=?1)

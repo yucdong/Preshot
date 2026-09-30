@@ -101,7 +101,7 @@ export function buildMaterialInstance(
     };
   }
   const collection: ImageCollection = { id: makeId(), images };
-  const base = { id: sidecarId, revision: 0 };
+  const base = { id: sidecarId, revision: 0, ...(component.contentLayout ? { contentLayout: component.contentLayout } : {}) };
   let artifact: ArtifactRecord;
   switch (component.kind) {
     case "shootingLocation":
@@ -139,9 +139,9 @@ export function buildMaterialInstance(
 
 export function instancePlan(instance: MaterialInstance): ProjectPlanV15 {
   return {
-    schemaVersion: 16,
+    schemaVersion: 17,
     title: "Material validation",
-    document: { format: "preshot-blocks", version: 4, blocks: [instance.block] },
+    document: { format: "preshot-blocks", version: 5, blocks: [instance.block] },
     imageGroups: instance.imageGroup ? [instance.imageGroup] : [],
     artifacts: instance.artifact ? [instance.artifact] : [],
   };

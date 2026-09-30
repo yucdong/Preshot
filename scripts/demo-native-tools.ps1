@@ -9,6 +9,7 @@ public static class DemoNative {
  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h,int n);
+ [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h,IntPtr z,int x,int y,int width,int height,uint flags);
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h,out RECT r);
  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h,IntPtr dc,uint flags);
  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x,int y);
@@ -92,13 +93,23 @@ function Wait-DemoElement([string]$Name,[string]$Type='',[int]$Index=0) {
 }
 function Click-Demo([string]$Name,[string]$Type='', [int]$Index=0) {
     $element = Wait-DemoElement $Name $Type $Index
+    for($attempt=0; -not $element.Current.IsEnabled -and $attempt -lt 40; $attempt++) {
+        Start-Sleep -Milliseconds 250
+        $element = Wait-DemoElement $Name $Type $Index
+    }
+    if(-not $element.Current.IsEnabled){throw "UI element stayed disabled: $Name"}
+    $scroll=$null
+    if($element.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern,[ref]$scroll)) {
+        $scroll.ScrollIntoView()
+        Start-Sleep -Milliseconds 200
+    }
     $rect = $element.Current.BoundingRectangle
     if ($rect.Width -le 0 -or $element.Current.IsOffscreen) {
         $pattern = $null
         if ($element.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern,[ref]$pattern)) { $pattern.ScrollIntoView(); Start-Sleep -Milliseconds 200; $rect=$element.Current.BoundingRectangle }
     }
     $invoke=$null
-    if($Name -notmatch '上传|添加图片|导出 PDF|导出 DOCX' -and $element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern,[ref]$invoke)) { $invoke.Invoke() }
+    if($Name -notmatch '上传|添加图片|添加块|导出 PDF|导出 DOCX' -and $element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern,[ref]$invoke)) { $invoke.Invoke() }
     else { [DemoNative]::PostClick($script:DemoHandle,[int]($rect.X+$rect.Width/2),[int]($rect.Y+$rect.Height/2)) }
     Start-Sleep -Milliseconds 450
 }
@@ -127,7 +138,14 @@ function Set-DemoDocumentEnd {
     $range.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start,$range,[System.Windows.Automation.Text.TextPatternRangeEndpoint]::End)
     $range.Select()
     # WebView2 rejects scrolling the degenerate range of a brand-new document.
-    if($hasText){$range.ScrollIntoView($false)}
+    if($hasText){
+        try { $range.ScrollIntoView($false) }
+        catch [System.Runtime.InteropServices.COMException] {
+            # WebView2 also rejects some empty trailing paragraphs in a
+            # populated document. The selected end range is still valid.
+            [DemoNative]::Key($script:DemoHandle,35)
+        }
+    }
     Start-Sleep -Milliseconds 400
 }
 function Add-DemoText([string]$Text,[string]$Prefix='') {

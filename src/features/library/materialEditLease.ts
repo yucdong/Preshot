@@ -36,14 +36,24 @@ export class MaterialEditLease {
       beginCreate: async () => { throw new Error(ui("单素材画布不能创建其他素材")); },
       beginEdit: async () => { throw new Error(ui("单素材画布不能打开其他素材")); },
       loadEditImage: (id, image) => scoped(id, () => native.loadEditImage(id, image)),
+      ...(native.revealEditImage ? {
+        revealEditImage: (id: string, image: string) => scoped(id, () => native.revealEditImage!(id, image)),
+      } : {}),
+      ...(native.revealEditImageGroup ? {
+        revealEditImageGroup: (id: string) => scoped(id, () => native.revealEditImageGroup!(id)),
+      } : {}),
+      ...(native.importLibraryImages ? {
+        importLibraryImages: (id: string, materialId: string, revision: number, imageIds: string[]) =>
+          scoped(id, () => native.importLibraryImages!(id, materialId, revision, imageIds)),
+      } : {}),
       importEditImages: (id) => scoped(id, () => native.importEditImages(id)),
       ...(native.importEditImageData ? {
         importEditImageData: (id: string, input: { name: string; mimeType: string; bytes: number[] }) =>
           scoped(id, () => native.importEditImageData!(id, input)),
       } : {}),
-      captureEditImage: (id, cancellation) => scoped(id, () => this.retired
+      captureEditImage: (id, cancellation, review) => scoped(id, () => this.retired
         ? Promise.resolve(null)
-        : native.captureEditImage(id, Promise.race([cancellation, this.captureCancellation]))),
+        : native.captureEditImage(id, Promise.race([cancellation, this.captureCancellation]), review)),
       cropEditImage: (id, image, bounds) => scoped(id, () => native.cropEditImage(id, image, bounds)),
       commitEdit: async () => { throw new Error(ui("请使用画布外的“保存素材”操作")); },
       discardEdit: async () => { throw new Error(ui("请使用画布外的“取消”操作")); },

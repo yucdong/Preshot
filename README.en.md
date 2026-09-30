@@ -10,7 +10,7 @@ reusable material library. The interface supports Chinese and English.
 
 ## Features
 
-- **Projects:** create, open, autosave, and switch between loaded projects without losing editor state.
+- **Projects:** create, open, autosave, copy with independent images and attachments, and switch between loaded projects without losing editor state.
 - **Planning canvas:** text, headings, checklists, tables, images, image groups, location/model/prop cards.
 - **Columns:** add columns, adjust relative widths, move and merge content; galleries scale proportionally with undo support.
 - **Images:** upload, paste, embed, capture screen regions, crop, resize, and reorder.
@@ -22,7 +22,8 @@ reusable material library. The interface supports Chinese and English.
 
 Open [GitHub Releases](https://github.com/yucdong/Preshot/releases) and download
 `Preshot_<version>_x64_en-US.msi`. Supported platform: **Windows 10/11 x64**.
-Installation is per user under `%LOCALAPPDATA%\Programs\Preshot`. Launch from
+Installation defaults to `C:\Program Files\Preshot`, with a configurable directory.
+Setup requires administrator permission; ordinary app use does not. Launch from
 the Start Menu; a Desktop shortcut is optional. The installer is English;
 the app supports both Chinese and English.
 
@@ -31,9 +32,15 @@ missing, so an initial installation may need internet access. Check the release
 notes for signing and verification details; releases include a SHA-256 file
 and build metadata. If no installer is published yet, build from source below.
 
-Projects default to `%USERPROFILE%\.preshot\projects`; the global library lives
-in `%USERPROFILE%\.preshot\library`. Uninstalling preserves these directories.
-Back up whole directories, including their image files.
+When upgrading from 0.0.13 or earlier, close and uninstall the
+old version first; existing personal data is retained. The final installer page offers **Launch Preshot**.
+On first launch, choose a **Project working directory**, defaulting to
+`%USERPROFILE%\.preshot`. Settings, project registrations, default `projects` and
+the `library` all use that directory. A small `.preshot\profile.json` record in
+your user profile remembers the choice across uninstall/reinstall. Uninstall
+removes software only. Choose your original `.preshot` to reuse existing data;
+choosing another empty folder does not migrate it. Back up the locator, complete
+working directory and any projects stored elsewhere.
 
 First launch in an empty workspace creates a complete **Nanjing bridge demo**:
 all supported blocks, two- and three-column layouts, pictures, fictional Model A,
@@ -67,12 +74,14 @@ A Nanjing Yangtze River Bridge portrait session: start with a blank project,
 write the plan, reuse prepared location, model and prop materials, arrange
 columns, export and open the PDF, then create one pictured material with
 searchable notes and tags.
-Under one minute, recorded from the MSI-installed app with bilingual captions.
+Under one minute, recorded from an empty workspace in **MSI-installed 0.0.19** with bilingual captions.
 File selection is accelerated. The complete offline sample ships with the installer.
 
 ![Preshot walkthrough](docs/media/preshot-demo.gif)
 
 [Full video](docs/media/preshot-demo.mp4) · [Sample PDF](docs/media/preshot-demo.pdf) · [Demo and photo credits](docs/demo/README.md) · [Installer](https://github.com/yucdong/Preshot/releases)
+
+[Material library video tutorials](docs/demo/material-tutorials.md): separate clips for material types, document save actions, insertion and management. Each stays below one minute with Chinese and English captions.
 
 ## Build from source
 

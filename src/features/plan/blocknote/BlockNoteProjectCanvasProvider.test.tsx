@@ -53,6 +53,7 @@ function renderProvider(
     screenCapture?: ScreenCapture;
     savePaused?: boolean;
     registerBeforeClose?(path: string, close: (saveChanges?: boolean) => Promise<void>): () => void;
+    registerBeforeCopy?(path: string, prepare: () => Promise<() => void>): () => void;
     docxExporter?: BlockNoteDocxExporter;
     docxSaver?: PdfSaveTarget;
     exporter?: BlockNotePdfExporter;
@@ -70,6 +71,7 @@ function renderProvider(
         screenCapture={dependencies.screenCapture}
         savePaused={dependencies.savePaused}
         registerBeforeClose={dependencies.registerBeforeClose}
+        registerBeforeCopy={dependencies.registerBeforeCopy}
         onLoadProgress={dependencies.onLoadProgress}
         docxExporter={dependencies.docxExporter ?? {
           implementation: "blocknote-docx",
@@ -226,6 +228,58 @@ async function openCapture(captureMedia: NonNullable<ScreenCapture["captureMedia
 }
 
 describe("BlockNoteProjectCanvasProvider", () => {
+  it("waits for an in-flight attachment to publish its editor URL before saving a copy", async () => {
+    vi.stubEnv("VITE_WORKSPACE_ADAPTER", "memory");
+    const plan = createEmptyProjectPlanV14("Editorial", { makeId: () => "intro" });
+    plan.document.blocks.push({ id: "attachment", type: "file", props: { url: "", name: "" }, content: undefined, children: [] });
+    const gate = deferred<{ file: string; dataUrl: string; name: string; mimeType: string }>();
+    const service = serviceWith({ loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }), savePlan: vi.fn().mockResolvedValue(undefined), importMedia: vi.fn(() => gate.promise) });
+    let prepare!: () => Promise<() => void>;
+    renderProvider(service, { savePaused: true, registerBeforeCopy: (_path, handler) => { prepare = handler; return () => {}; } });
+    await screen.findByRole("group", { name: "方案正文" });
+    await waitFor(() => expect((window as typeof window & { __PRESHOT_BLOCKNOTE_EDITOR__?: PreshotBlockNoteEditor }).__PRESHOT_BLOCKNOTE_EDITOR__).toBeDefined());
+    const editor = (window as typeof window & { __PRESHOT_BLOCKNOTE_EDITOR__: PreshotBlockNoteEditor }).__PRESHOT_BLOCKNOTE_EDITOR__;
+    const file = new File(["note"], "note.txt", { type: "text/plain" });
+    Object.defineProperty(file, "arrayBuffer", { value: async () => new TextEncoder().encode("note").buffer });
+    const upload = (async () => {
+      const url = await editor.uploadFile!(file, "attachment");
+      if (typeof url !== "string") throw new Error("Expected upload URL");
+      editor.updateBlock("attachment", { props: { url, name: file.name } });
+    })();
+    await waitFor(() => expect(service.importMedia).toHaveBeenCalledOnce());
+    let task!: Promise<() => void>;
+    act(() => { task = prepare(); });
+    expect(service.savePlan).not.toHaveBeenCalled();
+    await act(async () => { gate.resolve({ file: "media/note.txt", dataUrl: "data:text/plain;base64,bm90ZQ==", name: "note.txt", mimeType: "text/plain" }); await upload; (await task)(); });
+    expect(service.savePlan).toHaveBeenCalledWith("C:\\Editorial", expect.objectContaining({ document: expect.objectContaining({ blocks: expect.arrayContaining([
+      expect.objectContaining({ id: "attachment", props: expect.objectContaining({ url: "media/note.txt" }) }),
+    ]) }) }));
+  });
+  it("prepares a copy from unblurred card fields and live editor text without retiring history", async () => {
+    vi.stubEnv("VITE_WORKSPACE_ADAPTER", "memory");
+    const plan = createEmptyProjectPlanV14("Editorial", { makeId: () => "intro" });
+    plan.document.blocks.push({ id: "card", type: "prop", props: { artifactId: "prop-a" }, content: undefined, children: [] });
+    plan.artifacts = [{ id: "prop-a", kind: "prop", revision: 0, title: "透明伞", source: "before", gallery: { id: "gallery", images: [] } }];
+    const service = serviceWith({ loadPlan: vi.fn().mockResolvedValue({ status: "loaded", plan }), savePlan: vi.fn().mockResolvedValue(undefined) });
+    let prepare!: () => Promise<() => void>;
+    renderProvider(service, { savePaused: true, registerBeforeCopy: (_path, handler) => { prepare = handler; return () => {}; } });
+    await screen.findByRole("group", { name: "方案正文" });
+    await waitFor(() => expect((window as typeof window & { __PRESHOT_BLOCKNOTE_EDITOR__?: PreshotBlockNoteEditor }).__PRESHOT_BLOCKNOTE_EDITOR__).toBeDefined());
+    const editor = (window as typeof window & { __PRESHOT_BLOCKNOTE_EDITOR__: PreshotBlockNoteEditor }).__PRESHOT_BLOCKNOTE_EDITOR__;
+    act(() => editor.updateBlock("intro", { content: "刚输入的正文" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "道具信息" }), { target: { value: "未失焦的卡片说明" } });
+    let release!: () => void;
+    await act(async () => { release = await prepare(); });
+    expect(editor.isEditable).toBe(false);
+    expect(service.savePlan).toHaveBeenLastCalledWith("C:\\Editorial", expect.objectContaining({
+      document: expect.objectContaining({ blocks: expect.arrayContaining([expect.objectContaining({ id: "intro", content: expect.arrayContaining([expect.objectContaining({ text: "刚输入的正文" })]) })]) }),
+      artifacts: [expect.objectContaining({ source: "未失焦的卡片说明" })],
+    }));
+    act(() => { release(); });
+    expect(editor.isEditable).toBe(true);
+    act(() => { editor.undo(); });
+    expect(JSON.stringify(editor.document[0].content)).not.toContain("刚输入的正文");
+  });
   it.each([false, true])("clears the pending screenshot and lets the same block capture again (in column: %s)", async (inColumn) => {
     let starts = 0;
     const invokeCommand = vi.fn(async (command: string) => {
@@ -253,7 +307,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
     const captureMedia = vi.fn().mockResolvedValue(capturedMedia);
     const { service, editor, close } = await openCapture(captureMedia);
     await waitFor(() => expect(editor.getBlock("native-image")?.props).toMatchObject({ url: capturedMedia.file }));
-    expect(captureMedia).toHaveBeenCalledWith("C:\\Editorial", expect.any(Promise));
+    expect(captureMedia).toHaveBeenCalledWith("C:\\Editorial", expect.any(Promise), expect.any(Function));
     await waitFor(() => expect(document.querySelector("img.bn-visual-media")).toHaveAttribute("src", capturedMedia.dataUrl));
     await act(async () => close());
     expect(service.savePlan).toHaveBeenLastCalledWith("C:\\Editorial", expect.objectContaining({
@@ -422,11 +476,11 @@ describe("BlockNoteProjectCanvasProvider", () => {
     vi.stubGlobal("Image", MeasuredImage);
 
     let persisted = {
-      schemaVersion: 16 as const,
+      schemaVersion: 17 as const,
       title: "Editorial",
       document: {
         format: "preshot-blocks" as const,
-        version: 4 as const,
+        version: 5 as const,
         blocks: [{
           id: "group-block",
           type: "imageGroup" as const,
@@ -614,7 +668,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
     expect(screen.getByRole("button", {
       name: "正在导出 PDF…",
     })).toHaveAttribute("aria-disabled", "true");
-    expect(exportPdf).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(exportPdf).toHaveBeenCalledTimes(1));
     expect(exportPdf.mock.calls[0]?.[0]).toEqual(snapshot);
     rejectExport?.(new Error("group group-1 asset missing"));
 
@@ -1031,7 +1085,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
     fireEvent.click(pdfOption);
     fireEvent.click(docxOption);
 
-    expect(exportPdf).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(exportPdf).toHaveBeenCalledTimes(1));
     expect(exportDocx).not.toHaveBeenCalled();
     expect(screen.getByRole("button", {
       name: "正在导出 PDF…",
@@ -1086,7 +1140,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
       .toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("status", { name: "长图导出进度" }))
       .toHaveTextContent("正在准备长图文档…");
-    expect(capturedRequest?.plan).toEqual(plan);
+    await waitFor(() => expect(capturedRequest?.plan).toEqual(plan));
     expect(capturedRequest?.resolvedAssets).toEqual({});
     expect(capturedRequest?.preset).toBe("wechat");
     expect(capturedRequest?.options).toEqual({
@@ -1169,6 +1223,7 @@ describe("BlockNoteProjectCanvasProvider", () => {
 
     openLongImageDialog();
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+    await waitFor(() => expect(exportSignal).toBeDefined());
     fireEvent.click(screen.getByRole("button", { name: "取消长图导出" }));
 
     expect(exportSignal?.aborted).toBe(true);

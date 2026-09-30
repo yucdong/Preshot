@@ -137,6 +137,10 @@ function createBrowserNativeWorkspace(): NativeWorkspace {
       return undefined;
     },
 
+    async deleteProject(): Promise<void> {
+      throw new Error("Deleting project folders is only available in the desktop app");
+    },
+
     async forgetCreatedProject(): Promise<void> {
       return undefined;
     },

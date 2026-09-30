@@ -40,6 +40,15 @@ function requirePollResult(value: unknown): ScreenCapturePollResult {
     typeof value.path === "string" &&
     value.path.length > 0
   ) {
+    if ("review" in value && value.review !== undefined && value.review !== null) {
+      const review = value.review;
+      if (typeof review !== "object" || !("reason" in review) ||
+        !["uniformDark", "transparent"].includes(String(review.reason)) || !("previewUrl" in review) ||
+        typeof review.previewUrl !== "string" || !review.previewUrl.startsWith("data:image/png;base64,") || review.previewUrl.length > 512_000) {
+        throw new Error("Malformed capture review");
+      }
+      return { status: "captured", path: value.path, review: { reason: review.reason as "uniformDark" | "transparent", previewUrl: review.previewUrl } };
+    }
     return { status: "captured", path: value.path };
   }
   throw new Error("Malformed native response");
@@ -49,7 +58,7 @@ export function createTauriScreenCapture({
   invokeCommand = invoke,
 }: Dependencies = {}): ScreenCapture {
   const capture: ScreenCapture = {
-    async captureMedia(projectPath, cancellation) {
+    async captureMedia(projectPath, cancellation, review) {
       return captureScreenImage(capture, cancellation, async (path) => {
         try {
           const result = await invokeCommand("import_screen_capture_media", { projectPath, path });
@@ -64,7 +73,7 @@ export function createTauriScreenCapture({
         } catch (cause) {
           throw new Error(ui("无法保存截图到项目：{{v0}}", { v0: detail(cause) }), { cause });
         }
-      });
+      }, review);
     },
     async start() {
       try {

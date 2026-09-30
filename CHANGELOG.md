@@ -1,5 +1,81 @@
 # Changelog
 
+## 0.0.21
+
+- Fix native validation rejecting single-image materials and galleries inserted
+  as independent images when JavaScript serializes default crop values as integers.
+  Preserve exact dimensions, image order, original ownership and closed properties.
+- Verify the fix with a native failure regression and installed-app tutorials.
+- Bound initializer test subprocess waits and keep helper windows hidden.
+
+## 0.0.20
+
+- Add separate bilingual video tutorials for material categories, creation entry
+  points, insertion and library management, recorded from the installed app.
+- Make selected text in material metadata fields as visible as selected card
+  content, and update interaction regression coverage for current controls.
+- Preserve the short blank-project authoring and PDF walkthrough alongside the
+  focused tutorial index.
+
+## 0.0.19
+
+- Simplify first-launch setup to one working-directory choice, detect existing
+  data, and confirm switching without deleting or migrating the previous data.
+- Align block handles and illustrated cards with adjacent content in columns,
+  including document zoom and first-row headings.
+- Fit newly imported gallery images to available width, keep selected-image
+  deletion accessible, and confirm Delete-key removal.
+- Offer review, retry and cancellation for suspicious dark or transparent
+  screenshots before importing them into projects or material drafts.
+- Show progress while importing multiple images into a gallery.
+
+## 0.0.18
+
+- Add independent project copies from All projects, with parent-folder/name
+  selection, progress, cancellation, exact retry and interrupted-copy recovery.
+- Save open source drafts and pending media before copying; retain its live editor
+  and undo history while automatically opening the independent copy.
+- Stream only referenced original images, attachments and covers, without fixed
+  byte caps; retain columns/layout and external URLs, and exclude exports/history.
+- Accept the upstream File block's native properties when saving attachments.
+- Keep short illustrated card rows together in PDF pagination so images cannot
+  disappear below the page boundary.
+
+## 0.0.17
+
+- Version 0.0.16 was an intermediate local acceptance build.
+- Remove fixed JPG/PNG original byte, batch and draft limits in projects and
+  materials; stream original copying/hashing and use bounded display/export derivatives.
+- Copy images between materials natively with pinned source/session identities.
+  Preserve original files when preview generation fails and support preview retry.
+- Add favorite controls in material details and improve insert-menu placement,
+  scrolling and keyboard access near the viewport edge.
+- Add adjustable text/image regions for location and prop/clothing cards, and
+  eight-direction Image-block resizing with cover/stretch and single-step undo.
+- Persist plan v17/document v5, material payload v2 and library database v10;
+  retain earlier document/material compatibility and exact historical receipts.
+
+## 0.0.15
+
+- Choose the project working directory on first launch; keep settings, projects
+  and the default material library together and remember the path after reinstall.
+- Keep Program Files directory selection in the MSI, add matching logo artwork
+  and a finish-page launch option that starts the editor as the desktop user.
+- Preserve unavailable data paths with explicit recovery instead of empty replacements.
+
+## 0.0.14
+
+- Add persistent storage configuration and migrate the legacy project registry
+  into the user configuration directory without removing its recovery source.
+- Add first-launch library selection and bilingual storage settings, with
+  verified library copying, interruption recovery, and retained source backups.
+- Keep missing libraries/projects registered instead of silently replacing them
+  with an empty library or another demonstration project.
+- Introduce a new x64 machine-wide MSI family with a configurable Program Files
+  destination. Installation requires elevation; the app launches normally from
+  the Start Menu. Earlier installer families require uninstall first.
+- Preserve user configuration, projects, and materials during uninstall.
+
 ## 0.0.13
 
 - Add drag-created multi-column rows with adjustable widths and proportional

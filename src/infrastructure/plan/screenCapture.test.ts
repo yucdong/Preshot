@@ -4,6 +4,21 @@ import { createTauriScreenCapture } from "./screenCapture";
 describe("createTauriScreenCapture", () => {
   afterEach(() => vi.useRealTimers());
 
+  it("passes bounded capture review data and rejects malformed previews", async () => {
+    const review = { reason: "uniformDark", previewUrl: "data:image/png;base64,AA" };
+    const invokeCommand = vi.fn().mockResolvedValue({ status: "captured", path: "capture.png", review });
+    const capture = createTauriScreenCapture({ invokeCommand });
+    await expect(capture.poll("token")).resolves.toEqual({ status: "captured", path: "capture.png", review });
+    for (const invalid of [
+      { ...review, reason: "unexpected" },
+      { ...review, previewUrl: "https://example.com/image.png" },
+      { ...review, previewUrl: review.previewUrl + "A".repeat(512_000) },
+    ]) {
+      invokeCommand.mockResolvedValue({ status: "captured", path: "capture.png", review: invalid });
+      await expect(capture.poll("token")).rejects.toThrow(/Malformed capture review/);
+    }
+  });
+
   it("ends a system-cancelled capture quietly and starts the next session without sending another Escape", async () => {
     vi.useFakeTimers();
     let starts = 0;

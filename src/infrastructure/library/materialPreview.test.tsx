@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Buffer } from "node:buffer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MaterialDetail, PortableComponent } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
@@ -158,6 +159,20 @@ afterEach(() => {
 });
 
 describe("createMaterialPreview", () => {
+  it("generates previews from independent originals larger than the old 16 MiB limit", async () => {
+    const item = material();
+    const bytes = Buffer.alloc(18 * 1024 * 1024);
+    Buffer.from(png, "base64").copy(bytes);
+    item.images[0].byteLength = bytes.length;
+    item.byteLength = bytes.length;
+    const repo = repository();
+    vi.mocked(repo.loadImage).mockResolvedValue(`data:image/png;base64,${bytes.toString("base64")}`);
+    await createMaterialPreview(repo, item);
+    expect(boundaries.mount).toHaveBeenCalledOnce();
+    expect(repo.savePreview).toHaveBeenCalledOnce();
+    expect(repo.markPreviewFailed).not.toHaveBeenCalled();
+  });
+
   it("serializes different thumbnails and continues after a failed regeneration", async () => {
     const repo = repository();
     let rejectFirst!: (error: Error) => void;
@@ -300,7 +315,7 @@ describe("createMaterialPreview", () => {
     await createMaterialPreview(repo, item);
     const options = boundaries.mount.mock.calls[0][0] as MountLongImageExportSurfaceOptions;
     expect(options.includeImageGroupMetadata).toBe(true);
-    expect(options.plan.schemaVersion).toBe(16);
+    expect(options.plan.schemaVersion).toBe(17);
     expect(options.plan.document.blocks).toHaveLength(1);
     expect(options.plan.artifacts[0]).toMatchObject({
       kind: "shootingLocation", description: item.payload.component.kind === "shootingLocation"
@@ -355,13 +370,9 @@ describe("createMaterialPreview", () => {
     expect(repo.savePreview).not.toHaveBeenCalled();
   });
 
-  it.each(["size", "budget", "dimensions"])("validates %s before mounting", async (caseName) => {
+  it.each(["size", "dimensions"])("validates %s before mounting", async (caseName) => {
     const item = material();
-    if (caseName === "size") item.images[0].byteLength = 16 * 1024 * 1024 + 1;
-    if (caseName === "budget") {
-      item.images[0].width = 8192;
-      item.images[0].height = 8193;
-    }
+    if (caseName === "size") item.images[0].byteLength = 64 * 1024 * 1024 + 1;
     if (caseName === "dimensions") item.images[0].width = 2;
     const repo = repository();
     await expect(createMaterialPreview(repo, item)).rejects.toThrow();
@@ -441,16 +452,35 @@ describe("createMaterialPreview", () => {
     });
   });
 
-  it("rejects aggregate decoded memory above 256 MiB before requesting image bytes", async () => {
+  it("previews high-resolution originals through temporary reduced images", async () => {
     const item = material();
     addImage(item);
     item.images.forEach((image) => {
-      image.width = 8192;
-      image.height = 8192;
+      image.width = 12000;
+      image.height = 8000;
     });
+    const bytes = Buffer.from(png, "base64");
+    bytes.writeUInt32BE(12000, 16);
+    bytes.writeUInt32BE(8000, 20);
+    const original = `data:image/png;base64,${bytes.toString("base64")}`;
     const repo = repository();
-    await expect(createMaterialPreview(repo, item)).rejects.toThrow("256 MiB");
-    expect(repo.loadImage).not.toHaveBeenCalled();
+    vi.mocked(repo.loadImage).mockResolvedValue(original);
+    vi.mocked(createImageBitmap).mockResolvedValue({ width: 1600, height: 1066, close: bitmapClose } as ImageBitmap);
+    let assets: string[] = [];
+    boundaries.mount.mockImplementation(async (options: MountLongImageExportSurfaceOptions) => {
+      assets = Object.values(options.resolvedAssets);
+      return mounted;
+    });
+    await createMaterialPreview(repo, item);
+    expect(createImageBitmap).toHaveBeenCalledWith(expect.any(Blob), expect.objectContaining({
+      resizeWidth: 1600, resizeHeight: 1066, resizeQuality: "high",
+    }));
+    expect(repo.savePreview).toHaveBeenCalledOnce();
+    expect(bitmapClose).toHaveBeenCalledTimes(2);
+    expect(item.images[0]).toMatchObject({ width: 12000, height: 8000 });
+    expect(assets).toHaveLength(2);
+    expect(assets).not.toContain(original);
+    expect(assets.every(url => url.startsWith("data:image/png;base64,"))).toBe(true);
   });
 
   it("loads and decodes serially, preserving order and releasing earlier assets after a later failure", async () => {
@@ -526,6 +556,56 @@ describe("createMaterialPreview", () => {
 });
 
 describe("MaterialComponentPreview", () => {
+  it("opens the whole image-group folder without selecting or copying an image", async () => {
+    const item = material();
+    if (item.payload.component.kind !== "shootingLocation") throw new Error("fixture");
+    item.kind = "imageGroup";
+    item.payload = { format: "preshot-material", version: 1, kind: "imageGroup",
+      component: { kind: "imageGroup", name: "参考图", description: "", images: item.payload.component.gallery.images } };
+    const repo = repository();
+    repo.revealImageGroup = vi.fn().mockResolvedValue(undefined);
+    repo.revealImage = vi.fn();
+    render(<MaterialComponentPreview repository={repo} material={item} />);
+    const button = screen.getByRole("button", { name: "打开原图所在位置" });
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(screen.queryByText("请先选择一张图片")).not.toBeInTheDocument();
+    fireEvent.click(button);
+    await waitFor(() => expect(repo.revealImageGroup).toHaveBeenCalledExactlyOnceWith(item.id, item.revision));
+    expect(repo.revealImage).not.toHaveBeenCalled();
+  });
+
+  it("selects and reveals the right original without a clipboard adapter, and allows failure retry", async () => {
+    const item = material();
+    addImage(item);
+    const repo = repository();
+    repo.revealImage = vi.fn().mockRejectedValueOnce(new Error("原图已丢失")).mockResolvedValue(undefined);
+    boundaries.mount.mockImplementation(async (options: MountLongImageExportSurfaceOptions) => {
+      const artifact = options.plan.artifacts[0];
+      if (artifact.kind !== "shootingLocation") throw new Error("Invalid fixture");
+      const group = document.createElement("div");
+      group.dataset.preshotExportImageGroup = artifact.gallery.id;
+      for (const image of artifact.gallery.images) {
+        const frame = document.createElement("div");
+        frame.dataset.preshotExportImage = image.id;
+        group.append(frame);
+      }
+      mounted.element.append(group);
+      return mounted;
+    });
+    render(<MaterialComponentPreview repository={repo} material={item} />);
+    expect(screen.getByRole("button", { name: "打开原图所在位置" })).toBeDisabled();
+    fireEvent.click(await screen.findByRole("button", { name: "选择素材图片 2" }));
+    expect(screen.getByText("已选第 2 张图片")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "打开原图所在位置" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("原图已丢失");
+    expect(repo.revealImage).toHaveBeenCalledExactlyOnceWith(item.id, item.revision, "image-2");
+    fireEvent.click(screen.getByRole("button", { name: "打开原图所在位置" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(repo.revealImage).toHaveBeenCalledTimes(2);
+    expect(repo.save).not.toHaveBeenCalled();
+    expect(repo.savePreview).not.toHaveBeenCalled();
+  });
+
   it("hides selection chrome on the complete live surface, not the keyboard-focusable preview region", async () => {
     const card = selectedCard(mounted.element);
     render(<MaterialComponentPreview repository={repository()} material={material()} />);

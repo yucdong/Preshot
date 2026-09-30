@@ -44,6 +44,40 @@ fn spawn_explorer(path: &str) -> io::Result<()> {
         .map(|_| ())
 }
 
+fn select_file_args(path: &str) -> Vec<String> {
+    vec!["/select,".to_string(), path.to_string()]
+}
+
+fn reveal_file_with<Spawn>(path: &Path, spawn: Spawn) -> Result<(), CommandError>
+where
+    Spawn: FnOnce(&[String]) -> io::Result<()>,
+{
+    if !path.is_absolute() || !fs::metadata(path).is_ok_and(|metadata| metadata.is_file()) {
+        return Err(CommandError::new("original_image_missing", "The original image is missing or is not a regular file. Restore it from a backup and retry."));
+    }
+    let normalized = normalize_windows_shell_path(&path.to_string_lossy());
+    spawn(&select_file_args(&normalized)).map_err(|error| {
+        CommandError::new(
+            "reveal_image_failed",
+            format!("Unable to select the original image in Explorer: {error}"),
+        )
+    })
+}
+
+// Internal only: callers resolve an owned file from an image identity. No IPC
+// command accepts an arbitrary path or opens the image itself.
+pub(crate) fn reveal_file(path: &Path) -> Result<(), CommandError> {
+    reveal_file_with(path, |args| {
+        Command::new("explorer")
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map(|_| ())
+    })
+}
+
 fn open_project_directory_with<Inspect, Spawn>(
     path: &str,
     inspect: Inspect,
@@ -112,6 +146,38 @@ pub fn open_project_directory(path: String) -> Result<(), CommandError> {
 mod tests {
     use super::*;
     use std::cell::Cell;
+
+    #[test]
+    fn reveal_file_selects_an_exact_unicode_spaced_path_and_reports_missing_files() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("原图 sample,1.png");
+        fs::write(&path, b"image").unwrap();
+        let path = path.canonicalize().unwrap();
+        reveal_file_with(&path, |args| {
+            assert_eq!(
+                args,
+                [
+                    "/select,",
+                    &normalize_windows_shell_path(&path.to_string_lossy())
+                ]
+            );
+            Ok(())
+        })
+        .unwrap();
+        let error = reveal_file_with(&path, |_| {
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "blocked"))
+        })
+        .unwrap_err();
+        assert_eq!(error.code, "reveal_image_failed");
+        fs::remove_file(&path).unwrap();
+        assert_eq!(
+            reveal_file_with(&path, |_| panic!("must not open Explorer"))
+                .unwrap_err()
+                .code,
+            "original_image_missing"
+        );
+        assert!(reveal_file_with(root.path(), |_| panic!("must not open Explorer")).is_err());
+    }
 
     #[test]
     fn normalizes_windows_shell_paths_without_changing_path_content() {

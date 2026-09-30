@@ -56,7 +56,7 @@ test("material library browses, renders a full preview, inserts and saves a reus
   await expect(dialog.getByRole("button", { name: /^插入/ })).toBeEnabled();
   await expect(dialog.getByRole("region", { name: "组件只读预览" })).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("material-library-browser.png"), animations: "disabled" });
-  await expect(dialog.getByRole("group", { name: "素材操作" }).getByRole("button")).toHaveText(["编辑素材", "预览"]);
+  await expect(dialog.getByRole("group", { name: "素材操作" }).getByRole("button")).toHaveText(["收藏", "编辑素材", "预览"]);
   await dialog.getByRole("button", { name: "预览", exact: true }).click();
   const fullPreview = page.getByRole("dialog", { name: "完整组件预览", exact: true });
   await expect(fullPreview.getByText("透明玻璃杯", { exact: true }).first()).toBeVisible();

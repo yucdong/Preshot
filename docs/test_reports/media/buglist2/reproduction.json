@@ -1,0 +1,58 @@
+{
+  "customized": true,
+  "imageState": {
+    "complete": true,
+    "width": 3000,
+    "height": 500
+  },
+  "box": {
+    "x": 381.875,
+    "y": 523.8125,
+    "width": 1178.796875,
+    "height": 194.796875
+  },
+  "galleryBounds": {
+    "x": 373.328125,
+    "y": 515.265625,
+    "width": 798.34375,
+    "height": 211.546875
+  },
+  "deleteBounds": {
+    "x": 1542.65625,
+    "y": 527.078125,
+    "width": 14.75,
+    "height": 14.75
+  },
+  "deleteButtonClickable": true,
+  "clippingBefore": {
+    "hitVisible": false,
+    "clips": [
+      {
+        "className": "relative h-full overflow-hidden",
+        "x": 380.875,
+        "right": 1164.125,
+        "scrollLeft": 0
+      },
+      {
+        "className": "ml-content-canvas-scroller editor-workspace-grid min-h-0 overflow-auto p-5",
+        "x": 305,
+        "right": 1255,
+        "scrollLeft": 0
+      },
+      {
+        "className": "material-library-dialog ml-content-editor-dialog",
+        "x": 24,
+        "right": 1256,
+        "scrollLeft": 0
+      },
+      {
+        "className": "",
+        "x": 0,
+        "right": 1280,
+        "scrollLeft": 0
+      }
+    ]
+  },
+  "deletePromptCount": 0,
+  "pageErrors": []
+}

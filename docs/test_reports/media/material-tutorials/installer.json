@@ -1,0 +1,9 @@
+{
+  "version": "0.0.21",
+  "installExitCode": 0,
+  "msiBytes": 26554368,
+  "msiSha256": "cae799b4dd7fd5ce801ebe644c466b5ae735ee72f1a8d0f4965c596db0812c71",
+  "installedExeSha256": "fc06fab353637038acb81a476b8be987cfd24ca4ac2df3ed281fe83475435e5d",
+  "builtExeSha256": "b7fff71355518d5b2c068a8fc7d36dd1cdef0a102bd13285755fe9a4d49f41f6",
+  "installedMatchesBuildExceptTauriBundleMarker": true
+}

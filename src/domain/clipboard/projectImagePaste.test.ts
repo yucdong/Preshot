@@ -10,7 +10,7 @@ function plan(): ProjectPlanV15 {
       x: 0, width: 700, height: 300,
       images: [{ id: "source", file: "references/0001.png", aspectRatio: 1.5, frameWidth: 240, frameHeight: 160 }],
     }],
-    document: { format: "preshot-blocks", version: 4, blocks: [
+    document: { format: "preshot-blocks", version: 5, blocks: [
       { id: "first", type: "paragraph", props: {}, content: [{ type: "text", text: "文字保留", styles: {} }], children: [] },
       { id: "group-block", type: "imageGroup", props: { groupId: "gallery" }, content: undefined, children: [] },
     ] },

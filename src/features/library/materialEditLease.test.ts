@@ -27,6 +27,48 @@ function deferred<T>() {
 }
 
 describe("material edit draft ownership", () => {
+  it("forwards screenshot review with the lease cancellation signal", async () => {
+    const repo = repository();
+    const warning = { reason: "uniformDark" as const, previewUrl: "data:image/png;base64,AA" };
+    const review = vi.fn(async () => "cancel" as const);
+    repo.captureEditImage = vi.fn(async (_id, cancellation, reviewer) => {
+      await reviewer?.(warning, cancellation);
+      return null;
+    });
+    const lease = new MaterialEditLease(repo, session);
+    await lease.repository.captureEditImage("draft", new Promise<void>(() => {}), review);
+    expect(review).toHaveBeenCalledExactlyOnceWith(warning, expect.any(Promise));
+    await lease.retire();
+  });
+  it("forwards group folder access only for its active session", async () => {
+    const repo = repository();
+    repo.revealEditImageGroup = vi.fn().mockResolvedValue(undefined);
+    const lease = new MaterialEditLease(repo, session);
+    await expect(lease.repository.revealEditImageGroup!("other")).rejects.toThrow("其他素材");
+    await lease.repository.revealEditImageGroup!("draft");
+    expect(repo.revealEditImageGroup).toHaveBeenCalledExactlyOnceWith("draft");
+    await lease.retire();
+    await expect(lease.repository.revealEditImageGroup!("draft")).rejects.toThrow("素材编辑已结束");
+  });
+
+  it("exposes original-file location within its own live session and drains it before discard", async () => {
+    const repo = repository();
+    const pending = deferred<void>();
+    repo.revealEditImage = vi.fn(() => pending.promise);
+    const lease = new MaterialEditLease(repo, session);
+    expect(lease.repository.revealEditImage).toBeTypeOf("function");
+    await expect(lease.repository.revealEditImage!("other", "image-2")).rejects.toThrow("其他素材");
+    const revealing = lease.repository.revealEditImage!("draft", "image-2");
+    await vi.waitFor(() => expect(repo.revealEditImage).toHaveBeenCalledExactlyOnceWith("draft", "image-2"));
+    const retiring = lease.retire();
+    expect(repo.discardEdit).not.toHaveBeenCalled();
+    pending.resolve();
+    await revealing;
+    expect(await retiring).toBe("discarded");
+    await expect(lease.repository.revealEditImage!("draft", "image-2")).rejects.toThrow("素材编辑已结束");
+    expect(new MaterialEditLease(repository(), session).repository.revealEditImage).toBeUndefined();
+  });
+
   it("does not submit an empty image material", async () => {
     const repo = repository();
     const payload: MaterialPayload = { format: "preshot-material", version: 1, kind: "image",

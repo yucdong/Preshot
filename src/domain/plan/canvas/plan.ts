@@ -40,14 +40,15 @@ export interface MoveImagesParams {
   toIndex: number;
 }
 
-export function defaultImageFrame(aspectRatio: number): {
+export function defaultImageFrame(aspectRatio: number, maxWidth = Number.POSITIVE_INFINITY): {
   frameWidth: number;
   frameHeight: number;
 } {
   const ratio = Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1;
+  const width = Math.min(DEFAULT_IMAGE_HEIGHT * ratio, Number.isFinite(maxWidth) && maxWidth > 0 ? maxWidth : Number.POSITIVE_INFINITY);
   return {
-    frameWidth: DEFAULT_IMAGE_HEIGHT * ratio,
-    frameHeight: DEFAULT_IMAGE_HEIGHT,
+    frameWidth: width,
+    frameHeight: width / ratio,
   };
 }
 

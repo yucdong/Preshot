@@ -26,17 +26,22 @@ shortcuts, clipboard, drag, or material insertion.
 
 ## Persisted data
 
-- `.preshotproj`: manifest schema 1, editable plan schema 16, document version 4,
+- `.preshotproj`: manifest schema 1, editable plan schema 17, document version 5,
   `format: "preshot-blocks"`.
 - Artifact blocks reference records in `plan.artifacts` by `artifactId`.
 - Image-group blocks reference `plan.imageGroups` by `groupId`, exactly once
   in the document and once in the collection.
 - Native media stores relative `media/<file>` paths; galleries use
   `references/`. Runtime data URLs never enter the manifest.
-- Global library: database v6, portable payload v1, five UI categories and six
+- Global library: database v10, portable payload v2 (v1 compatibility input), five UI categories and six
   compatible payload kinds. Immutable `storageId` identifies an image instance;
   `blobId` is an integrity hash, not file ownership.
-- Global preferences and library live under `%USERPROFILE%\.preshot`.
+- The per-user `%USERPROFILE%\.preshot\profile.json` locator points to the
+  first-launch working directory (default `.preshot`). Settings, project registry,
+  default projects and the material library share this root. Identity checks
+  prevent a missing directory from silently creating replacement data.
+  Existing `storage.json` library identities and legacy transfer receipts remain
+  compatible; settings are mounted only after root confirmation.
 
 ## Rendering
 

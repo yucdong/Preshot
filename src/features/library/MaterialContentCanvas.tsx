@@ -1,4 +1,5 @@
 import { ui, useUiLanguage } from "../../shared/i18n/ui";
+import { useCaptureReview } from "../plan/useCaptureReview";
 import "@blocknote/core/fonts/inter.css";
 import { zh } from "@blocknote/core/locales";
 import { BlockNoteView } from "@blocknote/mantine";
@@ -25,6 +26,7 @@ import {
 } from "../plan/blocknote/canvasViewport";
 import { ImageDragPreviewProvider } from "../plan/blocknote/ImageDragPreviewContext";
 import { ImageGroupBlockContext, type ImageGroupBlockController } from "../plan/blocknote/ImageGroupBlockContext";
+import { ImageImportProgress, type ImageImportProgressState } from "../plan/blocknote/ImageImportProgress";
 import { preshotBlockNoteSchema, type PreshotEditorPartialBlock } from "../plan/blocknote/preshotBlockNoteSchema";
 import { ReferenceImageLightbox } from "../plan/ReferenceImageLightbox";
 import { MaterialContentDraft } from "./MaterialContentDraft";
@@ -103,6 +105,8 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const [drafts] = useState(createArtifactDraftRegistry);
   const [busy, setBusy] = useState(false);
+  const { reviewCapture, captureReviewDialog } = useCaptureReview();
+  const [importProgress, setImportProgress] = useState<ImageImportProgressState | null>(null);
   const [captureState, setCaptureState] = useState<"waiting" | "cancelling" | null>(null);
   const captureRef = useRef<{ cancelled: boolean; cancel(): void } | null>(null);
   const captureCancelButton = useRef<HTMLButtonElement>(null);
@@ -245,7 +249,7 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
   }, [drafts]);
 
   const imageController = useMemo<ImageGroupBlockController>(() => ({
-    ...(library && repository.importEditImageData ? { insertImagesFromLibrary: (id: string) => {
+    ...(library && (repository.importLibraryImages || repository.importEditImageData) ? { insertImagesFromLibrary: (id: string) => {
       if (callbacks.current.disabled || busyRef.current) return;
       try { drafts.flush(); setLibraryTarget(id); } catch (error) { report(error); }
     } } : {}),
@@ -257,16 +261,23 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
     cloneGroup: rejectStructure,
     getGroup: (id) => store.getSnapshot().groups.find((group) => group.id === id),
     getImageSrc: (file) => store.getSnapshot().sources[file],
-    updateGroupMetadata: (id, update) => {
-      if (!callbacks.current.disabled && !busyRef.current) store.updateGroup(id, update);
-    },
-    addImages: (id) => {
+    addImages: (id, maxFrameWidth) => {
       void runImageOperation(async () => {
-        const images = await repository.importEditImages(sessionId);
-        if (mounted.current) store.addImages(id, images);
+        setImportProgress({ phase: "waiting" });
+        try {
+          const images = await repository.importEditImages(sessionId, (total) => {
+            if (mounted.current) setImportProgress({ phase: "loading", total });
+          });
+          if (mounted.current) {
+            store.addImages(id, images, undefined, maxFrameWidth);
+            if (images.some(image => image.previewError)) callbacks.current.onError(ui("原图已导入，预览生成失败。请点击重试预览。"));
+          }
+        } finally {
+          if (mounted.current) setImportProgress(null);
+        }
       }).catch(report);
     },
-    captureImage: (id) => {
+    captureImage: (id, maxFrameWidth) => {
       captureFocusGroup.current = id;
       void runImageOperation(async () => {
         let resolveCancellation!: () => void;
@@ -282,8 +293,8 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
         captureRef.current = capture;
         setCaptureState("waiting");
         try {
-          const image = await repository.captureEditImage(sessionId, cancellation);
-          if (mounted.current && !capture.cancelled && image) store.addImages(id, [image]);
+          const image = await repository.captureEditImage(sessionId, cancellation, reviewCapture);
+          if (mounted.current && !capture.cancelled && image) store.addImages(id, [image], undefined, maxFrameWidth);
         } finally {
           captureRef.current = null;
           if (mounted.current) setCaptureState(null);
@@ -295,10 +306,22 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
     openImage: (groupId, imageId) => {
       if (!callbacks.current.disabled && !busyRef.current) setLightbox({ groupId, imageId });
     },
+    ...(material.kind === "imageGroup" && repository.revealEditImageGroup ? {
+      revealImageGroupDisabled: material.revision === 0,
+      revealImageGroup: () => {
+        void runImageOperation(() => repository.revealEditImageGroup!(sessionId)).catch(report);
+      },
+    } : repository.revealEditImage ? { revealImage: (groupId: string, imageId: string) => {
+      void runImageOperation(async () => {
+        const image = store.getSnapshot().groups.find(({ id }) => id === groupId)?.images.find(({ id }) => id === imageId);
+        if (!image) throw new Error(ui("选中的素材图片已不存在。"));
+        await repository.revealEditImage!(sessionId, store.getToken(image.file));
+      }).catch(report);
+    } } : {}),
     setImageFrame: (groupId, imageId, frame) => mutate(() => store.setImageFrame(groupId, imageId, frame)),
     setImageFitMode: (groupId, imageId, fitMode) => mutate(() => store.setImageFitMode(groupId, imageId, fitMode)),
     moveImage: (from, imageId, to, index) => mutate(() => store.moveImage(from, imageId, to, index)),
-  }), [store, selectedImageId, mutate, runImageOperation, report, repository, sessionId, material.kind, library, drafts]);
+  }), [store, selectedImageId, mutate, runImageOperation, report, repository, sessionId, material.kind, material.revision, library, drafts, reviewCapture]);
 
   const artifactController = useMemo<ArtifactBlockController>(() => ({
     kindLabels: materialArtifactLabels,
@@ -419,6 +442,19 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
       }}><Maximize aria-hidden size={17} />{ui("适应宽度")}</button>
       <span className="ml-content-canvas-hint">{ui("仅编辑当前组件 · 不影响项目方案")}</span>
     </div>
+    {snapshot.groups.some(group => group.images.some(image => !snapshot.sources[image.file])) && <div role="status">
+      {ui("原图已导入，预览生成失败。请点击重试预览。")}
+      <button type="button" disabled={locked} onClick={() => {
+        void runImageOperation(async () => {
+          for (const group of store.getSnapshot().groups) for (const image of group.images) {
+            if (!store.getSnapshot().sources[image.file]) {
+              const preview = await repository.loadEditImage(sessionId, store.getToken(image.file));
+              if (mounted.current) store.setPreview(image.file, preview);
+            }
+          }
+        }).catch(report);
+      }}>{ui("重试预览")}</button>
+    </div>}
     {captureState && <div className="ml-content-capture-status" role="status">
       <Camera size={18} aria-hidden />
       <p>{captureState === "waiting"
@@ -427,6 +463,8 @@ function MaterialContentCanvasSession(props: MaterialContentCanvasProps) {
       <button type="button" ref={captureCancelButton} disabled={captureState === "cancelling"}
         onClick={() => captureRef.current?.cancel()}>{ui("取消截图")}</button>
     </div>}
+    {captureReviewDialog}
+    {importProgress && <ImageImportProgress progress={importProgress} />}
     <div className="ml-content-canvas-scroller editor-workspace-grid min-h-0 overflow-auto p-5"
       ref={scrollerRef}
       onCompositionStartCapture={() => { composingRef.current = true; }}

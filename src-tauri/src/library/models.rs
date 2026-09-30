@@ -145,6 +145,8 @@ pub struct MaterialEditImage {
     pub width: u32,
     pub height: u32,
     pub data_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

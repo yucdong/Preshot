@@ -11,8 +11,7 @@ use sha2::{Digest, Sha256};
 use super::{error, Result};
 use crate::byte_write::{write_bytes_atomically, ByteWriteErrors};
 
-pub const MAX_IMAGE_BYTES: usize = 16 * 1024 * 1024;
-pub const MAX_BATCH_BYTES: u64 = 256 * 1024 * 1024;
+pub const MAX_IMAGE_BYTES: usize = 64 * 1024 * 1024;
 
 pub fn hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
@@ -139,6 +138,11 @@ pub fn reference(project: &Path, value: &str, exists: bool) -> Result<PathBuf> {
     Ok(path)
 }
 
+pub fn read_original(path: &Path) -> Result<Vec<u8>> {
+    no_links(path)?;
+    fs::read(path).map_err(|e| error("read", e))
+}
+
 pub fn read_limited(path: &Path, cap: usize) -> Result<Vec<u8>> {
     no_links(path)?;
     let file = File::open(path).map_err(|e| error("read", e))?;
@@ -160,11 +164,7 @@ pub fn read_limited(path: &Path, cap: usize) -> Result<Vec<u8>> {
 }
 
 pub fn image_info(bytes: &[u8], preview: bool) -> Result<(&'static str, u32, u32)> {
-    let cap = if preview {
-        2 * 1024 * 1024
-    } else {
-        MAX_IMAGE_BYTES
-    };
+    let cap = if preview { 2 * 1024 * 1024 } else { usize::MAX };
     if bytes.is_empty() || bytes.len() > cap {
         return Err(error("image_size", "Image exceeds its encoded-byte limit"));
     }
@@ -181,25 +181,27 @@ pub fn image_info(bytes: &[u8], preview: bool) -> Result<(&'static str, u32, u32
         .into_dimensions()
         .map_err(|e| error("image_decode", e))?;
     let (width, height) = dimensions;
-    let max_width = if preview { 480 } else { 8192 };
-    let max_height = 8192;
     if width == 0
         || height == 0
-        || width > max_width
-        || height > max_height
-        || u64::from(width) * u64::from(height) > 32_000_000
+        || (preview && (width > 480 || height > 8192))
     {
         return Err(error(
             "image_dimensions",
-            "Image dimensions exceed the decoded-image limit",
+            "Image dimensions are invalid or exceed the thumbnail bounds",
         ));
     }
     let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
-    let mut limits = image::Limits::default();
-    limits.max_image_width = Some(max_width);
-    limits.max_image_height = Some(max_height);
-    limits.max_alloc = Some(128 * 1024 * 1024);
-    reader.limits(limits);
+    // Originals retain their native resolution. Thumbnail limits belong only to
+    // the derived preview; the decoder still validates the complete original.
+    if preview {
+        let mut limits = image::Limits::default();
+        limits.max_image_width = Some(480);
+        limits.max_image_height = Some(8192);
+        limits.max_alloc = Some(128 * 1024 * 1024);
+        reader.limits(limits);
+    } else {
+        reader.no_limits();
+    }
     reader.decode().map_err(|e| error("image_decode", e))?;
     Ok((
         if format == ImageFormat::Png {

@@ -3,6 +3,39 @@ import { createTauriPlan } from "./tauriPlan";
 import { createEmptyProjectPlanV15 } from "../../domain/plan/canvas/blockDocument";
 
 describe("createTauriPlan", () => {
+  it("streams large originals in bounded chunks and resolves an uncertain finish with the same receipt", async () => {
+    const saved = { file: "media/original.png", name: "original.png", mimeType: "image/png", dataUrl: "data:image/png;base64,AA==" };
+    let finishes = 0;
+    const invokeCommand = vi.fn(async (command: string, _args?: Record<string, unknown>) => {
+      if (command === "finish_image_import") {
+        if (++finishes === 1) throw new Error("reply lost after publication");
+        return saved;
+      }
+      return null;
+    });
+    const chunk = new Uint8Array(2 * 1024 * 1024 + 1);
+    async function* chunks() { yield chunk; }
+    const native = createTauriPlan({ invokeCommand });
+    await expect(native.importImageStream!("C:\\p", "original.png", chunk.length, chunks())).resolves.toEqual(saved);
+    const writes = invokeCommand.mock.calls.filter(([command]) => command === "append_image_import");
+    expect(writes.map(([, args]) => args!.offset)).toEqual([0, 1024 * 1024, 2 * 1024 * 1024]);
+    expect(writes.every(([, args]) => (args!.bytes as number[]).length <= 1024 * 1024)).toBe(true);
+    const receipts = invokeCommand.mock.calls.filter(([command]) => command === "finish_image_import");
+    expect(receipts[0][1]).toEqual(receipts[1][1]);
+    expect(invokeCommand.mock.calls.some(([command]) => command === "abort_image_import")).toBe(false);
+  });
+
+  it("aborts owned partial uploads and reports cleanup failure after a cancelled source", async () => {
+    const invokeCommand = vi.fn(async (command: string) => {
+      if (command === "abort_image_import") throw new Error("disk unavailable during cleanup");
+      return null;
+    });
+    async function* chunks() { yield new Uint8Array([1, 2]); throw new Error("Import cancelled"); }
+    await expect(createTauriPlan({ invokeCommand }).importImageStream!("C:\\p", "original.png", 300_000_000, chunks()))
+      .rejects.toThrow(/cleanup.*disk unavailable/);
+    expect(invokeCommand.mock.calls.some(([command]) => command === "finish_image_import")).toBe(false);
+  });
+
   it("validates clipboard file receipts, status and retained history results", async () => {
     const operationId = "paste-operation";
     const input = { projectPath: "C:\\p", operationId, destination: "references" as const,

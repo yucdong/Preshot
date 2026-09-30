@@ -10,11 +10,11 @@ export function createStarterProjectPlan(): ProjectPlanV15 {
   ];
 
   return {
-    schemaVersion: 16,
+    schemaVersion: 17,
     title: STARTER_PROJECT_NAME,
     document: {
       format: "preshot-blocks",
-      version: 4,
+      version: 5,
       blocks: paragraphs.map((text, index) => ({
         id: `starter-intro-${index + 1}`,
         type: "paragraph",

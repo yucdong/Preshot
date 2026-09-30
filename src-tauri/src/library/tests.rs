@@ -15,13 +15,15 @@ mod single_image;
 mod insert_selection_tests;
 #[path = "tests_categories.rs"]
 mod categories;
+#[path = "tests_originals.rs"]
+mod originals;
 
 #[test]
 fn library_image_kind_schema_preserves_v5_instances() {
     let fixture = Fixture::new("prop");
     let store = fixture.store();
     let version: u32 = store.conn.pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
-    assert_eq!(version, 6);
+    assert_eq!(version, 10);
     assert!(store.conn.prepare("SELECT storage_id FROM image_instances").is_ok());
 }
 
@@ -47,7 +49,7 @@ fn library_edit_schema_migrates_v1_without_losing_content() {
         .conn
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 6);
+    assert_eq!(version, 10);
     assert_eq!(store.get(&material.summary.id).unwrap(), material);
     assert_eq!(store.blob(&material.images[0]).unwrap(), fixture.bytes);
 }
@@ -244,6 +246,14 @@ impl Fixture {
                     "caption":image["caption"].as_str().unwrap_or(""),
                     "showPreview":true,"previewWidth":image["frameWidth"]}
             }));
+            if next["schemaVersion"] == 17 {
+                let props = &mut next["document"]["blocks"].as_array_mut().unwrap().last_mut().unwrap()["props"];
+                props["previewHeight"] = image["frameHeight"].clone();
+                props["fitMode"] = image.get("fitMode").cloned().unwrap_or(json!("cover"));
+                for (prop, field, default) in [("cropX", "x", 0.0), ("cropY", "y", 0.0), ("cropWidth", "width", 1.0), ("cropHeight", "height", 1.0)] {
+                    props[prop] = image.get("crop").and_then(|crop| crop.get(field)).cloned().unwrap_or(json!(default));
+                }
+            }
             }
             return next;
         }

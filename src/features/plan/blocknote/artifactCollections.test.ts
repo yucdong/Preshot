@@ -19,11 +19,11 @@ const image: ReferenceImage = {
 
 function plan(): ProjectPlanV15 {
   return {
-    schemaVersion: 16,
+    schemaVersion: 17,
     title: "Artifacts",
     document: {
       format: "preshot-blocks",
-      version: 4,
+      version: 5,
       blocks: [
         {
           id: "prop-block",

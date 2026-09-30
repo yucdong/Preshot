@@ -196,12 +196,9 @@ fn library_edit_import_copies_originals_cancel_and_crop_keep_undo_sources() {
             .import_edit_images(&session.session_id, vec![source.to_str().unwrap().into()])
             .unwrap()
             .remove(0);
-        assert_eq!(
-            STANDARD
-                .decode(staged.data_url.split(',').nth(1).unwrap())
-                .unwrap(),
-            bytes
-        );
+        let preview = STANDARD.decode(staged.data_url.split(',').nth(1).unwrap()).unwrap();
+        assert_eq!(files::image_info(&preview, false).unwrap(), ("image/png", 4, 3));
+        assert_eq!(fs::read(&source).unwrap(), bytes);
         let cropped = store
             .crop_edit_image(
                 &session.session_id,
@@ -572,7 +569,7 @@ fn library_edit_interrupted_batch_is_invisible_and_recovers_only_recorded_owners
 }
 
 #[test]
-fn library_edit_rejects_oversized_dimensions_mismatched_format_and_foreign_session_ids() {
+fn library_edit_accepts_wide_images_but_rejects_mismatched_format_and_foreign_session_ids() {
     let fixture = Fixture::new("prop");
     let mut store = fixture.store();
     let material = store.save(fixture.save_request()).unwrap();
@@ -601,9 +598,8 @@ fn library_edit_rejects_oversized_dimensions_mismatched_format_and_foreign_sessi
     assert_eq!(
         store
             .import_edit_images(&session.session_id, vec![bad.to_str().unwrap().into()])
-            .unwrap_err()
-            .code,
-        "library_image_dimensions"
+            .unwrap()[0].width,
+        8193
     );
     let wrong = fixture.project.join("wrong.jpg");
     fs::write(&wrong, &fixture.bytes).unwrap();

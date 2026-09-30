@@ -2,6 +2,69 @@
 @import "@fontsource-variable/outfit/wght.css";
 @import "tailwindcss";
 
+.preshot-image-import-progress {
+  flex: none;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-panel);
+  color: var(--app-ink-muted);
+  font-size: 12px;
+}
+
+.preshot-image-import-progress-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.preshot-image-import-progress progress {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin-top: 6px;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--app-border);
+  color: var(--app-primary);
+}
+
+.preshot-image-import-progress progress::-webkit-progress-bar {
+  background: transparent;
+}
+
+.preshot-image-import-progress progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--app-primary);
+}
+
+.preshot-image-import-progress progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--app-primary);
+}
+
+.preshot-image-import-progress progress:indeterminate {
+  background: linear-gradient(90deg, transparent, var(--app-primary), transparent)
+    0 0 / 40% 100% no-repeat var(--app-border);
+  animation: preshot-image-import-pending 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes preshot-image-import-pending {
+  to { background-position: 100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preshot-image-import-progress progress:indeterminate {
+    animation: none;
+    background-position: 50% 0;
+  }
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {
@@ -437,6 +500,8 @@ button:disabled {
 .preshot-long-image-export-surface
   :is(
     .ProseMirror-selectednode,
+    .bn-block-content.ProseMirror-selectednode > *,
+    .ProseMirror-selectednode > .bn-block-content > *,
     [data-selected="true"],
     [data-node-type="blockOuter"]
   ) {
@@ -511,6 +576,7 @@ button:disabled {
 
 .preshot-blocknote-document .bn-side-menu {
   transform: none;
+  height: 18px;
 }
 
 .preshot-blocknote-document .bn-side-menu .bn-button {
@@ -527,6 +593,7 @@ button:disabled {
 
 .preshot-block-drag-trigger {
   touch-action: none;
+  display: flex;
 }
 
 .preshot-is-dragging-block,
@@ -1791,7 +1858,32 @@ html.dark .tiptap-editor {
 .preshot-resizing-columns { cursor: col-resize; user-select: none; }
 .preshot-long-image-export-document .bn-block-column-list { gap: 20px; padding: 4px 0 12px; }
 .preshot-long-image-export-document .bn-block-column { padding: 0; min-width: 0; overflow: visible; }
+/* The first content box in each column shares a top edge. Keep heading spacing
+   between subsequent blocks, rather than adding it above the column itself. */
+:is(.preshot-blocknote-document, .preshot-long-image-export-document)
+  .bn-block-column > .bn-block-outer:first-child > .bn-block
+  > .bn-block-content[data-content-type="heading"] {
+  padding-top: 3px;
+}
 .bn-block-column .preshot-artifact-balanced-layout { grid-template-columns: minmax(0, 1fr); }
 .bn-block-column .preshot-artifact-block { max-width: 100%; min-width: 0; }
 .bn-block-column .preshot-artifact-block header { flex-wrap: wrap; }
 .bn-block-column .bn-visual-media-wrapper { max-width: 100%; }
+
+.preshot-card-layout-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+.preshot-card-layout-controls button { border: 1px solid var(--paper-border); border-radius: 4px; padding: 3px 8px; }
+.preshot-card-layout-controls label { display: flex; align-items: center; gap: 6px; }
+.preshot-card-divider { background: transparent; touch-action: none; border-radius: 4px; }
+.preshot-card-divider:hover, .preshot-card-divider:focus-visible { background: var(--paper-border); }
+.preshot-card-regions textarea { width: 100%; min-height: 64px; field-sizing: content; }
+.preshot-card-regions .preshot-balanced-info-field { grid-template-rows: 24px minmax(64px, 1fr); }
+.preshot-image-resize-zone::after { content: ""; position: absolute; inset: 40%; border-radius: 2px; }
+[data-image-id]:focus-within > .preshot-image-resize-zone::after { background: var(--paper-primary); }
+
+.preshot-native-fit { position: absolute; top: 4px; left: 4px; z-index: 60; padding: 3px 6px; border-radius: 4px; color: white; background: #202329; font-size: 11px; opacity: 0; }
+.preshot-native-image:hover .preshot-native-fit, .preshot-native-image:focus-within .preshot-native-fit { opacity: 1; }
+.preshot-native-image:focus-within .bn-visual-media-wrapper { outline: 1px solid var(--paper-primary); }
+.preshot-native-image:focus-within .preshot-image-resize-zone::after { background: var(--paper-primary); }
+
+.preshot-native-resize-hint { display: none; position: absolute; bottom: 4px; left: 4px; padding: 3px 6px; background: #18181bcc; color: white; font-size: 11px; pointer-events: none; }
+.preshot-native-image:focus-within .preshot-native-resize-hint { display: block; }

@@ -27,12 +27,12 @@ function fixture(): {
   return {
     block,
     plan: {
-      schemaVersion: 16,
+      schemaVersion: 17,
       artifacts: [],
       title: "DOCX assets",
       document: {
         format: "preshot-blocks",
-        version: 4,
+        version: 5,
         blocks: [{
           ...block,
           content: undefined,

@@ -5,7 +5,9 @@ mod insert;
 mod insert_selection;
 mod insert_gallery;
 mod image_material;
+mod migrations;
 mod instances;
+mod group_originals;
 pub mod models;
 mod purge;
 mod search;
@@ -13,10 +15,9 @@ mod validation;
 
 pub use commands::*;
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
+#[cfg(test)]
+use std::fs;
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -47,9 +48,21 @@ pub(crate) struct Store {
     conn: Connection,
     // Held for the whole operation, including staging, publication, and DB commit.
     _lock: files::Lock,
+    // Acquired before resolving the root; held until the operation has finished.
+    pub(crate) profile_lock: Option<files::Lock>,
 }
 
 impl Store {
+    pub(crate) fn checkpoint_for_copy(self) -> Result<files::Lock> {
+        let (busy, _, _): (i64, i64, i64) = self.conn.query_row(
+            "PRAGMA wal_checkpoint(TRUNCATE)", [], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        ).map_err(|e| error("database", e))?;
+        if busy != 0 { return Err(error("busy", "Close other library users before moving it")); }
+        self.conn.close().map_err(|(_,e)| error("database", e))?;
+        Ok(self._lock)
+    }
+
+    #[cfg(test)]
     fn open(home: &Path) -> Result<Self> {
         if !home.exists() {
             let parent = home
@@ -60,6 +73,11 @@ impl Store {
         }
         let home = files::directory(home)?;
         let root = files::child_dir(&home, "library")?;
+        Self::open_root(&root)
+    }
+
+    pub(crate) fn open_root(root: &Path) -> Result<Self> {
+        let root = files::directory(root)?;
         let lock = files::Lock::acquire(&root.join(".library.lock"))?;
         for name in ["objects", "previews", "drafts"] {
             files::child_dir(&root, name)?;
@@ -77,7 +95,7 @@ impl Store {
         let version: u32 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(|e| error("database", e))?;
-        if version > 6 {
+        if version > 10 {
             return Err(error(
                 "database_version",
                 "Library was created by a newer application",
@@ -102,16 +120,27 @@ impl Store {
             conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;")
                 .map_err(|e| error("database", e))?;
         }
-        if version < 6 {
-            conn.pragma_update(None, "user_version", 6).map_err(|e| error("database", e))?;
+        if version < 7 {
+            migrations::upgrade_image_byte_limit(&mut conn)?;
         }
+        if version < 8 {
+            migrations::remove_image_resolution_limit(&mut conn)?;
+        }
+        if version < 9 {
+            let tx = conn.transaction().map_err(|e| error("database", e))?;
+            tx.execute_batch(include_str!("schema_v9.sql")).map_err(|e| error("database", e))?;
+            tx.commit().map_err(|e| error("database", e))?;
+        }
+        if version < 10 { migrations::remove_image_byte_limit(&mut conn)?; }
         files::child_dir(&root, "instances")?;
         search::rebuild_if_needed(&mut conn)?;
         let mut store = Self {
             root,
             conn,
             _lock: lock,
+            profile_lock: None,
         };
+        store.recover_group_relocations()?;
         store.recover_instance_publications()?;
         store.recover_purges()?;
         Ok(store)
@@ -175,7 +204,6 @@ impl Store {
                 .zip(&images)
                 .any(|(p, i)| p["localImageId"] != i.local_image_id)
             || detail.summary.image_count != images.len()
-            || detail.summary.byte_length > files::MAX_BATCH_BYTES
             || detail.summary.byte_length != images.iter().map(|i| i.byte_length).sum::<u64>()
         {
             return Err(error(
@@ -213,28 +241,27 @@ impl Store {
         Ok(path)
     }
 
-    fn blob(&self, image: &MaterialImage) -> Result<Vec<u8>> {
+    fn image_path(&self, image: &MaterialImage) -> Result<PathBuf> {
         self.validate_instance_mapping(image)?;
-        let path = if let Some(storage_id) = &image.storage_id {
-            self.instance_path(storage_id, &image.mime_type)?
+        if let Some(storage_id) = &image.storage_id {
+            self.instance_path(storage_id, &image.mime_type)
         } else {
-            self.object_path(&image.blob_id, &image.mime_type)?
-        };
-        let bytes = files::read_limited(&path, files::MAX_IMAGE_BYTES)?;
-        if files::hash(&bytes) != image.blob_id || bytes.len() as u64 != image.byte_length {
-            return Err(error(
-                "image_corrupt",
-                "Library image bytes no longer match their immutable hash",
-            ));
+            self.object_path(&image.blob_id, &image.mime_type)
         }
-        let (mime, width, height) = files::image_info(&bytes, false)?;
+    }
+
+    fn verified_image_path(&self, image: &MaterialImage) -> Result<PathBuf> {
+        let path = self.image_path(image)?;
+        crate::original_image::verify(&path, image.byte_length, &image.blob_id)?;
+        let (mime, width, height) = crate::original_image::info(&path)?;
         if mime != image.mime_type || width != image.width || height != image.height {
-            return Err(error(
-                "image_corrupt",
-                "Library image metadata does not match decoded bytes",
-            ));
+            return Err(error("image_corrupt", "Original metadata differs from its file"));
         }
-        Ok(bytes)
+        Ok(path)
+    }
+
+    fn blob(&self, image: &MaterialImage) -> Result<Vec<u8>> {
+        files::read_original(&self.verified_image_path(image)?)
     }
 
     fn save(&mut self, mut input: MaterialSaveRequest) -> Result<MaterialDetail> {
@@ -279,8 +306,8 @@ impl Store {
             let path = if input.snapshot.payload.kind == MaterialKind::Image {
                 image_material::source_path(&project, &source.file)?
             } else { files::reference(&project, &source.file, true)? };
-            let bytes = files::read_limited(&path, files::MAX_IMAGE_BYTES)?;
-            let (mime, width, height) = files::image_info(&bytes, false)?;
+            let (length, hash) = crate::original_image::fingerprint(&path)?;
+            let (mime, width, height) = crate::original_image::info(&path)?;
             if input.snapshot.payload.kind == MaterialKind::Image && source.file.starts_with("media/") &&
                 (portable["sourceWidth"] != width || portable["sourceHeight"] != height) {
                 return Err(error("source", "Native image dimensions do not match the original file"));
@@ -296,20 +323,20 @@ impl Store {
                     "Source image extension does not match its actual bytes",
                 ));
             }
-            byte_length += bytes.len() as u64;
-            if byte_length > files::MAX_BATCH_BYTES {
-                return Err(error("size", "Material source images exceed 256 MiB"));
-            }
+            byte_length += length;
             let image = self.snapshot_instance_image(&input.operation_id, MaterialImage {
                 local_image_id: local_id.into(),
-                blob_id: files::hash(&bytes),
+                blob_id: hash,
                 storage_id: None,
                 mime_type: mime.into(),
-                byte_length: bytes.len() as u64,
+                byte_length: length,
                 width,
                 height,
             })?;
-            self.publish_instance(&input.operation_id, &image, &bytes)?;
+            if input.snapshot.payload.kind == MaterialKind::ImageGroup {
+                self.assign_group_instance(&material_id, &image)?;
+            }
+            self.publish_instance_from(&input.operation_id, &image, &path)?;
             images.push(image);
         }
         insert::check_base(&project, &input.project_id, &input.expected_plan)?;
@@ -453,11 +480,17 @@ impl Store {
                     "Image does not belong to this material revision",
                 )
             })?;
-        Ok(format!(
-            "data:{};base64,{}",
-            image.mime_type,
-            STANDARD.encode(self.blob(image)?)
-        ))
+        crate::original_image::display_url(&self.verified_image_path(image)?, 2048)
+    }
+
+    fn original_image_path(&self, id: &str, revision: u32, local_id: &str) -> Result<PathBuf> {
+        let detail = self.revision(id, revision)?;
+        let image = detail.images.iter().find(|image| image.local_image_id == local_id)
+            .ok_or_else(|| error("image_not_found", "Image does not belong to this material revision"))?;
+        let path = self.image_path(image)?;
+        files::no_links(&path)?;
+        if !path.is_file() { return Err(error("image_not_found", "The original image file is missing")); }
+        Ok(path)
     }
 
     fn preview_path(&self, hash: &str) -> Result<PathBuf> {

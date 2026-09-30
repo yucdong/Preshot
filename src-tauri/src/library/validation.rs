@@ -199,7 +199,7 @@ fn image(value: &Value) -> Result<()> {
 
 pub fn payload(value: &MaterialPayload) -> Result<()> {
     if value.format != "preshot-material"
-        || value.version != 1
+        || !matches!(value.version, 1 | 2)
         || string(&value.component, "kind")? != value.kind.as_str()
         || serde_json::to_vec(value)
             .map_err(|e| error("validation", e))?
@@ -243,7 +243,19 @@ pub fn payload(value: &MaterialPayload) -> Result<()> {
                 Some("mainGallery"),
             ),
         };
-    object(&value.component, fields, optional)?;
+    let mut optional = optional.to_vec();
+    if value.version == 2 && matches!(value.kind, MaterialKind::ShootingLocation | MaterialKind::Prop | MaterialKind::Clothing) { optional.push("contentLayout"); }
+    object(&value.component, fields, &optional)?;
+    if let Some(layout) = value.component.get("contentLayout") {
+        object(layout, &["orientation", "textFirst", "textShare", "minHeight"], &[])?;
+        numeric(layout, "textShare", true)?;
+        numeric(layout, "minHeight", true)?;
+        let share = layout["textShare"].as_f64().unwrap();
+        let height = layout["minHeight"].as_f64().unwrap();
+        if !matches!(layout["orientation"].as_str(), Some("vertical" | "horizontal")) || !layout["textFirst"].is_boolean() || !(0.1..=0.9).contains(&share) || !(160.0..=4000.0).contains(&height) {
+            return Err(error("validation", "Invalid card content layout"));
+        }
+    }
     for key in strings {
         text(string(&value.component, key)?, 200_000, true)?;
     }
@@ -312,7 +324,7 @@ pub fn plan(value: &Value) -> Result<()> {
         ],
         &[],
     )?;
-    let active = value["schemaVersion"] == 16 && value["document"]["version"] == 4;
+    let active = (value["schemaVersion"] == 17 && value["document"]["version"] == 5) || (value["schemaVersion"] == 16 && value["document"]["version"] == 4);
     let legacy = value["schemaVersion"] == 15 && value["document"]["version"] == 3;
     if (!active && !legacy) || value["document"]["format"] != "preshot-blocks"
     {
@@ -440,6 +452,7 @@ pub fn snapshot_from_plan(
             component.insert((*key).into(), value.clone());
         }
     }
+    if let Some(layout) = sidecar.get("contentLayout") { component.insert("contentLayout".into(), layout.clone()); }
     let images = match kind {
         MaterialKind::Image | MaterialKind::ImageGroup => component.get_mut("images"),
         _ => {
@@ -479,7 +492,7 @@ pub fn snapshot_from_plan(
     }
     let result = MaterialPayload {
         format: "preshot-material".into(),
-        version: 1,
+        version: if plan_value["schemaVersion"] == 17 { 2 } else { 1 },
         kind,
         component: Value::Object(component),
     };
@@ -529,6 +542,10 @@ pub fn snapshot(plan_value: &Value, input: &MaterialSnapshot) -> Result<()> {
         }
         expected_image["localImageId"] = json!(id);
     }
+    // v1 components remain valid in v17 documents. Compare their content under
+    // the disclosed payload version without rewriting stored payloads/receipts.
+    expected.version = input.payload.version;
+    payload(&expected)?;
     if expected != input.payload {
         return Err(error(
             "source",
@@ -692,7 +709,7 @@ pub fn insertion(base: &Value, next: &Value, prepared: &PreparedMaterialInsert) 
             if prepared.payload.kind == MaterialKind::ModelCard {
                 &["notes"]
             } else {
-                &[]
+                &["contentLayout"]
             },
         )?;
         if record["revision"] != 0 {
@@ -774,9 +791,26 @@ fn native_image_insertion(base: &Value, next: &Value, prepared: &PreparedMateria
         }
         object(block, &["id", "type", "props", "children"], &[])?;
         if !array(block, "children")?.is_empty() { return Err(error("insert", "Inserted image must not contain child blocks")); }
-        let expected = json!({"url":file,"name":prepared.payload.component["name"],
+        let mut expected = json!({"url":file,"name":prepared.payload.component["name"],
             "caption":image["caption"].as_str().unwrap_or(""),"showPreview":true,"previewWidth":image["frameWidth"]});
-        if block["props"] != expected { return Err(error("insert", "Inserted image does not match prepared order and content")); }
+        if next["schemaVersion"] == 17 {
+            expected["previewHeight"] = image["frameHeight"].clone();
+            expected["fitMode"] = image.get("fitMode").cloned().unwrap_or(json!("cover"));
+            for (prop, field, default) in [("cropX", "x", 0.0), ("cropY", "y", 0.0), ("cropWidth", "width", 1.0), ("cropHeight", "height", 1.0)] {
+                expected[prop] = image.get("crop").and_then(|crop| crop.get(field)).cloned().unwrap_or(json!(default));
+            }
+        }
+        // JSON.stringify normalizes integral floats (0.0 -> 0). Compare visual
+        // numbers by exact value while retaining the complete, closed prop set.
+        let actual = block["props"].as_object().ok_or_else(|| error("insert", "Expected image props"))?;
+        let expected = expected.as_object().unwrap();
+        if actual.len() != expected.len() || expected.iter().any(|(key, value)| {
+            actual.get(key).is_none_or(|candidate| {
+                if value.is_number() && candidate.is_number() {
+                    value.as_f64() != candidate.as_f64()
+                } else { value != candidate }
+            })
+        }) { return Err(error("insert", "Inserted image does not match prepared order and content")); }
         string(block, "id")?;
         fresh_ids(block, &mut ids)?;
     }

@@ -11,6 +11,8 @@ import { ThemeProvider } from "../theme/ThemeProvider";
 import type { WorkspaceDependencies } from "./dependencies";
 import { WorkspaceProvider } from "./WorkspaceProvider";
 
+const prepareCopy = vi.hoisted(() => vi.fn(async () => vi.fn()));
+
 vi.mock("../layout/Workspace", () => ({
   Workspace: function Workspace({
     active = true,
@@ -18,14 +20,17 @@ vi.mock("../layout/Workspace", () => ({
     projectPath,
     loadId,
     onLoadProgress,
+    registerBeforeCopy,
   }: {
     active?: boolean;
     projectName: string;
     projectPath: string;
     loadId: number;
     onLoadProgress?(id: number, path: string, progress: PlanLoadProgress): void;
+    registerBeforeCopy?(path: string, prepare: () => Promise<() => void>): () => void;
   }) {
     const [draft, setDraft] = useState("");
+    useEffect(() => registerBeforeCopy?.(projectPath, prepareCopy), [projectPath, registerBeforeCopy]);
     useEffect(() => {
       onLoadProgress?.(loadId, projectPath, { status: "ready" });
     }, [loadId, onLoadProgress, projectPath]);
@@ -34,6 +39,36 @@ vi.mock("../layout/Workspace", () => ({
 }));
 
 describe("WorkspaceProvider startup", () => {
+  it.each(["copying", "finishing", "completed"])("does not re-save the source while resuming a %s operation", async phase => {
+    prepareCopy.mockClear();
+    const source: WorkspaceProjectView = { projectId: "source", path: "C:\\source", name: "原项目", status: "available", coverImage: null, coverDataUrl: null,
+      createdAt: "2026-09-01", updatedAt: "2026-09-01", lastOpenedAt: "2026-09-01" };
+    const copied = { ...source, projectId: "copy", path: "C:\\copy", name: "副本" };
+    const dependencies: WorkspaceDependencies = {
+      service: {
+        loadProjects: vi.fn().mockResolvedValue([source]), openProject: vi.fn().mockResolvedValue(source),
+        createProject: vi.fn(), relocateProject: vi.fn(), removeRecord: vi.fn(), deleteProject: vi.fn(),
+        suggestProjectCopy: vi.fn().mockResolvedValue({ parentPath: "C:\\", name: "副本" }),
+        projectCopyStatus: vi.fn().mockResolvedValue({ operationId: "operation", phase, copiedBytes: 1, totalBytes: 2, project: null, error: null }),
+        copyProject: vi.fn().mockResolvedValue(copied),
+      },
+      directoryPicker: { getDefaultProjectsDirectory: vi.fn(), pickDirectory: vi.fn() },
+      native: { onMenuAction: vi.fn().mockResolvedValue(vi.fn()), maximizeWindow: vi.fn().mockResolvedValue(undefined) },
+      projectDirectoryRevealer: { revealProjectDirectory: vi.fn() },
+      logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    };
+    render(<ThemeProvider repository={{ read: async () => ({ theme: "light" }), write: async () => {} }}>
+      <WorkspaceProvider dependencies={dependencies} planDependencies={{} as PlanDependencies} />
+    </ThemeProvider>);
+    const user = userEvent.setup();
+    await screen.findByRole("textbox", { name: "原项目 草稿" });
+    await user.click(screen.getByRole("button", { name: "更多项目操作 原项目" }));
+    await user.click(screen.getByRole("menuitem", { name: "复制项目" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "复制项目" }));
+    await screen.findByRole("textbox", { name: "副本 草稿" });
+    expect(prepareCopy).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "关闭项目 原项目" })).toBeVisible();
+  });
   it("retains open editors across switching and creation cancellation, and closes only the selected session", async () => {
     const user = userEvent.setup();
     const first: WorkspaceProjectView = {
@@ -45,7 +80,7 @@ describe("WorkspaceProvider startup", () => {
       service: {
         loadProjects: vi.fn().mockResolvedValue([first, second]),
         openProject: vi.fn().mockImplementation(async (path) => path === second.path ? second : first),
-        createProject: vi.fn(), relocateProject: vi.fn(), removeRecord: vi.fn(),
+        createProject: vi.fn(), relocateProject: vi.fn(), removeRecord: vi.fn(), deleteProject: vi.fn(),
       },
       directoryPicker: {
       getDefaultProjectsDirectory: vi.fn().mockResolvedValue("C:\\Users\\me\\.preshot\\projects"), pickDirectory: vi.fn().mockResolvedValue("C:\\projects") },
@@ -114,6 +149,7 @@ describe("WorkspaceProvider startup", () => {
         openProject: vi.fn().mockResolvedValue(starter),
         relocateProject: vi.fn(),
         removeRecord: vi.fn(),
+        deleteProject: vi.fn(),
       },
       directoryPicker: {
       getDefaultProjectsDirectory: vi.fn().mockResolvedValue("C:\\Users\\me\\.preshot\\projects"), pickDirectory: vi.fn().mockResolvedValue(null) },

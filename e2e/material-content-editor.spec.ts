@@ -218,7 +218,7 @@ test("material image edits persist owned images and reopen on the full canvas", 
 });
 
 for (const variant of [
-  { kind: "imageGroup", field: "图片组名称", value: "更新后的窗边光线" },
+  { kind: "imageGroup", field: "素材说明", value: "更新后的窗边光线说明" },
   { kind: "modelCard", field: "模特名称 / 编号", value: "更新后的示例模特" },
   { kind: "shootingLocation", field: "场地名称", value: "更新后的窗边影棚" },
   { kind: "clothing", field: "道具与服装名称", value: "更新后的米色外套" },
@@ -241,14 +241,12 @@ for (const variant of [
     await expect(editor.getByRole("textbox", { name: "素材名称", exact: true })).toHaveValue(`素材：${variant.value}`);
     await editor.getByRole("textbox", { name: variant.field }).fill(variant.value);
     if (variant.kind === "imageGroup") {
-      await editor.getByRole("textbox", { name: "图片组说明", exact: true }).fill("更新后的夜景拍摄说明");
+      await expect(editor.locator(".ml-material-metadata").getByRole("textbox")).toHaveCount(3);
+      await expect(editor.locator(".ml-content-canvas").locator("input, textarea")).toHaveCount(0);
     }
     await editor.getByRole("button", { name: "适应宽度", exact: true }).click();
     await expect(editor.getByRole("textbox", { name: "素材名称", exact: true })).toHaveValue(`素材：${variant.value}`);
     await expect(editor.getByRole("textbox", { name: variant.field })).toHaveValue(variant.value);
-    if (variant.kind === "imageGroup") {
-      await expect(editor.getByRole("textbox", { name: "图片组说明", exact: true })).toHaveValue("更新后的夜景拍摄说明");
-    }
     await expect(editor.locator(".bn-block-content")).toHaveCount(1);
     if (variant.kind === "modelCard") {
       await expect(page.locator("html")).toHaveClass(/dark/);
@@ -268,9 +266,6 @@ for (const variant of [
     await browser.getByRole("button", { name: "编辑素材", exact: true }).click();
     await expect(editor.getByRole("textbox", { name: "素材名称", exact: true })).toHaveValue(`素材：${variant.value}`);
     await expect(editor.getByRole("textbox", { name: variant.field })).toHaveValue(variant.value);
-    if (variant.kind === "imageGroup") {
-      await expect(editor.getByRole("textbox", { name: "图片组说明", exact: true })).toHaveValue("更新后的夜景拍摄说明");
-    }
     await editor.getByRole("button", { name: "取消", exact: true }).click();
     await expect(editor).toBeHidden();
     expect(errors).toEqual([]);

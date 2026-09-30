@@ -603,7 +603,7 @@ fn library_combined_edit_migrates_v1_v2_v3_and_preserves_existing_save_and_edit_
                 .conn
                 .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
                 .unwrap(),
-            6
+            10
         );
         let current = store.get(&material.summary.id).unwrap();
         assert_eq!(store.save(saved).unwrap(), current);

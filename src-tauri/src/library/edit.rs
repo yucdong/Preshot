@@ -6,7 +6,7 @@ use std::{
 };
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use image::{ImageFormat, ImageReader};
+use image::ImageFormat;
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -14,9 +14,8 @@ use uuid::Uuid;
 use super::{error, files, models::*, now, search, validation, Result, Store};
 
 // Undo retains original and staged images, including images removed from the draft.
-// This session-wide budget is separate from the 128-image / 256-MiB committed limit.
+// The retained image-count budget is separate from the 128-image committed limit.
 const MAX_DRAFT_IMAGES: usize = 512;
-const MAX_DRAFT_BYTES: u64 = 512 * 1024 * 1024;
 const EDIT_DRAFT_VERSION: u32 = 1;
 const CREATE_DRAFT_VERSION: u32 = 2;
 
@@ -43,12 +42,8 @@ pub(super) fn validate_image(image: &MaterialImage) -> Result<()> {
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
         || image.byte_length == 0
-        || image.byte_length > files::MAX_IMAGE_BYTES as u64
         || image.width == 0
         || image.height == 0
-        || image.width > 8192
-        || image.height > 8192
-        || u64::from(image.width) * u64::from(image.height) > 32_000_000
     {
         return Err(error(
             "edit_corrupt",
@@ -61,7 +56,6 @@ pub(super) fn validate_image(image: &MaterialImage) -> Result<()> {
 fn budget<'a>(
     images: impl Iterator<Item = &'a MaterialImage>,
     count_cap: usize,
-    byte_cap: u64,
 ) -> Result<()> {
     let mut count = 0usize;
     let mut bytes = 0u64;
@@ -71,10 +65,9 @@ fn budget<'a>(
         bytes = bytes
             .checked_add(image.byte_length)
             .ok_or_else(|| error("edit_limit", "Image byte budget overflow"))?;
-        if count > count_cap || bytes > byte_cap {
+        if count > count_cap {
             return Err(error("edit_limit", format!(
-                "Image ownership exceeds {count_cap} images or {} MiB; save or cancel and reopen the material",
-                byte_cap / (1024 * 1024)
+                "Image ownership exceeds {count_cap} images; save or cancel and reopen the material"
             )));
         }
     }
@@ -107,6 +100,7 @@ fn exposed(image: &MaterialImage, bytes: &[u8]) -> MaterialEditImage {
         width: image.width,
         height: image.height,
         data_url: data_url(image, bytes),
+        preview_error: None,
     }
 }
 
@@ -125,20 +119,18 @@ mod tests {
             width: 8192,
             height: 1,
         };
-        assert!(budget(std::iter::repeat_n(&image, 16), 128, files::MAX_BATCH_BYTES).is_ok());
-        assert!(budget(std::iter::repeat_n(&image, 17), 128, files::MAX_BATCH_BYTES).is_err());
+        assert!(budget(std::iter::repeat_n(&image, 4), 128).is_ok());
+        assert!(budget(std::iter::repeat_n(&image, 5), 128).is_ok());
         assert!(budget(
-            std::iter::repeat_n(&image, 32),
+            std::iter::repeat_n(&image, 8),
             MAX_DRAFT_IMAGES,
-            MAX_DRAFT_BYTES
         )
         .is_ok());
         assert!(budget(
-            std::iter::repeat_n(&image, 33),
+            std::iter::repeat_n(&image, 9),
             MAX_DRAFT_IMAGES,
-            MAX_DRAFT_BYTES
         )
-        .is_err());
+        .is_ok());
         let small = MaterialImage {
             byte_length: 1,
             ..image
@@ -146,25 +138,21 @@ mod tests {
         assert!(budget(
             std::iter::repeat_n(&small, 128),
             128,
-            files::MAX_BATCH_BYTES
         )
         .is_ok());
         assert!(budget(
             std::iter::repeat_n(&small, 129),
             128,
-            files::MAX_BATCH_BYTES
         )
         .is_err());
         assert!(budget(
             std::iter::repeat_n(&small, 512),
             MAX_DRAFT_IMAGES,
-            MAX_DRAFT_BYTES
         )
         .is_ok());
         assert!(budget(
             std::iter::repeat_n(&small, 513),
             MAX_DRAFT_IMAGES,
-            MAX_DRAFT_BYTES
         )
         .is_err());
     }
@@ -291,7 +279,7 @@ impl Store {
         }
         files::uuid(&draft.material.summary.id)?;
         validation::payload(&draft.material.payload)?;
-        budget(draft.material.images.iter(), 128, files::MAX_BATCH_BYTES)?;
+        budget(draft.material.images.iter(), 128)?;
         let portable = validation::payload_images(&draft.material.payload)?;
         if portable.len() != draft.material.images.len()
             || portable
@@ -338,7 +326,6 @@ impl Store {
                 .chain(&draft.staged)
                 .chain(&draft.pending),
             MAX_DRAFT_IMAGES,
-            MAX_DRAFT_BYTES,
         )?;
         Ok(draft)
     }
@@ -360,41 +347,23 @@ impl Store {
         Ok(path)
     }
 
-    fn staged_bytes(&self, draft: &Draft, image: &MaterialImage) -> Result<Vec<u8>> {
-        let bytes = files::read_limited(&self.stage_path(draft, image)?, files::MAX_IMAGE_BYTES)?;
-        if bytes.len() as u64 != image.byte_length || files::hash(&bytes) != image.blob_id {
-            return Err(error(
-                "edit_image_corrupt",
-                "Staged image was replaced or damaged; preserve this session",
-            ));
-        }
-        let (mime, width, height) = files::image_info(&bytes, false)?;
-        if mime != image.mime_type || width != image.width || height != image.height {
-            return Err(error(
-                "edit_image_corrupt",
-                "Staged image metadata no longer matches its bytes",
-            ));
-        }
-        Ok(bytes)
+    fn staged_path(&self, draft: &Draft, image: &MaterialImage) -> Result<PathBuf> {
+        let path = self.stage_path(draft, image)?;
+        crate::original_image::verify(&path, image.byte_length, &image.blob_id)?;
+        Ok(path)
     }
 
-    fn edit_image(&self, draft: &Draft, local_id: &str) -> Result<(MaterialImage, Vec<u8>)> {
-        if let Some(image) = draft
-            .material
-            .images
-            .iter()
-            .find(|i| i.local_image_id == local_id)
-        {
-            return Ok((image.clone(), self.blob(image)?));
+
+    fn edit_image_path(&self, draft: &Draft, local_id: &str) -> Result<(MaterialImage, PathBuf)> {
+        if let Some(image) = draft.material.images.iter().find(|i| i.local_image_id == local_id) {
+            return Ok((image.clone(), self.verified_image_path(image)?));
         }
         if let Some(image) = draft.staged.iter().find(|i| i.local_image_id == local_id) {
-            return Ok((image.clone(), self.staged_bytes(draft, image)?));
+            return Ok((image.clone(), self.staged_path(draft, image)?));
         }
-        Err(error(
-            "image_not_found",
-            "Image was not disclosed in this material edit session",
-        ))
+        Err(error("image_not_found", "Image was not disclosed in this material edit session"))
     }
+
 
     fn cleanup_stages(&self, draft: &Draft, images: &[MaterialImage]) -> Result<()> {
         let mut paths = Vec::new();
@@ -402,7 +371,7 @@ impl Store {
             let path = self.stage_path(draft, image)?;
             if path.try_exists().map_err(|e| error("edit_cleanup", e))? {
                 // Verify the entire batch before deleting any file, including on retry.
-                self.staged_bytes(draft, image)?;
+                self.staged_path(draft, image)?;
                 paths.push(path);
             }
         }
@@ -484,8 +453,69 @@ impl Store {
 
     pub(super) fn load_edit_image(&self, session_id: &str, local_image_id: &str) -> Result<String> {
         let draft = self.read_draft(session_id)?;
-        let (image, bytes) = self.edit_image(&draft, local_image_id)?;
-        Ok(data_url(&image, &bytes))
+        let (_, path) = self.edit_image_path(&draft, local_image_id)?;
+        crate::original_image::display_url(&path, 2048)
+    }
+
+    pub(super) fn edit_original_image_path(&self, session_id: &str, local_image_id: &str) -> Result<PathBuf> {
+        let draft = self.read_draft(session_id)?;
+        let path = if let Some(image) = draft.material.images.iter().find(|image| image.local_image_id == local_image_id) {
+            self.image_path(image)?
+        } else if let Some(image) = draft.staged.iter().find(|image| image.local_image_id == local_image_id) {
+            self.stage_path(&draft, image)?
+        } else {
+            return Err(error("image_not_found", "Image was not disclosed in this material edit session"));
+        };
+        files::no_links(&path)?;
+        if !path.is_file() { return Err(error("image_not_found", "The original image file is missing")); }
+        Ok(path)
+    }
+
+    pub(super) fn edit_original_group_path(&self, session_id: &str) -> Result<PathBuf> {
+        let draft = self.read_draft(session_id)?;
+        if draft.version == CREATE_DRAFT_VERSION {
+            return Err(error("not_saved", "Save the image-group material before opening its originals directory"));
+        }
+        self.original_group_path(&draft.material.summary.id, draft.material.summary.revision)
+    }
+
+    fn stage_file(&self, draft: &mut Draft, source: &Path) -> Result<MaterialEditImage> {
+        let (mime, width, height) = crate::original_image::info(source)?;
+        let (byte_length, blob_id) = crate::original_image::fingerprint(source)?;
+        let image = MaterialImage { local_image_id: Uuid::new_v4().to_string(),
+            storage_id: Some(Uuid::new_v4().to_string()), blob_id, byte_length,
+            mime_type: mime.into(), width, height };
+        budget(draft.material.images.iter().chain(&draft.staged).chain(&draft.pending).chain(std::iter::once(&image)), MAX_DRAFT_IMAGES)?;
+        let path = self.stage_path(draft, &image)?;
+        draft.pending.push(image.clone());
+        self.write_draft(draft)?;
+        if let Err(failure) = crate::original_image::copy_new(source, &path, byte_length, &image.blob_id) {
+            // This invocation just created this exclusively owned file. A source
+            // change or short write is never exposed as an editable image.
+            if path.exists() { fs::remove_file(&path).map_err(|e| error("edit_cleanup", e))?; }
+            return Err(failure);
+        }
+        let (data_url, preview_error) = match crate::original_image::display_url(&path, 2048) {
+            Ok(url) => (url, None),
+            Err(_) => (String::new(), Some("原图已导入，预览生成失败。请点击重试预览。".into())),
+        };
+        Ok(MaterialEditImage { local_image_id: image.local_image_id, mime_type: mime.into(), byte_length, width, height, data_url, preview_error })
+    }
+
+    pub(super) fn import_library_images(&self, session_id: &str, material_id: &str, revision: u32, image_ids: Vec<String>) -> Result<Vec<MaterialEditImage>> {
+        let material = self.revision(material_id, revision)?;
+        if material.summary.deleted_at.is_some() || image_ids.is_empty() || image_ids.len() > 128 || image_ids.iter().collect::<HashSet<_>>().len() != image_ids.len() {
+            return Err(error("source", "Select available material images"));
+        }
+        let sources = image_ids.iter().map(|id| {
+            let image = material.images.iter().find(|i| &i.local_image_id == id).ok_or_else(|| error("source", "Source image is missing"))?;
+            self.verified_image_path(image)
+        }).collect::<Result<Vec<_>>>()?;
+        let mut draft = self.read_draft(session_id)?;
+        self.verify_draft_entries(&draft)?;
+        self.clear_pending(&mut draft)?;
+        let result = sources.iter().map(|source| self.stage_file(&mut draft, source)).collect();
+        self.finish_batch(&mut draft, result)
     }
 
     fn stage_image(&self, draft: &mut Draft, bytes: &[u8]) -> Result<MaterialEditImage> {
@@ -508,7 +538,6 @@ impl Store {
                 .chain(&draft.pending)
                 .chain(std::iter::once(&image)),
             MAX_DRAFT_IMAGES,
-            MAX_DRAFT_BYTES,
         )?;
         let path = self.stage_path(draft, &image)?;
         if path.try_exists().map_err(|e| error("edit_write", e))? {
@@ -520,7 +549,12 @@ impl Store {
         draft.pending.push(image.clone());
         self.write_draft(draft)?;
         files::atomic(&path, bytes)?;
-        Ok(exposed(&image, bytes))
+        let mut result = exposed(&image, bytes);
+        match crate::original_image::display_url(&path, 2048) {
+            Ok(url) => result.data_url = url,
+            Err(_) => { result.data_url.clear(); result.preview_error = Some("原图已导入，预览生成失败。请点击重试预览。".into()); }
+        }
+        Ok(result)
     }
 
     fn finish_batch(
@@ -562,7 +596,6 @@ impl Store {
         self.clear_pending(&mut draft)?;
         let result = (|| {
             let mut images = Vec::new();
-            let mut byte_length = 0u64;
             for source in source_paths {
                 let source =
                     std::path::absolute(Path::new(&source)).map_err(|e| error("path", e))?;
@@ -578,22 +611,11 @@ impl Store {
                         "Only selected JPG/PNG files may be imported",
                     ));
                 }
-                let bytes = files::read_limited(&source, files::MAX_IMAGE_BYTES)?;
-                let (mime, _, _) = files::image_info(&bytes, false)?;
+                let (mime, _, _) = crate::original_image::info(&source)?;
                 if (mime == "image/png") != (extension == "png") {
-                    return Err(error(
-                        "image_format",
-                        "Selected image extension does not match its bytes",
-                    ));
+                    return Err(error("image_format", "Selected image extension does not match its bytes"));
                 }
-                byte_length += bytes.len() as u64;
-                if byte_length > files::MAX_BATCH_BYTES {
-                    return Err(error(
-                        "edit_limit",
-                        "Imported images exceed 256 MiB per batch",
-                    ));
-                }
-                images.push(self.stage_image(&mut draft, &bytes)?);
+                images.push(self.stage_file(&mut draft, &source)?);
             }
             Ok(images)
         })();
@@ -605,6 +627,7 @@ impl Store {
         session_id: &str,
         input: MaterialEditImageData,
     ) -> Result<MaterialEditImage> {
+        if input.bytes.len() > files::MAX_IMAGE_BYTES { return Err(error("size", "Clipboard transfer exceeds its byte limit")); }
         let filename = format!("references/{}", input.name);
         files::reference_name(&filename)?;
         let (mime, _, _) = files::image_info(&input.bytes, false)?;
@@ -629,7 +652,7 @@ impl Store {
         let mut draft = self.read_draft(session_id)?;
         self.verify_draft_entries(&draft)?;
         self.clear_pending(&mut draft)?;
-        let (image, original) = self.edit_image(&draft, local_image_id)?;
+        let (image, original) = self.edit_image_path(&draft, local_image_id)?;
         let converted = (
             u32::try_from(bounds.x),
             u32::try_from(bounds.y),
@@ -656,18 +679,15 @@ impl Store {
         } else {
             ImageFormat::Jpeg
         };
-        let mut reader = ImageReader::with_format(Cursor::new(&original), format);
-        let mut limits = image::Limits::default();
-        limits.max_image_width = Some(8192);
-        limits.max_image_height = Some(8192);
-        limits.max_alloc = Some(128 * 1024 * 1024);
-        reader.limits(limits);
-        let decoded = reader.decode().map_err(|e| error("image_decode", e))?;
+        let (decoded, decode_guard) = crate::original_image::raster_for_edit(&original)?;
         let cropped = decoded.crop_imm(x, y, width, height);
         let mut encoded = Cursor::new(Vec::new());
         cropped
             .write_to(&mut encoded, format)
             .map_err(|e| error("image_encode", e))?;
+        drop(cropped);
+        drop(decoded);
+        drop(decode_guard);
         let result = self
             .stage_image(&mut draft, encoded.get_ref())
             .map(|i| vec![i]);
@@ -704,7 +724,7 @@ impl Store {
             }
             let detail: MaterialDetail = serde_json::from_str(&result).map_err(|e| error("corrupt", e))?;
             validation::payload(&detail.payload)?;
-            budget(detail.images.iter(), 128, files::MAX_BATCH_BYTES)?;
+            budget(detail.images.iter(), 128)?;
             for image in &detail.images {
                 self.validate_instance_mapping(image)?;
             }
@@ -799,20 +819,21 @@ impl Store {
         let mut images = Vec::new();
         let mut byte_length = 0u64;
         for portable in validation::payload_images(&input.payload)? {
-            let (image, bytes) =
-                self.edit_image(&draft, portable["localImageId"].as_str().unwrap())?;
+            let (image, source) =
+                self.edit_image_path(&draft, portable["localImageId"].as_str().unwrap())?;
             byte_length += image.byte_length;
-            if byte_length > files::MAX_BATCH_BYTES {
-                return Err(error("edit_limit", "Material images exceed 256 MiB"));
+            if detail.summary.kind == MaterialKind::ImageGroup {
+                if image.storage_id.is_some() { self.assign_group_instance(&detail.summary.id, &image)?; }
+                else { self.collect_legacy_group_original(&detail.summary.id, &image)?; }
             }
             if image.storage_id.is_some() {
                 if draft.staged.iter().any(|staged| staged.local_image_id == image.local_image_id) {
-                    self.publish_instance(&draft.session_id, &image, &bytes)?;
+                    self.publish_instance_from(&draft.session_id, &image, &source)?;
                 } else {
-                    self.blob(&image)?;
+                    self.verified_image_path(&image)?;
                 }
             } else {
-                self.blob(&image)?;
+                self.verified_image_path(&image)?;
             }
             images.push(image);
         }

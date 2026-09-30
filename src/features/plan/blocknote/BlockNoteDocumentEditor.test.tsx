@@ -17,6 +17,7 @@ import { documentClipboardBridge, IMAGE_CLIPBOARD_HISTORY_CHANGE } from "./clipb
 import { ExternalImageHistoryStep } from "./clipboard/externalImageHistory";
 import { undo } from "prosemirror-history";
 import { startBlockPointerDrag } from "./blockPointerDrag";
+import { SuggestionMenu } from "@blocknote/core/extensions";
 
 const settings: SettingsRepository = {
   read: vi.fn().mockResolvedValue({ theme: "light" }),
@@ -25,7 +26,7 @@ const settings: SettingsRepository = {
 
 const document: PreshotBlockDocument = {
   format: "preshot-blocks",
-  version: 4,
+  version: 5,
   blocks: [
     {
       id: "paragraph",
@@ -45,12 +46,50 @@ const document: PreshotBlockDocument = {
 };
 
 describe("BlockNoteDocumentEditor", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("closes an open insert menu when its cached project becomes inactive", async () => {
+    // jsdom's element rect lacks the toJSON method used by BlockNote.
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(new DOMRect(20, 60, 400, 30));
+    let editor!: PreshotBlockNoteEditor;
+    const props = {
+      ariaLabel: "缓存项目正文", document: { ...document, blocks: [document.blocks[0]] }, onChange: vi.fn(),
+      onEditorReady: (value: PreshotBlockNoteEditor) => { editor = value; },
+      artifactController: { createArtifact: () => "a", cloneArtifact: () => null, getArtifact: () => undefined,
+        subscribe: () => () => undefined, updateArtifact: vi.fn() },
+      imageGroupController: { createGroup: () => "g", cloneGroup: () => null, getGroup: () => undefined,
+        subscribe: () => () => undefined, getImageSrc: () => undefined, addImages: vi.fn(),
+        removeImage: vi.fn(), openImage: vi.fn(), setImageFrame: vi.fn(), moveImage: vi.fn() },
+      persistMediaUrl: (url: string) => url, resolveMediaUrl: (url: string) => url, uploadFile: vi.fn(),
+    };
+    const view = (active: boolean) => <ThemeProvider repository={settings}>
+      <BlockNoteDocumentEditor {...props} active={active} />
+    </ThemeProvider>;
+    const { rerender, unmount } = render(view(true));
+    await waitFor(() => expect(editor).toBeDefined());
+    const open = () => act(() => {
+      editor.setTextCursorPosition("paragraph", "end");
+      editor.getExtension(SuggestionMenu)!.openSuggestionMenu("/", { ignoreQueryLength: true });
+    });
+    open();
+    await waitFor(() => expect(screen.getByRole("listbox")).toBeVisible());
+    rerender(view(false));
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    rerender(view(true));
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    open();
+    await waitFor(() => expect(screen.getByRole("listbox")).toBeVisible());
+    unmount();
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
 
   it("keeps block drag geometry in the active editor when a hidden project has the same block IDs", async () => {
     let editor!: PreshotBlockNoteEditor;
     const blocks = validateBlockDocument({
-      format: "preshot-blocks", version: 4,
+      format: "preshot-blocks", version: 5,
       blocks: ["source", "target"].map((id) => ({ id, type: "paragraph", props: {}, content: [{ type: "text", text: id, styles: {} }], children: [] })),
     });
     const props = {
@@ -84,7 +123,7 @@ describe("BlockNoteDocumentEditor", () => {
     let editor!: PreshotBlockNoteEditor;
     let bridge!: MaterialEditorBridge;
     const planDocument = validateBlockDocument({
-      format: "preshot-blocks", version: 4, blocks: [
+      format: "preshot-blocks", version: 5, blocks: [
         { id: "text", type: "paragraph", props: {}, content: [{ type: "text", text: "继续编辑", styles: {} }], children: [] },
         { id: "image", type: "image", props: { url: "media/image.png", name: "粘贴图片", caption: "", showPreview: true }, children: [] },
       ],
@@ -135,7 +174,7 @@ describe("BlockNoteDocumentEditor", () => {
       return blockId === "copied-image" ? "media/copied.png" : "media/original.png";
     });
     const planDocument = validateBlockDocument({
-      format: "preshot-blocks", version: 4, blocks: [
+      format: "preshot-blocks", version: 5, blocks: [
         { id: "text", type: "paragraph", props: {}, content: [{ type: "text", text: "初始正文", styles: {} }], children: [] },
         { id: "original-image", type: "image", props: { url: "media/original.png", name: "原图", caption: "", showPreview: true }, children: [] },
         { id: "copied-image", type: "image", props: { url: "media/copied.png", name: "复制图", caption: "", showPreview: true }, children: [] },
@@ -168,7 +207,7 @@ describe("BlockNoteDocumentEditor", () => {
     let bridge!: MaterialEditorBridge;
     const onChange = vi.fn();
     const plain = validateBlockDocument({
-      format: "preshot-blocks", version: 4,
+      format: "preshot-blocks", version: 5,
       blocks: [{ id: "text", type: "paragraph", props: {}, content: [{ type: "text", text: "初始", styles: {} }], children: [] }],
     });
     const { unmount } = render(<ThemeProvider repository={settings}>
@@ -260,7 +299,7 @@ describe("BlockNoteDocumentEditor", () => {
     const pasteImage = vi.fn().mockResolvedValue(undefined);
     const uploadFile = vi.fn();
     const testDocument = validateBlockDocument({
-      format: "preshot-blocks", version: 4, blocks: [
+      format: "preshot-blocks", version: 5, blocks: [
         { id: "top-row", type: "paragraph", props: {}, content: [{ type: "text", text: "顶层段落", styles: {} }],
           children: [{ id: "nested-row", type: "paragraph", props: {}, content: [{ type: "text", text: "嵌套段落", styles: {} }], children: [] }] },
         { id: "native-image", type: "image", props: { url: "media/one.png", name: "正文原图", caption: "", showPreview: true }, children: [] },
@@ -500,7 +539,7 @@ describe("BlockNoteDocumentEditor", () => {
     editor!.updateBlock("paragraph", { content: "Earlier edit" });
     const beforeMaterial = validateBlockDocument({
       format: "preshot-blocks",
-      version: 4,
+      version: 5,
       blocks: JSON.parse(JSON.stringify(editor!.document)),
     });
     const insertedDocument: PreshotBlockDocument = {

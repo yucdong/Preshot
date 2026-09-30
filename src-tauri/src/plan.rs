@@ -16,7 +16,6 @@ use crate::{byte_write::replace_file_atomically, error::CommandError};
 
 const REFERENCES_DIR: &str = "references";
 const MEDIA_DIR: &str = "media";
-const MAX_REFERENCE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_AUDIO_BYTES: usize = 64 * 1024 * 1024;
 const MAX_VIDEO_BYTES: usize = 128 * 1024 * 1024;
 const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
@@ -49,6 +48,10 @@ fn require_replaceable_reference(project_path: &Path, absolute: &Path) -> Result
 pub struct ImportedImage {
     pub file: String,
     pub data_url: String,
+    pub source_width: u32,
+    pub source_height: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
@@ -93,12 +96,14 @@ pub struct ImportedPlanMedia {
     pub data_url: String,
     pub name: String,
     pub mime_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview_error: Option<String>,
 }
 
 struct MediaKind {
     extension: &'static str,
     mime_type: &'static str,
-    max_bytes: usize,
+    max_bytes: Option<usize>,
 }
 
 fn media_kind(file_name: &str, mime_type: &str) -> Option<MediaKind> {
@@ -110,67 +115,67 @@ fn media_kind(file_name: &str, mime_type: &str) -> Option<MediaKind> {
         "txt" => MediaKind {
             extension: "txt",
             mime_type: "text/plain",
-            max_bytes: MAX_DOCUMENT_BYTES,
+            max_bytes: Some(MAX_DOCUMENT_BYTES),
         },
         "pdf" => MediaKind {
             extension: "pdf",
             mime_type: "application/pdf",
-            max_bytes: MAX_DOCUMENT_BYTES,
+            max_bytes: Some(MAX_DOCUMENT_BYTES),
         },
         "jpg" | "jpeg" => MediaKind {
             extension: "jpg",
             mime_type: "image/jpeg",
-            max_bytes: MAX_REFERENCE_BYTES as usize,
+            max_bytes: None,
         },
         "png" => MediaKind {
             extension: "png",
             mime_type: "image/png",
-            max_bytes: MAX_REFERENCE_BYTES as usize,
+            max_bytes: None,
         },
         "gif" => MediaKind {
             extension: "gif",
             mime_type: "image/gif",
-            max_bytes: MAX_REFERENCE_BYTES as usize,
+            max_bytes: None,
         },
         "webp" => MediaKind {
             extension: "webp",
             mime_type: "image/webp",
-            max_bytes: MAX_REFERENCE_BYTES as usize,
+            max_bytes: None,
         },
         "mp3" => MediaKind {
             extension: "mp3",
             mime_type: "audio/mpeg",
-            max_bytes: MAX_AUDIO_BYTES,
+            max_bytes: Some(MAX_AUDIO_BYTES),
         },
         "wav" => MediaKind {
             extension: "wav",
             mime_type: "audio/wav",
-            max_bytes: MAX_AUDIO_BYTES,
+            max_bytes: Some(MAX_AUDIO_BYTES),
         },
         "ogg" if mime_type.starts_with("audio/") => MediaKind {
             extension: "ogg",
             mime_type: "audio/ogg",
-            max_bytes: MAX_AUDIO_BYTES,
+            max_bytes: Some(MAX_AUDIO_BYTES),
         },
         "m4a" => MediaKind {
             extension: "m4a",
             mime_type: "audio/mp4",
-            max_bytes: MAX_AUDIO_BYTES,
+            max_bytes: Some(MAX_AUDIO_BYTES),
         },
         "mp4" => MediaKind {
             extension: "mp4",
             mime_type: "video/mp4",
-            max_bytes: MAX_VIDEO_BYTES,
+            max_bytes: Some(MAX_VIDEO_BYTES),
         },
         "webm" => MediaKind {
             extension: "webm",
             mime_type: "video/webm",
-            max_bytes: MAX_VIDEO_BYTES,
+            max_bytes: Some(MAX_VIDEO_BYTES),
         },
         "mov" => MediaKind {
             extension: "mov",
             mime_type: "video/quicktime",
-            max_bytes: MAX_VIDEO_BYTES,
+            max_bytes: Some(MAX_VIDEO_BYTES),
         },
         _ => return None,
     };
@@ -185,14 +190,6 @@ fn reference_extension(path: &Path) -> Option<&'static str> {
         "jpg" | "jpeg" => Some("jpg"),
         "png" => Some("png"),
         _ => None,
-    }
-}
-
-fn mime_for_reference(file_name: &str) -> &'static str {
-    if file_name.to_ascii_lowercase().ends_with(".png") {
-        "image/png"
-    } else {
-        "image/jpeg"
     }
 }
 
@@ -307,15 +304,6 @@ fn resolve_media_path(project_path: &Path, file: &str) -> Result<PathBuf, Comman
     Ok(canonical)
 }
 
-fn copy_file(source: &Path, destination: &Path) -> Result<(), CommandError> {
-    fs::copy(source, destination).map_err(|error| {
-        CommandError::new(
-            "reference_copy_failed",
-            format!("Unable to copy the image into the project: {error}"),
-        )
-    })?;
-    Ok(())
-}
 
 fn write_reference_atomically(destination: &Path, bytes: &[u8]) -> Result<(), CommandError> {
     let parent = destination.parent().ok_or_else(|| {
@@ -411,18 +399,11 @@ fn reference_crop_backup_path(
 
 fn write_reference_crop_backup(
     destination: &Path,
-    bytes: &[u8],
     transaction_id: Uuid,
 ) -> Result<PathBuf, CommandError> {
     let backup = reference_crop_backup_path(destination, transaction_id)?;
-    let write_result = (|| {
-        let mut file = fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&backup)?;
-        file.write_all(bytes)?;
-        file.sync_all()
-    })();
+    let (length, hash) = crate::original_image::fingerprint(destination)?;
+    let write_result = crate::original_image::copy_new(destination, &backup, length, &hash);
     if let Err(error) = write_result {
         let _ = fs::remove_file(&backup);
         return Err(CommandError::new(
@@ -465,12 +446,6 @@ pub fn import_reference_image_into(
             "The selected path is not a file",
         ));
     }
-    if metadata.len() > MAX_REFERENCE_BYTES {
-        return Err(CommandError::new(
-            "reference_too_large",
-            "The selected image exceeds the 16 MiB limit",
-        ));
-    }
 
     let references_dir = project_path.join(REFERENCES_DIR);
     fs::create_dir_all(&references_dir).map_err(|error| {
@@ -482,26 +457,20 @@ pub fn import_reference_image_into(
 
     let file_name = format!("{:04}.{extension}", next_reference_number(&references_dir)?);
     let destination = references_dir.join(&file_name);
-    copy_file(&source, &destination)?;
-
-    let bytes = fs::read(&destination).map_err(|error| {
-        CommandError::new(
-            "reference_read_failed",
-            format!("Unable to read the imported image: {error}"),
-        )
-    })?;
+    let (_, source_width, source_height) = crate::original_image::info(&source)?;
+    let (length, hash) = crate::original_image::fingerprint(&source)?;
+    if let Err(error) = crate::original_image::copy_new(&source, &destination, length, &hash) {
+        // The freshly allocated path is owned by this invocation only.
+        if destination.exists() { let _ = fs::remove_file(&destination); }
+        return Err(error);
+    }
+    let (data_url, preview_error) = crate::original_image::preview_result(&destination, 2048);
     Ok(ImportedImage {
-        file: format!("{REFERENCES_DIR}/{file_name}"),
-        data_url: format!(
-            "data:{};base64,{}",
-            mime_for_reference(&file_name),
-            STANDARD.encode(bytes)
-        ),
+        file: format!("{REFERENCES_DIR}/{file_name}"), source_width, source_height, data_url, preview_error,
     })
 }
 
 struct EncodedReferenceCrop {
-    original: Vec<u8>,
     encoded: Vec<u8>,
     width: u32,
     height: u32,
@@ -517,24 +486,8 @@ fn encode_reference_crop(
             "Only project JPG and PNG reference images can be cropped",
         )
     })?;
-    let original = fs::read(absolute).map_err(|error| {
-        CommandError::new(
-            "reference_crop_read_failed",
-            format!("Unable to read the reference image for cropping: {error}"),
-        )
-    })?;
-    if original.len() as u64 > MAX_REFERENCE_BYTES {
-        return Err(CommandError::new(
-            "reference_too_large",
-            "The reference image exceeds the 16 MiB limit",
-        ));
-    }
-    let decoded = image::load_from_memory_with_format(&original, format).map_err(|error| {
-        CommandError::new(
-            "reference_crop_decode_failed",
-            format!("Unable to decode the reference image for cropping: {error}"),
-        )
-    })?;
+    let (decoded, _decode_guard) = crate::original_image::raster_for_edit(absolute)
+        .map_err(|e| CommandError::new("reference_crop_decode_failed", e.message))?;
     let (source_width, source_height) = decoded.dimensions();
     let converted = (
         u32::try_from(bounds.x),
@@ -575,15 +528,8 @@ fn encode_reference_crop(
         )
     })?;
     let encoded = encoded.into_inner();
-    if encoded.len() as u64 > MAX_REFERENCE_BYTES {
-        return Err(CommandError::new(
-            "reference_crop_too_large",
-            "The cropped reference image exceeds the 16 MiB limit",
-        ));
-    }
 
     Ok(EncodedReferenceCrop {
-        original,
         encoded,
         width,
         height,
@@ -603,7 +549,7 @@ pub fn crop_reference_image_in(
     require_replaceable_reference(&project_path, &absolute)?;
     let crop = encode_reference_crop(&absolute, bounds)?;
     let transaction_id = Uuid::new_v4();
-    let backup = write_reference_crop_backup(&absolute, &crop.original, transaction_id)?;
+    let backup = write_reference_crop_backup(&absolute, transaction_id)?;
     if let Err(error) = write_reference_atomically(&absolute, &crop.encoded) {
         let _ = fs::remove_file(backup);
         return Err(error);
@@ -611,11 +557,7 @@ pub fn crop_reference_image_in(
 
     Ok(CroppedReferenceImage {
         file: file.to_owned(),
-        data_url: format!(
-            "data:{};base64,{}",
-            mime_for_reference(file),
-            STANDARD.encode(crop.encoded)
-        ),
+        data_url: crate::original_image::display_url(&absolute, 2048)?,
         width: crop.width,
         height: crop.height,
         transaction_id: transaction_id.to_string(),
@@ -645,11 +587,7 @@ pub fn copy_reference_image_crop_in(
 
     Ok(CopiedReferenceImage {
         file: copied_file.clone(),
-        data_url: format!(
-            "data:{};base64,{}",
-            mime_for_reference(&copied_file),
-            STANDARD.encode(crop.encoded)
-        ),
+        data_url: crate::original_image::display_url(&references_dir.join(&file_name), 2048)?,
         width: crop.width,
         height: crop.height,
     })
@@ -709,33 +647,7 @@ pub fn load_reference_image_from(project_path: &Path, file: &str) -> Result<Stri
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
     let absolute = resolve_reference_path(&project_path, file)?;
-    let metadata = fs::metadata(&absolute).map_err(|error| {
-        CommandError::new(
-            "reference_missing",
-            format!("Unable to read the reference image: {error}"),
-        )
-    })?;
-    if metadata.len() > MAX_REFERENCE_BYTES {
-        return Err(CommandError::new(
-            "reference_too_large",
-            "The reference image exceeds the 16 MiB limit",
-        ));
-    }
-    let bytes = fs::read(&absolute).map_err(|error| {
-        CommandError::new(
-            "reference_read_failed",
-            format!("Unable to read the reference image: {error}"),
-        )
-    })?;
-    let name = absolute
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or_default();
-    Ok(format!(
-        "data:{};base64,{}",
-        mime_for_reference(name),
-        STANDARD.encode(bytes)
-    ))
+    crate::original_image::display_url(&absolute, 2048)
 }
 
 pub fn remove_reference_image_from(
@@ -795,12 +707,12 @@ pub fn import_plan_media_into(
             "Only supported images, audio, video, PDF, and plain-text files can be inserted",
         )
     })?;
-    if bytes.is_empty() || bytes.len() > kind.max_bytes {
+    if bytes.is_empty() || kind.max_bytes.is_some_and(|limit| bytes.len() > limit) {
         return Err(CommandError::new(
             "media_invalid_size",
             format!(
                 "The selected media file has an invalid size (maximum {} MiB)",
-                kind.max_bytes / 1024 / 1024
+                kind.max_bytes.unwrap_or(0) / 1024 / 1024
             ),
         ));
     }
@@ -827,6 +739,7 @@ pub fn import_plan_media_into(
         data_url: format!("data:{};base64,{}", kind.mime_type, STANDARD.encode(bytes)),
         name: name.to_owned(),
         mime_type: kind.mime_type.to_owned(),
+        preview_error: None,
     })
 }
 
@@ -834,6 +747,9 @@ pub fn load_plan_media_from(project_path: &Path, file: &str) -> Result<String, C
     let project_path =
         canonicalize_directory(project_path, "project_not_found", "project_not_directory")?;
     let absolute = resolve_media_path(&project_path, file)?;
+    if reference_extension(&absolute).is_some() {
+        return crate::original_image::display_url(&absolute, 2048);
+    }
     let bytes = fs::read(&absolute).map_err(|error| {
         CommandError::new(
             "media_read_failed",
@@ -847,7 +763,7 @@ pub fn load_plan_media_from(project_path: &Path, file: &str) -> Result<String, C
     let kind = media_kind(name, "").ok_or_else(|| {
         CommandError::new("media_unsupported_type", "Unsupported stored media type")
     })?;
-    if bytes.len() > kind.max_bytes {
+    if kind.max_bytes.is_some_and(|limit| bytes.len() > limit) {
         return Err(CommandError::new(
             "media_invalid_size",
             "The stored media file exceeds its size limit",
@@ -907,29 +823,32 @@ pub fn read_project_plan_in(project_path: &Path) -> Result<serde_json::Value, Co
 }
 
 #[tauri::command]
-pub fn import_reference_image(
+pub async fn import_reference_image(
     project_path: String,
     source_path: String,
 ) -> Result<ImportedImage, CommandError> {
-    import_reference_image_into(Path::new(&project_path), Path::new(&source_path))
+    tauri::async_runtime::spawn_blocking(move || import_reference_image_into(Path::new(&project_path), Path::new(&source_path)))
+        .await.map_err(|e| CommandError::new("image_worker", e.to_string()))?
 }
 
 #[tauri::command]
-pub fn crop_reference_image(
+pub async fn crop_reference_image(
     project_path: String,
     file: String,
     bounds: ReferenceCropBounds,
 ) -> Result<CroppedReferenceImage, CommandError> {
-    crop_reference_image_in(Path::new(&project_path), &file, bounds)
+    tauri::async_runtime::spawn_blocking(move || crop_reference_image_in(Path::new(&project_path), &file, bounds))
+        .await.map_err(|e| CommandError::new("image_worker", e.to_string()))?
 }
 
 #[tauri::command]
-pub fn copy_reference_image_crop(
+pub async fn copy_reference_image_crop(
     project_path: String,
     file: String,
     bounds: ReferenceCropBounds,
 ) -> Result<CopiedReferenceImage, CommandError> {
-    copy_reference_image_crop_in(Path::new(&project_path), &file, bounds)
+    tauri::async_runtime::spawn_blocking(move || copy_reference_image_crop_in(Path::new(&project_path), &file, bounds))
+        .await.map_err(|e| CommandError::new("image_worker", e.to_string()))?
 }
 
 #[tauri::command]
@@ -951,8 +870,9 @@ pub fn rollback_reference_image_crop(
 }
 
 #[tauri::command]
-pub fn load_reference_image(project_path: String, file: String) -> Result<String, CommandError> {
-    load_reference_image_from(Path::new(&project_path), &file)
+pub async fn load_reference_image(project_path: String, file: String) -> Result<String, CommandError> {
+    tauri::async_runtime::spawn_blocking(move || load_reference_image_from(Path::new(&project_path), &file))
+        .await.map_err(|e| CommandError::new("image_worker", e.to_string()))?
 }
 
 #[tauri::command]
@@ -982,8 +902,9 @@ pub fn import_plan_media(
 }
 
 #[tauri::command]
-pub fn load_plan_media(project_path: String, file: String) -> Result<String, CommandError> {
-    load_plan_media_from(Path::new(&project_path), &file)
+pub async fn load_plan_media(project_path: String, file: String) -> Result<String, CommandError> {
+    tauri::async_runtime::spawn_blocking(move || load_plan_media_from(Path::new(&project_path), &file))
+        .await.map_err(|e| CommandError::new("image_worker", e.to_string()))?
 }
 
 #[tauri::command]
@@ -1036,7 +957,7 @@ mod tests {
         let parent = project();
         let project_path = parent.path().join("Shoot");
         let src_dir = tempfile::tempdir().unwrap();
-        let source = write_source(src_dir.path(), "photo.PNG", b"png-bytes");
+        let source = write_source(src_dir.path(), "photo.PNG", &image_bytes(ImageFormat::Png));
 
         let imported = import_reference_image_into(&project_path, &source).unwrap();
 
@@ -1046,10 +967,10 @@ mod tests {
             source.exists(),
             "source should remain in its original location"
         );
-        assert_eq!(fs::read(&source).unwrap(), b"png-bytes");
+        assert_eq!(fs::read(&source).unwrap(), image_bytes(ImageFormat::Png));
         assert_eq!(
             fs::read(project_path.join("references").join("0001.png")).unwrap(),
-            b"png-bytes"
+            image_bytes(ImageFormat::Png)
         );
     }
 
@@ -1088,10 +1009,7 @@ mod tests {
 
             assert_eq!(cropped.file, imported.file);
             assert_eq!((cropped.width, cropped.height), (2, 2));
-            assert!(cropped.data_url.starts_with(&format!(
-                "data:{};base64,",
-                mime_for_reference(&cropped.file)
-            )));
+            assert!(cropped.data_url.starts_with("data:image/png;base64,"));
             assert_eq!(fs::read(&source).unwrap(), source_bytes);
             let rewritten = fs::read(project_path.join(&cropped.file)).unwrap();
             assert_ne!(rewritten, before);
@@ -1394,4 +1312,22 @@ mod tests {
             .unwrap()
             .is_null());
     }
+}
+
+#[tauri::command]
+pub fn project_image_dimensions(project_path: String, file: String) -> Result<(u32, u32), CommandError> {
+    let project = canonicalize_directory(Path::new(&project_path), "project_not_found", "project_not_directory")?;
+    let path = if file.starts_with("media/") { resolve_media_path(&project, &file)? } else { resolve_reference_path(&project, &file)? };
+    let (_, width, height) = crate::original_image::info(&path)?;
+    Ok((width, height))
+}
+
+#[tauri::command]
+pub async fn project_image_display(project_path: String, file: String, edge: u32, id: String) -> Result<String, CommandError> {
+    let job = crate::original_image::DisplayJob::new(id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let project = canonicalize_directory(Path::new(&project_path), "project_not_found", "project_not_directory")?;
+        let path = if file.starts_with("media/") { resolve_media_path(&project, &file)? } else { resolve_reference_path(&project, &file)? };
+        job.render(&path, edge)
+    }).await.map_err(|e| CommandError::new("image_worker", e.to_string()))?
 }

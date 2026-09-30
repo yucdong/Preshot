@@ -152,13 +152,6 @@ describe("AppShell", () => {
     await user.click(menuButton);
     const deleteItem = screen.getByRole("menuitem", { name: "删除项目" });
     await user.click(deleteItem);
-    expect(screen.getByRole("dialog")).toHaveTextContent("磁盘文件不会被删除");
-    await user.click(screen.getByRole("button", { name: "取消" }));
-    expect(menuButton).toHaveFocus();
-
-    await user.click(menuButton);
-    await user.click(screen.getByRole("menuitem", { name: "删除项目" }));
-    await user.click(screen.getByRole("button", { name: "从列表移除" }));
     expect(h.onRemoveProject).toHaveBeenCalledWith(project);
   });
 

@@ -116,8 +116,12 @@ export function createMaterialEditingFixture(
         return image;
       } finally { bitmap.close(); }
     },
-    async captureEditImage(id, cancellation) {
+    async captureEditImage(id, cancellation, review) {
       requireDraft(id);
+      const options = new URLSearchParams(location.search);
+      let cancelled = false;
+      void cancellation.then(() => { cancelled = true; });
+      for (;;) {
       const host = document.querySelector(".ml-content-editor-dialog");
       if (!host) throw new Error("Synthetic capture requires the material editor");
       const dialog = document.createElement("dialog");
@@ -151,7 +155,31 @@ export function createMaterialEditingFixture(
         void cancellation.then(() => finish(false));
         dialog.showModal();
       });
-      return accepted ? (await contentEditor.importEditImages(id))[0] : null;
+      if (!accepted || cancelled) return null;
+      if (!options.has("wideCapture") && !options.has("suspectCapture")) {
+        return (await contentEditor.importEditImages(id))[0];
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = 3000;
+      canvas.height = 500;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = options.has("suspectCapture") ? "#000" : "#2c6f88";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      if (options.has("suspectCapture")) {
+        if (!review) throw new Error("Screenshot review unavailable");
+        const preview = document.createElement("canvas");
+        preview.width = 300; preview.height = 50;
+        preview.getContext("2d")!.drawImage(canvas, 0, 0, 300, 50);
+        const decision = await review({ reason: "uniformDark", previewUrl: preview.toDataURL("image/png") }, cancellation);
+        if (decision === "cancel" || cancelled) return null;
+        if (decision === "retry") continue;
+      } else {
+        context.fillStyle = "#f1dcc3";
+        context.font = "120px sans-serif";
+        context.fillText("3000 × 500 — Screenshot fixture", 100, 300);
+      }
+      return stage(canvas, requireDraft(id));
+      }
     },
     async cropEditImage(id, imageId, bounds) {
       const draft = requireDraft(id);

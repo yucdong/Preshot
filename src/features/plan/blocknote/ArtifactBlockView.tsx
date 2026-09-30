@@ -1,3 +1,4 @@
+import { ArtifactContentRegions } from "./ArtifactContentRegions";
 import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import {
   ContactRound,
@@ -526,7 +527,7 @@ function EditableArtifact({
   if (artifact.kind === "shootingLocation") {
     const location = artifact as ShootingLocationArtifact;
     return (
-      <div className="preshot-artifact-balanced-layout">
+      <ArtifactContentRegions artifact={artifact} update={update}>
         <div className="grid min-h-0">
           <CommittedTextField
             balanced
@@ -543,13 +544,13 @@ function EditableArtifact({
           collection={location.gallery}
           label={ui("场地图片")}
         />
-      </div>
+      </ArtifactContentRegions>
     );
   }
   if (artifact.kind === "modelCard") {
     const model = artifact as ModelCardArtifact;
     return (
-      <div className="preshot-artifact-balanced-layout">
+      <ArtifactContentRegions artifact={artifact} update={update}>
         <fieldset
           aria-label={ui("模特信息")}
           className="preshot-balanced-model-info m-0 min-w-0 border-0 p-0"
@@ -581,13 +582,13 @@ function EditableArtifact({
           collection={model.samples}
           label={ui("样片")}
         />
-      </div>
+      </ArtifactContentRegions>
     );
   }
   if (artifact.kind === "clothing") {
     const clothing = artifact as ClothingArtifact;
     return (
-      <div className="preshot-artifact-balanced-layout">
+      <ArtifactContentRegions artifact={artifact} update={update}>
           <div className="grid min-h-0">
             <CommittedTextField
               balanced
@@ -604,12 +605,12 @@ function EditableArtifact({
             collection={clothing.mainGallery}
             label={ui("{{v0}}图片", { v0: kindLabel ?? ui("服装") })}
           />
-      </div>
+      </ArtifactContentRegions>
     );
   }
   const prop = artifact as PropArtifact;
   return (
-    <div className="preshot-artifact-balanced-layout">
+    <ArtifactContentRegions artifact={artifact} update={update}>
       <div className="grid min-h-0">
         <CommittedTextField
           balanced
@@ -626,7 +627,7 @@ function EditableArtifact({
         collection={prop.gallery}
         label={ui("{{v0}}图片", { v0: kindLabel ?? ui("道具") })}
       />
-    </div>
+    </ArtifactContentRegions>
   );
 }
 
@@ -642,7 +643,7 @@ function ReadonlyArtifact({
   useUiLanguage();
   if (artifact.kind === "shootingLocation") {
     return (
-      <div className="preshot-artifact-balanced-layout">
+      <ArtifactContentRegions artifact={artifact}>
         <dl className="preshot-balanced-info-readonly grid content-start gap-3">
           <ReadonlyValue label={ui("场地信息")} value={locationInfo(artifact)} />
         </dl>
@@ -652,12 +653,12 @@ function ReadonlyArtifact({
           collection={artifact.gallery}
           label={ui("场地图片")}
         />
-      </div>
+      </ArtifactContentRegions>
     );
   }
   if (artifact.kind === "modelCard") {
     return (
-      <div className="preshot-artifact-balanced-layout">
+      <ArtifactContentRegions artifact={artifact}>
         <section
           aria-label={ui("模特信息")}
           className="preshot-balanced-model-info min-w-0"
@@ -681,12 +682,12 @@ function ReadonlyArtifact({
           collection={artifact.samples}
           label={ui("样片")}
         />
-      </div>
+      </ArtifactContentRegions>
     );
   }
   if (artifact.kind === "clothing") {
     return (
-      <div className="preshot-artifact-balanced-layout">
+      <ArtifactContentRegions artifact={artifact}>
           <dl className="preshot-balanced-info-readonly grid content-start gap-3">
             <ReadonlyValue label={ui("{{v0}}信息", { v0: kindLabel ?? ui("服装") })} value={artifact.source} />
           </dl>
@@ -696,11 +697,11 @@ function ReadonlyArtifact({
             collection={artifact.mainGallery}
             label={ui("{{v0}}图片", { v0: kindLabel ?? ui("服装") })}
           />
-      </div>
+      </ArtifactContentRegions>
     );
   }
   return (
-    <div className="preshot-artifact-balanced-layout">
+    <ArtifactContentRegions artifact={artifact}>
       <dl className="preshot-balanced-info-readonly grid content-start gap-3">
         <ReadonlyValue label={ui("{{v0}}信息", { v0: kindLabel ?? ui("道具") })} value={propInfo(artifact)} />
       </dl>
@@ -710,7 +711,7 @@ function ReadonlyArtifact({
         collection={artifact.gallery}
         label={ui("{{v0}}图片", { v0: kindLabel ?? ui("道具") })}
       />
-    </div>
+    </ArtifactContentRegions>
   );
 }
 
@@ -767,7 +768,7 @@ export function ArtifactBlockView({
   const titleLabel = kindLabel ? ui("{{v0}}名称", { v0: kindLabel }) : artifactTitleLabel(artifact);
   return (
     <section
-      className="preshot-artifact-block bn-drag-exclude relative my-3 grid min-w-0 content-start gap-4 rounded border border-paper-border bg-white p-4 text-paper-ink shadow-sm"
+      className="preshot-artifact-block bn-drag-exclude relative mb-3 grid min-w-0 content-start gap-4 rounded border border-paper-border bg-white p-4 text-paper-ink shadow-sm"
       contentEditable={false}
       data-artifact-id={artifactId}
       data-artifact-kind={artifact.kind}

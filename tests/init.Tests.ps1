@@ -6,6 +6,18 @@ $fixtureDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "preshot-init-$(
 $stdoutPath = Join-Path $fixtureDirectory "stdout.log"
 $stderrPath = Join-Path $fixtureDirectory "stderr.log"
 
+function Wait-InitializerFixture {
+    param([Parameter(Mandatory)][System.Diagnostics.Process]$Process)
+    # Start-Process -Wait waits for a job's descendants, which can remain
+    # attached to an automation host after the initializer itself has exited.
+    $null = $Process.Handle
+    if (-not $Process.WaitForExit(60000)) {
+        $Process.Kill()
+        throw "Initializer fixture exceeded 60 seconds. Inspect $fixtureDirectory."
+    }
+    $Process.WaitForExit()
+}
+
 try {
     New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
     @"
@@ -22,13 +34,14 @@ exit /b 7
     $command = "& { `$env:PATH = '$processEnvironmentPath'; & '$repositoryRoot\init.ps1' }"
     $powerShellHost = (Get-Process -Id $PID).Path
 
-    $process = Start-Process `
+    $process = Start-Process -WindowStyle Hidden `
         -FilePath $powerShellHost `
         -ArgumentList "-NoProfile", "-Command", $command `
-        -Wait `
         -PassThru `
         -RedirectStandardOutput $stdoutPath `
         -RedirectStandardError $stderrPath
+
+    Wait-InitializerFixture $process
 
     $output = (Get-Content $stdoutPath, $stderrPath -ErrorAction SilentlyContinue) -join [Environment]::NewLine
 
@@ -50,13 +63,14 @@ exit /b 0
 
     $nodeStdoutPath = Join-Path $fixtureDirectory "node-stdout.log"
     $nodeStderrPath = Join-Path $fixtureDirectory "node-stderr.log"
-    $nodeProcess = Start-Process `
+    $nodeProcess = Start-Process -WindowStyle Hidden `
         -FilePath $powerShellHost `
         -ArgumentList "-NoProfile", "-Command", $command `
-        -Wait `
         -PassThru `
         -RedirectStandardOutput $nodeStdoutPath `
         -RedirectStandardError $nodeStderrPath
+
+    Wait-InitializerFixture $nodeProcess
 
     $nodeOutput = (Get-Content $nodeStdoutPath, $nodeStderrPath -ErrorAction SilentlyContinue) -join [Environment]::NewLine
 
@@ -78,13 +92,14 @@ exit /b 0
 
     $acceptedStdoutPath = Join-Path $fixtureDirectory "accepted-stdout.log"
     $acceptedStderrPath = Join-Path $fixtureDirectory "accepted-stderr.log"
-    $acceptedProcess = Start-Process `
+    $acceptedProcess = Start-Process -WindowStyle Hidden `
         -FilePath $powerShellHost `
         -ArgumentList "-NoProfile", "-Command", $command `
-        -Wait `
         -PassThru `
         -RedirectStandardOutput $acceptedStdoutPath `
         -RedirectStandardError $acceptedStderrPath
+
+    Wait-InitializerFixture $acceptedProcess
 
     $acceptedOutput = (Get-Content $acceptedStdoutPath, $acceptedStderrPath -ErrorAction SilentlyContinue) -join [Environment]::NewLine
 
@@ -106,13 +121,14 @@ exit /b 0
 
     $newerStdoutPath = Join-Path $fixtureDirectory "newer-stdout.log"
     $newerStderrPath = Join-Path $fixtureDirectory "newer-stderr.log"
-    $newerProcess = Start-Process `
+    $newerProcess = Start-Process -WindowStyle Hidden `
         -FilePath $powerShellHost `
         -ArgumentList "-NoProfile", "-Command", $command `
-        -Wait `
         -PassThru `
         -RedirectStandardOutput $newerStdoutPath `
         -RedirectStandardError $newerStderrPath
+
+    Wait-InitializerFixture $newerProcess
 
     $newerOutput = (Get-Content $newerStdoutPath, $newerStderrPath -ErrorAction SilentlyContinue) -join [Environment]::NewLine
 

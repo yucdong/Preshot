@@ -1,15 +1,16 @@
 import { ui, useUiLanguage } from "../../shared/i18n/ui";
+import { MATERIAL_IMAGE_MAX_BYTES, MATERIAL_IMAGE_MAX_DATA_URL_LENGTH } from "../../domain/library/imageLimits";
 import { useEffect, useMemo, useState } from "react";
 import type { MaterialDetail, MaterialImageSelection, PortableImage } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
 import { LibraryDialog } from "./LibraryDialog";
 
 async function thumbnail(url: string): Promise<string> {
-  if (url.length > 24 * 1024 * 1024) throw new Error(ui("图片数据无效"));
+  if (url.length > MATERIAL_IMAGE_MAX_DATA_URL_LENGTH) throw new Error(ui("图片数据无效"));
   const match = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/]+={0,2})$/.exec(url);
   if (!match) throw new Error(ui("图片数据无效"));
   const encoded = atob(match[2]);
-  if (encoded.length > 16 * 1024 * 1024) throw new Error(ui("图片数据过大"));
+  if (encoded.length > MATERIAL_IMAGE_MAX_BYTES) throw new Error(ui("图片数据过大"));
   const bytes = new Uint8Array(encoded.length);
   for (let index = 0; index < bytes.length; index++) bytes[index] = encoded.charCodeAt(index);
   // Decode locally; data-URL fetches are disallowed by the desktop CSP.

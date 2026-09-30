@@ -10,6 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import {
   Ellipsis,
+  Copy,
   Focus,
   FolderOpen,
   Minimize2,
@@ -25,7 +26,6 @@ import {
 import type { WorkspaceProjectView } from "../../domain/workspace/models";
 import { SettingsButton } from "../../features/settings/SettingsButton";
 import { useTheme } from "../theme/ThemeContext";
-import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 import { BrandMark } from "../../shared/ui/BrandMark";
 import { useOptionalMaterialLibrary } from "../../features/library/MaterialLibraryContext";
 
@@ -43,6 +43,7 @@ interface AppShellProps extends PropsWithChildren {
   onOpenProject(): void;
   onRevealProject(project: WorkspaceProjectView): void;
   onRemoveProject(project: WorkspaceProjectView): void;
+  onCopyProject?(project: WorkspaceProjectView): void;
 }
 
 const railButtonClassName =
@@ -75,6 +76,7 @@ export function AppShell({
   onOpenProject,
   onRevealProject,
   onRemoveProject,
+  onCopyProject,
 }: AppShellProps) {
   useUiLanguage();
   const { t } = useTranslation();
@@ -98,7 +100,6 @@ export function AppShell({
   const projectMenuTriggerRefs = useRef(
     new Map<string, HTMLButtonElement>(),
   );
-  const [projectToRemove, setProjectToRemove] = useState<WorkspaceProjectView | null>(null);
   const [workspaceView, setWorkspaceView] = useState<{
     projectId: string;
     focusMode: boolean;
@@ -175,7 +176,7 @@ export function AppShell({
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
     const menuWidth = 144;
-    const menuHeight = 84;
+    const menuHeight = onCopyProject ? 116 : 84;
     const viewportGutter = 8;
     const preferredTop = rect.bottom + 4;
     setProjectMenuPosition({
@@ -187,7 +188,7 @@ export function AppShell({
         ? preferredTop
         : Math.max(viewportGutter, rect.top - menuHeight - 4),
     });
-  }, []);
+  }, [onCopyProject]);
   const focusProjectMenuTrigger = useCallback((projectId: string) => {
     document
       .getElementById(`project-overflow-trigger-${projectId}`)
@@ -585,7 +586,7 @@ export function AppShell({
                 onKeyDown={(event) => {
                   const items = Array.from(
                     event.currentTarget.querySelectorAll<HTMLElement>(
-                      '[role="menuitem"]',
+                      '[role="menuitem"]:not(:disabled)',
                     ),
                   );
                   const currentIndex = items.indexOf(
@@ -628,12 +629,19 @@ export function AppShell({
                   <FolderOpen aria-hidden className="h-3.5 w-3.5" />
                   {ui("打开项目目录")}
                 </button>
+                {onCopyProject && <button
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium text-app-ink hover:bg-app-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:opacity-50"
+                  disabled={project.status !== "available"}
+                  onClick={() => { focusProjectMenuTrigger(project.projectId); setProjectMenuId(null); onCopyProject(project); }}
+                  role="menuitem" type="button">
+                  <Copy aria-hidden className="h-3.5 w-3.5" />{ui("复制项目")}
+                </button>}
                 <button
                   className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium text-app-danger hover:bg-app-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-danger"
                   onClick={() => {
                     focusProjectMenuTrigger(project.projectId);
                     setProjectMenuId(null);
-                    setProjectToRemove(project);
+                    onRemoveProject(project);
                   }}
                   role="menuitem"
                   type="button"
@@ -646,19 +654,6 @@ export function AppShell({
             );
           })()
         : null}
-      <ConfirmDialog
-        cancelLabel={ui("取消")}
-        confirmLabel={ui("从列表移除")}
-        onCancel={() => {
-          setProjectToRemove(null);
-        }}
-        onConfirm={() => {
-          if (projectToRemove) onRemoveProject(projectToRemove);
-          setProjectToRemove(null);
-        }}
-        open={projectToRemove !== null}
-        title={ui("仅从项目列表移除，磁盘文件不会被删除")}
-      />
     </div>
   );
 }

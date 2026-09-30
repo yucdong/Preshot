@@ -1,3 +1,4 @@
+import { resolveArtifactContentLayout } from "../../domain/plan/canvas/artifactContentLayout";
 import { ui, uiLocale } from "../../shared/i18n/ui";
 import {
   COLORS_DEFAULT,
@@ -171,9 +172,15 @@ async function artifactPdfBlock(
   const collections = artifactCollections(artifact).filter(({ collection }) => collection.images.length > 0);
   const hasImages = collections.length > 0;
   const columnsWidth = innerWidth - contract.spacing.artifact.regionGap;
-  const horizontal = hasImages && columnWidth === undefined;
-  const metadataWidth = horizontal ? columnsWidth * 0.4 : innerWidth;
-  const galleryWidth = horizontal ? columnsWidth * 0.6 : innerWidth;
+  const layout = resolveArtifactContentLayout(artifact.kind === "modelCard"
+    ? { orientation: "horizontal", textFirst: true, textShare: 0.4, minHeight: 160 }
+    : artifact.contentLayout, innerWidth / scale);
+  const horizontal = hasImages && layout.orientation === "horizontal";
+  const metadataWidth = horizontal ? columnsWidth * layout.textShare : innerWidth;
+  const galleryWidth = horizontal ? columnsWidth * (1 - layout.textShare) : innerWidth;
+  const minimum = artifact.kind === "modelCard" ? 0 : layout.minHeight * scale;
+  const textMinimum = horizontal ? minimum : minimum * layout.textShare;
+  const galleryMinimum = horizontal ? minimum : minimum * (1 - layout.textShare);
   const measureText = await createReactPdfCaptionTextMeasurer(fontSources?.regular);
   const measureTitle = await createReactPdfCaptionTextMeasurer(fontSources?.bold ?? boldFontUrl);
   const titleSize = contract.typography.body.fontSize * 1.2;
@@ -227,7 +234,8 @@ async function artifactPdfBlock(
       );
     },
   );
-  const metadataHeight = metadataLayouts.reduce((height, layout) => height + layout.height, 0);
+  const metadataHeight = Math.max(textMinimum, metadataLayouts.reduce((height, layout) => height + layout.height, 0));
+  galleriesHeight = Math.max(galleryMinimum, galleriesHeight);
   const cardHeight = inset * 2 + titleLayout.height + (horizontal ? Math.max(metadataHeight, galleriesHeight) : metadataHeight + galleriesHeight) + contract.spacing.paragraph.after;
   return (
     <View
@@ -254,24 +262,11 @@ async function artifactPdfBlock(
       >
         {titleLayout.lines.join("\n")}
       </Text>
-      {horizontal ? (
-        <View
-          style={{
-            display: "flex",
-            width: innerWidth,
-            flexDirection: "row",
-            gap: contract.spacing.artifact.regionGap,
-          }}
-        >
-          <View style={{ width: metadataWidth, flexShrink: 0 }}>{metadata}</View>
-          <View style={{ width: galleryWidth, flexShrink: 0 }}>{galleries}</View>
-        </View>
-      ) : (
-        <>
-          {metadata}
-          {galleries}
-        </>
-      )}
+      <View style={{ display: "flex", width: innerWidth, flexDirection: horizontal ? "row" : "column", gap: contract.spacing.artifact.regionGap }}>
+        {(layout.textFirst ? ["text", "images"] : ["images", "text"]).map(region => region === "text"
+          ? <View key="text" style={{ width: metadataWidth, minHeight: textMinimum, flexShrink: 0 }}>{metadata}</View>
+          : <View key="images" style={{ width: galleryWidth, minHeight: galleryMinimum, flexShrink: 0 }}>{galleries}</View>)}
+      </View>
     </View>
   ) as PdfBlockResult;
 }
@@ -529,6 +524,24 @@ export function createPreshotReactPdfMappings(
   context: PreshotContext,
   options: PreshotReactPdfMappingOptions,
 ): PreshotReactPdfMappings {
+  const shortCards = new Set<string>();
+  const childIds = new Map<string, string[]>();
+  for (const block of context.blocks) {
+    if (block.parentBlockId) childIds.set(block.parentBlockId, [...(childIds.get(block.parentBlockId) ?? []), block.blockId]);
+  }
+  const shortCardRow = (id: string) => {
+    const columns = childIds.get(id) ?? [];
+    return columns.length >= 2 && columns.every(column => {
+      const blocks = childIds.get(column) ?? [];
+      return blocks.length === 1 && shortCards.has(blocks[0]);
+    });
+  };
+  const mapArtifact = async (artifact: ArtifactRecord, blockId: string) => {
+    const result = await artifactPdfBlock(artifact, options.resolvedAssets ?? {}, blockId, options.fontSources,
+      context.blocksById[blockId]?.inColumn ? context.blocksById[blockId].pdfParentWidth : undefined);
+    if ((result as ReactElement<{ wrap?: boolean }>).props.wrap === false) shortCards.add(blockId);
+    return result;
+  };
   const defaultBlockMapping = {
     ...pdfDefaultSchemaMappings.blockMapping,
   };
@@ -541,7 +554,12 @@ export function createPreshotReactPdfMappings(
       <View key={block.id} style={{ width: context.blocksById[block.id].pdfParentWidth, flexShrink: 0 }}>{children}</View>
     ) as PdfBlockResult,
     columnList: (block, _exporter, _level, _index, children) => (
-      <View key={block.id} style={{ flexDirection: "row", gap: COLUMN_GAP * context.blocksById[block.id].logicalToPdfScale, width: context.blocksById[block.id].pdfParentWidth }}>{children}</View>
+      <View key={block.id}
+        // React-PDF can truncate unbreakable nested cards when splitting their
+        // containing flex row. Keep a row of page-sized cards together; tall
+        // cards and general text/image columns retain their paginated flow.
+        wrap={!shortCardRow(block.id)}
+        style={{ flexDirection: "row", gap: COLUMN_GAP * context.blocksById[block.id].logicalToPdfScale, width: context.blocksById[block.id].pdfParentWidth }}>{children}</View>
     ) as PdfBlockResult,
     paragraph: (block, exporter) => (
       <Text
@@ -766,7 +784,8 @@ export function createPreshotReactPdfMappings(
               width: nativeImage.pdfWidth,
               height: nativeImage.pdfHeight,
               objectFit: "contain",
-              alignSelf: "center",
+              alignSelf: block.props.textAlignment === "right" ? "flex-end"
+                : block.props.textAlignment === "center" ? "center" : "flex-start",
             }}
           />
           {caption(
@@ -791,13 +810,7 @@ export function createPreshotReactPdfMappings(
       if (!artifact || artifact.kind !== "shootingLocation") {
         throw new Error(`PDF artifact "${block.props.artifactId}" is missing`);
       }
-      return artifactPdfBlock(
-        artifact,
-        options.resolvedAssets ?? {},
-        block.id,
-        options.fontSources,
-        context.blocksById[block.id]?.inColumn ? context.blocksById[block.id].pdfParentWidth : undefined,
-      );
+      return mapArtifact(artifact, block.id);
     },
     modelCard: (block) => {
       const artifact = options.artifacts?.find(
@@ -806,13 +819,7 @@ export function createPreshotReactPdfMappings(
       if (!artifact || artifact.kind !== "modelCard") {
         throw new Error(`PDF artifact "${block.props.artifactId}" is missing`);
       }
-      return artifactPdfBlock(
-        artifact,
-        options.resolvedAssets ?? {},
-        block.id,
-        options.fontSources,
-        context.blocksById[block.id]?.inColumn ? context.blocksById[block.id].pdfParentWidth : undefined,
-      );
+      return mapArtifact(artifact, block.id);
     },
     clothing: (block) => {
       const artifact = options.artifacts?.find(
@@ -821,13 +828,7 @@ export function createPreshotReactPdfMappings(
       if (!artifact || artifact.kind !== "clothing") {
         throw new Error(`PDF artifact "${block.props.artifactId}" is missing`);
       }
-      return artifactPdfBlock(
-        artifact,
-        options.resolvedAssets ?? {},
-        block.id,
-        options.fontSources,
-        context.blocksById[block.id]?.inColumn ? context.blocksById[block.id].pdfParentWidth : undefined,
-      );
+      return mapArtifact(artifact, block.id);
     },
     prop: (block) => {
       const artifact = options.artifacts?.find(
@@ -836,13 +837,7 @@ export function createPreshotReactPdfMappings(
       if (!artifact || artifact.kind !== "prop") {
         throw new Error(`PDF artifact "${block.props.artifactId}" is missing`);
       }
-      return artifactPdfBlock(
-        artifact,
-        options.resolvedAssets ?? {},
-        block.id,
-        options.fontSources,
-        context.blocksById[block.id]?.inColumn ? context.blocksById[block.id].pdfParentWidth : undefined,
-      );
+      return mapArtifact(artifact, block.id);
     },
   });
 

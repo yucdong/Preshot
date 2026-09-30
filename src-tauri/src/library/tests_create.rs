@@ -73,6 +73,90 @@ fn add_image(request: &mut MaterialContentUpdate, image: &MaterialEditImage) {
     }));
 }
 
+#[test]
+fn buglist1_large_original_survives_create_reopen_and_draft_reuse() {
+    // A valid PNG with trailing bytes exercises encoded-file size independently
+    // of pixel allocation. Real high-resolution fixtures are covered separately.
+    let fixture = CreateFixture::new();
+    let source = fixture.source();
+    fs::OpenOptions::new().write(true).open(&source).unwrap()
+        .set_len(257 * 1024 * 1024).unwrap();
+    let mut store = fixture.store();
+    let session = store.begin_create(payload("imageGroup")).unwrap();
+    let imported = store.import_edit_images(&session.session_id, vec![source.to_string_lossy().into_owned()]).unwrap();
+    assert_eq!(imported[0].byte_length, 257 * 1024 * 1024);
+    assert!(imported[0].data_url.len() < 1024 * 1024, "IPC carries a display image, not the original");
+    let mut request = create_request(&session);
+    add_image(&mut request, &imported[0]);
+    let saved = store.commit_edit(request).unwrap();
+    let id = saved.summary.id.clone();
+    assert_eq!(saved.images[0].byte_length, 257 * 1024 * 1024);
+    drop(store);
+    let store = fixture.store();
+    assert_eq!(store.get(&id).unwrap(), saved);
+    assert!(store.load_image(&id, 1, &saved.images[0].local_image_id).unwrap().len() < 1024 * 1024);
+    let target = store.begin_create(payload("imageGroup")).unwrap();
+    let copied = store.import_library_images(&target.session_id, &id, 1, vec![saved.images[0].local_image_id.clone()]).unwrap();
+    assert_ne!(copied[0].local_image_id, saved.images[0].local_image_id);
+    assert_eq!(copied[0].byte_length, saved.images[0].byte_length);
+    store.discard_edit(&target.session_id).unwrap();
+}
+
+#[test]
+#[ignore = "Generate scripts/generate-large-image-fixtures.py and set PRESHOT_LARGE_IMAGE_FIXTURES"]
+fn buglist1_real_large_images_create_reuse_project_and_derivatives() {
+    let root = PathBuf::from(std::env::var("PRESHOT_LARGE_IMAGE_FIXTURES").unwrap());
+    let png = root.join("original-10000x10000.png");
+    let jpeg = root.join("original-8000x8000.jpg");
+    assert!(fs::metadata(&png).unwrap().len() > 256 * 1024 * 1024);
+    assert!(fs::metadata(&jpeg).unwrap().len() > 64 * 1024 * 1024);
+    let mut fixture = Fixture::new("imageGroup");
+    fixture.plan["schemaVersion"] = json!(17);
+    fixture.plan["document"]["version"] = json!(5);
+    fixture.write_plan(&fixture.plan);
+    let mut store = fixture.store();
+    let session = store.begin_create(payload("imageGroup")).unwrap();
+    let images = store.import_edit_images(&session.session_id,
+        [&png, &png, &jpeg].into_iter().map(|path| path.to_string_lossy().into_owned()).collect()).unwrap();
+    assert!(images.iter().map(|image| image.byte_length).sum::<u64>() > 512 * 1024 * 1024);
+    assert!(images.iter().all(|image| image.preview_error.is_none() && image.data_url.len() < 24 * 1024 * 1024));
+    let mut request = create_request(&session);
+    for image in &images { add_image(&mut request, image); }
+    let saved = store.commit_edit(request).unwrap();
+    store.discard_edit(&session.session_id).unwrap();
+    drop(store);
+    let mut store = fixture.store();
+    assert_eq!(store.get(&saved.summary.id).unwrap(), saved);
+    let target = store.begin_create(payload("imageGroup")).unwrap();
+    let reused = store.import_library_images(&target.session_id, &saved.summary.id, 1,
+        saved.images.iter().map(|image| image.local_image_id.clone()).collect()).unwrap();
+    let mut request = create_request(&target);
+    for image in &reused { add_image(&mut request, image); }
+    let copied = store.commit_edit(request).unwrap();
+    store.discard_edit(&target.session_id).unwrap();
+    for (source, target) in saved.images.iter().zip(&copied.images) {
+        assert_eq!(source.blob_id, target.blob_id);
+        assert_ne!(source.storage_id, target.storage_id);
+        store.verified_image_path(target).unwrap();
+    }
+    let prepared = store.prepare_insert(fixture.insert_request(&copied)).unwrap();
+    let next = fixture.next_plan(&prepared);
+    insert::commit(MaterialInsertCommit {
+        operation_id: prepared.operation_id, project_id: fixture.save_request().project_id,
+        project_path: fixture.project.to_string_lossy().into_owned(), expected_plan: fixture.plan.clone(), next_plan: next,
+    }).unwrap();
+    for (source, image) in prepared.images.iter().zip(&copied.images) {
+        let path = fixture.project.join(&source.file);
+        crate::original_image::verify(&path, image.byte_length, &image.blob_id).unwrap();
+        let display = crate::plan::load_reference_image_from(&fixture.project, &source.file).unwrap();
+        assert!(display.len() < 24 * 1024 * 1024);
+        let export = crate::original_image::display_url(&path, 3072).unwrap();
+        assert!(export.len() < 48 * 1024 * 1024);
+    }
+    assert_eq!(crate::original_image::fingerprint(&png).unwrap().1, saved.images[0].blob_id);
+    assert_eq!(crate::original_image::fingerprint(&jpeg).unwrap().1, saved.images[2].blob_id);
+}
+
 fn count(store: &Store, table: &str) -> i64 {
     store
         .conn
@@ -95,6 +179,114 @@ fn assert_unpublished(store: &Store) {
         assert_eq!(count(store, table), 0, "{table}");
     }
     assert_eq!(store.search(query("")).unwrap().total, 0);
+}
+
+fn verify_large_jpeg_lifecycle(bytes: Vec<u8>) {
+    assert!(bytes.len() > 16 * 1024 * 1024);
+    verify_original_image_lifecycle(bytes);
+}
+
+fn verify_original_image_lifecycle(bytes: Vec<u8>) {
+    let fixture = Fixture::new("imageGroup");
+    let source = fixture.project.join("camera.jpg");
+    fs::write(&source, &bytes).unwrap();
+    let mut store = fixture.store();
+    let session = store.begin_create(payload("image")).unwrap();
+    let staged = store.import_edit_images(&session.session_id, vec![source.to_str().unwrap().into()])
+        .unwrap().remove(0);
+    assert_eq!(staged.byte_length, bytes.len() as u64);
+    let mut request = create_request(&session);
+    add_image(&mut request, &staged);
+    images_mut(&mut request.payload)[0]["frameWidth"] = json!(150.0);
+    images_mut(&mut request.payload)[0]["frameHeight"] = json!(150.0 * staged.height as f64 / staged.width as f64);
+    let saved = store.commit_edit(request).unwrap();
+    store.discard_edit(&session.session_id).unwrap();
+    drop(store);
+    let store = fixture.store();
+    assert_eq!(store.get(&saved.summary.id).unwrap(), saved);
+    assert_eq!(store.blob(&saved.images[0]).unwrap(), bytes);
+    let edit = store.begin_edit(&saved.summary.id, 1).unwrap();
+    assert_eq!(store.load_edit_image(&edit.session_id, &staged.local_image_id).unwrap(), staged.data_url);
+    store.discard_edit(&edit.session_id).unwrap();
+    let prepared = store.prepare_insert(fixture.insert_request(&saved)).unwrap();
+    let next = fixture.next_plan(&prepared);
+    let input = fixture.insert_request(&saved);
+    insert::commit(MaterialInsertCommit {
+        operation_id: prepared.operation_id,
+        project_id: input.project_id,
+        project_path: input.project_path,
+        expected_plan: fixture.plan.clone(), next_plan: next,
+    }).unwrap();
+    assert_eq!(fs::read(fixture.project.join(&prepared.images[0].file)).unwrap(), bytes);
+    assert_eq!(fs::read(&source).unwrap(), bytes);
+}
+
+#[test]
+fn library_unrestricted_resolution_import_save_reopen_insert_and_crop() {
+    let mut encoded = Cursor::new(Vec::new());
+    DynamicImage::new_rgb8(20000, 2).write_to(&mut encoded, ImageFormat::Jpeg).unwrap();
+    let bytes = encoded.into_inner();
+    verify_original_image_lifecycle(bytes.clone());
+
+    let fixture = CreateFixture::new();
+    let store = fixture.store();
+    let session = store.begin_create(payload("image")).unwrap();
+    let staged = store.import_edit_image_data(&session.session_id, MaterialEditImageData {
+        name: "wide.jpg".into(), mime_type: "image/jpeg".into(), bytes: bytes.clone(),
+    }).unwrap();
+    let cropped = store.crop_edit_image(&session.session_id, &staged.local_image_id,
+        MaterialEditCropBounds { x: 100, y: 0, width: 19000, height: 2 }).unwrap();
+    assert_eq!((cropped.width, cropped.height), (19000, 2));
+    assert_eq!(store.load_edit_image(&session.session_id, &staged.local_image_id).unwrap(), staged.data_url);
+    let visual = json!({
+        "localImageId":"wide", "aspectRatio":10000.0, "frameWidth":19000,"frameHeight":2,
+        "fitMode":"stretch", "crop":{"x":0.0,"y":0.0,"width":1.0,"height":1.0},
+    });
+    let rendered = image_material::insertion_bytes(&bytes, &visual).unwrap();
+    assert_eq!(files::image_info(&rendered, false).unwrap(), ("image/png", 19000, 2));
+}
+
+#[test]
+fn library_unrestricted_resolution_above_32_million_pixels() {
+    let mut encoded = Cursor::new(Vec::new());
+    DynamicImage::new_luma8(6000, 6000).write_to(&mut encoded, ImageFormat::Png).unwrap();
+    assert_eq!(files::image_info(encoded.get_ref(), false).unwrap(), ("image/png", 6000, 6000));
+}
+
+#[test]
+fn library_large_jpeg_import_save_reopen_and_insert_preserve_original_bytes() {
+    verify_large_jpeg_lifecycle(large_jpeg_bytes());
+}
+
+fn large_jpeg_bytes() -> Vec<u8> {
+    let mut jpeg = Cursor::new(Vec::new());
+    DynamicImage::new_rgb8(3, 2).write_to(&mut jpeg, ImageFormat::Jpeg).unwrap();
+    // Valid JPEG comment segments exceed the old file cap without expensive pixel fixtures.
+    let mut bytes = vec![0xff, 0xd8];
+    for _ in 0..272 {
+        bytes.extend_from_slice(&[0xff, 0xfe, 0xff, 0xff]);
+        bytes.resize(bytes.len() + 65533, b'x');
+    }
+    bytes.extend_from_slice(&jpeg.get_ref()[2..]);
+    bytes
+}
+
+#[test]
+fn library_large_jpeg_can_render_a_changed_frame_for_native_image_insertion() {
+    let bytes = large_jpeg_bytes();
+    let visual = json!({
+        "localImageId":"camera", "aspectRatio":1.5, "frameWidth":100,"frameHeight":100,
+        "fitMode":"cover", "crop":{"x":0.0,"y":0.0,"width":1.0,"height":1.0},
+    });
+    let rendered = image_material::insertion_bytes(&bytes, &visual).unwrap();
+    assert_eq!(files::image_info(&rendered, false).unwrap(), ("image/png", 2, 2));
+}
+
+#[test]
+#[ignore = "requires PRESHOT_LARGE_JPEG_FIXTURE; source is read-only and all app state is temporary"]
+fn library_large_camera_jpeg_fixture_lifecycle() {
+    let source = std::env::var("PRESHOT_LARGE_JPEG_FIXTURE").expect("set the camera JPEG fixture path");
+    verify_large_jpeg_lifecycle(fs::read(source).unwrap());
 }
 
 #[test]
@@ -199,7 +391,7 @@ fn library_create_rejects_nonempty_or_malformed_payload_before_allocating_a_draf
         "library_validation"
     );
     let mut malformed = payload("prop");
-    malformed.version = 2;
+    malformed.version = 3;
     assert_eq!(
         store.begin_create(malformed).unwrap_err().code,
         "library_payload"
@@ -677,7 +869,7 @@ fn library_create_only_discloses_its_own_completed_staging_and_recovers_interrup
 }
 
 #[test]
-fn library_create_respects_encoded_decoded_crop_payload_and_session_image_caps() {
+fn library_create_respects_encoded_crop_payload_and_session_image_caps() {
     let fixture = CreateFixture::new();
     let mut store = fixture.store();
     let session = store.begin_create(payload("prop")).unwrap();
@@ -745,7 +937,7 @@ fn library_create_respects_encoded_decoded_crop_payload_and_session_image_caps()
             )
             .unwrap_err()
             .code,
-        "library_size"
+        "original_image"
     );
     let wide = fixture.root.path().join("wide.png");
     let mut encoded = Cursor::new(Vec::new());
@@ -753,13 +945,14 @@ fn library_create_respects_encoded_decoded_crop_payload_and_session_image_caps()
         .write_to(&mut encoded, ImageFormat::Png)
         .unwrap();
     fs::write(&wide, encoded.into_inner()).unwrap();
+    let wide_session = store.begin_create(payload("image")).unwrap();
     assert_eq!(
         store
-            .import_edit_images(&session.session_id, vec![wide.to_str().unwrap().into()])
-            .unwrap_err()
-            .code,
-        "library_image_dimensions"
+            .import_edit_images(&wide_session.session_id, vec![wide.to_str().unwrap().into()])
+            .unwrap()[0].width,
+        8193
     );
+    store.discard_edit(&wide_session.session_id).unwrap();
     let path = draft_path(&store, &session).join("manifest.json");
     let mut manifest: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     let mut recorded = manifest["staged"][0].clone();

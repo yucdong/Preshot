@@ -14,6 +14,7 @@ import type {
   WorkspaceMenuAction,
 } from "../../domain/workspace/ports";
 import { workspaceLogger } from "../../shared/logging/logger";
+import { createNativeProjectCopy } from "./tauriProjectCopy";
 
 type InvokeCommand = (
   command: string,
@@ -217,6 +218,7 @@ export function createTauriWorkspace({
   logger = workspaceLogger,
 }: Dependencies = {}): NativeWorkspace {
   return {
+    ...createNativeProjectCopy(invokeCommand, validateInspectedProject),
     async ensureUserDataRoots(): Promise<UserDataRoots> {
       try {
         return validateUserDataRoots(
@@ -268,6 +270,14 @@ export function createTauriWorkspace({
           "Unable to roll back created Preshot project",
           error,
         );
+      }
+    },
+
+    async deleteProject(path: string, projectId: string): Promise<void> {
+      try {
+        await invokeCommand("delete_project", { path, projectId });
+      } catch (error) {
+        throw wrapNativeError("Unable to delete Preshot project folder", error);
       }
     },
 

@@ -21,8 +21,8 @@ describe("multi-column document contract", () => {
   it("uses a new schema and accepts arbitrary sibling counts", () => {
     for (const count of [2, 3, 4, 12, 32, 80]) {
       const value = plan(); value.document.blocks = [columns(count)];
-      expect(value.schemaVersion).toBe(16);
-      expect(value.document.version).toBe(4);
+      expect(value.schemaVersion).toBe(17);
+      expect(value.document.version).toBe(5);
       expect(validateProjectPlanV15(value)).toEqual(value);
     }
   });

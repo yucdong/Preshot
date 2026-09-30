@@ -22,5 +22,5 @@ export function createEmptyMaterialPayload(category: MaterialCategory | Material
       component = { kind, title, source: "", mainGallery: { images: [] } };
       break;
   }
-  return validateMaterialPayload({ format: "preshot-material", version: 1, kind, component });
+  return validateMaterialPayload({ format: "preshot-material", version: 2, kind, component });
 }

@@ -23,6 +23,9 @@ import { useProjectLoading } from "./useProjectLoading";
 import type { PlanLoadProgress } from "../../features/plan/blocknote/planLoadProgress";
 import { CloseProjectDialog } from "../../features/workspace/CloseProjectDialog";
 import { ProjectLoadingScreen } from "../../features/workspace/ProjectLoadingScreen";
+import { DeleteProjectDialog, type ProjectRemovalMode } from "../../features/workspace/DeleteProjectDialog";
+import { CopyProjectDialog, type CopyRunOptions } from "../../features/workspace/CopyProjectDialog";
+import type { ProjectCopyRequest, PendingProjectCopy } from "../../domain/workspace/projectCopy";
 
 interface OpenProject {
   project: WorkspaceProjectView;
@@ -70,10 +73,34 @@ export function WorkspaceProvider({
   const openProjectsRef = useRef<OpenProject[]>([]);
   const readyLoadsRef = useRef(new Set<number>());
   const beforeCloseRef = useRef(new Map<string, (saveChanges?: boolean) => Promise<void>>());
+  const beforeCopyRef = useRef(new Map<string, () => Promise<() => void>>());
+  const [copyRequest, setCopyRequest] = useState<{ project: WorkspaceProjectView; parentPath: string; name: string; recovery?: ProjectCopyRequest; returnFocus?: HTMLElement } | null>(null);
+  const copyRequestRef = useRef<typeof copyRequest>(null);
+  const pendingCopiesRef = useRef<PendingProjectCopy[]>([]);
+  const registerBeforeCopy = useCallback((path: string, prepare: () => Promise<() => void>) => {
+    beforeCopyRef.current.set(path, prepare);
+    return () => { if (beforeCopyRef.current.get(path) === prepare) beforeCopyRef.current.delete(path); };
+  }, []);
+  const nextRecoveredCopy = useCallback((items: PendingProjectCopy[], loadedProjects: WorkspaceProjectView[]) => {
+    const pending = items.shift(); pendingCopiesRef.current = items;
+    if (!pending) { copyRequestRef.current = null; setCopyRequest(null); return; }
+    const input = pending.request;
+    const project = loadedProjects.find(p => p.projectId === input.sourceProjectId) ?? {
+      projectId: input.sourceProjectId, path: input.sourcePath, name: input.sourcePath.split(/[\\/]/).at(-1) ?? input.sourcePath,
+      coverImage: null, coverDataUrl: null, status: "unavailable" as const, createdAt: "", updatedAt: "", lastOpenedAt: "",
+    };
+    const request = { project, parentPath: input.parentPath, name: input.name, recovery: input };
+    copyRequestRef.current = request; setCopyRequest(request);
+  }, []);
   const [closing, setClosing] = useState(false);
   const [closeRequest, setCloseRequest] = useState<WorkspaceProjectView | null>(null);
   const closeRequestRef = useRef<WorkspaceProjectView | null>(null);
   const [closeError, setCloseError] = useState<string | null>(null);
+  const [deleteRequest, setDeleteRequest] = useState<WorkspaceProjectView | null>(null);
+  const deleteRequestRef = useRef<WorkspaceProjectView | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteTrigger, setDeleteTrigger] = useState<HTMLElement | null>(null);
   const registerBeforeClose = useCallback((path: string, flush: (saveChanges?: boolean) => Promise<void>) => {
     beforeCloseRef.current.set(path, flush);
     return () => {
@@ -122,7 +149,7 @@ export function WorkspaceProvider({
       action: () => Promise<void>,
       allowDuringClose = false,
     ): Promise<boolean> => {
-      if (isBusyRef.current || !isMountedRef.current || isLoadPending() || (closeRequestRef.current && !allowDuringClose)) {
+      if (isBusyRef.current || !isMountedRef.current || isLoadPending() || ((closeRequestRef.current || deleteRequestRef.current || copyRequestRef.current) && !allowDuringClose)) {
         return false;
       }
 
@@ -364,38 +391,68 @@ export function WorkspaceProvider({
     [dependencies, runGuardedAction, setMountedState, t],
   );
 
-  const removeProject = useCallback(
-    async (project: WorkspaceProjectView) => {
-      await runGuardedAction(
-        "Unable to remove workspace project from recents",
-        async () => {
-          const nextProjects = await dependencies.service.removeRecord(
-            project.projectId,
-          );
-          updateOpenProjects(openProjectsRef.current.filter((entry) => entry.project.projectId !== project.projectId));
-          const removedActiveProject =
-            activeProjectRef.current?.projectId === project.projectId;
-          const [nextProject] = removedActiveProject
-            ? sortProjectsByRecentEdit(
-              nextProjects.filter(
-                (candidate) => candidate.status === "available",
-              ),
-            )
-            : [];
+  const requestRemoveProject = useCallback((project: WorkspaceProjectView) => {
+    if (isBusyRef.current || isLoadPending() || closeRequestRef.current || deleteRequestRef.current) return;
+    deleteRequestRef.current = project;
+    // Capture before the workspace becomes inert and the browser clears focus.
+    setDeleteTrigger(document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    setDeleteError(null);
+    setDeleteRequest(project);
+  }, [isLoadPending]);
 
-          setMountedState(() => {
-            setAlert(null);
-            setProjects(nextProjects);
-          });
-          if (removedActiveProject && nextProject) {
-            await showProject(nextProject);
-          } else if (removedActiveProject) {
+  const removeProject = useCallback(
+    async (project: WorkspaceProjectView, mode: ProjectRemovalMode) => {
+      await runGuardedAction(
+        "Unable to remove workspace project",
+        async () => {
+          setDeleting(true);
+          try {
+            const removedActiveProject =
+              activeProjectRef.current?.projectId === project.projectId;
+            const beforeClose = beforeCloseRef.current.get(project.path);
+            // Keep a recoverable saved project if deletion fails. Drain pending
+            // media/saves, then disable retirement writes before deleting files.
+            await beforeClose?.(true);
+            if (mode === "disk") {
+              await beforeClose?.(false);
+              updateOpenProjects(openProjectsRef.current.filter((entry) => entry.project.projectId !== project.projectId));
+              if (removedActiveProject) {
+                cancelLoad();
+                activeProjectRef.current = null;
+                setView({ kind: "launcher" });
+              }
+            }
+            const nextProjects = mode === "disk"
+              ? await dependencies.service.deleteProject(project)
+              : await dependencies.service.removeRecord(project.projectId);
+            updateOpenProjects(openProjectsRef.current.filter((entry) => entry.project.projectId !== project.projectId));
+            const [nextProject] = removedActiveProject
+              ? sortProjectsByRecentEdit(
+                nextProjects.filter(
+                  (candidate) => candidate.status === "available",
+                ),
+              )
+              : [];
+
             setMountedState(() => {
-              activeProjectRef.current = null;
-              setView({ kind: "launcher" });
+              setAlert(null);
+              setProjects(nextProjects);
+              deleteRequestRef.current = null;
+              setDeleteRequest(null);
             });
+            if (removedActiveProject && nextProject) {
+              await showProject(nextProject);
+            } else if (removedActiveProject) {
+              setMountedState(() => {
+                activeProjectRef.current = null;
+                setView({ kind: "launcher" });
+              });
+            }
+          } finally {
+            if (isMountedRef.current) setDeleting(false);
           }
         },
+        true,
       );
     },
     [
@@ -404,6 +461,7 @@ export function WorkspaceProvider({
       setMountedState,
       showProject,
       updateOpenProjects,
+      cancelLoad,
     ],
   );
 
@@ -474,6 +532,16 @@ export function WorkspaceProvider({
         if (mostRecentlyEdited) {
           await showProject(mostRecentlyEdited);
         }
+        try {
+          const pending = await dependencies.service.pendingProjectCopies?.() ?? [];
+          const unregistered: PendingProjectCopy[] = [];
+          for (const item of pending) {
+            if (item.status.phase === "cancelled" || item.status.project && loadedProjects.some(p => p.projectId === item.status.project!.manifest.id && p.path === item.status.project!.path)) {
+              await dependencies.service.acknowledgeProjectCopy?.(item.request.operationId);
+            } else unregistered.push(item);
+          }
+          if (active && unregistered.length) nextRecoveredCopy(unregistered, loadedProjects);
+        } catch (error) { reportStartupError("Unable to recover a project copy", error); }
       } catch (error) {
         reportStartupError("Unable to load workspace projects", error);
         if (!active) {
@@ -494,7 +562,7 @@ export function WorkspaceProvider({
       active = false;
       isMountedRef.current = false;
     };
-  }, [dependencies, showProject]);
+  }, [dependencies, showProject, nextRecoveredCopy]);
 
   // Menu labels change with the UI language; project startup must not rerun.
   useEffect(() => {
@@ -543,6 +611,42 @@ export function WorkspaceProvider({
     [projects],
   );
 
+  const requestCopyProject = async (project: WorkspaceProjectView) => {
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    await runGuardedAction("Unable to prepare project copy", async () => {
+      if (!dependencies.service.suggestProjectCopy) throw new Error(ui("当前环境不支持复制项目。"));
+      const defaults = await dependencies.service.suggestProjectCopy(project, ui("{{v0}} - 副本", { v0: project.name }));
+      const request = { project, ...defaults, returnFocus };
+      copyRequestRef.current = request; setCopyRequest(request);
+    });
+  };
+  const copyProject = async (input: ProjectCopyRequest, options: CopyRunOptions) => {
+    const started = await runGuardedAction("Unable to copy project", async () => {
+      if (!dependencies.service.copyProject) throw new Error(ui("当前环境不支持复制项目。"));
+      let release: (() => void) | undefined;
+      try {
+        const previous = await dependencies.service.projectCopyStatus?.(input.operationId);
+        // An uncertain retry may still have a native reader holding the source.
+        // Only a new/failed operation may prepare and save that source again.
+        if (!previous || previous.phase === "failed" || previous.phase === "cancelled") {
+          options.signal.throwIfAborted();
+          const open = openProjectsRef.current.find(entry => entry.project.path === input.sourcePath && entry.project.projectId === input.sourceProjectId);
+          if (open) {
+            const prepare = beforeCopyRef.current.get(input.sourcePath);
+            if (!prepare) throw new Error(ui("项目仍在加载，请稍后复制。"));
+            release = await prepare();
+          }
+          options.signal.throwIfAborted();
+        }
+        options.onCopying();
+        const project = await dependencies.service.copyProject(input);
+        setProjects(current => upsertProject(current, project));
+        await showProject(project);
+      } finally { release?.(); }
+    }, true);
+    if (!started) throw new Error(ui("当前操作尚未完成，请稍后重试复制。"));
+  };
+
   const loadingContent = loadAttempt ? (
     <div key={loadAttempt.id} className="relative h-full">
       <ProjectLoadingScreen
@@ -561,7 +665,7 @@ export function WorkspaceProvider({
   return (
     <>
       {openProjects.length > 0 ? (
-        <div hidden={view.kind !== "project"} inert={view.kind !== "project" || closing || closeRequest !== null}>
+        <div hidden={view.kind !== "project"} inert={view.kind !== "project" || closing || closeRequest !== null || deleteRequest !== null || copyRequest !== null}>
           <AppShell
             currentProjectId={view.kind === "project" ? view.project.projectId : ""}
             error={alert}
@@ -575,9 +679,8 @@ export function WorkspaceProvider({
                 // The guarded action already logged and displayed the failure.
               });
             }}
-            onRemoveProject={(project) => {
-              void removeProject(project);
-            }}
+            onRemoveProject={requestRemoveProject}
+            onCopyProject={project => { void requestCopyProject(project).catch(() => undefined); }}
             onRevealProject={(project) => {
               void revealProjectDirectory(project);
             }}
@@ -598,10 +701,12 @@ export function WorkspaceProvider({
               <Workspace
                 key={entry.loadId}
                 active={view.kind === "project" && entry.loadId === view.loadId}
+                interactionPaused={copyRequest !== null}
                 loadId={entry.loadId}
                 onLoadProgress={handleLoadProgress}
                 registerBeforeClose={registerBeforeClose}
-                savePaused={closeRequest?.path === entry.project.path}
+                registerBeforeCopy={registerBeforeCopy}
+                savePaused={closeRequest?.path === entry.project.path || deleteRequest?.path === entry.project.path || copyRequest?.project.path === entry.project.path}
                 dependencies={planDependencies}
                 projectDirectoryRevealer={dependencies.projectDirectoryRevealer}
                 projectName={entry.project.name}
@@ -614,7 +719,7 @@ export function WorkspaceProvider({
       ) : null}
       {view.kind === "launcher" ? (
         loadingContent ? <div className="h-screen bg-app-bg">{loadingContent}</div> : (
-          <WorkspaceLauncher
+          <div inert={deleteRequest !== null || copyRequest !== null}><WorkspaceLauncher
             error={alert}
             isCreateDialogOpen={createParentPath !== null}
             defaultParentPath={createParentPath ?? ""}
@@ -627,12 +732,21 @@ export function WorkspaceProvider({
             onOpen={openAvailableProject}
             onOpenExisting={openExistingProject}
             onRelocate={relocateProject}
-            onRemove={removeProject}
+            onRemove={requestRemoveProject}
+            onCopy={requestCopyProject}
             onRequestCreate={requestCreate}
             projects={projects}
-          />
+          /></div>
         )
       ) : null}
+      {copyRequest && <CopyProjectDialog key={copyRequest.recovery?.operationId ?? copyRequest.project.projectId}
+        sourceName={copyRequest.project.name} sourcePath={copyRequest.project.path} sourceProjectId={copyRequest.project.projectId}
+        defaultParentPath={copyRequest.parentPath} defaultName={copyRequest.name} recovery={copyRequest.recovery} returnFocus={copyRequest.returnFocus}
+        onClose={() => nextRecoveredCopy([...pendingCopiesRef.current], projects)} onCopy={copyProject}
+        onPickDirectory={path => dependencies.directoryPicker.pickDirectory(ui("选择副本存放目录"), { defaultPath: path })}
+        getStatus={id => dependencies.service.projectCopyStatus!(id)} cancelCopy={id => dependencies.service.cancelProjectCopy!(id)}
+        acknowledge={id => dependencies.service.acknowledgeProjectCopy!(id)}
+      />}
       {closeRequest ? <CloseProjectDialog
         projectName={closeRequest.name}
         busy={closing}
@@ -647,6 +761,22 @@ export function WorkspaceProvider({
           setCloseError(null);
           void closeProject(closeRequest, saveChanges).catch((error: unknown) => {
             if (isMountedRef.current) setCloseError(detail(error));
+          });
+        }}
+      /> : null}
+      {deleteRequest ? <DeleteProjectDialog
+        project={deleteRequest} busy={deleting} error={deleteError}
+        returnFocusTo={deleteTrigger}
+        onCancel={() => {
+          if (isBusyRef.current) return;
+          deleteRequestRef.current = null;
+          setDeleteRequest(null);
+          setDeleteError(null);
+        }}
+        onRemove={(mode) => {
+          setDeleteError(null);
+          void removeProject(deleteRequest, mode).catch((error: unknown) => {
+            if (isMountedRef.current) setDeleteError(detail(error));
           });
         }}
       /> : null}

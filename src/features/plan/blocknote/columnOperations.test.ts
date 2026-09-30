@@ -69,7 +69,7 @@ describe("real multi-column editor operations", () => {
     mergeColumn(e, e.getBlock(row.id)!.children[1].id);
     expect(e.getBlock(row.id)?.children).toHaveLength(7);
     expect(e.undo()).toBe(true); expect(JSON.stringify(e.document)).toBe(before);
-    expect(serializeBlockNoteDocumentAssets(e.document, u => u).version).toBe(4);
+    expect(serializeBlockNoteDocumentAssets(e.document, u => u).version).toBe(5);
   });
   it("commits column weights as one undo step and restores both weights", () => {
     const e = editor(); const row = createColumns(e, 2, "text");

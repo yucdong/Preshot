@@ -18,6 +18,7 @@ import type {
   WorkspaceRegistry,
 } from "../../domain/workspace/ports";
 import { workspaceLogger } from "../../shared/logging/logger";
+import type { NativeProjectCopy } from "../../domain/workspace/projectCopy";
 
 export const MIDSCENE_PROJECT_ROOT = "C:\\Preshot Midscene Runs";
 export const MIDSCENE_USER_ROOT = "C:\\Preshot Midscene";
@@ -143,6 +144,15 @@ function createNative(clock: { now(): string }): NativeWorkspace {
         window.sessionStorage.removeItem(STARTER_PLAN_KEY);
       }
     },
+    async deleteProject(path, projectId) {
+      const projects = loadProjects();
+      if (projects[path] && projects[path].id !== projectId) throw new Error("Project ID changed");
+      delete projects[path];
+      saveProjects(projects);
+      for (const version of [13, 14, 15]) {
+        window.sessionStorage.removeItem(`preshot.browser-blocknote-plan-v${version}:${encodeURIComponent(path)}`);
+      }
+    },
     async forgetCreatedProject() {
       return undefined;
     },
@@ -161,9 +171,10 @@ const directoryPicker: WorkspaceDirectoryPicker = {
 
 export function createMidsceneWorkspaceDependencies(
   logger: WorkspaceLogger = workspaceLogger,
+  copyBoundary?: NativeProjectCopy,
 ) {
   const clock = createDeterministicClock();
-  const native = createNative(clock);
+  const native = { ...createNative(clock), ...copyBoundary };
   return {
     service: createWorkspaceService({
       registry: createRegistry(),

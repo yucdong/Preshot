@@ -154,8 +154,8 @@ try {
   await createMaterial({ category: "道具与服装", name: "泡泡机", description: "利用江风，让泡泡形成虚化前景", tags: "泡泡机，前景，氛围",
     fields: { "道具与服装名称": "泡泡机", "道具与服装信息": "自备电池与泡泡液；从人物侧后方少量释放，结束后清理场地。图片为示意插画。" }, photos: ["bubble-machine.png"] });
   await chapter("参考图也能成为素材：保存白天与夜晚桥景图片组", "Reference boards are reusable too: daylight and night bridge photos");
-  await createMaterial({ category: "图片组", name: "大桥光线参考", description: "日落前的桥梁结构与蓝调时刻的灯光", tags: "南京，桥景，光线，蓝调",
-    fields: { "图片组名称": "大桥光线参考", "图片组说明": "观察桥梁线条、江面反光和夜景色温，照片来源见演示说明。" }, photos: ["bridge-day.jpg", "bridge-night.jpg"] });
+  await createMaterial({ category: "图片组", name: "大桥光线参考", description: "日落前的桥梁结构与蓝调时刻的灯光。观察桥梁线条、江面反光和夜景色温，照片来源见演示说明。", tags: "南京，桥景，光线，蓝调",
+    fields: {}, photos: ["bridge-day.jpg", "bridge-night.jpg"] });
   await chapter("05 搜索与预览：输入关键词，按需打开完整素材", "05 Search and preview: find materials by keyword");
   await fill(library.getByRole("searchbox"), "光线");
   await click(button("选择素材：大桥光线参考", library));

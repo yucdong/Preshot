@@ -14,6 +14,9 @@ use uuid::Uuid;
 
 use crate::error::CommandError;
 
+mod delete;
+pub(crate) mod copy;
+
 const MANIFEST_FILE_NAME: &str = ".preshotproj";
 const LEGACY_MANIFEST_FILE_NAME: &str = ".preshot";
 const MANIFEST_TEMP_FILE_NAME: &str = ".preshotproj.tmp";
@@ -259,21 +262,9 @@ pub(crate) fn dedupe_project_name(parent: &Path, name: &str) -> String {
     format!("{name} ({})", Uuid::new_v4())
 }
 
-/// Resolves the `~/.preshot` home directory for the current OS.
+/// Resolves the data directory confirmed by this user on first launch.
 pub(crate) fn preshot_home() -> Result<PathBuf, CommandError> {
-    #[cfg(windows)]
-    let home_var = "USERPROFILE";
-    #[cfg(not(windows))]
-    let home_var = "HOME";
-
-    let home = std::env::var(home_var).map_err(|_| {
-        CommandError::new(
-            "home_unresolved",
-            format!("Unable to resolve home directory (missing {home_var})"),
-        )
-    })?;
-
-    Ok(PathBuf::from(home).join(".preshot"))
+    crate::storage::profile::resolve()
 }
 
 /// Returns `<home>/projects`, creating it (and any missing parents) if absent.
@@ -425,21 +416,14 @@ fn discover_valid_project(projects_root: &Path) -> Result<Option<InspectedProjec
     Ok(None)
 }
 
-fn has_available_registered_project(registered_projects: &[RegisteredProjectIdentity]) -> bool {
-    registered_projects.iter().any(|registered| {
-        inspect_project_directory(Path::new(&registered.path))
-            .map(|project| project.manifest.id == registered.project_id)
-            .unwrap_or(false)
-    })
-}
-
 fn bootstrap_user_data_in(
     user_root: &Path,
     registered_projects: &[RegisteredProjectIdentity],
     pending_rollbacks: &PendingProjectRollbacks,
 ) -> Result<UserDataBootstrapResult, CommandError> {
     let roots = ensure_user_data_roots_in(user_root)?;
-    if has_available_registered_project(registered_projects) {
+    // A disconnected drive does not make an existing profile a new workspace.
+    if !registered_projects.is_empty() {
         return Ok(UserDataBootstrapResult {
             roots,
             project: None,
@@ -943,6 +927,12 @@ pub fn inspect_project(path: String) -> Result<InspectedProject, CommandError> {
 }
 
 #[tauri::command]
+pub async fn delete_project(path: String, project_id: String) -> Result<(), CommandError> {
+    tauri::async_runtime::spawn_blocking(move || delete::delete_project_directory(Path::new(&path), &project_id))
+        .await.map_err(|error| CommandError::new("project_delete_failed", error.to_string()))?
+}
+
+#[tauri::command]
 pub fn default_projects_dir() -> Result<String, CommandError> {
     Ok(default_projects_path()?.to_string_lossy().into_owned())
 }
@@ -1285,7 +1275,7 @@ mod tests {
 
     #[test]
     fn preshot_home_ends_with_dot_preshot() {
-        assert!(preshot_home().unwrap().ends_with(".preshot"));
+        assert!(crate::storage::profile::default_home().unwrap().ends_with(".preshot"));
     }
 
     #[test]
@@ -1332,6 +1322,19 @@ mod tests {
 
         assert!(result.project.is_some());
         assert_eq!(fs::read(user_root.join("settings.json")).unwrap(), settings);
+    }
+
+    #[test]
+    fn bootstrap_preserves_unavailable_registered_projects_without_creating_a_demo() {
+        let profile = tempfile::tempdir().unwrap();
+        let identities = [RegisteredProjectIdentity {
+            project_id: Uuid::new_v4().to_string(),
+            path: profile.path().join("disconnected-drive").to_string_lossy().into_owned(),
+        }];
+        let root = profile.path().join("profile");
+        let result = bootstrap_user_data_in(&root, &identities, &PendingProjectRollbacks::default()).unwrap();
+        assert!(result.project.is_none());
+        assert_eq!(fs::read_dir(root.join("projects")).unwrap().count(), 0);
     }
 
     #[test]

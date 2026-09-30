@@ -217,11 +217,11 @@ fn cleanup(project: &Path, journal: &mut Journal, manifest: &ProjectManifest) ->
         }
         let path = image_material::insertion_path(project, &owned.file, false)?;
         if path.try_exists().map_err(|e| error("journal_cleanup", e))? {
-            let bytes = match files::read_limited(&path, files::MAX_IMAGE_BYTES) {
-                Ok(bytes) => bytes,
+            let hash = match crate::original_image::fingerprint(&path) {
+                Ok((_, hash)) => hash,
                 Err(_) => return conflict(project, journal),
             };
-            if files::hash(&bytes) != owned.hash() {
+            if hash != owned.hash() {
                 return conflict(project, journal);
             }
             paths.push(path);
@@ -359,11 +359,8 @@ pub(crate) fn retain_reference_for_material_history(project: &Path, file: &str) 
 
 fn verify_owned(project: &Path, journal: &Journal) -> Result<()> {
     for owned in &journal.owned {
-        let bytes = files::read_limited(
-            &image_material::insertion_path(project, &owned.file, true)?,
-            files::MAX_IMAGE_BYTES,
-        )?;
-        if files::hash(&bytes) != owned.hash() {
+        let (_, hash) = crate::original_image::fingerprint(&image_material::insertion_path(project, &owned.file, true)?)?;
+        if hash != owned.hash() {
             return Err(error(
                 "insert_image_changed",
                 "Prepared project reference bytes changed; insertion was not committed",
@@ -464,7 +461,7 @@ impl Store {
             number = number
                 .checked_add(1)
                 .ok_or_else(|| error("references", "Project reference numbers are exhausted"))?;
-            let extension = if image.mime_type == "image/png" {
+            let extension = if image.mime_type == "image/png" || (directory == "media" && input.expected_plan["schemaVersion"].as_u64().unwrap_or(0) < 17 && insert_selection::separate_images(input.selection.as_ref())) {
                 "png"
             } else {
                 "jpg"
@@ -508,25 +505,22 @@ impl Store {
         };
         write(&project, &journal)?;
         let copy_result = (|| {
-            let visuals = validation::payload_images(&journal.prepared.payload)?;
             for index in 0..journal.owned.len() {
-                let owned = &mut journal.owned[index];
-                let original = self.blob(&owned.image)?;
-                let bytes = if directory == "media" {
-                    let bytes = image_material::insertion_bytes(&original, &visuals[index])?;
-                    owned.rendered_hash = Some(files::hash(&bytes));
-                    // A transformed JPEG becomes PNG. Keep the reserved numeric identity.
-                    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") && !owned.file.ends_with(".png") {
-                        owned.file = format!("{}.png", owned.file.rsplit_once('.').unwrap().0);
-                        journal.prepared.images[index].file = owned.file.clone();
-                    }
-                    bytes
-                } else { original };
+                let owned = &journal.owned[index];
+                let source = self.verified_image_path(&owned.image)?;
                 let destination = image_material::insertion_path(&project, &owned.file, false)?;
-                let staged = project
-                    .join(JOURNAL_DIR)
-                    .join(format!("{}.copy", journal.prepared.operation_id));
-                files::write_new(&staged, &bytes)?;
+                let staged = project.join(JOURNAL_DIR).join(format!("{}.copy", journal.prepared.operation_id));
+                if owned.file.starts_with("media/") && journal.base_plan["schemaVersion"].as_u64().unwrap_or(0) < 17 {
+                    let visual = validation::payload_images(&journal.prepared.payload)?.into_iter()
+                        .find(|visual| visual["localImageId"] == owned.image.local_image_id)
+                        .ok_or_else(|| error("source", "Image presentation is missing"))?;
+                    let bytes = image_material::insertion_bytes(&files::read_original(&source)?, &visual)?;
+                    journal.owned[index].rendered_hash = Some(files::hash(&bytes));
+                    write(&project, &journal)?;
+                    files::atomic(&staged, &bytes)?;
+                } else {
+                    crate::original_image::copy_new(&source, &staged, owned.image.byte_length, &owned.image.blob_id)?;
+                }
                 journal.publishing = true;
                 write(&project, &journal)?;
                 files::publish_new(&staged, &destination)?;

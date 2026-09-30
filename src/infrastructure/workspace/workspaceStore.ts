@@ -1,4 +1,4 @@
-import { load } from "@tauri-apps/plugin-store";
+import { invoke } from "@tauri-apps/api/core";
 import {
   EMPTY_WORKSPACE,
   type WorkspaceMetadata,
@@ -6,7 +6,6 @@ import {
 } from "../../domain/workspace/models";
 import type { WorkspaceRegistry } from "../../domain/workspace/ports";
 
-const STORE_FILE = "workspace.json";
 const STORE_KEY = "workspace";
 
 type StoreLike = {
@@ -154,7 +153,12 @@ function validateWorkspaceMetadata(value: unknown): WorkspaceMetadata {
 }
 
 async function defaultLoadStore(): Promise<StoreLike> {
-  return load(STORE_FILE, { autoSave: false });
+  let pending: unknown;
+  return {
+    get: async () => (await invoke("read_workspace_registry")) ?? undefined,
+    set: (_key, value) => { pending = value; },
+    save: async () => { await invoke("write_workspace_registry", { value: pending }); },
+  };
 }
 
 export function createWorkspaceStore({

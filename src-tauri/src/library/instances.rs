@@ -114,6 +114,12 @@ impl Store {
 
     pub(super) fn instance_path(&self, storage_id: &str, mime: &str) -> Result<PathBuf> {
         files::uuid(storage_id)?;
+        if let Some(path) = self.instance_group_path(storage_id, mime)? { return Ok(path); }
+        self.ungrouped_instance_path(storage_id, mime)
+    }
+
+    pub(super) fn ungrouped_instance_path(&self, storage_id: &str, mime: &str) -> Result<PathBuf> {
+        files::uuid(storage_id)?;
         let extension = match mime {
             "image/jpeg" => "jpg",
             "image/png" => "png",
@@ -162,7 +168,6 @@ impl Store {
         let mut images = Vec::new();
         let mut last_session = String::new();
         let mut count = 0;
-        let mut bytes = 0u64;
         for row in rows {
             let (storage_id, session, json) = row.map_err(|e| error("database", e))?;
             files::uuid(&session)?;
@@ -175,11 +180,9 @@ impl Store {
             if last_session != session {
                 last_session = session.clone();
                 count = 0;
-                bytes = 0;
             }
             count += 1;
-            bytes += image.byte_length;
-            if count > 512 || bytes > 512 * 1024 * 1024 {
+            if count > 512 {
                 return Err(error(
                     "edit_limit",
                     "Instance recovery exceeds its owning draft budget",
@@ -191,41 +194,21 @@ impl Store {
     }
 
     fn verify_instance_file(&self, path: &std::path::Path, image: &MaterialImage) -> Result<()> {
-        let bytes = files::read_limited(path, files::MAX_IMAGE_BYTES)?;
-        if bytes.len() as u64 != image.byte_length || files::hash(&bytes) != image.blob_id {
-            return Err(error(
-                "image_corrupt",
-                "Physical image instance was replaced or corrupted; preserve its recovery record",
-            ));
-        }
+        crate::original_image::verify(path, image.byte_length, &image.blob_id)
+    }
+
+    fn verify_pending_instance(&self, path: &std::path::Path, image: &MaterialImage) -> Result<()> {
+        files::no_links(path)?;
+        let metadata = fs::metadata(path).map_err(|e| error("path", e))?;
+        if !metadata.is_file() || metadata.len() > image.byte_length { return Err(error("image_corrupt", "Owned staging exceeds its journal length")); }
         Ok(())
     }
 
-    fn pending_instance_bytes(
-        &self,
-        path: &std::path::Path,
-        image: &MaterialImage,
-    ) -> Result<Vec<u8>> {
-        files::no_links(path)?;
-        let metadata = fs::metadata(path).map_err(|e| error("path", e))?;
-        if !metadata.is_file() || metadata.len() > image.byte_length {
-            return Err(error(
-                "image_corrupt",
-                "Owned instance staging file exceeds its journal budget",
-            ));
-        }
-        if metadata.len() == 0 {
-            Ok(Vec::new())
-        } else {
-            files::read_limited(path, image.byte_length as usize)
-        }
-    }
-
-    pub(super) fn publish_instance(
+    pub(super) fn publish_instance_from(
         &self,
         session_id: &str,
         image: &MaterialImage,
-        bytes: &[u8],
+        source: &std::path::Path,
     ) -> Result<()> {
         let storage_id = image
             .storage_id
@@ -252,7 +235,7 @@ impl Store {
                     "A staged paste cannot reuse another operation's physical file",
                 ));
             }
-            self.blob(image)?;
+            self.verified_image_path(image)?;
             return Ok(());
         }
         let prior: Option<(String, String)> = self
@@ -291,25 +274,32 @@ impl Store {
             self.verify_instance_file(&destination, image)?;
         } else {
             if pending.try_exists().map_err(|e| error("path", e))? {
-                let partial = self.pending_instance_bytes(&pending, image)?;
-                if !bytes.starts_with(&partial) {
+                if fs::metadata(&pending).map_err(|e| error("path", e))?.len() > image.byte_length || !crate::original_image::is_prefix(&pending, source)? {
                     return Err(error(
                         "image_corrupt",
                         "Owned instance staging file differs from its retry source",
                     ));
                 }
-                if partial.len() != bytes.len() {
+                if fs::metadata(&pending).map_err(|e| error("path", e))?.len() != image.byte_length {
                     fs::remove_file(&pending).map_err(|e| error("edit_cleanup", e))?;
                 }
             }
             if !pending.try_exists().map_err(|e| error("path", e))? {
                 // The durable publication owns this exact pending filename,
                 // including a short write. Never create unjournaled sibling files.
-                files::write_new(&pending, bytes)?;
+                crate::original_image::copy_new(source, &pending, image.byte_length, &image.blob_id)?;
             }
+            self.verify_instance_file(&pending, image)?;
             files::publish_new(&pending, &destination)?;
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub(super) fn publish_instance(&self, session: &str, image: &MaterialImage, bytes: &[u8]) -> Result<()> {
+        let source = tempfile::NamedTempFile::new_in(&self.root).map_err(|e| error("write", e))?;
+        fs::write(source.path(), bytes).map_err(|e| error("write", e))?;
+        self.publish_instance_from(session, image, source.path())
     }
 
     pub(super) fn cleanup_instance_publications(&self, session_id: &str) -> Result<()> {
@@ -342,7 +332,7 @@ impl Store {
                     if partial {
                         // A journal owns interrupted short writes as well as
                         // complete bytes; final immutable files still require SHA.
-                        self.pending_instance_bytes(&candidate, &image)?;
+                        self.verify_pending_instance(&candidate, &image)?;
                     } else {
                         self.verify_instance_file(&candidate, &image)?;
                     }
@@ -359,6 +349,10 @@ impl Store {
                         params![storage_id, session_id],
                     )
                     .map_err(|e| error("database", e))?;
+                if !committed {
+                    self.conn.execute("DELETE FROM group_instance_locations WHERE storage_id=?1", [storage_id])
+                        .map_err(|e| error("database", e))?;
+                }
             }
         }
         Ok(())

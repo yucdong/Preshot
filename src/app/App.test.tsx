@@ -43,11 +43,11 @@ function planDeps(): PlanDependencies {
       loadPlan: vi.fn().mockResolvedValue({
         status: "missing",
         plan: {
-          schemaVersion: 16,
+          schemaVersion: 17,
           title: "Demo",
           document: {
             format: "preshot-blocks",
-            version: 4,
+            version: 5,
             blocks: [{
               id: "block",
               type: "paragraph",
@@ -92,6 +92,7 @@ function createDependencies(project: WorkspaceProjectView): WorkspaceDependencie
     openProject: vi.fn().mockResolvedValue(project),
     relocateProject: vi.fn(),
     removeRecord: vi.fn(),
+    deleteProject: vi.fn(),
   };
   const maximizeWindow = vi.fn().mockResolvedValue(undefined);
   const logger: WorkspaceLogger = {
@@ -123,6 +124,93 @@ async function canvasReady() {
 }
 
 describe("App", () => {
+  it("cancels deletion without changes and keeps the editor open if its pending save fails", async () => {
+    const user = userEvent.setup();
+    const project = makeProject();
+    const dependencies = createDependencies(project);
+    const plans = planDeps();
+    vi.mocked(plans.service.savePlan).mockRejectedValue(new Error("保存失败，请重试"));
+    render(<App dependencies={dependencies} planDependencies={plans} />);
+    const editor = await canvasReady();
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
+    const showDialog = async () => {
+      await user.click(screen.getByRole("button", { name: "更多项目操作 Editorial" }));
+      await user.click(screen.getByRole("menuitem", { name: "删除项目" }));
+      await user.click(screen.getByRole("button", { name: "从磁盘删除" }));
+    };
+    await showDialog();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(plans.service.savePlan).not.toHaveBeenCalled();
+    expect(editor).toBeVisible();
+    await showDialog();
+    await user.click(screen.getByRole("button", { name: "确认从磁盘删除" }));
+    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent("保存失败");
+    expect(dependencies.service.deleteProject).not.toHaveBeenCalled();
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "取消" }));
+    expect(editor).toBeVisible();
+  });
+
+  it.each(["list", "disk"] as const)("confirms %s removal, drains saves and closes the session without later writes", async (mode) => {
+    const user = userEvent.setup();
+    const project = makeProject();
+    const dependencies = createDependencies(project);
+    const plans = planDeps();
+    const saved = deferred<void>();
+    vi.mocked(plans.service.savePlan).mockReturnValue(saved.promise);
+    vi.mocked(dependencies.service.removeRecord).mockResolvedValue([]);
+    vi.mocked(dependencies.service.deleteProject).mockResolvedValue([]);
+    render(<App dependencies={dependencies} planDependencies={plans} />);
+    await canvasReady();
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "更多项目操作 Editorial" }));
+    await user.click(screen.getByRole("menuitem", { name: "删除项目" }));
+    const dialog = screen.getByRole("dialog", { name: "删除项目" });
+    expect(dialog).toHaveTextContent(project.path);
+    expect(dependencies.service.deleteProject).not.toHaveBeenCalled();
+    if (mode === "disk") {
+      await user.click(within(dialog).getByRole("button", { name: "从磁盘删除" }));
+      expect(screen.getByRole("dialog")).toHaveTextContent("其他所有文件");
+      expect(dependencies.service.deleteProject).not.toHaveBeenCalled();
+      await user.click(screen.getByRole("button", { name: "确认从磁盘删除" }));
+    } else {
+      await user.click(within(dialog).getByRole("button", { name: "从列表移除" }));
+    }
+    await waitFor(() => expect(plans.service.savePlan).toHaveBeenCalled());
+    expect(dependencies.service.removeRecord).not.toHaveBeenCalled();
+    expect(dependencies.service.deleteProject).not.toHaveBeenCalled();
+    await act(async () => saved.resolve());
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.queryByRole("group", { name: "方案正文" })).not.toBeInTheDocument();
+    expect(dependencies.service[mode === "disk" ? "deleteProject" : "removeRecord"])
+      .toHaveBeenCalledWith(mode === "disk" ? project : project.projectId);
+    expect(dependencies.service[mode === "disk" ? "removeRecord" : "deleteProject"]).not.toHaveBeenCalled();
+    expect(plans.service.savePlan).toHaveBeenCalledTimes(1);
+    if (mode === "disk") expect(plans.service.purgeDetachedGroups).not.toHaveBeenCalled();
+  });
+
+  it("keeps disk deletion errors in the dialog and allows retry without a second save", async () => {
+    const user = userEvent.setup();
+    const project = makeProject();
+    const dependencies = createDependencies(project);
+    vi.mocked(dependencies.service.deleteProject).mockRejectedValueOnce(new Error("文件被占用，请关闭后重试")).mockResolvedValue([]);
+    const plans = planDeps();
+    render(<App dependencies={dependencies} planDependencies={plans} />);
+    await canvasReady();
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "更多项目操作 Editorial" }));
+    await user.click(screen.getByRole("menuitem", { name: "删除项目" }));
+    await user.click(screen.getByRole("button", { name: "从磁盘删除" }));
+    await user.click(screen.getByRole("button", { name: "确认从磁盘删除" }));
+    const dialog = screen.getByRole("dialog");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("文件被占用");
+    expect(dependencies.service.removeRecord).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "确认从磁盘删除" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(dependencies.service.deleteProject).toHaveBeenCalledTimes(2);
+    expect(plans.service.savePlan).toHaveBeenCalledTimes(1);
+  });
+
   it("auto-opens the most recently edited project and renders the project switcher", async () => {
     const project = makeProject();
     const dependencies = createDependencies(project);
@@ -294,7 +382,7 @@ describe("App", () => {
       vi.mocked(plans.service.loadPlan).mockResolvedValueOnce({
         status: "incompatible",
         foundSchemaVersion: 99,
-        requiredSchemaVersion: 16,
+        requiredSchemaVersion: 17,
       });
     }
     await user.click(within(screen.getByRole("region", { name: "所有项目" })).getByRole("button", { name: "打开项目 夜景" }));

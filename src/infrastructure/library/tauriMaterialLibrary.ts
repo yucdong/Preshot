@@ -1,4 +1,5 @@
 import { ui } from "../../shared/i18n/ui";
+import { MATERIAL_IMAGE_MAX_BYTES } from "../../domain/library/imageLimits";
 import { MATERIAL_PREVIEW_RENDER_KEY } from "./materialPreviewCache";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
@@ -94,7 +95,7 @@ function summary(value: unknown, creationDraft = false): MaterialSummary {
     updatedAt: integer(item.updatedAt, createdAt),
     deletedAt: item.deletedAt === null ? null : integer(item.deletedAt, createdAt),
     imageCount: integer(item.imageCount, 0, 128),
-    byteLength: integer(item.byteLength, 0, 256 * 1024 * 1024),
+    byteLength: integer(item.byteLength, 0),
     previewState,
     ...(item.previewPartial === undefined ? {} : { previewPartial: item.previewPartial }),
   };
@@ -109,15 +110,14 @@ function image(value: unknown): MaterialImage {
   assertLocalImageId(localImageId);
   const storageId = item.storageId === undefined ? undefined : identifier(item.storageId);
   if (storageId !== undefined && storageId !== storageId.toLowerCase()) throw new Error(ui("素材图片存储标识无效"));
-  const width = integer(item.width, 1, 8192);
-  const height = integer(item.height, 1, 8192);
-  if (width * height > 32_000_000) throw new Error(ui("素材图片尺寸超出限制"));
+  const width = integer(item.width, 1, 0xffffffff);
+  const height = integer(item.height, 1, 0xffffffff);
   return {
     localImageId,
     blobId,
     ...(storageId === undefined ? {} : { storageId }),
     mimeType,
-    byteLength: integer(item.byteLength, 1, 16 * 1024 * 1024),
+    byteLength: integer(item.byteLength, 1),
     width,
     height,
   };
@@ -164,17 +164,12 @@ function editImage(value: unknown): MaterialEditImage {
   assertLocalImageId(item.localImageId);
   const mimeType = item.mimeType;
   if (mimeType !== "image/jpeg" && mimeType !== "image/png") throw new Error(ui("素材图片类型无效"));
-  const width = integer(item.width, 1, 8192);
-  const height = integer(item.height, 1, 8192);
-  const byteLength = integer(item.byteLength, 1, 16 * 1024 * 1024);
-  const url = dataUrl(item.dataUrl, 16 * 1024 * 1024);
-  const encoded = url.slice(url.indexOf(",") + 1);
-  const decodedLength = encoded.length * 3 / 4 - (encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0);
-  if (width * height > 32_000_000 || !url.startsWith(`data:${mimeType};base64,`) ||
-      encoded.length % 4 !== 0 || decodedLength !== byteLength) {
-    throw new Error(ui("素材图片尺寸或数据与清单不一致"));
-  }
-  return { localImageId: item.localImageId, mimeType, byteLength, width, height, dataUrl: url };
+  const width = integer(item.width, 1, 0xffffffff);
+  const height = integer(item.height, 1, 0xffffffff);
+  const byteLength = integer(item.byteLength, 1);
+  const previewError = typeof item.previewError === "string" && item.previewError ? item.previewError : undefined;
+  const url = item.dataUrl === "" && previewError ? "" : dataUrl(item.dataUrl, MATERIAL_IMAGE_MAX_BYTES);
+  return { localImageId: item.localImageId, mimeType, byteLength, width, height, dataUrl: url, ...(previewError ? { previewError } : {}) };
 }
 function prepared(value: unknown): PreparedMaterialInsert {
   const item = record(value);
@@ -217,6 +212,10 @@ function prepared(value: unknown): PreparedMaterialInsert {
 
 function materialFailureMessage(code: string): string | undefined {
   switch (code) {
+    case "library_size":
+    case "library_image_size": return ui("文件为空或超过大小限制。单张素材图片上限为 64 MiB，请选择有效的 JPG/PNG 文件。");
+    case "library_image_dimensions": return ui("图片尺寸信息无效或缩略图尺寸不符合要求，请重新选择有效的 JPG/PNG 图片。");
+    case "library_image_render": return ui("无法按当前画幅生成素材图片。请检查原图或缩小图片尺寸后重试。");
     case "library_insert_selection": return ui("所选图片或插入形式已变化，请重新选择后再插入。");
     case "library_not_deleted": return ui("只能永久删除回收站中的素材，请重新打开素材库后重试。");
     case "library_metadata_conflict": return ui("素材已发生变化，请重新打开素材库后重试。");
@@ -261,6 +260,7 @@ export function createTauriMaterialLibrary({
   const nothing = () => undefined;
   return {
     availability: "desktop",
+    imageRepresentation: "display",
     contentEditor: {
       beginCreate: (payload) => call(
         ui("无法创建素材草稿"), "library_begin_create", { payload }, (value) => {
@@ -286,7 +286,13 @@ export function createTauriMaterialLibrary({
       ),
       loadEditImage: (sessionId, localImageId) => call(
         ui("无法读取素材草稿图片"), "library_load_edit_image", { sessionId, localImageId },
-        (value) => dataUrl(value, 16 * 1024 * 1024),
+        (value) => dataUrl(value, MATERIAL_IMAGE_MAX_BYTES),
+      ),
+      revealEditImage: (sessionId, localImageId) => call(
+        ui("无法打开原图所在位置"), "library_reveal_edit_image", { sessionId, localImageId }, nothing,
+      ),
+      revealEditImageGroup: (sessionId) => call(
+        ui("无法打开原图所在位置"), "library_reveal_edit_image_group", { sessionId }, nothing,
       ),
       async importEditImageData(sessionId, input) {
         if (typeof input.name !== "string" || !input.name || input.name.length > 255 ||
@@ -297,9 +303,9 @@ export function createTauriMaterialLibrary({
             (input.mimeType !== "image/png" && input.mimeType !== "image/jpeg") ||
             (input.mimeType === "image/png") !== /\.png$/i.test(input.name) ||
             !Array.isArray(input.bytes) || input.bytes.length === 0 ||
-            input.bytes.length > 16 * 1024 * 1024 ||
+            input.bytes.length > MATERIAL_IMAGE_MAX_BYTES ||
             input.bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
-          throw new MaterialLibraryNativeError(ui("无法粘贴素材图片"), ui("请选择有效的 JPG/PNG 图片，且大小不超过 16 MiB"));
+          throw new MaterialLibraryNativeError(ui("无法粘贴素材图片"), ui("请选择有效的 JPG/PNG 图片，且大小不超过 64 MiB"));
         }
         return call(ui("无法粘贴素材图片"), "library_import_edit_image_data", { sessionId, input }, (value) => {
           const image = editImage(value);
@@ -309,7 +315,13 @@ export function createTauriMaterialLibrary({
           return image;
         });
       },
-      async importEditImages(sessionId) {
+      importLibraryImages: (sessionId, materialId, revision, imageIds) => call(
+        ui("无法导入素材图片"), "library_import_library_images", { sessionId, materialId, revision, imageIds }, value => {
+          if (!Array.isArray(value) || value.length !== imageIds.length) throw new Error(ui("素材草稿图片清单无效"));
+          return value.map(editImage);
+        },
+      ),
+      async importEditImages(sessionId, onSelected) {
         let sourcePaths: string[];
         try {
           sourcePaths = await imagePicker.pickImageFiles(ui("选择素材图片"));
@@ -317,6 +329,7 @@ export function createTauriMaterialLibrary({
           throw new MaterialLibraryNativeError(ui("无法选择素材图片"), error);
         }
         if (sourcePaths.length === 0) return [];
+        onSelected?.(sourcePaths.length);
         return call(ui("无法导入素材图片"), "library_import_edit_images", { sessionId, sourcePaths }, (value) => {
           if (!Array.isArray(value) || value.length > 128) throw new Error(ui("素材草稿图片清单无效"));
           const images = value.map(editImage);
@@ -326,7 +339,7 @@ export function createTauriMaterialLibrary({
           return images;
         });
       },
-      async captureEditImage(sessionId, cancellation) {
+      async captureEditImage(sessionId, cancellation, review) {
         try {
           return await captureMaterialEditImage(screenCapture, cancellation, (path) => call(
             ui("无法导入素材截图"), "library_import_edit_images", { sessionId, sourcePaths: [path] },
@@ -334,7 +347,7 @@ export function createTauriMaterialLibrary({
               if (!Array.isArray(value) || value.length !== 1) throw new Error(ui("素材截图必须返回一张草稿图片"));
               return editImage(value[0]);
             },
-          ));
+          ), review);
         } catch (error) {
           throw new MaterialLibraryNativeError(ui("无法截图到素材草稿"), error);
         }
@@ -375,9 +388,21 @@ export function createTauriMaterialLibrary({
     purge: (id, expectedVersion) => call(
       ui("无法永久删除素材"), "library_purge", { id, expectedVersion }, nothing,
     ),
-    loadImage: (id, revision, localImageId) => call(
-      ui("无法读取素材图片"), "library_load_image", { id, revision, localImageId },
-      (value) => dataUrl(value, 16 * 1024 * 1024),
+    loadImage: async (materialId, revision, localImageId, display) => {
+      if (!display) return call(ui("无法读取素材图片"), "library_load_image", { id: materialId, revision, localImageId },
+        value => dataUrl(value, MATERIAL_IMAGE_MAX_BYTES));
+      const id = crypto.randomUUID();
+      let finished = false;
+      const pending = call(ui("无法读取素材图片"), "library_image_display", { materialId, revision, localImageId, edge: display.edge, id },
+        value => dataUrl(value, MATERIAL_IMAGE_MAX_BYTES));
+      void display.cancellation?.then(() => { if (!finished) void call(ui("素材预览已取消。"), "cancel_image_display", { id }, nothing).catch(() => undefined); });
+      try { return await pending; } finally { finished = true; }
+    },
+    revealImage: (id, revision, localImageId) => call(
+      ui("无法打开原图所在位置"), "library_reveal_image", { id, revision, localImageId }, nothing,
+    ),
+    revealImageGroup: (id, revision) => call(
+      ui("无法打开原图所在位置"), "library_reveal_image_group", { id, revision }, nothing,
     ),
     loadPreview: (id, revision) => call(
       ui("无法读取素材预览"), "library_load_preview", { id, revision, renderKey: MATERIAL_PREVIEW_RENDER_KEY },

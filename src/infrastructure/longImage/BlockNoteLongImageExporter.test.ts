@@ -27,12 +27,12 @@ function planFor(
   imageGroupId?: string,
 ): ProjectPlanV14 {
   return {
-    schemaVersion: 16,
+    schemaVersion: 17,
     artifacts: [],
     title: "Long export",
     document: {
       format: "preshot-blocks",
-      version: 4,
+      version: 5,
       blocks: blockIds.map((id): PreshotBlock => {
         if (id === "image-group") {
           return {

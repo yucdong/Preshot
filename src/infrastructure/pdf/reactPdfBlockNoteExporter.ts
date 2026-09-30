@@ -1,3 +1,4 @@
+import { prepareNativeImageExport } from "../plan/prepareNativeImageExport";
 import type { Block } from "@blocknote/core";
 import { pdf } from "@react-pdf/renderer";
 import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
@@ -150,6 +151,7 @@ export function createReactPdfBlockNoteExporter(
     ): Promise<Uint8Array> {
       const exportPlan = structuredClone(plan);
       const exportAssets = { ...resolvedAssets };
+      await prepareNativeImageExport(exportPlan, exportAssets);
       const context = await createPreshotPdfExportContext({
         plan: exportPlan,
         schema: preshotBlockNoteSchema,

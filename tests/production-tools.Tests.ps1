@@ -64,7 +64,7 @@ version = "$Version"
     "windows": {
       "wix": {
         "language": ["en-US"],
-        "upgradeCode": "493c5fb5-639d-4fba-94d3-aebe4eb0dce6"
+        "upgradeCode": "c91f6bc2-1f30-4d43-b878-3d09737227f2"
       }
     }
   }
@@ -113,14 +113,14 @@ try {
     $historicalVersionConfiguration = Get-ReleaseConfiguration $historicalVersionRoot
     Assert-Throws {
         Assert-ReleasePublicationPolicy $historicalVersionConfiguration -Publish
-    } "requires version '0.0.2' or newer"
+    } "requires version '0.0.14' or newer"
     Assert-Throws {
         Set-ReleaseVersionFiles `
             -RepositoryRoot $historicalVersionRoot `
             -Version "0.0.1" `
             -Publish `
             -CargoMetadataInvoker $cargoUpdater
-    } "requires version '0.0.2' or newer"
+    } "requires version '0.0.14' or newer"
 
     $defaultCargoRoot = New-ReleaseFixture
     Assert-True (
@@ -142,7 +142,7 @@ try {
             ProductName = "Preshot"
             ProductVersion = "1.2.3"
             Architecture = "x64"
-            UpgradeCode = "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6"
+            UpgradeCode = "C91F6BC2-1F30-4D43-B878-3D09737227F2"
             LegacyUpgradeCode = "97EE9B44-6313-52EB-A67E-A1334832EB86"
             LegacyVersionMin = "0.0.0"
             LegacyVersionMax = "255.255.65535"
@@ -153,6 +153,13 @@ try {
         }
     }
     $runtimeContract = [pscustomobject]@{
+        Properties = @([pscustomobject]@{ Property = "ALLUSERS"; Value = "1" })
+        Directories = @([pscustomobject]@{ Directory = "INSTALLDIR"; Parent = "ProgramFiles64Folder"; DefaultDir = "Preshot" })
+        RegistryWrites = @([pscustomobject]@{ Root = "2"; Key = "Software\yucdong\Preshot"; Name = "InstallDir" })
+        RegistrySearches = @(
+            [pscustomobject]@{ Signature = "LegacyUserInstall"; Root = "1"; Key = "Software\yucdong\Preshot"; Name = "InstallDir" },
+            [pscustomobject]@{ Signature = "PreviousMachineInstallDir"; Root = "2"; Key = "Software\yucdong\Preshot"; Name = "InstallDir" }
+        )
         Features = @(
             [pscustomobject]@{ Feature = "MainProgram"; Parent = ""; Attributes = "24" },
             [pscustomobject]@{ Feature = "Environment"; Parent = "MainProgram"; Attributes = "0" }
@@ -168,6 +175,7 @@ try {
             [pscustomobject]@{ File = "Bin_RequiredSidecar"; Component = "RequiredSidecar" }
         )
         CustomActions = @(
+            [pscustomobject]@{ Action = "LaunchApplication"; Type = "210"; Source = "Path"; Target = "--from-installer" },
             [pscustomobject]@{
                 Action = "DownloadAndInvokeBootstrapper"
                 Type = "1058"
@@ -205,6 +213,7 @@ try {
 
     $uncheckedBootstrapper = $runtimeContract | Select-Object *
     $uncheckedBootstrapper.CustomActions = @(
+        [pscustomobject]@{ Action = "LaunchApplication"; Type = "210"; Source = "Path"; Target = "--from-installer" },
         [pscustomobject]@{
             Action = "DownloadAndInvokeBootstrapper"
             Type = "1058"
@@ -224,7 +233,7 @@ try {
             ProductName = "$nonBreakingSpace" + "Preshot" + "$ideographicSpace"
             ProductVersion = " `r`n1.2.3 `r`n"
             Architecture = "`t x64 `r`n"
-            UpgradeCode = " {493c5fb5-639d-4fba-94d3-aebe4eb0dce6} "
+            UpgradeCode = " {c91f6bc2-1f30-4d43-b878-3d09737227f2} "
             LegacyUpgradeCode = " {97ee9b44-6313-52eb-a67e-a1334832eb86} "
             LegacyVersionMin = " 0.0.0 "
             LegacyVersionMax = " 255.255.65535 "
@@ -471,9 +480,9 @@ Successfully verified: $Path
     Assert-True ($contentA.Manifest -match '"timestampStrategy"\s*:\s*"source-date-epoch"') "Manifest timestamp strategy was not recorded."
     $manifest = $contentA.Manifest | ConvertFrom-Json
     Assert-True ($manifest.schemaVersion -eq 2) "Release manifest schema must include installer lineage publication policy."
-    Assert-True ($manifest.installer.scope -eq "perUser") "Release manifest must identify the per-user installer scope."
+    Assert-True ($manifest.installer.scope -eq "perMachine") "Release manifest must identify the per-user installer scope."
     Assert-True (
-        $manifest.installer.upgradeCode -eq "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6"
+        $manifest.installer.upgradeCode -eq "C91F6BC2-1F30-4D43-B878-3D09737227F2"
     ) "Release manifest must record the per-user UpgradeCode."
     Assert-True (
         $manifest.installer.historicalPerMachine.upgradeCode -eq "97EE9B44-6313-52EB-A67E-A1334832EB86"

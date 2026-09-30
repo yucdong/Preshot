@@ -1,3 +1,4 @@
+import { resolveArtifactContentLayout } from "../../domain/plan/canvas/artifactContentLayout";
 import { ui } from "../../shared/i18n/ui";
 import {
   COLORS_DEFAULT,
@@ -163,6 +164,12 @@ async function artifactDocxBlocks(
       keepNext: true,
     })
   );
+  const logicalWidth = (columnWidthTwips ?? rootWidthTwips) / rootWidthTwips * 1008;
+  const layout = resolveArtifactContentLayout(artifact.kind === "modelCard"
+    ? { orientation: "horizontal", textFirst: true, textShare: 0.4, minHeight: 160 }
+    : artifact.contentLayout, logicalWidth);
+  const horizontal = layout.orientation === "horizontal";
+  const galleryLogicalWidth = logicalWidth * (horizontal ? 1 - layout.textShare : 1);
   const galleries: Paragraph[] = [];
   for (
     const {
@@ -180,9 +187,10 @@ async function artifactDocxBlocks(
       collection,
       resolveFile,
       compact,
-      columnWidthTwips === undefined ? undefined : columnWidthTwips / rootWidthTwips * 1008,
+      galleryLogicalWidth,
+      1008 * (horizontal ? 1 - layout.textShare : 1),
     );
-    const width = Math.min(columnWidthTwips === undefined ? 520 : columnWidthTwips / 15, prepared.width);
+    const width = Math.min((columnWidthTwips ?? rootWidthTwips) / 15 * (horizontal ? 1 - layout.textShare : 1), prepared.width);
     const height = width / prepared.width * prepared.height;
     galleries.push(new Paragraph({
       children: [new ImageRun({
@@ -192,33 +200,24 @@ async function artifactDocxBlocks(
       })],
     }));
   }
-  const horizontal = columnWidthTwips === undefined && (
-    artifact.kind === "shootingLocation" ||
-    artifact.kind === "modelCard" ||
-    artifact.kind === "clothing" ||
-    artifact.kind === "prop");
-  if (!horizontal) return [heading, ...metadata, ...galleries];
-
-  const left = [heading, ...metadata];
-  const right = galleries.length > 0 ? galleries : [new Paragraph("")];
+  const text = [heading, ...metadata];
+  const pictures = galleries.length > 0 ? galleries : [new Paragraph("")];
+  const regions = layout.textFirst
+    ? [{ children: text, share: layout.textShare }, { children: pictures, share: 1 - layout.textShare }]
+    : [{ children: pictures, share: 1 - layout.textShare }, { children: text, share: layout.textShare }];
+  const minimum = artifact.kind === "modelCard" ? 0 : layout.minHeight / 1008 * rootWidthTwips;
   return new Table({
-    borders: BORDERLESS,
-    layout: TableLayoutType.FIXED,
+    borders: BORDERLESS, layout: TableLayoutType.FIXED,
     width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [new TableRow({
-      children: [
-        new TableCell({
-          borders: BORDERLESS,
-          children: left,
-          width: { size: 40, type: WidthType.PERCENTAGE },
-        }),
-        new TableCell({
-          borders: BORDERLESS,
-          children: right,
-          width: { size: 60, type: WidthType.PERCENTAGE },
-        }),
-      ],
-    })],
+    rows: horizontal ? [new TableRow({
+      height: { value: Math.round(minimum), rule: "atLeast" },
+      children: regions.map(region => new TableCell({ borders: BORDERLESS, children: region.children,
+        width: { size: region.share * 100, type: WidthType.PERCENTAGE } })),
+    })] : regions.map(region => new TableRow({
+      height: { value: Math.round(minimum * region.share), rule: "atLeast" },
+      children: [new TableCell({ borders: BORDERLESS, children: region.children,
+        width: { size: 100, type: WidthType.PERCENTAGE } })],
+    })),
   });
 }
 
@@ -236,6 +235,7 @@ async function prepareArtifactCollectionImage(
   resolveFile: (source: string) => Promise<Blob>,
   compact: boolean,
   columnWidth?: number,
+  referenceWidth?: number,
 ) {
   const logicalWidth = columnWidth ?? 1008;
   const displayImages = compactArtifactGalleryImages(
@@ -246,7 +246,7 @@ async function prepareArtifactCollectionImage(
   const layout = layoutDocumentImageGroupForWidth(
     displayImages,
     logicalWidth,
-    columnWidth === undefined ? undefined : 1008,
+    referenceWidth,
   );
   const scale = Math.min(1.5, 8192 / Math.max(logicalWidth, layout.height));
   const canvas = document.createElement("canvas");

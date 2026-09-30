@@ -67,6 +67,13 @@ export class MaterialContentDraft {
     return serializeMaterialEditDraft(this.snapshot.plan, this.draft);
   }
 
+  setPreview(file: string, dataUrl: string): void {
+    this.getToken(file);
+    this.assets.set(file, dataUrl);
+    this.snapshot = this.buildSnapshot(this.snapshot.plan, this.snapshot.revision + 1);
+    this.listeners.forEach(listener => listener());
+  }
+
   getToken(file: string): string {
     const token = this.draft.fileTokens.get(file);
     if (!token) throw new Error(ui("图片不属于当前素材编辑会话。"));
@@ -130,14 +137,6 @@ export class MaterialContentDraft {
     });
   }
 
-  updateGroup(id: string, update: { name?: string; description?: string }): void {
-    const plan = this.snapshot.plan;
-    if (!plan.imageGroups.some((group) => group.id === id)) throw new Error(ui("当前图片组不存在。"));
-    this.apply({
-      ...plan, imageGroups: plan.imageGroups.map((group) => group.id === id ? { ...group, ...update } : group),
-    });
-  }
-
   private updateImages(id: string, update: (images: ReferenceImage[]) => ReferenceImage[]): void {
     const plan = this.snapshot.plan;
     if (!this.snapshot.groups.some((group) => group.id === id)) {
@@ -160,7 +159,7 @@ export class MaterialContentDraft {
         used.has(image.localImageId) || !Number.isInteger(image.width) ||
         !Number.isInteger(image.height) || image.width <= 0 || image.height <= 0 ||
         !["image/png", "image/jpeg"].includes(image.mimeType) ||
-        !image.dataUrl.startsWith(`data:${image.mimeType};base64,`)
+        (!/^data:image\/(png|jpeg);base64,/.test(image.dataUrl) && !(image.dataUrl === "" && image.previewError))
       ) {
         throw new Error(ui("导入图片数据无效或会话标识已被使用，请重新添加图片。"));
       }
@@ -176,7 +175,7 @@ export class MaterialContentDraft {
     });
   }
 
-  addImages(groupId: string, images: readonly MaterialEditImage[], visuals?: readonly PortableImage[]): void {
+  addImages(groupId: string, images: readonly MaterialEditImage[], visuals?: readonly PortableImage[], maxFrameWidth?: number): void {
     if (visuals && visuals.length !== images.length) throw new Error(ui("素材图片与显示信息不一致。"));
     const group = this.snapshot.groups.find(({ id }) => id === groupId);
     if (this.draft.kind === "image" && (group?.images.length ?? 0) + images.length > 1) throw new Error(ui("图片素材只能保留一张图片，请先移除原图再添加。"));
@@ -195,7 +194,7 @@ export class MaterialContentDraft {
         id: this.makeId(), file: files[index],
         aspectRatio: image.width / image.height,
         sourceWidth: image.width, sourceHeight: image.height,
-        ...defaultImageFrame(image.width / image.height),
+        ...defaultImageFrame(image.width / image.height, maxFrameWidth),
       };
     })]);
   }

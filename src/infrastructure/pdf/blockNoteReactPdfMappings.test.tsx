@@ -150,6 +150,7 @@ async function renderArtifactLayout(spacerHeight = 0, repetitions = 1) {
   const artifact = {
     id: "layout-prop", kind: "prop" as const, revision: 0,
     title: "透明伞", source,
+    contentLayout: { orientation: "horizontal" as const, textFirst: true, textShare: .4, minHeight: 320 },
     gallery: { id: "layout-gallery", images: [{
       id: "sample", file: "references/sample.png", aspectRatio: 4 / 3,
       sourceWidth: 960, sourceHeight: 720, frameWidth: 300, frameHeight: 225,
@@ -633,7 +634,7 @@ describe("BlockNote React-PDF mappings", () => {
     expect(style(mappedImage)).toMatchObject({
       width: 120,
       height: 80,
-      alignSelf: "center",
+      alignSelf: "flex-start",
     });
     expect(style(childElements(image)[1]).width).toBe(300);
     expect(props(childElements(image)[1]).children).toBe("本地\n照片");

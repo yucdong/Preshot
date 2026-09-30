@@ -114,6 +114,46 @@ const deferred = <T>() => {
 };
 
 describe("createWorkspaceService", () => {
+  it("deletes the registered folder before removing its list record", async () => {
+    registry.load.mockResolvedValue({ schemaVersion: 1, projects: [record("remove"), record("keep")] });
+    inspectProjectMock.mockImplementation(async (path) => inspected(path.endsWith("remove") ? "remove" : "keep"));
+    const service = createWorkspaceService({ registry, native, clock, logger });
+    await service.loadProjects();
+    registry.save.mockClear();
+    vi.mocked(native.deleteProject).mockImplementation(async () => { expect(registry.save).not.toHaveBeenCalled(); });
+    const remaining = await service.deleteProject(record("remove"));
+    expect(native.deleteProject).toHaveBeenCalledWith("C:\\shoots\\remove", "remove");
+    expect(remaining.map((project) => project.projectId)).toEqual(["keep"]);
+    expect(registry.save).toHaveBeenCalledOnce();
+  });
+
+  it("retains registration when disk deletion fails and rejects stale requested paths", async () => {
+    registry.load.mockResolvedValue({ schemaVersion: 1, projects: [record("keep")] });
+    inspectProjectMock.mockResolvedValue(inspected("keep"));
+    const service = createWorkspaceService({ registry, native, clock, logger });
+    await service.loadProjects();
+    registry.save.mockClear();
+    await expect(service.deleteProject({ ...record("keep"), path: "C:\\stale" })).rejects.toThrow("registration changed");
+    expect(native.deleteProject).not.toHaveBeenCalled();
+    vi.mocked(native.deleteProject).mockRejectedValueOnce(new Error("file is locked"));
+    await expect(service.deleteProject(record("keep"))).rejects.toThrow("Unable to delete project files: file is locked");
+    expect(registry.save).not.toHaveBeenCalled();
+    expect((await service.loadProjects()).map((project) => project.projectId)).toEqual(["keep"]);
+  });
+
+  it("reports post-deletion registry failure and permits retry, while list removal never deletes files", async () => {
+    registry.load.mockResolvedValue({ schemaVersion: 1, projects: [record("remove"), record("keep")] });
+    inspectProjectMock.mockImplementation(async (path) => inspected(path.endsWith("remove") ? "remove" : "keep"));
+    const service = createWorkspaceService({ registry, native, clock, logger });
+    await service.loadProjects();
+    registry.save.mockRejectedValueOnce(new Error("registry locked"));
+    await expect(service.deleteProject(record("remove"))).rejects.toThrow("Project files were deleted, but the list could not be updated");
+    expect((await service.deleteProject(record("remove"))).map((project) => project.projectId)).toEqual(["keep"]);
+    vi.mocked(native.deleteProject).mockClear();
+    await service.removeRecord("keep");
+    expect(native.deleteProject).not.toHaveBeenCalled();
+  });
+
   let createProjectMock: ReturnType<typeof vi.fn<NativeWorkspace["createProject"]>>;
   let ensureUserDataRootsMock: ReturnType<typeof vi.fn<NativeWorkspace["ensureUserDataRoots"]>>;
   let bootstrapUserDataMock: ReturnType<typeof vi.fn<NativeWorkspace["bootstrapUserData"]>>;
@@ -166,6 +206,7 @@ describe("createWorkspaceService", () => {
       bootstrapUserData: bootstrapUserDataMock,
       createProject: createProjectMock,
       inspectProject: inspectProjectMock,
+      deleteProject: vi.fn().mockResolvedValue(undefined),
       rollbackCreatedProject: rollbackCreatedProjectMock,
       forgetCreatedProject: forgetCreatedProjectMock,
       onMenuAction: onMenuActionMock,

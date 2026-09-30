@@ -26,8 +26,8 @@ describe("createMidsceneWorkspaceDependencies", () => {
     await expect(
       browserBlockNotePlanRepository.loadRawPlan(MIDSCENE_STARTER_PATH),
     ).resolves.toEqual(expect.objectContaining({
-      schemaVersion: 16,
-      document: expect.objectContaining({ version: 4 }),
+      schemaVersion: 17,
+      document: expect.objectContaining({ version: 5 }),
       imageGroups: [],
       artifacts: [],
     }));

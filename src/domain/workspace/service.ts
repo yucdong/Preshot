@@ -490,5 +490,56 @@ export function createWorkspaceService({
     openProject,
     relocateProject,
     removeRecord,
+    suggestProjectCopy(source, baseName) {
+      if (!native.suggestProjectCopy) throw new Error("Project copying is unavailable in this environment");
+      return native.suggestProjectCopy(source, baseName);
+    },
+    projectCopyStatus(operationId) {
+      if (!native.projectCopyStatus) throw new Error("Project copying is unavailable in this environment");
+      return native.projectCopyStatus(operationId);
+    },
+    cancelProjectCopy(operationId) {
+      if (!native.cancelProjectCopy) throw new Error("Project copying is unavailable in this environment");
+      return native.cancelProjectCopy(operationId);
+    },
+    pendingProjectCopies() { return native.pendingProjectCopies?.() ?? Promise.resolve([]); },
+    acknowledgeProjectCopy(operationId) {
+      if (!native.acknowledgeProjectCopy) throw new Error("Project copying is unavailable in this environment");
+      return native.acknowledgeProjectCopy(operationId);
+    },
+    copyProject(input) {
+      return queueOperation(async () => {
+        if (!native.copyProject) throw new Error("Project copying is unavailable in this environment");
+        const current = await ensureLoadedProjectsInternal();
+        // Native exact receipts may finish registration even after the source was removed.
+        const status = await native.copyProject(input);
+        if (status.phase === "cancelled") throw new Error("Project copy cancelled");
+        if (status.phase !== "completed" || !status.project) throw new Error(status.error ?? "Project copy is still running; retry to check its result");
+        const project = inspectedToProject(status.project, clock.now());
+        try { await persistProjectsInternal(upsertProject(cloneProjects(current), project)); }
+        catch (error) { throw contextualError(`Project copied to ${project.path}, but could not register it. Retry to add this existing copy`, error); }
+        try { await native.acknowledgeProjectCopy?.(input.operationId); }
+        catch (error) { logger.warn("Project copy registered; acknowledgement will retry on restart", { operationId: input.operationId, reason: message(error) }); }
+        return cloneProjectView(project);
+      });
+    },
+    deleteProject(project) {
+      return queueOperation(async () => {
+        const projects = await ensureLoadedProjectsInternal();
+        if (!projects.some((entry) => entry.projectId === project.projectId && entry.path === project.path)) {
+          throw new Error("Project registration changed; select the project again before deleting it");
+        }
+        try {
+          await native.deleteProject(project.path, project.projectId);
+        } catch (error) {
+          throw contextualError("Unable to delete project files", error);
+        }
+        try {
+          return await removeRecordInternal(project.projectId);
+        } catch (error) {
+          throw contextualError("Project files were deleted, but the list could not be updated. Retry to remove the record", error);
+        }
+      });
+    },
   };
 }

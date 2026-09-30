@@ -309,14 +309,14 @@ fn native_material_encoding_preserves_originals_and_bakes_only_visual_transforms
     let source = image::RgbaImage::from_fn(4, 2, |x, _| image::Rgba([x as u8 * 60, 0, 0, 255]));
     let bytes = codec::encode_png(&source).unwrap();
     let unchanged = presentation(serde_json::json!({"aspectRatio":2,"frameWidth":300,"frameHeight":150}));
-    assert_eq!(render_encoded_image(&bytes, &unchanged).unwrap(), bytes);
+    assert_eq!(render_encoded_image(&bytes, &unchanged, MAX_ENCODED).unwrap(), bytes);
     for (visual, dimensions, first_red) in [
         (serde_json::json!({"aspectRatio":2,"frameWidth":100,"frameHeight":100}), (2, 2), 60),
         (serde_json::json!({"aspectRatio":2,"frameWidth":100,"frameHeight":100,"crop":{"x":0,"y":0,"width":0.5,"height":1}}), (2, 2), 0),
         (serde_json::json!({"aspectRatio":2,"frameWidth":100,"frameHeight":200,"fitMode":"stretch"}), (1, 2), 90),
     ] {
         let p = presentation(visual);
-        let encoded = render_encoded_image(&bytes, &p).unwrap();
+        let encoded = render_encoded_image(&bytes, &p, MAX_ENCODED).unwrap();
         let decoded = image::load_from_memory(&encoded).unwrap().into_rgba8();
         assert_eq!(decoded.dimensions(), dimensions);
         assert_eq!(decoded.get_pixel(0, 0).0, [first_red, 0, 0, 255]);

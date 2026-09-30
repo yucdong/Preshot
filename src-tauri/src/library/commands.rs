@@ -11,7 +11,7 @@ where
 }
 
 fn store() -> Result<Store> {
-    Store::open(&crate::workspace::preshot_home()?)
+    crate::storage::open_library()
 }
 
 #[tauri::command]
@@ -42,6 +42,35 @@ pub async fn library_begin_edit(material_id: String, revision: u32) -> Result<Ma
 #[tauri::command]
 pub async fn library_load_edit_image(session_id: String, local_image_id: String) -> Result<String> {
     blocking(move || store()?.load_edit_image(&session_id, &local_image_id)).await
+}
+
+#[tauri::command]
+pub async fn library_reveal_edit_image(session_id: String, local_image_id: String) -> Result<()> {
+    blocking(move || {
+        let store = store()?;
+        crate::reveal::reveal_file(&store.edit_original_image_path(&session_id, &local_image_id)?)
+    }).await
+}
+
+#[tauri::command]
+pub async fn library_reveal_image_group(id: String, revision: u32) -> Result<()> {
+    blocking(move || {
+        let store = store()?;
+        crate::reveal::open_project_directory(store.original_group_path(&id, revision)?.to_string_lossy().into_owned())
+    }).await
+}
+
+#[tauri::command]
+pub async fn library_reveal_edit_image_group(session_id: String) -> Result<()> {
+    blocking(move || {
+        let store = store()?;
+        crate::reveal::open_project_directory(store.edit_original_group_path(&session_id)?.to_string_lossy().into_owned())
+    }).await
+}
+
+#[tauri::command]
+pub async fn library_import_library_images(session_id: String, material_id: String, revision: u32, image_ids: Vec<String>) -> Result<Vec<MaterialEditImage>> {
+    blocking(move || store()?.import_library_images(&session_id, &material_id, revision, image_ids)).await
 }
 
 #[tauri::command]
@@ -112,6 +141,14 @@ pub async fn library_load_image(
 }
 
 #[tauri::command]
+pub async fn library_reveal_image(id: String, revision: u32, local_image_id: String) -> Result<()> {
+    blocking(move || {
+        let store = store()?;
+        crate::reveal::reveal_file(&store.original_image_path(&id, revision, &local_image_id)?)
+    }).await
+}
+
+#[tauri::command]
 pub async fn library_load_preview(id: String, revision: u32, render_key: String) -> Result<Option<String>> {
     blocking(move || store()?.load_preview_for_renderer(&id, revision, Some(&render_key))).await
 }
@@ -153,4 +190,16 @@ pub async fn library_insert_status(
     operation_id: String,
 ) -> Result<MaterialInsertStatus> {
     blocking(move || insert::status(&project_path, &operation_id)).await
+}
+
+#[tauri::command]
+pub async fn library_image_display(material_id: String, revision: u32, local_image_id: String, edge: u32, id: String) -> Result<String> {
+    let job = crate::original_image::DisplayJob::new(id)?;
+    blocking(move || {
+        let store = store()?;
+        let material = store.revision(&material_id, revision)?;
+        let image = material.images.iter().find(|image| image.local_image_id == local_image_id)
+            .ok_or_else(|| error("image_not_found", "Image is not owned by this material version"))?;
+        job.render(&store.verified_image_path(image)?, edge)
+    }).await
 }

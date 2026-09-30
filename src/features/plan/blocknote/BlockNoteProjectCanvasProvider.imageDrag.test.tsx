@@ -70,7 +70,7 @@ const settings: SettingsRepository = {
 };
 
 const plan: ProjectPlanV14 = {
-  schemaVersion: 16,
+  schemaVersion: 17,
   artifacts: [{
     id: "target-artifact",
     kind: "shootingLocation",
@@ -94,7 +94,7 @@ const plan: ProjectPlanV14 = {
   title: "Editorial",
   document: {
     format: "preshot-blocks",
-    version: 4,
+    version: 5,
     blocks: [
       {
         id: "target-block",

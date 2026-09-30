@@ -5,9 +5,15 @@ $handle = (Get-Process -Id $AppId).MainWindowHandle
 $start = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $frames = [System.Collections.Generic.List[object]]::new()
 while (-not (Test-Path -LiteralPath (Join-Path $Output 'stop'))) {
+    $captureHandle=$handle
+    $handleFile=Join-Path $Output 'capture-handle.txt'
+    if(Test-Path -LiteralPath $handleFile) {
+        $requested=0L
+        if([long]::TryParse((Get-Content -LiteralPath $handleFile -Raw).Trim(),[ref]$requested) -and $requested -ne 0) {$captureHandle=[IntPtr]$requested}
+    }
     $seconds=([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()-$start)/1000
     $file=('{0:d6}.jpg' -f $frames.Count)
-    Save-DemoFrame $handle (Join-Path $Output $file)
+    Save-DemoFrame $captureHandle (Join-Path $Output $file)
     $frames.Add(@{ file=$file; seconds=$seconds })
     Start-Sleep -Milliseconds 150
 }

@@ -2,7 +2,7 @@
 
 [Documentation index](../README.md) · [Editable sample](../../samples/README.md)
 
-The current walkthrough is recorded from **MSI-installed Preshot 0.0.12** with
+The current walkthrough is recorded from **MSI-installed Preshot 0.0.19** with
 the new project logo. It starts in an empty recording workspace and builds one
 new project through the application UI. The final edit stays below one minute,
 with Chinese/English captions and accelerated file selection.
@@ -23,10 +23,13 @@ not switch to it or claim to demonstrate all 22 supported blocks.
 
 ## Media
 
-- [README GIF](../media/preshot-demo.gif), 880 px wide, 57.75 seconds, approximately 4 MB.
-- [Captioned MP4](../media/preshot-demo.mp4), 1280 × 900, 57.63 seconds, approximately 2.4 MB.
+- [Separate material creation, insertion and management tutorials](material-tutorials.md), recorded with MSI-installed 0.0.20.
+
+- [README GIF](../media/preshot-demo.gif), 880 px wide, 57.75 seconds, approximately 4.28 MB.
+- [Captioned MP4](../media/preshot-demo.mp4), 1280 × 900, 57.71 seconds, approximately 2.45 MB.
 - [Exported PDF](../media/preshot-demo.pdf), the two-page document created on camera.
-- [Short recording acceptance](../test_reports/short-demo-acceptance.md).
+- [Current recording acceptance](../test_reports/demo-0.0.19-acceptance.md).
+- [Historical 0.0.12 recording acceptance](../test_reports/short-demo-acceptance.md).
 - [Earlier full installed acceptance and limitations](../test_reports/installed-demo-acceptance.md).
 - [Photo credits and source hashes](photos/credits.json).
 - [Original illustrations](illustrations), with PNGs in [photos](photos).
@@ -37,17 +40,22 @@ playback and divider resizing are outside this condensed recording.
 
 ## Reproduce the short installed recording
 
-Use Windows, the installed 0.0.12 MSI, Edge, Python with Pillow and FFmpeg with
+Use Windows, the installed 0.0.19 MSI, Edge, Python with Pillow and FFmpeg with
 libass/libx264. Always use an isolated recording profile, never a real profile.
 Prepare the six pictured materials first. A copy of the earlier isolated demo
-library can be used while both source and destination apps are stopped.
+library can be used: take a read-only SQLite backup and copy its assets before
+the destination app starts. The launcher defaults to
+`%ProgramFiles%\Preshot\preshot.exe`; set `PRESHOT_DEMO_EXECUTABLE` for a custom
+installation directory.
 
 ```powershell
-node scripts/launch-installed-demo.mjs .preshot-build-cache/installed-demo-short
-$demoProcess = [int](Get-Content .preshot-build-cache/installed-demo-short/app-pid.txt)
+$demoWork = '.preshot-build-cache/demo-0.0.19'
+node scripts/launch-installed-demo.mjs $demoWork
+$demoProcess = [int](Get-Content "$demoWork/app-pid.txt")
 powershell -NoProfile -File scripts/demo-desktop.ps1 -Action position -AppId $demoProcess
 ```
 
+Confirm the isolated work path in the first-launch dialog before recording.
 Before the first phase, use the project's menu to remove the auto-created sample
 from the list. Archive only that recording profile's sample folder outside its
 projects directory. Verify the launcher has no project cards. Keep the app open
@@ -56,11 +64,11 @@ between phases; restarting an empty profile would create a sample again.
 Run each phase separately, inspecting its last screenshot and errors:
 
 ```powershell
-powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase author
-powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase reuse
-powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase layout
-powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase details
-powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase export
+powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase author -Work $demoWork
+powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase reuse -Work $demoWork
+powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase layout -Work $demoWork
+powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase details -Work $demoWork
+powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase export -Work $demoWork
 ```
 
 Open the newly exported `nanjing-bridge.pdf` in Edge and select **Fit to Page**.
@@ -68,15 +76,16 @@ Pass that reader's native window handle; its address and page numbers are checke
 Then return to the installed app for the closing material-creation chapter.
 
 ```powershell
-powershell -NoProfile -File scripts/record-installed-demo-pdf.ps1 -WindowHandle <reader-window-handle> -Work .preshot-build-cache/installed-demo-short -Pages 2
-powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase material
-python scripts/render-installed-demo.py --short --ffmpeg <path-to-ffmpeg.exe> --work .preshot-build-cache/installed-demo-short
+powershell -NoProfile -File scripts/record-installed-demo-pdf.ps1 -WindowHandle <reader-window-handle> -Work $demoWork -Pages 2
+powershell -NoProfile -File scripts/record-short-demo.ps1 -Phase material -Work $demoWork
+python scripts/render-installed-demo.py --short --ffmpeg <path-to-ffmpeg.exe> --work $demoWork
 ```
 
 The Windows helpers operate UI controls, native file dialogs and `PrintWindow`.
 They are calibrated to a 1600 × 1060 app window and English Windows dialogs.
-UI Automation/posted messages remain the fallback because Midscene desktop
-capture returns an invalid desktop handle on this session. No browser adapters,
+Midscene desktop connection, screenshot and mouse health checks passed for this
+recording. The deterministic UI Automation helpers drive the recorded workflow.
+No browser adapters,
 application IPC injection or live clipboard operations are used.
 
 The renderer rejects failed phases, assigns explicit chapter durations, crops

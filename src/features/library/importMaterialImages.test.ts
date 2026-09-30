@@ -18,6 +18,20 @@ function fixture() {
 }
 
 describe("library images into an isolated material draft", () => {
+  it("copies large originals natively without reading original bytes into the renderer", async () => {
+    const context = fixture();
+    context.material.images.forEach(image => { image.byteLength = 300 * 1024 * 1024; });
+    context.material.byteLength = 900 * 1024 * 1024;
+    const importLibraryImages = vi.fn(async (_session, _material, _revision, ids: string[]) => ids.map(id => ({
+      localImageId: `fresh-${id}`, mimeType: "image/png" as const, byteLength: 300 * 1024 * 1024,
+      width: 1, height: 1, dataUrl: "data:image/png;base64,AA==",
+    })));
+    const result = await importMaterialImages({ ...context, editor: { ...context.editor, importLibraryImages } });
+    expect(importLibraryImages).toHaveBeenCalledExactlyOnceWith("draft", "material", 2, ["a", "b", "c"]);
+    expect(result.images).toHaveLength(3);
+    expect(context.library.loadImage).not.toHaveBeenCalled();
+    expect(context.importer).not.toHaveBeenCalled();
+  });
   it("copies only selected originals in source order with fresh staging identities", async () => {
     const context = fixture();
     const result = await importMaterialImages({ ...context, selection: { mode: "imageGroup", imageIds: ["c", "a"] } });

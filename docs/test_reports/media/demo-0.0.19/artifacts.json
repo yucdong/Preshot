@@ -1,0 +1,47 @@
+{
+  "recordedVersion": "0.0.19",
+  "recordedDate": "2026-09-30",
+  "plannedDurationSeconds": 57,
+  "mp4DurationSeconds": 57.71,
+  "gifDurationSeconds": 57.75,
+  "gifFrames": 231,
+  "videoSize": [
+    1280,
+    900
+  ],
+  "gifSize": [
+    880,
+    619
+  ],
+  "pdfPages": 2,
+  "pdfImagesPerPage": [
+    3,
+    3
+  ],
+  "projectCount": 1,
+  "preparedMaterials": 6,
+  "createdMaterials": 1,
+  "copiedProjectImages": 6,
+  "projectId": "371ed8f2-8a5b-4c6b-8758-e83e869b522b",
+  "phaseErrors": 0,
+  "msiSha256": "ceb4e09a8ad7c1ae32918c2441be2e301331195c6fcac03b545bb9f3662bce7d",
+  "installedExeSha256": "36ea576a81323ab8862ef4f12ca35a0fb5d30e2d5d0c00d15b1ca58d87a05290",
+  "installedMatchesBuildWithMsiBundleMarker": true,
+  "artifacts": [
+    {
+      "file": "docs/media/preshot-demo.mp4",
+      "bytes": 2445449,
+      "sha256": "effdb128d4a8f8e03bd53df4ccc8381e0d464a574ce287826d20013d8ff06e18"
+    },
+    {
+      "file": "docs/media/preshot-demo.gif",
+      "bytes": 4281962,
+      "sha256": "7ee63a2f9f6dfd46fa0f00571dc6ef5f29b2004c4a35c81258cdc8ed28e24cf3"
+    },
+    {
+      "file": "docs/media/preshot-demo.pdf",
+      "bytes": 1203933,
+      "sha256": "ebf7ed8b4ef8b50b271382f8ceb6213245e2672900342eb9903c1549582df866"
+    }
+  ]
+}

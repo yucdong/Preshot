@@ -1,5 +1,6 @@
 import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { FolderOpen } from "lucide-react";
 import type { MaterialDetail, MaterialPreviewInput } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
 import { MATERIAL_PREVIEW_RENDER_KEY } from "./materialPreviewCache";
@@ -278,6 +279,12 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
   const container = useRef<HTMLDivElement>(null);
   const imageClipboard = useImageClipboardPort();
   const clipboardSources = useRef<PreparedMaterialPreview | null>(null);
+  const [selectedOriginal, setSelectedOriginal] = useState<{ token: string; index: number } | null>(null);
+  const [revealState, setRevealState] = useState({ busy: false, error: "" });
+  const revealing = useRef(false);
+  const revealGroup = material.kind === "imageGroup" ? repository.revealImageGroup : undefined;
+  const singleOriginal = material.kind === "image" && material.images.length === 1 ? material.images[0].localImageId : undefined;
+  const originalToken = singleOriginal ?? selectedOriginal?.token;
   const [state, setState] = useState<
     { status: "loading" } | { status: "ready"; text: string } | { status: "error"; message: string }
   >({ status: "loading" });
@@ -354,12 +361,13 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
         Object.assign(imageTargets.style, { position: "absolute", inset: "0", pointerEvents: "none" });
         const targets = new Map<string, { button: HTMLButtonElement; frame: HTMLElement }>();
         const canCopy = imageClipboard && imageClipboard.availability !== "unavailable";
-        if (canCopy) viewport.append(imageTargets);
+        const canSelect = canCopy || Boolean(repository.revealImage);
+        if (canSelect) viewport.append(imageTargets);
         const resize = () => {
           if (!mounted || signal.aborted || !surface || !imageTargets) return;
           const width = viewport.clientWidth;
           if (width > 0) host.style.zoom = String(Math.min(1, width / SURFACE_WIDTH));
-          if (canCopy) {
+          if (canSelect) {
             const present = new Set<string>();
             for (const frame of surface.element.querySelectorAll<HTMLElement>("[data-preshot-export-image]")) {
               const groupId = frame.closest<HTMLElement>("[data-preshot-export-image-group]")?.dataset.preshotExportImageGroup;
@@ -378,11 +386,20 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
                 });
                 button.addEventListener("focus", () => { button.style.outline = "2px solid #0891b2"; });
                 button.addEventListener("blur", () => { button.style.outline = ""; });
+                const select = () => {
+                  const groups = prepared && [...prepared.plan.imageGroups, ...artifactCollectionsInPlan(prepared.plan)];
+                  const image = groups?.find((group) => group.id === groupId)?.images.find((image) => image.id === imageId);
+                  const token = image && prepared?.sourceTokens.get(image.file);
+                  if (token) setSelectedOriginal({ token, index: Number(button.dataset.originalIndex) });
+                };
+                button.addEventListener("focus", select);
+                button.addEventListener("click", select);
                 target = { button, frame };
                 targets.set(key, target);
               }
               target.frame = frame;
               const index = present.size;
+              target.button.dataset.originalIndex = String(index + 1);
               present.add(key);
               target.button.setAttribute("aria-label", ui("选择素材图片 {{v0}}", { v0: index + 1 }));
               if (imageTargets.children[index] !== target.button) {
@@ -406,7 +423,7 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
         observer = new ResizeObserver(resize);
         observer.observe(viewport);
         observer.observe(surface.element);
-        if (canCopy) {
+        if (canSelect) {
           frameObserver = new MutationObserver(resize);
           frameObserver.observe(surface.element, {
             childList: true, subtree: true, attributes: true,
@@ -445,8 +462,32 @@ function LiveMaterialPreview({ repository, material }: PreviewProps): ReactNode 
     return { dataUrl, name: imageClipboardFilename(`${material.name}.png`), presentation };
   };
 
+  const revealOriginal = async () => {
+    const prepared = clipboardSources.current;
+    if (!prepared || (!revealGroup && (!originalToken || !repository.revealImage)) || revealing.current) return;
+    revealing.current = true;
+    setRevealState({ busy: true, error: "" });
+    try {
+      if (revealGroup) await revealGroup(material.id, material.revision);
+      else await repository.revealImage!(material.id, material.revision, originalToken!);
+      if (clipboardSources.current === prepared) setRevealState({ busy: false, error: "" });
+    } catch (error) {
+      if (clipboardSources.current === prepared) setRevealState({ busy: false, error: detail(error) });
+    } finally {
+      revealing.current = false;
+    }
+  };
+
   return (
     <ImageClipboardScope port={imageClipboard ?? unavailableImageClipboard} resolveImage={resolveImage}>
+    {(revealGroup || repository.revealImage) && <div className="ml-actions" role="toolbar" aria-label={ui("素材图片操作")}>
+      <button type="button" disabled={state.status !== "ready" || (!revealGroup && !originalToken) || revealState.busy}
+        title={ui(revealGroup ? "打开已保存的图片组原图目录" : "在资源管理器中选中素材库保存的原图")} onClick={() => void revealOriginal()}>
+        <FolderOpen size={16} aria-hidden />{ui("打开原图所在位置")}
+      </button>
+      {!revealGroup && !singleOriginal && <span className="ml-muted">{selectedOriginal ? ui("已选第 {{index}} 张图片", { index: selectedOriginal.index }) : ui("请先选择一张图片")}</span>}
+      {revealState.error && <p className="ml-error" role="alert">{revealState.error}</p>}
+    </div>}
     <section
       aria-label={ui("{{v0}} · 完整预览", { v0: material.name })}
       aria-busy={state.status === "loading"}

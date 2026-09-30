@@ -297,7 +297,7 @@ describe("material snapshots and insertion", () => {
 
 describe("material payload validation", () => {
   it.each([
-    (value: Record<string, unknown>) => { value.version = 2; },
+    (value: Record<string, unknown>) => { value.version = 3; },
     (value: Record<string, unknown>) => { value.kind = "paragraph"; },
     (value: Record<string, unknown>) => { value.kind = "prop"; },
     (value: Record<string, unknown>) => { value.file = "references/secret.png"; },

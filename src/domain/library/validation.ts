@@ -1,3 +1,4 @@
+import { validateArtifactContentLayout } from "../plan/canvas/artifactContentLayout";
 import {
   artifactCollectionsInPlan,
   validateProjectPlanV15,
@@ -115,10 +116,10 @@ export function validateReferenceImages(images: ReferenceImage[]): void {
   // Use that same image contract for groups, without invoking material parsing.
   for (let start = 0; start < images.length; start += IMAGE_LIMIT) {
     validateProjectPlanV15({
-      schemaVersion: 16,
+      schemaVersion: 17,
       title: "Material image validation",
       document: {
-        format: "preshot-blocks", version: 4,
+        format: "preshot-blocks", version: 5,
         blocks: [{
           id: "validation-block", type: "prop", props: { artifactId: "validation-artifact" },
           content: undefined, children: [],
@@ -136,7 +137,7 @@ export function validateReferenceImages(images: ReferenceImage[]): void {
 export function validateMaterialPayload(input: unknown): MaterialPayload {
   const header = exactRecord(input, ["format", "version", "kind", "component"], "Material payload");
   if (
-    header.format !== "preshot-material" || header.version !== 1 ||
+    header.format !== "preshot-material" || (header.version !== 1 && header.version !== 2) ||
     !(MATERIAL_KINDS as readonly unknown[]).includes(header.kind)
   ) {
     throw new Error("Material payload format, version or kind is unsupported");
@@ -185,7 +186,7 @@ export function validateMaterialPayload(input: unknown): MaterialPayload {
     }
     case "shootingLocation": {
       const value = exactRecord(header.component,
-        ["kind", "venueName", "address", "description", "gallery"], "Location");
+        ["kind", "venueName", "address", "description", "gallery", "contentLayout"], "Location");
       component = { kind: "shootingLocation", venueName: text(value.venueName, "Venue name"),
         address: text(value.address, "Address"), description: text(value.description, "Location description"),
         gallery: collection(value.gallery) };
@@ -204,13 +205,13 @@ export function validateMaterialPayload(input: unknown): MaterialPayload {
       break;
     }
     case "prop": {
-      const value = exactRecord(header.component, ["kind", "title", "source", "gallery"], "Prop");
+      const value = exactRecord(header.component, ["kind", "title", "source", "gallery", "contentLayout"], "Prop");
       component = { kind: "prop", title: text(value.title, "Prop title"),
         source: text(value.source, "Prop source"), gallery: collection(value.gallery) };
       break;
     }
     case "clothing": {
-      const value = exactRecord(header.component, ["kind", "title", "source", "mainGallery"], "Clothing");
+      const value = exactRecord(header.component, ["kind", "title", "source", "mainGallery", "contentLayout"], "Clothing");
       component = { kind: "clothing", title: text(value.title, "Clothing title"),
         source: text(value.source, "Clothing source"), mainGallery: collection(value.mainGallery) };
       break;
@@ -220,7 +221,12 @@ export function validateMaterialPayload(input: unknown): MaterialPayload {
   if ((header.component as Record<string, unknown>).kind !== component.kind) {
     throw new Error("Material component kind does not match the payload kind");
   }
-  const payload: MaterialPayload = { format: "preshot-material", version: 1, kind: component.kind, component };
+  const layout = (header.component as Record<string, unknown>).contentLayout;
+  if (layout !== undefined) {
+    if (header.version !== 2 || !["prop", "clothing", "shootingLocation"].includes(component.kind)) throw new Error("Unsupported card layout");
+    component = { ...component, contentLayout: validateArtifactContentLayout(layout) };
+  }
+  const payload: MaterialPayload = { format: "preshot-material", version: header.version as 1 | 2, kind: component.kind, component };
   const portableImages = componentImages(component);
   const sources = new Map(portableImages.map((image, index) =>
     [image.localImageId, `references/validation-${index}.png`]));

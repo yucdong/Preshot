@@ -6,8 +6,10 @@ import type { PlanLoadProgress } from "../../features/plan/blocknote/planLoadPro
 
 interface WorkspaceProps {
   active?: boolean;
+  interactionPaused?: boolean;
   savePaused?: boolean;
   registerBeforeClose?(path: string, flush: (saveChanges?: boolean) => Promise<void>): () => void;
+  registerBeforeCopy?(path: string, prepare: () => Promise<() => void>): () => void;
   loadId: number;
   onLoadProgress?(loadId: number, projectPath: string, progress: PlanLoadProgress): void;
   projectPath: string;
@@ -19,8 +21,10 @@ interface WorkspaceProps {
 
 export function Workspace({
   active = true,
+  interactionPaused = false,
   savePaused = false,
   registerBeforeClose,
+  registerBeforeCopy,
   loadId,
   onLoadProgress,
   projectPath,
@@ -35,9 +39,10 @@ export function Workspace({
   return (
     <main hidden={!active} inert={!active} style={!active ? { display: "none" } : undefined} className="flex min-h-0 min-w-0 flex-1 flex-col bg-app-bg">
       <BlockNoteProjectCanvasProvider
-        active={active}
+        active={active && !interactionPaused}
         savePaused={savePaused}
         registerBeforeClose={registerBeforeClose}
+        registerBeforeCopy={registerBeforeCopy}
         onLoadProgress={reportProgress}
         docxExporter={dependencies.docxExporter}
         docxSaver={dependencies.docxSaver}

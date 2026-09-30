@@ -52,7 +52,7 @@ const installerGuide = readFileSync(
   "utf8",
 );
 
-const PER_USER_UPGRADE_CODE = "493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6";
+const MACHINE_UPGRADE_CODE = "C91F6BC2-1F30-4D43-B878-3D09737227F2";
 const LEGACY_PER_MACHINE_UPGRADE_CODE =
   "97EE9B44-6313-52EB-A67E-A1334832EB86";
 
@@ -93,38 +93,37 @@ describe("MSI bundle configuration", () => {
     expect(template).toContain("Preshot MSI supports only x64");
   });
 
-  it("is a limited per-user package and rejects ALLUSERS", () => {
+  it("is an elevated machine-wide package and rejects per-user overrides", () => {
     const packageTag = openingTag("Package");
     expect(packageTag).toContain('Id="*"');
-    expect(packageTag).toContain('InstallScope="perUser"');
-    expect(packageTag).toContain('InstallPrivileges="limited"');
-    expect(template).toMatch(
-      /<Condition\s+Message="[^"]*per-user[^"]*">\s*NOT ALLUSERS\s*<\/Condition>/,
-    );
+    expect(packageTag).toContain('InstallScope="perMachine"');
+    expect(packageTag).toContain('InstallPrivileges="elevated"');
+    expect(template).not.toMatch(/<Property\b[^>]*Id="ALLUSERS"/);
+    expect(template).toContain('ALLUSERS = 1 AND NOT MSIINSTALLPERUSER');
   });
 
-  it("installs below LocalAppData Programs and writes only HKCU registration", () => {
+  it("offers a configurable Program Files directory and machine registration", () => {
     expect(template).toMatch(
-      /<Directory Id="LocalAppDataFolder">[\s\S]*?<Directory Id="PreshotProgramsFolder" Name="Programs">[\s\S]*?<Directory Id="PreshotInstallDir" Name="\{\{product_name\}\}"\/>/,
+      /<Directory Id="ProgramFiles64Folder">\s*<Directory Id="INSTALLDIR" Name="\{\{product_name\}\}"\/>/,
     );
     expect(template).not.toContain('ConfigurableDirectory="');
-    expect(template).not.toContain('Id="INSTALLDIR"');
-    expect(template).not.toContain('Dialog="InstallDirDlg"');
+    expect(template).toContain('Id="INSTALLDIR"');
+    expect(template).toContain('Dialog="InstallDirDlg"');
 
     const registryWrites = [
       ...template.matchAll(/<Registry(?:Key|Value)\b[^>]*\bRoot="([^"]+)"/g),
     ];
     expect(registryWrites.length).toBeGreaterThan(0);
     expect(registryWrites.map((match) => match[1])).toEqual(
-      Array(registryWrites.length).fill("HKCU"),
+      Array(registryWrites.length).fill("HKLM"),
     );
   });
 
-  it("uses a new fixed per-user upgrade family with generated product and package codes", () => {
+  it("uses a distinct machine-wide upgrade family with generated product and package codes", () => {
     expect(
       String(conf.bundle?.windows?.wix?.upgradeCode).toUpperCase(),
-    ).toBe(PER_USER_UPGRADE_CODE);
-    expect(PER_USER_UPGRADE_CODE).not.toBe(LEGACY_PER_MACHINE_UPGRADE_CODE);
+    ).toBe(MACHINE_UPGRADE_CODE);
+    expect(MACHINE_UPGRADE_CODE).not.toBe(LEGACY_PER_MACHINE_UPGRADE_CODE);
     expect(openingTag("Product")).toContain('Id="*"');
     expect(openingTag("Product")).toContain('UpgradeCode="{{upgrade_code}}"');
     expect(openingTag("Package")).toContain('Id="*"');
@@ -142,11 +141,24 @@ describe("MSI bundle configuration", () => {
       /<Condition Message="!\(loc\.LegacyMachineInstallMessage\)">\s*Installed OR NOT LEGACY_MACHINE_PRESHOT_FOUND\s*<\/Condition>/,
     );
     expect(locale).toMatch(
-      /<String Id="LegacyMachineInstallMessage">[^<]*machine-wide[^<]*Uninstall[^<]*Installed apps[^<]*per-user[^<]*<\/String>/,
+      /<String Id="LegacyMachineInstallMessage">[^<]*machine-wide[^<]*Uninstall[^<]*Installed apps[^<]*preserved[^<]*<\/String>/,
     );
     expect(template).not.toMatch(
       /<RemoveExistingProducts>[\s\S]*LEGACY_MACHINE_PRESHOT_FOUND/,
     );
+  });
+
+  it("detects the previous per-user family and never launches an elevated editor", () => {
+    expect(template).toContain('<Upgrade Id="493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6">');
+    expect(template).toContain('Id="LegacyUserInstall" Root="HKCU"');
+    for (const id of ["LegacyUserInstall", "PreviousMachineInstallDir"]) {
+      expect(openingTagById("RegistrySearch", id)).toContain('Key="Software\\\\{{manufacturer}}\\\\{{product_name}}"');
+    }
+    expect(template).toContain('Installed OR NOT (LEGACY_USER_PRESHOT_FOUND OR LEGACY_USER_PRODUCT_FOUND)');
+    expect(openingTagById("CustomAction", "LaunchApplication")).toContain('ExeCommand="--from-installer"');
+    expect(template).toContain('WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed AND NOT REMOVE');
+    expect(template).not.toContain('AUTOLAUNCHAPP');
+    expect(locale).toContain('Uninstall removes application files');
   });
 
   it("rejects downgrades and does not treat same-version builds as upgrades", () => {
@@ -191,7 +203,7 @@ describe("MSI bundle configuration", () => {
       'Win64="$(var.Win64)"',
     );
     expect(template).toMatch(
-      /<Component Id="PathEnvironment"[\s\S]*?<Environment Id="PathEnvironmentVariable"[\s\S]*?Name="PATH"[\s\S]*?Value="\[PreshotInstallDir\]"[\s\S]*?System="no"[\s\S]*?<\/Component>/,
+      /<Component Id="PathEnvironment"[\s\S]*?<Environment Id="PathEnvironmentVariable"[\s\S]*?Name="PATH"[\s\S]*?Value="\[INSTALLDIR\]"[\s\S]*?System="yes"[\s\S]*?<\/Component>/,
     );
     expect(template.match(/Target="\[!Path\]"/g)).toHaveLength(2);
   });
@@ -349,7 +361,7 @@ describe("MSI bundle configuration", () => {
       "Assert-ReleasePublicationPolicy $configuration -Publish:$publishing",
     );
     expect(productionTools).toContain(
-      '$script:FirstPerUserPublishVersion = "0.0.2"',
+      '$script:FirstMachinePublishVersion = "0.0.14"',
     );
     expect(productionTools).toContain("schemaVersion = 2");
     expect(productionTools).toContain(
@@ -374,8 +386,8 @@ describe("MSI bundle configuration", () => {
 
   it("documents the operator contract without obsolete artifact paths", () => {
     for (const required of [
-      "%LOCALAPPDATA%\\Programs\\Preshot",
-      "493c5fb5-639d-4fba-94d3-aebe4eb0dce6",
+      "%ProgramFiles%\\Preshot",
+      "c91f6bc2-1f30-4d43-b878-3d09737227f2",
       "97ee9b44-6313-52eb-a67e-a1334832eb86",
       "DESKTOPSHORTCUT=1",
       "PRESHOT_PUBLISH=1",

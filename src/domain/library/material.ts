@@ -1,3 +1,4 @@
+import { nativeImagePresentationProps } from "../plan/canvas/nativeImagePresentation";
 import {
   artifactCollectionsInPlan,
   type ImageCollection,
@@ -138,7 +139,9 @@ export function createMaterialSnapshot(plan: ProjectPlanV15, blockId: string): M
   return {
     sourceBlockId: block.id,
     payload: validateMaterialPayload({
-      format: "preshot-material", version: 1, kind: component.kind, component,
+      format: "preshot-material", version: 2, kind: component.kind,
+      component: block.type !== "imageGroup" && source.artifacts.find(a => a.id === block.props.artifactId)?.contentLayout
+        ? { ...component, contentLayout: source.artifacts.find(a => a.id === block.props.artifactId)!.contentLayout } : component,
     }),
     sources,
     omittedLegacyImages,
@@ -202,7 +205,7 @@ export function instantiateMaterial(
       props: {
         url: files[0].file, name: validated.component.name,
         caption: images[0].caption ?? "", showPreview: true,
-        previewWidth: images[0].frameWidth,
+        ...nativeImagePresentationProps(images[0]),
       },
     } }
     : buildMaterialInstance(validated, sourceMap(files), freshId);
@@ -240,7 +243,7 @@ export function insertMaterialIntoPlan(
     throw new Error("Material insertion requires exactly one supported block and sidecar");
   }
   exactRecord(instance.block.props, instance.block.type === "image"
-    ? ["url", "name", "caption", "showPreview", "previewWidth"]
+    ? ["url", "name", "caption", "showPreview", "previewWidth", "previewHeight", "fitMode", "cropX", "cropY", "cropWidth", "cropHeight"]
     : [instance.block.type === "imageGroup" ? "groupId" : "artifactId"], "Material marker");
   if (instance.block.type === "image") {
     const url = instance.block.props.url;

@@ -1,3 +1,4 @@
+import { prepareNativeImageExport } from "../plan/prepareNativeImageExport";
 import { ui } from "../../shared/i18n/ui";
 import type { Block } from "@blocknote/core";
 import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
@@ -88,6 +89,7 @@ export function createBlockNoteDocxExporter(
     async export(plan, resolvedAssets) {
       const exportPlan = structuredClone(plan);
       const exportAssets = { ...resolvedAssets };
+      await prepareNativeImageExport(exportPlan, exportAssets);
       let context: ExportContext;
       let preparedImageGroups: Awaited<
         ReturnType<typeof prepareDocxImageGroupAssets>

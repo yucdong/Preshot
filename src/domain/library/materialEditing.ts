@@ -6,6 +6,7 @@ import { validateMaterialPayload } from "./validation";
 
 export interface MaterialEditDraft {
   readonly kind: MaterialKind;
+  readonly payloadVersion: MaterialPayload["version"];
   readonly plan: ProjectPlanV15;
   readonly structure: string;
   readonly fileTokens: Map<string, string>;
@@ -38,14 +39,14 @@ export function createMaterialEditDraft(
   }));
   const plan = instancePlan(instantiateMaterial(payload, sources, makeId, "libraryCanvas"));
   return {
-    kind: payload.kind, plan, structure: structure(plan),
+    kind: payload.kind, payloadVersion: payload.version, plan, structure: structure(plan),
     fileTokens: new Map(sources.map(({ file, localImageId }) => [file, localImageId])),
   };
 }
 
 export function serializeMaterialEditDraft(
   plan: ProjectPlanV15,
-  draft: Pick<MaterialEditDraft, "kind" | "structure" | "fileTokens">,
+  draft: Pick<MaterialEditDraft, "kind" | "payloadVersion" | "structure" | "fileTokens">,
 ): MaterialPayload {
   if (plan.document.blocks.length !== 1 || structure(plan) !== draft.structure) {
     throw new Error("素材编辑只能修改当前组件的内容，不能改变组件类型、结构或外部布局。");
@@ -69,5 +70,6 @@ export function serializeMaterialEditDraft(
   if (draft.kind === "image" && snapshot.payload.component.kind === "imageGroup") {
     snapshot.payload = { ...snapshot.payload, kind: "image", component: { ...snapshot.payload.component, kind: "image" } };
   }
+  snapshot.payload.version = snapshot.payload.component.contentLayout ? 2 : draft.payloadVersion;
   return validateMaterialPayload(snapshot.payload);
 }

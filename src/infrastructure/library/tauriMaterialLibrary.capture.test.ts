@@ -298,8 +298,8 @@ describe("isolated material screenshot insertion", () => {
     { response: [] },
     { response: [staged, staged] },
     { response: [{ ...staged, localImageId: "" }] },
-    { response: [{ ...staged, width: 8192, height: 8192 }] },
-    { response: [{ ...staged, byteLength: 2 }] },
+    { response: [{ ...staged, width: 0, height: 8192 }] },
+    { response: [{ ...staged, byteLength: 0 }] },
     { response: [{ ...staged, dataUrl: "https://example.com/image.png" }] },
   ])("rejects malformed or non-single image imports and still discards the capture ($response)", async ({ response }) => {
     const { capture, screenCapture, invokeCommand } = setup();

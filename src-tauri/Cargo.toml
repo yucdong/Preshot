@@ -1,6 +1,6 @@
 [package]
 name = "preshot"
-version = "0.0.13"
+version = "0.0.21"
 description = "Desktop photography planning workspace"
 authors = ["Dong Yuchen"]
 edition = "2021"
@@ -34,9 +34,11 @@ windows-sys = { version = "0.59", features = [
     "Win32_Storage_FileSystem",
     "Win32_System_DataExchange",
     "Win32_System_Memory",
+    "Win32_System_SystemInformation",
     "Win32_System_LibraryLoader",
     "Win32_System_JobObjects",
     "Win32_System_Threading",
+    "Win32_System_Environment",
     "Win32_Security",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Accessibility",

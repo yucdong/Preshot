@@ -20,7 +20,7 @@ pub(super) fn insertion_bytes(bytes: &[u8], image: &Value) -> Result<Vec<u8>> {
     let mut visual = image.clone();
     visual.as_object_mut().unwrap().remove("localImageId");
     let presentation = serde_json::from_value(visual).map_err(|e| error("image_presentation", e))?;
-    crate::image_clipboard::render_encoded_image(bytes, &presentation)
+    crate::image_clipboard::render_encoded_image(bytes, &presentation, files::MAX_IMAGE_BYTES)
         .map_err(|e| error("image_render", e))
 }
 
@@ -136,7 +136,7 @@ fn native_snapshot(
         "sourceWidth",
         "sourceHeight",
         "frameWidth",
-        "frameHeight",
+        "frameHeight", "fitMode", "crop",
     ];
     if image
         .as_object()
@@ -163,11 +163,11 @@ fn native_snapshot(
         .unwrap_or("图片");
     if width <= 0.0
         || height <= 0.0
-        || width > 8192.0
-        || height > 8192.0
+        || !width.is_finite() || width.fract() != 0.0
+        || !height.is_finite() || height.fract() != 0.0
         || image["aspectRatio"].as_f64() != Some(ratio)
         || image["frameWidth"].as_f64() != Some(frame)
-        || image["frameHeight"].as_f64() != Some(frame / ratio)
+        || image["frameHeight"].as_f64() != Some(props["previewHeight"].as_f64().filter(|h| *h > 0.0).unwrap_or(frame / ratio))
         || image["caption"] != caption
         || payload.component["name"] != name
         || payload.component["description"] != ""
@@ -176,6 +176,29 @@ fn native_snapshot(
             "source",
             "Native image snapshot does not match the selected block",
         ));
+    }
+    if payload.version == 2 {
+        if image["fitMode"].as_str().unwrap_or("cover") != props["fitMode"].as_str().unwrap_or("cover") {
+            return Err(error("source", "Image fit mode differs"));
+        }
+        let round = |value: f64| (value * 1_000_000.0).round() / 1_000_000.0;
+        let w = props["cropWidth"].as_f64().unwrap_or(1.0).clamp(0.000001, 1.0);
+        let h = props["cropHeight"].as_f64().unwrap_or(1.0).clamp(0.000001, 1.0);
+        let x = props["cropX"].as_f64().unwrap_or(0.0).clamp(0.0, 1.0 - w);
+        let y = props["cropY"].as_f64().unwrap_or(0.0).clamp(0.0, 1.0 - h);
+        let expected = if props["fitMode"] == "stretch" { [x, y, w, h] } else {
+            let frame_ratio = frame / image["frameHeight"].as_f64().unwrap();
+            let (base_w, base_h) = if frame_ratio >= ratio { (1.0, round(ratio / frame_ratio)) } else { (round(frame_ratio / ratio), 1.0) };
+            let zoom = (base_w / w).min(base_h / h).max(1.0);
+            let cw = (if frame_ratio >= ratio { 1.0 } else { frame_ratio / ratio } / zoom).clamp(0.000001, 1.0);
+            let ch = (if frame_ratio >= ratio { ratio / frame_ratio } else { 1.0 } / zoom).clamp(0.000001, 1.0);
+            [round((x + w / 2.0 - cw / 2.0).clamp(0.0, 1.0 - cw)), round((y + h / 2.0 - ch / 2.0).clamp(0.0, 1.0 - ch)), round(cw), round(ch)]
+        };
+        for (field, expected) in ["x", "y", "width", "height"].into_iter().zip(expected) {
+            if image["crop"][field].as_f64().is_none_or(|actual| (actual - expected).abs() > 0.000001) {
+                return Err(error("source", "Image crop differs"));
+            }
+        }
     }
     // Store::save additionally checks width/height against the actual confined PNG/JPG.
     Ok(())

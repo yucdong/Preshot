@@ -42,8 +42,9 @@ pub(crate) fn validate_encoded_image_dimensions(
 pub(crate) fn render_encoded_image(
     bytes: &[u8],
     presentation: &Presentation,
+    maximum_bytes: usize,
 ) -> Result<Vec<u8>, CommandError> {
-    codec::render_encoded(bytes, presentation)
+    codec::render_encoded(bytes, presentation, maximum_bytes)
 }
 
 const MIB: usize = 1024 * 1024;

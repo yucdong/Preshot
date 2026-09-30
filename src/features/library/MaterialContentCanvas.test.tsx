@@ -28,6 +28,109 @@ function repository(): MaterialContentEditorRepository {
 }
 
 describe("MaterialContentCanvas", () => {
+  it("reviews suspect captures outside the inert canvas, cancels safely and preserves an explicitly kept image", async () => {
+    const repo = repository();
+    const ref = createRef<MaterialContentCanvasHandle>();
+    const image: MaterialEditImage = { localImageId: "dark", mimeType: "image/png", byteLength: 1,
+      width: 3000, height: 500, dataUrl: "data:image/png;base64,AA" };
+    repo.captureEditImage = vi.fn(async (_id, cancellation, review) => {
+      return await review!({ reason: "uniformDark", previewUrl: image.dataUrl }, cancellation) === "keep" ? image : null;
+    });
+    render(<MaterialContentCanvas material={model()} assets={new Map()} sessionId="review-session"
+      repository={repo} onChange={vi.fn()} onBusyChange={vi.fn()} onError={vi.fn()} ref={ref} />);
+    fireEvent.click(await screen.findByRole("button", { name: "截图" }));
+    const dialog = await screen.findByRole("dialog", { name: "检查截图" });
+    expect(dialog.closest("[inert]")).toBeNull();
+    expect(screen.getByRole("button", { name: "重新截图" })).toHaveFocus();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "检查截图" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "截图" })).toBeEnabled());
+    expect(componentImages(ref.current!.readPayload().component)).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "截图" }));
+    fireEvent.click(await screen.findByRole("button", { name: "保留截图" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "选择参考图 1" })).toBeEnabled());
+    expect(componentImages(ref.current!.readPayload().component)[0].localImageId).toBe("dark");
+    fireEvent.click(screen.getByRole("button", { name: "撤销" }));
+    expect(componentImages(ref.current!.readPayload().component)).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "重做" }));
+    expect(componentImages(ref.current!.readPayload().component)).toHaveLength(1);
+  });
+  it("keeps batch progress accessible outside the locked canvas and clears it on failure and picker cancellation", async () => {
+    const repo = repository();
+    const onError = vi.fn();
+    let fail!: (reason: Error) => void;
+    repo.importEditImages = vi.fn((_session, onSelected) => {
+      onSelected?.(3);
+      return new Promise<MaterialEditImage[]>((_resolve, reject) => { fail = reject; });
+    });
+    render(<MaterialContentCanvas material={model()} assets={new Map()} sessionId="progress-session"
+      repository={repo} onChange={vi.fn()} onBusyChange={vi.fn()} onError={onError} />);
+    fireEvent.click((await screen.findAllByRole("button", { name: "添加图片" }))[0]);
+    const bar = await screen.findByRole("progressbar", { name: "图片加载进度" });
+    expect(bar.closest("[inert]")).toBeNull();
+    expect(bar).not.toHaveAttribute("value");
+    expect(screen.getByText("正在加载 3 张图片…")).toBeVisible();
+    await act(async () => fail(new Error("测试导入失败")));
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining("测试导入失败"));
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    vi.mocked(repo.importEditImages).mockResolvedValueOnce([]);
+    fireEvent.click(screen.getAllByRole("button", { name: "添加图片" })[0]);
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
+    expect(repo.importEditImages).toHaveBeenCalledTimes(2);
+    expect(screen.getAllByRole("button", { name: "添加图片" })[0]).toBeEnabled();
+  });
+  it("opens a saved group's originals without selection and requires the first save for new groups", async () => {
+    const repo = repository();
+    repo.revealEditImageGroup = vi.fn().mockResolvedValue(undefined);
+    repo.revealEditImage = vi.fn();
+    const material = { ...model(), kind: "imageGroup" as const, payload: createEmptyMaterialPayload("imageGroup", "参考图") };
+    const onChange = vi.fn();
+    const props = { material, assets: new Map<string, string>(), sessionId: "group-session",
+      repository: repo, onChange, onBusyChange: vi.fn(), onError: vi.fn() };
+    const { rerender } = render(<MaterialContentCanvas {...props} />);
+    const button = await screen.findByRole("button", { name: "打开原图所在位置" });
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    await waitFor(() => expect(repo.revealEditImageGroup).toHaveBeenCalledExactlyOnceWith("group-session"));
+    expect(repo.revealEditImage).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(repo.commitEdit).not.toHaveBeenCalled();
+    rerender(<MaterialContentCanvas {...props} material={{ ...material, revision: 0 }} />);
+    expect(screen.getByRole("button", { name: "打开原图所在位置" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "打开原图所在位置" })).toHaveAttribute("title", "保存素材后可打开原图目录");
+  });
+
+  it("reveals only the selected draft image without saving or changing content", async () => {
+    const repo = repository();
+    repo.revealEditImage = vi.fn().mockResolvedValue(undefined);
+    repo.importEditImages = vi.fn().mockResolvedValue(["first", "second"].map((localImageId) => ({
+      localImageId, mimeType: "image/png", byteLength: 1,
+      width: 20, height: 20, dataUrl: "data:image/png;base64,AA",
+    })));
+    const material = { ...model(), kind: "imageGroup" as const, payload: createEmptyMaterialPayload("imageGroup", "参考图") };
+    const onChange = vi.fn();
+    const onError = vi.fn();
+    const ref = createRef<MaterialContentCanvasHandle>();
+    render(<MaterialContentCanvas material={material} assets={new Map()} sessionId="reveal-session"
+      repository={repo} onChange={onChange} onBusyChange={vi.fn()} onError={onError} ref={ref} />);
+    expect(await screen.findByRole("button", { name: "打开原图所在位置" })).toBeDisabled();
+    fireEvent.click(screen.getAllByRole("button", { name: "添加图片" })[0]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "选择参考图 2" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "选择参考图 2" }));
+    const before = ref.current!.readPayload();
+    onChange.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "打开原图所在位置" }));
+    await waitFor(() => expect(repo.revealEditImage).toHaveBeenCalledExactlyOnceWith("reveal-session", "second"));
+    await waitFor(() => expect(ref.current!.readPayload()).toEqual(before));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(repo.commitEdit).not.toHaveBeenCalled();
+    vi.mocked(repo.revealEditImage).mockRejectedValueOnce(new Error("原图已丢失"));
+    fireEvent.click(screen.getByRole("button", { name: "打开原图所在位置" }));
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.stringContaining("原图已丢失")));
+    fireEvent.click(screen.getByRole("button", { name: "打开原图所在位置" }));
+    await waitFor(() => expect(repo.revealEditImage).toHaveBeenCalledTimes(3));
+  });
+
   it.each(["prop", "clothing"] as const)("edits legacy %s under the merged category without changing its payload kind", async (kind) => {
     const ref = createRef<MaterialContentCanvasHandle>();
     const material = { ...model(), kind, payload: createEmptyMaterialPayload(kind, "原名称") };
@@ -119,12 +222,14 @@ describe("MaterialContentCanvas", () => {
     render(<ParentBusyHarness />);
     fireEvent.click((await screen.findAllByRole("button", { name: "添加图片" }))[0]);
     await waitFor(() => expect(screen.getByRole("button", { name: "关闭编辑素材内容" })).toBeDisabled());
+    expect(screen.getByRole("progressbar", { name: "图片加载进度" })).toBeVisible();
     expect(() => ref.current!.readPayload()).toThrow(/图片操作尚未完成/);
     const imported: MaterialEditImage = {
       localImageId: "busy-import", mimeType: "image/png", byteLength: 1,
       width: 900, height: 600, dataUrl: "data:image/png;base64,AA",
     };
     await act(async () => finishImport([imported]));
+    expect(screen.queryByRole("progressbar", { name: "图片加载进度" })).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "关闭编辑素材内容" })).toBeEnabled());
     expect(componentImages(ref.current!.readPayload().component)[0].localImageId).toBe("busy-import");
     fireEvent.doubleClick(await screen.findByRole("button", { name: "选择参考图 1" }));
@@ -211,7 +316,7 @@ describe("MaterialContentCanvas", () => {
     render(<MaterialContentCanvas material={model()} assets={new Map()} sessionId="session"
       repository={repo} onChange={vi.fn()} onBusyChange={onBusyChange} onError={onError} ref={ref} />);
     fireEvent.click((await screen.findAllByRole("button", { name: "添加图片" }))[0]);
-    await waitFor(() => expect(repo.importEditImages).toHaveBeenCalledWith("session"));
+    await waitFor(() => expect(repo.importEditImages).toHaveBeenCalledWith("session", expect.any(Function)));
     await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
     expect(onBusyChange).toHaveBeenCalledWith(true);
     expect(screen.getAllByRole("img", { name: "参考图" })).toHaveLength(1);
@@ -262,7 +367,7 @@ describe("MaterialContentCanvas", () => {
     expect(original.images).toEqual([]);
   });
 
-  it("edits image-group text and keeps real dnd-kit keyboard preview out of payloads until one drop", async () => {
+  it("preserves existing image-group text and keeps real dnd-kit keyboard preview out of payloads until one drop", async () => {
     const original: MaterialDetail = {
       ...model(), kind: "imageGroup", imageCount: 2,
       payload: { format: "preshot-material", version: 1, kind: "imageGroup",
@@ -289,11 +394,9 @@ describe("MaterialContentCanvas", () => {
         onBusyChange={vi.fn()} onError={vi.fn()} ref={ref} />
     </LibraryDialog>);
     try {
-      const name = await screen.findByRole("textbox", { name: "图片组名称" });
-      fireEvent.change(name, { target: { value: "新的组名" } });
-      act(() => { expect(ref.current!.readPayload().component).toMatchObject({ name: "新的组名" }); });
-      onChange.mockClear();
-      const first = screen.getByRole("button", { name: "选择参考图 1" });
+      const first = await screen.findByRole("button", { name: "选择参考图 1" });
+      expect(screen.getByRole("region", { name: "素材内容编辑画布" }).querySelector("input, textarea")).toBeNull();
+      expect(ref.current!.readPayload().component).toMatchObject({ name: "图片组", description: "说明" });
       const dialog = screen.getByRole("dialog", { name: "编辑素材内容" });
       const announcement = screen.getByTestId("image-drag-announcement");
       expect(dialog).toContainElement(announcement);

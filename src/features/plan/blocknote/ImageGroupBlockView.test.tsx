@@ -105,6 +105,46 @@ function renderGroups(
 }
 
 describe("ImageGroupBlockView image tile interactions", () => {
+  it("opens one confirmation for Delete and exposes deletion outside an oversized image", () => {
+    const wide = group("gallery", "wide");
+    wide.images[0].frameWidth = 1440;
+    const controller = controllerFor([wide], { selectedImageId: "wide" });
+    renderGroups([wide], controller);
+    const image = screen.getByRole("button", { name: "选择参考图 1" });
+    fireEvent.keyDown(image, { key: "Delete" });
+    expect(screen.getByRole("dialog", { name: "删除图片？" })).toBeVisible();
+    expect(controller.removeImage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    fireEvent.click(screen.getByRole("button", { name: "删除选中图片" }));
+    fireEvent.click(screen.getByRole("button", { name: "删除" }));
+    expect(controller.removeImage).toHaveBeenCalledExactlyOnceWith("gallery", "wide");
+  });
+
+  it.each([{ key: "Delete", repeat: true }, { key: "Delete", isComposing: true },
+    { key: "Delete", ctrlKey: true }, { key: "Backspace" }])("does not treat %j as image deletion", (event) => {
+    const groups = [group("gallery", "image")];
+    renderGroups(groups, controllerFor(groups, { selectedImageId: "image" }));
+    fireEvent.keyDown(screen.getByRole("button", { name: "选择参考图 1" }), event);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+  it("shows actual import progress only in the loading group and prevents duplicate imports", () => {
+    const loading = { ...group("loading", "first"), images: [] };
+    const other = group("other", "second");
+    const controller = controllerFor([loading, other], {
+      getImportProgress: (id) => id === "loading" ? { phase: "loading", completed: 1, total: 3 } : undefined,
+    });
+    renderGroups([loading, other], controller);
+    const bar = screen.getByRole("progressbar", { name: "图片加载进度" });
+    expect(bar).toHaveAttribute("value", "1");
+    expect(bar).toHaveAttribute("max", "3");
+    expect(screen.getByText("正在加载图片… 1 / 3")).toBeVisible();
+    const addButtons = screen.getAllByRole("button", { name: "添加图片" });
+    expect(addButtons[0]).toBeDisabled();
+    expect(addButtons[1]).toBeDisabled();
+    expect(addButtons[2]).toBeEnabled();
+    fireEvent.click(addButtons[0]);
+    expect(controller.addImages).not.toHaveBeenCalled();
+  });
   it("shows a library action after a single click and saves only the currently selected image", () => {
     const images = group("collection", "first");
     images.images.push({ ...images.images[0], id: "second", file: "references/second.png" });
@@ -153,7 +193,7 @@ describe("ImageGroupBlockView image tile interactions", () => {
     expect(screen.queryByTitle("拖动图片组")).not.toBeInTheDocument();
     expect(document.querySelectorAll("[data-image-resize-edge]")).toHaveLength(8);
     fireEvent.click(screen.getByRole("button", { name: "添加图片" }));
-    expect(controller.addImages).toHaveBeenCalledWith("locked");
+    expect(controller.addImages).toHaveBeenCalledWith("locked", 282);
   });
   beforeEach(() => {
     vi.restoreAllMocks();

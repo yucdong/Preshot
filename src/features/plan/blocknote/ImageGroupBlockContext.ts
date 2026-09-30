@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { ImageImportProgressState } from "./ImageImportProgress";
 import type {
   ImageFitMode,
   ReferenceComponent,
@@ -15,12 +16,15 @@ export interface ImageGroupBlockController {
   removeBlock?(blockId: string): void;
   saveBlock?(blockId: string): void;
   saveImage?(groupId: string, imageId: string): void;
+  revealImage?(groupId: string, imageId: string): void;
+  revealImageGroup?(): void;
+  revealImageGroupDisabled?: boolean;
   getGroup(groupId: string): ReferenceComponent | undefined;
   getImageSrc(file: string): string | undefined;
-  updateGroupMetadata?(groupId: string, update: { name?: string; description?: string }): void;
-  addImages(groupId: string): void;
+  getImportProgress?(groupId: string): ImageImportProgressState | undefined;
+  addImages(groupId: string, maxFrameWidth?: number): void;
   insertImagesFromLibrary?(groupId: string): void;
-  captureImage?(groupId: string): void;
+  captureImage?(groupId: string, maxFrameWidth?: number): void;
   removeImage(groupId: string, imageId: string): void;
   selectImage?(imageId: string): void;
   openImage(groupId: string, imageId: string, file: string): void;

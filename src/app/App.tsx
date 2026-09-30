@@ -12,10 +12,13 @@ import type { MaterialLibraryRepository } from "../domain/library/ports";
 import { ImageClipboardContext } from "../features/plan/ImageClipboardContext";
 import { createPlatformImageClipboard } from "../infrastructure/clipboard/tauriImageClipboard";
 import { unavailableImageClipboard } from "../domain/clipboard/imageClipboard";
+import { StorageProvider } from "./storage/StorageProvider";
+import { createStorageRepository } from "../infrastructure/storage/tauriStorage";
 
 const defaultWorkspaceDependencies = createWorkspaceDependencies();
 const defaultPlanDependencies = createPlanDependencies();
 const settingsRepository = createSettingsRepository();
+const storageRepository = createStorageRepository();
 const defaultImageClipboard =
   import.meta.env.MODE === "test" ||
   import.meta.env.VITE_WORKSPACE_ADAPTER === "memory" ||
@@ -34,7 +37,8 @@ export function App({
   materialLibraryRepository,
 }: AppProps) {
   return (
-    <ThemeProvider repository={settingsRepository}>
+    <StorageProvider repository={storageRepository}>
+      <ThemeProvider repository={settingsRepository}>
       <ImageClipboardContext.Provider value={planDependencies.imageClipboard ?? defaultImageClipboard}>
         <AppMaterialLibrary repository={materialLibraryRepository}>
           <WorkspaceProvider
@@ -43,6 +47,7 @@ export function App({
           />
         </AppMaterialLibrary>
       </ImageClipboardContext.Provider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </StorageProvider>
   );
 }

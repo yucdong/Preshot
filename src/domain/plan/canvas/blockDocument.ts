@@ -1,7 +1,8 @@
+import { validateArtifactContentLayout, type ArtifactContentLayout } from "./artifactContentLayout";
 import type { ReferenceComponent, ReferenceImage } from "./models";
 
-export const BLOCK_DOCUMENT_SCHEMA_VERSION = 4 as const;
-export const BLOCKNOTE_PLAN_SCHEMA_VERSION = 16 as const;
+export const BLOCK_DOCUMENT_SCHEMA_VERSION = 5 as const;
+export const BLOCKNOTE_PLAN_SCHEMA_VERSION = 17 as const;
 export const DOCUMENT_BLOCK_LIMIT = 20_000;
 export const DOCUMENT_DEPTH_LIMIT = 32;
 export const ARTIFACT_RECORD_LIMIT = 512;
@@ -105,6 +106,7 @@ interface ArtifactBase {
   kind: ArtifactKind;
   revision: number;
   layout?: ArtifactLayout;
+  contentLayout?: ArtifactContentLayout;
 }
 
 export interface ArtifactLayout {
@@ -434,7 +436,7 @@ function assertBlock(
       typeof value.props.name !== "string" ||
       typeof url !== "string" ||
       typeof value.props.caption !== "string" ||
-      typeof value.props.showPreview !== "boolean" ||
+      (blockType !== "file" && typeof value.props.showPreview !== "boolean") ||
       (
         url !== "" &&
         !/^https?:\/\//i.test(url) &&
@@ -451,6 +453,16 @@ function assertBlock(
       )
     ) {
       throw new Error(`${context} native media block is malformed`);
+    }
+    if (blockType === "image") {
+      const props = value.props;
+      if (props.previewHeight !== undefined && (typeof props.previewHeight !== "number" || !Number.isFinite(props.previewHeight) || props.previewHeight < 0) ||
+          props.fitMode !== undefined && props.fitMode !== "cover" && props.fitMode !== "stretch") throw new Error("Invalid image presentation");
+      for (const key of ["cropX", "cropY", "cropWidth", "cropHeight"]) {
+        const entry = props[key];
+        if (entry !== undefined && (typeof entry !== "number" || !Number.isFinite(entry) || entry < 0 || entry > 1 || (key === "cropWidth" || key === "cropHeight") && entry === 0)) throw new Error("Invalid image crop");
+      }
+      if (Number(props.cropX ?? 0) + Number(props.cropWidth ?? 1) > 1.000001 || Number(props.cropY ?? 0) + Number(props.cropHeight ?? 1) > 1.000001) throw new Error("Image crop is outside the source");
     }
   } else if (blockType === "table") {
     assertTableContent(value.content, `${context} table`);
@@ -483,7 +495,7 @@ function assertBlock(
 
 function validateBlockDocumentVersion(
   value: unknown,
-  version: 2 | 3 | 4,
+  version: 2 | 3 | 4 | 5,
 ): {
   document: PreshotBlockDocument | LegacyPreshotBlockDocumentV2;
   imageGroupIds: string[];
@@ -500,7 +512,7 @@ function validateBlockDocumentVersion(
   const blockIds = new Set<string>();
   const imageGroupIds: string[] = [];
   const artifactMarkers: ArtifactMarker[] = [];
-  const allowedBlockTypes = version === BLOCK_DOCUMENT_SCHEMA_VERSION
+  const allowedBlockTypes = version >= 4
     ? PRESHOT_BLOCK_TYPES
     : version === 3 ? [...LEGACY_PRESHOT_BLOCK_TYPES, ...ARTIFACT_KINDS] : LEGACY_PRESHOT_BLOCK_TYPES;
   value.blocks.forEach((block, index) =>
@@ -524,8 +536,8 @@ function validateBlockDocumentVersion(
 }
 
 export function validateBlockDocument(value: unknown): PreshotBlockDocument {
-  return validateBlockDocumentVersion(value, BLOCK_DOCUMENT_SCHEMA_VERSION)
-    .document as PreshotBlockDocument;
+  const version = isRecord(value) && value.version === 4 ? 4 : BLOCK_DOCUMENT_SCHEMA_VERSION;
+  return { ...validateBlockDocumentVersion(value, version).document, version: BLOCK_DOCUMENT_SCHEMA_VERSION } as PreshotBlockDocument;
 }
 
 function visitBlocks(
@@ -805,6 +817,7 @@ function assertArtifactBase(
   value: Record<string, unknown>,
   context: string,
 ): void {
+  if (value.contentLayout !== undefined) validateArtifactContentLayout(value.contentLayout);
   assertIdentifier(value.id, `${context} id`);
   if (
     typeof value.revision !== "number" ||
@@ -883,6 +896,7 @@ function validateArtifacts(
         "kind",
         "revision",
         "layout",
+        "contentLayout",
         "venueName",
         "address",
         "description",
@@ -908,6 +922,7 @@ function validateArtifacts(
         "kind",
         "revision",
         "layout",
+        "contentLayout",
         "modelId",
         "heightCm",
         "weightKg",
@@ -937,6 +952,7 @@ function validateArtifacts(
         "kind",
         "revision",
         "layout",
+        "contentLayout",
         "title",
         "mainGallery",
         "tryOn",
@@ -970,6 +986,7 @@ function validateArtifacts(
         "kind",
         "revision",
         "layout",
+        "contentLayout",
         "title",
         "gallery",
         "source",
@@ -1052,7 +1069,7 @@ function validateLegacyProjectPlanV14(value: unknown): LegacyProjectPlanV14 {
   };
 }
 
-function validatePlanVersion(value: unknown, schemaVersion: 15 | 16, documentVersion: 3 | 4): ProjectPlanV16 {
+function validatePlanVersion(value: unknown, schemaVersion: 15 | 16 | 17, documentVersion: 3 | 4 | 5): ProjectPlanV16 {
   assertPlanHeader(value, schemaVersion, String(schemaVersion));
   if (!Array.isArray(value.artifacts)) {
     throw new Error(`Stored plan schema version ${schemaVersion} artifacts are malformed`);
@@ -1084,7 +1101,8 @@ function validatePlanVersion(value: unknown, schemaVersion: 15 | 16, documentVer
 }
 
 export function validateProjectPlanV16(value: unknown): ProjectPlanV16 {
-  return validatePlanVersion(value, 16, 4);
+  return isRecord(value) && value.schemaVersion === 16
+    ? validatePlanVersion(value, 16, 4) : validatePlanVersion(value, 17, 5);
 }
 
 export const validateProjectPlanV15 = validateProjectPlanV16;
@@ -1219,3 +1237,9 @@ export function migrateProjectPlanV14ToV15(value: unknown): ProjectPlanV15 {
 export function migrateProjectPlanV13ToV15(value: unknown): ProjectPlanV15 {
   return migrateProjectPlanV14ToV15(migrateProjectPlanV13ToV14(value));
 }
+
+/** Canonical v17 names; previous exported aliases remain source-compatible. */
+export type ProjectPlanV17 = ProjectPlanV16;
+export const validateProjectPlanV17 = validateProjectPlanV16;
+export const createEmptyProjectPlanV17 = createEmptyProjectPlanV15;
+export const migrateProjectPlanV16ToV17 = (value: unknown): ProjectPlanV17 => validatePlanVersion(value, 16, 4);

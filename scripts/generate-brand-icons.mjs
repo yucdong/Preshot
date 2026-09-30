@@ -29,3 +29,7 @@ for (const file of files) {
   copyFileSync(resolve(staging, file.name), resolve(destination, file.name));
 }
 console.log(`Updated ${files.length} desktop icons from public/preshot-mark.png.`);
+
+const installer = spawnSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+  resolve(root, "scripts/generate-installer-branding.ps1")], { cwd: root, stdio: "inherit" });
+if (installer.error || installer.status !== 0) throw new Error("Installer branding generation failed.");

@@ -1,0 +1,75 @@
+import { expect, test } from "@playwright/test";
+
+test("native image side resize, corner resize, cancel and undo preserve one gesture", async ({ page }) => {
+  await page.goto("/e2e/fixtures/material-library.html");
+  await expect(page.getByRole("group", { name: "方案正文", exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    const editor = (window as unknown as { __PRESHOT_BLOCKNOTE_EDITOR__: {
+      document: { id: string }[]; insertBlocks(blocks: unknown[], anchor: { id: string }, where: string): void;
+    } }).__PRESHOT_BLOCKNOTE_EDITOR__;
+    editor.insertBlocks([{ id: "resize-native", type: "image", props: { url: "", previewWidth: 300 } }], editor.document[0], "before");
+  });
+  const image = page.locator('[data-node-type="blockContainer"][data-id="resize-native"]');
+  await image.locator(".bn-add-file-button").click();
+  await page.getByRole("button", { name: "截图", exact: true }).click();
+  await expect(image.locator("img.bn-visual-media")).toBeVisible();
+  await expect(image.locator("[data-image-resize-edge]")).toHaveCount(8);
+  const frame = image.locator(".bn-visual-media-wrapper");
+  const initial = await frame.boundingBox();
+  const edge = image.locator('[data-image-resize-edge="right"]');
+  const bounds = await edge.boundingBox();
+  await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bounds!.x + bounds!.width / 2 + 80, bounds!.y + bounds!.height / 2, { steps: 8 });
+  await page.mouse.up();
+  const wide = await frame.boundingBox();
+  expect(wide!.width).toBeGreaterThan(initial!.width + 60);
+  expect(Math.abs(wide!.height - initial!.height)).toBeLessThan(2);
+  await frame.focus();
+  await page.keyboard.press("Control+z");
+  await expect.poll(async () => Math.round((await frame.boundingBox())!.width)).toBe(Math.round(initial!.width));
+  const corner = await image.locator('[data-image-resize-edge="bottom-right"]').boundingBox();
+  await page.mouse.move(corner!.x + corner!.width / 2, corner!.y + corner!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(corner!.x + corner!.width / 2 + 60, corner!.y + corner!.height / 2 + 30, { steps: 8 });
+  const preview = await frame.boundingBox();
+  expect(preview!.width / preview!.height).toBeCloseTo(initial!.width / initial!.height, 1);
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect.poll(async () => Math.round((await frame.boundingBox())!.width)).toBe(Math.round(initial!.width));
+  await frame.focus();
+  await image.getByRole("button", { name: "自由变形", exact: true }).click();
+  await expect(image.getByRole("button", { name: "裁切适配", exact: true })).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("native-eight-direction.png"), animations: "disabled" });
+});
+
+test("card layout survives material save/reinsert and favorites update the current filter", async ({ page }) => {
+  await page.goto("/e2e/fixtures/material-library.html");
+  await page.getByRole("button", { name: "素材库", exact: true }).click();
+  const library = page.getByRole("dialog", { name: "素材库", exact: true });
+  const actions = library.getByRole("group", { name: "素材操作" });
+  await actions.getByRole("button", { name: "收藏", exact: true }).click();
+  await expect(actions.getByRole("button", { name: "取消收藏" })).toHaveAttribute("aria-pressed", "true");
+  await library.getByRole("button", { name: "收藏", exact: true }).click();
+  await expect(library.getByRole("button", { name: "选择素材：逆光玻璃杯" })).toBeVisible();
+  await actions.getByRole("button", { name: "编辑素材", exact: true }).click();
+  const edit = page.getByRole("dialog", { name: "编辑素材", exact: true });
+  const layout = edit.locator("[data-card-orientation]");
+  await expect(layout).toHaveAttribute("data-card-orientation", "vertical");
+  await edit.getByRole("button", { name: "左右排版", exact: true }).click();
+  await edit.getByRole("button", { name: "交换图文位置", exact: true }).click();
+  await edit.getByRole("textbox", { name: "道具与服装信息", exact: true }).fill("透明伞和泡泡机。".repeat(25));
+  await edit.getByTitle("从文件添加图片", { exact: true }).click();
+  await expect(edit.locator("[data-image-id]")).toHaveCount(1);
+  await edit.getByRole("separator", { name: "调整图文比例" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await page.screenshot({ path: test.info().outputPath("material-card-regions.png"), animations: "disabled" });
+  await edit.getByRole("button", { name: "保存素材", exact: true }).click();
+  await expect(edit.getByRole("button", { name: "关闭编辑素材" })).toBeEnabled();
+  await edit.getByRole("button", { name: "关闭编辑素材" }).click();
+  await library.getByRole("button", { name: "插入到当前文档", exact: true }).click();
+  await expect(library).toBeHidden();
+  await expect(page.locator("[data-card-orientation]")).toHaveAttribute("data-card-orientation", "horizontal");
+  await expect(page.locator('[data-content-type="prop"] img').first()).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("project-card-regions.png"), animations: "disabled" });
+});

@@ -27,6 +27,18 @@ const staged: MaterialEditImage = {
 };
 
 describe("MaterialContentDraft", () => {
+  it("fits new wide captures to the gallery without changing original dimensions or older frames", () => {
+    const original = material();
+    const draft = new MaterialContentDraft(original, new Map(original.images.map(image => [image.localImageId, source])), vi.fn());
+    const group = draft.getSnapshot().groups[0];
+    draft.addImages(group.id, [{ ...staged, width: 3000, height: 500 }], undefined, 600);
+    const images = draft.getSnapshot().groups[0].images;
+    expect(images.at(-1)).toMatchObject({ sourceWidth: 3000, sourceHeight: 500,
+      frameWidth: 600, frameHeight: 100, aspectRatio: 6 });
+    expect(images[0].frameWidth).toBe(group.images[0].frameWidth);
+    draft.undo();
+    expect(draft.readPayload()).toEqual(original.payload);
+  });
   it("appends selected library images with independent identities, presentation and one undo step", () => {
     const original = material();
     const draft = new MaterialContentDraft(original, new Map(original.images.map((image) => [image.localImageId, source])), vi.fn());

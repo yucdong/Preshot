@@ -1,5 +1,64 @@
 use super::*;
 
+#[test]
+fn native_image_insert_accepts_javascript_numeric_defaults_without_relaxing_content_checks() {
+    for single in [false, true] {
+        let mut fixture = Fixture::new("imageGroup");
+        fixture.plan["schemaVersion"] = json!(17);
+        fixture.plan["document"]["version"] = json!(5);
+        let visual = fixture.plan["imageGroups"][0]["images"][0].as_object_mut().unwrap();
+        visual.remove("crop");
+        visual.remove("fitMode");
+        fixture.write_plan(&fixture.plan);
+        let mut store = fixture.store();
+        let saved = store.save(if single { request(&fixture) } else { fixture.save_request() }).unwrap();
+        let mut input = fixture.insert_request(&saved);
+        if !single {
+            input.selection = Some(MaterialImageSelection {
+                image_ids: vec![saved.images[0].local_image_id.clone()],
+                mode: MaterialImageInsertMode::Images,
+            });
+        }
+        let prepared = store.prepare_insert(input).unwrap();
+        let mut next = fixture.next_plan(&prepared);
+        // JSON.stringify emits 0/1, not 0.0/1.0, for the renderer's defaults.
+        let props = &mut next["document"]["blocks"].as_array_mut().unwrap().last_mut().unwrap()["props"];
+        for (key, value) in [("cropX", 0), ("cropY", 0), ("cropWidth", 1), ("cropHeight", 1)] {
+            props[key] = json!(value);
+        }
+        for (key, value) in [("cropX", json!(0.01)), ("cropWidth", json!(0.5)),
+            ("fitMode", json!("stretch")), ("unexpected", json!(true))] {
+            let mut forged = next.clone();
+            forged["document"]["blocks"].as_array_mut().unwrap().last_mut().unwrap()["props"][key] = value;
+            assert!(insert::commit(fixture.commit_request(&prepared, &forged)).is_err());
+        }
+        insert::commit(fixture.commit_request(&prepared, &next)).unwrap();
+        assert_eq!(fs::read(fixture.project.join(&prepared.images[0].file)).unwrap(), fixture.bytes);
+        assert_eq!(crate::workspace::read_manifest(&fixture.project).unwrap().plan, Some(next));
+    }
+}
+
+#[test]
+fn legacy_materials_insert_into_v17_without_rewriting_payload_or_originals() {
+    for kind in ["imageGroup", "shootingLocation", "modelCard", "prop", "clothing"] {
+        let mut fixture = Fixture::new(kind);
+        let mut store = fixture.store();
+        let saved = store.save(fixture.save_request()).unwrap();
+        assert_eq!(saved.payload.version, 1);
+        fixture.plan["schemaVersion"] = json!(17);
+        fixture.plan["document"]["version"] = json!(5);
+        fixture.write_plan(&fixture.plan);
+        let prepared = store.prepare_insert(fixture.insert_request(&saved)).unwrap();
+        insert::commit(MaterialInsertCommit {
+            operation_id: prepared.operation_id.clone(), project_id: fixture.save_request().project_id,
+            project_path: fixture.project.to_string_lossy().into_owned(),
+            expected_plan: fixture.plan.clone(), next_plan: fixture.next_plan(&prepared),
+        }).unwrap();
+        assert_eq!(store.get(&saved.summary.id).unwrap(), saved);
+        assert_eq!(fs::read(fixture.project.join(&prepared.images[0].file)).unwrap(), fixture.bytes);
+    }
+}
+
 fn request(fixture: &Fixture) -> MaterialSaveRequest {
     let mut input = fixture.save_request();
     let image = validation::payload_images(&input.snapshot.payload).unwrap()[0].clone();
@@ -16,6 +75,39 @@ fn query(text: &str) -> MaterialSearch {
         json!({"query":text,"kind":"image","sort":"relevance","offset":0,"limit":20}),
     )
     .unwrap()
+}
+
+#[test]
+fn resized_native_cover_snapshot_preserves_original_and_visual_crop() {
+    let mut fixture = Fixture::new("imageGroup");
+    let mut input = request(&fixture);
+    fs::create_dir(fixture.project.join("media")).unwrap();
+    fs::write(fixture.project.join("media/photo.png"), &fixture.bytes).unwrap();
+    fixture.plan["schemaVersion"] = json!(17); fixture.plan["document"]["version"] = json!(5);
+    fixture.plan["imageGroups"] = json!([]);
+    fixture.plan["document"]["blocks"] = json!([{"id":"block-source","type":"image","props":{
+        "url":"media/photo.png","name":"正方形","caption":"","previewWidth":200,"previewHeight":200,
+        "showPreview":true,"fitMode":"cover"},"children":[]}]);
+    fixture.write_plan(&fixture.plan);
+    input.expected_plan = fixture.plan.clone(); input.snapshot.sources[0].file = "media/photo.png".into();
+    input.snapshot.payload.version = 2;
+    input.snapshot.payload.component = json!({"kind":"image","name":"正方形","description":"","images":[{
+        "localImageId":input.snapshot.sources[0].local_image_id,"caption":"","aspectRatio":1.5,
+        "sourceWidth":3,"sourceHeight":2,"frameWidth":200,"frameHeight":200,"fitMode":"cover",
+        "crop":{"x":0.166667,"y":0,"width":0.666667,"height":1}}]});
+    let mut store = fixture.store();
+    let saved = store.save(input).unwrap();
+    let project_id = "10000000-0000-4000-8000-000000000001".to_string();
+    let prepared = store.prepare_insert(MaterialInsertRequest {
+        operation_id: Uuid::new_v4().to_string(), material_id: saved.summary.id.clone(), revision: saved.summary.revision,
+        project_id: project_id.clone(), project_path: fixture.project.to_string_lossy().into_owned(),
+        expected_plan: fixture.plan.clone(), target_group_id: None, selection: None,
+    }).unwrap();
+    insert::commit(MaterialInsertCommit {
+        operation_id: prepared.operation_id.clone(), project_id, project_path: fixture.project.to_string_lossy().into_owned(),
+        expected_plan: fixture.plan.clone(), next_plan: fixture.next_plan(&prepared),
+    }).unwrap();
+    assert_eq!(fs::read(fixture.project.join(&prepared.images[0].file)).unwrap(), fixture.bytes);
 }
 
 #[test]
@@ -87,7 +179,15 @@ fn image_material_copies_one_image_searches_metadata_and_inserts_an_independent_
 
 #[test]
 fn native_image_snapshot_verifies_owning_block_file_and_real_dimensions() {
+    verify_native_image_snapshot(3, 2);
+    verify_native_image_snapshot(20000, 2);
+}
+
+fn verify_native_image_snapshot(width: u32, height: u32) {
     let mut fixture = Fixture::new("imageGroup");
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::new_rgb8(width, height).write_to(&mut bytes, image::ImageFormat::Png).unwrap();
+    fixture.bytes = bytes.into_inner();
     let mut input = request(&fixture);
     fs::create_dir(fixture.project.join("media")).unwrap();
     fs::write(fixture.project.join("media/photo.png"), &fixture.bytes).unwrap();
@@ -98,8 +198,8 @@ fn native_image_snapshot_verifies_owning_block_file_and_real_dimensions() {
     input.expected_plan = fixture.plan.clone();
     input.snapshot.sources[0].file = "media/photo.png".into();
     input.snapshot.payload.component = json!({"kind":"image","name":"日落","description":"","images":[{
-        "localImageId":input.snapshot.sources[0].local_image_id,"caption":"逆光","aspectRatio":1.5,
-        "frameWidth":300,"frameHeight":200,"sourceWidth":3,"sourceHeight":2}]});
+        "localImageId":input.snapshot.sources[0].local_image_id,"caption":"逆光","aspectRatio":width as f64 / height as f64,
+        "frameWidth":300,"frameHeight":300.0 / (width as f64 / height as f64),"sourceWidth":width,"sourceHeight":height}]});
     let mut store = fixture.store();
     let mut forged = input.clone();
     forged.operation_id = Uuid::new_v4().to_string();

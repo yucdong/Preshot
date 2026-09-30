@@ -9,6 +9,7 @@ import {
 } from "pdf-lib";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
+import { artifactCollectionsInPlan, migrateProjectPlanV16ToV17 } from "../../domain/plan/canvas/blockDocument";
 import { PreshotPdfPreflightError } from "../../domain/plan/blocknote/pdfExportPreflight";
 import { PDF_VISUAL_CONTRACT } from "../../domain/plan/blocknote/pdfVisualContract";
 import { createReactPdfBlockNoteExporter } from "./reactPdfBlockNoteExporter";
@@ -93,10 +94,10 @@ function plan(
   imageGroups: ProjectPlanV14["imageGroups"] = [],
 ): ProjectPlanV14 {
   return {
-    schemaVersion: 16,
+    schemaVersion: 17,
     artifacts: [],
     title: "React-PDF acceptance",
-    document: { format: "preshot-blocks", version: 4, blocks },
+    document: { format: "preshot-blocks", version: 5, blocks },
     imageGroups,
   };
 }
@@ -276,6 +277,21 @@ afterAll(() => {
 });
 
 describe("production React-PDF acceptance", () => {
+  it("retains every illustration when the sample's three-card row crosses a page boundary", async () => {
+    const sample = migrateProjectPlanV16ToV17(JSON.parse(readFileSync("samples/nanjing-bridge/.preshotproj", "utf8")).plan);
+    const assets = assetsFor(sample);
+    for (const collection of artifactCollectionsInPlan(sample)) {
+      for (const entry of collection.images) assets[entry.file] = TEST_PNG;
+    }
+    const pdf = await PDFDocument.load(await exporter().export(sample, assets));
+    const draws = pdf.getPages().flatMap((_, index) => imageDraws(pdf, index));
+    expect(draws).toHaveLength(8);
+    for (const draw of draws) expect(draw.maxY - draw.minY).toBeGreaterThan(20);
+    for (const [index, page] of pdf.getPages().entries()) for (const draw of imageDraws(pdf, index)) {
+      expect(draw.minY).toBeGreaterThanOrEqual(0);
+      expect(draw.maxY).toBeLessThanOrEqual(page.getHeight());
+    }
+  }, 30_000);
   it("renders the full ordinary BlockNote contract with CJK, links, media, and A4 structure", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const value = plan([

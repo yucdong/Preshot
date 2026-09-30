@@ -561,7 +561,7 @@ test("creates and persists a merged prop information field", async ({
   await expect(menuItems.filter({ hasText: "图片组" }).first()).toBeVisible();
   await expect(menuItems.filter({ hasText: "拍摄场地" }).first()).toBeVisible();
   await expect(menuItems.filter({ hasText: "模特信息" }).first()).toBeVisible();
-  await expect(menuItems.filter({ hasText: "服装" }).first()).toBeVisible();
+  await expect(page.getByText("服装", { exact: true })).toHaveCount(0);
   await expect(menuItems.filter({ hasText: "道具" }).first()).toBeVisible();
   await page.getByText("道具", { exact: true }).click();
 

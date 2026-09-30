@@ -1,5 +1,5 @@
 import { createRoot, type Root } from "react-dom/client";
-import type { ProjectPlanV14 } from "../../domain/plan/canvas/blockDocument";
+import type { ProjectPlanV14, PreshotBlock } from "../../domain/plan/canvas/blockDocument";
 import { LongImageExportSurface, type LongImageExportSurfaceProps } from "../../features/plan/blocknote/export/LongImageExportSurface";
 import {
   assertLongImageExportOuterWidth,
@@ -226,6 +226,26 @@ function cleanup(root: Root, host: HTMLElement): void {
   if (host.isConnected) host.remove();
 }
 
+// React node views mount through portals after the outer editor's layout effect.
+// Do not take the initial, temporarily empty image list as export readiness.
+async function waitForNativeImageNodes(surface: HTMLElement, blocks: PreshotBlock[], timeoutMs: number, signal?: AbortSignal) {
+  const count = (nodes: PreshotBlock[]): number => nodes.reduce((total, block) => total +
+    (block.type === "image" && block.props.url && block.props.showPreview !== false ? 1 : 0) + count(block.children), 0);
+  const expected = count(blocks);
+  if (!expected) return;
+  const ready = () => surface.querySelectorAll('[data-content-type="image"] img[src]').length >= expected;
+  if (ready()) return;
+  const deadline = createReadinessDeadline(timeoutMs, signal);
+  let observer: MutationObserver | undefined;
+  try {
+    await deadline.wait(new Promise<void>(resolve => {
+      observer = new MutationObserver(() => { if (ready()) resolve(); });
+      observer.observe(surface, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
+      if (ready()) resolve();
+    }), "native image node views");
+  } finally { observer?.disconnect(); deadline.finish(); }
+}
+
 function waitForMountedSurface(
   mounted: Promise<HTMLElement>,
   timeoutMs: number,
@@ -304,6 +324,7 @@ export async function mountLongImageExportSurface({
 
   try {
     const element = await waitForMountedSurface(mounted, timeoutMs, signal);
+    await waitForNativeImageNodes(element, plan.document.blocks, timeoutMs, signal);
     await waitForLongImageExportSurface(element, timeoutMs, signal);
     throwIfAborted(signal);
     let destroyed = false;

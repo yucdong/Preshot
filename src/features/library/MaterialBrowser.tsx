@@ -1,6 +1,6 @@
 import { ui, useUiLanguage, uiLocale } from "../../shared/i18n/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Box, Check, Image, Images, LayoutGrid, MapPin, Plus, Search, Star, Trash2, UserRound } from "lucide-react";
+import { Box, Check, FolderOpen, Image, Images, LayoutGrid, MapPin, Plus, Search, Star, Trash2, UserRound } from "lucide-react";
 import type { MaterialCategory, MaterialDetail, MaterialSearch } from "../../domain/library/models";
 import type { MaterialLibraryRepository } from "../../domain/library/ports";
 import type { MaterialBrowserInput } from "./MaterialLibraryContext";
@@ -259,6 +259,21 @@ export function MaterialBrowser({
               <h3>{detail.name}</h3>
               <p className="ml-muted">{materialKindLabels[detail.kind]} · {ui("{{count}} 张图片", { count: detail.imageCount })} · {formatMaterialBytes(detail.byteLength)}</p>
               <div className="ml-actions" role="group" aria-label={ui("素材操作")}>
+                {detail.deletedAt === null && <button type="button" disabled={busy}
+                  aria-pressed={detail.favorite}
+                  onClick={() => void run(ui("正在更新收藏…"), async () => {
+                    try {
+                      await repository.updateMetadata(detail.id, detail.metadataVersion, {
+                        name: detail.name, description: detail.description, tags: detail.tags,
+                        favorite: !detail.favorite,
+                      });
+                    } finally {
+                      if (alive.current) setRefresh(value => value + 1);
+                    }
+                  })}>
+                  <Star size={16} aria-hidden fill={detail.favorite ? "currentColor" : "none"} />
+                  {detail.favorite ? ui("取消收藏") : ui("收藏")}
+                </button>}
                 {!imagesOnly && <button type="button" className="ml-primary"
                   disabled={busy || detail.deletedAt !== null || !repository.contentEditor}
                   title={!repository.contentEditor ? ui("当前环境不支持编辑素材内容") : undefined}
@@ -275,6 +290,16 @@ export function MaterialBrowser({
                     setEditing(lease);
                   })}>{ui("编辑素材")}</button>}
                 <button type="button" disabled={busy} onClick={() => setDialog("preview")}>{ui("预览")}</button>
+                {detail.kind === "imageGroup" && repository.revealImageGroup && <button type="button" disabled={busy}
+                  title={ui("打开已保存的图片组原图目录")}
+                  onClick={() => void run(ui("正在打开原图目录…"), () => repository.revealImageGroup!(detail.id, detail.revision))}>
+                  <FolderOpen size={16} aria-hidden />{ui("打开原图所在位置")}
+                </button>}
+                {detail.kind === "image" && repository.revealImage && <button type="button" disabled={busy || detail.images.length !== 1}
+                  title={ui("在资源管理器中选中素材库保存的原图")}
+                  onClick={() => void run(ui("正在打开原图目录…"), () => repository.revealImage!(detail.id, detail.revision, detail.images[0].localImageId))}>
+                  <FolderOpen size={16} aria-hidden />{ui("打开原图所在位置")}
+                </button>}
               </div>
               {detail.previewPartial && <p className="ml-banner">
                 {ui("缓存缩略图仅展示组件的一部分，不代表内容缺失。请打开预览查看完整内容。")}

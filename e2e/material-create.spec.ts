@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const variants = [
-  { label: "图片组", field: "图片组名称", text: "图片组说明" },
+  { label: "图片组", field: null, text: "素材说明" },
   { label: "模特", field: "模特名称 / 编号", text: "其他信息" },
   { label: "场地", field: "场地名称", text: "场地信息" },
   { label: "道具与服装", field: "道具与服装名称", text: "道具与服装信息" },
@@ -33,7 +33,12 @@ for (const variant of variants) {
     await materialName.fill(name);
     await editor.getByRole("textbox", { name: "素材说明", exact: true }).fill("直接创建的可复用组件");
     await editor.getByRole("textbox", { name: "标签", exact: true }).fill("直接创建，中文检索");
-    await editor.getByRole("textbox", { name: variant.field, exact: true }).fill(`自定义${variant.label}`);
+    if (variant.field) {
+      await editor.getByRole("textbox", { name: variant.field, exact: true }).fill(`自定义${variant.label}`);
+    } else {
+      await expect(editor.locator(".ml-material-metadata").getByRole("textbox")).toHaveCount(3);
+      await expect(editor.locator(".ml-content-canvas").locator("input, textarea")).toHaveCount(0);
+    }
     const text = editor.getByRole("textbox", { name: variant.text, exact: true });
     await text.fill("新建素材也能编辑文字和选择文本");
     await text.press("Home");
@@ -62,9 +67,10 @@ for (const variant of variants) {
     await expect(library.getByRole("button", { name: "全部素材", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(library.getByRole("button", { name: `选择素材：${name}`, exact: true })).toHaveCount(1);
     await expect(library.getByRole("img", { name: `${name}的组件缩略图`, exact: true })).toBeVisible();
+    if (!variant.field) await expect(library.getByText("第二次保存后的素材文字", { exact: true })).toBeVisible();
     await library.getByRole("button", { name: "预览", exact: true }).click();
     const preview = page.getByRole("dialog", { name: "完整组件预览", exact: true });
-    await expect(preview.getByText("第二次保存后的素材文字", { exact: true })).toBeVisible();
+    if (variant.field) await expect(preview.getByText("第二次保存后的素材文字", { exact: true })).toBeVisible();
     await expect(preview.locator("img")).toHaveCount(2);
     await page.screenshot({ path: test.info().outputPath("material-created-preview.png"), animations: "disabled" });
     await preview.getByRole("button", { name: "关闭完整组件预览", exact: true }).click();

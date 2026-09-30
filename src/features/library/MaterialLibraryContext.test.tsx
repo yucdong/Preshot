@@ -91,6 +91,49 @@ function Launcher({
 afterEach(() => { vi.useRealTimers(); });
 
 describe("MaterialLibraryProvider", () => {
+  it("toggles favorites in the details panel using the pinned metadata version", async () => {
+    let current = material;
+    const repo = repository({
+      get: vi.fn(async () => current),
+      search: vi.fn(async () => ({ items: [current], total: 1, indexState: "ready" as const })),
+      updateMetadata: vi.fn(async (_id, _version, metadata) => {
+        current = { ...current, ...metadata, metadataVersion: current.metadataVersion + 1 };
+        return current;
+      }),
+    });
+    render(<MaterialLibraryProvider repository={repo}><Launcher /></MaterialLibraryProvider>);
+    await userEvent.click(screen.getByRole("button", { name: "管理素材" }));
+    const details = await screen.findByRole("complementary", { name: "所选素材详情" });
+    await userEvent.click(await within(details).findByRole("button", { name: "收藏" }));
+    expect(repo.updateMetadata).toHaveBeenCalledWith(material.id, 3, {
+      name: material.name, description: material.description, tags: material.tags, favorite: true,
+    });
+    await userEvent.click(await within(details).findByRole("button", { name: "取消收藏" }));
+    await waitFor(() => expect(current.favorite).toBe(false));
+    expect(current.metadataVersion).toBe(5);
+  });
+  it("refreshes a conflicting favorite update and never resubmits stale metadata", async () => {
+    let current = material;
+    const pending = deferred<MaterialDetail>();
+    const repo = repository({
+      get: vi.fn(async () => current),
+      search: vi.fn(async () => ({ items: [current], total: 1, indexState: "ready" as const })),
+      updateMetadata: vi.fn(() => pending.promise),
+    });
+    render(<MaterialLibraryProvider repository={repo}><Launcher /></MaterialLibraryProvider>);
+    await userEvent.click(screen.getByRole("button", { name: "管理素材" }));
+    const details = await screen.findByRole("complementary", { name: "所选素材详情" });
+    const toggle = await within(details).findByRole("button", { name: "收藏" });
+    fireEvent.click(toggle); fireEvent.click(toggle);
+    expect(toggle).toBeDisabled();
+    expect(repo.updateMetadata).toHaveBeenCalledTimes(1);
+    current = { ...material, name: "另一窗口的新名称", metadataVersion: 4, favorite: true };
+    await act(async () => { pending.reject(new Error("素材已变化，请刷新后重试")); });
+    await expect(within(details).findByRole("heading", { name: current.name })).resolves.toBeInTheDocument();
+    expect(await within(details).findByRole("button", { name: "取消收藏" })).toHaveAttribute("aria-pressed", "true");
+    expect(repo.updateMetadata).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("alert")).toHaveTextContent("素材已变化");
+  });
   it("keeps existing library consumers connected when the provider module is refreshed", async () => {
     // A timestamped import re-evaluates the provider, as Vite does during HMR,
     // while Launcher retains the hook imported before that refresh.
@@ -292,7 +335,7 @@ describe("MaterialLibraryProvider", () => {
     await user.click(screen.getByRole("button", { name: "管理素材" }));
     await screen.findByRole("button", { name: "编辑素材" });
     expect(within(screen.getByRole("group", { name: "素材操作" })).getAllByRole("button").map((button) => button.textContent))
-      .toEqual(["编辑素材", "预览"]);
+      .toEqual(["收藏", "编辑素材", "预览"]);
     for (const name of ["编辑内容", "编辑信息", "收藏素材", "刷新素材", "重新生成缩略图"]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
     }
@@ -486,7 +529,7 @@ describe("MaterialLibraryProvider", () => {
     expect(screen.queryByRole("button", { name: "服装" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "道具与服装" }));
     await waitFor(() => expect(repo.search).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "propClothing", offset: 0 })));
-    await user.click(screen.getByRole("button", { name: "收藏" }));
+    await user.click(screen.getAllByRole("button", { name: "收藏" })[0]);
     await waitFor(() => expect(repo.search).toHaveBeenLastCalledWith(expect.objectContaining({ favorites: true })));
     await user.selectOptions(screen.getByRole("combobox", { name: "排序方式" }), "name");
     await waitFor(() => expect(repo.search).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "name" })));
@@ -791,9 +834,9 @@ describe("MaterialLibraryProvider", () => {
     await user.click(await screen.findByRole("button", { name: "编辑素材" }));
     const editor = await screen.findByRole("dialog", { name: "编辑素材" });
     await user.type(within(editor).getByRole("textbox", { name: "素材名称" }), "修改");
-    const title = await within(editor).findByRole("textbox", { name: "图片组名称" });
-    await user.clear(title);
-    await user.type(title, "保存后的组件");
+    const description = within(editor).getByRole("textbox", { name: "素材说明" });
+    await user.clear(description);
+    await user.type(description, "保存后的素材说明");
     const reads = vi.mocked(repo.get).mock.calls.length;
     await user.click(within(editor).getByRole("button", { name: "保存素材" }));
     await waitFor(() => expect(within(editor).getByRole("button", { name: "关闭" })).toBeEnabled());
@@ -803,14 +846,14 @@ describe("MaterialLibraryProvider", () => {
     await user.click(within(editor).getByRole("button", { name: "关闭" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "编辑素材" })).not.toBeInTheDocument());
     await waitFor(() => expect(createPreview).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-      name: "窗边参考修改", revision: 2, payload: expect.objectContaining({ component: expect.objectContaining({ name: "保存后的组件" }) }),
+      name: "窗边参考修改", description: "保存后的素材说明", revision: 2, payload: material.payload,
     })));
     expect(screen.queryByRole("region", { name: "组件只读预览" })).not.toBeInTheDocument();
     await act(async () => preview.resolve());
     expect(await screen.findByRole("img", { name: "窗边参考修改的组件缩略图" })).toHaveAttribute("src", cache);
     expect(screen.getByRole("searchbox")).toHaveFocus();
     await user.click(screen.getByRole("button", { name: "预览" }));
-    expect(await screen.findByRole("heading", { name: "保存后的组件" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "原组件标题" })).toBeVisible();
     expect(contentEditor.commitEdit).toHaveBeenCalledOnce();
   });
 

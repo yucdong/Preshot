@@ -20,6 +20,7 @@ import {
   type ReferenceImage,
 } from "../canvas/models";
 import { layoutDocumentImageGroupForWidth } from "../canvas/documentImageGroupLayout";
+import { defaultImageFrame } from "../canvas/plan";
 import type { NormalizedImageCrop } from "../canvas/imageView";
 import type {
   PlanMediaStore,
@@ -54,6 +55,9 @@ export type BlockNotePlanProvider = () => ProjectPlanV15;
 export interface BlockNotePlanService {
   loadPlan(projectPath: string, projectName: string): Promise<BlockNotePlanLoadResult>;
   savePlan(projectPath: string, plan: ProjectPlanV15): Promise<void>;
+  imageDisplay?(projectPath: string, file: string, edge: number, cancellation?: Promise<void>): Promise<string>;
+  importImageStream?: PlanMediaStore["importImageStream"];
+  imageDimensions?(projectPath: string, file: string): Promise<{ sourceWidth: number; sourceHeight: number } | undefined>;
   loadImage(projectPath: string, file: string): Promise<string>;
   importMedia(
     projectPath: string,
@@ -69,6 +73,8 @@ export interface BlockNotePlanService {
     getLatestPlan: BlockNotePlanProvider,
     groupId: string,
     sourcePaths: string[],
+    onProgress?: (completed: number, total: number) => void,
+    maxFrameWidth?: number,
   ): Promise<{
     plan: ProjectPlanV15;
     images: Array<{ image: ReferenceImage; dataUrl: string }>;
@@ -499,6 +505,11 @@ export function createBlockNotePlanService({
         await saveValidatedPlan(projectPath, plan);
         return { status: "migrated", plan };
       }
+      if (foundSchemaVersion === 16) {
+        const plan = validateProjectPlanV15(raw);
+        await saveValidatedPlan(projectPath, plan);
+        return { status: "migrated", plan };
+      }
       if (foundSchemaVersion !== BLOCKNOTE_PLAN_SCHEMA_VERSION) {
         return {
           status: "incompatible",
@@ -517,6 +528,9 @@ export function createBlockNotePlanService({
         )
       );
     },
+    ...(imageStore.imageDisplay ? { imageDisplay: imageStore.imageDisplay.bind(imageStore) } : {}),
+    ...(mediaStore.importImageStream ? { importImageStream: (projectPath: string, name: string, size: number, chunks: AsyncIterable<Uint8Array>) => enqueue(() => mediaStore.importImageStream!(projectPath, name, size, chunks)) } : {}),
+    imageDimensions: (projectPath, file) => imageStore.imageDimensions?.(projectPath, file) ?? Promise.resolve(undefined),
     async loadImage(projectPath, file) {
       return imageStore.loadImage(projectPath, file);
     },
@@ -526,7 +540,7 @@ export function createBlockNotePlanService({
     async loadMedia(projectPath, file) {
       return mediaStore.loadMedia(projectPath, file);
     },
-    importImages(projectPath, getLatestPlan, groupId, sourcePaths) {
+    importImages(projectPath, getLatestPlan, groupId, sourcePaths, onProgress, maxFrameWidth) {
       return enqueue(async () => {
         const imported: Array<{ image: ReferenceImage; dataUrl: string }> = [];
         let next: ProjectPlanV15;
@@ -568,6 +582,7 @@ export function createBlockNotePlanService({
               collection.images.map((image) => image.id)
             ),
           ]);
+          onProgress?.(0, sourcePaths.length);
           for (const sourcePath of sourcePaths) {
             const asset = await imageStore.importImage(projectPath, sourcePath);
             const imageId = createId();
@@ -576,9 +591,9 @@ export function createBlockNotePlanService({
               image: {
                 id: imageId,
                 file: asset.file,
-                aspectRatio: 1,
-                frameWidth: DEFAULT_IMAGE_HEIGHT,
-                frameHeight: DEFAULT_IMAGE_HEIGHT,
+                ...(asset.sourceWidth && asset.sourceHeight ? { sourceWidth: asset.sourceWidth, sourceHeight: asset.sourceHeight } : {}),
+                aspectRatio: asset.sourceWidth && asset.sourceHeight ? asset.sourceWidth / asset.sourceHeight : 1,
+                ...defaultImageFrame(asset.sourceWidth && asset.sourceHeight ? asset.sourceWidth / asset.sourceHeight : 1, maxFrameWidth),
               },
             };
             imported.push(entry);
@@ -588,6 +603,7 @@ export function createBlockNotePlanService({
               );
             }
             existingImageIds.add(imageId);
+            onProgress?.(imported.length, sourcePaths.length);
           }
           const plan = getLatestPlan();
           next = replaceCollectionImages(plan, groupId, (images) =>

@@ -1,3 +1,5 @@
+import { insertMenuMiddleware } from "./insertMenuPosition";
+import { blockSideMenuMiddleware } from "./blockSideMenuPosition";
 import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import "@blocknote/core/fonts/inter.css";
 import { createLiveEditorDictionary, editorPlaceholderStyles } from "./editorLanguage";
@@ -21,7 +23,6 @@ import {
   Library,
   MapPin,
   PackageOpen,
-  Shirt,
 } from "lucide-react";
 import {
   useCallback,
@@ -67,8 +68,10 @@ import { PreshotFormattingToolbar } from "./PreshotFormattingToolbar";
 import { useColumnResize } from "./useColumnResize";
 import { attachColumnStructureGuard } from "./columnOperations";
 import { CaptureBlockImageContext, type CaptureBlockImage } from "./ImageBlockCaptureContext";
+import { useInsertMenuPortal } from "./useInsertMenuPortal";
 
 interface BlockNoteDocumentEditorProps {
+  active?: boolean;
   ariaLabel: string;
   document: PreshotBlockDocument;
   artifactController: ArtifactBlockController;
@@ -126,6 +129,7 @@ function invalidNestedSidecarBlock(
 }
 
 export function BlockNoteDocumentEditor({
+  active = true,
   ariaLabel,
   artifactController,
   document,
@@ -267,6 +271,8 @@ export function BlockNoteDocumentEditor({
       }
     };
     const unregisterMaterial = onMaterialEditorReady?.({
+      setEditable(editable) { editor.isEditable = editable; },
+      flushDocument() { onChangeRef.current(serializeBlockNoteDocumentAssets(editor.document, persistMediaUrl)); },
       getAnchor: () => {
         const anchor = lastActiveBlockRef.current;
         return anchor && editor.getBlock(anchor) ? anchor : null;
@@ -302,7 +308,7 @@ export function BlockNoteDocumentEditor({
     return () => {
       unregisterMaterial?.();
     };
-  }, [editor, onMaterialEditorReady, resolveMediaUrl]);
+  }, [editor, onMaterialEditorReady, resolveMediaUrl, persistMediaUrl]);
 
   useEffect(() => {
     if (import.meta.env.VITE_WORKSPACE_ADAPTER !== "memory") return;
@@ -503,6 +509,8 @@ export function BlockNoteDocumentEditor({
     }
   }, [editor, notifyBlockOperation, sidecarCloner]);
 
+  const insertMenuPortal = useInsertMenuPortal(editor, resolved, active);
+
   return (
     <div
       aria-label={ariaLabel}
@@ -540,9 +548,12 @@ export function BlockNoteDocumentEditor({
         >
           <FilePanelController filePanel={PreshotImageFilePanel} />
           <FormattingToolbarController formattingToolbar={PreshotFormattingToolbar} />
-          <SuggestionMenuController
+          {active && <SuggestionMenuController
+            portalElement={insertMenuPortal}
+            floatingUIOptions={{ useFloatingOptions: { strategy: "fixed", middleware: insertMenuMiddleware } }}
             getItems={async (query) => {
               const defaults = getDefaultReactSlashMenuItems(editor);
+              const imageTitle = editor.dictionary.slash_menu.image.title;
               const insertArtifact = (
                 kind: ArtifactKind,
               ) => {
@@ -568,6 +579,8 @@ export function BlockNoteDocumentEditor({
                 }
               };
               const items = [
+                ...defaults.filter((item) => item.title === imageTitle)
+                  .map((item) => ({ ...item, group: ui("素材组件") })),
                 {
                   title: ui("图片组"),
                   subtext: ui("插入可拖拽、可缩放的参考图片组"),
@@ -599,17 +612,9 @@ export function BlockNoteDocumentEditor({
                   onItemClick: () => insertArtifact("modelCard"),
                 },
                 {
-                  title: ui("服装"),
-                  subtext: ui("整理服装信息和参考图片"),
-                  aliases: ["衣服", "造型", "garment", "clothing"],
-                  group: ui("素材组件"),
-                  icon: <Shirt size={18} />,
-                  onItemClick: () => insertArtifact("clothing"),
-                },
-                {
                   title: ui("道具"),
-                  subtext: ui("整理道具图片和来源"),
-                  aliases: ["物件", "props", "prop"],
+                  subtext: ui("整理道具、服装的图片和来源"),
+                  aliases: ["物件", "服装", "衣服", "造型", "props", "prop", "garment", "clothing", "wardrobe", "outfit"],
                   group: ui("素材组件"),
                   icon: <PackageOpen size={18} />,
                   onItemClick: () => insertArtifact("prop"),
@@ -620,15 +625,17 @@ export function BlockNoteDocumentEditor({
                   aliases: ["素材库", "library", "saved"],
                   group: ui("素材组件"),
                   icon: <Library size={18} />,
-                  onItemClick: onInsertMaterial,
+                  // BlockNote passes the editor to menu callbacks; document insertion takes no target group.
+                  onItemClick: () => onInsertMaterial(),
                 }] : []),
-                ...defaults,
+                ...defaults.filter((item) => item.title !== imageTitle),
               ];
               return filterSuggestionItems(items, query);
             }}
             triggerCharacter="/"
-          />
+          />}
           <SideMenuController
+            floatingUIOptions={{ useFloatingOptions: { middleware: blockSideMenuMiddleware } }}
             sideMenu={() => (
               <PreshotBlockSideMenu
                 controller={sidecarCloner}

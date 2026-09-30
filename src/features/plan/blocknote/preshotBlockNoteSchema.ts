@@ -5,6 +5,7 @@ import {
 } from "@blocknote/core";
 import { ColumnBlock, withMultiColumn } from "@blocknote/xl-multi-column";
 import { imageGroupBlockSpec } from "./imageGroupBlockSpec";
+import { preshotImageBlockSpec } from "./preshotImageBlockSpec";
 import {
   clothingBlockSpec,
   modelCardBlockSpec,
@@ -25,7 +26,7 @@ const preshotBaseBlockNoteSchema = BlockNoteSchema.create({
     table: defaultBlockSpecs.table,
     divider: defaultBlockSpecs.divider,
     file: defaultBlockSpecs.file,
-    image: defaultBlockSpecs.image,
+    image: preshotImageBlockSpec(),
     video: defaultBlockSpecs.video,
     audio: defaultBlockSpecs.audio,
     imageGroup: imageGroupBlockSpec(),

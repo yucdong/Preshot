@@ -41,7 +41,9 @@ function validateImported(value: unknown): ImportedImage {
   if (!isRecord(value)) {
     throw new Error("Malformed native response");
   }
-  return { file: requireString(value.file), dataUrl: requireString(value.dataUrl) };
+  return { file: requireString(value.file), dataUrl: value.dataUrl === "" && typeof value.previewError === "string" ? "" : requireString(value.dataUrl),
+    ...(typeof value.previewError === "string" ? { previewError: value.previewError } : {}),
+    ...(typeof value.sourceWidth === "number" && typeof value.sourceHeight === "number" ? { sourceWidth: value.sourceWidth, sourceHeight: value.sourceHeight } : {}) };
 }
 
 function validateImportedMedia(value: unknown): ImportedPlanMedia {
@@ -50,7 +52,8 @@ function validateImportedMedia(value: unknown): ImportedPlanMedia {
   }
   return {
     file: requireString(value.file),
-    dataUrl: requireString(value.dataUrl),
+    dataUrl: value.dataUrl === "" && typeof value.previewError === "string" ? "" : requireString(value.dataUrl),
+    ...(typeof value.previewError === "string" ? { previewError: value.previewError } : {}),
     name: requireString(value.name),
     mimeType: requireString(value.mimeType),
   };
@@ -112,6 +115,18 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
       try { await invokeCommand("abort_image_paste", { projectPath, operationId }); }
       catch (error) { throw new Error(ui("无法清理未提交的图片粘贴：{{v0}}", { v0: detail(error) }), { cause: error }); }
     },
+    async imageDisplay(projectPath, file, edge, cancellation) {
+      const id = crypto.randomUUID();
+      let finished = false;
+      const pending = invokeCommand("project_image_display", { projectPath, file, edge, id });
+      void cancellation?.then(() => { if (!finished) void invokeCommand("cancel_image_display", { id }).catch(() => undefined); });
+      try { return requireString(await pending); } finally { finished = true; }
+    },
+    async imageDimensions(projectPath, file) {
+      const dimensions = await invokeCommand("project_image_dimensions", { projectPath, file });
+      if (!Array.isArray(dimensions) || dimensions.length !== 2 || dimensions.some(v => !Number.isInteger(v) || v <= 0)) throw new Error("Invalid original image dimensions");
+      return { sourceWidth: dimensions[0], sourceHeight: dimensions[1] };
+    },
     async importImage(projectPath, sourcePath) {
       try {
         return validateImported(
@@ -152,7 +167,8 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         const transactionId = requireString(value.transactionId);
         const image = {
           file: requireString(value.file),
-          dataUrl: requireString(value.dataUrl),
+          dataUrl: value.dataUrl === "" && typeof value.previewError === "string" ? "" : requireString(value.dataUrl),
+    ...(typeof value.previewError === "string" ? { previewError: value.previewError } : {}),
           width: requirePositiveInteger(value.width),
           height: requirePositiveInteger(value.height),
         };
@@ -203,7 +219,8 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
         }
         return {
           file: requireString(value.file),
-          dataUrl: requireString(value.dataUrl),
+          dataUrl: value.dataUrl === "" && typeof value.previewError === "string" ? "" : requireString(value.dataUrl),
+    ...(typeof value.previewError === "string" ? { previewError: value.previewError } : {}),
           width: requirePositiveInteger(value.width),
           height: requirePositiveInteger(value.height),
         };
@@ -212,6 +229,32 @@ export function createTauriPlan({ invokeCommand = invoke }: Dependencies = {}): 
           `Unable to crop the project reference image to a copy: ${detail(error)}`,
           { cause: error },
         );
+      }
+    },
+    async importImageStream(projectPath, name, size, chunks) {
+      const id = crypto.randomUUID();
+      try {
+        await invokeCommand("begin_image_import", { projectPath, id, name, size });
+        let offset = 0;
+        for await (const chunk of chunks) {
+          for (let start = 0; start < chunk.length; start += 1024 * 1024) {
+            const bytes = Array.from(chunk.subarray(start, start + 1024 * 1024));
+            await invokeCommand("append_image_import", { projectPath, id, offset, bytes });
+            offset += bytes.length;
+          }
+        }
+        let result: unknown;
+        try { result = await invokeCommand("finish_image_import", { projectPath, id }); }
+        catch { result = await invokeCommand("finish_image_import", { projectPath, id }); }
+        return validateImportedMedia(result);
+      } catch (cause) {
+        try { await invokeCommand("abort_image_import", { projectPath, id }); }
+        catch (cleanup) {
+          throw new Error(`Original image import cleanup is incomplete: ${detail(cleanup)}. Reopen this project before retrying.`, {
+            cause: new AggregateError([cause, cleanup]),
+          });
+        }
+        throw new Error(`Unable to import the original image: ${detail(cause)}`, { cause });
       }
     },
     async importMedia(projectPath, input) {

@@ -29,6 +29,28 @@ const material = {
 };
 
 describe("Tauri material library boundary", () => {
+  it("reveals originals by pinned material or draft identity without exposing paths", async () => {
+    const invokeCommand = vi.fn().mockResolvedValue(undefined);
+    const repository = createTauriMaterialLibrary({ invokeCommand });
+    await repository.revealImage!(material.id, 2, "image-2");
+    expect(invokeCommand).toHaveBeenLastCalledWith("library_reveal_image", {
+      id: material.id, revision: 2, localImageId: "image-2",
+    });
+    await repository.contentEditor!.revealEditImage!("draft", "staged-1");
+    expect(invokeCommand).toHaveBeenLastCalledWith("library_reveal_edit_image", {
+      sessionId: "draft", localImageId: "staged-1",
+    });
+    await repository.revealImageGroup!(material.id, 2);
+    expect(invokeCommand).toHaveBeenLastCalledWith("library_reveal_image_group", { id: material.id, revision: 2 });
+    await repository.contentEditor!.revealEditImageGroup!("draft");
+    expect(invokeCommand).toHaveBeenLastCalledWith("library_reveal_edit_image_group", { sessionId: "draft" });
+    invokeCommand.mockRejectedValue(new Error("Original image is missing"));
+    await expect(repository.revealImage!(material.id, 2, "image-2")).rejects.toThrow("无法打开原图所在位置");
+    await expect(repository.contentEditor!.revealEditImage!("draft", "staged-1")).rejects.toThrow("无法打开原图所在位置");
+    await expect(repository.revealImageGroup!(material.id, 2)).rejects.toThrow("无法打开原图所在位置");
+    await expect(repository.contentEditor!.revealEditImageGroup!("draft")).rejects.toThrow("无法打开原图所在位置");
+  });
+
   it("accepts native media copies only for image material insertion", async () => {
     const payload = validateMaterialPayload({ format: "preshot-material", version: 1, kind: "image", component: {
       kind: "image", name: "图片", description: "", images: [{ localImageId: "image-1", aspectRatio: 1, frameWidth: 100, frameHeight: 100 }],
@@ -219,7 +241,9 @@ describe("Tauri material library boundary", () => {
     const invokeCommand = vi.fn();
     const pickImageFiles = vi.fn(async () => []);
     const editor = createTauriMaterialLibrary({ invokeCommand, imagePicker: { pickImageFiles } }).contentEditor!;
-    expect(await editor.importEditImages("draft")).toEqual([]);
+    const onSelected = vi.fn();
+    expect(await editor.importEditImages("draft", onSelected)).toEqual([]);
+    expect(onSelected).not.toHaveBeenCalled();
     expect(pickImageFiles).toHaveBeenCalledWith("选择素材图片");
     expect(invokeCommand).not.toHaveBeenCalled();
   });
@@ -231,7 +255,9 @@ describe("Tauri material library boundary", () => {
     const imagePicker = { pickImageFiles: vi.fn(async () => ["C:\\photos\\cup.png"]) };
     const editor = createTauriMaterialLibrary({ invokeCommand, imagePicker }).contentEditor!;
     expect(await editor.loadEditImage("draft", "original-image")).toBe(staged.dataUrl);
-    expect(await editor.importEditImages("draft")).toEqual([staged]);
+    const onSelected = vi.fn();
+    expect(await editor.importEditImages("draft", onSelected)).toEqual([staged]);
+    expect(onSelected).toHaveBeenCalledExactlyOnceWith(1);
     const bounds = { x: 1, y: 2, width: 20, height: 30 };
     expect(await editor.cropEditImage("draft", "original-image", bounds)).toEqual(staged);
     expect(invokeCommand.mock.calls).toEqual([
@@ -241,8 +267,52 @@ describe("Tauri material library boundary", () => {
     ]);
   });
 
+  it("accepts camera JPEGs larger than 16 MiB for import, reopening and library reads", async () => {
+    const byteLength = 18 * 1024 * 1024;
+    const dataUrl = `data:image/jpeg;base64,${"AAAA".repeat(byteLength / 3)}`;
+    const staged = { localImageId: "camera", mimeType: "image/jpeg", byteLength, width: 6048, height: 4032, dataUrl };
+    const invokeCommand = vi.fn().mockResolvedValueOnce([staged])
+      .mockResolvedValueOnce(dataUrl).mockResolvedValueOnce(dataUrl);
+    const repository = createTauriMaterialLibrary({ invokeCommand,
+      imagePicker: { pickImageFiles: vi.fn(async () => ["C:\\photos\\camera.jpg"]) } });
+    const imported = await repository.contentEditor!.importEditImages("draft");
+    expect(imported[0].byteLength).toBe(byteLength);
+    expect(await repository.contentEditor!.loadEditImage("draft", "camera")).toBe(dataUrl);
+    expect(await repository.loadImage(material.id, 1, "camera")).toBe(dataUrl);
+  });
+
+  it.each([[20000, 2], [12000, 8000]])("accepts %i by %i originals without a library resolution cap", async (width, height) => {
+    const staged = { localImageId: "camera", mimeType: "image/png", byteLength: 3, width, height,
+      dataUrl: "data:image/png;base64,YWJj" };
+    const saved = { ...material, imageCount: 1, byteLength: 3,
+      images: [{ localImageId: "camera", blobId: "a".repeat(64), mimeType: "image/png", byteLength: 3, width, height }],
+      payload: { ...material.payload, component: { ...material.payload.component, gallery: { images: [
+        { localImageId: "camera", aspectRatio: width / height, frameWidth: 300, frameHeight: 300 * height / width },
+      ] } } },
+    };
+    const repository = createTauriMaterialLibrary({
+      invokeCommand: vi.fn().mockResolvedValueOnce([staged]).mockResolvedValueOnce(saved),
+      imagePicker: { pickImageFiles: vi.fn(async () => ["camera.png"]) },
+    });
+    expect(await repository.contentEditor!.importEditImages("draft")).toEqual([staged]);
+    expect((await repository.get(material.id)).images[0]).toMatchObject({ width, height });
+  });
+
   it.each([
-    { localImageId: "image", mimeType: "image/png", byteLength: 3, width: 8192, height: 8192, dataUrl: "data:image/png;base64,YWJj" },
+    ["library_size", "64 MiB"],
+    ["library_image_size", "64 MiB"],
+    ["library_image_dimensions", "尺寸信息无效"],
+  ])("explains native image import limits for %s", async (code, limit) => {
+    const editor = createTauriMaterialLibrary({
+      invokeCommand: vi.fn().mockRejectedValue({ code, message: "Native file limit" }),
+      imagePicker: { pickImageFiles: vi.fn(async () => ["camera.jpg"]) },
+    }).contentEditor!;
+    await expect(editor.importEditImages("draft")).rejects.toThrow(`无法导入素材图片：`);
+    await expect(editor.importEditImages("draft")).rejects.toThrow(limit);
+  });
+
+  it.each([
+    { localImageId: "image", mimeType: "image/png", byteLength: 3, width: 0, height: 8192, dataUrl: "data:image/png;base64,YWJj" },
     { localImageId: "image", mimeType: "image/png", byteLength: 3, width: 10, height: 20, dataUrl: "https://example.com/image.png" },
     { localImageId: "", mimeType: "image/png", byteLength: 3, width: 10, height: 20, dataUrl: "data:image/png;base64,YWJj" },
   ])("rejects malformed staged image responses", async (staged) => {
@@ -337,7 +407,7 @@ describe("Tauri material library boundary", () => {
     await expect(repository.loadPreview(material.id, 1)).resolves.toBeNull();
     expect(invokeCommand).toHaveBeenCalledWith("library_load_preview", {
       id: material.id, revision: 1,
-      renderKey: "preshot-material-preview:v6:plan15:bn0.53:light:900:480:8192:8M:png",
+      renderKey: "preshot-material-preview:v8:plan17:bn0.53:light:900:480:8192:8M:png",
     });
     await expect(repository.loadImage(material.id, 1, "i1")).rejects.toThrow();
   });

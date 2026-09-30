@@ -1,3 +1,6 @@
+import { imageDerivativeRequests } from "../../../domain/plan/canvas/imageDerivativeRequests";
+import { ArtifactDraftContext, createArtifactDraftRegistry } from "./ArtifactDraftContext";
+import { prepareProjectCopy } from "./projectCopyPreparation";
 import { ui, useUiLanguage } from "../../../shared/i18n/ui";
 import {
   useCallback,
@@ -76,6 +79,8 @@ import {
   fitBlockNoteDocumentZoom,
 } from "./canvasViewport";
 import type { ImageGroupBlockController } from "./ImageGroupBlockContext";
+import type { ImageImportProgressState } from "./ImageImportProgress";
+import { useCaptureReview } from "../useCaptureReview";
 import { applyMeasuredImages, measureImageDimensions } from "./imageHydration";
 import { assetLoadPercent, type PlanLoadProgress } from "./planLoadProgress";
 import type { LongImageExportSettings } from "./LongImageExportDialog";
@@ -108,6 +113,7 @@ interface BlockNoteProjectCanvasProviderProps {
   active?: boolean;
   savePaused?: boolean;
   registerBeforeClose?(path: string, flush: (saveChanges?: boolean) => Promise<void>): () => void;
+  registerBeforeCopy?(path: string, prepare: () => Promise<() => void>): () => void;
   imagePasteRepository?: ImagePasteRepository;
   onLoadProgress?(projectPath: string, progress: PlanLoadProgress): void;
   projectId?: string;
@@ -452,6 +458,7 @@ export function BlockNoteProjectCanvasProvider({
   active = true,
   savePaused = false,
   registerBeforeClose,
+  registerBeforeCopy,
   onLoadProgress,
   projectId,
   projectName,
@@ -482,11 +489,18 @@ export function BlockNoteProjectCanvasProvider({
   const reportEditorMounted = useCallback(() => setEditorMounted(true), []);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [previewWarning, setPreviewWarning] = useState(false);
+  const { reviewCapture, captureReviewDialog } = useCaptureReview(active);
+  const [copyDrafts] = useState(createArtifactDraftRegistry);
+  const copyLockedRef = useRef(false);
+  const mediaUploadsRef = useRef(new Set<Promise<unknown>>());
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [migrationNotice, setMigrationNotice] = useState<string | null>(null);
   const [imageSrc, setImageSrc] = useState<Record<string, string>>({});
-  const [mediaSrc, setMediaSrc] = useState<Record<string, string>>({});
+  const [imageImports, setImageImports] = useState<Record<string, ImageImportProgressState>>({});
+  const imageImportsRef = useRef(new Set<string>());
+  const [, setMediaSrc] = useState<Record<string, string>>({});
   const [lightboxTarget, setLightboxTarget] = useState<LightboxTarget | null>(
     null,
   );
@@ -635,6 +649,25 @@ export function BlockNoteProjectCanvasProvider({
     }
   }), [projectPath, registerBeforeClose, retirementCoordinator, save]);
 
+  useLayoutEffect(() => registerBeforeCopy?.(projectPath, () => prepareProjectCopy({
+    freeze() {
+      if (copyLockedRef.current || libraryBusyRef.current || exportInFlightRef.current || !planRef.current) {
+        throw new Error(ui("项目仍在加载、处理素材或导出，请完成后再复制。"));
+      }
+      copyLockedRef.current = true;
+      materialEditorRef.current?.setEditable?.(false);
+      return () => { copyLockedRef.current = false; materialEditorRef.current?.setEditable?.(true); };
+    },
+    flushFields() { flushSync(() => copyDrafts.flush()); },
+    async drain() {
+      await captureTaskRef.current;
+      await Promise.all([...mediaUploadsRef.current]);
+      await imageMutationTailRef.current;
+    },
+    flushDocument() { flushSync(() => materialEditorRef.current?.flushDocument?.()); },
+    save: () => save(true),
+  })), [copyDrafts, projectPath, registerBeforeCopy, save]);
+
   const changeZoom = useCallback((
     requested: number,
     anchor?: { clientX: number; clientY: number },
@@ -682,6 +715,7 @@ export function BlockNoteProjectCanvasProvider({
   const enqueueImageMutation = useCallback(<T,>(
     operation: (context: ImageMutationContext) => Promise<T> | T,
   ): Promise<T> => {
+    if (copyLockedRef.current) return Promise.reject(new Error(ui("项目正在复制，请完成后再编辑。")));
     const baseRevision = planRevisionRef.current;
     const run = imageMutationTailRef.current.then(() =>
       operation({
@@ -870,8 +904,8 @@ export function BlockNoteProjectCanvasProvider({
         const nextMedia = Object.fromEntries(mediaEntries);
         mediaSrcRef.current = nextMedia;
         setMediaSrc(nextMedia);
-        const measured = await applyMeasuredImages(plan, imageEntries, async (source) => {
-          const dimensions = await measureImageDimensions(source);
+        const measured = await applyMeasuredImages(plan, imageEntries, async (source, file) => {
+          const dimensions = await service.imageDimensions?.(projectPath, file) ?? await measureImageDimensions(source);
           assetFinished();
           return dimensions;
         });
@@ -1191,7 +1225,7 @@ export function BlockNoteProjectCanvasProvider({
       const revision = planRevisionRef.current;
       const block = findImageMaterialBlock(current, blockId);
       const dimensions = block?.type === "image" && typeof block.props.url === "string" && block.props.url.startsWith("media/")
-        ? await measureImageDimensions(resolveMediaUrl(block.props.url)) : undefined;
+        ? await service.imageDimensions?.(projectPath, block.props.url) ?? await measureImageDimensions(resolveMediaUrl(block.props.url)) : undefined;
       requireLibraryReady();
       if (planRevisionRef.current !== revision) throw new Error(ui("图片已变化，请重新保存到素材库。"));
       const snapshot = imageId || block?.type === "image"
@@ -1558,6 +1592,7 @@ export function BlockNoteProjectCanvasProvider({
       else reportImageMutationFailure(new Error(ui("图片所在组件已变化，请重新选择。")));
     } } : {}),
     selectedImageId,
+    getImportProgress: (groupId) => imageImports[groupId],
     subscribe(listener) {
       metadataListenersRef.current.add(listener);
       return () => metadataListenersRef.current.delete(listener);
@@ -1608,11 +1643,18 @@ export function BlockNoteProjectCanvasProvider({
     getImageSrc(file) {
       return imageSrc[file];
     },
-    addImages(groupId) {
-      if (!planRef.current) return;
+    addImages(groupId, maxFrameWidth) {
+      if (!planRef.current || imageImportsRef.current.has(groupId)) return;
+      imageImportsRef.current.add(groupId);
+      setCanvasError(null);
+      const progress = (value: ImageImportProgressState) => {
+        if (mountedRef.current) setImageImports((previous) => ({ ...previous, [groupId]: value }));
+      };
+      progress({ phase: "waiting" });
       void enqueueImageMutation(async (context) => {
         const files = await picker.pickImageFiles(ui("选择参考图片"));
         if (!files || files.length === 0) return;
+        progress({ phase: "loading", completed: 0, total: files.length });
         let serviceRevision = context.getLatestRevision();
         const result = await service.importImages(
           projectPath,
@@ -1622,7 +1664,12 @@ export function BlockNoteProjectCanvasProvider({
           },
           groupId,
           files,
+          (completed, total) => progress({
+            phase: completed === total ? "preparing" : "loading", completed, total,
+          }),
+          maxFrameWidth,
         );
+        progress({ phase: "preparing", completed: files.length, total: files.length });
         if (mountedRef.current) {
           setImageSrc((existing) => ({
             ...existing,
@@ -1631,6 +1678,7 @@ export function BlockNoteProjectCanvasProvider({
             ),
           }));
         }
+        if (result.images.some(entry => !entry.dataUrl)) setPreviewWarning(true);
         const entries = result.images.map((entry) => [
           entry.image.file,
           entry.dataUrl,
@@ -1645,10 +1693,17 @@ export function BlockNoteProjectCanvasProvider({
                 groupId,
               ),
         );
-      }).catch(reportImageMutationFailure);
+      }).catch(reportImageMutationFailure).finally(() => {
+        imageImportsRef.current.delete(groupId);
+        if (mountedRef.current) setImageImports((previous) => {
+          const next = { ...previous };
+          delete next[groupId];
+          return next;
+        });
+      });
     },
     captureImage: screenCapture
-      ? (groupId) => {
+      ? (groupId, maxFrameWidth) => {
           if (captureTaskRef.current || captureTokenRef.current || !planRef.current) return;
           setCanvasError(null);
           const task = enqueueImageMutation(async (context) => {
@@ -1668,6 +1723,19 @@ export function BlockNoteProjectCanvasProvider({
                   continue;
                 }
                 capturedPath = result.path;
+                if (result.review) {
+                  const decision = await reviewCapture(result.review, new Promise<void>(() => {}));
+                  if (decision === "cancel" || !mountedRef.current) return;
+                  if (decision === "retry") {
+                    await screenCapture.discard(capturedPath);
+                    capturedPath = null;
+                    token = null;
+                    captureTokenRef.current = null;
+                    token = await screenCapture.start();
+                    captureTokenRef.current = token;
+                    continue;
+                  }
+                }
                 let serviceRevision = context.getLatestRevision();
                 const imported = await service.importImages(
                   projectPath,
@@ -1677,6 +1745,8 @@ export function BlockNoteProjectCanvasProvider({
                   },
                   groupId,
                   [result.path],
+                  undefined,
+                  maxFrameWidth,
                 );
                 if (mountedRef.current) {
                   setImageSrc((existing) => ({
@@ -1959,7 +2029,7 @@ export function BlockNoteProjectCanvasProvider({
     setCanvasError(null);
     const task = enqueueImageMutation(async () => {
       if (cancelled || !mountedRef.current || !target.isCurrent()) return;
-      const imported = await screenCapture.captureMedia!(projectPath, cancellation);
+      const imported = await screenCapture.captureMedia!(projectPath, cancellation, reviewCapture);
       if (!imported || cancelled || !mountedRef.current || !target.isCurrent()) return;
       mediaSrcRef.current = { ...mediaSrcRef.current, [imported.file]: imported.dataUrl };
       setMediaSrc(mediaSrcRef.current);
@@ -1975,8 +2045,16 @@ export function BlockNoteProjectCanvasProvider({
     }
   };
 
-  const uploadMedia = async (file: File): Promise<string> => {
-    const imported = await service.importMedia(projectPath, {
+  const performMediaUpload = async (file: File): Promise<string> => {
+    async function* chunks() {
+      for (let offset = 0; offset < file.size; offset += 1024 * 1024) {
+        if (!mountedRef.current) throw new Error("Image import cancelled because the project was closed");
+        yield new Uint8Array(await file.slice(offset, offset + 1024 * 1024).arrayBuffer());
+      }
+    }
+    const imported = service.importImageStream && /\.(jpe?g|png)$/i.test(file.name)
+      ? await service.importImageStream(projectPath, file.name, file.size, chunks())
+      : await service.importMedia(projectPath, {
       name: file.name,
       mimeType: file.type,
       bytes: Array.from(new Uint8Array(await file.arrayBuffer())),
@@ -1986,7 +2064,30 @@ export function BlockNoteProjectCanvasProvider({
       [imported.file]: imported.dataUrl,
     };
     setMediaSrc(mediaSrcRef.current);
-    return imported.dataUrl;
+    if (imported.previewError) setPreviewWarning(true);
+    return imported.dataUrl || imported.file;
+  };
+
+  const uploadMedia = (file: File): Promise<string> => {
+    if (copyLockedRef.current) return Promise.reject(new Error(ui("项目正在复制，请完成后再编辑。")));
+    const task = performMediaUpload(file);
+    mediaUploadsRef.current.add(task);
+    return task.finally(() => { mediaUploadsRef.current.delete(task); });
+  };
+
+  const exportAssets = async (plan: ProjectPlanV15, width = 1008, signal?: AbortSignal) => {
+    const assets = { ...imageSrcRef.current, ...mediaSrcRef.current };
+    if (service.imageDisplay) {
+      for (const [file, edge] of imageDerivativeRequests(plan, width)) {
+        signal?.throwIfAborted();
+        let cancel!: () => void;
+        const cancellation = signal ? new Promise<void>(resolve => { cancel = resolve; signal.addEventListener("abort", cancel, { once: true }); }) : undefined;
+        try { assets[file] = await service.imageDisplay(projectPath, file, edge, cancellation); }
+        finally { if (cancel) signal?.removeEventListener("abort", cancel); }
+      }
+    }
+    signal?.throwIfAborted();
+    return assets;
   };
 
   const runExport = (
@@ -2008,7 +2109,7 @@ export function BlockNoteProjectCanvasProvider({
       else setExportingDocx(true);
     });
 
-    void exportDocument(plan, { ...imageSrc, ...mediaSrc })
+    void exportAssets(plan).then(assets => exportDocument(plan, assets))
       .then((bytes) => saveDocument.save(bytes, {
         suggestedName: format === "PDF" ? "output.pdf" : "output.docx",
         defaultDirectory: projectPath,
@@ -2061,9 +2162,9 @@ export function BlockNoteProjectCanvasProvider({
       setLongImageProgress({ phase: "prepare" });
     });
 
-    void longImageExporter.export({
+    void exportAssets(plan, settings.width, abortController.signal).then(resolvedAssets => longImageExporter.export({
       plan,
-      resolvedAssets: { ...imageSrc, ...mediaSrc },
+      resolvedAssets,
       preset: settings.preset,
       options: {
         allowSplit: settings.allowSplit,
@@ -2076,7 +2177,7 @@ export function BlockNoteProjectCanvasProvider({
           setLongImageProgress(progress);
         }
       },
-    })
+    }))
       .then(async (result) => {
         setLongImageProgress({
           phase: "save",
@@ -2137,7 +2238,7 @@ export function BlockNoteProjectCanvasProvider({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <ArtifactDraftContext.Provider value={copyDrafts}><div className="flex min-h-0 flex-1 flex-col">
       <BlockNoteCanvasToolbar
         active={active}
         exportingDocx={exportingDocx}
@@ -2194,12 +2295,32 @@ export function BlockNoteProjectCanvasProvider({
           {ui("无法保存方案：")}{saveError}
         </div>
       ) : null}
+      {captureReviewDialog}
       {active && capturingBlockImage ? (
         <div className="border-b border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-800" role="status">
           {ui("请在屏幕上框选截图区域，完成后会自动插入当前图片块。")}
           <button className="ml-3 underline" type="button" onClick={() => cancelBlockCaptureRef.current?.()}>{ui("取消截图")}</button>
         </div>
       ) : null}
+      {previewWarning && <div role="status" className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+        {ui("原图已导入，预览生成失败。请点击重试预览。")}
+        <button type="button" className="ml-3 underline" onClick={() => {
+          void (async () => {
+            const current = planRef.current;
+            if (!current) return;
+            const references = [...current.imageGroups, ...artifactCollectionGroups(current)].flatMap(group => group.images);
+            for (const { file } of references) if (!imageSrcRef.current[file]) {
+              const url = await service.loadImage(projectPath, file);
+              setImageSrc(previous => ({ ...previous, [file]: url }));
+            }
+            for (const [file, url] of Object.entries(mediaSrcRef.current)) if (!url) {
+              mediaSrcRef.current[file] = await service.loadMedia(projectPath, file);
+            }
+            setMediaSrc({ ...mediaSrcRef.current });
+            setPreviewWarning(false);
+          })().catch(error => setCanvasError(String(error)));
+        }}>{ui("重试预览")}</button>
+      </div>}
       {canvasError ? (
         <div
           className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700"
@@ -2280,6 +2401,7 @@ export function BlockNoteProjectCanvasProvider({
               onUndo={() => materialEditorRef.current?.undo?.()}
             >
             <BlockNoteDocumentEditor
+              active={active}
               ariaLabel={ui("方案正文")}
               artifactController={artifactController}
               document={loadState.plan.document}
@@ -2325,6 +2447,6 @@ export function BlockNoteProjectCanvasProvider({
           src={imageSrc[lightboxTarget.file]}
         />
       ) : null}
-    </div>
+    </div></ArtifactDraftContext.Provider>
   );
 }

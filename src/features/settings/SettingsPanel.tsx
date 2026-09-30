@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useTheme } from "../../app/theme/ThemeContext";
 import type { Theme } from "../../domain/settings/models";
 import { useLanguagePreferences } from "../../app/language/LanguageContext";
+import { StorageSettings } from "./StorageSettings";
 
 interface SettingsPanelProps {
   open: boolean;
@@ -127,7 +128,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               ))}
             </div>
           </section>
-
+          <StorageSettings />
         </div>
       </div>
     </div>

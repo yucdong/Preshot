@@ -1,3 +1,4 @@
+import type { ArtifactContentLayout } from "../plan/canvas/artifactContentLayout";
 import type { ReferenceImage } from "../plan/canvas/models";
 import type { ProjectPlanV15 } from "../plan/canvas/blockDocument";
 
@@ -19,7 +20,7 @@ export type PortableImage = Omit<ReferenceImage, "id" | "file"> & {
 export interface PortableCollection {
   images: PortableImage[];
 }
-export type PortableComponent =
+export type PortableComponent = { contentLayout?: ArtifactContentLayout } & (
   | { kind: "image"; name: string; description: string; images: PortableImage[] }
   | { kind: "imageGroup"; name: string; description: string; images: PortableImage[] }
   | {
@@ -39,11 +40,11 @@ export type PortableComponent =
       samples: PortableCollection;
     }
   | { kind: "prop"; title: string; source: string; gallery: PortableCollection }
-  | { kind: "clothing"; title: string; source: string; mainGallery: PortableCollection };
+  | { kind: "clothing"; title: string; source: string; mainGallery: PortableCollection });
 
 export interface MaterialPayload {
   format: "preshot-material";
-  version: 1;
+  version: 1 | 2;
   kind: MaterialKind;
   component: PortableComponent;
 }
@@ -103,6 +104,7 @@ export interface MaterialEditImage {
   width: number;
   height: number;
   dataUrl: string;
+  previewError?: string;
 }
 export interface MaterialContentUpdate {
   operationId: string;

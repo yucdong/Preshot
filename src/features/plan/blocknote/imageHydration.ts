@@ -1,3 +1,4 @@
+import { artifactCollectionsInPlan } from "../../../domain/plan/canvas/blockDocument";
 import { setBlockNoteImageNaturalDimensions } from "../../../domain/plan/blocknote/plan";
 import type { ProjectPlanV14 } from "../../../domain/plan/canvas/blockDocument";
 
@@ -29,7 +30,7 @@ export async function measureImageDimensions(
 export async function applyMeasuredImages(
   plan: ProjectPlanV14,
   entries: ReadonlyArray<readonly [string, string]>,
-  measure: (dataUrl: string) => Promise<SourceImageDimensions> =
+  measure: (dataUrl: string, file: string) => Promise<SourceImageDimensions> =
     measureImageDimensions,
 ): Promise<ProjectPlanV14> {
   // Keep full-resolution decodes concurrent without starting every image at once.
@@ -40,7 +41,10 @@ export async function applyMeasuredImages(
     while (!failed && cursor < entries.length) {
       const index = cursor++;
       try {
-        dimensions[index] = await measure(entries[index][1]);
+        const existing = [...plan.imageGroups, ...artifactCollectionsInPlan(plan)].flatMap(group => group.images).find(image => image.file === entries[index][0]);
+        dimensions[index] = measure === measureImageDimensions && existing?.sourceWidth && existing.sourceHeight
+          ? { sourceWidth: existing.sourceWidth, sourceHeight: existing.sourceHeight }
+          : await measure(entries[index][1], entries[index][0]);
       } catch (error) {
         failed = true;
         throw error;

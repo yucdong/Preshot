@@ -175,6 +175,25 @@ const repository: MaterialLibraryRepository = {
   },
 };
 
+if (new URLSearchParams(location.search).has("revealOriginal")) {
+  repository.revealImageGroup = async (id, revision) => {
+    const item = get(id);
+    if (item.kind !== "imageGroup" || item.revision !== revision) throw new Error("素材版本已变化");
+    window.dispatchEvent(new CustomEvent("fixture-original-revealed", { detail: { id, revision } }));
+  };
+  repository.contentEditor!.revealEditImageGroup = async (sessionId) => {
+    window.dispatchEvent(new CustomEvent("fixture-original-revealed", { detail: { sessionId } }));
+  };
+  repository.revealImage = async (id, revision, localImageId) => {
+    await repository.loadImage(id, revision, localImageId);
+    window.dispatchEvent(new CustomEvent("fixture-original-revealed", { detail: { id, revision, localImageId } }));
+  };
+  repository.contentEditor!.revealEditImage = async (sessionId, localImageId) => {
+    await repository.contentEditor!.loadEditImage(sessionId, localImageId);
+    window.dispatchEvent(new CustomEvent("fixture-original-revealed", { detail: { sessionId, localImageId } }));
+  };
+}
+
 if (new URLSearchParams(location.search).has("walkthrough")) {
   materials.clear();
   installWalkthroughBoundary(repository);

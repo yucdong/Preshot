@@ -11,7 +11,7 @@ use std::{
 use arboard::Clipboard;
 use tauri::State;
 use uuid::Uuid;
-use windows_sys::Win32::System::DataExchange::GetClipboardSequenceNumber;
+use windows_sys::Win32::System::DataExchange::{GetClipboardOwner, GetClipboardSequenceNumber};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{keybd_event, KEYEVENTF_KEYUP, VK_ESCAPE};
 
 use crate::error::CommandError;
@@ -19,6 +19,9 @@ use crate::error::CommandError;
 #[path = "screenshot_observer.rs"]
 mod observer;
 use observer::CaptureObserver;
+#[path = "screenshot_quality.rs"]
+mod quality;
+use quality::{review_pixels, CaptureReview};
 
 struct CaptureSession {
     sequence: u32,
@@ -52,7 +55,11 @@ impl ScreenCaptureSessions {
 pub enum ScreenCapturePoll {
     Pending,
     Cancelled,
-    Captured { path: String },
+    Captured {
+        path: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        review: Option<CaptureReview>,
+    },
 }
 
 fn capture_state_error() -> CommandError {
@@ -83,7 +90,13 @@ fn write_capture_png(
     height: u32,
     rgba: &[u8],
 ) -> Result<(), CommandError> {
-    if rgba.len() != width as usize * height as usize * 4 {
+    if width == 0
+        || height == 0
+        || (width as usize)
+            .checked_mul(height as usize)
+            .and_then(|n| n.checked_mul(4))
+            != Some(rgba.len())
+    {
         return Err(CommandError::new(
             "screen_capture_invalid_image",
             "The captured image has invalid RGBA data",
@@ -169,7 +182,7 @@ fn poll_capture(
             discard_screen_capture(path)?;
             ScreenCapturePoll::Cancelled
         } else {
-            ScreenCapturePoll::Captured { path }
+            ScreenCapturePoll::Captured { path, review: None }
         }
     } else if cancellation.cancellation_due(Instant::now()) {
         ScreenCapturePoll::Cancelled
@@ -187,8 +200,11 @@ pub fn poll_screen_capture(
     token: String,
     sessions: State<'_, ScreenCaptureSessions>,
 ) -> Result<ScreenCapturePoll, CommandError> {
-    poll_capture(&sessions, &token, |previous_sequence| {
-        if clipboard_sequence() == previous_sequence {
+    let mut review = None;
+    let result = poll_capture(&sessions, &token, |previous_sequence| {
+        let before = clipboard_sequence();
+        let owner = unsafe { GetClipboardOwner() };
+        if before == previous_sequence {
             return Ok(None);
         }
         let mut clipboard = Clipboard::new().map_err(|error| {
@@ -201,15 +217,33 @@ pub fn poll_screen_capture(
             Ok(image) => image,
             Err(_) => return Ok(None),
         };
+        // Delayed format publication or a competing copy must not mix versions.
+        if !current_capture(
+            previous_sequence,
+            before,
+            clipboard_sequence(),
+            owner == unsafe { GetClipboardOwner() },
+        ) {
+            return Ok(None);
+        }
+        let width = u32::try_from(image.width).map_err(|_| capture_state_error())?;
+        let height = u32::try_from(image.height).map_err(|_| capture_state_error())?;
+        review = review_pixels(width, height, image.bytes.as_ref())?;
         let path = capture_temp_path(&token);
-        write_capture_png(
-            &path,
-            image.width as u32,
-            image.height as u32,
-            image.bytes.as_ref(),
-        )?;
+        if let Err(error) = write_capture_png(&path, width, height, image.bytes.as_ref()) {
+            let _ = fs::remove_file(&path);
+            return Err(error);
+        }
         Ok(Some(path.to_string_lossy().into_owned()))
+    })?;
+    Ok(match result {
+        ScreenCapturePoll::Captured { path, .. } => ScreenCapturePoll::Captured { path, review },
+        other => other,
     })
+}
+
+fn current_capture(previous: u32, before: u32, after: u32, same_owner: bool) -> bool {
+    before != previous && before == after && same_owner
 }
 
 #[tauri::command]
@@ -332,7 +366,8 @@ mod tests {
             })
             .unwrap(),
             ScreenCapturePoll::Captured {
-                path: "second.png".into()
+                path: "second.png".into(),
+                review: None,
             }
         );
         assert!(sessions.sessions.lock().unwrap().is_empty());
@@ -370,7 +405,7 @@ mod tests {
                 },
             );
             let expected = image.clone().map_or(ScreenCapturePoll::Cancelled, |path| {
-                ScreenCapturePoll::Captured { path }
+                ScreenCapturePoll::Captured { path, review: None }
             });
             assert_eq!(
                 poll_capture(&sessions, "token", |_| Ok(image)).unwrap(),
@@ -387,9 +422,24 @@ mod tests {
     fn writes_rgba_pixels_as_png() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("capture.png");
-        write_capture_png(&path, 1, 1, &[255, 0, 0, 255]).unwrap();
+        let pixels = [255, 0, 0, 255, 0, 0, 0, 255, 20, 40, 80, 0, 0, 255, 0, 128];
+        write_capture_png(&path, 2, 2, &pixels).unwrap();
         let bytes = std::fs::read(path).unwrap();
-        assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
+        let mut reader = png::Decoder::new(std::io::Cursor::new(bytes))
+            .read_info()
+            .unwrap();
+        let mut output = vec![0; reader.output_buffer_size()];
+        let info = reader.next_frame(&mut output).unwrap();
+        assert_eq!((info.width, info.height), (2, 2));
+        assert_eq!(&output[..info.buffer_size()], &pixels);
+    }
+
+    #[test]
+    fn ignores_unchanged_and_unstable_clipboard_candidates() {
+        assert!(current_capture(1, 2, 2, true));
+        assert!(!current_capture(1, 1, 1, true));
+        assert!(!current_capture(1, 2, 3, true));
+        assert!(!current_capture(1, 2, 2, false));
     }
 
     #[test]

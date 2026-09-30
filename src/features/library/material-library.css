@@ -116,6 +116,10 @@
 .ml-fields label:first-child { margin-top: 0; }
 .ml-fields textarea { resize: vertical; }
 .ml-fields :is(input:not([type="checkbox"]), textarea) { cursor: text; user-select: text; caret-color: var(--app-ink); }
+.ml-fields :is(input:not([type="checkbox"]):not([type="range"]), textarea)::selection {
+  color: white;
+  background: color-mix(in srgb, var(--paper-primary) 72%, var(--paper-ink));
+}
 .ml-fields .ml-help { margin-top: 6px; }
 .ml-fields .ml-check { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; font-weight: 400; }
 .ml-check input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--app-functional); flex-shrink: 0; }

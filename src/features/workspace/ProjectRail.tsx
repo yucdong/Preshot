@@ -10,6 +10,7 @@ interface ProjectRailProps {
   onOpen(project: WorkspaceProjectView): Promise<void> | void;
   onRelocate(project: WorkspaceProjectView): Promise<void> | void;
   onRemove(project: WorkspaceProjectView): Promise<void> | void;
+  onCopy?(project: WorkspaceProjectView): Promise<void> | void;
 }
 
 const visibleCardCount = 3;
@@ -78,6 +79,7 @@ export function ProjectRail({
   onOpen,
   onRelocate,
   onRemove,
+  onCopy,
 }: ProjectRailProps) {
   const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
@@ -290,6 +292,7 @@ export function ProjectRail({
             onOpen={onOpen}
             onRelocate={onRelocate}
             onRemove={onRemove}
+            onCopy={onCopy}
             primaryActionRef={(element) => {
               primaryActionRefs.current[index] = element;
             }}

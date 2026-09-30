@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const variants = [
-  { kind: "imageGroup", text: "图片组说明", gallery: "图片组" },
+  { kind: "imageGroup", text: "素材说明", gallery: "图片组" },
   { kind: "modelCard", text: "其他信息", gallery: "样片" },
   { kind: "shootingLocation", text: "场地信息", gallery: "场地图片" },
   { kind: "clothing", text: "道具与服装信息", gallery: "道具与服装图片" },
@@ -15,7 +15,7 @@ for (const variant of variants) {
     const library = page.getByRole("dialog", { name: "素材库", exact: true });
     await library.getByRole("button", { name: "编辑素材", exact: true }).click();
     const editor = page.getByRole("dialog", { name: "编辑素材", exact: true });
-    const fields = editor.locator('input:not([type="checkbox"]), textarea');
+    const fields = editor.locator('input:not([type="checkbox"]):not([type="range"]), textarea');
     await expect(fields.first()).toBeVisible();
     await editor.locator(".bn-editor").focus();
     await page.keyboard.press("Control+a");
@@ -28,7 +28,7 @@ for (const variant of variants) {
     }
     const text = editor.getByRole("textbox", { name: variant.text, exact: true });
     await text.fill("可以自由编辑文字，保留光标与选区。");
-    await text.press("Home");
+    await text.press("Control+Home");
     await text.press("Shift+ArrowRight");
     await text.press("Shift+ArrowRight");
     expect(await text.evaluate((field: HTMLTextAreaElement) =>
@@ -36,7 +36,7 @@ for (const variant of variants) {
     await page.keyboard.insertText("好");
     await expect(text).toHaveValue("好自由编辑文字，保留光标与选区。");
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-    await text.press("Home");
+    await text.press("Control+Home");
     await text.press("Shift+ArrowRight");
     await text.press("Shift+ArrowRight");
     await text.press("Control+c");

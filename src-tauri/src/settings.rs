@@ -2,26 +2,9 @@ use std::{fs, path::PathBuf};
 
 use crate::error::CommandError;
 
-/// Returns the path to the user's home directory + `.preshot` subdirectory.
-fn preshot_home() -> Result<PathBuf, CommandError> {
-    #[cfg(windows)]
-    let home_var = "USERPROFILE";
-    #[cfg(not(windows))]
-    let home_var = "HOME";
-
-    let home = std::env::var(home_var).map_err(|_| {
-        CommandError::new(
-            "settings_home_unresolved",
-            format!("Unable to resolve home directory (missing {home_var})"),
-        )
-    })?;
-
-    Ok(PathBuf::from(home).join(".preshot"))
-}
-
 /// Returns the path to the settings.json file.
 fn settings_path() -> Result<PathBuf, CommandError> {
-    Ok(preshot_home()?.join("settings.json"))
+    Ok(crate::workspace::preshot_home()?.join("settings.json"))
 }
 
 /// Reads settings from the given path, returning an empty object if the file is absent
@@ -121,7 +104,7 @@ mod tests {
 
     #[test]
     fn settings_path_ends_with_preshot_settings_json() {
-        let path = settings_path().unwrap();
+        let path = crate::storage::profile::default_home().unwrap().join("settings.json");
         assert!(
             path.ends_with(".preshot\\settings.json") || path.ends_with(".preshot/settings.json")
         );

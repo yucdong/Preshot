@@ -2,6 +2,10 @@
 
 [Documentation index](../README.md) · [Recording and reproduction](../demo/README.md)
 
+This report preserves the historical 0.0.12 recording. The shared README media
+now belongs to the [0.0.19 recording](demo-0.0.19-acceptance.md); the hashes and
+contact sheet below still describe the earlier take.
+
 Recorded on September 29, 2026 using MSI-installed **Preshot 0.0.12**, including
 the current logo. This is a focused recording acceptance, not a rerun of the
 complete application test matrix.

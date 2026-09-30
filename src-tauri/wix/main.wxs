@@ -26,17 +26,26 @@
                  InstallerVersion="450"
                  Languages="0"
                  Compressed="yes"
-                 InstallScope="perUser"
-                 InstallPrivileges="limited"
+                 InstallScope="perMachine"
+                 InstallPrivileges="elevated"
                  SummaryCodepage="!(loc.TauriCodepage)"/>
 
-        <Condition Message="Preshot is a per-user package. Remove ALLUSERS and retry.">
-            NOT ALLUSERS
-        </Condition>
+        <!-- InstallScope authors ALLUSERS=1; a second Property would duplicate it. -->
+        <Condition Message="Preshot requires a machine-wide installation. Remove per-user overrides and retry.">ALLUSERS = 1 AND NOT MSIINSTALLPERUSER</Condition>
+
+        <!-- UI AppSearch runs in the invoking user's context before elevation. -->
+        <Property Id="LEGACY_USER_PRESHOT_FOUND" Secure="yes">
+            <RegistrySearch Id="LegacyUserInstall" Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="InstallDir" Type="raw" />
+        </Property>
+        <Upgrade Id="493C5FB5-639D-4FBA-94D3-AEBE4EB0DCE6">
+            <UpgradeVersion Minimum="0.0.0" IncludeMinimum="yes" Maximum="255.255.65535" IncludeMaximum="yes" OnlyDetect="yes" Property="LEGACY_USER_PRODUCT_FOUND" />
+        </Upgrade>
+        <Property Id="LEGACY_USER_PRODUCT_FOUND" Secure="yes" />
+        <Condition Message="!(loc.LegacyUserInstallMessage)">Installed OR NOT (LEGACY_USER_PRESHOT_FOUND OR LEGACY_USER_PRODUCT_FOUND)</Condition>
 
         <!--
           Historical Tauri-default lineage used by the machine-wide 0.0.1 MSI.
-          Detect only: a limited per-user package must not attempt elevated removal.
+          Detect only: this new family never removes a different install lineage.
         -->
         <Property Id="LEGACY_MACHINE_PRESHOT_FOUND" Secure="yes" />
         <Upgrade Id="97EE9B44-6313-52EB-A67E-A1334832EB86">
@@ -56,10 +65,6 @@
         <!-- reinstall all files; rewrite all registry entries; reinstall all shortcuts -->
         <Property Id="REINSTALLMODE" Value="amus" />
 
-        <!-- Auto launch app after installation, useful for passive mode which usually used in updates -->
-        <Property Id="AUTOLAUNCHAPP" Secure="yes" />
-        <!-- Property to forward cli args to the launched app to not lose those of the pre-update instance -->
-        <Property Id="LAUNCHAPPARGS" Secure="yes" />
         <!-- Public opt-in property: msiexec /i Preshot.msi DESKTOPSHORTCUT=1 -->
         <Property Id="DESKTOPSHORTCUT" Secure="yes" Value="0" />
 
@@ -92,37 +97,40 @@
         <Property Id="ARPURLUPDATEINFO" Value="{{homepage}}"/>
         {{/if}}
 
-        <!-- launch app checkbox -->
+        <!-- The launcher returns to the desktop user before any profile initialization. -->
         <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="!(loc.LaunchApp)" />
-        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
-        <CustomAction Id="LaunchApplication" Impersonate="yes" FileKey="Path" ExeCommand="[LAUNCHAPPARGS]" Return="asyncNoWait" />
+        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+        <CustomAction Id="LaunchApplication" FileKey="Path" ExeCommand="--from-installer"
+                      Execute="immediate" Impersonate="yes" Return="asyncNoWait" />
+        <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="!(loc.DataRetentionMessage)" />
+        <Property Id="INSTALLDIR" Secure="yes">
+            <RegistrySearch Id="PreviousMachineInstallDir" Root="HKLM" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="InstallDir" Type="raw" Win64="yes" />
+        </Property>
 
         <UI>
-            <!-- launch app checkbox -->
-            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
-
-            <Property Id="WIXUI_INSTALLDIR" Value="PreshotInstallDir" />
+            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed AND NOT REMOVE</Publish>
+            <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
 
             {{#unless license}}
-            <!-- Skip the license and install-directory dialogs. -->
+            <!-- Keep directory selection even when no separate license dialog is present. -->
             <Publish Dialog="WelcomeDlg"
                      Control="Next"
                      Event="NewDialog"
-                     Value="VerifyReadyDlg"
+                     Value="InstallDirDlg"
                      Order="2">1</Publish>
-            <Publish Dialog="VerifyReadyDlg"
+            <Publish Dialog="InstallDirDlg"
                      Control="Back"
                      Event="NewDialog"
                      Value="WelcomeDlg"
                      Order="2">1</Publish>
             {{else}}
-            <!-- Keep the license dialog but never offer a mutable install directory. -->
+            <!-- License agreement continues to the configurable installation directory. -->
             <Publish Dialog="LicenseAgreementDlg"
                      Control="Next"
                      Event="NewDialog"
-                     Value="VerifyReadyDlg"
+                     Value="InstallDirDlg"
                      Order="2">LicenseAccepted = "1"</Publish>
-            <Publish Dialog="VerifyReadyDlg"
+            <Publish Dialog="InstallDirDlg"
                      Control="Back"
                      Event="NewDialog"
                      Value="LicenseAgreementDlg"
@@ -134,28 +142,26 @@
 
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="DesktopFolder" Name="Desktop">
-                <Component Id="ApplicationShortcutDesktop" Guid="*">
-                    <Shortcut Id="ApplicationDesktopShortcut" Name="{{product_name}}" Description="Runs {{product_name}}" Target="[!Path]" WorkingDirectory="PreshotInstallDir" />
-                    <RegistryValue Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="Desktop Shortcut" Type="integer" Value="1" KeyPath="yes" />
+                <Component Id="ApplicationShortcutDesktop" Guid="*" Win64="$(var.Win64)">
+                    <Shortcut Id="ApplicationDesktopShortcut" Name="{{product_name}}" Description="Runs {{product_name}}" Target="[!Path]" WorkingDirectory="INSTALLDIR" />
+                    <RegistryValue Root="HKLM" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="Desktop Shortcut" Type="integer" Value="1" KeyPath="yes" />
                 </Component>
             </Directory>
-            <Directory Id="LocalAppDataFolder">
-                <Directory Id="PreshotProgramsFolder" Name="Programs">
-                    <Directory Id="PreshotInstallDir" Name="{{product_name}}"/>
-                </Directory>
+            <Directory Id="ProgramFiles64Folder">
+                <Directory Id="INSTALLDIR" Name="{{product_name}}"/>
             </Directory>
             <Directory Id="ProgramMenuFolder">
                 <Directory Id="ApplicationProgramsFolder" Name="{{product_name}}"/>
             </Directory>
         </Directory>
 
-        <DirectoryRef Id="PreshotInstallDir">
-            <Component Id="RegistryEntries" Guid="*">
-                <RegistryKey Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}">
-                    <RegistryValue Name="InstallDir" Type="string" Value="[PreshotInstallDir]" KeyPath="yes" />
+        <DirectoryRef Id="INSTALLDIR">
+            <Component Id="RegistryEntries" Guid="*" Win64="$(var.Win64)">
+                <RegistryKey Root="HKLM" Key="Software\\{{manufacturer}}\\{{product_name}}">
+                    <RegistryValue Name="InstallDir" Type="string" Value="[INSTALLDIR]" KeyPath="yes" />
                 </RegistryKey>
                 {{#each deep_link_protocols as |protocol| ~}}
-                <RegistryKey Root="HKCU" Key="Software\Classes\\{{protocol}}">
+                <RegistryKey Root="HKLM" Key="Software\Classes\\{{protocol}}">
                     <RegistryValue Type="string" Name="URL Protocol" Value=""/>
                     <RegistryValue Type="string" Value="URL:{{bundle_id}} protocol"/>
                     <RegistryKey Key="DefaultIcon">
@@ -182,12 +188,12 @@
             <Component Id="PathEnvironment" Guid="*" Win64="$(var.Win64)">
                 <Environment Id="PathEnvironmentVariable"
                              Name="PATH"
-                             Value="[PreshotInstallDir]"
+                             Value="[INSTALLDIR]"
                              Action="set"
                              Part="last"
                              Permanent="no"
-                             System="no" />
-                <RegistryValue Root="HKCU"
+                             System="yes" />
+                <RegistryValue Root="HKLM"
                                Key="Software\\{{manufacturer}}\\{{product_name}}"
                                Name="PATH Environment Variable"
                                Type="integer"
@@ -211,16 +217,16 @@
         </DirectoryRef>
 
         <DirectoryRef Id="ApplicationProgramsFolder">
-            <Component Id="ApplicationShortcut" Guid="*">
+            <Component Id="ApplicationShortcut" Guid="*" Win64="$(var.Win64)">
                 <Shortcut Id="ApplicationStartMenuShortcut"
                     Name="{{product_name}}"
                     Description="Runs {{product_name}}"
                     Target="[!Path]"
                     Icon="ProductIcon"
-                    WorkingDirectory="PreshotInstallDir">
+                    WorkingDirectory="INSTALLDIR">
                     <ShortcutProperty Key="System.AppUserModel.ID" Value="{{bundle_id}}"/>
                 </Shortcut>
-                <RegistryValue Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="Start Menu Shortcut" Type="integer" Value="1" KeyPath="yes"/>
+                <RegistryValue Root="HKLM" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="Start Menu Shortcut" Type="integer" Value="1" KeyPath="yes"/>
            </Component>
         </DirectoryRef>
 
@@ -306,15 +312,15 @@
         <Property Id="INSTALLED_WEBVIEW2_VERSION">
             <RegistrySearch Id="Webview2VersionSystemx64" Root="HKLM" Key="SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" Name="pv" Type="raw" />
             <RegistrySearch Id="Webview2VersionSystemx86" Root="HKLM" Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" Name="pv" Type="raw" />
-            <RegistrySearch Id="Webview2VersionUser" Root="HKCU" Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" Name="pv" Type="raw"/>
         </Property>
 
         {{#if download_bootstrapper}}
         <!-- Download webview bootstrapper mode -->
         <CustomAction Id="DownloadAndInvokeBootstrapper"
-                      Directory="PreshotInstallDir"
+                      Directory="INSTALLDIR"
+                      Impersonate="no"
                       Execute="deferred"
-                      ExeCommand='powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command "&amp; { $ErrorActionPreference = &apos;Stop&apos;; try { [\[]Net.ServicePointManager[\]]::SecurityProtocol = [\[]Net.SecurityProtocolType[\]]::Tls12 } catch {}; $bootstrapper = Join-Path $env:TEMP &apos;MicrosoftEdgeWebview2Setup.exe&apos;; Invoke-WebRequest -Uri &apos;https://go.microsoft.com/fwlink/p/?LinkId=2124703&apos; -OutFile $bootstrapper; $process = Start-Process -FilePath $bootstrapper -ArgumentList @({{webview_installer_args}} &apos;/install&apos;) -PassThru -Wait; if ($process.ExitCode -notin @(0, 1641, 3010)) { exit $process.ExitCode } }"'
+                      ExeCommand='&quot;[SystemFolder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -WindowStyle Hidden -Command "&amp; { $ErrorActionPreference = &apos;Stop&apos;; try { [\[]Net.ServicePointManager[\]]::SecurityProtocol = [\[]Net.SecurityProtocolType[\]]::Tls12 } catch {}; $bootstrapper = Join-Path $env:TEMP (([\[]guid[\]]::NewGuid().ToString(&apos;N&apos;)) + &apos;.exe&apos;); Invoke-WebRequest -Uri &apos;https://go.microsoft.com/fwlink/p/?LinkId=2124703&apos; -OutFile $bootstrapper; $signature = Get-AuthenticodeSignature -LiteralPath $bootstrapper; if ($signature.Status -ne &apos;Valid&apos; -or $signature.SignerCertificate.Subject -notmatch &apos;Microsoft Corporation&apos;) { throw &apos;WebView2 signature verification failed&apos; }; $process = Start-Process -FilePath $bootstrapper -ArgumentList @({{webview_installer_args}} &apos;/install&apos;) -PassThru -Wait; if ($process.ExitCode -notin @(0, 1641, 3010)) { exit $process.ExitCode } }"'
                       Return="check"/>
         <InstallExecuteSequence>
             <Custom Action='DownloadAndInvokeBootstrapper' Before='InstallFinalize'>
@@ -326,9 +332,10 @@
         {{#if webview2_bootstrapper_path}}
         <!-- Embedded webview bootstrapper mode -->
         <CustomAction Id="InvokeBootstrapper"
-                      Directory="PreshotInstallDir"
+                      Directory="INSTALLDIR"
+                      Impersonate="no"
                       Execute="deferred"
-                      ExeCommand='powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command "&amp; { $ErrorActionPreference = &apos;Stop&apos;; $process = Start-Process -FilePath &apos;[PreshotInstallDir]MicrosoftEdgeWebview2Setup.exe&apos; -ArgumentList @({{webview_installer_args}} &apos;/install&apos;) -PassThru -Wait; if ($process.ExitCode -notin @(0, 1641, 3010)) { exit $process.ExitCode } }"'
+                      ExeCommand='&quot;[SystemFolder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -WindowStyle Hidden -Command "&amp; { $ErrorActionPreference = &apos;Stop&apos;; $process = Start-Process -FilePath &apos;.\MicrosoftEdgeWebview2Setup.exe&apos; -ArgumentList @({{webview_installer_args}} &apos;/install&apos;) -PassThru -Wait; if ($process.ExitCode -notin @(0, 1641, 3010)) { exit $process.ExitCode } }"'
                       Return="check" />
         <InstallExecuteSequence>
             <Custom Action='InvokeBootstrapper' Before='InstallFinalize'>
@@ -340,7 +347,7 @@
         {{#if webview2_installer_path}}
         <!-- Embedded offline installer -->
         <Binary Id="MicrosoftEdgeWebView2RuntimeInstaller.exe" SourceFile="{{webview2_installer_path}}"/>
-        <CustomAction Id='InvokeStandalone' BinaryKey='MicrosoftEdgeWebView2RuntimeInstaller.exe' Execute="deferred" ExeCommand='{{webview_installer_args}} /install' Return='check' />
+        <CustomAction Id='InvokeStandalone' BinaryKey='MicrosoftEdgeWebView2RuntimeInstaller.exe' Execute="deferred" Impersonate="no" ExeCommand='{{webview_installer_args}} /install' Return='check' />
         <InstallExecuteSequence>
             <Custom Action='InvokeStandalone' Before='InstallFinalize'>
                 <![CDATA[NOT(REMOVE OR INSTALLED_WEBVIEW2_VERSION)]]>
@@ -372,10 +379,6 @@
 
         {{/if}}
 
-        <InstallExecuteSequence>
-          <Custom Action="LaunchApplication" After="InstallFinalize">AUTOLAUNCHAPP AND NOT Installed</Custom>
-        </InstallExecuteSequence>
-
-        <SetProperty Id="ARPINSTALLLOCATION" Value="[PreshotInstallDir]" After="CostFinalize"/>
+        <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLDIR]" After="CostFinalize"/>
     </Product>
 </Wix>

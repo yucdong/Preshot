@@ -3,6 +3,27 @@ import type { zh } from "./zh";
 type TranslationShape<T> = { [K in keyof T]: T[K] extends string ? string : TranslationShape<T[K]> };
 
 export const en = {
+  storage: {
+    title: "Storage locations", setup: "Welcome to Preshot", retention: "Uninstall removes application files and preserves your configuration, library, and projects.",
+    configuration: "Working directory (settings and data)", application: "Application directory", library: "Current library directory",
+    open: "Open", openNamed: "Open {{name}}", openConfig: "Open configuration directory",
+    destination: "Project working directory", browse: "Choose folder", create: "Use this directory and continue",
+    move: "Move library to this directory", locate: "Locate and use an existing library",
+    setupIntro: "Choose one project working directory for your settings, material library and default projects.",
+    setupHint: "Defaults to .preshot in your user profile. Choose an empty folder or an existing Preshot data directory. Library and other subfolders are managed automatically.",
+    detected: "An existing project working directory was found. Would you like to switch?",
+    keepHint: "Keep it to continue using your material library, settings and project list.",
+    keep: "Keep existing directory", change: "Change working directory",
+    confirmTitle: "Switch project working directory?", previousDirectory: "Previous working directory", nextDirectory: "New working directory",
+    switchWarning: "The previous material library, settings and project list will not carry over or appear in the new workspace. An empty folder starts a fresh workspace; an existing data directory uses its own data. Old files are not deleted, moved or merged.",
+    back: "Go back", confirmSwitch: "Confirm switch and continue", setupWorking: "Setting up your working directory…",
+    moveHint: "Moving copies and verifies all materials before switching, keeping the original as a backup. Locating an existing library does not merge content; close material editors first.",
+    working: "Working… Copying and verifying a large image library may take some time.",
+    moved: "Library moved. The original directory was retained as a backup.",
+    failed: "Storage operation failed:", unavailable: "Data is unavailable. Reconnect its original drive and check again:",
+    pending: "A library move is unfinished. Resume it, or end the move and retain any copied files.",
+    resume: "Resume move", cancelMove: "End this move", retry: "Check again",
+  },
   common: { cancel: "Cancel", delete: "Delete" },
   shell: {
     tagline: "Photography planning", projects: "Projects", openProjects: "Open projects", allProjects: "All projects",
