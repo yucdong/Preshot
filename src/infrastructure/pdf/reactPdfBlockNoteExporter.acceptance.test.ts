@@ -443,7 +443,7 @@ describe("production React-PDF acceptance", () => {
     }
   }, 30_000);
 
-  it("moves an image-heavy wrapped group wholly to the next page", async () => {
+  it("moves the first row to the next page when no image row fits the remaining space", async () => {
     const images = Array.from({ length: 8 }, (_, index) =>
       image(
         `image-${index + 1}`,
@@ -661,7 +661,7 @@ describe("production React-PDF acceptance", () => {
     );
   }, 30_000);
 
-  it("starts an oversized group on a fresh page after preceding text", async () => {
+  it("starts an oversized group below preceding text on the current page", async () => {
     const group = imageGroup("preceded", {
       width: 1_008,
       height: 1_832,
@@ -679,9 +679,30 @@ describe("production React-PDF acceptance", () => {
       await exporter().export(value, assetsFor(value)),
     );
 
-    expect(pdf.getPageCount()).toBe(3);
+    expect(pdf.getPageCount()).toBe(2);
     expect(pdf.getPages().map((_, index) => imageDrawCount(pdf, index))).toEqual(
-      [0, 2, 1],
+      [2, 1],
+    );
+    expectNoBlankPages(pdf);
+  }, 30_000);
+
+  it.each([2, 5])("uses the remaining half-page before continuing a %i-row gallery", async (rowCount) => {
+    const group = imageGroup(`mid-page-${rowCount}`, {
+      width: 1_008,
+      height: 18 + rowCount * 600 + (rowCount - 1) * 7,
+      images: Array.from({ length: rowCount }, (_, index) =>
+        image(`mid-${index}`, `references/mid-${index}.png`, 900 - index * 10, 600)),
+    });
+    const value = plan([
+      ...Array.from({ length: 14 }, (_, index) => paragraph(`lead-${index}`, `拍摄要点 ${index + 1}`)),
+      block("group-block", "imageGroup", { groupId: group.id }, undefined),
+      paragraph("tail", "图片组后的正文"),
+    ], [group]);
+    const pdf = await PDFDocument.load(await exporter().export(value, assetsFor(value)));
+    const draws = pdf.getPages().map((_, index) => imageDraws(pdf, index));
+    expect(draws.map((page) => page.length)).toEqual(rowCount === 2 ? [1, 1] : [1, 2, 2]);
+    expect(draws.flat().map((draw) => draw.maxX - draw.minX)).toEqual(
+      group.images.map((image) => expect.closeTo(image.frameWidth! * PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale, 1)),
     );
     expectNoBlankPages(pdf);
   }, 30_000);
@@ -851,6 +872,43 @@ describe("production React-PDF acceptance", () => {
     expect(warning.mock.calls.flat().join(" ")).not.toContain(
       "can't wrap between pages",
     );
+  }, 30_000);
+
+  it.each([80, 600])("keeps negative-offset row gaps and following content intact at row height %i", async (height) => {
+    const makePlan = (frameOffsetY: number) => {
+      const group = imageGroup("offset", {
+        width: 1_008, height: 18 + 3 * height + 14, frameOffsetY,
+        images: Array.from({ length: 3 }, (_, i) => image(`offset-${i}`, `references/offset-${i}.png`, 900, height)),
+      });
+      const tail = imageGroup("tail", { width: 300, height: 98, images: [image("tail", "references/tail.png", 120, 80)] });
+      return plan([
+        paragraph("lead", "前置正文"),
+        block("offset-block", "imageGroup", { groupId: group.id }, undefined),
+        block("tail-block", "imageGroup", { groupId: tail.id }, undefined),
+      ], [group, tail]);
+    };
+    const zeroPlan = makePlan(0);
+    const negativePlan = makePlan(-24);
+    const zero = await PDFDocument.load(await exporter().export(zeroPlan, assetsFor(zeroPlan)));
+    const negative = await PDFDocument.load(await exporter().export(negativePlan, assetsFor(negativePlan)));
+    expect(negative.getPageCount()).toBe(zero.getPageCount());
+    const initial = imageDraws(zero, 0);
+    const shifted = imageDraws(negative, 0);
+    const galleryRowsOnFirstPage = height === 80 ? 3 : 2;
+    for (let i = 0; i < galleryRowsOnFirstPage; i++) {
+      expect(shifted[i].maxY - initial[i].maxY)
+        .toBeCloseTo(24 * PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale, 2);
+    }
+    if (height === 600) {
+      expect(imageDraws(negative, 1)[0].maxY).toBeCloseTo(imageDraws(zero, 1)[0].maxY, 2);
+    }
+    expect(imageDraws(negative, negative.getPageCount() - 1).at(-1)!.maxY)
+      // A continued group restores its original flow reservation after the
+      // final row; the initial negative margin is not repeated on later pages.
+      .toBeCloseTo(imageDraws(zero, zero.getPageCount() - 1).at(-1)!.maxY -
+        (height === 600 ? 24 * PDF_VISUAL_CONTRACT.editor.rootLogicalToPdfScale : 0), 2);
+    expect(renderedImageCount(negative)).toBe(4);
+    expectNoBlankPages(negative);
   }, 30_000);
 
   it("applies emergency scaling to one overheight row only", async () => {

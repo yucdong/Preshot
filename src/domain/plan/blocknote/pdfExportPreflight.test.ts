@@ -213,7 +213,7 @@ describe("buildPreshotPdfLayoutManifest", () => {
     );
   });
 
-  it("partitions a two-page group at authoritative image-row boundaries", () => {
+  it("keeps authoritative image rows atomic without packing whole pages", () => {
     const oversized = rowGroup("group-1", [600, 600, 600]);
     oversized.images = oversized.images.flatMap((image, rowIndex) => [
       {
@@ -256,6 +256,8 @@ describe("buildPreshotPdfLayoutManifest", () => {
       [
         "group-1-row-1-left",
         "group-1-row-1-right",
+      ],
+      [
         "group-1-row-2-left",
         "group-1-row-2-right",
       ],
@@ -281,7 +283,7 @@ describe("buildPreshotPdfLayoutManifest", () => {
     );
   });
 
-  it("packs a three-page group without row duplication or trailing fragments", () => {
+  it("prepares each row once without forcing a fresh page or trailing fragments", () => {
     const oversized = rowGroup("group-1", [600, 600, 600, 600, 600]);
     const manifest = buildPreshotPdfLayoutManifest({
       plan: plan([{
@@ -295,8 +297,9 @@ describe("buildPreshotPdfLayoutManifest", () => {
     const pagination = manifest.groups[0].pagination;
 
     expect(pagination.mode).toBe("row-fragments");
+    expect(pagination.startsOnFreshPage).toBe(false);
     expect(pagination.fragments.map((fragment) => fragment.rowIndexes)).toEqual(
-      [[0, 1], [2, 3], [4]],
+      [[0], [1], [2], [3], [4]],
     );
     expect(pagination.fragments.flatMap((fragment) =>
       fragment.imageIds
@@ -330,10 +333,28 @@ describe("buildPreshotPdfLayoutManifest", () => {
     );
     expect(context.pagination.fragments.slice(1).map((fragment) =>
       fragment.flowTopPadding
-    )).toEqual([0]);
+    )).toEqual([0, 0]);
     expect(context.pagination.fragments.map((fragment) =>
       fragment.rowIndexes
-    )).toEqual([[0], [1, 2]]);
+    )).toEqual([[0], [1], [2]]);
+  });
+
+  it("splits short multi-row galleries without changing image gaps or retaining stale empty height", () => {
+    const source = rowGroup("compact", [120, 200, 80]);
+    const makeManifest = () => buildPreshotPdfLayoutManifest({
+      plan: plan([{
+        id: "gallery", type: "imageGroup", props: { groupId: source.id }, content: undefined, children: [],
+      }], [source]),
+    });
+    const compact = makeManifest().groups[0];
+    expect(compact.pagination.mode).toBe("row-fragments");
+    expect(compact.pagination.fragments.map((fragment) => fragment.rowIndexes)).toEqual([[0], [1], [2]]);
+    expect(compact.pagination.fragments.reduce((sum, fragment) => sum + fragment.flowHeight, 0))
+      .toBeCloseTo(compact.pdf.flowHeight, 3);
+    source.height = 100_000;
+    const legacy = makeManifest().groups[0];
+    expect(legacy.pagination).toEqual(compact.pagination);
+    expect(source.height).toBe(100_000);
   });
 
   it("uses a scale-only tolerance for the emergency row minimum", () => {

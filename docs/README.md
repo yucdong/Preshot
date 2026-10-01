@@ -24,6 +24,7 @@ proposals and prototypes remain available through Git history.
 | --- | --- |
 | Prerequisites, commands, and test coverage | [Build and test](development/build-and-test.md) |
 | 0.0.24 code review, user stories, regression fixes and fresh recordings | [Release review](test_reports/release-0.0.24-review.md) |
+| Image groups starting mid-page and continuing by complete rows in PDF | [PDF gallery pagination acceptance](test_reports/pdf-gallery-pagination-acceptance.md) |
 | Modules, boundaries, and persisted data | [Architecture](development/architecture.md) |
 | Saves, ownership, recovery, and undo | [Reliability](development/reliability.md) |
 | Chinese/English interface rules | [Localization](development/i18n.md) |

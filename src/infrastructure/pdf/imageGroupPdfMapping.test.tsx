@@ -1,6 +1,5 @@
 import { Image, View } from "@react-pdf/renderer";
 import {
-  Fragment,
   isValidElement,
   type ReactElement,
   type ReactNode,
@@ -265,9 +264,9 @@ describe("image-group React-PDF render model", () => {
     if (model.pagination.mode !== "row-fragments") return;
     expect(model.pagination.fragments.map((fragment) =>
       fragment.images.map((entry) => entry.imageId)
-    )).toEqual([["row-1", "row-2"], ["row-3"]]);
+    )).toEqual([["row-1"], ["row-2"], ["row-3"]]);
     expect(model.pagination.fragments[1].images[0].y).toBeCloseTo(
-      PDF_VISUAL_CONTRACT.imageGroup.inset,
+      PDF_VISUAL_CONTRACT.imageGroup.gap / 2,
       4,
     );
     expect(model.pagination.fragments[0].images[0].crop).toEqual({
@@ -400,7 +399,7 @@ describe("image-group React-PDF render model", () => {
 });
 
 describe("image-group React-PDF mapping", () => {
-  it("uses one wrap-false relative container so current-page insufficiency moves the whole group", () => {
+  it("keeps a single image row indivisible when it does not fit the remaining page", () => {
     const source = group("group", {
       images: [image("first", 120, 80), image("second", 120, 80)],
     });
@@ -441,7 +440,7 @@ describe("image-group React-PDF mapping", () => {
     }
   });
 
-  it("uses one root presence sentinel with atomic fragments for oversized groups", () => {
+  it("allows row-level wrapping without fresh-page hints or forced breaks", () => {
     const source = group("oversized", {
       width: 1_008,
       height: 1_832,
@@ -468,29 +467,47 @@ describe("image-group React-PDF mapping", () => {
 
     expect(isValidElement(element)).toBe(true);
     if (!isValidElement(element)) return;
-    expect(element.type).toBe(Fragment);
-    const rootChildren = childrenOf(element).filter(isValidElement);
-    expect(rootChildren[0]).toMatchObject({
-      type: View,
-      props: {
-        minPresenceAhead: PDF_VISUAL_CONTRACT.page.contentHeight,
-      },
+    expect(element.type).toBe(View);
+    expect(element.props).toMatchObject({ wrap: true });
+    expect(element.props).not.toHaveProperty("minPresenceAhead");
+    const fragments = childrenOf(element).filter(isValidElement);
+    expect(fragments).toHaveLength(3);
+    for (const fragment of fragments) {
+      expect(fragment.props).toMatchObject({ wrap: false });
+      expect(fragment.props).not.toHaveProperty("break");
+      expect(fragment.props).not.toHaveProperty("minPresenceAhead");
+    }
+  });
+
+  it("keeps complete image frames inside row surfaces even in narrow columns", () => {
+    const source = group("narrow", {
+      width: 1_008,
+      images: [image("row-1", 900, 600), image("row-2", 900, 600), image("row-3", 900, 600)],
     });
-    expect(rootChildren[0].props).not.toHaveProperty("break");
-    expect(rootChildren[1]).toMatchObject({
-      type: View,
-      props: { wrap: true },
-    });
-    const fragments = childrenOf(rootChildren[1]).filter(isValidElement);
-    expect(fragments).toHaveLength(2);
-    expect(fragments.map((fragment) =>
-      (fragment.props as { wrap?: boolean }).wrap
-    )).toEqual([
-      false,
-      false,
-    ]);
-    expect(fragments[0].props).not.toHaveProperty("minPresenceAhead");
-    expect((fragments[1].props as { break?: boolean }).break).toBe(true);
+    const gallery = imageGroupBlock("narrow-block", source.id);
+    const context = exportContext(plan([{
+      id: "columns", type: "columnList", props: {}, content: undefined,
+      children: Array.from({ length: 6 }, (_, index) => ({
+        id: `column-${index}`, type: "column", props: { width: 1 }, content: undefined,
+        children: index === 0 ? [gallery] : [{
+          id: `text-${index}`, type: "paragraph", props: {}, content: [], children: [],
+        }],
+      })),
+    }], [source]));
+    expect(context.groups[0].pdf.gap / 2).toBeLessThan(context.borders.hairline);
+    const wrapper = createPreshotImageGroupPdfBlockMapping(context)(gallery)!;
+    const fragments = childrenOf(wrapper).filter(isValidElement);
+    for (const fragment of fragments) {
+      const surface = childrenOf(fragment).filter(isValidElement)[0];
+      const style = styleOf(surface);
+      const frames = childrenOf(surface).filter(isValidElement);
+      for (const frame of frames) {
+        const imageStyle = styleOf(frame);
+        const top = Number(style.borderTopWidth) + Number(imageStyle.top);
+        expect(top).toBeGreaterThanOrEqual(0);
+        expect(top + Number(imageStyle.height)).toBeLessThanOrEqual(Number(style.height));
+      }
+    }
   });
 
   it("does not request another fresh page after an authored page break", () => {

@@ -22,6 +22,15 @@ move together when the current page has insufficient space; taller cards can
 still span pages. The [walkthrough](../demo/README.md) includes an exported PDF
 with illustrated model, location, and prop cards.
 
+PDF image groups start in the space remaining below earlier content and continue
+onto later pages **between image rows**. This also applies inside columns and to
+groups that fit a full page but exceed the current page's remaining space. A row
+stays intact; when it cannot fit, only that row and the following content move
+forward. Image order, crop, fit and relative sizes are preserved. A single row
+taller than an entire page uses the existing proportional fit check. Explicit
+page-break blocks still start a new page. Some space at a page bottom is expected
+when the next complete image row cannot fit.
+
 Long images default to 900px width, with 890px compatibility available.
 WeChat JPEG targets 6,000px / 1 MiB, high-quality JPEG 8,000px / 3 MiB,
 and lossless PNG 4,000px / 8 MiB per part. These are practical compatibility

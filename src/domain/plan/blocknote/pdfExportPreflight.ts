@@ -172,6 +172,7 @@ export interface PreshotPdfImageGroupFragmentContext {
   readonly imageIds: readonly string[];
   readonly flowTopPadding: PdfPoints;
   readonly surfaceHeight: PdfPoints;
+  readonly contentTop: PdfPoints;
   readonly flowHeight: PdfPoints;
 }
 
@@ -366,7 +367,6 @@ function buildImageGroupPagination(input: {
   blockId: string;
   groupId: string;
   displayedHeight: number;
-  layoutHeight: number;
   finalScale: number;
   layoutScale: number;
   flowTopPadding: PdfPoints;
@@ -421,6 +421,7 @@ function buildImageGroupPagination(input: {
   } as const;
 
   if (
+    rows.length === 1 &&
     naturalFlowHeight <= input.pageHeight + PDF_PAGINATION_EPSILON
   ) {
     return {
@@ -433,6 +434,7 @@ function buildImageGroupPagination(input: {
         imageIds: rows.flatMap((row) => row.imageIds),
         flowTopPadding: input.flowTopPadding,
         surfaceHeight: naturalSurfaceHeight,
+        contentTop: inset,
         flowHeight: naturalFlowHeight,
       }],
     };
@@ -472,92 +474,33 @@ function buildImageGroupPagination(input: {
     }
   }
 
-  interface MutableFragment {
-    rowIndexes: number[];
-    imageIds: string[];
-    flowTopPadding: PdfPoints;
-    surfaceHeight: number;
-  }
-  const fragments: MutableFragment[] = [];
-  let current: MutableFragment | undefined;
-  for (const row of rows) {
-    const flowTopPadding = fragments.length === 0
-      ? input.flowTopPadding
-      : points(0);
-    const nextSurfaceHeight = current
-      ? current.surfaceHeight + gap + row.pdf.renderedHeight
-      : inset * 2 + row.pdf.renderedHeight;
-    const nextFlowHeight = nextSurfaceHeight + (
-      current?.flowTopPadding ?? flowTopPadding
-    );
-    if (
-      current &&
-      nextFlowHeight > input.pageHeight + PDF_PAGINATION_EPSILON
-    ) {
-      fragments.push(current);
-      current = undefined;
-    }
-    if (!current) {
-      const fragmentTopPadding = fragments.length === 0
-        ? input.flowTopPadding
-        : points(0);
-      current = {
-        rowIndexes: [row.index],
-        imageIds: [...row.imageIds],
-        flowTopPadding: fragmentTopPadding,
-        surfaceHeight: inset * 2 + row.pdf.renderedHeight,
-      };
-    } else {
-      current.rowIndexes.push(row.index);
-      current.imageIds.push(...row.imageIds);
-      current.surfaceHeight += gap + row.pdf.renderedHeight;
-    }
-  }
-  if (current) fragments.push(current);
-
-  const hasEmergencyRow = rows.some((row) => row.emergencyScale < 1);
-  let trailingSurfaceHeight = Math.max(
-    0,
-    naturalSurfaceHeight - points(input.layoutHeight * input.finalScale),
-  );
-  for (
-    let index = fragments.length - 1;
-    index >= 0 && trailingSurfaceHeight > PDF_PAGINATION_EPSILON;
-    index -= 1
-  ) {
-    const fragment = fragments[index];
-    const available =
-      input.pageHeight -
-      fragment.flowTopPadding -
-      fragment.surfaceHeight;
-    const addition = Math.min(trailingSurfaceHeight, Math.max(0, available));
-    fragment.surfaceHeight += addition;
-    trailingSurfaceHeight -= addition;
-  }
-  if (trailingSurfaceHeight > PDF_PAGINATION_EPSILON) {
-    if (!hasEmergencyRow) {
-      fatal(
-        "INVALID_IMAGE_GROUP",
-        `PDF preflight cannot paginate block "${input.blockId}", group "${input.groupId}": trailing group surface exceeds page-safe row-fragment capacity by ${round(trailingSurfaceHeight)} points.`,
-        { blockId: input.blockId, groupId: input.groupId },
-      );
-    }
-  }
+  // Keep each visual row atomic, but let the renderer choose page boundaries
+  // using the space actually remaining after text and other document blocks.
+  // Multi-row galleries use content height; stale legacy container height must
+  // not reserve empty surfaces (or even empty pages) after the final image.
+  const fragments = rows.map((row, index) => {
+    const first = index === 0;
+    const last = index === rows.length - 1;
+    const contentTop = points(first ? inset : gap / 2);
+    const bottom = last ? inset : gap / 2;
+    const flowTopPadding = first ? input.flowTopPadding : points(0);
+    const surfaceHeight = points(contentTop + row.pdf.renderedHeight + bottom);
+    return {
+      index,
+      rowIndexes: [row.index],
+      imageIds: [...row.imageIds],
+      flowTopPadding,
+      contentTop,
+      surfaceHeight,
+      flowHeight: points(flowTopPadding + surfaceHeight),
+    };
+  });
 
   return {
     ...common,
     mode: "row-fragments",
-    startsOnFreshPage: true,
-    fragments: fragments.map((fragment, index) => ({
-      index,
-      rowIndexes: fragment.rowIndexes,
-      imageIds: fragment.imageIds,
-      flowTopPadding: fragment.flowTopPadding,
-      surfaceHeight: points(fragment.surfaceHeight),
-      flowHeight: points(
-        fragment.flowTopPadding + fragment.surfaceHeight,
-      ),
-    })),
+    startsOnFreshPage: false,
+    fragments,
   };
 }
 
@@ -913,7 +856,6 @@ export function buildPreshotPdfLayoutManifest(
               blockId: block.id,
               groupId: group.id,
               displayedHeight,
-              layoutHeight: layout.height,
               finalScale,
               layoutScale: layout.scale,
               flowTopPadding,

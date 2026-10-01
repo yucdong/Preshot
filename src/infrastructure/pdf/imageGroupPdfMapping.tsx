@@ -1,12 +1,11 @@
 import { Image, View } from "@react-pdf/renderer";
-import { Fragment, type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { PreshotPdfExportContext } from "../../domain/plan/blocknote/pdfExportPreflight";
 import {
   buildPreshotImageGroupPdfRenderModel,
   type PreshotImageGroupPdfBlock,
   type PreshotImageGroupPdfFragmentModel,
 } from "./imageGroupPdfRenderModel";
-import { freshPagePresenceAhead } from "./reactPdfPagination";
 
 function bytesToDataUrl(mime: string, bytes: Readonly<Uint8Array>): string {
   let binary = "";
@@ -25,14 +24,14 @@ function renderFragment(
   fragment: PreshotImageGroupPdfFragmentModel,
   options: {
     key: string;
-    breakBefore?: boolean;
+    first?: boolean;
+    last?: boolean;
   },
 ): ReactElement<{ children?: ReactNode }> {
   return (
     <View
       key={options.key}
       wrap={false}
-      break={options.breakBefore}
       style={{
         position: "relative",
         width: fragment.container.width,
@@ -52,8 +51,14 @@ function renderFragment(
           backgroundColor: fragment.container.backgroundColor,
           borderColor: fragment.container.borderColor,
           borderStyle: "solid",
-          borderWidth: fragment.container.borderWidth,
-          borderRadius: fragment.container.borderRadius,
+          borderLeftWidth: fragment.container.borderWidth,
+          borderRightWidth: fragment.container.borderWidth,
+          borderTopWidth: options.first === false ? 0 : fragment.container.borderWidth,
+          borderBottomWidth: options.last === false ? 0 : fragment.container.borderWidth,
+          borderTopLeftRadius: options.first === false ? 0 : fragment.container.borderRadius,
+          borderTopRightRadius: options.first === false ? 0 : fragment.container.borderRadius,
+          borderBottomLeftRadius: options.last === false ? 0 : fragment.container.borderRadius,
+          borderBottomRightRadius: options.last === false ? 0 : fragment.container.borderRadius,
         }}
       >
         {fragment.images.map((image) => (
@@ -62,7 +67,10 @@ function renderFragment(
             style={{
               position: "absolute",
               left: image.x,
-              top: image.y,
+              // Atomic rows already include their own insets. Compensate the
+              // first strip's border so even a sub-point gap in narrow columns
+              // leaves the entire image frame inside its clipping surface.
+              top: image.y - (options.first === true ? fragment.container.borderWidth : 0),
               width: image.width,
               height: image.height,
               overflow: "hidden",
@@ -98,36 +106,30 @@ export function createPreshotImageGroupPdfBlockMapping(
     if (model.kind === "empty") return null;
 
     if (model.pagination.mode === "row-fragments") {
-      const wrapper = (
+      return (
         <View
           key={`imageGroup-${model.blockId}`}
           wrap
           style={{
             position: "relative",
             marginLeft: model.container.x,
+            // Unlike relative `top`, margins are cleared on continuation by
+            // React-PDF. Shift the first page as a whole and restore the flow
+            // after the last row, preserving legacy negative group offsets.
+            marginTop: model.container.y,
+            marginBottom: -model.container.y,
             width: model.container.width,
           }}
         >
-          {model.pagination.fragments.map((fragment) =>
+          {model.pagination.fragments.map((fragment, index, fragments) =>
             renderFragment(fragment, {
               key: `imageGroup-${model.blockId}-fragment-${fragment.index}`,
-              breakBefore: fragment.index > 0,
+              first: index === 0,
+              last: index === fragments.length - 1,
             })
           )}
         </View>
       );
-      const presenceAhead = freshPagePresenceAhead(
-        exportContext,
-        model.blockId,
-      );
-      return presenceAhead === undefined
-        ? wrapper
-        : (
-            <Fragment key={`imageGroup-${model.blockId}-fresh-page`}>
-              <View minPresenceAhead={presenceAhead} />
-              {wrapper}
-            </Fragment>
-          );
     }
 
     const fragment: PreshotImageGroupPdfFragmentModel = {

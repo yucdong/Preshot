@@ -83,12 +83,12 @@ export type PreshotImageGroupPdfRenderModel =
       readonly kind: "content";
       readonly blockId: string;
       readonly groupId: string;
-      readonly keepTogether: true;
+      readonly keepTogether: boolean;
       readonly pagination: {
         readonly mode: "keep-together";
       } | {
         readonly mode: "row-fragments";
-        readonly startsOnFreshPage: true;
+        readonly startsOnFreshPage: false;
         readonly fragments: readonly PreshotImageGroupPdfFragmentModel[];
       };
       readonly flow: PreshotImageGroupPdfFlowModel;
@@ -202,10 +202,10 @@ export function buildPreshotImageGroupPdfRenderModel(
     ? { mode: "keep-together" as const }
     : {
         mode: "row-fragments" as const,
-        startsOnFreshPage: true as const,
+        startsOnFreshPage: false as const,
         fragments: group.pagination.fragments.map((fragment) => {
           const rowY = new Map<number, number>();
-          let nextY: number = group.pdf.inset;
+          let nextY: number = fragment.contentTop;
           for (const rowIndex of fragment.rowIndexes) {
             const row = group.pagination.rows[rowIndex];
             rowY.set(rowIndex, nextY);
@@ -238,7 +238,7 @@ export function buildPreshotImageGroupPdfRenderModel(
             },
             container: {
               ...container,
-              y: fragment.index === 0 ? container.y : 0,
+              y: 0,
               height: fragment.surfaceHeight,
             },
             images: fragmentImages,
@@ -250,7 +250,7 @@ export function buildPreshotImageGroupPdfRenderModel(
     kind: "content",
     blockId,
     groupId,
-    keepTogether: true,
+    keepTogether: pagination.mode === "keep-together",
     pagination,
     flow,
     container,
