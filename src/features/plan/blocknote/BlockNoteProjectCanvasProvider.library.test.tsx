@@ -345,6 +345,7 @@ describe("material library and the real project editor", () => {
   it("publishes only after native commit and keeps insertion undo/redo separate from preceding edits", async () => {
     const context = fixture();
     await screen.findByRole("group", { name: "方案正文" });
+    await waitFor(() => expect(currentEditor().getBlock("initial")).toBeDefined());
     const editor = currentEditor();
     act(() => { editor.updateBlock("initial", { content: "保留之前的文字" }); });
     let release!: () => void;
