@@ -30,8 +30,8 @@ Edits save automatically; **Ctrl+S** saves explicitly. Closing a project prompts
 the session open. Discarding pending edits does not undo already saved work.
 
 All-projects icons display the first two characters of the project name. The
-overflow menu offers **Open project directory**, **Copy project**, and **Delete
-project**. Deletion has two choices:
+overflow menu offers **Open project directory**, **Move to group**, **Copy project**,
+and **Delete project**. Deletion has two choices:
 
 - **Remove from list** saves/closes the open session and unregisters the project.
   Files remain on disk and can be opened again.
@@ -44,6 +44,46 @@ Deletion failures remain visible and retryable; a failed deletion does not remov
 the list entry. Native deletion validates the manifest identity, refuses linked
 project roots and never follows links into other directories. The global
 [material library](material-library.md) is stored separately.
+
+## Groups and name search
+
+**All projects** organizes projects into flat groups. The built-in group is
+localized in Chinese and shown as **Default** in English; its stable ID is `default`.
+Custom group names are user content and do not change with the interface language.
+The default group stays first and cannot be renamed or deleted. Other groups keep
+creation order; projects within each group keep the most-recently-edited ordering.
+
+The **New group** button stays beside the section title, wrapping below it in a
+narrow rail. Each custom group has a directly visible **Delete group** button and
+a **Rename** menu. Deletion asks once, then moves the group's projects to Default
+and removes the group in one registry save. It never deletes or moves project files.
+
+Drag a project onto a group heading or its contents, including empty or collapsed
+groups, or choose **Move to group** in the project menu. Successful moves expand
+the destination. Pointer previews do not persist; Escape, release outside the
+groups, and dropping in the original group leave the registry unchanged. Group
+changes retain mounted editors, their drafts, undo history, and scroll positions.
+
+The search field matches a literal substring of the complete project name,
+ignoring English case and surrounding query whitespace. It includes unavailable
+projects and projects in collapsed groups, without searching document content or
+paths. Results highlight matching text, temporarily expand matching groups, and
+show matching/total counts. Clearing the query restores saved collapse states.
+While dragging search results, all group headings appear as drop targets. Search
+survives project switches but is not saved across restarts. **Open projects** is
+independent of grouping and filtering.
+
+Groups, collapse states and project-ID assignments live in the current user
+working directory's `workspace.json` (registry schema v2), alongside settings.
+Newly created, first-opened, and copied projects start in Default. Reopening or
+relocating registered projects preserves assignments; unregistering removes them.
+Legacy v1 registries upgrade on save, retaining `workspace.v1.backup.json` and the
+normal rolling `workspace.previous.json`. The project manifest format is unchanged.
+Older applications cannot read the v2 registry. Invalid metadata is preserved and
+reported rather than silently resetting groups. Failed writes retain the previous
+visible organization and can be retried.
+
+See the [project groups acceptance report](../test_reports/project-groups-acceptance.md).
 
 ## Copy a project
 

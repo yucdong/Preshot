@@ -81,13 +81,13 @@ describe("createWorkspaceStore", () => {
 
   it("rejects persisted metadata with an unsupported schema version", async () => {
     store.get.mockResolvedValue({
-      schemaVersion: 2,
+      schemaVersion: 3,
       projects: [],
     });
     const registry = createWorkspaceStore({ loadStore });
 
     await expect(registry.load()).rejects.toThrow(
-      "Unable to load workspace metadata: Unsupported workspace schema 2",
+      "Unable to load workspace metadata: Unsupported workspace schema 3",
     );
   });
 

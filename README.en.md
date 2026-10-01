@@ -10,7 +10,7 @@ reusable material library. The interface supports Chinese and English.
 
 ## Features
 
-- **Projects:** create, open, autosave, copy with independent images and attachments, and switch between loaded projects without losing editor state.
+- **Projects:** create, open, autosave, organize into collapsible groups, drag between groups, search project names, copy with independent images and attachments, and switch between loaded projects without losing editor state.
 - **Planning canvas:** text, headings, checklists, tables, images, image groups, location/model/prop cards.
 - **Columns:** add columns, adjust relative widths, move and merge content; galleries scale proportionally with undo support.
 - **Images:** upload, paste, embed, capture screen regions, crop, resize, and reorder.

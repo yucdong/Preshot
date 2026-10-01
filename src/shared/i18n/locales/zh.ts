@@ -1,4 +1,15 @@
 export const zh = {
+  projectGroups: {
+    default: "默认分组", create: "新建分组", createConfirm: "创建", rename: "重命名", renameConfirm: "保存",
+    delete: "删除分组", deleteConfirm: "删除分组", deleteNamed: "删除分组 {{name}}", actions: "分组操作 {{name}}",
+    deleteDescription: "删除分组“{{name}}”？其中的 {{count}} 个项目将移至“{{defaultName}}”，项目文件不会删除。",
+    move: "移至分组…", moveConfirm: "移动", target: "目标分组", name: "分组名称",
+    search: "搜索项目名称", clearSearch: "清空搜索", noResults: "没有匹配的项目", empty: "拖动项目到此分组",
+    saving: "正在保存…", saved: "项目分组已保存", retry: "重试", busy: "正在处理其他项目操作，请稍后重试。", saveFailed: "分组保存失败：{{detail}}",
+    dragInstructions: "拖动项目到目标分组。也可以使用项目菜单中的“移至分组”通过键盘移动。",
+    dragStarted: "正在移动项目", dragTarget: "移至分组“{{name}}”", dragEnded: "拖拽已结束", dragCancelled: "已取消移动",
+    errors: { empty: "请输入分组名称。", duplicate: "分组名称已存在或与默认分组名称重复。", protected: "默认分组不能重命名或删除。", groupMissing: "分组已不存在，请重新选择。", projectMissing: "项目已不在列表中，请重新选择。", invalidId: "分组标识已存在，请重新创建。" },
+  },
   storage: {
     title: "存储位置", setup: "Preshot 首次启动设置", retention: "卸载只删除程序文件，保留用户配置、素材库和项目。",
     configuration: "项目工作路径（配置与数据）", application: "程序安装目录", library: "当前素材库目录",

@@ -1,3 +1,4 @@
+import { emptyOrganization } from "../domain/workspace/organization";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -87,6 +88,8 @@ function planDeps(): PlanDependencies {
 
 function createDependencies(project: WorkspaceProjectView): WorkspaceDependencies {
   const service: WorkspaceService = {
+    loadProjectOrganization: vi.fn(async () => emptyOrganization()),
+    updateProjectOrganization: vi.fn(),
     loadProjects: vi.fn().mockResolvedValue([project]),
     createProject: vi.fn(),
     openProject: vi.fn().mockResolvedValue(project),

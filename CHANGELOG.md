@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.0
+
+- Organize projects in flat, collapsible groups with direct create/delete buttons,
+  rename, drag-and-drop and a keyboard-accessible move dialog. Localize the
+  protected default group while preserving custom names.
+- Search project names across every group with literal, case-insensitive matching,
+  Unicode highlights and Chinese IME support. Restore saved collapse states when
+  clearing the search and retain search across project switches.
+- Persist organization in workspace registry v2 with atomic saves, retryable
+  failures and a retained v1 migration backup. Grouping preserves project files,
+  mounted editors, content and undo/redo history.
+- Include the PDF gallery pagination improvements from 0.0.25 and stabilize
+  asynchronous image-readiness assertions in workspace/editor regressions.
+- Prepare four previously recorded walkthroughs and Chinese launch copy with
+  explicit recording-version provenance and media attribution.
+
+
 ## 0.0.24
 
 - Keep Settings above selected-image controls and editor tooltips so modal

@@ -1,3 +1,4 @@
+import { emptyOrganization } from "../../domain/workspace/organization";
 import type { ReactElement } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -26,6 +27,8 @@ function makeProject(
 
 function handlers() {
   return {
+    organization: emptyOrganization(),
+    onOrganizationChange: vi.fn(),
     onSelectProject: vi.fn(),
     onNewProject: vi.fn(),
     onOpenProject: vi.fn(),
@@ -142,7 +145,7 @@ describe("AppShell", () => {
     });
     expect(within(menu).getAllByRole("menuitem").map((item) =>
       item.textContent
-    )).toEqual(["打开项目目录", "删除项目"]);
+    )).toEqual(["打开项目目录", "移至分组…", "删除项目"]);
 
     await user.click(within(menu).getByRole("menuitem", {
       name: "打开项目目录",
@@ -177,7 +180,10 @@ describe("AppShell", () => {
       ).toHaveFocus()
     );
     await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "移至分组…" })).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
     expect(screen.getByRole("menuitem", { name: "删除项目" })).toHaveFocus();
+    await user.keyboard("{ArrowUp}");
     await user.keyboard("{ArrowUp}");
     expect(
       screen.getByRole("menuitem", { name: "打开项目目录" }),

@@ -1,3 +1,5 @@
+import { emptyOrganization, type ProjectOrganizationCommand } from "../../domain/workspace/organization";
+import type { ProjectOrganization } from "../../domain/workspace/models";
 import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import {
   useCallback,
@@ -67,6 +69,7 @@ export function WorkspaceProvider({
   useUiLanguage();
   const { t } = useTranslation();
   const [view, setView] = useState<AppView>({ kind: "launcher" });
+  const [organization, setOrganization] = useState<ProjectOrganization>(emptyOrganization);
   const [projects, setProjects] = useState<WorkspaceProjectView[]>([]);
   const [loading, setLoading] = useState(true);
   const [openProjects, setOpenProjects] = useState<OpenProject[]>([]);
@@ -437,6 +440,9 @@ export function WorkspaceProvider({
             setMountedState(() => {
               setAlert(null);
               setProjects(nextProjects);
+              setOrganization(current => ({ ...current, projectGroupIds: Object.fromEntries(
+                Object.entries(current.projectGroupIds).filter(([id]) => nextProjects.some(project => project.projectId === id)),
+              ) }));
               deleteRequestRef.current = null;
               setDeleteRequest(null);
             });
@@ -518,10 +524,12 @@ export function WorkspaceProvider({
     async function loadInitialProjects() {
       try {
         const loadedProjects = await dependencies.service.loadProjects();
+        const loadedOrganization = await dependencies.service.loadProjectOrganization();
         if (!active) {
           return;
         }
 
+        setOrganization(loadedOrganization);
         setProjects(loadedProjects);
         setAlert(null);
 
@@ -606,6 +614,17 @@ export function WorkspaceProvider({
     };
   }, [dependencies, openExistingProject, reportActionError, requestCreate]);
 
+  const updateOrganization = async (command: ProjectOrganizationCommand) => {
+    if (isBusyRef.current || !isMountedRef.current || isLoadPending() || closeRequestRef.current || deleteRequestRef.current || copyRequestRef.current) {
+      throw new Error(t("projectGroups.busy"));
+    }
+    isBusyRef.current = true;
+    try {
+      const next = await dependencies.service.updateProjectOrganization(command);
+      setMountedState(() => { setOrganization(next); });
+    } finally { isBusyRef.current = false; }
+  };
+
   const orderedProjects = useMemo(
     () => sortProjectsByRecentEdit(projects),
     [projects],
@@ -688,6 +707,8 @@ export function WorkspaceProvider({
             }}
             onSelectProject={selectProject}
             projects={orderedProjects}
+            organization={organization}
+            onOrganizationChange={updateOrganization}
             openProjects={openProjects.map((entry) => entry.project)}
             onCloseProject={(project) => {
               if (isBusyRef.current || isLoadPending() || closeRequestRef.current) return;

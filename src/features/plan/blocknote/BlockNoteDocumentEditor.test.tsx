@@ -191,8 +191,11 @@ describe("BlockNoteDocumentEditor", () => {
         persistMediaUrl={persist} resolveMediaUrl={(url) => url.startsWith("media/") ? dataUrl : url} uploadFile={vi.fn()} />
     </ThemeProvider>);
     await waitFor(() => expect(editor).toBeDefined());
-    expect(screen.getByRole("img", { name: "原图" })).toHaveAttribute("src", dataUrl);
-    expect(screen.getByRole("img", { name: "复制图" })).toHaveAttribute("src", dataUrl);
+    // Media URLs resolve after editor readiness, especially under parallel suites.
+    await waitFor(() => {
+      expect(screen.getByRole("img", { name: "原图" })).toHaveAttribute("src", dataUrl);
+      expect(screen.getByRole("img", { name: "复制图" })).toHaveAttribute("src", dataUrl);
+    });
     await act(async () => { editor.updateBlock("text", { content: "触发保存的后续编辑" }); });
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     const saved = onChange.mock.calls.at(-1)![0] as PreshotBlockDocument;

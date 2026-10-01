@@ -3,6 +3,17 @@ import type { zh } from "./zh";
 type TranslationShape<T> = { [K in keyof T]: T[K] extends string ? string : TranslationShape<T[K]> };
 
 export const en = {
+  projectGroups: {
+    default: "Default", create: "New group", createConfirm: "Create", rename: "Rename", renameConfirm: "Save",
+    delete: "Delete group", deleteConfirm: "Delete group", deleteNamed: "Delete group {{name}}", actions: "Group actions {{name}}",
+    deleteDescription: "Delete group “{{name}}”? Its {{count}} projects will move to “{{defaultName}}”. Project files will be kept.",
+    move: "Move to group…", moveConfirm: "Move", target: "Destination group", name: "Group name",
+    search: "Search project names", clearSearch: "Clear search", noResults: "No matching projects", empty: "Drag projects into this group",
+    saving: "Saving…", saved: "Project groups saved", retry: "Retry", busy: "Another project operation is in progress. Please try again shortly.", saveFailed: "Could not save groups: {{detail}}",
+    dragInstructions: "Drag a project into a group. To move it using the keyboard, choose Move to group in its menu.",
+    dragStarted: "Moving project", dragTarget: "Move to group “{{name}}”", dragEnded: "Drag ended", dragCancelled: "Move cancelled",
+    errors: { empty: "Enter a group name.", duplicate: "This name already exists or is reserved for the default group.", protected: "The default group cannot be renamed or deleted.", groupMissing: "This group no longer exists. Select another group.", projectMissing: "This project is no longer registered. Select another project.", invalidId: "This group ID already exists. Create the group again." },
+  },
   storage: {
     title: "Storage locations", setup: "Welcome to Preshot", retention: "Uninstall removes application files and preserves your configuration, library, and projects.",
     configuration: "Working directory (settings and data)", application: "Application directory", library: "Current library directory",

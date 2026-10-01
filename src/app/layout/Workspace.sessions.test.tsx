@@ -60,6 +60,8 @@ describe("in-memory project sessions", () => {
     const view = render(ui("one"));
     await waitFor(() => expect(screen.getAllByRole("group", { name: "方案正文", hidden: true })).toHaveLength(2));
     const firstEditor = screen.getByRole("group", { name: "方案正文" });
+    // The editor surface can mount before its asynchronously loaded images.
+    await waitFor(() => expect(firstEditor.querySelector("img")).not.toBeNull());
     const firstImage = firstEditor.querySelector("img");
     expect(firstImage).not.toBeNull();
     const scroller = firstEditor.closest('[data-testid="canvas-scroller"]')!;

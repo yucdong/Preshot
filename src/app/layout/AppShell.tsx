@@ -1,4 +1,6 @@
-import { ui, useUiLanguage, uiLocale } from "../../shared/i18n/ui";
+import { ProjectGroups } from "../../features/workspace/ProjectGroups";
+import type { ProjectOrganizationCommand } from "../../domain/workspace/organization";
+import { ui, useUiLanguage } from "../../shared/i18n/ui";
 import {
   useCallback,
   useEffect,
@@ -9,7 +11,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import {
-  Ellipsis,
   Copy,
   Focus,
   FolderOpen,
@@ -23,7 +24,7 @@ import { useTranslation } from "react-i18next";
 import {
   PROJECT_RAIL_WIDTH,
 } from "../../domain/settings/models";
-import type { WorkspaceProjectView } from "../../domain/workspace/models";
+import type { ProjectOrganization, WorkspaceProjectView } from "../../domain/workspace/models";
 import { SettingsButton } from "../../features/settings/SettingsButton";
 import { useTheme } from "../theme/ThemeContext";
 import { BrandMark } from "../../shared/ui/BrandMark";
@@ -31,6 +32,8 @@ import { useOptionalMaterialLibrary } from "../../features/library/MaterialLibra
 
 interface AppShellProps extends PropsWithChildren {
   projects: WorkspaceProjectView[];
+  organization: ProjectOrganization;
+  onOrganizationChange(command: ProjectOrganizationCommand): Promise<void>;
   openProjects?: WorkspaceProjectView[];
   onCloseProject?(project: WorkspaceProjectView): void;
   currentProjectId: string;
@@ -64,6 +67,8 @@ function constrainedPanelWidth(
 export function AppShell({
   children,
   projects,
+  organization,
+  onOrganizationChange,
   openProjects = [],
   onCloseProject,
   currentProjectId,
@@ -91,6 +96,8 @@ export function AppShell({
     }
     previouslyLoading.current = hasLoadingContent;
   }, [hasLoadingContent]);
+  const [projectQuery, setProjectQuery] = useState("");
+  const [moveProject, setMoveProject] = useState<WorkspaceProjectView | null>(null);
   const [projectMenuId, setProjectMenuId] = useState<string | null>(null);
   const [projectMenuPosition, setProjectMenuPosition] = useState({
     left: 0,
@@ -176,7 +183,7 @@ export function AppShell({
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
     const menuWidth = 144;
-    const menuHeight = onCopyProject ? 116 : 84;
+    const menuHeight = onCopyProject ? 152 : 120;
     const viewportGutter = 8;
     const preferredTop = rect.bottom + 4;
     setProjectMenuPosition({
@@ -407,7 +414,7 @@ export function AppShell({
                 </button>
               ) : null}
             </div>
-          <section aria-label={t("shell.openProjects")} className="flex min-h-0 flex-1 flex-col">
+          <section aria-label={t("shell.openProjects")} className="flex max-h-[35%] min-h-0 shrink-0 flex-col">
             <ul className="min-h-0 space-y-1 overflow-y-auto px-3 pb-3">
               {openProjects.map((project) => (
                 <li key={project.projectId} className={`flex items-center rounded-lg border ${project.projectId === currentProjectId ? "border-app-border bg-app-panel-strong" : "border-transparent"}`}>
@@ -428,86 +435,15 @@ export function AppShell({
               ))}
             </ul>
           </section>
-          <section aria-label={t("shell.allProjects")} className="flex min-h-0 flex-1 flex-col border-t border-app-border">
-          <h2 className="shrink-0 px-4 pb-2 pt-4 text-[11px] font-bold text-app-ink">{t("shell.allProjects")}</h2>
-          <ul className="min-h-0 space-y-1 overflow-y-auto px-3 pb-3">
-            {projects.map((project) => {
-              const isCurrent = project.projectId === currentProjectId;
-              const isAvailable = project.status === "available";
-
-              return (
-                <li key={project.projectId}>
-                  <article
-                    className={`group/project relative rounded-lg border ${
-                      isCurrent
-                        ? "border-app-border bg-app-panel-strong shadow-[0_3px_12px_rgb(24_24_27_/_7%)]"
-                        : "border-transparent hover:bg-app-panel-strong focus-within:bg-app-panel-strong"
-                    }`}
-                    data-project-overflow-menu={project.projectId}
-                  >
-                    <button
-                      aria-current={isCurrent ? "page" : undefined}
-                      aria-label={
-                        isAvailable
-                          ? t("shell.openProjectNamed", { name: project.name })
-                          : t("shell.projectUnavailableNamed", { name: project.name })
-                      }
-                      className={`${railButtonClassName} flex items-center gap-2.5 pr-10 text-left text-app-muted hover:text-app-ink`}
-                      onClick={() => {
-                        setProjectMenuId(null);
-                        onSelectProject(project);
-                      }}
-                      type="button"
-                    >
-                      <span aria-hidden="true" className="font-editorial grid h-10 w-12 shrink-0 place-items-center rounded-md bg-app-primary-soft text-xs font-bold text-app-muted">
-                        {Array.from(project.name).slice(0, 2).join("").toUpperCase()}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block w-full truncate text-[11px] font-bold">{project.name}</span>
-                        <span className={`mt-1 block truncate text-[9px] font-normal ${!isAvailable ? "text-app-accent" : "text-app-muted"}`}>
-                          {!isAvailable ? t("shell.unavailable") : new Date(project.updatedAt).toLocaleDateString(uiLocale())}
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      aria-expanded={projectMenuId === project.projectId}
-                      aria-haspopup="menu"
-                      aria-label={ui("更多项目操作 {{v0}}", { v0: project.name })}
-                      className={`absolute right-2 top-1/2 z-10 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-app-muted transition-[opacity,color,background-color] hover:bg-app-primary-soft hover:text-app-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional ${
-                        isCurrent || projectMenuId === project.projectId
-                          ? "opacity-100"
-                          : "opacity-0 group-hover/project:opacity-100 group-focus-within/project:opacity-100"
-                      }`}
-                      onClick={() =>
-                        setProjectMenuId((current) => {
-                          if (current === project.projectId) return null;
-                          positionProjectMenu(project.projectId);
-                          return project.projectId;
-                        })}
-                      id={`project-overflow-trigger-${project.projectId}`}
-                      ref={(element) => {
-                        if (element) {
-                          projectMenuTriggerRefs.current.set(
-                            project.projectId,
-                            element,
-                          );
-                        } else {
-                          projectMenuTriggerRefs.current.delete(
-                            project.projectId,
-                          );
-                        }
-                      }}
-                      title={ui("更多项目操作")}
-                      type="button"
-                    >
-                      <Ellipsis aria-hidden className="h-4 w-4" />
-                    </button>
-                  </article>
-                </li>
-              );
-            })}
-          </ul>
-          </section>
+          <ProjectGroups projects={projects} organization={organization} currentProjectId={currentProjectId}
+            query={projectQuery} onQueryChange={setProjectQuery} onChange={onOrganizationChange}
+            onSelectProject={project => { setProjectMenuId(null); onSelectProject(project); }}
+            menuProjectId={projectMenuId} onProjectMenu={project => {
+              if (projectMenuId === project.projectId) setProjectMenuId(null);
+              else { positionProjectMenu(project.projectId); setProjectMenuId(project.projectId); }
+            }}
+            registerMenuTrigger={(id, element) => { if (element) projectMenuTriggerRefs.current.set(id, element); else projectMenuTriggerRefs.current.delete(id); }}
+            moveProject={moveProject} onMoveDialogClose={() => setMoveProject(null)} />
           <div className="shrink-0 space-y-2 border-t border-app-border p-3">
             <button
               className={`${railButtonClassName} bg-[#202329] text-white hover:bg-[#30343a] active:scale-[0.98]`}
@@ -628,6 +564,11 @@ export function AppShell({
                 >
                   <FolderOpen aria-hidden className="h-3.5 w-3.5" />
                   {ui("打开项目目录")}
+                </button>
+                <button role="menuitem" type="button"
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium text-app-ink hover:bg-app-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional"
+                  onClick={() => { focusProjectMenuTrigger(project.projectId); setProjectMenuId(null); setMoveProject(project); }}>
+                  <FolderOpen aria-hidden className="h-3.5 w-3.5" />{t("projectGroups.move")}
                 </button>
                 {onCopyProject && <button
                   className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium text-app-ink hover:bg-app-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-functional disabled:opacity-50"

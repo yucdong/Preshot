@@ -1,3 +1,4 @@
+import { emptyOrganization } from "./organization";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceService } from "./service";
 import type {
@@ -518,7 +519,8 @@ describe("createWorkspaceService", () => {
 
     expect(registry.load).toHaveBeenCalledTimes(1);
     expect(createSaveCall?.[0]).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
+      ...emptyOrganization(),
       projects: [
         {
           projectId: "project-1",
@@ -620,7 +622,8 @@ describe("createWorkspaceService", () => {
     } satisfies WorkspaceProjectView);
 
     expect(registry.save).toHaveBeenLastCalledWith({
-      schemaVersion: 1,
+      schemaVersion: 2,
+      ...emptyOrganization(),
       projects: [
         {
           projectId: "project-1",
@@ -691,7 +694,8 @@ describe("createWorkspaceService", () => {
     } satisfies WorkspaceProjectView);
 
     expect(registry.save).toHaveBeenLastCalledWith({
-      schemaVersion: 1,
+      schemaVersion: 2,
+      ...emptyOrganization(),
       projects: [
         {
           projectId: "project-1",
@@ -789,10 +793,10 @@ describe("createWorkspaceService", () => {
     {
       name: "rejects unsupported schema versions",
       loaded: {
-        schemaVersion: 2,
+        schemaVersion: 3,
         projects: [],
       },
-      message: "Unable to load workspace metadata: Unsupported workspace schema 2",
+      message: "Unable to load workspace metadata: Unsupported workspace schema 3",
     },
     {
       name: "surfaces adapter load failures",
@@ -852,7 +856,8 @@ describe("createWorkspaceService", () => {
     );
 
     expect(createSaveCall?.[0]).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
+      ...emptyOrganization(),
       projects: [
         {
           projectId: "fresh",
@@ -924,7 +929,8 @@ describe("createWorkspaceService", () => {
     ]);
 
     expect(lastSavedMetadata(registry.save.mock.calls)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
+      ...emptyOrganization(),
       projects: [
         persisted(viewed("alpha", NOW, "C:\\shoots\\alpha")),
         persisted(viewed("beta", NOW, "C:\\shoots\\beta")),
@@ -956,7 +962,8 @@ describe("createWorkspaceService", () => {
     );
 
     expect(lastSavedMetadata(registry.save.mock.calls)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
+      ...emptyOrganization(),
       projects: [
         persisted(viewed("fresh", NOW, "C:\\shoots\\fresh")),
         persisted(keepProject),
@@ -991,7 +998,8 @@ describe("createWorkspaceService", () => {
     );
 
     expect(lastSavedMetadata(registry.save.mock.calls)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
+      ...emptyOrganization(),
       projects: [
         persisted(viewed("opened", NOW, "D:\\opened\\opened")),
         persisted(keepProject),
@@ -1028,7 +1036,8 @@ describe("createWorkspaceService", () => {
     await expect(service.removeRecord("remove")).resolves.toEqual([keepProject]);
 
     expect(lastSavedMetadata(registry.save.mock.calls)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
+      ...emptyOrganization(),
       projects: [persisted(keepProject)],
     });
   });

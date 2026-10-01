@@ -1,3 +1,4 @@
+import { readWorkspaceMetadata } from "../../domain/workspace/metadata";
 import {
   EMPTY_WORKSPACE,
   type CreatedProject,
@@ -41,27 +42,7 @@ const DEMO_INSPECTED_PROJECT: InspectedProject = {
   coverDataUrl: null,
 };
 
-function cloneProjectRecord(
-  project: WorkspaceProjectRecord,
-): WorkspaceProjectRecord {
-  return {
-    projectId: project.projectId,
-    path: project.path,
-    name: project.name,
-    coverImage: project.coverImage,
-    status: project.status,
-    createdAt: project.createdAt,
-    updatedAt: project.updatedAt,
-    lastOpenedAt: project.lastOpenedAt,
-  };
-}
-
-function cloneMetadata(metadata: WorkspaceMetadata): WorkspaceMetadata {
-  return {
-    schemaVersion: 1,
-    projects: metadata.projects.map((project) => cloneProjectRecord(project)),
-  };
-}
+const cloneMetadata = readWorkspaceMetadata;
 
 function cloneInspectedProject(project: InspectedProject): InspectedProject {
   return {

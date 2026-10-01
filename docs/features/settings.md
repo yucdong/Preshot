@@ -16,6 +16,8 @@ hides the rail to maximize document space; the side control can reopen it.
 
 Preferences live in `<working directory>/settings.json`. Missing or corrupt
 settings recover to defaults. See [Localization](../development/i18n.md).
+Project groups and collapse states live separately in `workspace.json` within
+the same working directory; invalid project metadata does not reset to defaults.
 
 ## Storage locations
 

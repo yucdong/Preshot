@@ -1,8 +1,8 @@
+import { readWorkspaceMetadata } from "../../domain/workspace/metadata";
 import { invoke } from "@tauri-apps/api/core";
 import {
   EMPTY_WORKSPACE,
   type WorkspaceMetadata,
-  type WorkspaceProjectRecord,
 } from "../../domain/workspace/models";
 import type { WorkspaceRegistry } from "../../domain/workspace/ports";
 
@@ -22,23 +22,6 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isPlainObjectRecord(value: unknown): value is Record<string, unknown> {
-  if (!isObjectRecord(value) || Array.isArray(value)) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
-function hasOwn(value: Record<string, unknown>, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(value, key);
-}
-
-function isProjectAvailability(value: unknown): value is "available" | "unavailable" {
-  return value === "available" || value === "unavailable";
-}
-
 function detail(error: unknown): string {
   if (isObjectRecord(error) && typeof error.message === "string") {
     return error.message;
@@ -53,104 +36,8 @@ function contextualError(context: string, error: unknown): Error {
   });
 }
 
-function cloneProject(project: WorkspaceProjectRecord): WorkspaceProjectRecord {
-  return {
-    projectId: project.projectId,
-    path: project.path,
-    name: project.name,
-    coverImage: project.coverImage,
-    status: project.status,
-    createdAt: project.createdAt,
-    updatedAt: project.updatedAt,
-    lastOpenedAt: project.lastOpenedAt,
-  };
-}
-
-function cloneMetadata(metadata: WorkspaceMetadata): WorkspaceMetadata {
-  return {
-    schemaVersion: 1,
-    projects: metadata.projects.map((project) => cloneProject(project)),
-  };
-}
-
-const WORKSPACE_METADATA_KEYS = ["schemaVersion", "projects"] as const;
-
-const WORKSPACE_PROJECT_KEYS = [
-  "projectId",
-  "path",
-  "name",
-  "coverImage",
-  "status",
-  "createdAt",
-  "updatedAt",
-  "lastOpenedAt",
-] as const;
-
-function hasExactOwnKeys(
-  value: Record<string, unknown>,
-  keys: readonly string[],
-): boolean {
-  const ownKeys = Object.keys(value);
-
-  return ownKeys.length === keys.length && keys.every((key) => hasOwn(value, key));
-}
-
-function validateProjectRecord(value: unknown): WorkspaceProjectRecord {
-  if (!isPlainObjectRecord(value) || !hasExactOwnKeys(value, WORKSPACE_PROJECT_KEYS)) {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  if (
-    typeof value.projectId !== "string" ||
-    typeof value.path !== "string" ||
-    typeof value.name !== "string" ||
-    !(typeof value.coverImage === "string" || value.coverImage === null) ||
-    !isProjectAvailability(value.status) ||
-    typeof value.createdAt !== "string" ||
-    typeof value.updatedAt !== "string" ||
-    typeof value.lastOpenedAt !== "string"
-  ) {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  return {
-    projectId: value.projectId,
-    path: value.path,
-    name: value.name,
-    coverImage: value.coverImage,
-    status: value.status,
-    createdAt: value.createdAt,
-    updatedAt: value.updatedAt,
-    lastOpenedAt: value.lastOpenedAt,
-  };
-}
-
-function validateWorkspaceMetadata(value: unknown): WorkspaceMetadata {
-  if (!isPlainObjectRecord(value)) {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  if (value.schemaVersion !== 1) {
-    if (typeof value.schemaVersion === "number") {
-      throw new Error(`Unsupported workspace schema ${value.schemaVersion}`);
-    }
-
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  if (!hasExactOwnKeys(value, WORKSPACE_METADATA_KEYS)) {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  if (!Array.isArray(value.projects)) {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  return {
-    schemaVersion: 1,
-    projects: value.projects.map((project) => validateProjectRecord(project)),
-  };
-}
+const cloneMetadata = readWorkspaceMetadata;
+const validateWorkspaceMetadata = readWorkspaceMetadata;
 
 async function defaultLoadStore(): Promise<StoreLike> {
   let pending: unknown;

@@ -11,6 +11,8 @@ Preshot is a Windows-first desktop application for photography planning. The cur
   with BlockNote document v5 (`format: "preshot-blocks"`)
 - Active UI languages: Simplified Chinese (default) and English (`src/shared/i18n/locales`)
 - Project manifest: `.preshotproj` with manifest `schemaVersion: 1`
+- User workspace registry: `workspace.json` v2, with v1-compatible input,
+  ordered project groups, persisted collapse states and project-ID assignments.
 - Global material library: defaults to `%USERPROFILE%\.preshot\library\library.db`,
   under the first-launch working directory recorded in `%USERPROFILE%\.preshot\profile.json`; settings and workspace registry share that root;
   database v10 and portable payload v2 (v1 remains compatible)
@@ -321,6 +323,13 @@ pnpm migrate:project
   project name. Resolve the default Preshot projects directory without opening
   a system picker. Explain and preview the named child folder; directory picking
   is optional and starts at the current input path.
+- All-projects groups are flat, with the protected `default` group localized as
+  the Chinese default-group label or English `Default`. Persist organization in the user-root
+  workspace registry, never project manifests. Group deletion atomically returns
+  members to default; moves never move project files or remount editors. Search
+  is literal, case-insensitive project-name containment; temporary search/drag
+  expansion must not overwrite persisted collapse state. Retain the v1 migration
+  backup and reject corrupt registries or v2-to-v1 downgrades.
 - The project rail shows open sessions above all registered projects. Keep ready
   sessions mounted in memory across switches; preserve their editors, image
   sources, history and scroll position. Inactive sessions autosave but must not

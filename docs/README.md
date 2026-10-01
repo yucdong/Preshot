@@ -41,6 +41,8 @@ proposals and prototypes remain available through Git history.
 | Wide screenshot frames, image deletion and suspicious capture review | [Buglist2 acceptance](test_reports/buglist2-acceptance.md) |
 | Mixed block top edges and six-dot handle alignment in columns | [Block alignment acceptance](test_reports/block-alignment-acceptance.md) |
 | Independent project copies, cancellation, recovery and large originals | [Project copy acceptance](test_reports/project-copy-acceptance.md) |
+| 0.1.0 installer/source handoff, four existing videos and launch copy | [0.1.0 release preparation](release/0.1.0.md) |
+| Project groups, name search, persistence, drag and keyboard interaction | [Project groups acceptance](test_reports/project-groups-acceptance.md) |
 | Multi-column implementation, test evidence, and remaining constraints | [Multi-column acceptance](test_reports/multi-column-acceptance.md) |
 | Bundled Nanjing sample, installed recording and export verification | [Installed demo acceptance](test_reports/installed-demo-acceptance.md) |
 | Under-one-minute blank-project recording with prepared materials | [Short demo acceptance](test_reports/short-demo-acceptance.md) |

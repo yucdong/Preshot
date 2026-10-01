@@ -28,10 +28,29 @@ export type WorkspaceProjectView = Omit<
   coverDataUrl: string | null;
 };
 
-export interface WorkspaceMetadata {
+export interface LegacyWorkspaceMetadata {
   schemaVersion: 1;
   projects: WorkspaceProjectRecord[];
 }
+
+export interface ProjectGroup {
+  id: string;
+  /** The built-in group's canonical name is never translated in storage. */
+  name: string;
+  collapsed: boolean;
+}
+
+export interface ProjectOrganization {
+  groups: ProjectGroup[];
+  projectGroupIds: Record<string, string>;
+}
+
+export interface WorkspaceMetadataV2 extends ProjectOrganization {
+  schemaVersion: 2;
+  projects: WorkspaceProjectRecord[];
+}
+
+export type WorkspaceMetadata = LegacyWorkspaceMetadata | WorkspaceMetadataV2;
 
 export interface InspectedProject {
   path: string;

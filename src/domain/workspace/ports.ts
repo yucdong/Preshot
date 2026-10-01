@@ -1,4 +1,6 @@
 import type { NativeProjectCopy, WorkspaceProjectCopy } from "./projectCopy";
+import type { ProjectOrganization } from "./models";
+import type { ProjectOrganizationCommand } from "./organization";
 import type {
   CreatedProject,
   InspectedProject,
@@ -72,6 +74,10 @@ export interface WorkspaceLogger {
 export type WorkspaceMenuAction = "new-project" | "open-project";
 
 export interface WorkspaceService extends Partial<WorkspaceProjectCopy> {
+  loadProjectOrganization(): Promise<ProjectOrganization>;
+
+  updateProjectOrganization(command: ProjectOrganizationCommand): Promise<ProjectOrganization>;
+
   loadProjects(): Promise<WorkspaceProjectView[]>;
 
   createProject(

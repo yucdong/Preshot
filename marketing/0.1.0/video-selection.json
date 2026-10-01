@@ -1,0 +1,11 @@
+{
+  "releaseVersion": "0.1.0",
+  "recordedVersion": "0.0.24",
+  "license": "CC BY-SA 4.0",
+  "videos": [
+    { "id": "01", "title": "主流程：从想法到拍摄方案", "source": "docs/media/preshot-demo.mp4", "filename": "01-主流程-从想法到拍摄方案.mp4", "coverSecond": 32 },
+    { "id": "02", "title": "素材创建：把拍摄地点存起来", "source": "docs/media/material-tutorials/C03.mp4", "filename": "02-素材创建-把拍摄地点存起来.mp4", "poster": "docs/media/material-tutorials/C03.jpg", "case": "C03" },
+    { "id": "03", "title": "素材复用：插入方案再自由修改", "source": "docs/media/material-tutorials/I01.mp4", "filename": "03-素材复用-插入方案再自由修改.mp4", "poster": "docs/media/material-tutorials/I01.jpg", "case": "I01" },
+    { "id": "04", "title": "素材检索：按名字描述和标签寻找", "source": "docs/media/material-tutorials/M01.mp4", "filename": "04-素材检索-按名字描述和标签寻找.mp4", "poster": "docs/media/material-tutorials/M01.jpg", "case": "M01" }
+  ]
+}

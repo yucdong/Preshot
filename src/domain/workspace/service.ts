@@ -1,5 +1,7 @@
+import { readWorkspaceMetadata, upgradeWorkspaceMetadata } from "./metadata";
+import { applyOrganizationCommand } from "./organization";
 import type {
-  WorkspaceMetadata,
+  WorkspaceMetadataV2,
   WorkspaceProjectRecord,
   WorkspaceProjectView,
 } from "./models";
@@ -43,71 +45,6 @@ function contextualError(context: string, error: unknown): Error {
   return wrappedError;
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isProjectAvailability(value: unknown): value is "available" | "unavailable" {
-  return value === "available" || value === "unavailable";
-}
-
-function validateProjectRecord(value: unknown): WorkspaceProjectRecord {
-  if (!isObjectRecord(value)) {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  if ("coverDataUrl" in value) {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  if (
-    typeof value.projectId !== "string" ||
-    typeof value.path !== "string" ||
-    typeof value.name !== "string" ||
-    !(typeof value.coverImage === "string" || value.coverImage === null) ||
-    !isProjectAvailability(value.status) ||
-    typeof value.createdAt !== "string" ||
-    typeof value.updatedAt !== "string" ||
-    typeof value.lastOpenedAt !== "string"
-  ) {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  return {
-    projectId: value.projectId,
-    path: value.path,
-    name: value.name,
-    coverImage: value.coverImage,
-    status: value.status,
-    createdAt: value.createdAt,
-    updatedAt: value.updatedAt,
-    lastOpenedAt: value.lastOpenedAt,
-  };
-}
-
-function validateWorkspaceMetadata(value: unknown): WorkspaceMetadata {
-  if (!isObjectRecord(value)) {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  if (typeof value.schemaVersion !== "number") {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  if (value.schemaVersion !== 1) {
-    throw new Error(`Unsupported workspace schema ${value.schemaVersion}`);
-  }
-
-  if (!Array.isArray(value.projects)) {
-    throw new Error("Workspace metadata is malformed");
-  }
-
-  return {
-    schemaVersion: 1,
-    projects: value.projects.map((project) => validateProjectRecord(project)),
-  };
-}
-
 function toPersistedRecord(project: WorkspaceProjectView): WorkspaceProjectRecord {
   return {
     projectId: project.projectId,
@@ -121,24 +58,13 @@ function toPersistedRecord(project: WorkspaceProjectView): WorkspaceProjectRecor
   };
 }
 
-function cloneProjectRecord(project: WorkspaceProjectRecord): WorkspaceProjectRecord {
-  return {
-    ...project,
-  };
-}
-
 function cloneProjectView(project: WorkspaceProjectView): WorkspaceProjectView {
   return {
     ...project,
   };
 }
 
-function cloneMetadata(metadata: WorkspaceMetadata): WorkspaceMetadata {
-  return {
-    schemaVersion: 1,
-    projects: metadata.projects.map((project) => cloneProjectRecord(project)),
-  };
-}
+const cloneMetadata = upgradeWorkspaceMetadata;
 
 function cloneProjects(projects: WorkspaceProjectView[]): WorkspaceProjectView[] {
   return projects.map((project) => cloneProjectView(project));
@@ -150,7 +76,7 @@ export function createWorkspaceService({
   clock,
   logger,
 }: Dependencies): WorkspaceService {
-  let metadataCache: WorkspaceMetadata | null = null;
+  let metadataCache: WorkspaceMetadataV2 | null = null;
   let projectCache: WorkspaceProjectView[] | null = null;
   let bootstrapComplete = false;
   let operationQueue: Promise<void> = Promise.resolve();
@@ -165,14 +91,14 @@ export function createWorkspaceService({
     return queuedOperation;
   }
 
-  async function readMetadataInternal(): Promise<WorkspaceMetadata> {
+  async function readMetadataInternal(): Promise<WorkspaceMetadataV2> {
     if (metadataCache !== null) {
       return cloneMetadata(metadataCache);
     }
 
     try {
       const loaded: unknown = await registry.load();
-      const validated = validateWorkspaceMetadata(loaded);
+      const validated = upgradeWorkspaceMetadata(readWorkspaceMetadata(loaded));
 
       metadataCache = cloneMetadata(validated);
       return cloneMetadata(metadataCache);
@@ -185,9 +111,12 @@ export function createWorkspaceService({
     projects: WorkspaceProjectView[],
   ): Promise<void> {
     const ownedProjects = cloneProjects(projects);
-    const nextMetadata: WorkspaceMetadata = {
-      schemaVersion: 1,
+    const current = await readMetadataInternal();
+    const retainedIds = new Set(ownedProjects.map(project => project.projectId));
+    const nextMetadata: WorkspaceMetadataV2 = {
+      ...current,
       projects: ownedProjects.map((project) => toPersistedRecord(project)),
+      projectGroupIds: Object.fromEntries(Object.entries(current.projectGroupIds).filter(([id]) => retainedIds.has(id))),
     };
 
     try {
@@ -485,6 +414,26 @@ export function createWorkspaceService({
   }
 
   return {
+    loadProjectOrganization() {
+      return queueOperation(async () => {
+        const { groups, projectGroupIds } = await readMetadataInternal();
+        return { groups, projectGroupIds };
+      });
+    },
+    updateProjectOrganization(command) {
+      return queueOperation(async () => {
+        const current = await readMetadataInternal();
+        const organization = applyOrganizationCommand(current, current.projects.map(project => project.projectId), command);
+        const next = { ...current, ...organization };
+        try {
+          await registry.save(cloneMetadata(next));
+          metadataCache = cloneMetadata(next);
+        } catch (error) {
+          throw contextualError("Unable to save project organization", error);
+        }
+        return { groups: organization.groups.map(group => ({ ...group })), projectGroupIds: { ...organization.projectGroupIds } };
+      });
+    },
     loadProjects,
     createProject,
     openProject,

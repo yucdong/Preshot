@@ -1,3 +1,4 @@
+import { emptyOrganization } from "../../domain/workspace/organization";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import i18n from "../../shared/i18n/config";
 import userEvent from "@testing-library/user-event";
@@ -48,6 +49,7 @@ describe("WorkspaceProvider startup", () => {
       .mockResolvedValueOnce(undefined);
     const dependencies: WorkspaceDependencies = {
       service: {
+        loadProjectOrganization: vi.fn(async () => emptyOrganization()), updateProjectOrganization: vi.fn(),
         loadProjects: vi.fn().mockResolvedValue([source]), openProject: vi.fn(),
         createProject: vi.fn(), relocateProject: vi.fn(), removeRecord: vi.fn(), deleteProject: vi.fn(),
       },
@@ -77,6 +79,7 @@ describe("WorkspaceProvider startup", () => {
     const copied = { ...source, projectId: "copy", path: "C:\\copy", name: "副本" };
     const dependencies: WorkspaceDependencies = {
       service: {
+        loadProjectOrganization: vi.fn(async () => emptyOrganization()), updateProjectOrganization: vi.fn(),
         loadProjects: vi.fn().mockResolvedValue([source]), openProject: vi.fn().mockResolvedValue(source),
         createProject: vi.fn(), relocateProject: vi.fn(), removeRecord: vi.fn(), deleteProject: vi.fn(),
         suggestProjectCopy: vi.fn().mockResolvedValue({ parentPath: "C:\\", name: "副本" }),
@@ -109,6 +112,7 @@ describe("WorkspaceProvider startup", () => {
     const second = { ...first, projectId: "second", path: "C:\\second", name: "项目二", updatedAt: "2026-09-01" };
     const dependencies: WorkspaceDependencies = {
       service: {
+        loadProjectOrganization: vi.fn(async () => emptyOrganization()), updateProjectOrganization: vi.fn(),
         loadProjects: vi.fn().mockResolvedValue([first, second]),
         openProject: vi.fn().mockImplementation(async (path) => path === second.path ? second : first),
         createProject: vi.fn(), relocateProject: vi.fn(), removeRecord: vi.fn(), deleteProject: vi.fn(),
@@ -175,6 +179,7 @@ describe("WorkspaceProvider startup", () => {
     const maximizeWindow = vi.fn().mockResolvedValue(undefined);
     const dependencies: WorkspaceDependencies = {
       service: {
+        loadProjectOrganization: vi.fn(async () => emptyOrganization()), updateProjectOrganization: vi.fn(),
         loadProjects: vi.fn().mockResolvedValue([starter]),
         createProject: vi.fn(),
         openProject: vi.fn().mockResolvedValue(starter),

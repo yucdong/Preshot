@@ -1,7 +1,7 @@
 {
   "name": "preshot",
   "private": true,
-  "version": "0.0.25",
+  "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@10.15.0",
   "scripts": {

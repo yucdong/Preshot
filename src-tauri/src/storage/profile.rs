@@ -317,6 +317,13 @@ mod tests {
         let other_anchor = temp.path().join("other-profile");
         let target = temp.path().join("existing-data");
         configure_in(&other_anchor, &target).unwrap();
+        let target_registry = serde_json::json!({"schemaVersion":2,
+            "projects":[{"projectId":"p", "path":"D:/p", "name":"Portrait",
+                "coverImage":null, "status":"available", "createdAt":"a", "updatedAt":"b", "lastOpenedAt":"c"}],
+            "groups":[{"id":"default", "name":"default", "collapsed":false},
+                {"id":"portraits", "name":"Portraits", "collapsed":true}],
+            "projectGroupIds":{"p":"portraits"}});
+        workspace_registry::write(&target, target_registry.clone()).unwrap();
         let before = fs::read(target.join("workspace.json")).unwrap();
         let id = read_config(&target).unwrap().unwrap().library_id;
         let anchor = temp.path().join(".preshot");
@@ -325,6 +332,14 @@ mod tests {
         configure_with_confirmation_in(&anchor, &target, true).unwrap();
         assert_eq!(read_config(&target).unwrap().unwrap().library_id, id);
         assert_eq!(fs::read(target.join("workspace.json")).unwrap(), before);
+        assert_eq!(
+            workspace_registry::read(
+                &resolve_in(&anchor).unwrap(),
+                &anchor.join("workspace.json")
+            )
+            .unwrap(),
+            Some(target_registry)
+        );
         assert!(anchor.join("library/library.db").exists());
     }
 
