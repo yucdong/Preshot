@@ -277,6 +277,7 @@ describe("material library and the real project editor", () => {
     }));
     const context = fixture(initial);
     await screen.findByRole("group", { name: "方案正文" });
+    await waitFor(() => expect(currentEditor().getBlock("first")).toBeDefined());
     expect(screen.queryByRole("button", { name: "插入素材" })).not.toBeInTheDocument();
     if (anchor) {
       act(() => { currentEditor().setTextCursorPosition(anchor, "end"); currentEditor().focus(); });
@@ -293,6 +294,7 @@ describe("material library and the real project editor", () => {
   it("does not let a modal save shortcut write the background project", async () => {
     const context = fixture();
     await screen.findByRole("group", { name: "方案正文" });
+    await waitFor(() => expect(currentEditor().getBlock("initial")).toBeDefined());
     const editor = currentEditor();
     act(() => { editor.updateBlock(editor.document[0], { type: "paragraph", content: "项目中尚未保存的修改" }); });
     fireEvent.click(screen.getByRole("button", { name: "素材库" }));
